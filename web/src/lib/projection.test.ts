@@ -9,3 +9,10 @@ it('rebases only subsequent writes to the same record',()=>{const op:Mutation={i
 it('never sends local error metadata as mutation content',()=>{const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'};expect(wireMutation(op)).not.toHaveProperty('error');});
 it('matches time-aware seven-day smoothing',()=>expect(trend([{date:'2026-01-01',kg:80},{date:'2026-01-08',kg:82}])[1].kg).toBe(81));
 });
+
+it('preserves archived totals when a day decision is queued',()=>{
+  const archived={...state,days:[{...state.days[0],archived:true,calories:1700,entryCount:3,protein:null}]};
+  const op:Mutation={id:'decision',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{date:'2026-02-01',status:'not_logged'}};
+  const day=project(archived,[op]).days[0];
+  expect(day.status).toBe('not_logged');expect(day.archived).toBe(true);expect(day.calories).toBe(1700);expect(day.protein).toBeNull();
+});

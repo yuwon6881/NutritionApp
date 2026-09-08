@@ -2,9 +2,11 @@ import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {AppState,LocalData,Mutation,ScanDraft,AiDraft,PhysiqueDraft} from './types';
 import {api,ApiError} from './lib/api';
 import {readLocal,saveLocal} from './lib/local';
+import {today} from './lib/format';
 import {project,rebaseAfterOwnWrite,wireMutation} from './lib/projection';
 
 export function useNourish(user:string){
+  const [calendarDate,setCalendarDate]=useState(today());
   const [local,setLocal]=useState<LocalData>();const [error,setError]=useState('');const [busy,setBusy]=useState(false);
   const ref=useRef<LocalData|undefined>(undefined);const writes=useRef(Promise.resolve());const draining=useRef(false);const scanning=useRef(false);const alive=useRef(true);
   const drainRequested=useRef(false);
@@ -82,7 +84,7 @@ export function useNourish(user:string){
   useEffect(()=>{
     alive.current=true;
     void (async()=>{try{const cached=await readLocal(user);if(cached&&alive.current){ref.current=cached;setLocal(cached);}await refresh();if(ref.current?.queue.length)await drain();await runScans();}catch(ex){if(alive.current)setError(ex instanceof Error?ex.message:'Could not load diary.');}})();
-    const wake=()=>{if(document.visibilityState==='visible'){void drain();void runScans();}};
+    const wake=()=>{if(document.visibilityState==='visible'){setCalendarDate(today(ref.current?.state.profile?.timeZone));void drain();void runScans();}};
     window.addEventListener('online',wake);document.addEventListener('visibilitychange',wake);
     // A page reloaded while offline reports neither the online event nor a false navigator.onLine,
     // so retained work retries on a short cycle. An empty queue keeps the slow heartbeat.
@@ -92,7 +94,7 @@ export function useNourish(user:string){
     return()=>{alive.current=false;window.removeEventListener('online',wake);document.removeEventListener('visibilitychange',wake);clearInterval(interval);};
   },[user,refresh,drain,runScans]);
   const state=useMemo(()=>local?project(local.state,local.queue):undefined,[local]);
-  return {state,local,error,busy,mutate,refresh,drain,
+  return {state,local,error,busy,mutate,refresh,drain,calendarDate,
     saveReviewedScan:async(scanId:string,entries:unknown[])=>{
       await commit(current=>({...current,queue:[...current.queue,...entries.map(data=>({id:crypto.randomUUID(),kind:'entry' as const,recordId:crypto.randomUUID(),expectedRevision:0,data,delete:false}))],scans:current.scans.filter(s=>s.id!==scanId)}));
       void drain();

@@ -4,6 +4,7 @@ const password='nutrition test password 2026';
 const headers={'Origin':(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088'),'X-Nutrition-Request':'1'};
 async function signIn(request:APIRequestContext,username='test-alice'){
   let response=await request.post('/api/auth/login',{headers,data:{username,password}});
+  for(let attempt=0;response.status()===429&&attempt<12;attempt++){await new Promise(resolve=>setTimeout(resolve,5000));response=await request.post('/api/auth/login',{headers,data:{username,password}});}
   if(response.status()===401)response=await request.post('/api/auth/register',{headers,data:{username,password}});
   expect(response.ok(),await response.text()).toBeTruthy();return response.json();
 }
@@ -136,7 +137,11 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
 
 
 test('cached diary opens while the server sleeps and uploads retained food and weight on wake',async({page,context})=>{
-  await signIn(context.request);await page.goto('/');
+  test.setTimeout(120000);
+  await signIn(context.request);
+  const initial=await (await context.request.get('/api/state')).json();
+  if(!initial.profile)await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:initial.id,kind:'profile',expectedRevision:initial.profileRevision,data:{age:30,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'maintain'}}});
+  await page.goto('/');
   await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   let release!:()=>void;const asleep=new Promise<void>(resolve=>{release=resolve;});
@@ -157,8 +162,7 @@ test('cached diary opens while the server sleeps and uploads retained food and w
   await page.getByLabel('Weight (kg)',{exact:true}).fill('80.6');
   await page.getByRole('button',{name:'Save weigh-in',exact:true}).click();
   release();await page.unroute('**/api/**');
-  await page.evaluate(()=>window.dispatchEvent(new Event('online')));
-  await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.entries.some((e:{name:string})=>e.name==='Server wake meal')&&state.weights.some((w:{kg:number})=>w.kg===80.6);}).toBeTruthy();
+  await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.entries.some((e:{name:string})=>e.name==='Server wake meal')&&state.weights.some((w:{kg:number})=>w.kg===80.6);},{timeout:45000}).toBeTruthy();
 });
 
 test('missed weight-only day asks once and keeps the weight after not logging',async({page,context})=>{
@@ -172,4 +176,45 @@ test('missed weight-only day asks once and keeps the weight after not logging',a
   await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.days.some((d:{date:string;status:string})=>d.date===date&&d.status==='not_logged')&&state.weights.some((w:{date:string})=>w.date===date);}).toBeTruthy();
   await page.reload();await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
   await expect(page.getByRole('dialog')).not.toBeVisible();
+});
+
+
+test('mobile scan shortcut supports food photos and label autofill before review',async({page,context})=>{
+  test.setTimeout(120000);
+  await signIn(context.request);
+  const state=await (await context.request.get('/api/state')).json();
+  if(!state.profile)await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:{age:30,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'maintain'}}});
+  await page.setViewportSize({width:390,height:900});await page.goto('/');
+  await page.getByRole('button',{name:'Add entry',exact:true}).click();
+  await page.getByRole('button',{name:'Scan food or label',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'AI food logging',exact:true})).toBeVisible();
+  const modes:string[]=[];
+  await page.route('**/api/scans',async route=>{
+    const input=route.request().postDataJSON();modes.push(input.mode);
+    expect(input.imageBase64).toBeTruthy();
+    await route.fulfill({contentType:'application/json',body:JSON.stringify({id:input.id,status:'complete',resultJson:JSON.stringify({foods:[{name:input.mode==='label'?'Label yoghurt':'Photo meal',quantity:100,unit:'g',calories:120,protein:6,carbs:15,fat:4,fiber:null,notes:'Per 100 g'}],questions:[],explanation:'Review the quantity and nutrients.'})})});
+  });
+  for(const mode of ['photo','label']){
+    await page.getByLabel('How would you like to log?').selectOption(mode);
+    await page.getByLabel(mode==='label'?'Photograph the nutrition label':'Photograph your food').setInputFiles('public/icon-512.png');
+    await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
+    await expect(page.getByLabel('Calories for this quantity',{exact:true})).toHaveValue('120');
+    await expect(page.getByLabel('fiber (g)',{exact:true})).toHaveValue('');
+    await expect(page.getByLabel('Name',{exact:true})).toHaveValue(mode==='label'?'Label yoghurt':'Photo meal');
+    if(mode==='photo')await page.getByRole('button',{name:'Discard draft',exact:true}).click();
+  }
+  expect(modes).toEqual(['photo','label']);
+  await page.getByLabel('Calories for this quantity',{exact:true}).fill('135');
+  await page.getByRole('button',{name:/Add reviewed meal to/}).click();
+  await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.entries.some((e:{name:string;calories:number;source:string})=>e.name==='Label yoghurt'&&e.calories===135&&e.source==='AI label · reviewed');}).toBeTruthy();
+});
+
+
+test('an open offline diary completes its logged day after local midnight',async({page,context})=>{
+  test.setTimeout(120000);
+  await signIn(context.request);await page.clock.install();await page.goto('/');
+  await expect(page.getByText('Still logging · completes after today',{exact:true})).toBeVisible();
+  await context.setOffline(true);
+  await page.clock.fastForward(24*60*60*1000);
+  await expect(page.getByText('Complete',{exact:true})).toBeVisible();
 });
