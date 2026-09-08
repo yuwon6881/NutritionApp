@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/api/">
+    <Project Path="api/Nutrition.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Nutrition.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/DatabaseAdmin/DatabaseAdmin.csproj" />
+    <Project Path="tools/StorageBenchmark/StorageBenchmark.csproj" />
+  </Folder>
+</Solution>

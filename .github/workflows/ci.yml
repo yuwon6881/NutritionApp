@@ -17,8 +17,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet restore
-      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet restore NutritionApp.slnx
+      - run: dotnet build NutritionApp.slnx --no-restore --configuration Release
       - run: dotnet test tests/Nutrition.Tests.csproj --no-build --configuration Release
 
   frontend:
