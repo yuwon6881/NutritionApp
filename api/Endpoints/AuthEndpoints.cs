@@ -10,6 +10,15 @@ public static class AuthEndpoints
     public static void MapAuth(this WebApplication app)
     {
         app.MapGet("/api/auth/status",async (AppDb db,IConfiguration config,CancellationToken ct) => new { registrationOpen=await db.Users.CountAsync(ct)<config.GetValue("Auth:MaxUsers",2) });
+        if(app.Environment.IsDevelopment())
+        {
+            app.MapPost("/api/auth/dev-reset",async(AppDb db,CancellationToken ct) =>
+            {
+                await db.Database.EnsureDeletedAsync(ct);
+                await db.Database.EnsureCreatedAsync(ct);
+                return Results.Ok(new { reset=true });
+            });
+        }
         app.MapPost("/api/auth/register",async(Credentials input,AuthService auth,HttpContext http,CancellationToken ct) =>
         {
             var user=await auth.Register(input.Username,input.Password,ct);

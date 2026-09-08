@@ -3,6 +3,7 @@ import type {Nourish} from '../useNourish';
 import {number,today,trend} from '../lib/format';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
+import {DatePicker} from './ui/DatePicker';
 import {PhysiquePhotos} from './PhysiquePhotos';
 import {WeightChart} from './WeightChart';
 import {CoachingProgress} from './CoachingProgress';
@@ -57,6 +58,12 @@ export function Progress({store}:{store:Nourish}){
       </section>
     </div>
 
+    {/* Primary Data Visualizations First */}
+    <WeightChart weights={weights} smoothed={smoothed}/>
+    <EnergyBalance store={store}/>
+    <CoachingProgress store={store}/>
+
+    {/* Weigh-in Entry & History */}
     <section className="panel log-weight-panel">
       <div className="section-heading">
         <div>
@@ -85,10 +92,10 @@ export function Progress({store}:{store:Nourish}){
         }
       }}>
         <div className="form-grid">
-          <Field label="Weigh-in date" type="date" value={date} max={today(store.state!.profile?.timeZone)} required onChange={e=>setDate(e.target.value)}/>
+          <DatePicker label="Weigh-in date" value={date} max={today(store.state!.profile?.timeZone)} required onChange={setDate}/>
           <Field label="Weight (kg)" type="number" min="20" max="400" step="0.01" required value={kg} onChange={e=>setKg(e.target.value)}/>
         </div>
-        <Button type="submit" variant="primary" disabled={busy}>
+        <Button type="submit" variant="primary" size="md" disabled={busy}>
           {busy?'Saving…':weights.some(w=>w.date===date)?'Update weigh-in':'Save weigh-in'}
         </Button>
       </form>
@@ -97,8 +104,8 @@ export function Progress({store}:{store:Nourish}){
         {weights.slice(-10).reverse().map(w=><div className="history-row" key={w.id}>
           <span>{w.date}</span>
           <strong>{number(w.kg,2)} kg</strong>
-          <Button variant="tertiary" onClick={()=>{setDate(w.date);setKg(String(w.kg));}}>Edit</Button>
-          <Button variant="tertiary" onClick={async()=>{
+          <Button variant="tertiary" size="md" onClick={()=>{setDate(w.date);setKg(String(w.kg));}}>Edit</Button>
+          <Button variant="tertiary" size="md" onClick={async()=>{
             try{
               await store.mutate({kind:'weight',recordId:w.id,expectedRevision:w.revision,data:w,delete:true});
             }catch(ex){
@@ -109,9 +116,6 @@ export function Progress({store}:{store:Nourish}){
       </div>
     </section>
 
-    <WeightChart weights={weights} smoothed={smoothed}/>
-    <CoachingProgress store={store}/>
-    <EnergyBalance store={store}/>
     <PhysiquePhotos store={store}/>
   </>;
 }

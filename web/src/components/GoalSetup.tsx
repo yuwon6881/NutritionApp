@@ -2,6 +2,7 @@ import type {ProfileDraft} from '../types';
 import {today,number} from '../lib/format';
 import {calculateLivePace} from '../lib/coachCalc';
 import {Field,SelectField} from './ui/Field';
+import {DatePicker} from './ui/DatePicker';
 
 export function GoalSetup({
   profile,
@@ -52,7 +53,7 @@ export function GoalSetup({
       <p>Maintenance follows the energy estimate learned from your intake and weight. No intentional deficit or surplus.</p>
     </>}
     <SelectField label="Track my goal by" value={mode} onChange={v=>{set('phaseMode',v);if(v==='duration'&&!profile.durationWeeks)set('durationWeeks',8);set('phaseStart',today(profile.timeZone));set('phaseStartWeightKg',profile.weightKg>0?profile.weightKg:null);}}><option value="open">Ongoing phase</option><option value="duration">Duration</option><option value="weight" disabled={!profile.goal||profile.goal==='maintain'}>Target weight</option></SelectField>
-    {mode==='duration'&&<div className="form-grid"><Field label="Phase length (weeks)" required type="number" min="1" max="104" value={profile.durationWeeks??8} onChange={e=>set('durationWeeks',Number(e.target.value))}/><Field label="Phase start date" required type="date" max={today(profile.timeZone)} value={profile.phaseStart??today(profile.timeZone)} onChange={e=>set('phaseStart',e.target.value)}/></div>}
+    {mode==='duration'&&<div className="form-grid"><Field label="Phase length (weeks)" required type="number" min="1" max="104" value={profile.durationWeeks??8} onChange={e=>set('durationWeeks',Number(e.target.value))}/><DatePicker label="Phase start date" required max={today(profile.timeZone)} value={profile.phaseStart??today(profile.timeZone)} onChange={v=>set('phaseStart',v)}/></div>}
     {mode==='weight'&&<div className="form-grid"><Field label="Phase starting weight (kg)" required type="number" min="20" max="400" step="0.1" value={(profile.phaseStartWeightKg??profile.weightKg)||''} onChange={e=>set('phaseStartWeightKg',Number(e.target.value))}/><Field label="Target weight (kg)" required type="number" min="20" max="400" step="0.1" value={profile.targetWeightKg??''} onChange={e=>set('targetWeightKg',e.target.value?Number(e.target.value):null)}/></div>}
     <p className="source">Target-weight progress uses smoothed weight. After enough weigh-ins, the finish estimate follows your observed pace; a plateau can remove that estimate. Duration progress tracks elapsed time. Every calorie change still needs your acceptance.</p>
     <details><summary>Research behind the pace guidance</summary><p>Slower weight loss helped preserve lean mass in an <a href="https://pubmed.ncbi.nlm.nih.gov/21558571/" target="_blank" rel="noreferrer">athlete weight-loss trial</a>. A small <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10620361/" target="_blank" rel="noreferrer">surplus study in trained lifters</a> found faster weight gain primarily increased fat gain. These populations do not establish an optimal percentage for everyone.</p></details>

@@ -8,6 +8,9 @@ async function signIn(request:APIRequestContext,username='test-alice'){
   expect(response.ok(),await response.text()).toBeTruthy();return response.json();
 }
 test.describe.configure({mode:'serial'});
+test.beforeAll(async({request})=>{
+  await request.post('/api/auth/dev-reset',{headers});
+});
 test('private app: create profile, accept targets, log food and weight, retain offline work',async({page,context})=>{
   await page.setViewportSize({width:390,height:900});
   await page.goto('/');await page.getByRole('button',{name:'New here? Create an account'}).click();
@@ -35,7 +38,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
   await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled();await page.getByRole('button',{name:'Accept this plan'}).click();
   await expect(page.getByText('Your reviewed plan is now active.')).toBeVisible();
-  await page.getByRole('button',{name:'Log food',exact:true}).first().click();await page.getByRole('button',{name:'Quick entry'}).click();
+  await page.getByRole('button',{name:/Add/}).click();await page.getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Quick entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Nasi lemak reviewed portion');await page.getByLabel('Calories (kcal)',{exact:true}).fill('520');
   await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Save reviewed food'}).click();
   await expect(page.getByRole('button',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
@@ -50,7 +53,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await expect(page.getByRole('button',{name:'Sync',exact:true})).toBeEnabled();
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBeTruthy();
-  await context.setOffline(true);await page.getByRole('button',{name:'Log food',exact:true}).first().click();await page.getByRole('button',{name:'Quick entry'}).click();
+  await context.setOffline(true);await page.getByRole('button',{name:/Add/}).click();await page.getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Quick entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Offline banana');await page.getByLabel('Calories (kcal)',{exact:true}).fill('105');await page.getByRole('button',{name:'Save reviewed food'}).click();
   await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();await expect(page.getByText('Pending sync',{exact:true}).first()).toBeVisible();
   await page.reload();await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();
@@ -66,11 +69,19 @@ test('responsive screens have no horizontal overflow and working touch targets',
   await signIn(context.request);await page.goto('/');await expect(page.getByRole('heading',{name:'Your daily picture'})).toBeVisible();
   for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});
-    for(const name of ['Today','Log food','Progress','Coach','Settings']){
+    const items=width<1024?['Today','Progress','Coach','Settings']:['Today','Log food','Progress','Coach','Settings'];
+    for(const name of items){
       await page.getByRole('button',{name,exact:true}).first().click();
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
       if(width<1024){const small=await page.locator('button:visible').evaluateAll(buttons=>buttons.filter(b=>b.getBoundingClientRect().height<43).map(b=>b.textContent));expect(small).toEqual([]);}
       await page.screenshot({path:`artifacts/${width}-${name.replace(' ','-')}.png`,fullPage:true});
+    }
+    if(width<1024){
+      await page.getByRole('button',{name:/Add/}).first().click();
+      await expect(page.getByText('What would you like to add?')).toBeVisible();
+      await page.getByRole('button',{name:'Log food'}).click();
+      await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+      await page.screenshot({path:`artifacts/${width}-Log-food.png`,fullPage:true});
     }
   }
 });
@@ -104,7 +115,7 @@ test('physique photo draft survives offline reopening without cloud credentials'
 
 test('phase pace and target-weight goals preserve learned maintenance',async({page,context})=>{
   await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Coach',exact:true}).click();
-  await page.getByRole('button',{name:'Adjust profile & strategy'}).click();
+  await page.getByRole('button',{name:/Adjust profile & strategy|Edit profile & strategy/}).first().click();
   await page.getByRole('button',{name:/Goal & Pace|3\. Goal/}).click();
   await page.getByLabel('Your goal').selectOption('lose');await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('End');
   for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('ArrowLeft');

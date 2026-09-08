@@ -95,7 +95,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     });
     setPreview(undefined);
     if(isInitialSetup)setAwaitingEstimate(true);
-    setMessage('Profile saved on this device. Sync must finish before generating targets.');
+    else setMainTab('checkin');
+    setMessage('Profile saved on this device.');
   };
 
   const steps=[
@@ -132,16 +133,21 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {(!isInitialSetup&&mainTab==='checkin')&&<section className="panel checkin-panel">
       <div className="section-heading">
         <div>
-          <h2>Your weekly check-in</h2>
-          <p>{pending?'Finish syncing your changes before calculating a proposal.':'Review an explanation before accepting any change.'}</p>
+          <h2>Your configured coach & targets</h2>
+          <p>{pending?'Finish syncing your changes before calculating a proposal.':'Active targets calculated from your profile and logging history.'}</p>
         </div>
-        <Button variant="primary" disabled={busy||pending||changed||!navigator.onLine} onClick={()=>void action(async()=>setPreview(await api<Preview>('/coach/preview')))}>
-          {busy?'Working…':'Review my targets'}
-        </Button>
+        <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+          <Button variant="primary" size="md" disabled={busy||pending||changed||!navigator.onLine} onClick={()=>void action(async()=>setPreview(await api<Preview>('/coach/preview')))}>
+            <Sparkles size={16}/>{busy?'Working…':'Review my targets'}
+          </Button>
+          <Button variant="secondary" size="md" onClick={()=>setMainTab('profile')}>
+            <Sliders size={16}/>Edit profile & strategy
+          </Button>
+        </div>
       </div>
 
       {acceptedPlan&&<div className="active-targets-card">
-        <span className="eyebrow">CURRENT ACTIVE PLAN</span>
+        <span className="eyebrow">CURRENT ACTIVE TARGETS</span>
         <div className="stats-grid">
           <div>
             <p>Daily energy</p>
@@ -156,7 +162,32 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
             <strong>{number(acceptedPlan.protein)} / {number(acceptedPlan.carbs)} / {number(acceptedPlan.fat)} g</strong>
           </div>
         </div>
+        {acceptedPlan.goalProgress&&<div style={{marginTop:16}}><GoalSummary progress={acceptedPlan.goalProgress}/></div>}
       </div>}
+
+      <div className="card-tint panel" style={{marginTop:18,marginBottom:18}}>
+        <span className="eyebrow">CONFIGURED STRATEGY & PROFILE</span>
+        <div className="stats-grid" style={{marginBottom:12}}>
+          <div>
+            <p>Current Goal</p>
+            <strong style={{textTransform:'capitalize'}}>{profile.goal==='lose'?'Fat loss':profile.goal==='gain'?'Bulking':'Maintenance'}</strong>
+            <p style={{fontSize:'.75rem',marginTop:4}}>{profile.goal==='lose'?`${profile.energyAdjustmentPercent}% calorie deficit`:profile.goal==='gain'?`${profile.energyAdjustmentPercent}% calorie surplus`:'Standard maintenance'}</p>
+          </div>
+          <div>
+            <p>Tracking Mode</p>
+            <strong>{profile.phaseMode==='duration'?`Duration · ${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`Target weight · ${profile.targetWeightKg} kg`:'Ongoing phase'}</strong>
+            {profile.phaseStart&&<p style={{fontSize:'.75rem',marginTop:4}}>Started: {profile.phaseStart}</p>}
+          </div>
+          <div>
+            <p>Body Measurements</p>
+            <strong>{profile.weightKg} kg · {profile.heightCm} cm</strong>
+            <p style={{fontSize:'.75rem',marginTop:4}}>Age {profile.age} · {profile.sex==='female'?'Female eq.':'Male eq.'} · {profile.activity}x act.</p>
+          </div>
+        </div>
+        <Button variant="secondary" size="md" onClick={()=>setMainTab('profile')}>
+          <Sliders size={16}/>Edit profile settings
+        </Button>
+      </div>
 
       {preview&&<div className="proposal-card">
         <span className="eyebrow">NEW PROPOSAL FOR REVIEW</span>
@@ -198,6 +229,9 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
             <h2>{isInitialSetup?"Setup your profile":"Adjust your profile & goals"}</h2>
             <p>Guided setup: complete each tab to tailor your nutrition targets.</p>
           </div>
+          {!isInitialSetup&&<Button variant="tertiary" size="md" onClick={()=>setMainTab('checkin')}>
+            ← Back to summary
+          </Button>}
         </div>
 
         <nav className="guided-stepper" aria-label="Guided coach steps">
@@ -235,7 +269,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
             </SelectField>
           </div>
           <div className="step-actions">
-            <Button type="button" variant="primary" onClick={()=>setStep('activity')}>
+            <div />
+            <Button type="button" size="md" variant="primary" onClick={()=>setStep('activity')}>
               Next: Activity & health <ArrowRight size={16}/>
             </Button>
           </div>
@@ -273,10 +308,10 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           </details>
 
           <div className="step-actions">
-            <Button type="button" variant="secondary" onClick={()=>setStep('body')}>
+            <Button type="button" size="md" variant="secondary" onClick={()=>setStep('body')}>
               <ArrowLeft size={16}/> Back
             </Button>
-            <Button type="button" variant="primary" onClick={()=>setStep('goal')}>
+            <Button type="button" size="md" variant="primary" onClick={()=>setStep('goal')}>
               Next: Goal & pace <ArrowRight size={16}/>
             </Button>
           </div>
@@ -297,15 +332,17 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           <GoalSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure}/>
 
           <div className="step-actions">
-            <Button type="button" variant="secondary" onClick={()=>setStep('activity')}>
+            <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}>
               <ArrowLeft size={16}/> Back
             </Button>
-            {!isInitialSetup&&<Button variant="primary" type="submit" disabled={busy}>
-              Save profile
-            </Button>}
-            <Button type="button" variant={isInitialSetup?'primary':'secondary'} onClick={()=>setStep('review')}>
-              Next: Review & finalize <ArrowRight size={16}/>
-            </Button>
+            <div style={{display:'flex',gap:'10px'}}>
+              {!isInitialSetup&&<Button size="md" variant="secondary" type="submit" disabled={busy}>
+                Save profile
+              </Button>}
+              <Button type="button" size="md" variant={isInitialSetup?'primary':'secondary'} onClick={()=>setStep('review')}>
+                Next: Review & finalize <ArrowRight size={16}/>
+              </Button>
+            </div>
           </div>
         </div>}
 
@@ -339,10 +376,10 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           </details>
 
           <div className="step-actions">
-            <Button type="button" variant="secondary" onClick={()=>setStep('goal')}>
+            <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}>
               <ArrowLeft size={16}/> Back
             </Button>
-            <Button variant="primary" type="submit" disabled={busy}>
+            <Button variant="primary" size="md" type="submit" disabled={busy}>
               {isInitialSetup?'Create my starting estimate':'Save profile'}
             </Button>
           </div>

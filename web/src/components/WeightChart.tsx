@@ -17,6 +17,6 @@ export function WeightChart({weights,smoothed}:{weights:Point[];smoothed:Point[]
     {view!=='daily'&&<><polyline points={points(smoothed)} className="trend-line"/>{smoothed.map(p=><circle key={p.date} cx={x(p)} cy={y(p)} r="2" className="trend-dot"><title>{p.date}: {number(p.kg,2)} kg calculated trend</title></circle>)}</>}
     <text x="55" y="208">{weights[0].date}</text><text x="670" y="208" textAnchor="end">{weights.at(-1)!.date}</text></svg><p className="chart-key">Muted: recorded scale weight · Accent: calculated trend · kg</p>
     <details><summary>Weight values as a table</summary><div className="table-scroll"><table><thead><tr><th>Date</th><th>Daily kg</th><th>Calculated kg</th></tr></thead><tbody>{weights.map((p,i)=><tr key={p.date}><td>{p.date}</td><td>{number(p.kg,2)}</td><td>{number(smoothed[i]?.kg,2)}</td></tr>)}</tbody></table></div></details></>:<div className="empty"><h3>Your story starts with one weigh-in</h3><p>Try weighing under similar conditions, ideally in the morning.</p></div>}
-    <p className="source">Smoothing reduces daily noise but lags changes. It cannot measure fat, muscle or water separately. Unrecorded days are not presented as measured weigh-ins.</p>
+    <details className="chart-details"><summary>About smoothing & measurements</summary><p className="source">Smoothing reduces daily noise but lags changes. It cannot measure fat, muscle or water separately. Unrecorded days are not presented as measured weigh-ins.</p></details>
   </section>;
 }

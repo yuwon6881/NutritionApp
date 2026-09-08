@@ -56,7 +56,7 @@ app.Use(async(http,next)=>
             var expected=builder.Configuration["Cleanup:Token"];
             Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(http.Request.Headers["X-Cleanup-Token"].ToString()),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
         }
-        else if(http.Request.Path.StartsWithSegments("/api")&&http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register"))
+        else if(http.Request.Path.StartsWithSegments("/api")&&http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register" or "/api/auth/dev-reset"))
         {
             var db=http.RequestServices.GetRequiredService<AppDb>();
             var token=http.Request.Cookies["nutrition-session"];

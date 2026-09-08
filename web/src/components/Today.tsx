@@ -1,10 +1,12 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {ArrowRight,Plus,Trash2,Copy,Check,Leaf,Scale,Compass} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult,Entry} from '../types';
 import {number,today} from '../lib/format';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
+import {DatePicker} from './ui/DatePicker';
+import {Card} from './ui/Card';
 
 export function Today({
   store,
@@ -12,7 +14,8 @@ export function Today({
   setDate,
   onLog,
   onCoach,
-  onEdit
+  onEdit,
+  openWeight
 }:{
   store:Nourish;
   date:string;
@@ -20,13 +23,16 @@ export function Today({
   onLog:()=>void;
   onCoach:()=>void;
   onEdit:(e:Entry)=>void;
+  openWeight?:boolean;
 }){
   const state=store.state!;
   const [error,setError]=useState('');
   const [copyDate,setCopyDate]=useState(date);
-  const [showQuickWeight,setShowQuickWeight]=useState(false);
+  const [showQuickWeight,setShowQuickWeight]=useState(openWeight??false);
   const [quickKg,setQuickKg]=useState('');
   const [quickWeightDate,setQuickWeightDate]=useState(date);
+
+  useEffect(()=>{if(openWeight)setShowQuickWeight(true);},[openWeight]);
 
   const entries=state.entries.filter(e=>!e.deleted&&e.date===date);
   const savedDay=state.days.find(d=>d.date===date&&!d.deleted);
@@ -47,9 +53,9 @@ export function Today({
         <h1>Your daily picture</h1>
         <p>Make room for good food. We’ll help with the numbers.</p>
       </div>
-      <Field label="Diary date" type="date" value={date} max={today(state.profile?.timeZone)} onChange={e=>{
-        setDate(e.target.value);
-        if(e.target.value<state.start||e.target.value>state.end)void store.refresh(e.target.value).catch(ex=>setError(ex.message));
+      <DatePicker label="Diary date" value={date} max={today(state.profile?.timeZone)} onChange={val=>{
+        setDate(val);
+        if(val<state.start||val>state.end)void store.refresh(val).catch(ex=>setError(ex.message));
       }}/>
     </header>
 
@@ -130,11 +136,11 @@ export function Today({
           });
         }}>
           <div className="form-grid">
-            <Field label="Weigh-in date" type="date" value={quickWeightDate} max={today(state.profile?.timeZone)} required onChange={e=>setQuickWeightDate(e.target.value)}/>
+            <DatePicker label="Weigh-in date" value={quickWeightDate} max={today(state.profile?.timeZone)} required onChange={setQuickWeightDate}/>
             <Field label="Weight (kg)" type="number" min="20" max="400" step="0.01" required placeholder="e.g. 78.5" value={quickKg} onChange={e=>setQuickKg(e.target.value)}/>
           </div>
           <div className="actions">
-            <Button variant="primary" type="submit" disabled={!quickKg}>Save weigh-in</Button>
+            <Button variant="primary" size="md" type="submit" disabled={!quickKg}>Save weigh-in</Button>
           </div>
         </form>
       </section>}
@@ -145,7 +151,7 @@ export function Today({
             <h2>{savedDay?.archived?"Your daily summary":"On your plate"}</h2>
             <p>{entries.length?`${entries.length} food entries · no good or bad labels`:'Start with your first meal or a quick calorie entry.'}</p>
           </div>
-          <Button variant="primary" disabled={readOnly} onClick={onLog}>
+          <Button variant="primary" size="md" disabled={readOnly} onClick={onLog}>
             <Plus size={18}/>Log food
           </Button>
         </div>
@@ -157,7 +163,7 @@ export function Today({
           <Leaf size={30}/>
           <h3>A fresh page for today</h3>
           <p>Find a food, describe your meal, or take a photo.</p>
-          <Button onClick={onLog}>Add your first food<ArrowRight size={16}/></Button>
+          <Button size="md" onClick={onLog}>Add your first food<ArrowRight size={16}/></Button>
         </div>:entries.map(entry=><div className="food-row" key={entry.id}>
           <div className="food-initial">{entry.name.slice(0,1)}</div>
           <div className="food-description">
@@ -175,8 +181,8 @@ export function Today({
         </div>)}
 
         {!!entries.length&&<div className="copy-day">
-          <Field label="Copy this day to" type="date" value={copyDate} max={today(state.profile?.timeZone)} onChange={e=>setCopyDate(e.target.value)}/>
-          <Button onClick={()=>void act(async()=>{
+          <DatePicker label="Copy this day to" value={copyDate} max={today(state.profile?.timeZone)} onChange={setCopyDate}/>
+          <Button size="md" onClick={()=>void act(async()=>{
             for(const e of entries)await store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,data:{...e,date:copyDate},delete:false});
           })}>
             <Copy size={16}/>Copy day
@@ -189,9 +195,10 @@ export function Today({
           <h2>{status==='complete'?'Day marked complete':status==='fasting'?'Fasting day confirmed':'Is everything logged?'}</h2>
           <p>A complete day helps your coach learn. Missing meals are never counted as zero.</p>
         </div>
-        <div className="actions">
+        <div className="actions completeness-actions">
           {(['incomplete','complete','fasting'] as const).map(s=><Button
             key={s}
+            size="md"
             variant={status===s?'primary':'secondary'}
             disabled={status===s||(s==='fasting'&&total>0)}
             onClick={()=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:s},delete:false}))}
