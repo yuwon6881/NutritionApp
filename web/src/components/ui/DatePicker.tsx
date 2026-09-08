@@ -1,5 +1,5 @@
 import {useEffect, useId, useRef, useState} from 'react';
-import {Calendar, ChevronLeft, ChevronRight} from 'lucide-react';
+import {Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight} from 'lucide-react';
 
 export interface DatePickerProps {
   label: string;
@@ -95,6 +95,9 @@ export function DatePicker({
     }
   };
 
+  const prevYear = () => setViewYear(y => y - 1);
+  const nextYear = () => setViewYear(y => y + 1);
+
   const nextMonth = () => {
     if (viewMonth === 11) {
       setViewMonth(0);
@@ -188,25 +191,25 @@ export function DatePicker({
         {isOpen && (
           <div className="custom-calendar-popover" role="dialog" aria-modal="true" aria-label={label}>
             <div className="calendar-header">
-              <button
-                type="button"
-                className="calendar-nav-btn"
-                onClick={prevMonth}
-                aria-label="Previous month"
-              >
-                <ChevronLeft size={16} />
-              </button>
+              <div className="calendar-nav-group">
+                <button type="button" className="calendar-nav-btn" onClick={prevYear} aria-label="Previous year">
+                  <ChevronsLeft size={16} />
+                </button>
+                <button type="button" className="calendar-nav-btn" onClick={prevMonth} aria-label="Previous month">
+                  <ChevronLeft size={16} />
+                </button>
+              </div>
               <span className="calendar-title">
                 {MONTHS[viewMonth]} {viewYear}
               </span>
-              <button
-                type="button"
-                className="calendar-nav-btn"
-                onClick={nextMonth}
-                aria-label="Next month"
-              >
-                <ChevronRight size={16} />
-              </button>
+              <div className="calendar-nav-group">
+                <button type="button" className="calendar-nav-btn" onClick={nextMonth} aria-label="Next month">
+                  <ChevronRight size={16} />
+                </button>
+                <button type="button" className="calendar-nav-btn" onClick={nextYear} aria-label="Next year">
+                  <ChevronsRight size={16} />
+                </button>
+              </div>
             </div>
 
             <div className="calendar-weekdays">

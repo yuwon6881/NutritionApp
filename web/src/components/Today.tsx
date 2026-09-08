@@ -57,19 +57,19 @@ export function Today({
         if(val<state.start||val>state.end)void store.refresh(val).catch(ex=>setError(ex.message));
       }}/>
     </header>
-    <GoalReachedBanner progress={goalProgress} onChooseGoal={onCoach} action="Review your coach"/>
+    <GoalReachedBanner progress={goalProgress} onChooseGoal={onCoach} action="Open coach"/>
     {!loaded?<section className="panel">
-      <h2>This date isn’t stored on this device yet</h2>
-      <p>Connect to load its history before adding or editing entries.</p>
+      <h2>Not stored on this device</h2>
+      <p>Connect to load this date.</p>
     </section>:<>
       <section className="daily-grid">
         <article className="panel energy-panel">
           <div>
             <p className="eyebrow">ENERGY</p>
             <h2>{number(total)} <span className="unit">kcal logged</span></h2>
-            <p>{plan?.calories?`${number(plan.calories)} kcal daily target`:'Your coaching target starts with a profile.'}</p>
+            <p>{plan?.calories?`${number(plan.calories)} kcal target`:'Set up your coach'}</p>
             <Button variant="tertiary" onClick={onCoach}>
-              {plan?'View your plan':'Set up your coach'}<ArrowRight size={16}/>
+              {plan?'Targets':'Set up coach'}<ArrowRight size={16}/>
             </Button>
           </div>
           <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={plan?.calories?`${number(total)} of ${number(plan.calories)} calories logged`:`${number(total)} calories logged`}>
@@ -100,17 +100,17 @@ export function Today({
         </Button>
         <Button variant="secondary" className="quick-action-btn" onClick={()=>{setQuickWeightDate(date);setShowQuickWeight(s=>!s);}}>
           <Scale size={18}/>
-          <span>{showQuickWeight?'Close weight':'Log weight'}</span>
+          <span>{showQuickWeight?'Close':'Log weight'}</span>
         </Button>
         <Button variant="tertiary" className="quick-action-btn" onClick={onCoach}>
           <Compass size={18}/>
-          <span>Coach targets</span>
+          <span>Targets</span>
         </Button>
       </div>
       {showQuickWeight&&<section className="panel quick-weight-panel" aria-label="Quick weight entry">
         <div className="section-heading">
           <div>
-            <h2>Log today’s weigh-in</h2>
+            <h2>Weigh-in</h2>
 
           </div>
           <Button variant="tertiary" onClick={()=>setShowQuickWeight(false)}>Close</Button>
@@ -133,7 +133,7 @@ export function Today({
         }}>
           <div className="form-grid">
             <DatePicker label="Weigh-in date" value={quickWeightDate} max={today(state.profile?.timeZone)} required onChange={setQuickWeightDate}/>
-            <Field label="Weight (kg)" type="number" min="20" max="400" step="0.01" required placeholder="e.g. 78.5" value={quickKg} onChange={e=>setQuickKg(e.target.value)}/>
+            <Field label="Weight (kg)" type="number" min="20" max="400" step="0.01" required value={quickKg} onChange={e=>setQuickKg(e.target.value)}/>
           </div>
           <div className="actions">
             <Button variant="primary" size="md" type="submit" disabled={!quickKg}>Save weigh-in</Button>
@@ -143,10 +143,9 @@ export function Today({
       <section className="panel diary">
         <div className="section-heading">
           <div>
-            <h2>{savedDay?.archived?"Your daily summary":"Food entries"}</h2>
-            <small className="source">{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logged · coaching uses available data':date===today(state.profile?.timeZone)?'Still logging · completes after today':'No food logged'}</small>
-            {date<today(state.profile?.timeZone)&&<SelectField label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}><option value="incomplete">{entries.length||(savedDay?.entryCount??0)>0?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging / partial intake</option><option value="fasting" disabled={total>0}>Fasting</option></SelectField>}
-            <p>{entries.length?`${entries.length} food entries`:'Start with your first meal or a quick calorie entry.'}</p>
+            <h2>{savedDay?.archived?"Daily summary":"Food entries"}</h2>
+            <small className="source">{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logged':date===today(state.profile?.timeZone)?'Still logging':'No food logged'}</small>
+            {date<today(state.profile?.timeZone)&&<SelectField label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}><option value="incomplete">{entries.length||(savedDay?.entryCount??0)>0?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging</option><option value="fasting" disabled={total>0}>Fasting</option></SelectField>}
           </div>
           <Button variant="primary" size="md" disabled={readOnly} onClick={onLog}>
             <Plus size={18}/>Log food
@@ -154,12 +153,10 @@ export function Today({
         </div>
         {savedDay?.archived?<div className="notice">
           <h3>{number(savedDay.calories)} kcal · {savedDay.entryCount} food entries</h3>
-          <p>Meal details were compacted after {state.detailDays??7} days. Daily totals and logging completeness are kept for long-term progress and coaching.</p>
         </div>:!entries.length?<div className="empty">
           <Leaf size={30}/>
           <h3>No food entries</h3>
-
-          <Button size="md" onClick={onLog}>Add your first food<ArrowRight size={16}/></Button>
+          <Button size="md" onClick={onLog}>Log food<ArrowRight size={16}/></Button>
         </div>:entries.map(entry=><div className="food-row" key={entry.id}>
           <div className="food-initial">{entry.name.slice(0,1)}</div>
           <div className="food-description">

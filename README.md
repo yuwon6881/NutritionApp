@@ -26,6 +26,7 @@ The browser suite targets a dedicated local test API at `http://127.0.0.1:5088`.
 ## Contracts
 
 - Server-owned coaching is versioned. Preview/accept verifies the input revision and weekly cadence; accepted history is immutable.
+- Coach setup uses directional step transitions and selectable goal cards. Local estimates update immediately; calculation, retained synchronization, acceptance, and view-refresh feedback follow actual operations. Reduced motion disables movement and looping indicators. Stale previews are ignored, and an uncertain acceptance retries its original identity and input revision.
 - Today stays open in the profile time zone; past days with food complete automatically. Missing days prompt for fasting or not logging. Not logging preserves weight-based trends and coaching estimates without inventing calorie intake. Nutrients are immutable entry snapshots, with absent values remaining absent.
 - Auth uses hashed database sessions in HttpOnly same-site cookies. Unsafe endpoints require an exact Origin and custom request header; API responses are never cached by the service worker.
 - Offline queue and scan drafts are account-scoped IndexedDB records, persisted before dispatch. Requests are idempotent; conflicts stop the queue for review. Sign-out retains unsynced work; explicit wipe removes it.

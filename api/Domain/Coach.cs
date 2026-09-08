@@ -3,6 +3,7 @@ namespace Nutrition.Api.Domain;
 public sealed record Profile
 {
     public int Age { get; init; }
+    public DateOnly? DateOfBirth { get; init; }
     public double HeightCm { get; init; }
     public double WeightKg { get; init; }
     public string Sex { get; init; } = "";
@@ -10,6 +11,10 @@ public sealed record Profile
     public string Goal { get; init; } = "";
     public double? Maintenance { get; init; }
     public double? ProteinGrams { get; init; }
+    public double? ProteinPercent { get; init; }
+    public double? CarbsPercent { get; init; }
+    public double? FatPercent { get; init; }
+    public string? MacroPreset { get; init; }
     public string PhaseMode { get; init; } = "open";
     public DateOnly? PhaseStart { get; init; }
     public int? DurationWeeks { get; init; }
@@ -37,9 +42,19 @@ public static class Coach
     public const string Version = "1.1.0";
     public static double Resting(Profile p) => 10 * p.WeightKg + 6.25 * p.HeightCm - 5 * p.Age + (p.Sex == "male" ? 5 : -161);
 
+    /// A stored date of birth is authoritative so age advances with the calendar; Age remains the fallback for profiles saved before it existed.
+    public static int AgeAt(Profile p, DateOnly today)
+    {
+        if (p.DateOfBirth is not {} birth) return p.Age;
+        var age = today.Year - birth.Year;
+        if (birth.AddYears(age) > today) age--;
+        return age;
+    }
+
     public static CoachResult Calculate(Profile p, IReadOnlyList<NutritionDay> days,
         IReadOnlyList<WeightPoint> weights, PreviousPlan? previous, DateOnly today, double? startingExpenditure = null, bool allowAdaptation = true)
     {
+        p = p with { Age = AgeAt(p, today) };
         if (p.Age < 18 || p.PregnancyOrBreastfeeding || p.MedicalNutrition)
             return Blocked("Automated targets are unavailable for this profile. You can still keep a food and weight diary.");
         var progress = GoalPolicy.Evaluate(p, weights, today, previous?.PhaseComplete == true);
@@ -90,9 +105,19 @@ public static class Coach
         target = Math.Max(target, Math.Ceiling(Math.Max(1500, expenditure * .75) / 25) * 25);
         if (progress.Complete) reason += " Phase complete: review a maintenance target before accepting the transition.";
         if (p.EnergyAdjustmentPercent is {} percent && effectiveGoal != "maintain") reason += $" Selected {percent}% {(effectiveGoal == "lose" ? "deficit" : "surplus")}; weekly limits and the calorie floor may moderate this target.";
-        var protein = p.ProteinGrams ?? Math.Round(p.WeightKg * (p.ResistanceTraining && effectiveGoal == "lose" ? 2 : 1.6));
-        var fat = target * .3 / 9;
-        var carbs = (target - protein * 4 - fat * 9) / 4;
+        double protein, fat, carbs;
+        if (p.ProteinPercent is {} proteinShare && p.FatPercent is {} fatShare && p.CarbsPercent is {} carbShare)
+        {
+            protein = Math.Round(target * proteinShare / 100 / 4);
+            fat = target * fatShare / 100 / 9;
+            carbs = target * carbShare / 100 / 4;
+        }
+        else
+        {
+            protein = p.ProteinGrams ?? Math.Round(p.WeightKg * (p.ResistanceTraining && effectiveGoal == "lose" ? 2 : 1.6));
+            fat = target * .3 / 9;
+            carbs = (target - protein * 4 - fat * 9) / 4;
+        }
         if (carbs < 0) return Blocked("Protein and fat exceed the calorie target. Review your protein override.");
         return new(true, adaptive, target, expenditure, protein, Math.Round(fat, 1), Math.Round(carbs, 1), reason) { EffectiveGoal=effectiveGoal, PhaseComplete=progress.Complete, GoalProgress=progress };
     }

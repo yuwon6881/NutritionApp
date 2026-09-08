@@ -1,11 +1,13 @@
 import {useEffect,useState} from 'react';
-import {Sprout,Utensils,PlusCircle,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon} from 'lucide-react';
+import {Utensils,PlusCircle,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon} from 'lucide-react';
 import {api,ApiError} from './lib/api';
 import {readLocal} from './lib/local';
 import {today} from './lib/format';
+import {watchTheme} from './lib/theme';
 import {useNourish} from './useNourish';
 import type {Entry} from './types';
 import {Button} from './components/ui/Button';
+import {Brand} from './components/ui/Brand';
 import {ActionSheet, type ActionSheetOption} from './components/ui/ActionSheet';
 import {Auth} from './components/Auth';
 import {Today} from './components/Today';
@@ -31,7 +33,6 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
     {
       id: 'food',
       label: 'Log food',
-      description: 'Search foods, use saved recipes, or quick calorie entry',
       icon: <Utensils size={20} />,
       onClick: () => {
         setPage('log');
@@ -42,7 +43,6 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
     {
       id: 'weight',
       label: 'Log weight',
-      description: 'Record today’s scale weigh-in and track trend',
       icon: <Scale size={20} />,
       onClick: () => {
         setOpenWeightToday(true);
@@ -53,7 +53,6 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
     {
       id: 'scan',
       label: 'Scan food or label',
-      description: 'Photograph a meal or read a product nutrition label',
       icon: <Camera size={20} />,
       onClick: () => {
         setAiLogging(true);setPage('log');
@@ -64,7 +63,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   ];
   return <div className="app-shell">
     <aside className="sidebar">
-      <a className="brand" href="/" aria-label="Nourish home"><Sprout/>nourish<span className="brand-dot">•</span></a>
+      <a className="brand" href="/" aria-label="Nourish home"><Brand/>nourish</a>
       <nav aria-label="Main navigation">
         {/* Mobile Bottom Navigation with Centered Add Button */}
         <div className="nav-mobile-items">
@@ -92,14 +91,14 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
     </aside>
     <main className="main-content">
       <div className="topbar"><span>{store.state?.username}</span>{needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}{store.local?.queue.length?<span role="status">{store.local.queue.length} saved on this device</span>:null}</div>
-      {store.error&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}{store.local?.queue.some(q=>q.error)&&<section className="notice"><h3>A saved edit needs review</h3><p>Your local changes are retained. Copy any needed details, then discard the conflicting edit to use the server record and edit it again.</p><Button onClick={()=>setConflictDetails(!conflictDetails)}>Review conflicting edits</Button>{conflictDetails&&store.local.queue.filter(q=>q.error).map(q=><div key={q.id}><p>{q.error}</p><pre>{JSON.stringify(q.data,null,2)}</pre><Button variant="destructive" onClick={()=>void store.discardConflict(q.id)}>Discard this queued edit</Button></div>)}</section>}
-      {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><p>Loading saved data from this device and the service.</p><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:!needsProfile&&page==='today'?<Today store={store} date={date} setDate={setDate} openWeight={openWeightToday} onLog={()=>setPage('log')} onCoach={()=>setPage('coach')} onEdit={e=>{setEditing(e);setPage('log');}}/>:!needsProfile&&page==='log'?<LogFood initialAi={aiLogging} store={store} date={date} editing={editing} onDone={()=>{setAiLogging(false);setPage('today');setEditing(undefined);}}/>:!needsProfile&&page==='progress'?<Progress store={store}/>:(needsProfile||page==='coach')?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
+      {store.error&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}{store.local?.queue.some(q=>q.error)&&<section className="notice"><h3>A saved edit needs review</h3><p>Copy any details you need, then discard the conflicting edit to use the server record.</p><Button onClick={()=>setConflictDetails(!conflictDetails)}>Review conflicting edits</Button>{conflictDetails&&store.local.queue.filter(q=>q.error).map(q=><div key={q.id}><p>{q.error}</p><pre>{JSON.stringify(q.data,null,2)}</pre><Button variant="destructive" onClick={()=>void store.discardConflict(q.id)}>Discard this queued edit</Button></div>)}</section>}
+      {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:!needsProfile&&page==='today'?<Today store={store} date={date} setDate={setDate} openWeight={openWeightToday} onLog={()=>setPage('log')} onCoach={()=>setPage('coach')} onEdit={e=>{setEditing(e);setPage('log');}}/>:!needsProfile&&page==='log'?<LogFood initialAi={aiLogging} store={store} date={date} editing={editing} onDone={()=>{setAiLogging(false);setPage('today');setEditing(undefined);}}/>:!needsProfile&&page==='progress'?<Progress store={store}/>:(needsProfile||page==='coach')?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
       {store.state?.profile&&<MissedDays store={store}/>}
     </main>
     <ActionSheet
       isOpen={showAddSheet}
       onClose={() => setShowAddSheet(false)}
-      title="What would you like to add?"
+      title="Add"
       subtitle=""
       options={addOptions}
     />
@@ -108,7 +107,9 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
 export default function App(){
   const [user,setUser]=useState<string|null>();
   useEffect(()=>{
-    document.documentElement.dataset.theme=localStorage.getItem('nourish-theme')??'light';
+    // A device without a stored choice follows the browser, so a new account opens in the
+    // appearance the browser is already using.
+    const stopWatchingTheme=watchTheme();
     let active=true;
     void (async()=>{
       if(localStorage.getItem('nourish-signed-out')==='1'){setUser(null);return;}
@@ -122,9 +123,9 @@ export default function App(){
         if(active&&(!cached||(ex instanceof ApiError&&ex.status===401)))setUser(null);
       }
     })();
-    return()=>{active=false;};
+    return()=>{active=false;stopWatchingTheme();};
   },[]);
   const logout=async()=>{localStorage.setItem('nourish-signed-out','1');localStorage.removeItem('nourish-account');setUser(null);try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}};
-  if(user===undefined)return <main className="startup"><Sprout size={38}/><p>Opening Nourish…</p></main>;
+  if(user===undefined)return <main className="startup"><Brand size={38}/></main>;
   return user?<Workspace key={user} user={user} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);}}/>;
 }

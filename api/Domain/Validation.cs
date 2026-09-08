@@ -20,7 +20,14 @@ public static class Validation
     }
     public static void Profile(Profile p)
     {
-        Number(p.Age, 1, 120, "Age"); Number(p.HeightCm, 80, 250, "Height"); Number(p.WeightKg, 20, 400, "Weight");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
+        if (p.DateOfBirth is {} birth)
+        {
+            Require(birth >= new DateOnly(1900, 1, 1) && birth <= today, "Choose a valid date of birth.");
+            Number(Coach.AgeAt(p, today), 1, 120, "Age");
+        }
+        else Number(p.Age, 1, 120, "Age");
+        Number(p.HeightCm, 80, 250, "Height"); Number(p.WeightKg, 20, 400, "Weight");
         Number(p.Activity, 1.2, 2.5, "Activity");
         Require(p.Sex is "male" or "female", "Choose the equation parameter.");
         Require(p.Goal is "lose" or "maintain" or "gain", "Unknown goal.");
@@ -42,6 +49,18 @@ public static class Validation
         }
         if (p.Maintenance is {} maintenance) Number(maintenance, 1000, 7000, "Maintenance estimate");
         if (p.ProteinGrams is {} protein) Number(protein, 0, 800, "Protein override");
+        MacroSplit(p);
         try { TimeZoneInfo.FindSystemTimeZoneById(p.TimeZone); } catch { throw new DomainException("Unknown time zone."); }
+    }
+    private static void MacroSplit(Profile p)
+    {
+        double?[] shares = [p.ProteinPercent, p.CarbsPercent, p.FatPercent];
+        if (shares.All(s => s == null)) return;
+        Require(shares.All(s => s != null), "A macro split needs protein, carbohydrate, and fat shares.");
+        Number(p.ProteinPercent!.Value, 10, 60, "Protein share");
+        Number(p.CarbsPercent!.Value, 0, 75, "Carbohydrate share");
+        Number(p.FatPercent!.Value, 15, 80, "Fat share");
+        Require(Math.Abs(shares.Sum(s => s!.Value) - 100) <= 0.51, "Macro shares must total 100%.");
+        Require(p.MacroPreset == null || p.MacroPreset.Length <= 40, "Unknown macro preset.");
     }
 }

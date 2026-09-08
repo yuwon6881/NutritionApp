@@ -23,8 +23,7 @@ export function MissedDays({store}:{store:Nourish}){
   };
   return <dialog ref={dialog} className="review-dialog" aria-labelledby="missed-day-title" onCancel={()=>setDismissed(true)}>
     <h2 id="missed-day-title">No food logged for {date}</h2>
-    <p>{dates.length>1?`${dates.length} days to review. `:''}Were you fasting or not logging?</p>
-    <p>Not logging keeps your weigh-ins and coaching estimate. Missing calories stay unknown.</p>
+    <p>{dates.length>1?`${dates.length} days to review. `:''}Fasting or not logging?</p>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="actions">
       <Button variant="tertiary" disabled={busy} onClick={()=>setDismissed(true)}>Later</Button>

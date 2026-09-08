@@ -1,7 +1,7 @@
 import {expect,it} from 'vitest';
 import {liveGoalProgress} from './goalProgress';
 import type {Profile} from '../types';
-const profile=(extra:Partial<Profile>={}):Profile=>({age:30,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'lose',
+const profile=(extra:Partial<Profile>={}):Profile=>({age:30,dateOfBirth:null,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'lose',
   maintenance:2500,proteinGrams:null,resistanceTraining:false,pregnancyOrBreastfeeding:false,medicalNutrition:false,
   timeZone:'Asia/Kuala_Lumpur',phaseMode:'weight',targetWeightKg:75,phaseStartWeightKg:80,...extra});
 const flat=(kg:number)=>Array.from({length:28},(_,i)=>({date:new Date(Date.parse('2026-09-08')-(27-i)*86400000).toISOString().slice(0,10),kg}));

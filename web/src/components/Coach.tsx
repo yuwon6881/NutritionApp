@@ -1,21 +1,26 @@
-import {useEffect,useState} from 'react';
-import {ArrowLeft,ArrowRight,Check,Sparkles,User,Activity,Target,Sliders} from 'lucide-react';
+import {useEffect,useRef,useState} from 'react';
+import {ArrowLeft,ArrowRight,Activity,Check,PieChart,Sliders,Target,User} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult} from '../types';
-import {api} from '../lib/api';
+import {api,ApiError} from '../lib/api';
 import {number,today} from '../lib/format';
 import {profilesEqual} from '../lib/profile';
-import {calculateLivePace} from '../lib/coachCalc';
+import {ageOn} from '../lib/age';
+import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
+import {macroPresets,type MacroSplit} from '../lib/macros';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
-import {Methodology} from './Methodology';
+import {DatePicker} from './ui/DatePicker';
 import {GoalSetup} from './GoalSetup';
 import {GoalSummary} from './GoalSummary';
 import {GoalReachedBanner} from './GoalReachedBanner';
+import {MacroSetup} from './MacroSetup';
+import {CoachLayout,CoachStepper,CoachWait,useCoachSteps} from './ui/CoachMotion';
 
 const defaults:ProfileDraft={
   age:0,
+  dateOfBirth:null,
   heightCm:0,
   weightKg:0,
   sex:'',
@@ -32,68 +37,200 @@ const defaults:ProfileDraft={
   phaseStart:null,
   targetWeightKg:null,
   phaseStartWeightKg:null,
-  energyAdjustmentPercent:0
+  energyAdjustmentPercent:0,
+  proteinPercent:null,
+  carbsPercent:null,
+  fatPercent:null,
+  macroPreset:null
 };
 
 type Preview={revision:number;result:CoachResult;canAccept:boolean;holdReason:string|null};
-type StepKey='body'|'activity'|'goal'|'review';
-type MainTab='checkin'|'profile'|'history';
+type Proposal=Preview&{acceptId:string};
+type StepKey='body'|'activity'|'goal'|'macros';
+type MainTab='targets'|'plan'|'history';
+type Operation='idle'|'saving'|'waiting'|'calculating'|'updating'|'accepting'|'refreshing'|'error'|'refresh-error';
+const stepOrder=['body','activity','goal','macros'] as const;
+
+const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
+const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
+
+function TargetFigures({result}:{result:CoachResult}){
+  return <div className="target-figures">
+    <div><p>Daily energy</p><strong>{number(result.calories)} <span className="unit">kcal</span></strong></div>
+    <div><p>Maintenance</p><strong>{number(result.expenditure)} <span className="unit">kcal</span></strong></div>
+    <div><p>Protein</p><strong>{number(result.protein)} <span className="unit">g</span></strong></div>
+    <div><p>Carbohydrate</p><strong>{number(result.carbs)} <span className="unit">g</span></strong></div>
+    <div><p>Fat</p><strong>{number(result.fat)} <span className="unit">g</span></strong></div>
+  </div>;
+}
 
 export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolean}){
   const [profile,setProfile]=useState<ProfileDraft>(store.state!.profile??defaults);
-  const [preview,setPreview]=useState<Preview>();
+  const [proposal,setProposal]=useState<Proposal>();
   const [error,setError]=useState('');
-  const [busy,setBusy]=useState(false);
+  const [operation,setOperation]=useState<Operation>('idle');
+  const busy=['saving','calculating','updating','accepting','refreshing'].includes(operation);
   const [message,setMessage]=useState('');
-  const [awaitingEstimate,setAwaitingEstimate]=useState(false);
-  const [step,setStep]=useState<StepKey>('body');
+  const [wantsProposal,setWantsProposal]=useState(false);
+  const [mainTab,setMainTab]=useState<MainTab>('targets');
+  const [review,setReview]=useState(false);
+  const {step,go:setStep,stage}=useCoachSteps<StepKey>('body',stepOrder,`${mainTab}-${review}`);
+  const reviewPanel=useRef<HTMLElement>(null);
+  useEffect(()=>{if(review)reviewPanel.current?.focus({preventScroll:true});},[review]);
+  const [online,setOnline]=useState(navigator.onLine);
+  const request=useRef(0);
+  const locked=useRef(false);
+  const acceptance=useRef<{id:string;revision:number}|undefined>(undefined);
+  const calculating=useRef(false);
+  const alive=useRef(true);
+  const latest=useRef(store);
+  latest.current=store;
+  const draft=useRef(profile);
+  draft.current=profile;
+  useEffect(()=>{
+    alive.current=true;
+    const connection=()=>setOnline(navigator.onLine);
+    window.addEventListener('online',connection);window.addEventListener('offline',connection);
+    return()=>{alive.current=false;++request.current;window.removeEventListener('online',connection);window.removeEventListener('offline',connection);};
+  },[]);
+  const invalidate=()=>{++request.current;calculating.current=false;setProposal(undefined);setWantsProposal(false);if(!locked.current)setOperation('idle');};
 
-  const hasPlan=store.state!.plans.some(p=>!p.deleted);
-  const isInitialSetup=onboarding||!hasPlan;
-  const [mainTab,setMainTab]=useState<MainTab>(isInitialSetup?'profile':'checkin');
+  const plans=store.state!.plans.filter(p=>!p.deleted);
+  const isInitialSetup=onboarding||plans.length===0;
 
-  const accepted=store.state!.plans.find(p=>!p.deleted&&p.profileRevision===store.state!.profileRevision);
+  const accepted=plans.find(p=>p.profileRevision===store.state!.profileRevision);
   const acceptedPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
+  const current=today(store.state!.profile?.timeZone);
+  const derivedAge=ageOn(profile.dateOfBirth,current);
 
   const set=(key:keyof Profile,value:unknown)=>{
+    invalidate();
     setProfile(p=>({
       ...p,
       [key]:value,
+      // The stored age mirrors the date of birth so an older record stays consistent offline.
+      ...(key==='dateOfBirth'?{age:ageOn(value as string,current)??p.age}:{}),
       ...(key==='goal'?{
         energyAdjustmentPercent:value==='lose'?15:value==='gain'?5:0,
         ...(value==='maintain'?{phaseMode:'open' as const}:{})
       }:{})
     }));
-    setPreview(undefined);
+    setProposal(undefined);
+  };
+
+  const setSplit=(next:MacroSplit|null,preset:string|null)=>{
+    invalidate();
+    setProfile(p=>({...p,
+      proteinPercent:next?.protein??null,
+      carbsPercent:next?.carbs??null,
+      fatPercent:next?.fat??null,
+      macroPreset:preset,
+      // A chosen split owns every macro, so a stale gram override cannot silently win.
+      proteinGrams:next?null:p.proteinGrams}));
+    setProposal(undefined);
   };
 
   const pending=store.local!.queue.length>0;
   const changed=!profilesEqual(profile,store.state!.profile);
 
-  const action=async(fn:()=>Promise<void>)=>{
-    setBusy(true);
-    setError('');
-    try{await fn();}
-    catch(ex){setError((ex as Error).message);}
-    finally{setBusy(false);}
+  const loadProposal=async()=>{
+    if(locked.current||calculating.current)return;
+    calculating.current=true;
+    const token=++request.current;
+    const revision=latest.current.state!.revision;
+    setReview(true);setOperation('calculating');setError('');setProposal(undefined);
+    try{
+      const next=await api<Preview>('/coach/preview');
+      if(!alive.current||token!==request.current)return;
+      if(next.revision!==latest.current.state!.revision){
+        await latest.current.refresh();
+        if(!alive.current||token!==request.current)return;
+        setWantsProposal(true);setOperation('waiting');return;
+      }
+      if(latest.current.state!.revision!==revision||!profilesEqual(draft.current,latest.current.state!.profile)||latest.current.local!.queue.length){
+        setWantsProposal(true);setOperation('waiting');return;
+      }
+      setProposal({...next,acceptId:crypto.randomUUID()});setOperation('idle');
+    }catch(ex){if(alive.current&&token===request.current){setError((ex as Error).message);setOperation('error');}}
+    finally{if(token===request.current)calculating.current=false;}
   };
 
   useEffect(()=>{
-    if(awaitingEstimate&&!pending&&!changed&&navigator.onLine){
-      setAwaitingEstimate(false);
-      void action(async()=>setPreview(await api<Preview>('/coach/preview')));
+    if(wantsProposal&&!pending&&!changed&&online){
+      setWantsProposal(false);
+      void loadProposal();
     }
-  },[awaitingEstimate,pending,changed]);
+  },[wantsProposal,pending,changed,online]);
 
-  const live=calculateLivePace(profile,undefined,acceptedPlan?.expenditure);
+  const acceptProposal=async()=>{
+    if(!proposal||locked.current||pending||!online)return;
+    locked.current=true;setError('');
+    const token=++request.current;
+    try{
+    let live=proposal;
+    // A proposal calculated before another write is refreshed in place rather than left as a
+    // dead button, so accepting stays one action.
+    if(!acceptance.current&&live.revision!==store.state!.revision){
+      setOperation('updating');
+      live={...await api<Preview>('/coach/preview'),acceptId:proposal.acceptId};
+      if(!alive.current||token!==request.current)return;
+      if(live.revision!==latest.current.state!.revision){
+        await latest.current.refresh();
+        if(!alive.current||token!==request.current)return;
+        locked.current=false;setProposal(undefined);setWantsProposal(true);setOperation('waiting');return;
+      }
+      setProposal(live);
+      if(!live.canAccept){setOperation('idle');return;}
+    }
+    if(latest.current.local!.queue.length||!profilesEqual(draft.current,latest.current.state!.profile)){
+      setProposal(undefined);setWantsProposal(true);setOperation('waiting');return;
+    }
+    setOperation('accepting');
+    // A lost response must replay the exact identity AND input revision, even if state refreshed.
+    acceptance.current??={id:live.acceptId,revision:live.revision};
+    await api('/coach/accept',acceptance.current);
+    acceptance.current=undefined;
+    if(!alive.current)return;
+    setProposal(undefined);
+    setMessage('Plan active.');
+    setOperation('refreshing');
+    try{await store.refresh();if(alive.current){setOperation('idle');setReview(false);}}
+    catch{if(alive.current){setError('Your plan is active. The latest view could not be loaded.');setOperation('refresh-error');}}
+    }catch(ex){
+      if(ex instanceof ApiError&&[400,409,422].includes(ex.status))acceptance.current=undefined;
+      if(ex instanceof ApiError&&ex.status===409&&alive.current&&token===request.current){
+        try{
+          await latest.current.refresh();
+          if(alive.current&&token===request.current){locked.current=false;setProposal(undefined);setWantsProposal(true);setOperation('waiting');}
+          return;
+        }catch{/* Keep the failed proposal reviewable when refresh is unavailable. */}
+      }
+      if(alive.current&&token===request.current){setError(acceptance.current?'Activation could not be confirmed. Retry accepting this plan to check the same request.':(ex as Error).message);setOperation('error');}
+    }
+    finally{locked.current=false;}
+  };
+  const retryRefresh=async()=>{
+    if(locked.current)return;
+    locked.current=true;setOperation('refreshing');setError('');
+    try{await store.refresh();if(alive.current){setOperation('idle');setReview(false);}}
+    catch{if(alive.current){setError('Your plan is active. The latest view could not be loaded.');setOperation('refresh-error');}}
+    finally{locked.current=false;}
+  };
+
+  const live=calculateLivePace(profile,undefined,acceptedPlan?.expenditure,current);
+  const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
   const weighIns=[...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)];
-  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,today(store.state!.profile?.timeZone)));
-  const chooseNewGoal=()=>{setMainTab('profile');setStep('goal');};
-  const canAdvanceBody=Boolean(profile.age&&profile.age>=13&&profile.heightCm>0&&profile.weightKg>0&&profile.sex);
+  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,current));
+  const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&profile.heightCm>0&&profile.weightKg>0&&profile.sex);
   const canAdvanceActivity=Boolean(profile.activity&&profile.activity>0);
   const canAdvanceGoal=Boolean(profile.goal);
 
+  const openPlan=(target:StepKey='body')=>{if(locked.current||acceptance.current)return;invalidate();setReview(false);setError('');setMessage('');setMainTab('plan');setStep(target);};
+
   const submitProfile=async()=>{
+    if(locked.current||step!=='macros'||!canAdvanceBody||!canAdvanceActivity||!canAdvanceGoal)return;
+    locked.current=true;setOperation('saving');setError('');
+    try{
     await store.mutate({
       kind:'profile',
       recordId:store.state!.id,
@@ -101,355 +238,221 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       data:profile,
       delete:false
     });
-    setPreview(undefined);
-    if(isInitialSetup)setAwaitingEstimate(true);
-    else setMainTab('checkin');
-    setMessage('Profile saved on this device.');
+    setProposal(undefined);
+    setReview(true);
+    setWantsProposal(true);
+    setOperation('waiting');
+    setMainTab('targets');
+    setMessage('');
+    }catch(ex){setError((ex as Error).message);setOperation('error');}
+    finally{locked.current=false;}
   };
 
   const steps=[
     {id:'body',label:'Body',icon:User},
     {id:'activity',label:'Activity',icon:Activity},
-    {id:'goal',label:'Goal & Pace',icon:Target},
-    {id:'review',label:'Review',icon:Sliders}
+    {id:'goal',label:'Goal',icon:Target},
+    {id:'macros',label:'Macros',icon:PieChart}
   ] as const;
+
+  const queueError=store.local!.queue.find(op=>op.error)?.error;
+  const waitingLabel=!online?'Profile retained on this device. Waiting for a connection.'
+    :queueError?'Resolve the retained edit conflict to calculate targets.'
+    :changed&&!pending?'Your profile changed. Return to edit before calculating targets.'
+    :store.error?'Profile retained. Waiting for the connection to recover.'
+    :'Profile retained. Waiting for synchronization…';
+  const operationLabel=operation==='saving'?'Saving on this device…':operation==='waiting'?waitingLabel
+    :operation==='updating'?'Updating proposal…':operation==='accepting'?'Activating plan…'
+    :operation==='refreshing'?'Loading active targets…':'Calculating targets…';
+  const proposalPanel=review?<section ref={reviewPanel} tabIndex={-1} aria-label="Plan review" className="panel proposal-card"><CoachLayout>
+    {proposal?<>
+    <div className="section-heading">
+      <div><h2>Proposed targets</h2></div>
+      <Button size="md" variant="primary" disabled={busy||pending||!online||!proposal.canAccept} onClick={()=>void acceptProposal()}>
+        {operation==='accepting'?'Activating plan…':operation==='updating'?'Updating proposal…':'Accept this plan'}
+      </Button>
+    </div>
+    <TargetFigures result={proposal.result}/>
+    {proposal.result.goalProgress&&<GoalSummary progress={proposal.result.goalProgress}/>}
+    {proposal.holdReason&&<p className="notice">{proposal.holdReason}</p>}
+    {!proposal.canAccept&&!proposal.holdReason&&<p className="notice">{proposal.result.explanation}</p>}
+    </>:<h2>{message?'Active plan':'Review plan'}</h2>}
+    {(busy||operation==='waiting')&&<CoachWait label={operationLabel} active={operation!=='waiting'||(online&&!queueError&&!store.error)}/>}
+    {operation==='error'&&!proposal&&<Button onClick={()=>void loadProposal()} disabled={!online||pending||changed}>Retry calculation</Button>}
+    {operation==='refresh-error'&&<Button onClick={()=>void retryRefresh()}>Retry loading targets</Button>}
+    <div className="coach-review-actions"><Button variant="tertiary" disabled={!!acceptance.current||operation==='saving'||operation==='accepting'||operation==='updating'||operation==='refreshing'} onClick={()=>openPlan('macros')}><ArrowLeft size={16}/>Back to edit</Button></div>
+  </CoachLayout></section>:null;
+
+  const targetsTab=<>
+    <GoalReachedBanner progress={goalProgress} onChooseGoal={()=>openPlan('goal')}/>
+    {acceptedPlan&&<section className="panel">
+      <div className="section-heading">
+        <div><h2>Active targets</h2></div>
+        <div className="actions">
+          <Button variant="secondary" size="md" disabled={busy||!!acceptance.current} onClick={()=>openPlan()}><Sliders size={16}/>Edit plan</Button>
+          <Button variant="primary" size="md" disabled={busy||pending||!online||changed||!!acceptance.current} onClick={()=>void loadProposal()}>
+            Check in
+          </Button>
+        </div>
+      </div>
+      <TargetFigures result={acceptedPlan}/>
+      {goalProgress&&<GoalSummary progress={goalProgress}/>}
+    </section>}
+    {proposalPanel}
+    <section className="panel">
+      <div className="section-heading">
+        <div><h2>Strategy</h2></div>
+      </div>
+      <dl className="strategy-figures">
+        <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
+        <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${profile.energyAdjustmentPercent}% ${profile.goal==='lose'?'deficit':'surplus'}`}</dd></div>
+        <div><dt>Tracking</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${profile.targetWeightKg} kg`:'Ongoing'}</dd></div>
+        <div><dt>Macros</dt><dd>{presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')}</dd></div>
+        <div><dt>Body</dt><dd>{profile.weightKg} kg · {profile.heightCm} cm</dd></div>
+        <div><dt>Age</dt><dd>{derivedAge??profile.age}</dd></div>
+      </dl>
+    </section>
+  </>;
+
+  const planTab=<section className="panel">
+    <div className="section-heading">
+      <div><h2>{isInitialSetup?'Set up profile':'Edit plan'}</h2></div>
+      {!isInitialSetup&&<Button variant="tertiary" size="md" onClick={()=>{setMessage('');setMainTab('targets');}}>
+        <ArrowLeft size={16}/>Targets
+      </Button>}
+    </div>
+
+    <CoachStepper active={step}>
+      {steps.map((s,i)=>{
+        const isCurrent=step===s.id;
+        const Icon=s.icon;
+        if(isInitialSetup)return <div key={s.id} className={`step-pill step-indicator ${isCurrent?'active':''}`} aria-current={isCurrent?'step':undefined}>
+          <Icon size={16}/><span>{i+1}. {s.label}</span>
+        </div>;
+        return <Button key={s.id} type="button" variant={isCurrent?'primary':'secondary'} className={`step-pill ${isCurrent?'active':''}`} onClick={()=>setStep(s.id)}>
+          <Icon size={16}/><span>{i+1}. {s.label}</span>
+        </Button>;
+      })}
+    </CoachStepper>
+
+    <form onSubmit={e=>{e.preventDefault();void submitProfile();}}>
+      <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
+      <h3 tabIndex={-1} data-step-heading className="coach-step-heading">{steps.find(s=>s.id===step)!.label}</h3>
+      {step==='body'&&<div className="step-content">
+        <div className="form-grid">
+          <DatePicker label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`Age ${derivedAge}`:undefined}/>
+          <Field label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value))}/>
+          <Field label="Starting weight (kg)" type="number" required min="20" max="400" step="0.1" value={profile.weightKg||''} onChange={e=>set('weightKg',Number(e.target.value))}/>
+          <SelectField required label="Sex parameter for equation" value={profile.sex} onChange={v=>set('sex',v)}>
+            <option value="" disabled>Choose an equation parameter</option>
+            <option value="female">Female equation</option>
+            <option value="male">Male equation</option>
+          </SelectField>
+        </div>
+        <div className="step-actions">
+          <Button type="button" size="md" variant="primary" onClick={()=>setStep('activity')} disabled={!canAdvanceBody}>
+            Next: Activity <ArrowRight size={16}/>
+          </Button>
+        </div>
+      </div>}
+
+      {step==='activity'&&<div className="step-content">
+        <SelectField required label="Usual activity (approximate)" value={profile.activity?String(profile.activity):''} onChange={v=>set('activity',Number(v))}>
+          <option value="" disabled>Choose your usual activity</option>
+          <option value="1.2">Very little activity · 1.2</option>
+          <option value="1.4">Mostly sitting, some walking · 1.4</option>
+          <option value="1.6">Moderately active · 1.6</option>
+          <option value="1.8">Active most days · 1.8</option>
+          <option value="2.0">Very active · 2.0</option>
+        </SelectField>
+        <Field label="Known maintenance calories (optional)" type="number" min="1000" max="7000" value={profile.maintenance??''} placeholder="Use the equation" onChange={e=>set('maintenance',e.target.value?Number(e.target.value):null)}/>
+        <div className="checks">
+          <label>
+            <input type="checkbox" checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
+            Resistance training
+          </label>
+          {([['pregnancyOrBreastfeeding','Pregnant or breastfeeding'],['medicalNutrition','Medically managed nutrition']] as const).map(([key,label])=><label key={key}>
+            <input type="checkbox" checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
+          </label>)}
+        </div>
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('body')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="primary" onClick={()=>setStep('goal')} disabled={!canAdvanceActivity}>
+            Next: Goal <ArrowRight size={16}/>
+          </Button>
+        </div>
+      </div>}
+
+      {step==='goal'&&<div className="step-content">
+        <fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
+          {(['lose','maintain','gain'] as const).map(goal=><label key={goal} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
+            <input type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
+            <span>{goalLabel(goal)}</span><Check size={16} aria-hidden="true"/>
+          </label>)}
+        </div></fieldset>
+        <GoalSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure}/>
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="primary" onClick={()=>setStep('macros')} disabled={!canAdvanceGoal}>
+            Next: Macros <ArrowRight size={16}/>
+          </Button>
+        </div>
+      </div>}
+
+      {step==='macros'&&<div className="step-content">
+        <MacroSetup
+          calories={live.target}
+          split={split}
+          onChange={next=>setSplit(next,'custom')}
+          onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
+        />
+        <dl className="strategy-figures">
+          <div><dt>Resting</dt><dd>{number(live.resting)} kcal</dd></div>
+          <div><dt>Maintenance</dt><dd>{number(live.expenditure)} kcal</dd></div>
+          <div><dt>Daily target</dt><dd>{number(live.target)} kcal</dd></div>
+        </dl>
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
+          <Button variant="primary" size="md" type="submit" disabled={busy||!canAdvanceBody||!canAdvanceActivity||!canAdvanceGoal}>
+            {operation==='saving'?'Saving on this device…':isInitialSetup?'Create my starting estimate':'Save profile'}
+          </Button>
+        </div>
+      </div>}
+      </div></CoachLayout>
+    </form>
+  </section>;
+
+  const historyTab=<section className="panel">
+    <h2>Accepted plans</h2>
+    {plans.length===0?<p>No accepted plans yet.</p>:<dl className="plan-list">
+      {plans.map(plan=>{
+        const result=JSON.parse(plan.resultJson) as CoachResult;
+        return <div key={plan.id}>
+          <dt>{plan.date}</dt>
+          <dd>{number(result.calories)} kcal · {number(result.protein)} / {number(result.carbs)} / {number(result.fat)} g</dd>
+        </div>;
+      })}
+    </dl>}
+  </section>;
 
   return <>
     <header className="page-heading">
-      <div>
-        <p className="eyebrow">SMALL CHANGES, GROUNDED IN YOUR DATA</p>
-        <h1>{isInitialSetup?"Let's find your starting point":'Your nutrition coach'}</h1>
-        <p>{isInitialSetup
-          ?'Welcome to Nourish. Follow the guided steps below to estimate your resting metabolism and daily energy targets.'
-          :'An adaptive coach that personalizes targets as you log your meals and weight.'}
-        </p>
-      </div>
+      <div><h1>Coach</h1></div>
     </header>
 
-    {!isInitialSetup&&store.state!.profile&&<div className="tabs coach-nav-tabs" role="group" aria-label="Coach sections">
-      <Button variant={mainTab==='checkin'?'primary':'secondary'} onClick={()=>setMainTab('checkin')}>
-        <Sparkles size={16}/>Weekly check-in
-      </Button>
-      <Button variant={mainTab==='profile'?'primary':'secondary'} onClick={()=>setMainTab('profile')}>
-        <Sliders size={16}/>Adjust profile & strategy
-      </Button>
-      <Button variant={mainTab==='history'?'primary':'secondary'} onClick={()=>setMainTab('history')}>
-        Plan history & methods
-      </Button>
+    {!isInitialSetup&&<div className="tabs coach-nav-tabs" role="group" aria-label="Coach sections">
+      <Button variant={mainTab==='targets'?'primary':'secondary'} onClick={()=>{setMessage('');setMainTab('targets');}}>Targets</Button>
+      <Button variant={mainTab==='plan'?'primary':'secondary'} disabled={operation==='accepting'||operation==='updating'||operation==='refreshing'||!!acceptance.current} onClick={()=>openPlan(step)}>Plan</Button>
+      <Button variant={mainTab==='history'?'primary':'secondary'} onClick={()=>{setMessage('');setMainTab('history');}}>History</Button>
     </div>}
 
-    {(!isInitialSetup&&mainTab==='checkin')&&<GoalReachedBanner progress={goalProgress} onChooseGoal={chooseNewGoal}/>}
+    {message&&<p className="status-banner coach-success" role="status"><Check size={18} aria-hidden="true"/>{message}</p>}
+    {error&&<p className="error" role="alert">{error}</p>}
 
-    {(!isInitialSetup&&mainTab==='checkin')&&<section className="panel checkin-panel">
-      <div className="section-heading">
-        <div>
-          <h2>Your configured coach & targets</h2>
-          <p>{pending?'Finish syncing your changes before calculating a proposal.':'Active targets calculated from your profile and logging history.'}</p>
-        </div>
-        <div className="actions">
-          <Button variant="primary" size="md" disabled={busy||pending||changed||!navigator.onLine} onClick={()=>void action(async()=>setPreview(await api<Preview>('/coach/preview')))}>
-            <Sparkles size={16}/>{busy?'Working…':'Review my targets'}
-          </Button>
-          <Button variant="secondary" size="md" onClick={()=>setMainTab('profile')}>
-            <Sliders size={16}/>Edit profile & strategy
-          </Button>
-        </div>
-      </div>
-
-      {acceptedPlan&&<div className="active-targets-card">
-        <span className="eyebrow">CURRENT ACTIVE TARGETS</span>
-        <div className="stats-grid">
-          <div>
-            <p>Daily energy</p>
-            <h2>{number(acceptedPlan.calories)} <span className="unit">kcal</span></h2>
-          </div>
-          <div>
-            <p>Estimated expenditure</p>
-            <h2>{number(acceptedPlan.expenditure)} <span className="unit">kcal</span></h2>
-          </div>
-          <div>
-            <p>Protein / carbs / fat</p>
-            <strong>{number(acceptedPlan.protein)} / {number(acceptedPlan.carbs)} / {number(acceptedPlan.fat)} g</strong>
-          </div>
-        </div>
-        {goalProgress&&<div style={{marginTop:16}}><GoalSummary progress={goalProgress}/></div>}
-      </div>}
-
-      <div className="card-tint panel" style={{marginTop:18,marginBottom:18}}>
-        <span className="eyebrow">CONFIGURED STRATEGY & PROFILE</span>
-        <div className="stats-grid" style={{marginBottom:12}}>
-          <div>
-            <p>Current Goal</p>
-            <strong style={{textTransform:'capitalize'}}>{profile.goal==='lose'?'Fat loss':profile.goal==='gain'?'Bulking':'Maintenance'}</strong>
-            <p style={{fontSize:'.75rem',marginTop:4}}>{profile.goal==='lose'?`${profile.energyAdjustmentPercent}% calorie deficit`:profile.goal==='gain'?`${profile.energyAdjustmentPercent}% calorie surplus`:'Standard maintenance'}</p>
-          </div>
-          <div>
-            <p>Tracking Mode</p>
-            <strong>{profile.phaseMode==='duration'?`Duration · ${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`Target weight · ${profile.targetWeightKg} kg`:'Ongoing phase'}</strong>
-            {profile.phaseStart&&<p style={{fontSize:'.75rem',marginTop:4}}>Started: {profile.phaseStart}</p>}
-          </div>
-          <div>
-            <p>Body Measurements</p>
-            <strong>{profile.weightKg} kg · {profile.heightCm} cm</strong>
-            <p style={{fontSize:'.75rem',marginTop:4}}>Age {profile.age} · {profile.sex==='female'?'Female eq.':'Male eq.'} · {profile.activity}x act.</p>
-          </div>
-        </div>
-        <Button variant="secondary" size="md" onClick={()=>setMainTab('profile')}>
-          <Sliders size={16}/>Edit profile settings
-        </Button>
-      </div>
-
-      {preview&&<div className="proposal-card">
-        <span className="eyebrow">NEW PROPOSAL FOR REVIEW</span>
-        <div className="stats-grid">
-          <div>
-            <p>Proposed calories</p>
-            <h2>{number(preview.result.calories)} <span className="unit">kcal</span></h2>
-          </div>
-          <div>
-            <p>Estimated expenditure</p>
-            <h2>{number(preview.result.expenditure)} <span className="unit">kcal</span></h2>
-          </div>
-          <div>
-            <p>Protein / carbs / fat</p>
-            <strong>{number(preview.result.protein)} / {number(preview.result.carbs)} / {number(preview.result.fat)} g</strong>
-          </div>
-        </div>
-        <p>{preview.result.explanation}</p>
-        {preview.result.goalProgress&&<GoalSummary progress={preview.result.goalProgress}/>}
-        {preview.holdReason&&<p className="notice">{preview.holdReason}</p>}
-        <Button disabled={busy||pending||!preview.canAccept||preview.revision!==store.state!.revision} variant="primary" onClick={()=>void action(async()=>{
-          await api('/coach/accept',{id:crypto.randomUUID(),revision:preview.revision});
-          await store.refresh();
-          setPreview(undefined);
-          setMessage('Your reviewed plan is now active.');
-        })}>
-          Accept this plan
-        </Button>
-      </div>}
-
-      {message&&<p role="status">{message}</p>}
-      {error&&<p className="error" role="alert">{error}</p>}
-    </section>}
-
-    {(isInitialSetup||mainTab==='profile')&&<section className="panel guided-coach-panel">
-      <div className="wizard-header">
-        <div className="section-heading" style={{marginBottom:14}}>
-          <div>
-            <h2>{isInitialSetup?"Set up profile":"Adjust your profile & goals"}</h2>
-            <p>{isInitialSetup?"Guided setup: complete each step to tailor your nutrition targets.":"Select a step to adjust your profile, activity, or target strategy."}</p>
-          </div>
-          {!isInitialSetup&&<Button variant="tertiary" size="md" onClick={()=>setMainTab('checkin')}>
-            ← Back to summary
-          </Button>}
-        </div>
-
-        <nav className="guided-stepper" aria-label="Guided coach steps">
-          {steps.map((s,i)=>{
-            const isCurrent=step===s.id;
-            const Icon=s.icon;
-            if(isInitialSetup){
-              return <div
-                key={s.id}
-                className={`step-pill step-indicator ${isCurrent?'active':''}`}
-                aria-current={isCurrent?'step':undefined}
-              >
-                <Icon size={16}/>
-                <span>{i+1}. {s.label}</span>
-              </div>;
-            }
-            return <Button
-              key={s.id}
-              type="button"
-              variant={isCurrent?'primary':'secondary'}
-              className={`step-pill ${isCurrent?'active':''}`}
-              onClick={()=>setStep(s.id)}
-            >
-              <Icon size={16}/>
-              <span>{i+1}. {s.label}</span>
-            </Button>;
-          })}
-        </nav>
-      </div>
-
-      <form onSubmit={e=>{e.preventDefault();void action(submitProfile);}}>
-        {step==='body'&&<div className="step-content">
-          <div className="step-intro">
-            <h3>Your body & measurements</h3>
-            <p>Mifflin–St Jeor uses age, height, weight, and sex equation parameter to calculate resting metabolic rate.</p>
-          </div>
-          <div className="form-grid">
-            <Field label="Age (years)" type="number" required min="1" max="120" value={profile.age||''} onChange={e=>set('age',Number(e.target.value))}/>
-            <Field label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value))}/>
-            <Field label="Starting weight (kg)" type="number" required min="20" max="400" step="0.1" value={profile.weightKg||''} onChange={e=>set('weightKg',Number(e.target.value))}/>
-            <SelectField required label="Sex parameter for equation" value={profile.sex} onChange={v=>set('sex',v)}>
-              <option value="" disabled>Choose an equation parameter</option>
-              <option value="female">Female equation</option>
-              <option value="male">Male equation</option>
-            </SelectField>
-          </div>
-          <div className="step-actions">
-            <Button type="button" size="md" variant="primary" onClick={()=>setStep('activity')} disabled={!canAdvanceBody}>
-              Next: Activity & health <ArrowRight size={16}/>
-            </Button>
-          </div>
-        </div>}
-
-        {step==='activity'&&<div className="step-content">
-          <div className="step-intro">
-            <h3>Activity & training</h3>
-            <p>Sets your baseline expenditure multiplier and recommends protein targets.</p>
-          </div>
-          <SelectField required label="Usual activity (approximate)" value={profile.activity?String(profile.activity):''} onChange={v=>set('activity',Number(v))}>
-            <option value="" disabled>Choose your usual activity</option>
-            <option value="1.2">Very little activity · 1.2</option>
-            <option value="1.4">Mostly sitting, some walking · 1.4</option>
-            <option value="1.6">Moderately active · 1.6</option>
-            <option value="1.8">Active most days · 1.8</option>
-            <option value="2.0">Very active · 2.0</option>
-          </SelectField>
-
-          <div className="checks">
-            <label>
-              <input type="checkbox" checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
-              I do resistance training (increases recommended protein target)
-            </label>
-          </div>
-
-          <details className="special-checks">
-            <summary>Health boundaries & special considerations</summary>
-            <div className="checks" style={{marginTop:12}}>
-              {([['pregnancyOrBreastfeeding','I am pregnant or breastfeeding'],['medicalNutrition','My nutrition is medically managed']] as const).map(([key,label])=><label key={key}>
-                <input type="checkbox" checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
-              </label>)}
-            </div>
-            <p className="source">Automated targets are held for minors, pregnancy/breastfeeding, or medically managed nutrition.</p>
-          </details>
-
-          <div className="step-actions">
-            <Button type="button" size="md" variant="secondary" onClick={()=>setStep('body')}>
-              <ArrowLeft size={16}/> Back
-            </Button>
-            <Button type="button" size="md" variant="primary" onClick={()=>setStep('goal')} disabled={!canAdvanceActivity}>
-              Next: Goal & pace <ArrowRight size={16}/>
-            </Button>
-          </div>
-        </div>}
-
-        {step==='goal'&&<div className="step-content">
-          <div className="step-intro">
-            <h3>Your goal & pace</h3>
-            <p>Select your direction. The slider shows live calorie estimates as you adjust.</p>
-          </div>
-          <SelectField required label="Your goal" value={profile.goal} onChange={v=>set('goal',v)}>
-            <option value="" disabled>Choose your goal</option>
-            <option value="lose">Fat loss</option>
-            <option value="maintain">Maintenance</option>
-            <option value="gain">Bulking</option>
-          </SelectField>
-
-          <GoalSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure}/>
-
-          <div className="step-actions">
-            <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}>
-              <ArrowLeft size={16}/> Back
-            </Button>
-            <div className="step-action-group">
-              {!isInitialSetup&&<Button size="md" variant="secondary" type="submit" disabled={busy}>
-                Save profile
-              </Button>}
-              <Button type="button" size="md" variant={isInitialSetup?'primary':'secondary'} onClick={()=>setStep('review')} disabled={!canAdvanceGoal}>
-                Next: Review & finalize <ArrowRight size={16}/>
-              </Button>
-            </div>
-          </div>
-        </div>}
-
-        {step==='review'&&<div className="step-content">
-          <div className="step-intro">
-            <h3>Review your strategy</h3>
-            <p>Your estimated energy needs and starting proposal are calculated from your profile.</p>
-          </div>
-
-          <div className="stats-grid" style={{marginBottom:20}}>
-            <div className="stat-card">
-              <p>Resting metabolism</p>
-              <h2>{number(live.resting)} <span className="unit">kcal/day</span></h2>
-            </div>
-            <div className="stat-card">
-              <p>Estimated TDEE</p>
-              <h2>{number(live.expenditure)} <span className="unit">kcal/day</span></h2>
-            </div>
-            <div className="stat-card">
-              <p>Estimated target</p>
-              <h2>{number(live.target)} <span className="unit">kcal/day</span></h2>
-            </div>
-          </div>
-
-          <details open className="special-checks" style={{marginBottom:20}}>
-            <summary>Optional overrides (advanced)</summary>
-            <div className="form-grid" style={{marginTop:14}}>
-              <Field label="Known maintenance calories (optional)" type="number" min="1000" max="7000" value={profile.maintenance??''} placeholder="Use the starting equation" onChange={e=>set('maintenance',e.target.value?Number(e.target.value):null)}/>
-              <Field label="Daily protein override (g, optional)" type="number" min="0" max="800" value={profile.proteinGrams??''} placeholder="Use the coaching default" onChange={e=>set('proteinGrams',e.target.value?Number(e.target.value):null)}/>
-            </div>
-          </details>
-
-          <div className="step-actions">
-            <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}>
-              <ArrowLeft size={16}/> Back
-            </Button>
-            <Button variant="primary" size="md" type="submit" disabled={busy}>
-              {isInitialSetup?'Create my starting estimate':'Save profile'}
-            </Button>
-          </div>
-        </div>}
-      </form>
-
-      {preview&&<div className="proposal-card" style={{marginTop:24}}>
-        <span className="eyebrow">YOUR STARTING PROPOSAL</span>
-        <div className="stats-grid">
-          <div>
-            <p>Daily energy</p>
-            <h2>{number(preview.result.calories)} <span className="unit">kcal</span></h2>
-          </div>
-          <div>
-            <p>Estimated expenditure</p>
-            <h2>{number(preview.result.expenditure)} <span className="unit">kcal</span></h2>
-          </div>
-          <div>
-            <p>Protein / carbs / fat</p>
-            <strong>{number(preview.result.protein)} / {number(preview.result.carbs)} / {number(preview.result.fat)} g</strong>
-          </div>
-        </div>
-        <p>{preview.result.explanation}</p>
-        {preview.holdReason&&<p className="notice">{preview.holdReason}</p>}
-        <Button disabled={busy||pending||!preview.canAccept||preview.revision!==store.state!.revision} variant="primary" onClick={()=>void action(async()=>{
-          await api('/coach/accept',{id:crypto.randomUUID(),revision:preview.revision});
-          await store.refresh();
-          setPreview(undefined);
-          setMessage('Your reviewed plan is now active.');
-        })}>
-          Accept this plan
-        </Button>
-      </div>}
-
-      {message&&<p role="status">{message}</p>}
-      {error&&<p className="error" role="alert">{error}</p>}
-    </section>}
-
-    {(!isInitialSetup&&mainTab==='history')&&<>
-      {store.state!.plans.length>0&&<section className="panel">
-        <h2>Plans you’ve accepted</h2>
-        {store.state!.plans.map(plan=>{
-          const result=JSON.parse(plan.resultJson) as CoachResult;
-          return <details className="plan-history" key={plan.id}>
-            <summary>{plan.date} · {number(result.calories)} kcal · v{result.version}</summary>
-            <p>{result.explanation}</p>
-            <small>Input revision {plan.inputRevision}. Historical plans are preserved when older logs change.</small>
-          </details>;
-        })}
-      </section>}
-      <Methodology/>
-    </>}
+    <div key={isInitialSetup?(review?'review':'setup'):mainTab} className="coach-tab-scene">
+    {isInitialSetup?<>{review?proposalPanel:planTab}</>
+      :mainTab==='targets'?targetsTab
+      :mainTab==='plan'?planTab
+      :historyTab}</div>
   </>;
 }

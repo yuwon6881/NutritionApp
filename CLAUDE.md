@@ -18,7 +18,7 @@ This repository is independent of FinancialApp. These rules apply to NutritionAp
 - Keep day resolution consistent across coaching, charts, offline projection, and retained summaries. Day decisions may change on archived dates; archived nutrient totals must survive such changes. Old meal details remain read-only.
 - AI supports descriptions, meal photos, and nutrition-label photos. Returned fields remain editable drafts. Preserve unknown nutrients and quantity basis; never auto-submit scans or claim verified accuracy.
 - Persist account-scoped mutations and image drafts before dispatch. Preserve idempotency, conflict review, tenancy, and private image cleanup. Never reset or discard unsynced work to hide failures.
-- Server coaching remains authoritative. Accepted plans are immutable and revision checked. Do not change physiological equations or adaptation thresholds as a UI cleanup.
+- Server coaching remains authoritative. Accepted plans are immutable and revision checked. Do not change physiological equations or adaptation thresholds as a UI cleanup. Age is derived from the stored date of birth at calculation time; a stored macro split owns all three macros while an absent split keeps the coach default. Each proposal carries one acceptance identity so a repeated accept is idempotent.
 
 ## Working and verification
 
