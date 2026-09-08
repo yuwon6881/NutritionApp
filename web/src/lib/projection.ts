@@ -7,7 +7,7 @@ export function project(state:AppState,queue:Mutation[]):AppState{
     const key=collection[op.kind];
     const values=result[key] as Array<{id:string;revision:number;deleted:boolean;date?:string;status?:string}>;
     const i=values.findIndex(v=>v.id===op.recordId);
-    const old=values[i];const next={...(op.delete?old:op.data as object),id:op.recordId,revision:op.expectedRevision,deleted:op.delete};
+    const old=values[i];const next={...(op.kind==='day'?old:{}),...(op.delete?old:op.data as object),id:op.recordId,revision:op.expectedRevision,deleted:op.delete};
     if(i<0)values.push(next);else values[i]=next;
     if(op.kind==='entry')for(const d of result.days)if(d.date===(next as {date?:string}).date||d.date===old?.date)d.status='incomplete';
   }

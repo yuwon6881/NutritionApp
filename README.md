@@ -26,7 +26,7 @@ The browser suite targets a dedicated local test API at `http://127.0.0.1:5088`.
 ## Contracts
 
 - Server-owned coaching is versioned. Preview/accept verifies the input revision and weekly cadence; accepted history is immutable.
-- Food-day completeness is explicit. Editing a diary entry marks affected days incomplete. Nutrients are immutable entry snapshots, with absent values remaining absent.
+- Today stays open in the profile time zone; past days with food complete automatically. Missing days prompt for fasting or not logging. Not logging preserves weight-based trends and coaching estimates without inventing calorie intake. Nutrients are immutable entry snapshots, with absent values remaining absent.
 - Auth uses hashed database sessions in HttpOnly same-site cookies. Unsafe endpoints require an exact Origin and custom request header; API responses are never cached by the service worker.
 - Offline queue and scan drafts are account-scoped IndexedDB records, persisted before dispatch. Requests are idempotent; conflicts stop the queue for review. Sign-out retains unsynced work; explicit wipe removes it.
 - Food-scan drafts are re-encoded on the client without EXIF. Scan images are private and temporary, with durable object paths retained until deletion succeeds. Scheduler cleanup handles idle Cloud Run.

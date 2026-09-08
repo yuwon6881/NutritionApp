@@ -49,4 +49,20 @@ public sealed class GoalPhaseTests
         Assert.Null(GoalPolicy.Evaluate(profile,Weights(),Today).EstimatedFinish);
         Assert.Null(GoalPolicy.Evaluate(profile,points.Take(3).ToArray(),Today).EstimatedFinish);
     }
+    [Fact] public void Weight_goal_reports_its_starting_position_target_and_remaining_distance()
+    {
+        var profile=P() with {PhaseMode="weight",TargetWeightKg=75,PhaseStartWeightKg=80};
+        var halfway=GoalPolicy.Evaluate(profile,Weights(77.5),Today);
+        Assert.Equal("lose",halfway.Goal);Assert.Equal(80,halfway.StartWeight);Assert.Equal(75,halfway.TargetWeight);
+        Assert.Equal(50,halfway.Percent!.Value,3);Assert.Equal(2.5,halfway.Remaining!.Value,3);Assert.False(halfway.Complete);
+        var reached=GoalPolicy.Evaluate(profile,Weights(74),Today);
+        Assert.True(reached.Complete);Assert.Equal(100,reached.Percent);Assert.Equal(0,reached.Remaining);
+        // A goal completed earlier keeps its reached state even after the weight drifts back.
+        var latched=GoalPolicy.Evaluate(profile,Weights(79),Today,alreadyComplete:true);
+        Assert.True(latched.Complete);Assert.Equal(0,latched.Remaining);
+        var gain=GoalPolicy.Evaluate(P("gain") with {PhaseMode="weight",TargetWeightKg=85,PhaseStartWeightKg=80},Weights(82),Today);
+        Assert.Equal(40,gain.Percent!.Value,3);Assert.Equal(3,gain.Remaining!.Value,3);
+        var open=GoalPolicy.Evaluate(P(),Weights(),Today);
+        Assert.Null(open.Percent);Assert.Null(open.TargetWeight);Assert.Null(open.Remaining);Assert.Equal(80,open.StartWeight);
+    }
 }

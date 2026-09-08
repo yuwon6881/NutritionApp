@@ -1,13 +1,14 @@
 import {useEffect,useState} from 'react';
-import {ArrowRight,Plus,Trash2,Copy,Check,Leaf,Scale,Compass} from 'lucide-react';
+import {ArrowRight,Plus,Trash2,Copy,Leaf,Scale,Compass} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult,Entry} from '../types';
 import {number,today} from '../lib/format';
 import {Button} from './ui/Button';
-import {Field} from './ui/Field';
+import {Field,SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
-import {Card} from './ui/Card';
-
+import {dayStatus} from '../lib/loggingDay';
+import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
+import {GoalReachedBanner} from './GoalReachedBanner';
 export function Today({
   store,
   date,
@@ -31,9 +32,7 @@ export function Today({
   const [showQuickWeight,setShowQuickWeight]=useState(openWeight??false);
   const [quickKg,setQuickKg]=useState('');
   const [quickWeightDate,setQuickWeightDate]=useState(date);
-
   useEffect(()=>{if(openWeight)setShowQuickWeight(true);},[openWeight]);
-
   const entries=state.entries.filter(e=>!e.deleted&&e.date===date);
   const savedDay=state.days.find(d=>d.date===date&&!d.deleted);
   const total=savedDay?.archived?(savedDay.calories??0):entries.reduce((s,e)=>s+e.calories,0);
@@ -41,24 +40,24 @@ export function Today({
   const accepted=state.plans.find(p=>!p.deleted&&p.profileRevision===state.profileRevision);
   const plan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const day=state.days.find(d=>d.date===date);
-  const status=day&&!day.deleted?day.status:'incomplete';
+  const status=dayStatus(date,today(state.profile?.timeZone),day&&!day.deleted?day.status:undefined,savedDay?.archived?(savedDay.entryCount??0)>0:entries.length>0);
   const ratio=plan?.calories?Math.min(total/plan.calories,1):0;
   const act=async(fn:()=>Promise<unknown>)=>{try{setError('');await fn();}catch(ex){setError((ex as Error).message);}};
+  const goalProgress=mergeGoalProgress(plan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone)));
   const loaded=date>=state.start&&date<=state.end;
-
   return <>
     <header className="page-heading">
       <div>
-        <p className="eyebrow">ONE DAY AT A TIME</p>
-        <h1>Your daily picture</h1>
-        <p>Make room for good food. We’ll help with the numbers.</p>
+
+        <h1>Diary</h1>
+
       </div>
       <DatePicker label="Diary date" value={date} max={today(state.profile?.timeZone)} onChange={val=>{
         setDate(val);
         if(val<state.start||val>state.end)void store.refresh(val).catch(ex=>setError(ex.message));
       }}/>
     </header>
-
+    <GoalReachedBanner progress={goalProgress} onChooseGoal={onCoach} action="Review your coach"/>
     {!loaded?<section className="panel">
       <h2>This date isn’t stored on this device yet</h2>
       <p>Connect to load its history before adding or editing entries.</p>
@@ -66,7 +65,7 @@ export function Today({
       <section className="daily-grid">
         <article className="panel energy-panel">
           <div>
-            <p className="eyebrow">TODAY’S ENERGY</p>
+            <p className="eyebrow">ENERGY</p>
             <h2>{number(total)} <span className="unit">kcal logged</span></h2>
             <p>{plan?.calories?`${number(plan.calories)} kcal daily target`:'Your coaching target starts with a profile.'}</p>
             <Button variant="tertiary" onClick={onCoach}>
@@ -80,9 +79,8 @@ export function Today({
             <text className="ring-label" x="60" y="76" textAnchor="middle">{total>(plan?.calories??Infinity)?'target reached':'remaining'}</text>
           </svg>
         </article>
-
         <article className="panel macros">
-          <p className="eyebrow">THE BUILDING BLOCKS</p>
+          <p className="eyebrow">MACRONUTRIENTS</p>
           {(['protein','carbs','fat'] as const).map(key=>{
             const known=entries.filter(e=>e[key]!=null);
             const sum=savedDay?.archived?(savedDay[key]??0):known.reduce((s,e)=>s+e[key]!,0);
@@ -95,7 +93,6 @@ export function Today({
           })}
         </article>
       </section>
-
       <div className="quick-actions-bar" role="group" aria-label="Quick mobile actions">
         <Button variant="primary" className="quick-action-btn" onClick={onLog} disabled={readOnly}>
           <Plus size={18}/>
@@ -110,12 +107,11 @@ export function Today({
           <span>Coach targets</span>
         </Button>
       </div>
-
       {showQuickWeight&&<section className="panel quick-weight-panel" aria-label="Quick weight entry">
         <div className="section-heading">
           <div>
             <h2>Log today’s weigh-in</h2>
-            <p>Consistent morning weigh-ins help calibrate your energy estimate.</p>
+
           </div>
           <Button variant="tertiary" onClick={()=>setShowQuickWeight(false)}>Close</Button>
         </div>
@@ -144,25 +140,25 @@ export function Today({
           </div>
         </form>
       </section>}
-
       <section className="panel diary">
         <div className="section-heading">
           <div>
-            <h2>{savedDay?.archived?"Your daily summary":"On your plate"}</h2>
-            <p>{entries.length?`${entries.length} food entries · no good or bad labels`:'Start with your first meal or a quick calorie entry.'}</p>
+            <h2>{savedDay?.archived?"Your daily summary":"Food entries"}</h2>
+            <small className="source">{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logged · coaching uses available data':date===today(state.profile?.timeZone)?'Still logging · completes after today':'No food logged'}</small>
+            {date<today(state.profile?.timeZone)&&<SelectField label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}><option value="incomplete">{entries.length||(savedDay?.entryCount??0)>0?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging / partial intake</option><option value="fasting" disabled={total>0}>Fasting</option></SelectField>}
+            <p>{entries.length?`${entries.length} food entries`:'Start with your first meal or a quick calorie entry.'}</p>
           </div>
           <Button variant="primary" size="md" disabled={readOnly} onClick={onLog}>
             <Plus size={18}/>Log food
           </Button>
         </div>
-
         {savedDay?.archived?<div className="notice">
           <h3>{number(savedDay.calories)} kcal · {savedDay.entryCount} food entries</h3>
           <p>Meal details were compacted after {state.detailDays??7} days. Daily totals and logging completeness are kept for long-term progress and coaching.</p>
         </div>:!entries.length?<div className="empty">
           <Leaf size={30}/>
-          <h3>A fresh page for today</h3>
-          <p>Find a food, describe your meal, or take a photo.</p>
+          <h3>No food entries</h3>
+
           <Button size="md" onClick={onLog}>Add your first food<ArrowRight size={16}/></Button>
         </div>:entries.map(entry=><div className="food-row" key={entry.id}>
           <div className="food-initial">{entry.name.slice(0,1)}</div>
@@ -179,7 +175,6 @@ export function Today({
             <Trash2 size={16}/>
           </Button>
         </div>)}
-
         {!!entries.length&&<div className="copy-day">
           <DatePicker label="Copy this day to" value={copyDate} max={today(state.profile?.timeZone)} onChange={setCopyDate}/>
           <Button size="md" onClick={()=>void act(async()=>{
@@ -189,25 +184,6 @@ export function Today({
           </Button>
         </div>}
       </section>
-
-      {!readOnly&&<section className="panel completeness">
-        <div>
-          <h2>{status==='complete'?'Day marked complete':status==='fasting'?'Fasting day confirmed':'Is everything logged?'}</h2>
-          <p>A complete day helps your coach learn. Missing meals are never counted as zero.</p>
-        </div>
-        <div className="actions completeness-actions">
-          {(['incomplete','complete','fasting'] as const).map(s=><Button
-            key={s}
-            size="md"
-            variant={status===s?'primary':'secondary'}
-            disabled={status===s||(s==='fasting'&&total>0)}
-            onClick={()=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:s},delete:false}))}
-          >
-            {status===s&&<Check size={16}/>}
-            {s==='complete'?'Complete':s==='fasting'?'Fasting':'Still logging'}
-          </Button>)}
-        </div>
-      </section>}
     </>}
     {error&&<p className="error" role="alert">{error}</p>}
   </>;

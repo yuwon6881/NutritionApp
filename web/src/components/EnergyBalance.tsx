@@ -8,7 +8,7 @@ export function EnergyBalance({store}:{store:Nourish}){
   const [period,setPeriod]=useState('7');const [group,setGroup]=useState<'day'|'week'|'month'>('day');const state=store.state!;
   const end=[state.end,today(state.profile?.timeZone)].sort()[0];const start=[state.start,shiftDate(end,1-Number(period))].sort().at(-1)!;
   const estimates=state.energyEstimates??state.plans.map(p=>({date:p.date,revision:p.revision,expenditure:(JSON.parse(p.resultJson) as CoachResult).expenditure!})).filter(p=>p.expenditure!=null);
-  const daily=energyDays({entries:state.entries,days:state.days,estimates},start,end);const rows=groupEnergy(daily,group);
+  const daily=energyDays({entries:state.entries,days:state.days,estimates,current:today(state.profile?.timeZone)},start,end);const rows=groupEnergy(daily,group);
   const ceiling=Math.max(100,...rows.flatMap(r=>[r.intake??0,r.maintenance??0]));const balanceMax=Math.max(100,...rows.map(r=>Math.abs(r.balance??0)));
   const slot=620/Math.max(1,rows.length);const bar=Math.min(25,slot*.32);const x=(i:number)=>55+slot*(i+.5);
   const energyY=(value:number)=>185-value/ceiling*145;const netY=(value:number)=>110-value/balanceMax*65;

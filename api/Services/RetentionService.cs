@@ -31,8 +31,9 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
             if(day==null){day=new DayStatus { Id=Guid.NewGuid(),UserId=userId,Date=date };db.Days.Add(day);}
             double? Sum(Func<DiaryEntry,double?> select)=>entries.Any(e=>select(e)==null)?null:entries.Sum(e=>select(e)??0);
             day.Calories=entries.Sum(e=>e.Calories);day.Protein=Sum(e=>e.Protein);day.Fat=Sum(e=>e.Fat);day.Carbs=Sum(e=>e.Carbs);day.Fiber=Sum(e=>e.Fiber);
+            day.Status=LoggingDay.Status(date,today,day.Deleted?null:day.Status,entries.Count>0);
             day.EntryCount=entries.Count;day.Archived=true;day.Revision=++user.Revision;
-            if(day.Deleted){day.Deleted=false;day.Status="incomplete";}
+            day.Deleted=false;
             await db.SaveChangesAsync(ct);
             removed+=await db.Entries.Where(e=>e.Date==date).ExecuteDeleteAsync(ct);
         }

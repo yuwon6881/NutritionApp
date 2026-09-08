@@ -16,7 +16,8 @@ public sealed class CoachingService(AppDb db)
         var since = today.AddDays(-28);
         var statuses = await db.Days.Where(d => d.Date >= since && d.Date < today && !d.Deleted).ToListAsync(ct);
         var totals = await db.Entries.Where(e => e.Date >= since && e.Date < today && !e.Deleted).GroupBy(e => e.Date).Select(g => new { Date=g.Key, Calories=g.Sum(e => e.Calories) }).ToDictionaryAsync(x=>x.Date,x=>x.Calories,ct);
-        var days = statuses.Select(d => new NutritionDay(d.Date,d.Status,d.Archived?d.Calories:totals.GetValueOrDefault(d.Date))).ToList();
+        var dates = statuses.Select(d => d.Date).Union(totals.Keys);
+        var days = dates.Select(date => { var d = statuses.Find(d => d.Date == date); return new NutritionDay(date, LoggingDay.Status(date,today,d?.Status,d?.Archived == true ? d.EntryCount > 0 : totals.ContainsKey(date)),d?.Archived == true ? d.Calories : totals.GetValueOrDefault(date)); }).ToList();
         var weights = await db.Weights.Where(w => w.Date >= since.AddDays(-56) && w.Date <= today && !w.Deleted).OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date,w.Kg)).ToListAsync(ct);
         var last = await db.Plans.OrderByDescending(p => p.Revision).FirstOrDefaultAsync(ct);
         var accepted = last == null ? null : Json.Read<CoachResult>(last.ResultJson);

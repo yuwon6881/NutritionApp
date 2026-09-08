@@ -1,7 +1,7 @@
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 const password='nutrition test password 2026';
-const headers={'Origin':'http://127.0.0.1:5088','X-Nutrition-Request':'1'};
+const headers={'Origin':(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088'),'X-Nutrition-Request':'1'};
 async function signIn(request:APIRequestContext,username='test-alice'){
   let response=await request.post('/api/auth/login',{headers,data:{username,password}});
   if(response.status()===401)response=await request.post('/api/auth/register',{headers,data:{username,password}});
@@ -16,11 +16,11 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.goto('/');await page.getByRole('button',{name:'New here? Create an account'}).click();
   await page.getByLabel('Username',{exact:true}).fill('test-alice');await page.getByLabel('Password',{exact:true}).fill(password);
   await page.getByRole('button',{name:'Create account',exact:true}).click();
-  await expect(page.getByRole('heading',{name:"Let's find your starting point"})).toBeVisible();
+  await expect(page.getByRole('heading',{name:"Set up profile"})).toBeVisible();
   await expect(page.getByLabel('Age (years)')).toHaveValue('');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
   await page.screenshot({path:'artifacts/390-Onboarding.png',fullPage:true});
-  await page.reload();await expect(page.getByRole('heading',{name:"Let's find your starting point"})).toBeVisible();
+  await page.reload();await expect(page.getByRole('heading',{name:"Set up profile"})).toBeVisible();
   const user=await (await context.request.get('/api/state')).json();
   await page.getByLabel('Age (years)').fill('30');await page.getByLabel('Height (cm)').fill('170');
   await page.getByLabel('Starting weight (kg)').fill('81');
@@ -43,45 +43,47 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Save reviewed food'}).click();
   await expect(page.getByRole('button',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Nasi lemak reviewed portion');}).toBeTruthy();
-  await page.getByRole('button',{name:'Complete',exact:true}).click();await expect(page.getByRole('heading',{name:'Day marked complete'})).toBeVisible();
+  await expect(page.getByText('Still logging · completes after today')).toBeVisible();
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
   await expect(page.getByText('80.8 kg',{exact:true}).first()).toBeVisible();
   await page.getByRole('button',{name:'Daily weight',exact:true}).click();await expect(page.getByRole('img',{name:/Daily scale weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Calculated trend',exact:true}).click();await expect(page.getByRole('img',{name:/Calculated trend weight chart/})).toBeVisible();
   await page.getByLabel('Group energy bars by').selectOption('week');await expect(page.getByRole('img',{name:/Signed energy balance by week/})).toBeVisible();
   await page.getByLabel('Group energy bars by').selectOption('month');await expect(page.getByRole('img',{name:/Signed energy balance by month/})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Sync',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Sync',exact:true})).toHaveCount(0);
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBeTruthy();
   await context.setOffline(true);await page.getByRole('button',{name:/Add/}).click();await page.getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Quick entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Offline banana');await page.getByLabel('Calories (kcal)',{exact:true}).fill('105');await page.getByRole('button',{name:'Save reviewed food'}).click();
   await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();await expect(page.getByText('Pending sync',{exact:true}).first()).toBeVisible();
   await page.reload();await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();
-  await context.setOffline(false);await page.getByRole('button',{name:/pending|Sync/}).first().click();
+  await context.setOffline(false);
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Offline banana');}).toBeTruthy();
-  const secondContext=await context.browser()!.newContext({baseURL:'http://127.0.0.1:5088'});const second=secondContext.request;await signIn(second,'test-bob');
+  const secondContext=await context.browser()!.newContext({baseURL:(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088')});const second=secondContext.request;await signIn(second,'test-bob');
   const other=await (await second.get('/api/state')).json();expect(other.entries).toHaveLength(0);expect(other.id).not.toBe(user.id);
   const third=await second.post('/api/auth/register',{headers,data:{username:'third-user',password}});expect(third.status()).toBe(409);
   const csrf=await context.request.post('/api/sync',{data:{}});expect(csrf.status()).toBe(403);
   await secondContext.close();
 });
 test('responsive screens have no horizontal overflow and working touch targets',async({page,context})=>{
-  await signIn(context.request);await page.goto('/');await expect(page.getByRole('heading',{name:'Your daily picture'})).toBeVisible();
-  for(const width of [390,768,1440]){
+  await signIn(context.request);await page.goto('/');await expect(page.getByRole('heading',{name:'Diary'})).toBeVisible();
+  test.setTimeout(120000);
+  for(const theme of ['light','dark'])for(const width of [390,768,1440]){
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;localStorage.setItem('nourish-theme',theme);},theme);
     await page.setViewportSize({width,height:900});
     const items=width<1024?['Today','Progress','Coach','Settings']:['Today','Log food','Progress','Coach','Settings'];
     for(const name of items){
       await page.getByRole('button',{name,exact:true}).first().click();
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
       if(width<1024){const small=await page.locator('button:visible').evaluateAll(buttons=>buttons.filter(b=>b.getBoundingClientRect().height<43).map(b=>b.textContent));expect(small).toEqual([]);}
-      await page.screenshot({path:`artifacts/${width}-${name.replace(' ','-')}.png`,fullPage:true});
+      await page.screenshot({path:`artifacts/${theme}-${width}-${name.replace(' ','-')}.png`,fullPage:true});
     }
     if(width<1024){
       await page.getByRole('button',{name:/Add/}).first().click();
       await expect(page.getByText('What would you like to add?')).toBeVisible();
       await page.getByRole('button',{name:'Log food'}).click();
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
-      await page.screenshot({path:`artifacts/${width}-Log-food.png`,fullPage:true});
+      await page.screenshot({path:`artifacts/${theme}-${width}-Log-food.png`,fullPage:true});
     }
   }
 });
@@ -131,3 +133,43 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByText('Not yet estimable',{exact:true})).toBeVisible();
 });
 
+
+
+test('cached diary opens while the server sleeps and uploads retained food and weight on wake',async({page,context})=>{
+  await signIn(context.request);await page.goto('/');
+  await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
+  await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
+  let release!:()=>void;const asleep=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/**',async route=>{
+    if(route.request().url().endsWith('/auth/me'))await asleep;
+    // The released handler can resume after unroute; a settled route is not a test failure.
+    await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'Server waking up'})}).catch(()=>{});
+  });
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible({timeout:3000});
+  await page.getByRole('button',{name:'Log food',exact:true}).first().click();
+  await page.getByRole('button',{name:'Quick entry',exact:true}).click();
+  await page.getByLabel('Food name',{exact:true}).fill('Server wake meal');
+  await page.getByLabel('Calories (kcal)',{exact:true}).fill('400');
+  await page.getByRole('button',{name:'Save reviewed food',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Server wake meal',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Log weight',exact:true}).click();
+  await page.getByLabel('Weight (kg)',{exact:true}).fill('80.6');
+  await page.getByRole('button',{name:'Save weigh-in',exact:true}).click();
+  release();await page.unroute('**/api/**');
+  await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+  await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.entries.some((e:{name:string})=>e.name==='Server wake meal')&&state.weights.some((w:{kg:number})=>w.kg===80.6);}).toBeTruthy();
+});
+
+test('missed weight-only day asks once and keeps the weight after not logging',async({page,context})=>{
+  await signIn(context.request);
+  const date=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:randomUUID(),kind:'weight',expectedRevision:0,data:{date,kg:80.4}}});
+  await page.goto('/');
+  await expect(page.getByRole('dialog',{name:`No food logged for ${date}`})).toBeVisible();
+  await page.getByRole('button',{name:'Not logging',exact:true}).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.days.some((d:{date:string;status:string})=>d.date===date&&d.status==='not_logged')&&state.weights.some((w:{date:string})=>w.date===date);}).toBeTruthy();
+  await page.reload();await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+});

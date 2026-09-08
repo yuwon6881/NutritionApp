@@ -17,11 +17,10 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         var receipt = await db.Receipts.SingleOrDefaultAsync(x => x.Id == op.Id, ct);
         if (receipt != null) { Validation.Require(receipt.Hash == hash, "Idempotency key reused for different data.", 409); return receipt.Revision; }
         var user = await db.Users.SingleAsync(u => u.Id == uid, ct);
-        if(retention!=null&&op.Kind is "entry" or "day")
+        if(retention!=null&&op.Kind == "entry")
         {
             if(op.Data.TryGetProperty("date",out var date)) retention.RequireEditable(date.Deserialize<DateOnly>(),user.ProfileJson);
             if(op.Kind=="entry"&&await db.Entries.SingleOrDefaultAsync(e=>e.Id==op.RecordId,ct) is {} existingEntry) retention.RequireEditable(existingEntry.Date,user.ProfileJson);
-            if(op.Kind=="day"&&await db.Days.SingleOrDefaultAsync(d=>d.Id==op.RecordId,ct) is {} existingDay) Validation.Require(!existingDay.Archived,"Summarized days are read-only.",409);
         }
         var revision = user.Revision + 1;
         switch (op.Kind)
@@ -48,10 +47,21 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                     Validation.Require(recipe.RootElement.ValueKind == JsonValueKind.Array, "Recipe ingredients must be a list.");
                 }, ct); break;
             case "weight": await Upsert<Weight>(op, revision, w => { Date(w.Date); Validation.Number(w.Kg, 20, 400, "Weight"); }, ct); break;
-            case "day": await Upsert<DayStatus>(op, revision, d => { Date(d.Date); Validation.Require(d.Status is "complete" or "incomplete" or "fasting", "Unknown day status.");d.Archived=false;d.Calories=0;d.EntryCount=0;d.Protein=null;d.Fat=null;d.Carbs=null;d.Fiber=null; }, ct); break;
+            case "day":
+                var savedDay=await db.Days.SingleOrDefaultAsync(d=>d.Id==op.RecordId,ct);
+                Validation.Require(!(op.Delete && savedDay?.Archived == true),"Daily summaries cannot be deleted.",409);
+                await Upsert<DayStatus>(op,revision,d=>
+                {
+                    Date(d.Date);
+                    Validation.Require(savedDay==null || savedDay.Date==d.Date,"A day decision cannot be moved to another date.",409);
+                    Validation.Require(d.Date < RetentionService.Today(user.ProfileJson) || d.Status == "incomplete","Today is still open for logging.");
+                    Validation.Require(d.Status is "complete" or "incomplete" or "fasting" or "not_logged","Unknown day status.");
+                    d.Archived=savedDay?.Archived??false;d.Calories=savedDay?.Calories??0;d.EntryCount=savedDay?.EntryCount??0;
+                    d.Protein=savedDay?.Protein;d.Fat=savedDay?.Fat;d.Carbs=savedDay?.Carbs;d.Fiber=savedDay?.Fiber;
+                },ct);break;
             default: throw new DomainException("Unknown record type.");
         }
-        // A diary edit invalidates an earlier completeness assertion until explicitly confirmed again.
+        // Food edits clear fasting or missing-intake decisions; elapsed dates resolve automatically.
         if (op.Kind == "entry")
         {
             var changed = db.ChangeTracker.Entries<DiaryEntry>().Single().Entity;
@@ -65,7 +75,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if (op.Kind == "day" && !op.Delete)
         {
             var day = db.ChangeTracker.Entries<DayStatus>().Single().Entity;
-            if (day.Status == "fasting") Validation.Require(!await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
+            if (day.Status == "fasting") Validation.Require(day.Calories == 0 && !await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
         }
         user.Revision = revision;
         db.Receipts.Add(new MutationReceipt { Id = op.Id, UserId = uid, Hash = hash, Revision = revision });

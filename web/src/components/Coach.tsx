@@ -3,14 +3,16 @@ import {ArrowLeft,ArrowRight,Check,Sparkles,User,Activity,Target,Sliders} from '
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult} from '../types';
 import {api} from '../lib/api';
-import {number} from '../lib/format';
+import {number,today} from '../lib/format';
 import {profilesEqual} from '../lib/profile';
 import {calculateLivePace} from '../lib/coachCalc';
+import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {Methodology} from './Methodology';
 import {GoalSetup} from './GoalSetup';
 import {GoalSummary} from './GoalSummary';
+import {GoalReachedBanner} from './GoalReachedBanner';
 
 const defaults:ProfileDraft={
   age:0,
@@ -84,6 +86,9 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   },[awaitingEstimate,pending,changed]);
 
   const live=calculateLivePace(profile,undefined,acceptedPlan?.expenditure);
+  const weighIns=[...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)];
+  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,today(store.state!.profile?.timeZone)));
+  const chooseNewGoal=()=>{setMainTab('profile');setStep('goal');};
   const canAdvanceBody=Boolean(profile.age&&profile.age>=13&&profile.heightCm>0&&profile.weightKg>0&&profile.sex);
   const canAdvanceActivity=Boolean(profile.activity&&profile.activity>0);
   const canAdvanceGoal=Boolean(profile.goal);
@@ -133,6 +138,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </Button>
     </div>}
 
+    {(!isInitialSetup&&mainTab==='checkin')&&<GoalReachedBanner progress={goalProgress} onChooseGoal={chooseNewGoal}/>}
+
     {(!isInitialSetup&&mainTab==='checkin')&&<section className="panel checkin-panel">
       <div className="section-heading">
         <div>
@@ -165,7 +172,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
             <strong>{number(acceptedPlan.protein)} / {number(acceptedPlan.carbs)} / {number(acceptedPlan.fat)} g</strong>
           </div>
         </div>
-        {acceptedPlan.goalProgress&&<div style={{marginTop:16}}><GoalSummary progress={acceptedPlan.goalProgress}/></div>}
+        {goalProgress&&<div style={{marginTop:16}}><GoalSummary progress={goalProgress}/></div>}
       </div>}
 
       <div className="card-tint panel" style={{marginTop:18,marginBottom:18}}>
@@ -229,7 +236,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       <div className="wizard-header">
         <div className="section-heading" style={{marginBottom:14}}>
           <div>
-            <h2>{isInitialSetup?"Setup your profile":"Adjust your profile & goals"}</h2>
+            <h2>{isInitialSetup?"Set up profile":"Adjust your profile & goals"}</h2>
             <p>{isInitialSetup?"Guided setup: complete each step to tailor your nutrition targets.":"Select a step to adjust your profile, activity, or target strategy."}</p>
           </div>
           {!isInitialSetup&&<Button variant="tertiary" size="md" onClick={()=>setMainTab('checkin')}>

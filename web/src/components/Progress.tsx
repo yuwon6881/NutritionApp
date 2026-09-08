@@ -1,3 +1,4 @@
+import {energyDays} from '../lib/energyBalance';
 import {useState} from 'react';
 import type {Nourish} from '../useNourish';
 import {number,today,trend} from '../lib/format';
@@ -8,28 +9,25 @@ import {PhysiquePhotos} from './PhysiquePhotos';
 import {WeightChart} from './WeightChart';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
-
 export function Progress({store}:{store:Nourish}){
   const [period,setPeriod]=useState('recent');
   const [date,setDate]=useState(today(store.state!.profile?.timeZone));
   const [kg,setKg]=useState('');
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
-
   const weights=store.state!.weights.filter(w=>!w.deleted);
   const smoothed=trend([...(store.state!.weightTrendSeed??[]),...weights]).filter(w=>w.date>=store.state!.start&&w.date<=store.state!.end);
   const latest=smoothed.at(-1);
   const mean=weights.length?weights.reduce((s,w)=>s+w.kg,0)/weights.length:null;
-  const complete=store.state!.days.filter(d=>!d.deleted&&d.status!=='incomplete');
-  const dates=new Set(complete.map(d=>d.date));
-  const intake=store.state!.entries.filter(e=>!e.deleted&&dates.has(e.date)).reduce((s,e)=>s+e.calories,0)+complete.filter(d=>d.archived).reduce((s,d)=>s+(d.calories??0),0);
-
+  const state=store.state!;
+  const complete=energyDays({entries:state.entries,days:state.days,estimates:[],current:today(state.profile?.timeZone)},state.start,state.end).filter(d=>d.complete);
+  const intake=complete.reduce((sum,d)=>sum+(d.intake??0),0);
   return <>
     <header className="page-heading">
       <div>
-        <p className="eyebrow">LOOK AT THE BIGGER PICTURE</p>
-        <h1>Progress, with perspective</h1>
-        <p>Daily weight moves around. Your trend helps you see beyond it.</p>
+
+        <h1>Progress</h1>
+
       </div>
       <SelectField label="History window" value={period} onChange={v=>{
         setPeriod(v);
@@ -39,7 +37,6 @@ export function Progress({store}:{store:Nourish}){
         {Array.from({length:new Date().getFullYear()-1999},(_,i)=>String(new Date().getFullYear()-i)).map(y=><option key={y} value={y}>{y}</option>)}
       </SelectField>
     </header>
-
     <div className="stats-grid">
       <section className="panel">
         <p className="eyebrow">TREND WEIGHT</p>
@@ -57,12 +54,10 @@ export function Progress({store}:{store:Nourish}){
         <p>{complete.length} complete or fasting days · partial days excluded</p>
       </section>
     </div>
-
     {/* Primary Data Visualizations First */}
     <WeightChart weights={weights} smoothed={smoothed}/>
     <EnergyBalance store={store}/>
     <CoachingProgress store={store}/>
-
     {/* Weigh-in Entry & History */}
     <section className="panel log-weight-panel">
       <div className="section-heading">
@@ -115,7 +110,6 @@ export function Progress({store}:{store:Nourish}){
         </div>)}
       </div>
     </section>
-
     <PhysiquePhotos store={store}/>
   </>;
 }

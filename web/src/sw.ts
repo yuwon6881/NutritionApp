@@ -20,6 +20,6 @@ self.addEventListener('fetch',event=>{
     event.respondWith((async()=>{const cache=await caches.open(cacheName);return await cache.match(url.pathname)||fetch(request);})());return;
   }
   if(request.mode==='navigate'&&!/\.[^/]+$/.test(url.pathname)){
-    event.respondWith((async()=>{try{return await fetch(request);}catch{return await (await caches.open(cacheName)).match('/index.html')??Response.error();}})());
+    event.respondWith((async()=>{const cached=await (await caches.open(cacheName)).match('/index.html');return cached??fetch(request);})());
   }
 });
