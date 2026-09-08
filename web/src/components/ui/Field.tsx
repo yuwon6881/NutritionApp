@@ -1,0 +1,3 @@
+import type {InputHTMLAttributes,ReactNode} from 'react';
+export function Field({label,hint,...props}:InputHTMLAttributes<HTMLInputElement>&{label:string;hint?:string}){return <label className="field"><span>{label}</span><input {...props}/>{hint&&<small>{hint}</small>}</label>;}
+export function SelectField({label,value,onChange,children,disabled=false,required=false}:{label:string;value:string;onChange:(v:string)=>void;children:ReactNode;disabled?:boolean;required?:boolean}){return <label className="field"><span>{label}</span><select value={value} disabled={disabled} required={required} onChange={e=>onChange(e.target.value)}>{children}</select></label>;}

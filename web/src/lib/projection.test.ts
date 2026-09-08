@@ -1,0 +1,11 @@
+import {describe,it,expect} from 'vitest';
+import {project,rebaseAfterOwnWrite,wireMutation} from './projection';
+import {trend} from './format';
+import type {AppState,Mutation} from '../types';
+const state:AppState={id:'a',username:'a',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-03-01',entries:[],foods:[],weights:[],days:[{id:'d',revision:1,deleted:false,date:'2026-02-01',status:'complete'}],plans:[]};
+describe('offline projection',()=>{
+it('marks edited days incomplete before sync and preserves unknown nutrients',()=>{const op:Mutation={id:'m',kind:'entry',recordId:'e',expectedRevision:0,delete:false,data:{date:'2026-02-01',name:'Rice',calories:130,protein:null}};const result=project(state,[op]);expect(result.days[0].status).toBe('incomplete');expect(result.entries[0].protein).toBeNull();expect(state.days[0].status).toBe('complete');});
+it('rebases only subsequent writes to the same record',()=>{const op:Mutation={id:'m',kind:'weight',recordId:'w',expectedRevision:0,delete:false,data:{}};const queue=[op,{...op,id:'n'},{...op,id:'o',recordId:'other',expectedRevision:3}];expect(rebaseAfterOwnWrite(queue,op,5).map(q=>q.expectedRevision)).toEqual([5,3]);});
+it('never sends local error metadata as mutation content',()=>{const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'};expect(wireMutation(op)).not.toHaveProperty('error');});
+it('matches time-aware seven-day smoothing',()=>expect(trend([{date:'2026-01-01',kg:80},{date:'2026-01-08',kg:82}])[1].kg).toBe(81));
+});

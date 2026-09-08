@@ -1,0 +1,13 @@
+**/node_modules
+**/bin
+**/obj
+**/dist
+**/wwwroot
+**/appsettings.Local.json
+**/*.db*
+.git
+artifacts
+test-results
+playwright-report
+**/*.local.json
+**/*.local.txt

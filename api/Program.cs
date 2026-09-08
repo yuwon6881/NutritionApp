@@ -1,0 +1,93 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
+using Nutrition.Api.Data;
+using Nutrition.Api.Domain;
+using Nutrition.Api.Endpoints;
+using Nutrition.Api.Services;
+
+var builder=WebApplication.CreateBuilder(args);
+if(int.TryParse(Environment.GetEnvironmentVariable("PORT"),out var cloudRunPort))builder.WebHost.UseUrls($"http://0.0.0.0:{cloudRunPort}");
+builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadOnChange:false);
+if(!builder.Environment.IsDevelopment()&&(!Uri.TryCreate(builder.Configuration["PublicOrigin"],UriKind.Absolute,out var publicOrigin)||publicOrigin.Scheme!="https"))
+    throw new InvalidOperationException("PublicOrigin must be the exact public HTTPS origin in production.");
+builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=2_200_000);
+builder.Services.Configure<ForwardedHeadersOptions>(o=> { o.ForwardedHeaders=ForwardedHeaders.XForwardedProto; });
+builder.Services.AddDbContext<AppDb>(o=>
+{
+    var connection=builder.Configuration.GetConnectionString("Database");
+    if(!string.IsNullOrWhiteSpace(connection)) o.UseNpgsql(ConnectionSettings.Normalize(connection));
+    else if(builder.Environment.IsDevelopment()) o.UseSqlite("Data Source="+(builder.Configuration["Database:SqlitePath"]??"nutrition.db"));
+    else throw new InvalidOperationException("ConnectionStrings:Database must be configured in production.");
+});
+builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
+builder.Services.AddScoped<ScanService>();builder.Services.AddScoped<StorageService>();
+builder.Services.AddScoped<RetentionService>();
+builder.Services.AddScoped<PhotoService>();
+builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45));
+builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
+builder.Services.AddHttpClient<FoodSearchService>(c=>c.Timeout=TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90));
+builder.Services.AddRateLimiter(o=>
+{
+    o.RejectionStatusCode=429;
+    o.AddPolicy("auth",http=>RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new FixedWindowRateLimiterOptions { PermitLimit=10,Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+});
+var app=builder.Build();
+app.UseForwardedHeaders();
+app.Use(async(http,next)=>
+{
+    http.Response.Headers.XContentTypeOptions="nosniff";
+    if(!app.Environment.IsDevelopment()) http.Response.Headers.StrictTransportSecurity="max-age=31536000";
+    http.Response.Headers["Referrer-Policy"]="same-origin";
+    http.Response.Headers.ContentSecurityPolicy="default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+    if(http.Request.Path.StartsWithSegments("/api")) http.Response.Headers.CacheControl="no-store";
+    try
+    {
+        if(HttpMethods.IsPost(http.Request.Method)&&!http.Request.Path.StartsWithSegments("/internal"))
+        {
+            var origin=http.Request.Headers.Origin.ToString();
+            var allowed=builder.Configuration["PublicOrigin"]??$"{http.Request.Scheme}://{http.Request.Host}";
+            Validation.Require(origin==allowed&&http.Request.Headers["X-Nutrition-Request"]=="1","Request origin is not allowed.",403);
+        }
+        if(http.Request.Path.StartsWithSegments("/internal"))
+        {
+            var expected=builder.Configuration["Cleanup:Token"];
+            Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(http.Request.Headers["X-Cleanup-Token"].ToString()),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
+        }
+        else if(http.Request.Path.StartsWithSegments("/api")&&http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register"))
+        {
+            var db=http.RequestServices.GetRequiredService<AppDb>();
+            var token=http.Request.Cookies["nutrition-session"];
+            Validation.Require(!string.IsNullOrEmpty(token),"Sign in to sync your diary.",401);
+            var hash=AuthService.Hash(token!);
+            var session=await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s=>s.Hash==hash&&s.Expires>DateTime.UtcNow,http.RequestAborted);
+            Validation.Require(session!=null,"Your session expired. Local work is retained; sign in again.",401);db.CurrentUser=session!.UserId;
+        }
+        await next();
+    }
+    catch(DomainException ex) { http.Response.StatusCode=ex.Status;await http.Response.WriteAsJsonAsync(new { message=ex.Message }); }
+    catch(DbUpdateException) { http.Response.StatusCode=409;await http.Response.WriteAsJsonAsync(new { message="This record conflicts with saved data. Refresh and review before retrying." }); }
+    catch(System.Text.Json.JsonException) { http.Response.StatusCode=400;await http.Response.WriteAsJsonAsync(new { message="Invalid data format." }); }
+});
+app.UseRateLimiter();
+app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> { if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache"; } });
+app.MapAuth();app.MapRecords();app.MapAi();app.MapPhotos();
+app.MapGet("/health",()=>new { status="ok" });
+app.MapFallback(async http=>
+{
+    if(http.Request.Path.StartsWithSegments("/api")||Path.HasExtension(http.Request.Path)) { http.Response.StatusCode=404;return; }
+    var file=Path.Combine(app.Environment.WebRootPath??"wwwroot","index.html");
+    if(!File.Exists(file)) { http.Response.StatusCode=404;return; }
+    http.Response.ContentType="text/html";http.Response.Headers.CacheControl="no-cache";await http.Response.SendFileAsync(file);
+});
+await using(var scope=app.Services.CreateAsyncScope())
+{
+    var db=scope.ServiceProvider.GetRequiredService<AppDb>();
+    if(db.Database.IsSqlite()&&app.Environment.IsDevelopment()) await db.Database.EnsureCreatedAsync();
+    else if(builder.Configuration.GetValue("Database:MigrateOnStartup",false)) await db.Database.MigrateAsync();
+}
+if(args.Contains("--migrate-only")) return;
+app.Run();
+public partial class Program;

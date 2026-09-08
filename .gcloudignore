@@ -1,0 +1,13 @@
+*
+!Dockerfile
+!api/
+!api/**
+!deploy/
+!deploy/cloudbuild.yaml
+api/bin/**
+api/obj/**
+api/wwwroot/**
+**/appsettings.Local.json
+**/*.local.json
+**/*.local.txt
+**/*.db*

@@ -1,0 +1,114 @@
+namespace Nutrition.Api.Data;
+
+public class AppUser
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Username { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+    public int Slot { get; set; }
+    public long Revision { get; set; }
+    public long ProfileRevision { get; set; }
+    public string ProfileJson { get; set; } = "";
+}
+public class Session
+{
+    public string Hash { get; set; } = "";
+    public Guid UserId { get; set; }
+    public DateTime Expires { get; set; }
+}
+public abstract class OwnedRecord
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public long Revision { get; set; }
+    public bool Deleted { get; set; }
+}
+public abstract class NutrientRecord : OwnedRecord
+{
+    public string Name { get; set; } = "";
+    public double Calories { get; set; }
+    public double? Protein { get; set; }
+    public double? Fat { get; set; }
+    public double? Carbs { get; set; }
+    public double? Fiber { get; set; }
+    public string Source { get; set; } = "manual";
+}
+public class DiaryEntry : NutrientRecord
+{
+    public DateOnly Date { get; set; }
+    public string Meal { get; set; } = "Meal";
+    public double Quantity { get; set; } = 1;
+    public string Unit { get; set; } = "serving";
+}
+public class Food : NutrientRecord
+{
+    public double ServingGrams { get; set; } = 100;
+    public bool Favourite { get; set; }
+    public string IngredientsJson { get; set; } = "[]";
+    public double? CookedYieldGrams { get; set; }
+}
+public class Weight : OwnedRecord
+{
+    public DateOnly Date { get; set; }
+    public double Kg { get; set; }
+}
+public class DayStatus : OwnedRecord
+{
+    public DateOnly Date { get; set; }
+    public string Status { get; set; } = "incomplete";
+    public bool Archived { get; set; }
+    public int EntryCount { get; set; }
+    public double Calories { get; set; }
+    public double? Protein { get; set; }
+    public double? Fat { get; set; }
+    public double? Carbs { get; set; }
+    public double? Fiber { get; set; }
+}
+public class AcceptedPlan : OwnedRecord
+{
+    public DateOnly Date { get; set; }
+    public long InputRevision { get; set; }
+    public long ProfileRevision { get; set; }
+    public string ResultJson { get; set; } = "";
+    public string ProfileJson { get; set; } = "";
+}
+public class MutationReceipt
+{
+    public DateTime Created { get; set; } = DateTime.UtcNow;
+    public Guid UserId { get; set; }
+    public Guid Id { get; set; }
+    public string Hash { get; set; } = "";
+    public long Revision { get; set; }
+}
+public class PhysiquePhoto : OwnedRecord
+{
+    public DateOnly Date { get; set; }
+    public string Caption { get; set; } = "";
+    public string Angle { get; set; } = "front";
+    public string ObjectPath { get; set; } = "";
+    public int Bytes { get; set; }
+    public string RequestHash { get; set; } = "";
+    public string Status { get; set; } = "uploading";
+    public DateTime Created { get; set; } = DateTime.UtcNow;
+}
+public class ScanJob : OwnedRecord
+{
+    public string RequestHash { get; set; } = "";
+    public int ImageBytes { get; set; }
+    public DateTime Created { get; set; } = DateTime.UtcNow;
+    public string Status { get; set; } = "queued";
+    public string? ObjectPath { get; set; }
+    public string Description { get; set; } = "";
+    public string Mode { get; set; } = "description";
+    public string? ResultJson { get; set; }
+    public string? Error { get; set; }
+    public DateTime? LeaseUntil { get; set; }
+}
+public class AiUsage
+{
+    public Guid UserId { get; set; }
+    public DateOnly Date { get; set; }
+    public int Requests { get; set; }
+    public long InputTokens { get; set; }
+    public long OutputTokens { get; set; }
+}
