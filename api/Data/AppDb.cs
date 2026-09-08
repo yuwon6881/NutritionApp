@@ -29,6 +29,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<MutationReceipt>().HasQueryFilter(x => x.UserId == CurrentUser);
         m.Entity<AiUsage>().HasKey(x => new { x.UserId, x.Date });
         m.Entity<AiUsage>().HasQueryFilter(x => x.UserId == CurrentUser);
+        // Deleting an account must take its sessions, idempotency receipts, and usage counters with it.
+        OwnedByUser<Session>(m); OwnedByUser<MutationReceipt>(m); OwnedByUser<AiUsage>(m);
         Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m);
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m);
@@ -40,13 +42,15 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<AcceptedPlan>().HasIndex(x => new { x.UserId, x.Date });
         m.Entity<ScanJob>().HasIndex(x => x.Created);
     }
+    private static void OwnedByUser<T>(ModelBuilder m) where T : class
+        => m.Entity<T>().HasOne<AppUser>().WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade);
     private void Configure<T>(ModelBuilder m) where T : OwnedRecord
     {
         m.Entity<T>().HasBaseType((Type?)null);
         m.Entity<T>().HasKey(x => new { x.UserId, x.Id });
         m.Entity<T>().HasQueryFilter(x => x.UserId == CurrentUser);
         m.Entity<T>().Property(x => x.Revision).IsConcurrencyToken();
-        m.Entity<T>().HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        OwnedByUser<T>(m);
     }
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
