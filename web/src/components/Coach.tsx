@@ -1,8 +1,8 @@
+import {Form,FieldFrame,validateFields} from './ui/Form';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,Activity,Check,PieChart,Sliders,Target,User} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult} from '../types';
-import {api,ApiError} from '../lib/api';
 import {number,today} from '../lib/format';
 import {profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
@@ -10,13 +10,17 @@ import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
 import {macroPresets,type MacroSplit} from '../lib/macros';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {Button} from './ui/Button';
+import {SegmentedControl} from './ui/SegmentedControl';
 import {Field,SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {GoalSetup} from './GoalSetup';
 import {GoalSummary} from './GoalSummary';
 import {GoalReachedBanner} from './GoalReachedBanner';
+import {CheckInCard} from './CheckInCard';
+import {CheckInDialog} from './CheckInDialog';
 import {MacroSetup} from './MacroSetup';
 import {CoachLayout,CoachStepper,CoachWait,useCoachSteps} from './ui/CoachMotion';
+import {useCoachProposal} from '../useCoachProposal';
 
 const defaults:ProfileDraft={
   age:0,
@@ -44,11 +48,8 @@ const defaults:ProfileDraft={
   macroPreset:null
 };
 
-type Preview={revision:number;result:CoachResult;canAccept:boolean;holdReason:string|null};
-type Proposal=Preview&{acceptId:string};
 type StepKey='body'|'activity'|'goal'|'macros';
 type MainTab='targets'|'plan'|'history';
-type Operation='idle'|'saving'|'waiting'|'calculating'|'updating'|'accepting'|'refreshing'|'error'|'refresh-error';
 const stepOrder=['body','activity','goal','macros'] as const;
 
 const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
@@ -66,34 +67,15 @@ function TargetFigures({result}:{result:CoachResult}){
 
 export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolean}){
   const [profile,setProfile]=useState<ProfileDraft>(store.state!.profile??defaults);
-  const [proposal,setProposal]=useState<Proposal>();
-  const [error,setError]=useState('');
-  const [operation,setOperation]=useState<Operation>('idle');
-  const busy=['saving','calculating','updating','accepting','refreshing'].includes(operation);
   const [message,setMessage]=useState('');
-  const [wantsProposal,setWantsProposal]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [checkInOpen,setCheckInOpen]=useState(false);
+  const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
   const [mainTab,setMainTab]=useState<MainTab>('targets');
   const [review,setReview]=useState(false);
   const {step,go:setStep,stage}=useCoachSteps<StepKey>('body',stepOrder,`${mainTab}-${review}`);
   const reviewPanel=useRef<HTMLElement>(null);
   useEffect(()=>{if(review)reviewPanel.current?.focus({preventScroll:true});},[review]);
-  const [online,setOnline]=useState(navigator.onLine);
-  const request=useRef(0);
-  const locked=useRef(false);
-  const acceptance=useRef<{id:string;revision:number}|undefined>(undefined);
-  const calculating=useRef(false);
-  const alive=useRef(true);
-  const latest=useRef(store);
-  latest.current=store;
-  const draft=useRef(profile);
-  draft.current=profile;
-  useEffect(()=>{
-    alive.current=true;
-    const connection=()=>setOnline(navigator.onLine);
-    window.addEventListener('online',connection);window.addEventListener('offline',connection);
-    return()=>{alive.current=false;++request.current;window.removeEventListener('online',connection);window.removeEventListener('offline',connection);};
-  },[]);
-  const invalidate=()=>{++request.current;calculating.current=false;setProposal(undefined);setWantsProposal(false);if(!locked.current)setOperation('idle');};
 
   const plans=store.state!.plans.filter(p=>!p.deleted);
   const isInitialSetup=onboarding||plans.length===0;
@@ -102,6 +84,14 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const acceptedPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const current=today(store.state!.profile?.timeZone);
   const derivedAge=ageOn(profile.dateOfBirth,current);
+  const pending=store.local!.queue.length>0;
+  const changed=!profilesEqual(profile,store.state!.profile);
+  const proposalFlow=useCoachProposal({store,draft:profile,changed,
+    onAccepted:refreshed=>{setMessage('Plan active.');if(refreshed)setReview(false);}});
+  const {proposal,operation:proposalOperation,setOperation,error,setError,setProposal,setWantsProposal,acceptProposal,retryRefresh:refreshTargets,
+    loadProposal:requestProposal,invalidate,acceptance,locked,online}=proposalFlow;
+  const operation=saving?'saving':proposalOperation;
+  const busy=saving||proposalFlow.busy;
 
   const set=(key:keyof Profile,value:unknown)=>{
     invalidate();
@@ -130,106 +120,31 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     setProposal(undefined);
   };
 
-  const pending=store.local!.queue.length>0;
-  const changed=!profilesEqual(profile,store.state!.profile);
+  const loadProposal=()=>{setReview(true);void requestProposal();};
 
-  const loadProposal=async()=>{
-    if(locked.current||calculating.current)return;
-    calculating.current=true;
-    const token=++request.current;
-    const revision=latest.current.state!.revision;
-    setReview(true);setOperation('calculating');setError('');setProposal(undefined);
-    try{
-      const next=await api<Preview>('/coach/preview');
-      if(!alive.current||token!==request.current)return;
-      if(next.revision!==latest.current.state!.revision){
-        await latest.current.refresh();
-        if(!alive.current||token!==request.current)return;
-        setWantsProposal(true);setOperation('waiting');return;
-      }
-      if(latest.current.state!.revision!==revision||!profilesEqual(draft.current,latest.current.state!.profile)||latest.current.local!.queue.length){
-        setWantsProposal(true);setOperation('waiting');return;
-      }
-      setProposal({...next,acceptId:crypto.randomUUID()});setOperation('idle');
-    }catch(ex){if(alive.current&&token===request.current){setError((ex as Error).message);setOperation('error');}}
-    finally{if(token===request.current)calculating.current=false;}
-  };
-
-  useEffect(()=>{
-    if(wantsProposal&&!pending&&!changed&&online){
-      setWantsProposal(false);
-      void loadProposal();
-    }
-  },[wantsProposal,pending,changed,online]);
-
-  const acceptProposal=async()=>{
-    if(!proposal||locked.current||pending||!online)return;
-    locked.current=true;setError('');
-    const token=++request.current;
-    try{
-    let live=proposal;
-    // A proposal calculated before another write is refreshed in place rather than left as a
-    // dead button, so accepting stays one action.
-    if(!acceptance.current&&live.revision!==store.state!.revision){
-      setOperation('updating');
-      live={...await api<Preview>('/coach/preview'),acceptId:proposal.acceptId};
-      if(!alive.current||token!==request.current)return;
-      if(live.revision!==latest.current.state!.revision){
-        await latest.current.refresh();
-        if(!alive.current||token!==request.current)return;
-        locked.current=false;setProposal(undefined);setWantsProposal(true);setOperation('waiting');return;
-      }
-      setProposal(live);
-      if(!live.canAccept){setOperation('idle');return;}
-    }
-    if(latest.current.local!.queue.length||!profilesEqual(draft.current,latest.current.state!.profile)){
-      setProposal(undefined);setWantsProposal(true);setOperation('waiting');return;
-    }
-    setOperation('accepting');
-    // A lost response must replay the exact identity AND input revision, even if state refreshed.
-    acceptance.current??={id:live.acceptId,revision:live.revision};
-    await api('/coach/accept',acceptance.current);
-    acceptance.current=undefined;
-    if(!alive.current)return;
-    setProposal(undefined);
-    setMessage('Plan active.');
-    setOperation('refreshing');
-    try{await store.refresh();if(alive.current){setOperation('idle');setReview(false);}}
-    catch{if(alive.current){setError('Your plan is active. The latest view could not be loaded.');setOperation('refresh-error');}}
-    }catch(ex){
-      if(ex instanceof ApiError&&[400,409,422].includes(ex.status))acceptance.current=undefined;
-      if(ex instanceof ApiError&&ex.status===409&&alive.current&&token===request.current){
-        try{
-          await latest.current.refresh();
-          if(alive.current&&token===request.current){locked.current=false;setProposal(undefined);setWantsProposal(true);setOperation('waiting');}
-          return;
-        }catch{/* Keep the failed proposal reviewable when refresh is unavailable. */}
-      }
-      if(alive.current&&token===request.current){setError(acceptance.current?'Activation could not be confirmed. Retry accepting this plan to check the same request.':(ex as Error).message);setOperation('error');}
-    }
-    finally{locked.current=false;}
-  };
-  const retryRefresh=async()=>{
-    if(locked.current)return;
-    locked.current=true;setOperation('refreshing');setError('');
-    try{await store.refresh();if(alive.current){setOperation('idle');setReview(false);}}
-    catch{if(alive.current){setError('Your plan is active. The latest view could not be loaded.');setOperation('refresh-error');}}
-    finally{locked.current=false;}
-  };
+  const retryRefresh=async()=>{await refreshTargets();if(proposalFlow.operation!=='refresh-error')setReview(false);};
 
   const live=calculateLivePace(profile,undefined,acceptedPlan?.expenditure,current);
   const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
   const weighIns=[...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)];
-  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,current));
-  const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&profile.heightCm>0&&profile.weightKg>0&&profile.sex);
-  const canAdvanceActivity=Boolean(profile.activity&&profile.activity>0);
-  const canAdvanceGoal=Boolean(profile.goal);
+  const phaseDecision=store.state!.phaseDecisions?.find(decision=>decision.profileRevision===store.state!.profileRevision&&!decision.deleted);
+  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,current,phaseDecision),phaseDecision);
+  const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
+  const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5&&(profile.maintenance==null||(profile.maintenance>=1000&&profile.maintenance<=7000)));
+  const phaseInitial=profile.phaseStartWeightKg??profile.weightKg;
+  const target=profile.targetWeightKg;
+  const canAdvanceGoal=Boolean(profile.goal
+    &&(profile.phaseMode!=='duration'||(profile.durationWeeks!=null&&profile.durationWeeks>=1&&profile.durationWeeks<=104&&Number.isInteger(profile.durationWeeks)&&!!profile.phaseStart&&profile.phaseStart>='2000-01-01'&&profile.phaseStart<=current))
+    &&(profile.phaseMode!=='weight'||(target!=null&&target>=20&&target<=400&&phaseInitial>=20&&phaseInitial<=400&&(profile.goal==='lose'?target<phaseInitial&&target/Math.pow(profile.heightCm/100,2)>=18.5:profile.goal==='gain'&&target>phaseInitial))));
 
   const openPlan=(target:StepKey='body')=>{if(locked.current||acceptance.current)return;invalidate();setReview(false);setError('');setMessage('');setMainTab('plan');setStep(target);};
 
   const submitProfile=async()=>{
-    if(locked.current||step!=='macros'||!canAdvanceBody||!canAdvanceActivity||!canAdvanceGoal)return;
-    locked.current=true;setOperation('saving');setError('');
+    if(locked.current||step!=='macros')return;
+    if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}
+    if(!canAdvanceActivity){setStep('activity');setError('Choose your usual activity.');return;}
+    if(!canAdvanceGoal){setStep('goal');setError('Review your goal and phase details.');return;}
+    locked.current=true;setSaving(true);setError('');
     try{
     await store.mutate({
       kind:'profile',
@@ -245,7 +160,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     setMainTab('targets');
     setMessage('');
     }catch(ex){setError((ex as Error).message);setOperation('error');}
-    finally{locked.current=false;}
+    finally{locked.current=false;setSaving(false);}
   };
 
   const steps=[
@@ -284,7 +199,9 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   </CoachLayout></section>:null;
 
   const targetsTab=<>
-    <GoalReachedBanner progress={goalProgress} onChooseGoal={()=>openPlan('goal')}/>
+    <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={()=>openPlan('goal')}
+      onComplete={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
+    <CheckInCard store={store} onReview={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
     {acceptedPlan&&<section className="panel">
       <div className="section-heading">
         <div><h2>Active targets</h2></div>
@@ -329,35 +246,35 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         if(isInitialSetup)return <div key={s.id} className={`step-pill step-indicator ${isCurrent?'active':''}`} aria-current={isCurrent?'step':undefined}>
           <Icon size={16}/><span>{i+1}. {s.label}</span>
         </div>;
-        return <Button key={s.id} type="button" variant={isCurrent?'primary':'secondary'} className={`step-pill ${isCurrent?'active':''}`} onClick={()=>setStep(s.id)}>
+        return <Button key={s.id} type="button" variant={isCurrent?'primary':'secondary'} className={`step-pill ${isCurrent?'active':''}`} onClick={()=>{if(stepOrder.indexOf(s.id)<stepOrder.indexOf(step)||validateFields(stage.current))setStep(s.id);}}>
           <Icon size={16}/><span>{i+1}. {s.label}</span>
         </Button>;
       })}
     </CoachStepper>
 
-    <form onSubmit={e=>{e.preventDefault();void submitProfile();}}>
+    <Form onSubmit={e=>{e.preventDefault();if(step==='macros')void submitProfile();else setStep(stepOrder[stepOrder.indexOf(step)+1]);}}>
       <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
       <h3 tabIndex={-1} data-step-heading className="coach-step-heading">{steps.find(s=>s.id===step)!.label}</h3>
       {step==='body'&&<div className="step-content">
         <div className="form-grid">
-          <DatePicker label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`Age ${derivedAge}`:undefined}/>
-          <Field label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value))}/>
-          <Field label="Starting weight (kg)" type="number" required min="20" max="400" step="0.1" value={profile.weightKg||''} onChange={e=>set('weightKg',Number(e.target.value))}/>
-          <SelectField required label="Sex parameter for equation" value={profile.sex} onChange={v=>set('sex',v)}>
+          <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<13||derivedAge>120)?'Enter a date of birth for an age from 13 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`Age ${derivedAge}`:undefined}/>
+          <Field id="coach-height" name="heightCm" label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value))}/>
+          <Field id="coach-weight" name="weightKg" label="Starting weight (kg)" type="number" required min="20" max="400" step="0.1" value={profile.weightKg||''} onChange={e=>set('weightKg',Number(e.target.value))}/>
+          <SelectField id="coach-sex" name="sex" required label="Sex parameter for equation" value={profile.sex} onChange={v=>set('sex',v)}>
             <option value="" disabled>Choose an equation parameter</option>
             <option value="female">Female equation</option>
             <option value="male">Male equation</option>
           </SelectField>
         </div>
         <div className="step-actions">
-          <Button type="button" size="md" variant="primary" onClick={()=>setStep('activity')} disabled={!canAdvanceBody}>
+          <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('activity');}}>
             Next: Activity <ArrowRight size={16}/>
           </Button>
         </div>
       </div>}
 
       {step==='activity'&&<div className="step-content">
-        <SelectField required label="Usual activity (approximate)" value={profile.activity?String(profile.activity):''} onChange={v=>set('activity',Number(v))}>
+        <SelectField id="coach-activity" name="activity" required label="Usual activity (approximate)" value={profile.activity?String(profile.activity):''} onChange={v=>set('activity',Number(v))}>
           <option value="" disabled>Choose your usual activity</option>
           <option value="1.2">Very little activity · 1.2</option>
           <option value="1.4">Mostly sitting, some walking · 1.4</option>
@@ -365,35 +282,35 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           <option value="1.8">Active most days · 1.8</option>
           <option value="2.0">Very active · 2.0</option>
         </SelectField>
-        <Field label="Known maintenance calories (optional)" type="number" min="1000" max="7000" value={profile.maintenance??''} placeholder="Use the equation" onChange={e=>set('maintenance',e.target.value?Number(e.target.value):null)}/>
+        <Field id="coach-maintenance" name="maintenance" label="Known maintenance calories (optional)" type="number" min="1000" max="7000" value={profile.maintenance??''} placeholder="Use the equation" onChange={e=>set('maintenance',e.target.value?Number(e.target.value):null)}/>
         <div className="checks">
-          <label>
-            <input type="checkbox" checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
+          <label htmlFor="coach-resistance-training">
+            <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
             Resistance training
           </label>
-          {([['pregnancyOrBreastfeeding','Pregnant or breastfeeding'],['medicalNutrition','Medically managed nutrition']] as const).map(([key,label])=><label key={key}>
-            <input type="checkbox" checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
+          {([['pregnancyOrBreastfeeding','Pregnant or breastfeeding'],['medicalNutrition','Medically managed nutrition']] as const).map(([key,label])=><label key={key} htmlFor={`coach-${key}`}>
+            <input id={`coach-${key}`} name={key} type="checkbox" checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
           </label>)}
         </div>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('body')}><ArrowLeft size={16}/> Back</Button>
-          <Button type="button" size="md" variant="primary" onClick={()=>setStep('goal')} disabled={!canAdvanceActivity}>
+          <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('goal');}}>
             Next: Goal <ArrowRight size={16}/>
           </Button>
         </div>
       </div>}
 
       {step==='goal'&&<div className="step-content">
-        <fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
-          {(['lose','maintain','gain'] as const).map(goal=><label key={goal} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
-            <input type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
+        <FieldFrame label="Your goal"><fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
+          {(['lose','maintain','gain'] as const).map(goal=><label key={goal} htmlFor={`coach-goal-${goal}`} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
+            <input id={`coach-goal-${goal}`} required type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
             <span>{goalLabel(goal)}</span><Check size={16} aria-hidden="true"/>
           </label>)}
-        </div></fieldset>
+        </div></fieldset></FieldFrame>
         <GoalSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}><ArrowLeft size={16}/> Back</Button>
-          <Button type="button" size="md" variant="primary" onClick={()=>setStep('macros')} disabled={!canAdvanceGoal}>
+          <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('macros');}}>
             Next: Macros <ArrowRight size={16}/>
           </Button>
         </div>
@@ -413,13 +330,13 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         </dl>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
-          <Button variant="primary" size="md" type="submit" disabled={busy||!canAdvanceBody||!canAdvanceActivity||!canAdvanceGoal}>
+          <Button variant="primary" size="md" type="submit" disabled={busy}>
             {operation==='saving'?'Saving on this device…':isInitialSetup?'Create my starting estimate':'Save profile'}
           </Button>
         </div>
       </div>}
       </div></CoachLayout>
-    </form>
+    </Form>
   </section>;
 
   const historyTab=<section className="panel">
@@ -440,11 +357,9 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       <div><h1>Coach</h1></div>
     </header>
 
-    {!isInitialSetup&&<div className="tabs coach-nav-tabs" role="group" aria-label="Coach sections">
-      <Button variant={mainTab==='targets'?'primary':'secondary'} onClick={()=>{setMessage('');setMainTab('targets');}}>Targets</Button>
-      <Button variant={mainTab==='plan'?'primary':'secondary'} disabled={operation==='accepting'||operation==='updating'||operation==='refreshing'||!!acceptance.current} onClick={()=>openPlan(step)}>Plan</Button>
-      <Button variant={mainTab==='history'?'primary':'secondary'} onClick={()=>{setMessage('');setMainTab('history');}}>History</Button>
-    </div>}
+    {!isInitialSetup&&<SegmentedControl<MainTab> className="section-segments" label="Coach sections" value={mainTab}
+      options={[{value:'targets',label:'Targets'},{value:'plan',label:'Plan',disabled:operation==='accepting'||operation==='updating'||operation==='refreshing'||!!acceptance.current},{value:'history',label:'History'}]}
+      onChange={value=>{if(value==='plan')openPlan(step);else {setMessage('');setMainTab(value);}}}/>}
 
     {message&&<p className="status-banner coach-success" role="status"><Check size={18} aria-hidden="true"/>{message}</p>}
     {error&&<p className="error" role="alert">{error}</p>}
@@ -454,5 +369,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       :mainTab==='targets'?targetsTab
       :mainTab==='plan'?planTab
       :historyTab}</div>
+    <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>
   </>;
 }

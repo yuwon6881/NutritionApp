@@ -1,13 +1,18 @@
-import {useId, useRef, useState, type ChangeEvent, type DragEvent} from 'react';
+import {FieldFrame} from './Form';
+import {useId, useRef, useState, type ChangeEvent, type DragEvent, type InputHTMLAttributes} from 'react';
 import {UploadCloud, FileImage, X} from 'lucide-react';
 
 export interface FileInputProps {
   label: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   accept?: string;
+  capture?: InputHTMLAttributes<HTMLInputElement>['capture'];
   disabled?: boolean;
   required?: boolean;
   hint?: string;
+  validate?:()=>string|undefined;
+  id?: string;
+  name?: string;
   className?: string;
 }
 
@@ -15,12 +20,18 @@ export function FileInput({
   label,
   onChange,
   accept = 'image/*',
+  capture,
   disabled = false,
   required = false,
   hint,
+  validate,
+  id: idProp,
+  name: nameProp,
   className = '',
 }: FileInputProps) {
-  const id = useId();
+  const generatedId = useId();
+  const id = idProp ?? generatedId;
+  const name = nameProp ?? idProp ?? id;
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
@@ -62,11 +73,12 @@ export function FileInput({
     if (inputRef.current) {
       inputRef.current.value = '';
       setSelectedFileName('');
+      inputRef.current.dispatchEvent(new Event('change',{bubbles:true}));
     }
   };
 
   return (
-    <div className={`field file-input-field ${className}`.trim()}>
+    <FieldFrame label={label} validate={validate} className={`field file-input-field ${className}`.trim()}>
       <label htmlFor={id} className="file-input-label">
         <span>{label}</span>
       </label>
@@ -79,6 +91,9 @@ export function FileInput({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        data-validation-focus
+        aria-label={`Upload ${label.toLowerCase()}`}
+        aria-describedby={hint?`${id}-hint`:undefined}
         role="button"
         tabIndex={disabled ? -1 : 0}
         onKeyDown={e => {
@@ -92,8 +107,10 @@ export function FileInput({
         <input
           ref={inputRef}
           id={id}
+          name={name}
           type="file"
           accept={accept}
+          capture={capture}
           disabled={disabled}
           required={required}
           onChange={handleInputChange}
@@ -108,6 +125,7 @@ export function FileInput({
             <button
               type="button"
               className="file-clear-btn"
+              disabled={disabled}
               onClick={handleClear}
               aria-label="Remove selected file"
             >
@@ -123,7 +141,7 @@ export function FileInput({
         )}
       </div>
 
-      {hint && <small>{hint}</small>}
-    </div>
+      {hint && <small id={`${id}-hint`}>{hint}</small>}
+    </FieldFrame>
   );
 }

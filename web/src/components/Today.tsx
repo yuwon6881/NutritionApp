@@ -1,14 +1,17 @@
-import {useEffect,useState} from 'react';
+import {useState} from 'react';
 import {ArrowRight,Plus,Trash2,Copy,Leaf,Scale,Compass} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult,Entry} from '../types';
 import {number,today} from '../lib/format';
 import {Button} from './ui/Button';
-import {Field,SelectField} from './ui/Field';
+import {SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {dayStatus} from '../lib/loggingDay';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {GoalReachedBanner} from './GoalReachedBanner';
+import {CheckInCard} from './CheckInCard';
+import {CheckInDialog} from './CheckInDialog';
+import {mealReadOnly} from '../lib/foodDiary';
 export function Today({
   store,
   date,
@@ -16,7 +19,8 @@ export function Today({
   onLog,
   onCoach,
   onEdit,
-  openWeight
+  onWeight,
+  onCopyDay
 }:{
   store:Nourish;
   date:string;
@@ -24,26 +28,25 @@ export function Today({
   onLog:()=>void;
   onCoach:()=>void;
   onEdit:(e:Entry)=>void;
-  openWeight?:boolean;
+  onWeight:(trigger?:HTMLElement|null)=>void;
+  onCopyDay:(sourceDate:string,entries:Entry[],trigger?:HTMLElement|null)=>void;
 }){
   const state=store.state!;
   const [error,setError]=useState('');
-  const [copyDate,setCopyDate]=useState(date);
-  const [showQuickWeight,setShowQuickWeight]=useState(openWeight??false);
-  const [quickKg,setQuickKg]=useState('');
-  const [quickWeightDate,setQuickWeightDate]=useState(date);
-  useEffect(()=>{if(openWeight)setShowQuickWeight(true);},[openWeight]);
+  const [checkInOpen,setCheckInOpen]=useState(false);
+  const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
   const entries=state.entries.filter(e=>!e.deleted&&e.date===date);
   const savedDay=state.days.find(d=>d.date===date&&!d.deleted);
   const total=savedDay?.archived?(savedDay.calories??0):entries.reduce((s,e)=>s+e.calories,0);
-  const readOnly=date<(state.detailCutoff??"2000-01-01");
+  const readOnly=mealReadOnly(state,date);
   const accepted=state.plans.find(p=>!p.deleted&&p.profileRevision===state.profileRevision);
   const plan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const day=state.days.find(d=>d.date===date);
   const status=dayStatus(date,today(state.profile?.timeZone),day&&!day.deleted?day.status:undefined,savedDay?.archived?(savedDay.entryCount??0)>0:entries.length>0);
   const ratio=plan?.calories?Math.min(total/plan.calories,1):0;
   const act=async(fn:()=>Promise<unknown>)=>{try{setError('');await fn();}catch(ex){setError((ex as Error).message);}};
-  const goalProgress=mergeGoalProgress(plan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone)));
+  const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
+  const goalProgress=mergeGoalProgress(plan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision),phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
   return <>
     <header className="page-heading">
@@ -52,12 +55,14 @@ export function Today({
         <h1>Diary</h1>
 
       </div>
-      <DatePicker label="Diary date" value={date} max={today(state.profile?.timeZone)} onChange={val=>{
+      <DatePicker id="diary-date" name="date" label="Diary date" value={date} max={today(state.profile?.timeZone)} onChange={val=>{
         setDate(val);
         if(val<state.start||val>state.end)void store.refresh(val).catch(ex=>setError(ex.message));
       }}/>
     </header>
-    <GoalReachedBanner progress={goalProgress} onChooseGoal={onCoach} action="Open coach"/>
+    <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
+      onComplete={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
+    <CheckInCard store={store} onReview={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
     {!loaded?<section className="panel">
       <h2>Not stored on this device</h2>
       <p>Connect to load this date.</p>
@@ -98,54 +103,21 @@ export function Today({
           <Plus size={18}/>
           <span>Log food</span>
         </Button>
-        <Button variant="secondary" className="quick-action-btn" onClick={()=>{setQuickWeightDate(date);setShowQuickWeight(s=>!s);}}>
+        <Button variant="secondary" className="quick-action-btn" onClick={event=>onWeight(event.currentTarget)}>
           <Scale size={18}/>
-          <span>{showQuickWeight?'Close':'Log weight'}</span>
+          <span>Log weight</span>
         </Button>
         <Button variant="tertiary" className="quick-action-btn" onClick={onCoach}>
           <Compass size={18}/>
           <span>Targets</span>
         </Button>
       </div>
-      {showQuickWeight&&<section className="panel quick-weight-panel" aria-label="Quick weight entry">
-        <div className="section-heading">
-          <div>
-            <h2>Weigh-in</h2>
-
-          </div>
-          <Button variant="tertiary" onClick={()=>setShowQuickWeight(false)}>Close</Button>
-        </div>
-        <form onSubmit={async e=>{
-          e.preventDefault();
-          const weights=state.weights.filter(w=>!w.deleted);
-          const old=weights.find(w=>w.date===quickWeightDate);
-          await act(async()=>{
-            await store.mutate({
-              kind:'weight',
-              recordId:old?.id??crypto.randomUUID(),
-              expectedRevision:old?.revision??0,
-              data:{date:quickWeightDate,kg:Number(quickKg)},
-              delete:false
-            });
-            setQuickKg('');
-            setShowQuickWeight(false);
-          });
-        }}>
-          <div className="form-grid">
-            <DatePicker label="Weigh-in date" value={quickWeightDate} max={today(state.profile?.timeZone)} required onChange={setQuickWeightDate}/>
-            <Field label="Weight (kg)" type="number" min="20" max="400" step="0.01" required value={quickKg} onChange={e=>setQuickKg(e.target.value)}/>
-          </div>
-          <div className="actions">
-            <Button variant="primary" size="md" type="submit" disabled={!quickKg}>Save weigh-in</Button>
-          </div>
-        </form>
-      </section>}
       <section className="panel diary">
         <div className="section-heading">
           <div>
             <h2>{savedDay?.archived?"Daily summary":"Food entries"}</h2>
             <small className="source">{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logged':date===today(state.profile?.timeZone)?'Still logging':'No food logged'}</small>
-            {date<today(state.profile?.timeZone)&&<SelectField label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}><option value="incomplete">{entries.length||(savedDay?.entryCount??0)>0?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging</option><option value="fasting" disabled={total>0}>Fasting</option></SelectField>}
+            {date<today(state.profile?.timeZone)&&<SelectField id="diary-logging-status" name="status" label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}><option value="incomplete">{entries.length||(savedDay?.entryCount??0)>0?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging</option><option value="fasting" disabled={total>0}>Fasting</option></SelectField>}
           </div>
           <Button variant="primary" size="md" disabled={readOnly} onClick={onLog}>
             <Plus size={18}/>Log food
@@ -173,15 +145,13 @@ export function Today({
           </Button>
         </div>)}
         {!!entries.length&&<div className="copy-day">
-          <DatePicker label="Copy this day to" value={copyDate} max={today(state.profile?.timeZone)} onChange={setCopyDate}/>
-          <Button size="md" onClick={()=>void act(async()=>{
-            for(const e of entries)await store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,data:{...e,date:copyDate},delete:false});
-          })}>
+          <Button size="md" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>
             <Copy size={16}/>Copy day
           </Button>
         </div>}
       </section>
     </>}
     {error&&<p className="error" role="alert">{error}</p>}
+    <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>
   </>;
 }

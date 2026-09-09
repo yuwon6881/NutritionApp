@@ -10,11 +10,11 @@ Store the connection, `OpenAi__ApiKey`, optional `Usda__ApiKey`, and `Cleanup__T
 
 `dotnet run --project tools/DatabaseAdmin/DatabaseAdmin.csproj -- inspect deploy/neon.local.json` reads tables and size. The `migrate` command refuses unexpected public tables before applying EF migrations. `neon deploy` manages Neon infrastructure configuration; it does not replace the ASP.NET EF schema migrations. No Neon Auth, Neon Functions, or Neon object storage are needed by this application.
 
-Neon Free currently includes 0.5 GB storage per project. The 350 MB warning and 400 MB optional-write limit are application budgets, not provider quota telemetry; monitor branch/history overhead and Neon compute quotas in its console. The seven-day meal-detail compaction policy is unchanged. [Neon pricing](https://neon.com/pricing).
+Neon Free currently includes 0.5 GB storage per project. The 350 MB warning and 400 MB optional-write limit are application budgets, not provider quota telemetry; monitor branch/history overhead and Neon compute quotas in its console. Meal details now default to 90 calendar days before compaction. [Neon pricing](https://neon.com/pricing).
 
 ## API and files
 
-Build the API-only Dockerfile using Cloud Build. Deploy a new Cloud Run service with `Auth__MaxUsers=2`, `OpenAi__Model=gpt-5.4-mini`, `Database__MigrateOnStartup=false`, `Retention__MealDetailDays=7`, minimum instances 0 and maximum instances 1. `PublicOrigin` must be the exact Vercel production HTTPS origin, without a trailing slash. Review memory and request timeouts against actual workloads.
+Build the API-only Dockerfile using Cloud Build. Deploy a new Cloud Run service with `Auth__MaxUsers=2`, `OpenAi__Model=gpt-5.4-mini`, `Database__MigrateOnStartup=false`, `Retention__MealDetailDays=90`, minimum instances 0 and maximum instances 1. `PublicOrigin` must be the exact Vercel production HTTPS origin, without a trailing slash. Review memory and request timeouts against actual workloads.
 
 `Physique__Bucket` selects the existing private GCS bucket. Grant the nutrition runtime identity access only to the `nutrition-physique/` prefix. Keep FinancialApp bucket policies unchanged. Its versioning/30-day soft-delete policy applies to physique photos; deletion targets the exact generation.
 

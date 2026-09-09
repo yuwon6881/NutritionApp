@@ -1,3 +1,4 @@
+import {FieldFrame} from './Form';
 import {
   Children,
   isValidElement,
@@ -25,7 +26,9 @@ export interface SelectProps {
   disabled?: boolean;
   required?: boolean;
   hint?: string;
+  validate?:()=>string|undefined;
   id?: string;
+  name?: string;
   placeholder?: string;
   className?: string;
 }
@@ -39,12 +42,15 @@ export function Select({
   disabled = false,
   required = false,
   hint,
+  validate,
   id: idProp,
+  name: nameProp,
   placeholder = 'Select an option',
   className = '',
 }: SelectProps) {
   const generatedId = useId();
   const selectId = idProp ?? generatedId;
+  const selectName = nameProp ?? idProp ?? selectId;
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -142,13 +148,16 @@ export function Select({
   };
 
   return (
-    <div className={`field select-field ${className}`.trim()} ref={containerRef}>
+    <FieldFrame label={label} validate={validate} className={`field select-field ${className}`.trim()} ref={containerRef}>
       <label htmlFor={selectId} className="select-label">
         <span>{label}</span>
       </label>
 
       <div className="custom-select-wrapper">
         <button
+          data-validation-focus
+          aria-label={`Choose ${label.toLowerCase()}`}
+          aria-describedby={[`${selectId}-value`,hint?`${selectId}-hint`:undefined].filter(Boolean).join(' ')}
           type="button"
           id={`${selectId}-btn`}
           className={`custom-select-trigger ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
@@ -159,7 +168,7 @@ export function Select({
           aria-controls={`${selectId}-list`}
           disabled={disabled}
         >
-          <span className={`selected-text ${!selectedOption ? 'placeholder' : ''}`}>
+          <span id={`${selectId}-value`} className={`selected-text ${!selectedOption ? 'placeholder' : ''}`}>
             {selectedOption?.label || placeholder}
           </span>
           <ChevronDown size={16} className={`select-chevron ${isOpen ? 'rotated' : ''}`} />
@@ -168,6 +177,7 @@ export function Select({
         {/* Native select element kept accessible and synced for Playwright, form submission, and screen readers */}
         <select
           id={selectId}
+          name={selectName}
           value={value}
           onChange={e => onChange(e.target.value)}
           disabled={disabled}
@@ -220,8 +230,8 @@ export function Select({
         )}
       </div>
 
-      {hint && <small>{hint}</small>}
-    </div>
+      {hint && <small id={`${selectId}-hint`}>{hint}</small>}
+    </FieldFrame>
   );
 }
 

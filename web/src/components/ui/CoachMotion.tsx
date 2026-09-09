@@ -107,6 +107,33 @@ export function CoachNumber({children}:{children:ReactNode}){
   return <span ref={node} className="coach-number">{children}</span>;
 }
 
+export function CoachDelta({value,unit='kcal'}:{value:number|null|undefined;unit?:string}){
+  const target=Math.round(value??0);
+  const [display,setDisplay]=useState(target);
+  const previous=useRef(target);
+  useEffect(()=>{
+    const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
+    let frame=0;
+    const finish=()=>{previous.current=target;setDisplay(target);};
+    if(preference.matches){finish();return()=>{};}
+    const from=previous.current;const started=performance.now();
+    const tick=(now:number)=>{
+      const progress=Math.min((now-started)/360,1);const eased=1-Math.pow(1-progress,3);
+      setDisplay(Math.round(from+(target-from)*eased));
+      if(progress<1)frame=requestAnimationFrame(tick);else previous.current=target;
+    };
+    frame=requestAnimationFrame(tick);
+    // Keep a live reduced-motion preference from leaving a running animation behind.
+    const stop=()=>{if(preference.matches){cancelAnimationFrame(frame);finish();}};
+    preference.addEventListener('change',stop);
+    return()=>{cancelAnimationFrame(frame);preference.removeEventListener('change',stop);};
+  },[target]);
+  const sign=display>0?'+':'';const direction=display>0?'↑':display<0?'↓':'→';
+  return <span className={`coach-delta ${display>0?'positive':display<0?'negative':'neutral'}`} aria-label={`${sign}${display} ${unit}`}>
+    <span aria-hidden="true">{direction}</span> {sign}{display} {unit}
+  </span>;
+}
+
 export function CoachStepper({active,children}:{active:string;children:ReactNode}){
   const nav=useRef<HTMLElement>(null);
   const marker=useRef<HTMLSpanElement>(null);

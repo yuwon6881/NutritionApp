@@ -122,6 +122,45 @@ namespace Nutrition.Api.Data.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Nutrition.Api.Data.CheckInDecision", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("InputRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("WeekStart")
+                        .HasColumnType("date");
+
+                    b.HasKey("UserId", "Id");
+
+                    b.HasIndex("UserId", "WeekStart");
+
+                    b.ToTable("CheckIns");
+                });
+
             modelBuilder.Entity("Nutrition.Api.Data.DayStatus", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -221,6 +260,9 @@ namespace Nutrition.Api.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Time")
+                        .HasColumnType("text");
+
                     b.Property<string>("Unit")
                         .IsRequired()
                         .HasColumnType("text");
@@ -311,6 +353,43 @@ namespace Nutrition.Api.Data.Migrations
                     b.HasIndex("Created");
 
                     b.ToTable("Receipts");
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.PhaseDecision", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("ProfileRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ReachedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UserId", "Id");
+
+                    b.HasIndex("UserId", "ProfileRevision")
+                        .IsUnique();
+
+                    b.ToTable("PhaseDecisions");
                 });
 
             modelBuilder.Entity("Nutrition.Api.Data.PhysiquePhoto", b =>
@@ -487,6 +566,15 @@ namespace Nutrition.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Nutrition.Api.Data.CheckInDecision", b =>
+                {
+                    b.HasOne("Nutrition.Api.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Nutrition.Api.Data.DayStatus", b =>
                 {
                     b.HasOne("Nutrition.Api.Data.AppUser", null)
@@ -515,6 +603,15 @@ namespace Nutrition.Api.Data.Migrations
                 });
 
             modelBuilder.Entity("Nutrition.Api.Data.MutationReceipt", b =>
+                {
+                    b.HasOne("Nutrition.Api.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.PhaseDecision", b =>
                 {
                     b.HasOne("Nutrition.Api.Data.AppUser", null)
                         .WithMany()

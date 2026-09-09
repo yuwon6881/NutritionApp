@@ -22,6 +22,13 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             if(op.Data.TryGetProperty("date",out var date)) retention.RequireEditable(date.Deserialize<DateOnly>(),user.ProfileJson);
             if(op.Kind=="entry"&&await db.Entries.SingleOrDefaultAsync(e=>e.Id==op.RecordId,ct) is {} existingEntry) retention.RequireEditable(existingEntry.Date,user.ProfileJson);
         }
+        if(op.Kind=="entry")
+        {
+            var existingDate=await db.Entries.Where(e=>e.Id==op.RecordId).Select(e=>(DateOnly?)e.Date).SingleOrDefaultAsync(ct);
+            var requestedDate=op.Data.TryGetProperty("date",out var entryDate)?entryDate.Deserialize<DateOnly>():existingDate;
+            Validation.Require(!await db.Days.AnyAsync(d=>d.Archived&&(d.Date==requestedDate||d.Date==existingDate),ct),
+                "This day has already been summarized. Meal details are read-only. Your unsynced edit is retained locally for review.",409);
+        }
         var revision = user.Revision + 1;
         switch (op.Kind)
         {
@@ -33,6 +40,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             case "entry": await Upsert<DiaryEntry>(op, revision, e =>
                 {
                     Validation.Nutrients(e); Date(e.Date); Validation.Number(e.Quantity, .001, 100000, "Quantity");
+                    Validation.Require(e.Time==null || System.Text.RegularExpressions.Regex.IsMatch(e.Time,@"\A(?:[01][0-9]|2[0-3]):[0-5][0-9]\z"),"Choose a valid meal time (HH:mm).");
                     Validation.Require(e.Meal.Length is > 0 and <= 80 && e.Unit is "g" or "serving", "Invalid meal or unit.");
                 }, ct); break;
             case "food":
@@ -89,6 +97,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         Validation.Require(!op.Delete || existing != null, "Record no longer exists.", 409);
         if (op.Delete) { existing!.Deleted = true; existing.Revision = revision; return; }
         var next = op.Data.Deserialize<T>(Json.Options) ?? throw new DomainException("Record is required.");
+        if(next is DiaryEntry entry&&existing is DiaryEntry savedEntry&&!op.Data.TryGetProperty("time",out _))entry.Time=savedEntry.Time;
         validate(next); next.Id = op.RecordId; next.UserId = db.CurrentUser!.Value; next.Revision = revision; next.Deleted = false;
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);

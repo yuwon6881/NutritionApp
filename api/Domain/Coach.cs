@@ -1,3 +1,5 @@
+using Nutrition.Api.Data;
+
 namespace Nutrition.Api.Domain;
 
 public sealed record Profile
@@ -35,11 +37,12 @@ public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double
     public string EffectiveGoal { get; init; } = "maintain";
     public bool PhaseComplete { get; init; }
     public GoalProgress? GoalProgress { get; init; }
+    public EnergyEvidence? Evidence { get; init; }
 }
 
 public static class Coach
 {
-    public const string Version = "1.1.0";
+    public const string Version = "2.0.0";
     public static double Resting(Profile p) => 10 * p.WeightKg + 6.25 * p.HeightCm - 5 * p.Age + (p.Sex == "male" ? 5 : -161);
 
     /// A stored date of birth is authoritative so age advances with the calendar; Age remains the fallback for profiles saved before it existed.
@@ -52,50 +55,31 @@ public static class Coach
     }
 
     public static CoachResult Calculate(Profile p, IReadOnlyList<NutritionDay> days,
-        IReadOnlyList<WeightPoint> weights, PreviousPlan? previous, DateOnly today, double? startingExpenditure = null, bool allowAdaptation = true)
+        IReadOnlyList<WeightPoint> weights, PreviousPlan? previous, DateOnly today, double? startingExpenditure = null,
+        bool allowAdaptation = true, PhaseDecision? phaseDecision = null)
     {
         p = p with { Age = AgeAt(p, today) };
         if (p.Age < 18 || p.PregnancyOrBreastfeeding || p.MedicalNutrition)
             return Blocked("Automated targets are unavailable for this profile. You can still keep a food and weight diary.");
-        var progress = GoalPolicy.Evaluate(p, weights, today, previous?.PhaseComplete == true);
+        var progress = GoalPolicy.Evaluate(p, weights, today, phaseDecision);
         var currentWeight = Trend(weights.Where(w => w.Date <= today).ToArray()).LastOrDefault()?.Kg ?? p.WeightKg;
         p = p with { WeightKg = currentWeight };
         var effectiveGoal = progress.Complete ? "maintain" : p.Goal;
         if (effectiveGoal == "lose" && p.WeightKg / Math.Pow(p.HeightCm / 100, 2) < 18.5)
             return Blocked("Weight-loss coaching is unavailable at an underweight BMI.");
         var expenditure = previous?.Expenditure ?? startingExpenditure ?? p.Maintenance ?? Resting(p) * p.Activity;
-        var block = RecentBlock(days, today);
-        var samples = block.Count == 0 ? [] : weights.Where(w => w.Date >= block[0].Date && w.Date <= block[^1].Date).OrderBy(w => w.Date).ToList();
-        var halfway = block.Count == 0 ? today : block[0].Date.AddDays(block.Count / 2);
-        var adaptive = allowAdaptation && block.Count >= 14 && samples.Count >= 6 && samples.Count(w => w.Date < halfway) >= 3
-            && samples.Count(w => w.Date >= halfway) >= 3 && samples[^1].Date >= today.AddDays(-3);
+        var estimate = Expenditure.Estimate(days, weights, expenditure, today, allowAdaptation);
+        var adaptive = estimate.Adaptive;
         var reason = p.Maintenance is not null
             ? "Starting from your supplied maintenance estimate. Log complete days and weigh regularly to calibrate it."
             : $"Estimated resting energy: {Math.Round(Resting(p))} kcal/day using Mifflin–St Jeor. Your approximate activity multiplier is {p.Activity}. This is a starting estimate, not a metabolic measurement. Log complete days and weigh regularly to calibrate it.";
         if(startingExpenditure!=null)reason="Carrying your learned maintenance estimate into this phase, scaled only for an explicit activity change. Your selected pace sets the new target.";
-        if (adaptive)
-        {
-            var observed = block.Average(d => d.Calories) - 7700 * Slope(samples);
-            // Reject implausible estimates instead of using clipping to conceal input problems.
-            if (observed < 1000 || observed > 7000)
-            {
-                adaptive = false;
-                reason = "Holding: the observed estimate is outside the supported range. Review portions and weight entries.";
-            }
-            else
-            {
-                expenditure += .25 * (observed - expenditure);
-                reason = $"Based on {block.Count} complete days and {samples.Count} weigh-ins. The expenditure estimate moves 25% toward the observed intake/weight relationship. This is a provisional estimate, not a metabolic measurement.";
-            }
-        }
-        else if (previous != null && !allowAdaptation)
-            reason = "Holding your accepted maintenance estimate until the next weekly check-in. New logs remain available for that review.";
-        else if (previous != null)
-            reason = $"Holding: need 14 consecutive complete days and six weigh-ins (three in each half), including one in the last three days. Current window: {block.Count} days, {samples.Count} weigh-ins.";
+        if (adaptive || previous != null || startingExpenditure != null) reason = estimate.Reason;
+        if (adaptive) expenditure = estimate.Expenditure;
 
         var change = effectiveGoal switch { "lose" => p.EnergyAdjustmentPercent is {} deficit ? -expenditure * deficit / 100 : -Math.Min(expenditure * .20, p.WeightKg * .005 * 7700 / 7), "gain" => p.EnergyAdjustmentPercent is {} surplus ? expenditure * surplus / 100 : Math.Min(expenditure * .10, p.WeightKg * .0015 * 7700 / 7), _ => 0 };
         var target = Math.Round((expenditure + change) / 25, MidpointRounding.AwayFromZero) * 25;
-        if (previous != null && !(progress.Complete && !previous.PhaseComplete))
+        if (previous != null && !progress.Complete)
         {
             if (!adaptive) target = previous.Calories;
             else if (Math.Abs(target - previous.Calories) < 50) target = previous.Calories;
@@ -119,22 +103,16 @@ public static class Coach
             carbs = (target - protein * 4 - fat * 9) / 4;
         }
         if (carbs < 0) return Blocked("Protein and fat exceed the calorie target. Review your protein override.");
-        return new(true, adaptive, target, expenditure, protein, Math.Round(fat, 1), Math.Round(carbs, 1), reason) { EffectiveGoal=effectiveGoal, PhaseComplete=progress.Complete, GoalProgress=progress };
+        return new(true, adaptive, target, expenditure, protein, Math.Round(fat, 1), Math.Round(carbs, 1), reason)
+        {
+            EffectiveGoal=effectiveGoal,
+            PhaseComplete=progress.Complete,
+            GoalProgress=progress,
+            Evidence=estimate.Evidence
+        };
     }
 
     private static CoachResult Blocked(string reason) => new(false, false, null, null, null, null, null, reason);
-    private static List<NutritionDay> RecentBlock(IReadOnlyList<NutritionDay> days, DateOnly today)
-    {
-        var byDate = days.ToDictionary(d => d.Date);
-        var block = new List<NutritionDay>();
-        // A gap near today must hold updates, not resurrect an older convenient complete block.
-        for (var date = today.AddDays(-1); date >= today.AddDays(-28); date = date.AddDays(-1))
-        {
-            if (!byDate.TryGetValue(date, out var day) || day.Status is not ("complete" or "fasting")) break;
-            block.Add(day);
-        }
-        block.Reverse(); return block;
-    }
     public static double Slope(IReadOnlyList<WeightPoint> weights)
     {
         var slopes = new List<double>();

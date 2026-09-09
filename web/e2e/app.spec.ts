@@ -18,46 +18,46 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByLabel('Username',{exact:true}).fill('test-alice');await page.getByLabel('Password',{exact:true}).fill(password);
   await page.getByRole('button',{name:'Create account',exact:true}).click();
   await expect(page.getByRole('heading',{name:"Set up profile"})).toBeVisible();
-  await expect(page.getByLabel('Date of birth')).toHaveValue('');
+  await expect(page.getByLabel('Date of birth',{exact:true})).toHaveValue('');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
   await page.screenshot({path:'artifacts/390-Onboarding.png',fullPage:true});
   await page.reload();await expect(page.getByRole('heading',{name:"Set up profile"})).toBeVisible();
   const user=await (await context.request.get('/api/state')).json();
-  await page.getByLabel('Date of birth').fill('1996-03-14');await page.getByLabel('Height (cm)').fill('170');
+  await page.getByLabel('Date of birth',{exact:true}).fill('1996-03-14');await page.getByLabel('Height (cm)').fill('170');
   await page.getByLabel('Starting weight (kg)').fill('81');
-  await page.getByLabel('Sex parameter for equation').selectOption('female');
+  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('female');
   await page.getByRole('button',{name:/^Next: Activity/}).click();
-  await page.getByLabel('Usual activity (approximate)').selectOption('1.4');
+  await page.getByLabel('Usual activity (approximate)',{exact:true}).selectOption('1.4');
   await page.getByLabel('Known maintenance calories (optional)').fill('2500');
   await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
   await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('End');
   await page.getByRole('radio',{name:'Maintenance',exact:true}).check();
-  await page.getByLabel('Track my goal by').selectOption('duration');await page.getByLabel('Phase length (weeks)').fill('4');
+  await page.getByLabel('Track my goal by',{exact:true}).selectOption('duration');await page.getByLabel('Phase length (weeks)').fill('4');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'Keto',exact:true}).click();
   await page.getByRole('button',{name:'Coach default',exact:true}).click();
   await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
   await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled();await page.getByRole('button',{name:'Accept this plan'}).click();
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:/Add/}).click();await page.getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Quick entry'}).click();
+  await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Nasi lemak reviewed portion');await page.getByLabel('Calories (kcal)',{exact:true}).fill('520');
   await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Save reviewed food'}).click();
   await expect(page.getByRole('button',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Nasi lemak reviewed portion');}).toBeTruthy();
   await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
+  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
   await expect(page.getByText('80.8 kg',{exact:true}).first()).toBeVisible();
   await page.getByRole('button',{name:'Daily weight',exact:true}).click();await expect(page.getByRole('img',{name:/Daily scale weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Calculated trend',exact:true}).click();await expect(page.getByRole('img',{name:/Calculated trend weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Energy',exact:true}).click();
-  await page.getByLabel('Group energy bars by').selectOption('week');await expect(page.getByRole('img',{name:/Signed energy balance by week/})).toBeVisible();
-  await page.getByLabel('Group energy bars by').selectOption('month');await expect(page.getByRole('img',{name:/Signed energy balance by month/})).toBeVisible();
+  await page.getByLabel('Group energy bars by',{exact:true}).selectOption('week');await expect(page.getByRole('img',{name:/Signed energy balance by week/})).toBeVisible();
+  await page.getByLabel('Group energy bars by',{exact:true}).selectOption('month');await expect(page.getByRole('img',{name:/Signed energy balance by month/})).toBeVisible();
   await page.getByRole('button',{name:'Weight',exact:true}).click();
   await expect(page.getByRole('button',{name:'Sync',exact:true})).toHaveCount(0);
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBeTruthy();
-  await context.setOffline(true);await page.getByRole('button',{name:/Add/}).click();await page.getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Quick entry'}).click();
+  await context.setOffline(true);await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Offline banana');await page.getByLabel('Calories (kcal)',{exact:true}).fill('105');await page.getByRole('button',{name:'Save reviewed food'}).click();
   await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();await expect(page.getByText('Pending sync',{exact:true}).first()).toBeVisible();
   await page.reload();await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();
@@ -75,21 +75,83 @@ test('responsive screens have no horizontal overflow and working touch targets',
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;localStorage.setItem('nourish-theme',theme);},theme);
     await page.setViewportSize({width,height:900});
-    const items=width<1024?['Today','Progress','Coach','Settings']:['Today','Log food','Progress','Coach','Settings'];
+    const items=['Today','Progress','Coach','Settings'];
     for(const name of items){
       await page.getByRole('button',{name,exact:true}).first().click();
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+      // Shared selection rows must not wrap or give short labels shorter buttons.
+      for(const control of await page.locator('.segmented-control:visible').all()){
+        const buttons=control.getByRole('button');
+        await expect(buttons.first()).toBeVisible();
+        const boxes=await buttons.evaluateAll(elements=>elements.map(element=>{
+          const rect=element.getBoundingClientRect();return {top:rect.top,height:rect.height,width:rect.width};
+        }));
+        expect(Math.max(...boxes.map(box=>box.top))-Math.min(...boxes.map(box=>box.top))).toBeLessThanOrEqual(1);
+        expect(Math.max(...boxes.map(box=>box.height))-Math.min(...boxes.map(box=>box.height))).toBeLessThanOrEqual(1);
+        expect(Math.min(...boxes.map(box=>box.height))).toBeGreaterThanOrEqual(44);
+        if(await control.getAttribute('data-layout')==='equal')expect(Math.max(...boxes.map(box=>box.width))-Math.min(...boxes.map(box=>box.width))).toBeLessThanOrEqual(1);
+      }
       if(width<1024){const small=await page.locator('button:visible').evaluateAll(buttons=>buttons.filter(b=>b.getBoundingClientRect().height<43).map(b=>b.textContent));expect(small).toEqual([]);}
+      if(name==='Settings'){
+        await expect(page.getByRole('heading',{name:'Storage',exact:true})).toHaveCount(0);
+        await expect(page.getByRole('heading',{name:'Local data on this device',exact:true})).toHaveCount(0);
+      }
+      if(name==='Progress'){
+        const historyField=page.locator('.select-field').filter({hasText:'Weight history period'}).first();
+        await historyField.locator('.custom-select-trigger').click();
+        const menu=historyField.locator('.custom-select-menu');
+        await expect(menu).toBeVisible();
+        await expect.poll(()=>menu.evaluate(element=>getComputedStyle(element).scrollbarColor)).not.toBe('auto');
+        await page.keyboard.press('Escape');
+      }
       await page.screenshot({path:`artifacts/${theme}-${width}-${name.replace(' ','-')}.png`,fullPage:true});
     }
     if(width<1024){
       await page.getByRole('button',{name:/Add/}).first().click();
       await expect(page.getByRole('dialog',{name:'Add'})).toBeVisible();
-      await page.getByRole('button',{name:'Log food'}).click();
+      await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
+      await expect(page.getByRole('dialog',{name:'Log food'})).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog',{name:'Log food'})).not.toBeVisible();
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
       await page.screenshot({path:`artifacts/${theme}-${width}-Log-food.png`,fullPage:true});
     }
   }
+});
+test('add dialog is adaptive, reduced-motion safe, and restores launcher focus',async({page,context})=>{
+  await signIn(context.request);await page.goto('/');await expect(page.getByRole('heading',{name:'Diary'})).toBeVisible();
+  const launcher=page.getByRole('button',{name:'Add entry'});
+  for(const width of [390,768]){
+    await page.setViewportSize({width,height:900});await launcher.click();
+    const dialog=page.getByRole('dialog',{name:'Add'});await expect(dialog).toBeVisible();
+    const box=await dialog.boundingBox();expect(box).not.toBeNull();
+    if(width<640)expect(Math.abs((box!.y+box!.height)-900)).toBeLessThanOrEqual(2);
+    else expect(Math.abs((box!.y+box!.height/2)-450)).toBeLessThanOrEqual(2);
+    await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(launcher).toBeFocused();
+  }
+  await page.emulateMedia({reducedMotion:'reduce'});await launcher.click();
+  await expect(page.getByRole('dialog',{name:'Add'})).toHaveCSS('transition-duration','0s');
+  await page.keyboard.press('Escape');await expect(launcher).toBeFocused();
+});
+test('explicit light and dark themes persist without following the browser',async({page,context})=>{
+  await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Settings',exact:true}).first().click();
+  const appearance=page.getByLabel('Appearance',{exact:true});await expect(appearance.locator('option')).toHaveText(['Light','Dark']);
+  await appearance.selectOption('dark');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await page.emulateMedia({colorScheme:'light'});await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#0b0e14');
+  await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await page.getByRole('button',{name:'Settings',exact:true}).first().click();await page.getByLabel('Appearance',{exact:true}).selectOption('light');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#fcfcfc');
+});
+test('changed food dialog asks before closing and keeps the draft',async({page,context})=>{
+  await signIn(context.request);await page.goto('/');const launcher=page.getByRole('button',{name:'Add entry'}).first();await launcher.click();
+  await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
+  await page.getByLabel('Food name',{exact:true}).fill('Keep this draft');await page.getByRole('button',{name:'Close dialog'}).click();
+  await expect(page.getByText('Discard changes?',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Keep editing'}).click();await expect(page.getByLabel('Food name',{exact:true})).toHaveValue('Keep this draft');
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Discard changes'}).click();await expect(page.getByRole('dialog',{name:'Log food'})).toBeVisible();await expect(page.getByLabel('Food name',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'AI logging',exact:true}).click();await page.getByLabel('Meal description and portions').fill('Backdrop draft');
+  const foodDialog=page.getByRole('dialog',{name:'Log food'});const box=await foodDialog.boundingBox();expect(box).not.toBeNull();await page.mouse.click(Math.max(1,box!.x-8),box!.y+8);
+  await expect(page.getByText('Discard changes?',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Discard changes'}).click();await expect(foodDialog).not.toBeVisible();await expect(launcher).toBeFocused();
 });
 test('API idempotency, revisions, expiry-safe drafts and asset MIME protection',async({request})=>{
   await signIn(request);const state=await (await request.get('/api/state')).json();
@@ -108,7 +170,8 @@ test('physique photo draft survives offline reopening without cloud credentials'
   await signIn(context.request);await page.goto('/');
   await page.getByRole('button',{name:'Progress',exact:true}).click();
   await page.getByRole('button',{name:'Photos',exact:true}).click();
-  await page.getByLabel('Choose physique photo').setInputFiles('public/icon-512.png');
+  await page.getByRole('button',{name:'Add photo',exact:true}).click();
+  await page.getByLabel('Choose physique photo',{exact:true}).setInputFiles('public/icon-512.png');
   await expect(page.getByAltText('Your selected physique photo')).toBeVisible();
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await context.setOffline(true);
@@ -121,13 +184,28 @@ test('physique photo draft survives offline reopening without cloud credentials'
   await expect(page.getByRole('button',{name:'Discard local photo draft',exact:true})).toHaveCount(0);
 });
 
+test('weekly check-in is a reduced-motion-safe bottom sheet with focus restoration',async({page,context})=>{
+  await signIn(context.request);const state=await (await context.request.get('/api/state')).json();
+  expect(state.profile).not.toBeNull();
+  const profileResponse=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:state.profile}});
+  expect(profileResponse.ok(),await profileResponse.text()).toBeTruthy();
+  await page.setViewportSize({width:390,height:900});await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
+  const launcher=page.getByRole('button',{name:'Review this week',exact:true});await expect(launcher).toBeVisible();
+  await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByRole('button',{name:'Review this week',exact:true})).toBeVisible();
+  await launcher.click();
+  const dialog=page.getByRole('dialog',{name:'Weekly check-in'});await expect(dialog).toBeVisible();
+  const box=await dialog.boundingBox();expect(box).not.toBeNull();expect(Math.abs((box!.y+box!.height)-900)).toBeLessThanOrEqual(2);
+  await expect(dialog).toHaveCSS('transition-duration','0s');await expect(dialog.getByRole('button',{name:'Accept new targets'})).toBeVisible();
+  await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(launcher).toBeFocused();
+});
+
 test('phase pace and target-weight goals preserve learned maintenance',async({page,context})=>{
   await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Coach',exact:true}).click();
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   await page.getByRole('button',{name:/3\. Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('End');
   for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('ArrowLeft');
-  await page.getByLabel('Track my goal by').selectOption('weight');await page.getByLabel('Phase starting weight (kg)').fill('80.8');await page.getByLabel('Target weight (kg)').fill('75');
+  await page.getByLabel('Track my goal by',{exact:true}).selectOption('weight');await page.getByLabel('Phase starting weight (kg)').fill('80.8');await page.getByLabel('Target weight (kg)').fill('75');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'High protein',exact:true}).click();
   await page.getByRole('button',{name:'Save profile',exact:true}).click();
@@ -141,6 +219,36 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Weight goal',exact:true})).toBeVisible();
   await expect(page.getByText('Not yet estimable',{exact:true})).toBeVisible();
+
+  const shift=(date:string,days:number)=>new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
+  let latest=await (await context.request.get('/api/state')).json();
+  const saveWeight=async(date:string,kg:number)=>{
+    const existing=latest.weights.find((weight:{date:string;deleted:boolean})=>weight.date===date&&!weight.deleted);
+    const response=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:existing?.id??randomUUID(),kind:'weight',expectedRevision:existing?.revision??0,data:{date,kg}}});
+    expect(response.ok(),await response.text()).toBeTruthy();
+    latest=await (await context.request.get('/api/state')).json();
+  };
+  const markNotLogging=async(date:string)=>{
+    const existing=latest.days.find((day:{date:string;deleted:boolean})=>day.date===date&&!day.deleted);
+    const response=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:existing?.id??randomUUID(),kind:'day',expectedRevision:existing?.revision??0,data:{date,status:'not_logged'}}});
+    expect(response.ok(),await response.text()).toBeTruthy();
+    latest=await (await context.request.get('/api/state')).json();
+  };
+  await saveWeight(shift(latest.end,-3),80.8);await saveWeight(shift(latest.end,-2),80.8);await saveWeight(latest.end,74.8);
+  await markNotLogging(shift(latest.end,-3));await markNotLogging(shift(latest.end,-2));
+  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Fat loss goal reached',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Wait for trend weight',exact:true}).click();
+  await expect(page.getByText('Waiting for trend weight',{exact:false})).toBeVisible();
+  latest=await (await context.request.get('/api/state')).json();
+  await saveWeight(shift(latest.end,-3),74.8);await saveWeight(shift(latest.end,-2),74.8);await saveWeight(latest.end,74.8);
+  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Complete goal',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Weekly check-in'})).toBeVisible({timeout:25000});
+  await expect(page.getByRole('dialog',{name:'Weekly check-in'}).getByText('Maintenance',{exact:true}).first()).toBeVisible();
+  await page.keyboard.press('Escape');
 });
 
 
@@ -161,15 +269,16 @@ test('cached diary opens while the server sleeps and uploads retained food and w
   });
   await page.reload();
   await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible({timeout:3000});
+  await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});
   await page.getByRole('button',{name:'Log food',exact:true}).first().click();
-  await page.getByRole('button',{name:'Quick entry',exact:true}).click();
+  await page.getByRole('button',{name:'Manual entry',exact:true}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Server wake meal');
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('400');
   await page.getByRole('button',{name:'Save reviewed food',exact:true}).click();
   await expect(page.getByRole('button',{name:'Server wake meal',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Log weight',exact:true}).click();
   await page.getByLabel('Weight (kg)',{exact:true}).fill('80.6');
-  await page.getByRole('button',{name:'Save weigh-in',exact:true}).click();
+  await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
   release();await page.unroute('**/api/**');
   await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.entries.some((e:{name:string})=>e.name==='Server wake meal')&&state.weights.some((w:{kg:number})=>w.kg===80.6);},{timeout:45000}).toBeTruthy();
 });
@@ -204,10 +313,13 @@ test('mobile scan shortcut supports food photos and label autofill before review
     await route.fulfill({contentType:'application/json',body:JSON.stringify({id:input.id,status:'complete',resultJson:JSON.stringify({foods:[{name:input.mode==='label'?'Label yoghurt':'Photo meal',quantity:100,unit:'g',calories:120,protein:6,carbs:15,fat:4,fiber:null,notes:'Per 100 g'}],questions:[],explanation:'Review the quantity and nutrients.'})})});
   });
   for(const mode of ['photo','label']){
-    await page.getByLabel('How would you like to log?').selectOption(mode);
-    await page.getByLabel(mode==='label'?'Photograph the nutrition label':'Photograph your food').setInputFiles('public/icon-512.png');
+  await page.getByLabel('How would you like to log?',{exact:true}).selectOption(mode);
+    await expect(page.locator('.custom-file-dropzone')).toBeVisible();
+    await expect(page.locator('input[type="file"]')).toHaveAttribute('capture','environment');
+    await page.locator('input[type="file"]').setInputFiles('public/icon-512.png');
     await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
     await expect(page.getByLabel('Calories for this quantity',{exact:true})).toHaveValue('120');
+    await expect(page.getByLabel('Calories for this quantity',{exact:true})).toHaveCSS('appearance','textfield');
     await expect(page.getByLabel('fiber (g)',{exact:true})).toHaveValue('');
     await expect(page.getByLabel('Name',{exact:true})).toHaveValue(mode==='label'?'Label yoghurt':'Photo meal');
     if(mode==='photo')await page.getByRole('button',{name:'Discard draft',exact:true}).click();

@@ -4,6 +4,11 @@ export function project(state:AppState,queue:Mutation[]):AppState{
   const result=structuredClone(state);
   for(const op of queue){
     if(op.kind==='profile'){result.profile=op.data as Profile;continue;}
+    if(op.kind==='entry'){
+      const dates=[(op.data as {date?:string}).date,result.entries.find(e=>e.id===op.recordId)?.date];
+      // Keep expired/conflicting work in the queue, without changing an authoritative summary.
+      if(result.days.some(day=>day.archived&&dates.includes(day.date)))continue;
+    }
     const key=collection[op.kind];
     const values=result[key] as Array<{id:string;revision:number;deleted:boolean;date?:string;status?:string}>;
     const i=values.findIndex(v=>v.id===op.recordId);

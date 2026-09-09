@@ -1,3 +1,4 @@
+using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Xunit;
 namespace Nutrition.Tests;
@@ -16,15 +17,18 @@ public sealed class GoalPhaseTests
         var bulk=Coach.Calculate(P("gain"),Days(2000),Weights(),null,Today,startingExpenditure:2000);
         Assert.True(bulk.Calories>bulk.Expenditure);
     }
-    [Fact] public void Duration_ends_with_reviewable_maintenance_and_completion_stays_latched()
+    [Fact] public void Duration_reaches_a_review_point_without_completing_the_phase()
     {
         var profile=P() with {PhaseMode="duration",PhaseStart=Today.AddDays(-28),DurationWeeks=4};
         var result=Coach.Calculate(profile,[],Weights(),new(2000,2500),Today);
-        Assert.True(result.PhaseComplete);Assert.Equal("maintain",result.EffectiveGoal);Assert.Equal(2500,result.Calories);
+        Assert.False(result.PhaseComplete);Assert.Equal("lose",result.EffectiveGoal);Assert.Equal(2000,result.Calories);
+        Assert.True(result.GoalProgress!.DurationReached);
         var weightGoal=P() with {PhaseMode="weight",TargetWeightKg=75};
         var accepted=Coach.Calculate(weightGoal,[],Weights(74),new(2000,2500),Today);
-        Assert.True(accepted.PhaseComplete);
-        Assert.True(Coach.Calculate(weightGoal,[],Weights(80),new(2500,2500,true),Today).PhaseComplete);
+        Assert.False(accepted.PhaseComplete);Assert.True(accepted.GoalProgress!.TrendReached);
+        var completed=Coach.Calculate(weightGoal,[],Weights(74),new(2000,2500),Today,
+            phaseDecision:new PhaseDecision {Decision="completed",ReachedBy="trend"});
+        Assert.True(completed.PhaseComplete);Assert.Equal("maintain",completed.EffectiveGoal);Assert.Equal(2500,completed.Calories);
     }
     [Fact] public void One_low_scale_weight_does_not_finish_a_weight_goal()
     {
@@ -56,7 +60,11 @@ public sealed class GoalPhaseTests
         Assert.Equal("lose",halfway.Goal);Assert.Equal(80,halfway.StartWeight);Assert.Equal(75,halfway.TargetWeight);
         Assert.Equal(50,halfway.Percent!.Value,3);Assert.Equal(2.5,halfway.Remaining!.Value,3);Assert.False(halfway.Complete);
         var reached=GoalPolicy.Evaluate(profile,Weights(74),Today);
-        Assert.True(reached.Complete);Assert.Equal(100,reached.Percent);Assert.Equal(0,reached.Remaining);
+        Assert.False(reached.Complete);Assert.True(reached.ScaleReached);Assert.True(reached.TrendReached);
+        Assert.Equal(100,reached.Percent);Assert.Equal(0,reached.Remaining);
+        var completed=GoalPolicy.Evaluate(profile,Weights(74),Today,
+            new PhaseDecision {Decision="completed",ReachedBy="trend"});
+        Assert.True(completed.Complete);Assert.Equal(0,completed.Remaining);
         // A goal completed earlier keeps its reached state even after the weight drifts back.
         var latched=GoalPolicy.Evaluate(profile,Weights(79),Today,alreadyComplete:true);
         Assert.True(latched.Complete);Assert.Equal(0,latched.Remaining);

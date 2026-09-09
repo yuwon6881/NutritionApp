@@ -41,16 +41,16 @@ public class CoachingTests
         var r = Coach.Calculate(Profile(), Days(), Weights(0.1), new PreviousPlan(2500, 2500), Today);
         Assert.True(r.Expenditure < 2500); Assert.Equal(2400, r.Calories);
     }
-    [Fact] public void Partial_day_breaks_window_and_does_not_become_zero()
+    [Fact] public void A_missed_day_reduces_coverage_without_resetting_the_window()
     {
         var days = Days().Select(d => d.Date == Today.AddDays(-7) ? d with { Status = "incomplete", Calories = 200 } : d).ToList();
         var r = Coach.Calculate(Profile(), days, Weights(), new PreviousPlan(2400, 2400), Today);
-        Assert.False(r.Adaptive); Assert.Equal(2400, r.Expenditure); Assert.Equal(2400, r.Calories);
+        Assert.True(r.Adaptive); Assert.Equal(2425, r.Expenditure); Assert.Equal(2400, r.Calories);
     }
     [Fact] public void Sparse_or_stale_weights_hold()
     {
         Assert.False(Coach.Calculate(Profile(), Days(), Weights().Take(5).ToList(), new(2500, 2500), Today).Adaptive);
-        Assert.False(Coach.Calculate(Profile(), Days(), Weights().Where(w => w.Date < Today.AddDays(-3)).ToList(), new(2500, 2500), Today).Adaptive);
+        Assert.False(Coach.Calculate(Profile(), Days(), Weights().Where(w => w.Date < Today.AddDays(-4)).ToList(), new(2500, 2500), Today).Adaptive);
     }
     [Fact] public void One_water_spike_does_not_change_robust_slope()
     {

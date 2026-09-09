@@ -1,6 +1,8 @@
 import {dayStatus} from './loggingDay';
 import {today} from './format';
+import {weekStart} from './checkIn';
 import type {Day,Entry} from '../types';
+export {weekStart};
 export type EnergyEstimate={date:string;revision:number;expenditure:number};
 export type EnergyRow={date:string;end:string;intake:number|null;maintenance:number|null;balance:number|null;complete:boolean;days:number;loggedDays:number};
 type Input={entries:Pick<Entry,'date'|'calories'|'deleted'>[];days:Pick<Day,'date'|'status'|'deleted'|'archived'|'calories'|'entryCount'>[];estimates:EnergyEstimate[];current?:string};
@@ -20,6 +22,6 @@ export function energyDays(input:Input,start:string,end:string):EnergyRow[]{
 export function groupEnergy(rows:EnergyRow[],mode:'day'|'week'|'month'):EnergyRow[]{
   if(mode==='day')return rows;
   const groups=new Map<string,EnergyRow[]>();
-  for(const row of rows){const day=new Date(row.date).getUTCDay();const key=mode==='month'?row.date.slice(0,7):shiftDate(row.date,-((day+6)%7));groups.set(key,[...(groups.get(key)??[]),row]);}
+  for(const row of rows){const key=mode==='month'?row.date.slice(0,7):weekStart(row.date);groups.set(key,[...(groups.get(key)??[]),row]);}
   return [...groups.values()].map(items=>({date:items[0].date,end:items.at(-1)!.end,intake:items.some(r=>r.intake!=null)?items.reduce((s,r)=>s+(r.intake??0),0):null,maintenance:items.every(r=>r.maintenance!=null)?items.reduce((s,r)=>s+r.maintenance!,0):null,balance:items.every(r=>r.balance!=null)?items.reduce((s,r)=>s+r.balance!,0):null,complete:items.every(r=>r.complete),days:items.length,loggedDays:items.reduce((s,r)=>s+r.loggedDays,0)}));
 }

@@ -36,6 +36,7 @@ public abstract class NutrientRecord : OwnedRecord
 public class DiaryEntry : NutrientRecord
 {
     public DateOnly Date { get; set; }
+    public string? Time { get; set; }
     public string Meal { get; set; } = "Meal";
     public double Quantity { get; set; } = 1;
     public string Unit { get; set; } = "serving";
@@ -71,6 +72,21 @@ public class AcceptedPlan : OwnedRecord
     public long ProfileRevision { get; set; }
     public string ResultJson { get; set; } = "";
     public string ProfileJson { get; set; } = "";
+}
+public class CheckInDecision : OwnedRecord
+{
+    public DateOnly WeekStart { get; set; }
+    public DateOnly Date { get; set; }
+    public string Decision { get; set; } = "declined";
+    public long InputRevision { get; set; }
+    public string ResultJson { get; set; } = "";
+}
+public class PhaseDecision : OwnedRecord
+{
+    public DateOnly Date { get; set; }
+    public long ProfileRevision { get; set; }
+    public string ReachedBy { get; set; } = "";
+    public string Decision { get; set; } = "";
 }
 public class MutationReceipt
 {

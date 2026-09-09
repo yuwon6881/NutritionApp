@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {number} from '../lib/format';
-import {Button} from './ui/Button';
+import {SegmentedControl} from './ui/SegmentedControl';
 type Point={date:string;kg:number};
 export function WeightChart({weights,smoothed}:{weights:Point[];smoothed:Point[]}){
   const [view,setView]=useState<'both'|'daily'|'trend'>('both');
@@ -10,7 +10,7 @@ export function WeightChart({weights,smoothed}:{weights:Point[];smoothed:Point[]
   const x=(p:Point)=>55+(Date.parse(p.date)-start)/duration*615;const y=(p:Point)=>180-(p.kg-min)/(max-min)*140;
   const points=(items:Point[])=>items.map(p=>`${x(p)},${y(p)}`).join(' ');
   return <section className="panel"><div className="section-heading"><div><h2>Weight</h2></div>
-    <div className="chart-view-toggle" role="group" aria-label="Weight chart display">{([['both','Both'],['daily','Daily weight'],['trend','Calculated trend']] as const).map(([id,label])=><Button key={id} variant={view===id?'primary':'secondary'} aria-pressed={view===id} onClick={()=>setView(id)}>{label}</Button>)}</div></div>
+    <SegmentedControl<'both'|'daily'|'trend'> layout="scroll" className="chart-view-toggle" label="Weight chart display" value={view} onChange={setView} options={[{value:'both',label:'Both'},{value:'daily',label:'Daily weight'},{value:'trend',label:'Calculated trend'}]}/></div>
     {weights.length?<><svg viewBox="0 0 700 220" className="weight-chart" role="img" aria-label={`${view==='both'?'Daily and calculated':view==='daily'?'Daily scale':'Calculated trend'} weight chart across ${weights.length} weigh-ins. Values are also available in the table below.`}>
     {[min,(min+max)/2,max].map(v=><g key={v}><line x1="55" y1={y({date:'',kg:v})} x2="670" y2={y({date:'',kg:v})} className="chart-grid"/><text x="48" y={y({date:'',kg:v})+4} textAnchor="end">{number(v,1)}</text></g>)}
     {view!=='trend'&&<><polyline points={points(weights)} className="scale-line"/>{weights.map(p=><circle key={p.date} cx={x(p)} cy={y(p)} r="2.5" className="scale-dot"><title>{p.date}: {number(p.kg,2)} kg scale weight</title></circle>)}</>}

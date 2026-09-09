@@ -4,6 +4,7 @@ import {api,ApiError} from './lib/api';
 import {readLocal,saveLocal} from './lib/local';
 import {today} from './lib/format';
 import {project,rebaseAfterOwnWrite,wireMutation} from './lib/projection';
+import {acknowledgeHistory} from './lib/history';
 
 export function useNourish(user:string){
   const [calendarDate,setCalendarDate]=useState(today());
@@ -11,6 +12,7 @@ export function useNourish(user:string){
   const ref=useRef<LocalData|undefined>(undefined);const writes=useRef(Promise.resolve());const draining=useRef(false);const scanning=useRef(false);const alive=useRef(true);
   const drainRequested=useRef(false);
   const windowDate=useRef<string|undefined>(undefined);const refreshSequence=useRef(0);
+  const historySequences=useRef(new Map<string,number>());
   const commit=useCallback(async(change:(data:LocalData)=>LocalData)=>{
     const task=writes.current.catch(()=>{}).then(async()=>{if(!alive.current||!ref.current)return;const next=change(ref.current);if(next===ref.current)return;await saveLocal(user,next);if(!alive.current)return;ref.current=next;setLocal(next);});
     writes.current=task;return task;
@@ -23,6 +25,21 @@ export function useNourish(user:string){
     if(state.id!==user)throw new Error('The signed-in account changed. Sign in again.');
     if(!ref.current){const data={state,queue:[],scans:[]};await saveLocal(user,data);if(alive.current){ref.current=data;setLocal(data);}}
     else await commit(current=>state.revision<current.state.revision||JSON.stringify(state)===JSON.stringify(current.state)?current:{...current,state});
+  },[commit,user]);
+  const refreshHistory=useCallback(async(key:string)=>{
+    const sequence=(historySequences.current.get(key)??0)+1;historySequences.current.set(key,sequence);
+    const state=await api<AppState>('/state'+(key==='recent'?'':(key.length===4?'?year=':'?date=')+encodeURIComponent(key)));
+    if(!alive.current||historySequences.current.get(key)!==sequence)return;
+    if(state.id!==user)throw new Error('The signed-in account changed. Sign in again.');
+    await commit(current=>{
+      if(historySequences.current.get(key)!==sequence||state.revision<current.state.revision)return current;
+      const previous=current.history?.[key];
+      if(previous&&state.revision<previous.revision)return current;
+      // Bound downloaded history only; retained mutations and image drafts are never evicted.
+      const history={...current.history};delete history[key];history[key]=state;
+      while(Object.keys(history).length>16)delete history[Object.keys(history)[0]];
+      return {...current,history};
+    });
   },[commit,user]);
   const drain=useCallback(async()=>{
     if(draining.current||!navigator.onLine||!ref.current)return;
@@ -42,7 +59,8 @@ export function useNourish(user:string){
               const date=(op.data as {date?:string}).date;
               for(const day of state.days)if(day.date===date){day.revision=revision;for(const q of queue)if(q.kind==='day'&&q.recordId===day.id)q.expectedRevision=revision;}
             }
-            return {...current,state,queue};
+            const history=Object.fromEntries(Object.entries(current.history??{}).map(([key,saved])=>[key,acknowledgeHistory(saved,op,revision)]));
+            return {...current,state,queue,history};
           });
         }catch(ex){
           if(ex instanceof ApiError&&[400,409,422].includes(ex.status))await commit(current=>({...current,queue:current.queue.map(q=>q.id===op.id?{...q,error:ex.message}:q)}));
@@ -94,7 +112,7 @@ export function useNourish(user:string){
     return()=>{alive.current=false;window.removeEventListener('online',wake);document.removeEventListener('visibilitychange',wake);clearInterval(interval);};
   },[user,refresh,drain,runScans]);
   const state=useMemo(()=>local?project(local.state,local.queue):undefined,[local]);
-  return {state,local,error,busy,mutate,refresh,drain,calendarDate,
+  return {state,local,error,busy,mutate,refresh,refreshHistory,drain,calendarDate,
     saveReviewedScan:async(scanId:string,entries:unknown[])=>{
       await commit(current=>({...current,queue:[...current.queue,...entries.map(data=>({id:crypto.randomUUID(),kind:'entry' as const,recordId:crypto.randomUUID(),expectedRevision:0,data,delete:false}))],scans:current.scans.filter(s=>s.id!==scanId)}));
       void drain();

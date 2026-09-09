@@ -1,8 +1,9 @@
+import {Field} from './ui/Field';
 import type {CSSProperties} from 'react';
 import type {MacroSplit} from '../lib/macros';
 import {adjustSplit,gramsFromSplit,macroKeys,macroLabels,macroLimits,macroPresetId,macroPresets} from '../lib/macros';
 import {number} from '../lib/format';
-import {Button} from './ui/Button';
+import {SegmentedControl} from './ui/SegmentedControl';
 import {CoachNumber} from './ui/CoachMotion';
 
 /**
@@ -24,16 +25,9 @@ export function MacroSetup({
   const fill=(key:typeof macroKeys[number])=>Math.round(100*(split[key]-macroLimits[key].min)/(macroLimits[key].max-macroLimits[key].min));
   const active=macroPresetId(split);
   return <div className="macro-setup">
-    <div className="macro-presets" role="group" aria-label="Macro presets">
-      {macroPresets.map(preset=><Button
-        key={preset.id}
-        type="button"
-        size="sm"
-        variant={active===preset.id?'primary':'secondary'}
-        aria-pressed={active===preset.id}
-        onClick={()=>onPreset(preset.id,preset.split)}
-      >{preset.label}</Button>)}
-    </div>
+    <SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm"
+      options={macroPresets.map(preset=>({value:preset.id,label:preset.label}))}
+      onChange={id=>{const preset=macroPresets.find(p=>p.id===id);if(preset)onPreset(preset.id,preset.split);}}/>
     <div className="macro-rows">
       {macroKeys.map(key=><div className="macro-row" key={key}>
         <label className="macro-row-head" htmlFor={`macro-${key}`}>
@@ -44,6 +38,7 @@ export function MacroSetup({
         <div className="macro-row-controls">
           <input
             id={`macro-${key}`}
+            name={`macro-${key}-share`}
             type="range"
             className={`macro-range ${key}`}
             min={macroLimits[key].min}
@@ -56,7 +51,11 @@ export function MacroSetup({
             onChange={event=>onChange(adjustSplit(split,key,Number(event.target.value)))}
           />
           <div className="macro-number">
-            <input
+            <Field
+              id={`macro-${key}-percent`}
+              name={`macro-${key}-percent`}
+              label={`${macroLabels[key]} percent`}
+              required
               type="number"
               inputMode="numeric"
               min={macroLimits[key].min}
@@ -64,7 +63,7 @@ export function MacroSetup({
               step="1"
               value={split[key]}
               aria-label={`${macroLabels[key]} percent`}
-              onChange={event=>onChange(adjustSplit(split,key,Number(event.target.value)))}
+              onChange={event=>{const value=Number(event.target.value);if(event.target.value&&event.target.validity.valid)onChange(adjustSplit(split,key,value));}}
             />
             <span aria-hidden="true">%</span>
           </div>

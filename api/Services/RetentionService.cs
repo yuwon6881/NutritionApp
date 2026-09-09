@@ -5,7 +5,7 @@ namespace Nutrition.Api.Services;
 
 public sealed class RetentionService(AppDb db,IConfiguration config)
 {
-    public int DetailDays => Math.Clamp(config.GetValue("Retention:MealDetailDays",7),3,90);
+    public int DetailDays => Math.Clamp(config.GetValue("Retention:MealDetailDays",90),3,90);
     public static DateOnly Cutoff(DateOnly today,int days) => today.AddDays(1-days);
     public static DateOnly Today(string? profileJson)
     {

@@ -20,6 +20,8 @@ public class UserDeletionTests
         db.Weights.Add(new Weight { Id=Guid.NewGuid(),UserId=user.Id,Date=date,Kg=80 });
         db.Days.Add(new DayStatus { Id=Guid.NewGuid(),UserId=user.Id,Date=date,Status="complete" });
         db.Plans.Add(new AcceptedPlan { Id=Guid.NewGuid(),UserId=user.Id,Date=date });
+        db.CheckIns.Add(new CheckInDecision { Id=Guid.NewGuid(),UserId=user.Id,WeekStart=date,Date=date,InputRevision=1,ResultJson="{}" });
+        db.PhaseDecisions.Add(new PhaseDecision { Id=Guid.NewGuid(),UserId=user.Id,Date=date,ProfileRevision=1,ReachedBy="trend",Decision="completed" });
         db.Foods.Add(new Food { Id=Guid.NewGuid(),UserId=user.Id,Name="Oats",Calories=380 });
         db.Scans.Add(new ScanJob { Id=Guid.NewGuid(),UserId=user.Id });
         db.Photos.Add(new PhysiquePhoto { Id=Guid.NewGuid(),UserId=user.Id,Date=date });
@@ -44,6 +46,8 @@ public class UserDeletionTests
         Assert.Empty(await db.Weights.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(await db.Days.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(await db.Plans.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await db.CheckIns.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await db.PhaseDecisions.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(await db.Foods.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(await db.Scans.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(await db.Photos.IgnoreQueryFilters().ToListAsync());

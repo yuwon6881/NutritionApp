@@ -1,3 +1,4 @@
+import {FieldFrame} from './Form';
 import {useEffect, useId, useRef, useState} from 'react';
 import {Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight} from 'lucide-react';
 
@@ -10,6 +11,9 @@ export interface DatePickerProps {
   required?: boolean;
   disabled?: boolean;
   hint?: string;
+  validate?:()=>string|undefined;
+  id?: string;
+  name?: string;
   className?: string;
 }
 
@@ -52,9 +56,14 @@ export function DatePicker({
   required = false,
   disabled = false,
   hint,
+  validate,
+  id: idProp,
+  name: nameProp,
   className = '',
 }: DatePickerProps) {
-  const id = useId();
+  const generatedId = useId();
+  const id = idProp ?? generatedId;
+  const name = nameProp ?? idProp ?? id;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -154,13 +163,16 @@ export function DatePicker({
   }
 
   return (
-    <div className={`field date-picker-field ${className}`.trim()} ref={containerRef}>
+    <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef}>
       <label htmlFor={id} className="date-picker-label">
         <span>{label}</span>
       </label>
 
       <div className="date-picker-wrapper">
         <button
+          data-validation-focus
+          aria-label={`Choose ${label.toLowerCase()}`}
+          aria-describedby={[`${id}-value`,hint?`${id}-hint`:undefined].filter(Boolean).join(' ')}
           type="button"
           id={`${id}-trigger`}
           className={`custom-date-trigger ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
@@ -169,13 +181,14 @@ export function DatePicker({
           aria-haspopup="dialog"
           aria-expanded={isOpen}
         >
-          <span className="date-display">{formatDisplay(value)}</span>
+          <span id={`${id}-value`} className="date-display">{formatDisplay(value)}</span>
           <Calendar size={18} className="date-icon" />
         </button>
 
         {/* Underlying native input kept synced for form submission & automated tools */}
         <input
           id={id}
+          name={name}
           type="date"
           value={value}
           onChange={e => onChange(e.target.value)}
@@ -270,7 +283,7 @@ export function DatePicker({
         )}
       </div>
 
-      {hint && <small>{hint}</small>}
-    </div>
+      {hint && <small id={`${id}-hint`}>{hint}</small>}
+    </FieldFrame>
   );
 }

@@ -13,6 +13,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<Weight> Weights => Set<Weight>();
     public DbSet<DayStatus> Days => Set<DayStatus>();
     public DbSet<AcceptedPlan> Plans => Set<AcceptedPlan>();
+    public DbSet<CheckInDecision> CheckIns => Set<CheckInDecision>();
+    public DbSet<PhaseDecision> PhaseDecisions => Set<PhaseDecision>();
     public DbSet<MutationReceipt> Receipts => Set<MutationReceipt>();
     public DbSet<ScanJob> Scans => Set<ScanJob>();
     public DbSet<AiUsage> Usage => Set<AiUsage>();
@@ -32,7 +34,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         // Deleting an account must take its sessions, idempotency receipts, and usage counters with it.
         OwnedByUser<Session>(m); OwnedByUser<MutationReceipt>(m); OwnedByUser<AiUsage>(m);
         Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m);
-        Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<ScanJob>(m);
+        Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m);
         m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.Date });
         m.Entity<MutationReceipt>().HasIndex(x=>x.Created);
@@ -40,6 +42,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<Weight>().HasIndex(x => new { x.UserId, x.Date }).IsUnique();
         m.Entity<DayStatus>().HasIndex(x => new { x.UserId, x.Date }).IsUnique();
         m.Entity<AcceptedPlan>().HasIndex(x => new { x.UserId, x.Date });
+        m.Entity<CheckInDecision>().HasIndex(x => new { x.UserId, x.WeekStart });
+        m.Entity<PhaseDecision>().HasIndex(x => new { x.UserId, x.ProfileRevision }).IsUnique();
         m.Entity<ScanJob>().HasIndex(x => x.Created);
     }
     private static void OwnedByUser<T>(ModelBuilder m) where T : class

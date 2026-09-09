@@ -29,11 +29,13 @@ The browser suite targets a dedicated local test API at `http://127.0.0.1:5088`.
 - Coach setup uses directional step transitions and selectable goal cards. Local estimates update immediately; calculation, retained synchronization, acceptance, and view-refresh feedback follow actual operations. Reduced motion disables movement and looping indicators. Stale previews are ignored, and an uncertain acceptance retries its original identity and input revision.
 - Today stays open in the profile time zone; past days with food complete automatically. Missing days prompt for fasting or not logging. Not logging preserves weight-based trends and coaching estimates without inventing calorie intake. Nutrients are immutable entry snapshots, with absent values remaining absent.
 - Auth uses hashed database sessions in HttpOnly same-site cookies. Unsafe endpoints require an exact Origin and custom request header; API responses are never cached by the service worker.
-- Offline queue and scan drafts are account-scoped IndexedDB records, persisted before dispatch. Requests are idempotent; conflicts stop the queue for review. Sign-out retains unsynced work; explicit wipe removes it.
+- Offline queue and scan drafts are account-scoped IndexedDB records, persisted before dispatch. Requests are idempotent; conflicts stop the queue for review. Sign-out retains unsynced work.
 - Food-scan drafts are re-encoded on the client without EXIF. Scan images are private and temporary, with durable object paths retained until deletion succeeds. Scheduler cleanup handles idle Cloud Run.
 - PostgreSQL tenancy filters fail closed and writes validate ownership. Registration slots and advisory transactions serialize competing writes.
-- Detailed meals are kept for seven calendar days by default (`Retention:MealDetailDays`, 3–90). The authenticated scheduler atomically saves daily totals/completeness, then deletes old entries. Daily summaries, weights and accepted plans remain. Old meal-detail edits are rejected with the local draft preserved. Mutation receipts expire after 90 days.
+- Detailed meals are kept for 90 calendar days by default (`Retention:MealDetailDays`, 3–90). The authenticated scheduler atomically saves daily totals/completeness, then deletes old entries. Daily summaries, weights and accepted plans remain. Old meal-detail edits are rejected with the local draft preserved. Mutation receipts expire after 90 days.
 - Bootstrap reads a bounded 90-day window; explicit year browsing reads one year. Full-history reads are explicit exports.
+- Food has a compact daily timeline beginning at 12 AM, with editable profile-local meal times and a separate group for legacy entries without recorded times. Older dates show daily summaries; increasing retention cannot restore deleted details or reopen archived meals.
+- Log Food offers calorie-only Quick Add (meal/time prefilled, unknown macros left null) and full Manual entry. Both use the retained offline queue. Downloaded history is account-scoped and bounded to 16 cached windows, independently of the mutation queue and image drafts.
 - Physique photos use private Google Cloud Storage through ADC, with nutrition-specific immutable paths and authenticated image responses. The browser persists drafts before upload and compresses to at most 750 KB / 1600 px. Only metadata is stored in PostgreSQL.
 
 See [methodology](web/src/components/Methodology.tsx), [deployment/recovery](deploy/README.md), and [verification status](VERIFICATION.md). This is a research-informed provisional estimator, not clinical validation or a reproduction of MacroFactor's proprietary algorithm.
@@ -55,7 +57,13 @@ Weight charts toggle daily observations, calculated trend, or both, with an acce
 
 ## Energy-balance history
 
-Progress contains intake/maintenance bars and signed energy-balance bars. Ranges are 7, 28, 90 days or the selected history window; bars group by day, calendar week or month. The comparison uses accepted, effective-dated maintenance estimates, including the accepted estimate preceding the displayed window. New coaching estimates do not retroactively replace older dates.
+Progress contains intake/maintenance bars and signed energy-balance bars. Weight has its own recent-90-days/calendar-year selector. Energy ranges are 7, 28, 90 days or a calendar year; bars group by day, calendar week or month. History views have independent account-scoped caches and do not replace the main diary window. The comparison uses accepted, effective-dated maintenance estimates, including the accepted estimate preceding the displayed window. New coaching estimates do not retroactively replace older dates.
 
 Positive balance means intake above estimated maintenance; negative means below. Incomplete/missing intake or unavailable historical maintenance produces an unknown balance, never an invented deficit. Aggregated net balance requires every included day to be known; an additional subtotal explicitly reports only fully logged days. Confirmed fasting is an explicit zero. Compacted daily summaries feed the same chart, and the chart does not create additional stored history.
 
+
+## Form validation and barcode framing
+
+Forms use the shared application validation layer (`Form` and `FieldFrame`): inline errors appear after leaving a control or submitting, update during correction, and focus the first invalid visible control. Custom dates and selects focus their trigger without opening the popup. Native browser validation bubbles are disabled; server validation remains authoritative. New forms should use these shared components, including actions that retain offline drafts.
+
+The barcode camera decodes only the pixels inside the displayed frame, accounting for centered video cropping and viewport resizing. Successful detection fills the barcode field for a separate lookup. Camera streams stop on detection, stopping, changing logging methods, or closing the dialog. Manual barcode entry remains available if camera access fails.

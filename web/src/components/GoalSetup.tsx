@@ -37,6 +37,8 @@ export function GoalSetup({
     </div>
 
     {paced&&<Field
+      id="goal-energy-adjustment"
+      name="energyAdjustmentPercent"
       label={loss?`Calorie deficit · ${percent}%`:`Calorie surplus · ${percent}%`}
       type="range"
       min="2"
@@ -49,7 +51,7 @@ export function GoalSetup({
       onChange={e=>set('energyAdjustmentPercent',Number(e.target.value))}
     />}
 
-    <SelectField label="Track my goal by" value={mode} onChange={v=>{
+    <SelectField id="goal-phase-mode" name="phaseMode" label="Track my goal by" value={mode} onChange={v=>{
       set('phaseMode',v);
       if(v==='duration'&&!profile.durationWeeks)set('durationWeeks',8);
       set('phaseStart',current);
@@ -61,13 +63,13 @@ export function GoalSetup({
     </SelectField>
 
     {mode==='duration'&&<div className="form-grid coach-disclosure">
-      <Field label="Phase length (weeks)" required type="number" min="1" max="104" value={profile.durationWeeks??8} onChange={e=>set('durationWeeks',Number(e.target.value))}/>
-      <DatePicker label="Phase start date" required max={current} value={profile.phaseStart??current} onChange={v=>set('phaseStart',v)}/>
+      <Field id="goal-duration-weeks" name="durationWeeks" label="Phase length (weeks)" required type="number" min="1" max="104" value={profile.durationWeeks??8} onChange={e=>set('durationWeeks',Number(e.target.value))}/>
+      <DatePicker id="goal-phase-start" name="phaseStart" label="Phase start date" min="2000-01-01" required max={current} value={profile.phaseStart??current} onChange={v=>set('phaseStart',v)}/>
     </div>}
 
     {mode==='weight'&&<div className="form-grid coach-disclosure">
-      <Field label="Phase starting weight (kg)" required type="number" min="20" max="400" step="0.1" value={(profile.phaseStartWeightKg??profile.weightKg)||''} onChange={e=>set('phaseStartWeightKg',Number(e.target.value))}/>
-      <Field label="Target weight (kg)" required type="number" min="20" max="400" step="0.1" value={profile.targetWeightKg??''} onChange={e=>set('targetWeightKg',e.target.value?Number(e.target.value):null)}/>
+      <Field id="goal-phase-start-weight" name="phaseStartWeightKg" label="Phase starting weight (kg)" required type="number" min="20" max="400" step="0.1" value={(profile.phaseStartWeightKg??profile.weightKg)||''} onChange={e=>set('phaseStartWeightKg',Number(e.target.value))}/>
+      <Field id="goal-target-weight" name="targetWeightKg" validate={()=>{const target=profile.targetWeightKg;const initial=profile.phaseStartWeightKg??profile.weightKg;if(target==null)return undefined;if(profile.goal==='lose'&&target>=initial)return 'Choose a target below your phase starting weight.';if(profile.goal==='gain'&&target<=initial)return 'Choose a target above your phase starting weight.';if(profile.goal==='lose'&&target/Math.pow(profile.heightCm/100,2)<18.5)return 'Choose a target with a BMI of at least 18.5.';return undefined;}} label="Target weight (kg)" required type="number" min="20" max="400" step="0.1" value={profile.targetWeightKg??''} onChange={e=>set('targetWeightKg',e.target.value?Number(e.target.value):null)}/>
     </div>}
   </CoachLayout>;
 }

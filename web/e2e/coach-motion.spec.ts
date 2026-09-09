@@ -67,9 +67,9 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
       }
       if(name==='Goal'){
         await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
-        await page.getByLabel('Track my goal by').selectOption('duration');await settled(page);
+        await page.getByLabel('Track my goal by',{exact:true}).selectOption('duration');await settled(page);
         await expect(page.getByLabel('Phase length (weeks)')).toBeVisible();
-        await page.getByLabel('Track my goal by').selectOption('weight');await settled(page);
+        await page.getByLabel('Track my goal by',{exact:true}).selectOption('weight');await settled(page);
         await page.getByLabel('Target weight (kg)',{exact:true}).fill('75');
         expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
         await page.screenshot({path:`artifacts/coach-${theme}-${width}-weight-goal.png`,fullPage:true});
@@ -187,4 +187,20 @@ test('offline profile retention and acceptance refresh failure recover without d
   failRefresh=false;await page.getByRole('button',{name:'Retry loading targets',exact:true}).click();
   await expect(page.getByRole('button',{name:'Retry loading targets',exact:true})).toHaveCount(0);
   expect(accepts).toBe(1);
+});
+
+test('weekly check-in card and dialog settle across themes and responsive widths',async({page,context})=>{
+  const state=await (await context.request.get('/api/state')).json();
+  const edit=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:state.profile}});
+  expect(edit.ok(),await edit.text()).toBeTruthy();
+  await page.reload();await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Review this week',exact:true})).toBeVisible();
+  for(const theme of ['light','dark'])for(const width of [390,768,1440]){
+    await page.setViewportSize({width,height:900});await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);await settled(page);
+    await page.screenshot({path:`artifacts/check-in-${theme}-${width}-card.png`,fullPage:true});
+    const launcher=page.getByRole('button',{name:'Review this week',exact:true});await launcher.click();
+    const dialog=page.getByRole('dialog',{name:'Weekly check-in'});await expect(dialog).toBeVisible();await settled(page);
+    await page.screenshot({path:`artifacts/check-in-${theme}-${width}-dialog.png`,fullPage:true});
+    await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(launcher).toBeFocused();
+  }
 });

@@ -1,17 +1,12 @@
 export type Theme='light'|'dark';
 const key='nourish-theme';
 
-const query=()=>typeof window.matchMedia==='function'?window.matchMedia('(prefers-color-scheme: dark)'):null;
-
-/** The browser preference is the default for a device that has never chosen one here. */
-export const browserTheme=():Theme=>query()?.matches?'dark':'light';
-
 export function storedTheme():Theme|null{
   try{const value=localStorage.getItem(key);return value==='light'||value==='dark'?value:null;}
   catch{return null;}
 }
 
-export const activeTheme=():Theme=>storedTheme()??browserTheme();
+export const activeTheme=():Theme=>storedTheme()??'light';
 
 export function applyTheme(theme:Theme){
   document.documentElement.dataset.theme=theme;
@@ -24,12 +19,8 @@ export function chooseTheme(theme:Theme){
   applyTheme(theme);
 }
 
-/** Follows the browser until this device stores a choice of its own. */
+/** Applies the persisted explicit choice. An absent choice is always Light. */
 export function watchTheme():()=>void{
   applyTheme(activeTheme());
-  const media=query();
-  if(!media)return()=>{};
-  const listener=()=>{if(!storedTheme())applyTheme(browserTheme());};
-  media.addEventListener('change',listener);
-  return()=>media.removeEventListener('change',listener);
+  return()=>{};
 }

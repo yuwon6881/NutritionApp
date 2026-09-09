@@ -1,62 +1,78 @@
-import type {GoalProgress,Profile} from '../types';
+import type {GoalProgress,PhaseDecision,Profile} from '../types';
 import {trend} from './format';
 
 const days=(from:string,to:string)=>Math.round((Date.parse(to)-Date.parse(from))/86400000);
 const shift=(date:string,by:number)=>new Date(Date.parse(date)+by*86400000).toISOString().slice(0,10);
 
 /**
- * Display mirror of the server GoalPolicy so a reached goal is visible on the device that
- * recorded the weigh-in. The server plan stays authoritative for every calorie decision.
+ * Display mirror of the server GoalPolicy. It can surface reached milestones on a device that
+ * recorded the weigh-in, but it never turns a reached milestone into a completed phase.
  */
-export function liveGoalProgress(profile:Profile|null,weights:{date:string;kg:number}[],current:string):GoalProgress|null{
+export function liveGoalProgress(profile:Profile|null,weights:{date:string;kg:number}[],current:string,
+  decision?:PhaseDecision):GoalProgress|null{
   if(!profile)return null;
   const mode=profile.phaseMode??'open';
-  const points=trend(weights.filter(w=>w.date<=current));
+  const raw=weights.filter(w=>w.date<=current).sort((a,b)=>a.date.localeCompare(b.date));
+  const points=trend(raw);
   const currentWeight=points.at(-1)?.kg??null;
+  const scaleWeight=raw.at(-1)?.kg??null;
   const startWeight=profile.phaseStartWeightKg??profile.weightKg??null;
   if(mode==='duration'){
     if(!profile.phaseStart||!profile.durationWeeks)return null;
     const total=profile.durationWeeks*7;
     const end=shift(profile.phaseStart,total);
+    const durationReached=current>=end;
     const percent=Math.min(Math.max(100*days(profile.phaseStart,current)/total,0),100);
-    return base(profile,'duration',percent,current>=end,currentWeight,startWeight,null,null,end);
+    return base(profile,'duration',durationReached?100:percent,currentWeight,startWeight,null,null,end,
+      durationReached,false,false,durationReached?'duration':null,durationReached?end:null,scaleWeight);
   }
   if(mode!=='weight'||profile.targetWeightKg==null)
-    return base(profile,'open',null,false,currentWeight,startWeight,null,null,null);
+    return base(profile,'open',null,currentWeight,startWeight,null,null,null,false,false,false,null,null,scaleWeight);
   const target=profile.targetWeightKg;
   const percent=currentWeight!=null&&Math.abs(target-startWeight!)>.001
     ?Math.min(Math.max(100*(currentWeight-startWeight!)/(target-startWeight!),0),100)
     :null;
-  // Three smoothed weights past the target, spanning at least two days, keep one heavy meal
-  // or a single dry morning from declaring the phase finished.
   const last=points.slice(-3);
-  const complete=points.length>=3&&points[points.length-1].date>=shift(current,-3)
+  const trendReached=points.length>=3&&points.at(-1)!.date>=shift(current,-3)
     &&days(last[0].date,last[2].date)>=2
     &&last.every(w=>profile.goal==='lose'?w.kg<=target:w.kg>=target);
-  const remaining=currentWeight==null?null
-    :complete?0:Math.max(profile.goal==='lose'?currentWeight-target:target-currentWeight,0);
-  return base(profile,'weight',complete?100:percent,complete,currentWeight,startWeight,target,remaining,null);
+  const scaleReached=raw.length>0&&raw.at(-1)!.date>=shift(current,-3)
+    &&(profile.goal==='lose'?raw.at(-1)!.kg<=target:raw.at(-1)!.kg>=target);
+  const reached=trendReached||scaleReached;
+  const remaining=currentWeight==null?null:reached?0:Math.max(profile.goal==='lose'?currentWeight-target:target-currentWeight,0);
+  return base(profile,'weight',reached?100:percent,currentWeight,startWeight,target,remaining,null,
+    false,scaleReached,trendReached,trendReached?'trend':scaleReached?'scale':null,
+    trendReached?raw.at(-1)?.date??null:scaleReached?raw.at(-1)?.date??null:null,scaleWeight,decision?.decision==='await-trend');
 }
 
-function base(profile:Profile,mode:string,percent:number|null,complete:boolean,currentWeight:number|null,
-  startWeight:number|null,targetWeight:number|null,remaining:number|null,phaseEnd:string|null):GoalProgress{
-  return {mode,goal:profile.goal,percent,complete,estimatedFinish:null,phaseEnd,
-    trendWeight:currentWeight,startWeight,targetWeight,remaining,weeklyChange:null,explanation:''};
+function base(profile:Profile,mode:string,percent:number|null,currentWeight:number|null,startWeight:number|null,
+  targetWeight:number|null,remaining:number|null,phaseEnd:string|null,durationReached:boolean,scaleReached:boolean,
+  trendReached:boolean,reachedBy:string|null,reachedOn:string|null,scaleWeight:number|null,awaitingTrend=false):GoalProgress{
+  return {mode,goal:profile.goal,percent,complete:false,estimatedFinish:null,phaseEnd,
+    trendWeight:currentWeight,scaleWeight,startWeight,targetWeight,remaining,weeklyChange:null,explanation:'',
+    durationReached,scaleReached,trendReached,reachedBy,reachedOn,awaitingTrend};
 }
 
-/**
- * The accepted plan carries the server's finish estimate and wording; the live mirror carries
- * today's weigh-ins. An accepted completion stays complete even if the weight later drifts back.
- */
-export function mergeGoalProgress(accepted:GoalProgress|undefined,live:GoalProgress|null):GoalProgress|null{
-  if(!live)return accepted??null;
-  if(!accepted||accepted.mode!==live.mode)return live;
-  const complete=accepted.complete||live.complete;
-  const newlyComplete=complete&&!accepted.complete;
+/** The accepted plan remains authoritative for completion; live data only raises reached flags. */
+export function mergeGoalProgress(accepted:GoalProgress|undefined,live:GoalProgress|null,decision?:PhaseDecision):GoalProgress|null{
+  if(!live){
+    if(!accepted)return null;
+    return decision?.decision==='completed'?{...accepted,complete:true}:accepted;
+  }
+  if(!accepted||accepted.mode!==live.mode){
+    return {...live,complete:decision?.decision==='completed'};
+  }
+  const newlyReached=!accepted.complete&&(live.durationReached||live.scaleReached||live.trendReached);
+  const complete=accepted.complete||decision?.decision==='completed';
   return {...accepted,...live,complete,
+    durationReached:accepted.durationReached||live.durationReached,
+    scaleReached:accepted.scaleReached||live.scaleReached,
+    trendReached:accepted.trendReached||live.trendReached,
+    reachedBy:live.reachedBy??accepted.reachedBy,
+    reachedOn:live.reachedOn??accepted.reachedOn,
+    awaitingTrend:decision?.decision==='await-trend'||live.awaitingTrend||accepted.awaitingTrend,
     phaseEnd:live.phaseEnd??accepted.phaseEnd,
-    // A finish estimate and its wording predate a completion the server has not reviewed yet.
-    estimatedFinish:newlyComplete?null:accepted.estimatedFinish,
+    estimatedFinish:newlyReached&&!complete?null:accepted.estimatedFinish,
     weeklyChange:accepted.weeklyChange,
-    explanation:newlyComplete?'':accepted.explanation};
+    explanation:newlyReached&&!complete?'':accepted.explanation};
 }

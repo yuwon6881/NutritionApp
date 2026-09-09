@@ -39,6 +39,6 @@ public class LoggingPersistenceTests
         Assert.True((await coach.Preview(default)).Result.Adaptive);
         db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-1),Status="not_logged"});await db.SaveChangesAsync();
         var result=(await coach.Preview(default)).Result;
-        Assert.False(result.Adaptive);Assert.NotNull(result.Expenditure);Assert.Equal(28,await db.Weights.CountAsync());
+        Assert.True(result.Adaptive);Assert.NotNull(result.Expenditure);Assert.Equal(28,await db.Weights.CountAsync());
     }
 }

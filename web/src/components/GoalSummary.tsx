@@ -1,7 +1,8 @@
 import type {GoalProgress} from '../types';
 import {number} from '../lib/format';
 
-const heading=(progress:GoalProgress)=>progress.complete?'Goal reached'
+const heading=(progress:GoalProgress)=>progress.complete?'Goal complete'
+  :(progress.durationReached||progress.scaleReached||progress.trendReached)?'Goal reached'
   :progress.mode==='weight'?'Weight goal'
   :progress.mode==='duration'?'Phase timeline':'Ongoing phase';
 
@@ -21,7 +22,7 @@ export function GoalSummary({progress}:{progress:GoalProgress}){
         <div><dt>Remaining</dt><dd>{number(progress.remaining,1)} kg</dd></div>
       </>}
       {progress.phaseEnd&&<div><dt>Phase end</dt><dd>{progress.phaseEnd}</dd></div>}
-      {weight&&!progress.complete&&<div><dt>Estimated finish</dt><dd>{progress.estimatedFinish??'Not yet estimable'}</dd></div>}
+      {weight&&!progress.complete&&!(progress.scaleReached||progress.trendReached)&&<div><dt>Estimated finish</dt><dd>{progress.estimatedFinish??'Not yet estimable'}</dd></div>}
       {progress.weeklyChange!=null&&<div><dt>Weekly change</dt><dd>{number(progress.weeklyChange,2)} kg</dd></div>}
     </dl>
   </div>;
