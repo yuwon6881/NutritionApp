@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 
 const headers={Origin:process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088','X-Nutrition-Request':'1'};
-const profile={dateOfBirth:'1996-03-14',age:30,heightCm:170,weightKg:81,sex:'female',activity:1.4,goal:'maintain',maintenance:2500,timeZone:'Asia/Kuala_Lumpur',phaseMode:'open',energyAdjustmentPercent:0};
+const profile={dateOfBirth:'1996-03-14',age:30,heightCm:170,weightKg:81,sex:'female',activity:1.4,goal:'maintain',maintenance:2500,timeZone:'Asia/Kuala_Lumpur',phaseMode:'open',goalRatePercent:0,distributionShares:null,energyAdjustmentPercent:0};
 test.use({video:'on'});
 test.setTimeout(120000);
 test.describe.configure({mode:'serial'});
@@ -132,7 +132,7 @@ test('real calculation waits, errors, retry and stale responses after back to ed
   await step(page,'Macros');await page.getByRole('button',{name:'Save profile',exact:true}).click();
   await expect(page.getByRole('button',{name:'Accept this plan',exact:true})).toBeEnabled();
   release();await settled(page);
-  await expect(page.locator('.proposal-card .target-figures').getByText('2,125',{exact:false})).toBeVisible();
+  await expect(page.locator('.proposal-card .target-figures > div:first-child strong')).toContainText('2,050');
   await expect(page.getByRole('button',{name:'Accept this plan',exact:true})).toBeEnabled();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);

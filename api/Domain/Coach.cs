@@ -22,7 +22,9 @@ public sealed record Profile
     public int? DurationWeeks { get; init; }
     public double? TargetWeightKg { get; init; }
     public double? PhaseStartWeightKg { get; init; }
+    public double? GoalRatePercent { get; init; }
     public double? EnergyAdjustmentPercent { get; init; }
+    public IReadOnlyList<double>? DistributionShares { get; init; }
     public bool ResistanceTraining { get; init; }
     public bool PregnancyOrBreastfeeding { get; init; }
     public bool MedicalNutrition { get; init; }
@@ -34,6 +36,9 @@ public record PreviousPlan(double Calories, double Expenditure, bool PhaseComple
 public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double? Expenditure,
     double? Protein, double? Fat, double? Carbs, string Explanation, string Version = Coach.Version)
 {
+    public double? WeeklyCalories { get; init; }
+    public IReadOnlyList<int>? DailyCalories { get; init; }
+    public double? GoalRatePercent { get; init; }
     public string EffectiveGoal { get; init; } = "maintain";
     public bool PhaseComplete { get; init; }
     public GoalProgress? GoalProgress { get; init; }
@@ -77,7 +82,19 @@ public static class Coach
         if (adaptive || previous != null || startingExpenditure != null) reason = estimate.Reason;
         if (adaptive) expenditure = estimate.Expenditure;
 
-        var change = effectiveGoal switch { "lose" => p.EnergyAdjustmentPercent is {} deficit ? -expenditure * deficit / 100 : -Math.Min(expenditure * .20, p.WeightKg * .005 * 7700 / 7), "gain" => p.EnergyAdjustmentPercent is {} surplus ? expenditure * surplus / 100 : Math.Min(expenditure * .10, p.WeightKg * .0015 * 7700 / 7), _ => 0 };
+        var rate = EffectiveGoalRate(p, effectiveGoal);
+        var change = p.GoalRatePercent is not null
+            ? p.WeightKg * rate / 100 * 7700 / 7
+            : effectiveGoal switch
+            {
+                "lose" => p.EnergyAdjustmentPercent is {} deficit
+                    ? -expenditure * deficit / 100
+                    : -Math.Min(expenditure * .20, p.WeightKg * .005 * 7700 / 7),
+                "gain" => p.EnergyAdjustmentPercent is {} surplus
+                    ? expenditure * surplus / 100
+                    : Math.Min(expenditure * .10, p.WeightKg * .0015 * 7700 / 7),
+                _ => 0
+            };
         var target = Math.Round((expenditure + change) / 25, MidpointRounding.AwayFromZero) * 25;
         if (previous != null && !progress.Complete)
         {
@@ -88,7 +105,8 @@ public static class Coach
         // Safety boundaries take precedence over the ordinary weekly step limit.
         target = Math.Max(target, Math.Ceiling(Math.Max(1500, expenditure * .75) / 25) * 25);
         if (progress.Complete) reason += " Phase complete: review a maintenance target before accepting the transition.";
-        if (p.EnergyAdjustmentPercent is {} percent && effectiveGoal != "maintain") reason += $" Selected {percent}% {(effectiveGoal == "lose" ? "deficit" : "surplus")}; weekly limits and the calorie floor may moderate this target.";
+        if (p.GoalRatePercent is {} selectedRate && effectiveGoal != "maintain") reason += $" Selected {Math.Abs(selectedRate):0.##}% bodyweight per week; weekly limits and the calorie floor may moderate this target.";
+        else if (p.EnergyAdjustmentPercent is {} percent && effectiveGoal != "maintain") reason += $" Selected {percent}% {(effectiveGoal == "lose" ? "deficit" : "surplus")}; weekly limits and the calorie floor may moderate this target.";
         double protein, fat, carbs;
         if (p.ProteinPercent is {} proteinShare && p.FatPercent is {} fatShare && p.CarbsPercent is {} carbShare)
         {
@@ -103,13 +121,26 @@ public static class Coach
             carbs = (target - protein * 4 - fat * 9) / 4;
         }
         if (carbs < 0) return Blocked("Protein and fat exceed the calorie target. Review your protein override.");
+        var weekly = target * 7;
         return new(true, adaptive, target, expenditure, protein, Math.Round(fat, 1), Math.Round(carbs, 1), reason)
         {
             EffectiveGoal=effectiveGoal,
             PhaseComplete=progress.Complete,
             GoalProgress=progress,
-            Evidence=estimate.Evidence
+            Evidence=estimate.Evidence,
+            WeeklyCalories=weekly,
+            DailyCalories=p.GoalRatePercent is not null || p.DistributionShares is not null
+                ? DailyTargets.Allocate(weekly, p.DistributionShares)
+                : null,
+            GoalRatePercent=rate
         };
+    }
+
+    public static double EffectiveGoalRate(Profile profile, string goal)
+    {
+        if (goal == "maintain") return 0;
+        if (profile.GoalRatePercent is {} selected) return selected;
+        return goal == "lose" ? -.5 : .15;
     }
 
     private static CoachResult Blocked(string reason) => new(false, false, null, null, null, null, null, reason);

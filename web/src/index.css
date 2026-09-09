@@ -350,3 +350,31 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .barcode-frame>i:nth-child(3){right:-2px;bottom:-2px;border-left:0;border-top:0;border-radius:0 0 12px 0}
 .barcode-frame>i:nth-child(4){left:-2px;bottom:-2px;border-right:0;border-top:0;border-radius:0 0 0 12px}
 .barcode-camera>p{margin:10px 0 0;font-size:.8rem}
+
+/* Continuous coaching and weekly program surfaces. */
+.target-weekly-summary{grid-column:1/-1;border-top:1px solid var(--border);padding-top:14px}
+.target-weekly-summary small{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:8px;font-variant-numeric:tabular-nums}
+.target-weekly-summary small span{display:grid;gap:3px;color:var(--muted-foreground)}
+.target-weekly-summary small span::first-line{color:var(--foreground)}
+.weekly-program{border:1px solid var(--border);border-radius:13px;padding:18px;margin:20px 0}
+.weekly-program-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.weekly-program-grid .field{margin-bottom:0}
+.weekly-program-grid input{font-variant-numeric:tabular-nums;text-align:right}
+.weekly-program-total{display:flex;justify-content:space-between;gap:16px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:.82rem;font-variant-numeric:tabular-nums}
+.weekly-program-total.valid{color:var(--success)}
+.weekly-program-total.invalid{color:var(--destructive)}
+.weekly-program .error{margin:10px 0 0;font-size:.76rem}
+.check-in-weekly-program{border:1px solid var(--border);border-radius:13px;padding:16px;margin-top:20px}
+.check-in-weekly-program h3{margin-bottom:6px}
+.check-in-daily-targets{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.check-in-daily-targets>div{display:grid;gap:4px;padding:10px;background:var(--muted);border-radius:10px;font-variant-numeric:tabular-nums}
+.check-in-daily-targets span{font-size:.7rem;color:var(--muted-foreground)}
+.check-in-daily-targets strong{font-size:.82rem}
+.goal-trend-line{stroke:var(--protein);stroke-width:2;stroke-dasharray:7 5;fill:none;stroke-linejoin:round}
+.accepted-target-line{stroke:var(--muted-foreground);stroke-width:2;stroke-dasharray:3 4;opacity:.8}
+.chart-key-maintenance{color:var(--primary-ink)}
+.chart-key-goal{color:var(--protein)}
+.chart-key-accepted{color:var(--muted-foreground)}
+.coaching-settings .source{margin:12px 0 0}
+@media(max-width:1023px){.weekly-program-grid,.check-in-daily-targets{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:639px){.weekly-program{padding:14px}.weekly-program .section-heading{flex-direction:column;align-items:stretch}.weekly-program-grid,.check-in-daily-targets{grid-template-columns:repeat(2,minmax(0,1fr))}.weekly-program-total{align-items:flex-start;flex-direction:column;gap:6px}.target-weekly-summary small{grid-template-columns:repeat(4,minmax(0,1fr))}.check-in-daily-targets strong{font-size:.78rem}}

@@ -20,7 +20,7 @@ builder.Services.AddDbContext<AppDb>(o=>
     else if(builder.Environment.IsDevelopment()) o.UseSqlite("Data Source="+(builder.Configuration["Database:SqlitePath"]??"nutrition.db"));
     else throw new InvalidOperationException("ConnectionStrings:Database must be configured in production.");
 });
-builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
+builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<ExpenditureTrajectoryService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
 builder.Services.AddScoped<ScanService>();builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<PhotoService>();

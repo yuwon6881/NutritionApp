@@ -1,9 +1,14 @@
-import type { AppState, Mutation, Profile } from '../types';
+import type { AppState, CoachingSettings, Mutation, Profile } from '../types';
 const collection={entry:'entries',food:'foods',weight:'weights',day:'days'} as const;
 export function project(state:AppState,queue:Mutation[]):AppState{
   const result=structuredClone(state);
   for(const op of queue){
     if(op.kind==='profile'){result.profile=op.data as Profile;continue;}
+    if(op.kind==='settings'){
+      const settings=op.data as Partial<CoachingSettings>;
+      result.settings={...(result.settings??{checkInWeekday:1,revision:0}),...settings};
+      continue;
+    }
     if(op.kind==='entry'){
       const dates=[(op.data as {date?:string}).date,result.entries.find(e=>e.id===op.recordId)?.date];
       // Keep expired/conflicting work in the queue, without changing an authoritative summary.

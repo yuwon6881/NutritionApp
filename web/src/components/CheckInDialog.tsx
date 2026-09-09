@@ -90,6 +90,12 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
           <strong>{goalLabel(changes?.previousEffectiveGoal)} <span aria-hidden="true">→</span> {goalLabel(changes?.proposedEffectiveGoal??result?.effectiveGoal)}</strong>
         </div>
       </div>
+      <section className="check-in-weekly-program" data-check-in-reveal aria-labelledby="check-in-weekly-title">
+        <h3 id="check-in-weekly-title">Proposed weekly schedule</h3>
+        <p className="source">{result?.goalRatePercent==null?'Rate not available':`Goal rate: ${result.goalRatePercent}% bodyweight per week`} · Weekly budget: {number(result?.weeklyCalories)} kcal</p>
+        <div className="check-in-daily-targets">{(result?.dailyCalories??[]).map((calories,index)=><div key={index}><span>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][index]}</span><strong>{number(calories)} kcal</strong></div>)}</div>
+        {!result?.dailyCalories&&<p className="notice">This older plan has one average daily target; it remains unchanged unless you accept this proposal.</p>}
+      </section>
       <div className="source check-in-evidence" data-check-in-reveal>
         <strong>Evidence</strong>
         {evidence&&<>

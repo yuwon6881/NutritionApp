@@ -7,14 +7,35 @@ export function weekStart(date:string){
   return shift(date,-((day+6)%7));
 }
 
-export function checkInDue(state:Pick<AppState,'plans'|'profileRevision'|'checkIns'>,current:string){
+export function periodStart(date:string,weekday=1){
+  const day=new Date(`${date}T00:00:00Z`).getUTCDay();
+  return shift(date,-((day-weekday+7)%7));
+}
+
+export function nextOccurrence(date:string,weekday:number){
+  const day=new Date(`${date}T00:00:00Z`).getUTCDay();
+  return shift(date,(weekday-day+7)%7);
+}
+
+export function nextOccurrenceAfter(date:string,weekday:number){
+  const next=nextOccurrence(date,weekday);
+  return next>date?next:shift(next,7);
+}
+
+export function checkInDue(state:Pick<AppState,'plans'|'profileRevision'|'checkIns'|'settings'>,current:string){
   const plans=state.plans.filter(plan=>!plan.deleted).sort((a,b)=>b.revision-a.revision);
   const last=plans[0];
   if(!last)return true;
   if(last.profileRevision!==state.profileRevision)return true;
-  const currentWeek=weekStart(current);
-  const declined=(state.checkIns??[]).some(checkIn=>!checkIn.deleted&&checkIn.weekStart===currentWeek&&checkIn.decision==='declined');
-  return weekStart(current)>weekStart(last.date)&&!declined;
+  const weekday=state.settings?.checkInWeekday??1;
+  const cadenceChanged=(last.coachingSettingsRevision??0)!==(state.settings?.revision??0)||last.checkInWeekday!=null&&last.checkInWeekday!==weekday;
+  if(cadenceChanged){
+    const next=nextOccurrenceAfter(state.settings?.changedDate??last.date,weekday);
+    if(current<next)return false;
+  }
+  const currentPeriod=periodStart(current,weekday);
+  const declined=(state.checkIns??[]).some(checkIn=>!checkIn.deleted&&checkIn.weekStart===currentPeriod&&(checkIn.checkInWeekday??1)===weekday&&checkIn.decision==='declined');
+  return periodStart(current,weekday)>periodStart(last.date,weekday)&&!declined;
 }
 
 export function checkInWindowEvidence(state:Pick<AppState,'days'|'entries'|'weights'>,current:string){

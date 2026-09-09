@@ -101,4 +101,39 @@ public sealed class ExpenditureTests
         Assert.Equal(2500, estimate.Expenditure);
         Assert.Contains("outside the supported range", estimate.Reason);
     }
+
+    [Fact]
+    public void Daily_gain_matches_one_week_of_the_prior_gain()
+    {
+        const double weeklyGain = .25;
+        var daily = Expenditure.DailyGain(weeklyGain);
+        Assert.Equal(weeklyGain, 1 - Math.Pow(1 - daily, 7), 10);
+    }
+
+    [Fact]
+    public void Daily_estimator_holds_the_previous_value_with_incomplete_evidence()
+    {
+        var estimate = Expenditure.EstimateDaily(Days(16), Weights(), 2400, Today);
+
+        Assert.False(estimate.Adaptive);
+        Assert.Equal(2400, estimate.Expenditure);
+        Assert.Equal(0, estimate.Gain);
+        Assert.Contains("60% coverage", estimate.Reason);
+    }
+
+    [Fact]
+    public void Daily_estimator_never_turns_fasting_into_zero_intake()
+    {
+        var days = Days().Select(day => day.Date > Today.AddDays(-16)
+            ? day with { Status = "fasting", Calories = 0 }
+            : day).ToArray();
+
+        var estimate = Expenditure.EstimateDaily(days, Weights(), 2400, Today);
+
+        Assert.False(estimate.Adaptive);
+        Assert.Equal(2400, estimate.Expenditure);
+        Assert.Equal(13, estimate.Evidence.LoggedDays);
+        Assert.Equal(2500, estimate.Evidence.MeanIntake);
+        Assert.Contains("60% coverage", estimate.Reason);
+    }
 }

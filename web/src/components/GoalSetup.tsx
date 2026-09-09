@@ -16,11 +16,11 @@ export function GoalSetup({
   acceptedExpenditure?:number|null;
 }){
   const loss=profile.goal==='lose';
-  const percent=profile.energyAdjustmentPercent??(loss?15:5);
+  const paced=profile.goal&&profile.goal!=='maintain';
+  const rate=profile.goalRatePercent??(loss?-0.5:profile.goal==='gain'?0.15:0);
   const mode=profile.phaseMode??'open';
   const current=today(profile.timeZone);
-  const live=calculateLivePace(profile,percent,acceptedExpenditure,current);
-  const paced=profile.goal&&profile.goal!=='maintain';
+  const live=calculateLivePace(profile,undefined,acceptedExpenditure,current);
 
   return <CoachLayout className="goal-setup">
     <div className="live-calorie-card">
@@ -32,24 +32,26 @@ export function GoalSetup({
       </div>
       <div className="live-calorie-meta">
         <span>Maintenance ~{number(live.expenditure)} kcal</span>
-        {paced&&<span className="live-delta">{loss?'−':'+'}{Math.abs(live.change)} kcal · {percent}%</span>}
+        {paced&&<span className="live-delta">{live.change<0?'−':'+'}{Math.abs(live.change)} kcal · {Math.abs(rate)}% bodyweight/week</span>}
       </div>
     </div>
 
     {paced&&<Field
-      id="goal-energy-adjustment"
-      name="energyAdjustmentPercent"
-      label={loss?`Calorie deficit · ${percent}%`:`Calorie surplus · ${percent}%`}
+      id="goal-rate"
+      name="goalRatePercent"
+      label="Rate (% bodyweight per week)"
       type="range"
-      min="2"
-      max={loss?25:20}
-      step="1"
-      value={percent}
-      style={{'--range-fill':`${Math.round(100*(percent-2)/((loss?25:20)-2))}%`} as CSSProperties}
-      aria-label={loss?'Calorie deficit (%)':'Calorie surplus (%)'}
-      aria-valuetext={`${percent}% ${loss?'deficit':'surplus'}`}
-      onChange={e=>set('energyAdjustmentPercent',Number(e.target.value))}
+      min={loss?'-1.5':'0.05'}
+      max={loss?'-0.1':'0.5'}
+      step="0.05"
+      value={rate}
+      style={{'--range-fill':`${Math.round((loss?(rate+1.5)/1.4:(rate-.05)/.45)*100)}%`} as CSSProperties}
+      aria-label="Rate (% bodyweight per week)"
+      aria-valuetext={`${rate}% bodyweight per week`}
+      onChange={e=>set('goalRatePercent',Number(e.target.value))}
+      hint={loss?'Allowed: 0.1–1.5% loss per week. A sustainable range is 0.5–1.0%.':'Allowed: 0.05–0.5% gain per week. A sustainable range is 0.1–0.25%.'}
     />}
+    {!paced&&<p className="source">Maintenance uses a fixed 0% bodyweight change rate.</p>}
 
     <SelectField id="goal-phase-mode" name="phaseMode" label="Track my goal by" value={mode} onChange={v=>{
       set('phaseMode',v);

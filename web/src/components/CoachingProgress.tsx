@@ -1,21 +1,50 @@
-import {useEffect,useState} from 'react';
 import type {Nourish} from '../useNourish';
-import type {CoachResult} from '../types';
-import {api} from '../lib/api';
+import {mondayIndex} from '../lib/dailyTargets';
 import {number} from '../lib/format';
-import {GoalSummary} from './GoalSummary';
+
+function lineSegments(points:{date:string;value:number|null}[],x:(date:string)=>number,y:(value:number)=>number){
+  const segments:string[][]=[];let current:string[]=[];
+  for(const point of points){
+    if(point.value==null){if(current.length)segments.push(current);current=[];continue;}
+    current.push(`${x(point.date)},${y(point.value)}`);
+  }
+  if(current.length)segments.push(current);
+  return segments;
+}
+
 export function CoachingProgress({store}:{store:Nourish}){
-  const [result,setResult]=useState<CoachResult>();const [error,setError]=useState('');
-  const pending=store.local!.queue.length>0;
-  useEffect(()=>{let active=true;if(!pending)void api<{result:CoachResult}>('/coach/preview').then(p=>{if(active){setResult(p.result);setError('');}}).catch(ex=>{if(active)setError(ex.message);});return()=>{active=false;};},[store.state!.revision,pending]);
-  const points=store.state!.plans.map(p=>({date:p.date,revision:p.revision,result:JSON.parse(p.resultJson) as CoachResult})).filter(p=>p.result.expenditure!=null).sort((a,b)=>a.revision-b.revision);
-  const min=Math.min(...points.map(p=>p.result.expenditure!),result?.expenditure??2500)-100;const max=Math.max(...points.map(p=>p.result.expenditure!),result?.expenditure??2500)+100;
-  const start=points.length?Date.parse(points[0].date):0;const duration=Math.max(86400000,points.length?Date.parse(points.at(-1)!.date)-start:0);
-  const xy=(p:typeof points[number])=>`${55+(Date.parse(p.date)-start)/duration*615},${175-(p.result.expenditure!-min)/(max-min)*130}`;
-  return <section className="panel">
-    <div className="section-heading"><div><h2>Maintenance estimate</h2></div>{!pending&&result&&<strong className="figure-inline">{number(result.expenditure)} <span className="unit">kcal/day</span></strong>}</div>
-    {pending?<p className="notice">Sync your changes to update this estimate.</p>:result?.goalProgress&&<GoalSummary progress={result.goalProgress}/>}
-    {points.length>0&&<svg viewBox="0 0 700 220" className="weight-chart" role="img" aria-label={`Accepted maintenance estimates from ${number(points[0].result.expenditure)} to ${number(points.at(-1)!.result.expenditure)} calories per day.`}><line x1="55" y1="175" x2="670" y2="175" className="chart-grid"/><polyline className="trend-line" points={points.map(xy).join(' ')}/>{points.map(p=>{const [x,y]=xy(p).split(',');return <circle key={p.revision} cx={x} cy={y} r="3" className="trend-dot"><title>{p.date}: {number(p.result.expenditure)} kcal/day</title></circle>;})}<text x="50" y="45" textAnchor="end">{number(max)}</text><text x="50" y="175" textAnchor="end">{number(min)}</text><text x="55" y="208">{points[0].date}</text><text x="670" y="208" textAnchor="end">{points.at(-1)!.date}</text></svg>}
-    {error&&<p className="source">Offline · saved history shown.</p>}
+  const state=store.state!;
+  const points=(state.energyEstimates??[]).filter(point=>point.expenditure!=null).sort((a,b)=>a.date.localeCompare(b.date));
+  const values=points.flatMap(point=>[point.expenditure,point.suggestedCalories].filter((value):value is number=>value!=null));
+  const accepted=state.acceptedTargetIntervals??[];
+  const allValues=[...values,...accepted.flatMap(interval=>interval.dailyCalories??(interval.calories==null?[]:[interval.calories]))];
+  const min=(allValues.length?Math.min(...allValues):2000)-100;
+  const max=(allValues.length?Math.max(...allValues):2500)+100;
+  const start=points[0]?.date??state.start;
+  const end=points.at(-1)?.date??state.end;
+  const duration=Math.max(1,Date.parse(end)-Date.parse(start));
+  const x=(date:string)=>55+(Date.parse(date)-Date.parse(start))/duration*615;
+  const y=(value:number)=>185-(value-min)/Math.max(1,max-min)*130;
+  const maintenance=lineSegments(points.map(point=>({date:point.date,value:point.expenditure})),x,y);
+  const goal=lineSegments(points.map(point=>({date:point.date,value:point.suggestedCalories})),x,y);
+  const acceptedFor=(date:string)=>{
+    const interval=accepted.find(item=>item.start<=date&&item.end>=date);
+    if(!interval)return null;
+    return interval.dailyCalories?.[mondayIndex(date)]??interval.calories??null;
+  };
+  return <section className="panel coaching-progress">
+    <div className="section-heading"><div><h2>Continuous coaching guidance</h2><p>These estimates can move as evidence changes. Accepted targets stay active until you accept a check-in.</p></div></div>
+    {!points.length?<p className="notice">No trajectory points are available yet. Log complete days and weigh regularly to build the 28-day evidence window.</p>:<>
+      <svg viewBox="0 0 700 245" className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
+        <line x1="55" y1="185" x2="670" y2="185" className="chart-grid"/>
+        {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);return target==null?null:<line key={interval.start} x1={x(interval.start)} x2={x(interval.end>end?end:interval.end)} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{interval.start} to {interval.end}: accepted target {number(target)} kcal/day</title></line>;})}
+        {maintenance.map((segment,index)=><polyline key={`maintenance-${index}`} className="trend-line" points={segment.join(' ')}/>)}
+        {goal.map((segment,index)=><polyline key={`goal-${index}`} className="goal-trend-line" points={segment.join(' ')}/>)}
+        <text x="50" y="55" textAnchor="end">{number(max)}</text><text x="50" y="185" textAnchor="end">{number(min)}</text>
+        <text x="55" y="220">{start}</text><text x="670" y="220" textAnchor="end">{end}</text>
+      </svg>
+      <p className="chart-key"><span className="chart-key-maintenance">Maintenance</span> · <span className="chart-key-goal">Provisional goal</span> · <span className="chart-key-accepted">Accepted target</span></p>
+      <details><summary>Trajectory values as a table</summary><div className="table-scroll"><table><thead><tr><th>Date</th><th>Maintenance</th><th>Provisional goal</th><th>Accepted target</th><th>Evidence</th></tr></thead><tbody>{points.map(point=><tr key={point.date}><td>{point.date}</td><td>{number(point.expenditure)} kcal</td><td>{point.suggestedCalories==null?'Unknown':`${number(point.suggestedCalories)} kcal`}</td><td>{number(acceptedFor(point.date))} kcal</td><td>{point.holdReason??`${Math.round(point.confidence*100)}% confidence`}</td></tr>)}</tbody></table></div></details>
+    </>}
   </section>;
 }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
+using System.Text.Json;
 using Xunit;
 
 namespace Nutrition.Tests;
@@ -16,6 +17,21 @@ public sealed class CheckInTests
     public void Week_start_is_monday(string input, string expected)
     {
         Assert.Equal(DateOnly.Parse(expected), CheckInWeek.WeekStart(DateOnly.Parse(input)));
+    }
+
+    [Theory]
+    [InlineData(0, "2026-09-06", "2026-09-13")]
+    [InlineData(1, "2026-09-07", "2026-09-14")]
+    [InlineData(2, "2026-09-08", "2026-09-15")]
+    [InlineData(3, "2026-09-09", "2026-09-16")]
+    [InlineData(4, "2026-09-03", "2026-09-10")]
+    [InlineData(5, "2026-09-04", "2026-09-11")]
+    [InlineData(6, "2026-09-05", "2026-09-12")]
+    public void Selected_weekday_periods_have_stable_boundaries(int weekday, string expectedStart, string expectedNext)
+    {
+        var date = new DateOnly(2026, 9, 9);
+        Assert.Equal(DateOnly.Parse(expectedStart), CheckInWeek.PeriodStart(date, weekday));
+        Assert.Equal(DateOnly.Parse(expectedNext), CheckInWeek.NextOccurrenceAfter(date, weekday));
     }
 
     [Fact]
@@ -77,6 +93,31 @@ public sealed class CheckInTests
         var changed = await coach.Preview(default);
         Assert.True(changed.CanAccept);
         Assert.NotEqual(first.Revision, changed.Revision);
+    }
+
+    [Fact]
+    public async Task A_settings_only_change_waits_until_the_next_selected_occurrence()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = await NewUser(db);
+        var today = RetentionService.Today(user.ProfileJson);
+        db.Plans.Add(AddPlan(user, today));
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        db.CurrentUser = user.Id;
+
+        var sync = new SyncService(db);
+        var settingsRevision = await sync.Apply(new(Guid.NewGuid(), "settings", user.Id, user.CoachingSettingsRevision,
+            JsonSerializer.SerializeToElement(new { checkInWeekday = 5 }, Json.Options)), default);
+        Assert.Equal(settingsRevision, (await db.Users.SingleAsync(item => item.Id == user.Id)).CoachingSettingsRevision);
+
+        var preview = await new CoachingService(db).Preview(default);
+        Assert.False(preview.CanAccept);
+        Assert.Equal(CheckInWeek.NextOccurrenceAfter(today, 5), preview.NextCheckIn);
+        Assert.Contains("check-in day changed", preview.HoldReason);
     }
 
     [Fact]

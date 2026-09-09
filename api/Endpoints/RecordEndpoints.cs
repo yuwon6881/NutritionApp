@@ -10,21 +10,31 @@ public static class RecordEndpoints
 {
     public static void MapRecords(this WebApplication app)
     {
-        app.MapGet("/api/state",async(AppDb db,RetentionService retention,DateOnly? date,int? year,CancellationToken ct) =>
+        app.MapGet("/api/state",async(AppDb db,RetentionService retention,ExpenditureTrajectoryService trajectory,DateOnly? date,int? year,CancellationToken ct) =>
         {
             var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);
+            var snapshots=await trajectory.EnsureThroughToday(ct);
             var today=RetentionService.Today(user.ProfileJson);
             Validation.Require(date==null || date>=new DateOnly(2000,1,1)&&date<=today,"Choose a supported diary date.");
             var end=date??today; var start=end.AddDays(-89);
             if(year is {} y){Validation.Require(y>=2000&&y<=today.Year,"Choose a supported history year.");start=new(y,1,1);end=new(y,12,31);}
-            var energyPlans=await db.Plans.Where(p=>p.Date>=start&&p.Date<=end).OrderBy(p=>p.Date).ThenBy(p=>p.Revision).ToListAsync(ct);
-            var precedingPlan=await db.Plans.Where(p=>p.Date<start).OrderByDescending(p=>p.Date).ThenByDescending(p=>p.Revision).FirstOrDefaultAsync(ct);
-            if(precedingPlan!=null)energyPlans.Insert(0,precedingPlan);
+            var energySnapshots=snapshots.Where(snapshot=>snapshot.Date>=start&&snapshot.Date<=end).ToList();
+            var precedingSnapshot=snapshots.Where(snapshot=>snapshot.Date<start).OrderByDescending(snapshot=>snapshot.Date).FirstOrDefault();
+            if(precedingSnapshot!=null)energySnapshots.Insert(0,precedingSnapshot);
+            var orderedPlans=await db.Plans.OrderBy(plan=>plan.Date).ThenBy(plan=>plan.Revision).ToListAsync(ct);
+            var acceptedTargetIntervals=orderedPlans.Select((plan,index)=>
+            {
+                var result=Json.Read<CoachResult>(plan.ResultJson);
+                var next=index+1<orderedPlans.Count?orderedPlans[index+1].Date.AddDays(-1):today;
+                return new { start=plan.Date,end=next,calories=result.Calories,weeklyCalories=result.WeeklyCalories,dailyCalories=result.DailyCalories };
+            }).Where(interval=>interval.end>=interval.start).ToList();
             return Results.Ok(new {
                 user.Id,user.Username,user.Revision,user.ProfileRevision,
+                settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate },
                 profile=user.ProfileJson.Length==0?null:Json.Read<Profile>(user.ProfileJson), start,end,
                 detailCutoff=RetentionService.Cutoff(RetentionService.Today(user.ProfileJson),retention.DetailDays),detailDays=retention.DetailDays,
-                energyEstimates=energyPlans.Select(p=>new { p.Date,p.Revision,expenditure=Json.Read<CoachResult>(p.ResultJson).Expenditure }).Where(p=>p.expenditure!=null),
+                energyEstimates=energySnapshots.Select(snapshot=>new { date=snapshot.Date,revision=snapshot.SourceRevision,expenditure=snapshot.Expenditure,suggestedCalories=snapshot.SuggestedCalories,confidence=snapshot.Confidence,holdReason=snapshot.HoldReason,algorithmVersion=snapshot.AlgorithmVersion,trendWeightKg=snapshot.TrendWeightKg }),
+                acceptedTargetIntervals,
                 entries=await db.Entries.Where(e=>e.Date>=start&&e.Date<=end).OrderBy(e=>e.Date).ThenBy(e=>e.Id).ToListAsync(ct),
                 foods=await db.Foods.OrderBy(f=>f.Name).Take(1000).ToListAsync(ct),
                 weights=await db.Weights.Where(w=>w.Date>=start&&w.Date<=end).OrderBy(w=>w.Date).ToListAsync(ct),

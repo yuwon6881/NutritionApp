@@ -19,6 +19,8 @@ import {GoalReachedBanner} from './GoalReachedBanner';
 import {CheckInCard} from './CheckInCard';
 import {CheckInDialog} from './CheckInDialog';
 import {MacroSetup} from './MacroSetup';
+import {WeeklyProgramSetup} from './WeeklyProgramSetup';
+import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachStepper,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
 
@@ -41,6 +43,8 @@ const defaults:ProfileDraft={
   phaseStart:null,
   targetWeightKg:null,
   phaseStartWeightKg:null,
+  goalRatePercent:0,
+  distributionShares:null,
   energyAdjustmentPercent:0,
   proteinPercent:null,
   carbsPercent:null,
@@ -62,6 +66,7 @@ function TargetFigures({result}:{result:CoachResult}){
     <div><p>Protein</p><strong>{number(result.protein)} <span className="unit">g</span></strong></div>
     <div><p>Carbohydrate</p><strong>{number(result.carbs)} <span className="unit">g</span></strong></div>
     <div><p>Fat</p><strong>{number(result.fat)} <span className="unit">g</span></strong></div>
+    {result.dailyCalories?.length===7&&<div className="target-weekly-summary"><p>Weekly budget</p><strong>{number(result.weeklyCalories)} <span className="unit">kcal</span></strong><small>{result.dailyCalories.map((calories,index)=><span key={index}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]} {number(calories)}</span>)}</small></div>}
   </div>;
 }
 
@@ -73,6 +78,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
   const [mainTab,setMainTab]=useState<MainTab>('targets');
   const [review,setReview]=useState(false);
+  const [weeklyDraft,setWeeklyDraft]=useState<number[]>();
   const {step,go:setStep,stage}=useCoachSteps<StepKey>('body',stepOrder,`${mainTab}-${review}`);
   const reviewPanel=useRef<HTMLElement>(null);
   useEffect(()=>{if(review)reviewPanel.current?.focus({preventScroll:true});},[review]);
@@ -80,7 +86,9 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const plans=store.state!.plans.filter(p=>!p.deleted);
   const isInitialSetup=onboarding||plans.length===0;
 
-  const accepted=plans.find(p=>p.profileRevision===store.state!.profileRevision);
+  // Profile edits create a proposal; the newest accepted plan remains active
+  // until the user explicitly accepts that proposal.
+  const accepted=plans[0];
   const acceptedPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const current=today(store.state!.profile?.timeZone);
   const derivedAge=ageOn(profile.dateOfBirth,current);
@@ -95,12 +103,14 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
   const set=(key:keyof Profile,value:unknown)=>{
     invalidate();
+    if(key!=='distributionShares')setWeeklyDraft(undefined);
     setProfile(p=>({
       ...p,
       [key]:value,
       // The stored age mirrors the date of birth so an older record stays consistent offline.
       ...(key==='dateOfBirth'?{age:ageOn(value as string,current)??p.age}:{}),
       ...(key==='goal'?{
+        goalRatePercent:value==='lose'?-0.5:value==='gain'?0.15:0,
         energyAdjustmentPercent:value==='lose'?15:value==='gain'?5:0,
         ...(value==='maintain'?{phaseMode:'open' as const}:{})
       }:{})
@@ -125,6 +135,10 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const retryRefresh=async()=>{await refreshTargets();if(proposalFlow.operation!=='refresh-error')setReview(false);};
 
   const live=calculateLivePace(profile,undefined,acceptedPlan?.expenditure,current);
+  const weeklyValues=weeklyDraft??(profile.distributionShares?.length===7
+    ?allocateWeeklyCalories(live.weeklyCalories,profile.distributionShares)
+    :live.dailyCalories);
+  const weeklyValid=weeklyValues.length===7&&weeklyValues.every(value=>Number.isInteger(value)&&value>=0)&&weeklyValues.reduce((sum,value)=>sum+value,0)===Math.round(live.weeklyCalories);
   const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
   const weighIns=[...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)];
   const phaseDecision=store.state!.phaseDecisions?.find(decision=>decision.profileRevision===store.state!.profileRevision&&!decision.deleted);
@@ -144,6 +158,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}
     if(!canAdvanceActivity){setStep('activity');setError('Choose your usual activity.');return;}
     if(!canAdvanceGoal){setStep('goal');setError('Review your goal and phase details.');return;}
+    if(!weeklyValid){setError(`Your seven daily calories must total exactly ${number(Math.round(live.weeklyCalories))} kcal.`);return;}
     locked.current=true;setSaving(true);setError('');
     try{
     await store.mutate({
@@ -222,7 +237,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </div>
       <dl className="strategy-figures">
         <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
-        <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${profile.energyAdjustmentPercent}% ${profile.goal==='lose'?'deficit':'surplus'}`}</dd></div>
+        <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${Math.abs(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15))}% bodyweight/week`}</dd></div>
         <div><dt>Tracking</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${profile.targetWeightKg} kg`:'Ongoing'}</dd></div>
         <div><dt>Macros</dt><dd>{presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')}</dd></div>
         <div><dt>Body</dt><dd>{profile.weightKg} kg · {profile.heightCm} cm</dd></div>
@@ -323,6 +338,10 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           onChange={next=>setSplit(next,'custom')}
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
+        <WeeklyProgramSetup budget={live.weeklyCalories} values={weeklyValues} onChange={values=>{
+          setWeeklyDraft(values);
+          set('distributionShares',normaliseDistribution(values));
+        }}/>
         <dl className="strategy-figures">
           <div><dt>Resting</dt><dd>{number(live.resting)} kcal</dd></div>
           <div><dt>Maintenance</dt><dd>{number(live.expenditure)} kcal</dd></div>

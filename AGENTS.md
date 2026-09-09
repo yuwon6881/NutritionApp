@@ -19,6 +19,8 @@ This repository is independent of FinancialApp. These rules apply to NutritionAp
 - AI supports descriptions, meal photos, and nutrition-label photos. Returned fields remain editable drafts. Preserve unknown nutrients and quantity basis; never auto-submit scans or claim verified accuracy.
 - Persist account-scoped mutations and image drafts before dispatch. Preserve idempotency, conflict review, tenancy, and private image cleanup. Never reset or discard unsynced work to hide failures.
 - Server coaching remains authoritative. Accepted plans are immutable and revision checked. Do not change physiological equations or adaptation thresholds as a UI cleanup. Age is derived from the stored date of birth at calculation time; a stored macro split owns all three macros while an absent split keeps the coach default. Each proposal carries one acceptance identity so a repeated accept is idempotent.
+- Continuous expenditure snapshots are versioned, deterministic advisory data. They may update before a check-in, while Today reads only the latest accepted plan until acceptance atomically activates its seven dated targets.
+- Coaching cadence is independently revisioned from the profile. Monday is the default; a weekday change is retained without changing the active plan and becomes due on the next occurrence in the profile time zone.
 
 ## Working and verification
 

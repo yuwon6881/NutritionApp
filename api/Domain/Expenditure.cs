@@ -54,6 +54,25 @@ public static class WeightSignal
 
 public static class Expenditure
 {
+    public static double DailyGain(double weeklyGain)
+        => 1 - Math.Pow(1 - Math.Clamp(weeklyGain, 0, .999999999), 1d / 7);
+
+    public static ExpenditureEstimate EstimateDaily(IReadOnlyList<NutritionDay> days,
+        IReadOnlyList<WeightPoint> weights, double expenditure, DateOnly today)
+    {
+        // A fasting decision records an intentional gap; it must not become a zero-intake
+        // observation in the continuous trajectory. The accepted-plan estimator keeps its
+        // historical fasting semantics, while daily recalibration waits for real intake evidence.
+        var trajectoryDays = days.Select(day => day.Status == "fasting"
+            ? day with { Status = "not_logged", Calories = 0 }
+            : day).ToArray();
+        var weekly = Estimate(trajectoryDays, weights, expenditure, today);
+        if (!weekly.Adaptive || weekly.Observed is not {} observed)
+            return weekly with { Gain = 0, Expenditure = expenditure };
+        var gain = DailyGain(weekly.Gain);
+        return weekly with { Gain = gain, Expenditure = expenditure + gain * (observed - expenditure) };
+    }
+
     public static ExpenditureEstimate Estimate(IReadOnlyList<NutritionDay> days,
         IReadOnlyList<WeightPoint> weights, double expenditure, DateOnly today, bool allowAdaptation = true)
     {

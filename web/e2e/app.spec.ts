@@ -31,7 +31,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByLabel('Known maintenance calories (optional)').fill('2500');
   await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
-  await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('End');
+  await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
   await page.getByRole('radio',{name:'Maintenance',exact:true}).check();
   await page.getByLabel('Track my goal by',{exact:true}).selectOption('duration');await page.getByLabel('Phase length (weeks)').fill('4');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
@@ -203,8 +203,8 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Coach',exact:true}).click();
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   await page.getByRole('button',{name:/3\. Goal/}).click();
-  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('End');
-  for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Calorie deficit (%)'}).press('ArrowLeft');
+  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
+  for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowLeft');
   await page.getByLabel('Track my goal by',{exact:true}).selectOption('weight');await page.getByLabel('Phase starting weight (kg)').fill('80.8');await page.getByLabel('Target weight (kg)').fill('75');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'High protein',exact:true}).click();
@@ -215,10 +215,10 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
   expect((await (await context.request.get('/api/state')).json()).plans).toHaveLength(2);
   const state=await (await context.request.get('/api/state')).json();const result=JSON.parse(state.plans[0].resultJson);
-  expect(result.expenditure).toBe(2500);expect(result.calories).toBe(2000);expect(state.profile.energyAdjustmentPercent).toBe(20);
+  expect(result.expenditure).toBe(2500);expect(result.calories).toBe(2200);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Weight goal',exact:true})).toBeVisible();
-  await expect(page.getByText('Not yet estimable',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
+  await expect(page.getByText('No complete days with an accepted maintenance estimate.',{exact:true})).toBeVisible();
 
   const shift=(date:string,days:number)=>new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
   let latest=await (await context.request.get('/api/state')).json();
@@ -249,6 +249,35 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByRole('dialog',{name:'Weekly check-in'})).toBeVisible({timeout:25000});
   await expect(page.getByRole('dialog',{name:'Weekly check-in'}).getByText('Maintenance',{exact:true}).first()).toBeVisible();
   await page.keyboard.press('Escape');
+});
+
+test('accepted daily targets and offline cadence edits stay explicit',async({page,context})=>{
+  await signIn(context.request);
+  let state=await (await context.request.get('/api/state')).json();
+  if(!state.profile||!state.plans.length){
+    const profile={dateOfBirth:'1996-03-14',age:30,heightCm:170,weightKg:81,sex:'female',activity:1.4,goal:'maintain',maintenance:2500,timeZone:'Asia/Kuala_Lumpur',phaseMode:'open',goalRatePercent:0,distributionShares:[10,10,10,10,10,25,25],energyAdjustmentPercent:0};
+    const saved=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:profile}});expect(saved.ok(),await saved.text()).toBeTruthy();
+    const preview=await (await context.request.get('/api/coach/preview')).json();const accepted=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:preview.revision}});expect(accepted.ok(),await accepted.text()).toBeTruthy();
+    state=await (await context.request.get('/api/state')).json();
+  }
+  const active=state.plans[0];const activeResult=JSON.parse(active.resultJson) as {calories:number;weeklyCalories?:number;dailyCalories?:number[]};
+  const mondayIndex=(date:string)=>{const day=new Date(`${date}T00:00:00Z`).getUTCDay();return (day+6)%7;};
+  const activeDaily=activeResult.dailyCalories?.[mondayIndex(state.end)]??activeResult.calories;
+  const edited={...state.profile,goal:'lose',goalRatePercent:-0.5,energyAdjustmentPercent:15,distributionShares:[10,10,10,10,10,25,25],phaseMode:'open',phaseStart:null,durationWeeks:null,targetWeightKg:null,phaseStartWeightKg:null};
+  const profileResponse=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:edited}});expect(profileResponse.ok(),await profileResponse.text()).toBeTruthy();
+  const changed=await (await context.request.get('/api/state')).json();expect(changed.plans[0].id).toBe(active.id);
+  const proposal=await (await context.request.get('/api/coach/preview')).json();expect(proposal.canAccept).toBeTruthy();expect(proposal.result.dailyCalories).toHaveLength(7);expect(proposal.result.dailyCalories.reduce((sum:number,value:number)=>sum+value,0)).toBe(proposal.result.weeklyCalories);
+  await page.goto('/');
+  const target=page.locator('.energy-panel p').filter({hasText:'kcal target'});await expect(target).toBeVisible();expect((await target.textContent())!.replaceAll(',','')).toContain(String(activeDaily));
+  await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});
+  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();await expect(page.getByRole('heading',{name:'Continuous coaching guidance',exact:true})).toBeVisible();
+  const acceptedResponse=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:proposal.revision}});expect(acceptedResponse.ok(),await acceptedResponse.text()).toBeTruthy();
+  state=await (await context.request.get('/api/state')).json();const nextResult=JSON.parse(state.plans[0].resultJson) as {calories:number;weeklyCalories:number;dailyCalories:number[]};expect(state.plans[0].id).not.toBe(active.id);expect(nextResult.dailyCalories).toEqual(proposal.result.dailyCalories);expect(nextResult.dailyCalories.reduce((sum,value)=>sum+value,0)).toBe(nextResult.weeklyCalories);
+  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Settings',exact:true}).click();await context.setOffline(true);await page.locator('#coaching-check-in-weekday').selectOption('5');await expect(page.getByText(/Saving your check-in day/)).toBeVisible();
+  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Settings',exact:true}).click();await expect(page.locator('#coaching-check-in-weekday')).toHaveValue('5');await expect(page.getByText(/Saving your check-in day/)).toBeVisible();
+  await context.setOffline(false);await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday;}).toBe(5);
+  const afterSettings=await (await context.request.get('/api/state')).json();expect(afterSettings.profileRevision).toBe(state.profileRevision);expect(afterSettings.plans[0].id).toBe(state.plans[0].id);
+  await page.locator('#coaching-check-in-weekday').selectOption('1');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday;}).toBe(1);
 });
 
 

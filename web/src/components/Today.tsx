@@ -8,6 +8,7 @@ import {SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {dayStatus} from '../lib/loggingDay';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
+import {targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {CheckInCard} from './CheckInCard';
 import {CheckInDialog} from './CheckInDialog';
@@ -40,11 +41,14 @@ export function Today({
   const savedDay=state.days.find(d=>d.date===date&&!d.deleted);
   const total=savedDay?.archived?(savedDay.calories??0):entries.reduce((s,e)=>s+e.calories,0);
   const readOnly=mealReadOnly(state,date);
-  const accepted=state.plans.find(p=>!p.deleted&&p.profileRevision===state.profileRevision);
+  // Keep the latest accepted targets active while a newer profile proposal is
+  // waiting for an explicit acceptance.
+  const accepted=state.plans.find(p=>!p.deleted);
   const plan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
+  const targets=targetsForDate(plan,date);
   const day=state.days.find(d=>d.date===date);
   const status=dayStatus(date,today(state.profile?.timeZone),day&&!day.deleted?day.status:undefined,savedDay?.archived?(savedDay.entryCount??0)>0:entries.length>0);
-  const ratio=plan?.calories?Math.min(total/plan.calories,1):0;
+  const ratio=targets.calories?Math.min(total/targets.calories,1):0;
   const act=async(fn:()=>Promise<unknown>)=>{try{setError('');await fn();}catch(ex){setError((ex as Error).message);}};
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
   const goalProgress=mergeGoalProgress(plan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision),phaseDecision);
@@ -73,16 +77,16 @@ export function Today({
           <div>
             <p className="eyebrow">ENERGY</p>
             <h2>{number(total)} <span className="unit">kcal logged</span></h2>
-            <p>{plan?.calories?`${number(plan.calories)} kcal target`:'Set up your coach'}</p>
+            <p>{targets.calories?`${number(targets.calories)} kcal target`:'Set up your coach'}</p>
             <Button variant="tertiary" onClick={onCoach}>
               {plan?'Targets':'Set up coach'}<ArrowRight size={16}/>
             </Button>
           </div>
-          <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={plan?.calories?`${number(total)} of ${number(plan.calories)} calories logged`:`${number(total)} calories logged`}>
+          <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={targets.calories?`${number(total)} of ${number(targets.calories)} calories logged`:`${number(total)} calories logged`}>
             <circle className="ring-track" cx="60" cy="60" r="48"/>
             <circle className="ring-fill" cx="60" cy="60" r="48" strokeDasharray={`${ratio*301.59} 301.59`} transform="rotate(-90 60 60)"/>
-            <text x="60" y="58" textAnchor="middle">{plan?.calories?number(Math.max(plan.calories-total,0)):'—'}</text>
-            <text className="ring-label" x="60" y="76" textAnchor="middle">{total>(plan?.calories??Infinity)?'target reached':'remaining'}</text>
+            <text x="60" y="58" textAnchor="middle">{targets.calories?number(Math.max(targets.calories-total,0)):'—'}</text>
+            <text className="ring-label" x="60" y="76" textAnchor="middle">{total>(targets.calories??Infinity)?'target reached':'remaining'}</text>
           </svg>
         </article>
         <article className="panel macros">
@@ -93,8 +97,8 @@ export function Today({
             const incomplete=savedDay?.archived?savedDay[key]==null:known.length!==entries.length;
             return <div className={'macro '+key} key={key}>
               <span>{key==='carbs'?'Carbohydrate':key[0].toUpperCase()+key.slice(1)}</span>
-              <strong>{savedDay?.archived&&savedDay[key]==null?'—':entries.length&&!known.length?'—':number(sum)}<small> / {number(plan?.[key])} g{incomplete?' · partial':''}</small></strong>
-              <progress aria-label={`${key} logged`} value={sum} max={Math.max(plan?.[key]??sum,1)}/>
+              <strong>{savedDay?.archived&&savedDay[key]==null?'—':entries.length&&!known.length?'—':number(sum)}<small> / {number(targets[key])} g{incomplete?' · partial':''}</small></strong>
+              <progress aria-label={`${key} logged`} value={sum} max={Math.max(targets[key]??sum,1)}/>
             </div>;
           })}
         </article>

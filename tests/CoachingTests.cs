@@ -76,4 +76,27 @@ public class CoachingTests
         var days = Days().Select(d => d.Date == Today.AddDays(-10) ? d with { Status = "fasting", Calories = 0 } : d).ToList();
         Assert.True(Coach.Calculate(Profile(), days, Weights(), new(2500,2500), Today).Adaptive);
     }
+
+    [Theory]
+    [InlineData("lose", -1.5, true)]
+    [InlineData("lose", -0.05, false)]
+    [InlineData("gain", .25, true)]
+    [InlineData("gain", .01, false)]
+    [InlineData("maintain", 0, true)]
+    public void Bodyweight_rates_are_direction_aware(string goal, double rate, bool valid)
+    {
+        var profile = Profile(goal) with { GoalRatePercent = rate };
+        if (valid) Validation.Profile(profile);
+        else Assert.Throws<DomainException>(() => Validation.Profile(profile));
+    }
+
+    [Fact]
+    public void New_profiles_get_exactly_seven_weekly_targets()
+    {
+        var profile = Profile("lose") with { GoalRatePercent = -.5, DistributionShares = [10, 10, 10, 10, 10, 20, 20] };
+        var result = Coach.Calculate(profile, [], [], null, Today);
+
+        Assert.Equal(7, result.DailyCalories?.Count);
+        Assert.Equal((int)result.WeeklyCalories!.Value, result.DailyCalories!.Sum());
+    }
 }

@@ -8,6 +8,10 @@ public class AppUser
     public int Slot { get; set; }
     public long Revision { get; set; }
     public long ProfileRevision { get; set; }
+    public long CoachingSettingsRevision { get; set; }
+    public long TrajectoryRevision { get; set; }
+    public int CheckInWeekday { get; set; } = 1;
+    public DateOnly? CoachingSettingsChangedDate { get; set; }
     public string ProfileJson { get; set; } = "";
 }
 public class Session
@@ -70,12 +74,15 @@ public class AcceptedPlan : OwnedRecord
     public DateOnly Date { get; set; }
     public long InputRevision { get; set; }
     public long ProfileRevision { get; set; }
+    public long CoachingSettingsRevision { get; set; }
+    public int CheckInWeekday { get; set; } = 1;
     public string ResultJson { get; set; } = "";
     public string ProfileJson { get; set; } = "";
 }
 public class CheckInDecision : OwnedRecord
 {
     public DateOnly WeekStart { get; set; }
+    public int CheckInWeekday { get; set; } = 1;
     public DateOnly Date { get; set; }
     public string Decision { get; set; } = "declined";
     public long InputRevision { get; set; }
@@ -127,4 +134,21 @@ public class AiUsage
     public int Requests { get; set; }
     public long InputTokens { get; set; }
     public long OutputTokens { get; set; }
+}
+
+public class DailyExpenditureEstimate
+{
+    public Guid UserId { get; set; }
+    public DateOnly Date { get; set; }
+    public double? Expenditure { get; set; }
+    public int? SuggestedCalories { get; set; }
+    public double Confidence { get; set; }
+    public string? HoldReason { get; set; }
+    public long SourceRevision { get; set; }
+    public string AlgorithmVersion { get; set; } = "";
+    public double? Observed { get; set; }
+    public double Gain { get; set; }
+    public double? TrendWeightKg { get; set; }
+    public string EffectiveGoal { get; set; } = "maintain";
+    public double GoalRatePercent { get; set; }
 }

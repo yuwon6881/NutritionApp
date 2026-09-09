@@ -26,6 +26,7 @@ export function historyState(local:LocalData,key:string):AppState|undefined{
 export function acknowledgeHistory(state:AppState,op:Mutation,revision:number){
   const next=project(state,[op]);next.revision=revision;
   if(op.kind==='profile')next.profileRevision=revision;
+  else if(op.kind==='settings'){if(next.settings)next.settings.revision=revision;}
   else {
     const key=({entry:'entries',food:'foods',weight:'weights',day:'days'} as const)[op.kind];
     const row=next[key].find(r=>r.id===op.recordId);

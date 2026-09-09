@@ -1,6 +1,7 @@
 import type {ProfileDraft} from '../types';
 import {ageOn} from './age';
 import {macroKeys,normalise,splitFromGrams,type MacroSplit} from './macros';
+import {allocateWeeklyCalories} from './dailyTargets';
 
 export function calculateResting(p:Pick<ProfileDraft,'age'|'heightCm'|'weightKg'|'sex'>):number{
   if(!p.age||!p.heightCm||!p.weightKg||!p.sex)return 0;
@@ -35,6 +36,9 @@ export interface LivePaceResult{
   fat:number;
   carbs:number;
   split:MacroSplit|null;
+  goalRatePercent:number;
+  weeklyCalories:number;
+  dailyCalories:number[];
 }
 
 export function calculateLivePace(
@@ -47,13 +51,15 @@ export function calculateLivePace(
   const resting=calculateResting({...p,age});
   const expenditure=estimateExpenditure({...p,age},acceptedExpenditure);
   const goal=p.goal||'maintain';
-  const percent=percentOverride??p.energyAdjustmentPercent??(goal==='lose'?15:goal==='gain'?5:0);
-
-  const change=goal==='lose'
-    ?-expenditure*percent/100
-    :goal==='gain'
-      ?expenditure*percent/100
-      :0;
+  const legacyPercent=percentOverride??p.energyAdjustmentPercent;
+  const goalRate=p.goalRatePercent??(goal==='lose'?-0.5:goal==='gain'?0.15:0);
+  const change=p.goalRatePercent!=null
+    ?p.weightKg*goalRate/100*7700/7
+    :goal==='lose'
+      ?-expenditure*(legacyPercent??15)/100
+      :goal==='gain'
+        ?expenditure*(legacyPercent??5)/100
+        :0;
 
   let target=expenditure>0?Math.round((expenditure+change)/25)*25:2000;
   const safetyFloor=expenditure>0?Math.ceil(Math.max(1500,expenditure*0.75)/25)*25:1500;
@@ -81,6 +87,9 @@ export function calculateLivePace(
     fat,
     carbs,
     split:chosen??splitFromGrams(target,{protein,carbs,fat}),
+    goalRatePercent:goalRate,
+    weeklyCalories:target*7,
+    dailyCalories:allocateWeeklyCalories(target*7,p.distributionShares),
   };
 }
 

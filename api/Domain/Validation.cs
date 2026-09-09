@@ -32,7 +32,19 @@ public static class Validation
         Require(p.Sex is "male" or "female", "Choose the equation parameter.");
         Require(p.Goal is "lose" or "maintain" or "gain", "Unknown goal.");
         Require(p.PhaseMode is "open" or "duration" or "weight", "Choose a goal tracking mode.");
+        if (p.GoalRatePercent is {} rate)
+        {
+            if (p.Goal == "lose") Number(rate, -1.5, -.1, "Bodyweight loss rate");
+            else if (p.Goal == "gain") Number(rate, .05, .5, "Bodyweight gain rate");
+            else Require(Math.Abs(rate) <= .0001, "Maintenance uses a 0% bodyweight rate.");
+        }
         if(p.EnergyAdjustmentPercent is {} adjustment) Number(adjustment,p.Goal=="maintain"?0:2,p.Goal=="lose"?25:p.Goal=="gain"?20:0,"Energy adjustment percent");
+        if (p.DistributionShares is {} distribution)
+        {
+            Require(distribution.Count == 7, "A weekly distribution needs seven daily shares.");
+            Require(distribution.All(value => double.IsFinite(value) && value >= 0), "Daily calorie shares cannot be negative.");
+            Require(Math.Abs(distribution.Sum() - 100) <= .01, "Daily calorie shares must total 100%.");
+        }
         if(p.PhaseStartWeightKg is {} startWeight) Number(startWeight,20,400,"Phase starting weight");
         if(p.PhaseMode=="duration")
         {

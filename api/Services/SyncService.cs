@@ -6,7 +6,8 @@ using Nutrition.Api.Domain;
 namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
-public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null)
+public record CoachingSettingsInput(int CheckInWeekday);
+public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
     {
@@ -30,12 +31,22 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 "This day has already been summarized. Meal details are read-only. Your unsynced edit is retained locally for review.",409);
         }
         var revision = user.Revision + 1;
+        DateOnly? trajectoryFrom = null;
         switch (op.Kind)
         {
             case "profile":
                 Validation.Require(!op.Delete && op.ExpectedRevision == user.ProfileRevision, "Profile changed on another device. Review before retrying.", 409);
                 var profile = op.Data.Deserialize<Profile>(Json.Options) ?? throw new DomainException("Profile is required.");
                 Validation.Profile(profile); user.ProfileJson = Json.Write(profile); user.ProfileRevision = revision;
+                trajectoryFrom = RetentionService.Today(user.ProfileJson).AddDays(-(ExpenditureTrajectoryService.BackfillDays - 1));
+                break;
+            case "settings":
+                Validation.Require(!op.Delete && op.ExpectedRevision == user.CoachingSettingsRevision, "Coaching settings changed on another device. Review before retrying.", 409);
+                var settings = op.Data.Deserialize<CoachingSettingsInput>(Json.Options) ?? throw new DomainException("Coaching settings are required.");
+                CheckInWeek.ValidateWeekday(settings.CheckInWeekday);
+                user.CheckInWeekday = settings.CheckInWeekday;
+                user.CoachingSettingsRevision = revision;
+                user.CoachingSettingsChangedDate = RetentionService.Today(user.ProfileJson);
                 break;
             case "entry": await Upsert<DiaryEntry>(op, revision, e =>
                 {
@@ -69,6 +80,20 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 },ct);break;
             default: throw new DomainException("Unknown record type.");
         }
+
+        if (op.Kind is "entry" or "weight" or "day")
+        {
+            trajectoryFrom = op.Kind switch
+            {
+                "entry" => new[]
+                {
+                    op.Data.TryGetProperty("date", out var requested) ? requested.Deserialize<DateOnly>() : (DateOnly?)null,
+                    await db.Entries.Where(entry => entry.Id == op.RecordId).Select(entry => (DateOnly?)entry.Date).SingleOrDefaultAsync(ct)
+                }.Where(date => date != null).Select(date => date!.Value).DefaultIfEmpty(RetentionService.Today(user.ProfileJson)).Min(),
+                "weight" => op.Data.TryGetProperty("date", out var weightDate) ? weightDate.Deserialize<DateOnly>() : RetentionService.Today(user.ProfileJson),
+                _ => op.Data.TryGetProperty("date", out var dayDate) ? dayDate.Deserialize<DateOnly>() : RetentionService.Today(user.ProfileJson)
+            };
+        }
         // Food edits clear fasting or missing-intake decisions; elapsed dates resolve automatically.
         if (op.Kind == "entry")
         {
@@ -86,6 +111,11 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             if (day.Status == "fasting") Validation.Require(day.Calories == 0 && !await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
         }
         user.Revision = revision;
+        if (op.Kind is "profile" or "entry" or "weight" or "day")
+        {
+            user.TrajectoryRevision = revision;
+            if (trajectory != null) await trajectory.RebuildFromUnderLock(trajectoryFrom ?? RetentionService.Today(user.ProfileJson), revision, ct);
+        }
         db.Receipts.Add(new MutationReceipt { Id = op.Id, UserId = uid, Hash = hash, Revision = revision });
         await db.SaveChangesAsync(ct); await gate.Commit(ct); return revision;
     }

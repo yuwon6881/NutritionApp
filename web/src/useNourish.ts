@@ -66,6 +66,7 @@ export function useNourish(user:string){
             // Persist the acknowledged projection with its receipt before downloading fresh state.
             const state=project(current.state,[op]);state.revision=revision;
             if(op.kind==='profile')state.profileRevision=revision;
+            else if(op.kind==='settings'){if(state.settings)state.settings.revision=revision;}
             else {const key={entry:'entries',food:'foods',weight:'weights',day:'days'}[op.kind] as 'entries'|'foods'|'weights'|'days';const item=state[key].find(r=>r.id===op.recordId);if(item)item.revision=revision;}
             const queue=rebaseAfterOwnWrite(current.queue,op,revision);
             if(op.kind==='entry'){
