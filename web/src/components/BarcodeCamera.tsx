@@ -1,16 +1,17 @@
 import {useEffect,useRef,useState} from 'react';
 import {barcodeCrop} from '../lib/barcode';
 
-export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>void;onError:(message:string)=>void}){
+export function BarcodeCamera({onDetected,onError,continuous=false}:{onDetected:(code:string)=>void;onError:(message:string)=>void;continuous?:boolean}){
   const video=useRef<HTMLVideoElement>(null);
   const frame=useRef<HTMLDivElement>(null);
-  const callbacks=useRef({onDetected,onError});
-  callbacks.current={onDetected,onError};
+  const callbacks=useRef({onDetected,onError,continuous});
+  callbacks.current={onDetected,onError,continuous};
   const [ready,setReady]=useState(false);
   useEffect(()=>{
     let cancelled=false;
     let stream:MediaStream|undefined;
     let timer:ReturnType<typeof setTimeout>|undefined;
+    const cooldowns=new Map<string,number>();
     const preview=video.current!;
     const stop=()=>{cancelled=true;clearTimeout(timer);stream?.getTracks().forEach(track=>track.stop());preview.srcObject=null;};
     const start=async()=>{
@@ -37,7 +38,20 @@ export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>vo
               context.drawImage(preview,crop.x,crop.y,crop.width,crop.height,0,0,canvas.width,canvas.height);
               try{
                 const result=reader.decodeFromCanvas(canvas);
-                if(result&&!cancelled){stop();callbacks.current.onDetected(result.getText());return;}
+                if(result&&!cancelled){
+                  const code=result.getText();
+                  if(!callbacks.current.continuous){
+                    stop();
+                    callbacks.current.onDetected(code);
+                    return;
+                  }
+                  const now=Date.now();
+                  const lastSeen=cooldowns.get(code)??0;
+                  if(now-lastSeen>1200){
+                    cooldowns.set(code,now);
+                    callbacks.current.onDetected(code);
+                  }
+                }
               }catch(error){
                 // No code, incomplete data, and checksum misses are normal while positioning.
                 const exception=error as Error&{getKind?:()=>string};

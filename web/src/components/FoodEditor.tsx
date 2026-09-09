@@ -5,6 +5,8 @@ import {blankNutrients} from '../types';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 
+import {rescaleNutrients} from '../lib/nutrients';
+
 export type FoodDraft=Nutrients&{quantity:number;unit:'g'|'serving';meal:string;time?:string|null};
 
 export function FoodEditor({
@@ -28,10 +30,7 @@ export function FoodEditor({
   useEffect(()=>onDirtyChange?.(JSON.stringify(draft)!==initialDraft.current),[draft,onDirtyChange]);
 
   const set=(key:keyof FoodDraft,value:unknown)=>setDraft(current=>{
-    if(key==='quantity'&&typeof value==='number'&&current.quantity>0&&value>0){
-      const ratio=value/current.quantity;
-      return {...current,quantity:value,calories:current.calories*ratio,protein:current.protein==null?null:current.protein*ratio,fat:current.fat==null?null:current.fat*ratio,carbs:current.carbs==null?null:current.carbs*ratio,fiber:current.fiber==null?null:current.fiber*ratio};
-    }
+    if(key==='quantity')return rescaleNutrients(current,value);
     return {...current,[key]:value};
   });
 

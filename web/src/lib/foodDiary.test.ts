@@ -1,6 +1,7 @@
 import {afterEach,expect,it,vi} from 'vitest';
 import type {AppState,Entry,LocalData,Mutation} from '../types';
-import {mealReadOnly,mealTime,timelineGroups} from './foodDiary';
+import {mealReadOnly,mealTime,timelineGroups,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget} from './foodDiary';
+import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
 
 const state:AppState={id:'a',username:'a',revision:1,profileRevision:0,profile:null,start:'2026-06-12',end:'2026-09-09',entries:[],foods:[],weights:[],days:[],plans:[],detailDays:90};
@@ -49,3 +50,86 @@ it('retains a conflicting meal edit without projecting it over an archived summa
   expect(selected.entries).toEqual([]);expect(selected.days[0].status).toBe('not_logged');
   expect(selected.days[0].calories).toBe(450);expect(local.queue).toEqual([op]);
 });
+
+it('normalizes time matching server rules', () => {
+  expect(normalizeTime('')).toBeNull();
+  expect(normalizeTime(null)).toBeNull();
+  expect(normalizeTime(undefined)).toBeNull();
+  expect(normalizeTime('00:00')).toBe('00:00');
+  expect(normalizeTime('23:59')).toBe('23:59');
+  expect(normalizeTime('12:30')).toBe('12:30');
+  // Rejections matching server theory cases
+  expect(normalizeTime('  ')).toBeUndefined();
+  expect(normalizeTime('24:00')).toBeUndefined();
+  expect(normalizeTime('12:60')).toBeUndefined();
+  expect(normalizeTime('9:00')).toBeUndefined();
+  expect(normalizeTime('12:00\n')).toBeUndefined();
+  expect(normalizeTime('invalid')).toBeUndefined();
+});
+
+it('builds move targets excluding untimed group and flagging current time', () => {
+  const groups = timelineGroups([entry('1', '08:00'), entry('2', '12:00'), entry('3', null)]);
+  const targets = moveTargets(groups, '08:00');
+  expect(targets.some(t => t.time === '')).toBe(false);
+  expect(targets.find(t => t.time === '08:00')?.current).toBe(true);
+  expect(targets.find(t => t.time === '12:00')?.current).toBe(false);
+  expect(targets.find(t => t.time === '00:00')?.current).toBe(false);
+});
+
+it('moveEntry returns undefined for no-op and preserves all entry data for moves', () => {
+  const e = entry('item-1', '08:00');
+  expect(moveEntry(e, '08:00')).toBeUndefined();
+  const moved = moveEntry(e, '14:00');
+  expect(moved).toBeDefined();
+  expect(moved?.kind).toBe('entry');
+  expect(moved?.recordId).toBe('item-1');
+  expect(moved?.expectedRevision).toBe(0);
+  expect(moved?.delete).toBe(false);
+  const data = moved?.data as Entry;
+  expect(data.time).toBe('14:00');
+  expect(data.name).toBe('Quick add');
+  expect(data.calories).toBe(300);
+});
+
+it('formats move announcements for single and multiple entries', () => {
+  expect(moveAnnouncement(1, '08:00')).toBe('Moved 1 entry to 8 AM.');
+  expect(moveAnnouncement(3, '13:45')).toBe('Moved 3 entries to 1:45 PM.');
+  expect(moveAnnouncement(2, null)).toBe('Moved 2 entries to Time not recorded.');
+});
+
+it('dropTarget clamps boundaries and selects closest row', () => {
+  const rows = [
+    {time: '08:00', top: 100, bottom: 200},
+    {time: '12:00', top: 220, bottom: 320},
+    {time: '18:00', top: 340, bottom: 440},
+  ];
+  expect(dropTarget([], 150)).toBeUndefined();
+  // Above first clamped
+  expect(dropTarget(rows, 50)).toBe('08:00');
+  // Inside first
+  expect(dropTarget(rows, 150)).toBe('08:00');
+  // In gap between first and second, closer to first
+  expect(dropTarget(rows, 205)).toBe('08:00');
+  // In gap between first and second, closer to second
+  expect(dropTarget(rows, 215)).toBe('12:00');
+  // Inside third
+  expect(dropTarget(rows, 400)).toBe('18:00');
+  // Below last clamped
+  expect(dropTarget(rows, 600)).toBe('18:00');
+});
+
+it('projects moved entry into newly created timeline row', () => {
+  const initial = entry('item-1', '08:00');
+  const op = moveEntry(initial, '15:30')!;
+  const nextState = {
+    ...state,
+    entries: [initial],
+  };
+  const projected = project(nextState, [{...op, id: 'm-1'}]);
+  const groups = timelineGroups(projected.entries);
+  const row1530 = groups.find(g => g.time === '15:30');
+  expect(row1530).toBeDefined();
+  expect(row1530?.entries[0].id).toBe('item-1');
+  expect(groups.find(g => g.time === '08:00')).toBeUndefined();
+});
+

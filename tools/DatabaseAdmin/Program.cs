@@ -16,7 +16,7 @@ try
     Console.WriteLine(JsonSerializer.Serialize(new {host=connection.Host,database=connection.Database,publicTables=tables}));
     if(args[0]=="migrate")
     {
-        var allowed=new HashSet<string>(["__EFMigrationsHistory","Users","Sessions","Entries","Foods","Weights","Days","Plans","Receipts","Scans","Usage","Photos"]);
+        var allowed=new HashSet<string>(["__EFMigrationsHistory","Users","Sessions","Entries","Foods","Weights","Days","Plans","Receipts","Scans","Usage","Photos","CheckIns","PhaseDecisions"]);
         if(tables.Any(t=>!allowed.Contains(t)))throw new InvalidOperationException("Unexpected tables found; no migration applied.");
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseNpgsql(connectionString).Options);
         await db.Database.MigrateAsync();Console.WriteLine("Nutrition migrations applied.");

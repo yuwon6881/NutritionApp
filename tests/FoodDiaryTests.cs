@@ -72,4 +72,46 @@ public class FoodDiaryTests
         await sync.Apply(new(Guid.NewGuid(),"day",day.Id,day.Revision,JsonSerializer.SerializeToElement(new {date,status="not_logged"})),default);
         Assert.True(day.Archived);Assert.Equal(450,day.Calories);Assert.Equal(1,day.EntryCount);Assert.Null(day.Protein);
     });
+
+    [Fact] public Task Time_only_move_preserves_entry_and_resets_day_status()=>WithDiary(async(db,user,config)=>
+    {
+        var sync=new SyncService(db,null,new RetentionService(db,config));
+        var date=RetentionService.Today(user.ProfileJson);
+        var entryId=Guid.NewGuid();
+        var original=new DiaryEntry{
+            Id=entryId,UserId=user.Id,Date=date,Time="08:00",Name="Breakfast",
+            Calories=400,Protein=25,Carbs=30,Fat=12,Fiber=5,Quantity=1.5,Unit="serving",Meal="Breakfast",Source="Manual"
+        };
+        db.Entries.Add(original);
+        db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Status="fasting"});
+        await db.SaveChangesAsync();
+
+        var op=new Mutation(Guid.NewGuid(),"entry",entryId,0,JsonSerializer.SerializeToElement(new {
+            date,time="12:30",name="Breakfast",calories=400,protein=25,carbs=30,fat=12,fiber=5,quantity=1.5,unit="serving",meal="Breakfast",source="Manual"
+        }));
+        var revision=await sync.Apply(op,default);
+        Assert.True(revision>0);
+
+        var entry=await db.Entries.SingleAsync(e=>e.Id==entryId);
+        Assert.Equal("12:30",entry.Time);
+        Assert.Equal("Breakfast",entry.Name);
+        Assert.Equal(400,entry.Calories);
+        Assert.Equal(25,entry.Protein);
+        Assert.Equal(30,entry.Carbs);
+        Assert.Equal(12,entry.Fat);
+        Assert.Equal(5,entry.Fiber);
+        Assert.Equal(1.5,entry.Quantity);
+        Assert.Equal("serving",entry.Unit);
+        Assert.Equal("Breakfast",entry.Meal);
+        Assert.Equal(revision,entry.Revision);
+
+        var day=await db.Days.SingleAsync(d=>d.Date==date);
+        Assert.Equal("incomplete",day.Status);
+
+        var staleOp=new Mutation(Guid.NewGuid(),"entry",entryId,0,JsonSerializer.SerializeToElement(new {
+            date,time="18:00",name="Breakfast",calories=400
+        }));
+        var ex=await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(staleOp,default));
+        Assert.Equal(409,ex.Status);
+    });
 }

@@ -1,4 +1,4 @@
-import type {AppState,Entry} from '../types';
+import type {AppState,Entry,Mutation} from '../types';
 import {today} from './format';
 import {shiftDate} from './energyBalance';
 
@@ -23,3 +23,54 @@ export function timelineGroups(entries:Entry[]){
     entries:entries.filter(e=>(e.time??'')===time).sort((a,b)=>a.id.localeCompare(b.id))
   }));
 }
+
+export const timePattern=/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+export function normalizeTime(value?:string|null):string|null|undefined{
+  if(value==null||value==='')return null;
+  return timePattern.test(value)?value:undefined;
+}
+
+export function moveTargets(groups:{time:string;label:string;entries:Entry[]}[],from?:string|null){
+  return groups.filter(g=>g.time!=='').map(g=>({
+    time:g.time,
+    label:g.label,
+    count:g.entries.length,
+    current:g.time===(from??'')
+  }));
+}
+
+export function moveEntry(entry:Entry,time:string|null):Omit<Mutation,'id'>|undefined{
+  if((entry.time??null)===time)return undefined;
+  return {kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:false,data:{...entry,time}};
+}
+
+export function moveAnnouncement(count:number,time:string|null):string{
+  const target=time?timeLabel(time):'Time not recorded';
+  return `Moved ${count} ${count===1?'entry':'entries'} to ${target}.`;
+}
+
+export interface DropRow{
+  time:string;
+  top:number;
+  bottom:number;
+}
+
+export function dropTarget(rows:DropRow[],y:number):string|undefined{
+  if(!rows.length)return undefined;
+  if(y<=rows[0].top)return rows[0].time;
+  if(y>=rows[rows.length-1].bottom)return rows[rows.length-1].time;
+  const inside=rows.find(r=>y>=r.top&&y<=r.bottom);
+  if(inside)return inside.time;
+  let closest=rows[0];
+  let minDiff=Math.abs(y-(rows[0].top+rows[0].bottom)/2);
+  for(let i=1;i<rows.length;i++){
+    const diff=Math.abs(y-(rows[i].top+rows[i].bottom)/2);
+    if(diff<minDiff){
+      minDiff=diff;
+      closest=rows[i];
+    }
+  }
+  return closest.time;
+}
+

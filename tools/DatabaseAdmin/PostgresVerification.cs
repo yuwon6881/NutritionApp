@@ -20,7 +20,7 @@ public static class PostgresVerification
             var scoped=new NpgsqlConnectionStringBuilder(connectionString){SearchPath=schema};
             AppDb Open(Guid? user=null)=>new(new DbContextOptionsBuilder<AppDb>().UseNpgsql(scoped.ConnectionString).AddInterceptors(new SchemaScope(schema)).Options){CurrentUser=user};
             await using(var create=Open())await create.Database.ExecuteSqlRawAsync(create.Database.GenerateCreateScript());
-            var config=new ConfigurationBuilder().Build();
+            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();
             var registration=await Task.WhenAll(Enumerable.Range(0,8).Select(async i=>{await using var db=Open();try{return await new AuthService(db,config).Register("verify"+i,"verification-only long password",default);}catch(DomainException){return null;}}));
             var users=registration.Where(u=>u!=null).Cast<AppUser>().ToArray();Check(users.Length==2,"Concurrent registration exceeded two users.");
             await using(var db=Open(users[0].Id))

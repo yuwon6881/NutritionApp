@@ -11,7 +11,8 @@ import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {CheckInCard} from './CheckInCard';
 import {CheckInDialog} from './CheckInDialog';
-import {mealReadOnly} from '../lib/foodDiary';
+import {mealReadOnly,moveEntry} from '../lib/foodDiary';
+import {FoodTimeline} from './FoodTimeline';
 export function Today({
   store,
   date,
@@ -129,21 +130,8 @@ export function Today({
           <Leaf size={30}/>
           <h3>No food entries</h3>
           <Button size="md" onClick={onLog}>Log food<ArrowRight size={16}/></Button>
-        </div>:entries.map(entry=><div className="food-row" key={entry.id}>
-          <div className="food-initial">{entry.name.slice(0,1)}</div>
-          <div className="food-description">
-            <Button variant="tertiary" disabled={readOnly} onClick={()=>onEdit(entry)}>{entry.name}</Button>
-            <small>{entry.meal} · {number(entry.quantity,1)} {entry.unit} · {entry.source}</small>
-            {store.local?.queue.some(q=>q.recordId===entry.id)&&<small className="sync-label">Pending sync</small>}
-          </div>
-          <strong>{number(entry.calories)}<small> kcal</small></strong>
-          <Button variant="tertiary" aria-label={`Copy ${entry.name}`} onClick={()=>void act(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,data:{...entry,date},delete:false}))}>
-            <Copy size={16}/>
-          </Button>
-          <Button variant="tertiary" disabled={readOnly} aria-label={`Delete ${entry.name}`} onClick={()=>void act(()=>store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,data:entry,delete:true}))}>
-            <Trash2 size={16}/>
-          </Button>
-        </div>)}
+        </div>:<FoodTimeline store={store} date={date} entries={entries} readOnly={readOnly} onEdit={onEdit}
+           onMove={(moving,time)=>void act(async()=>{for(const entry of moving){const op=moveEntry(entry,time);if(op)await store.mutate(op);}})}/>}
         {!!entries.length&&<div className="copy-day">
           <Button size="md" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>
             <Copy size={16}/>Copy day

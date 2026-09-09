@@ -5,6 +5,19 @@ import {readLocal,saveLocal} from './lib/local';
 import {today} from './lib/format';
 import {project,rebaseAfterOwnWrite,wireMutation} from './lib/projection';
 import {acknowledgeHistory} from './lib/history';
+function queueEntries(current:LocalData,entries:unknown[]):Mutation[]{
+  return [
+    ...current.queue,
+    ...entries.map(data=>({
+      id:crypto.randomUUID(),
+      kind:'entry' as const,
+      recordId:crypto.randomUUID(),
+      expectedRevision:0,
+      data,
+      delete:false
+    }))
+  ];
+}
 
 export function useNourish(user:string){
   const [calendarDate,setCalendarDate]=useState(today());
@@ -113,8 +126,12 @@ export function useNourish(user:string){
   },[user,refresh,drain,runScans]);
   const state=useMemo(()=>local?project(local.state,local.queue):undefined,[local]);
   return {state,local,error,busy,mutate,refresh,refreshHistory,drain,calendarDate,
+    logEntries:async(entries:unknown[])=>{
+      await commit(current=>({...current,queue:queueEntries(current,entries)}));
+      void drain();
+    },
     saveReviewedScan:async(scanId:string,entries:unknown[])=>{
-      await commit(current=>({...current,queue:[...current.queue,...entries.map(data=>({id:crypto.randomUUID(),kind:'entry' as const,recordId:crypto.randomUUID(),expectedRevision:0,data,delete:false}))],scans:current.scans.filter(s=>s.id!==scanId)}));
+      await commit(current=>({...current,queue:queueEntries(current,entries),scans:current.scans.filter(s=>s.id!==scanId)}));
       void drain();
     },
     discardConflict:async(id:string)=>{await commit(c=>({...c,queue:c.queue.filter(q=>q.id!==id)}));await drain();},
