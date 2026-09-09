@@ -262,14 +262,24 @@ summary{cursor:pointer}
 :root{--motion-control:120ms;--motion-exit:180ms;--motion-panel:240ms;--motion-layout:300ms;--motion-ease:cubic-bezier(.2,.8,.2,1)}
 .motion-scene,.motion-panel{min-width:0}
 .selection-indicator{position:relative;isolation:isolate}
-.selection-indicator-marker{position:absolute;z-index:0;top:0;left:0;pointer-events:none;border:1px solid var(--primary);border-radius:inherit;background:var(--primary-tint);transition:transform var(--motion-layout) var(--motion-ease),width var(--motion-layout) var(--motion-ease),height var(--motion-layout) var(--motion-ease),opacity var(--motion-control) ease}
+.selection-indicator-marker{position:absolute;z-index:0;top:0;left:0;pointer-events:none;border:0;border-radius:999px;background:transparent;will-change:transform,width,height;transition:transform var(--motion-layout) var(--motion-ease),width var(--motion-layout) var(--motion-ease),height var(--motion-layout) var(--motion-ease),opacity var(--motion-control) ease}
 .selection-indicator>[data-selection-key]{position:relative;z-index:1;background:transparent;border-color:transparent;transition:color var(--motion-control) ease,background var(--motion-control) ease,transform var(--motion-control) ease}
-.selection-indicator>[data-selection-key]:hover:not(:disabled):not(.segment-active){background:var(--muted)}
+.selection-indicator>[data-selection-key]:hover:not(:disabled):not(.segment-active){background:transparent}
 .selection-indicator>[data-selection-key].segment-active{color:var(--primary-ink);background:transparent}
-.nav-selection-marker{border-radius:12px;border-left:3px solid var(--primary)}
-.nav-selection .selection-indicator-marker{border-radius:12px;border-left:3px solid var(--primary)}
+.nav-selection-marker{border-radius:16px;border:0}
+.nav-selection .selection-indicator-marker{border-radius:16px;border:0;background:var(--primary-tint);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 24%,transparent)}
+.nav-selection .selection-indicator-marker::before{content:'';position:absolute;left:10px;top:50%;width:4px;height:26px;border-radius:999px;background:var(--primary);transform:translateY(-50%) scaleY(.72);transition:height var(--motion-control) ease,transform var(--motion-control) ease}
 .nav-selection>[data-selection-key].nav-active{background:transparent;color:var(--primary-ink)}
-.nav-selection>[data-selection-key]{width:100%}
+.nav-selection>[data-selection-key]{width:100%;border-radius:16px}
+.nav-selection>[data-selection-key]:focus-visible{outline:2px solid var(--ring);outline-offset:4px;border-radius:16px}
+.nav-selection>[data-selection-key].nav-active>svg{transform:translateX(1px) scale(1.06)}
+.nav-selection>[data-selection-key]>svg{transition:transform var(--motion-control) var(--motion-ease)}
+@media(hover:hover){
+  .nav-selection>[data-selection-key]:hover:not(:disabled):not(.nav-active){color:var(--primary-ink);transform:translateX(3px)}
+  .nav-selection>[data-selection-key].nav-active:hover:not(:disabled){transform:none}
+  .nav-selection>[data-selection-key]:hover:not(:disabled)>svg{transform:rotate(-5deg) scale(1.05)}
+  .nav-selection>[data-selection-key].nav-active:hover:not(:disabled)>svg{transform:translateX(1px) rotate(-3deg) scale(1.08)}
+}
 [data-motion-scene]:has(.custom-calendar-popover),[data-motion-scene]:has(.custom-select-menu){position:relative;z-index:101}
 [data-page-heading]{outline-offset:6px}
 .food-log-page .page-heading{margin-bottom:20px}
@@ -428,3 +438,41 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .coaching-settings .source{margin:12px 0 0}
 @media(max-width:1023px){.weekly-program-grid,.check-in-daily-targets{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:639px){.weekly-program{padding:14px}.weekly-program .section-heading{flex-direction:column;align-items:stretch}.weekly-program-grid,.check-in-daily-targets{grid-template-columns:repeat(2,minmax(0,1fr))}.weekly-program-total{align-items:flex-start;flex-direction:column;gap:6px}.target-weekly-summary small{grid-template-columns:repeat(4,minmax(0,1fr))}.check-in-daily-targets strong{font-size:.78rem}}
+
+/* Layered selection motion: each navigation level has its own shape and cue. */
+.sidebar .nav-add-desktop,.sidebar .nav-center-add{transition:transform var(--motion-control) var(--motion-ease),box-shadow var(--motion-control) ease,filter var(--motion-control) ease}
+.segmented-control{position:relative;border-radius:999px;background:color-mix(in srgb,var(--muted) 82%,transparent);padding:5px;margin:-5px;isolation:isolate}
+.segmented-control .selection-indicator-marker{border:0;border-radius:999px;background:var(--card);box-shadow:0 3px 12px color-mix(in srgb,var(--ink-strong) 11%,transparent)}
+.segmented-control .selection-indicator-marker::after{content:'';position:absolute;left:50%;bottom:3px;width:24px;height:3px;border-radius:999px;background:var(--primary);transform:translateX(-50%) scaleX(.65);transition:width var(--motion-control) var(--motion-ease),transform var(--motion-control) var(--motion-ease)}
+.segmented-control>[data-selection-key]{border-radius:999px;background:transparent;transition:color var(--motion-control) ease,background var(--motion-control) ease,transform var(--motion-control) var(--motion-ease)}
+.segmented-control>[data-selection-key]:hover:not(:disabled){background:transparent;color:var(--primary-ink);transform:translateY(-1px)}
+.segmented-control>[data-selection-key].segment-active{color:var(--primary-ink)}
+.segmented-control>[data-selection-key]:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:999px}
+
+/* The Coach stepper is a third-level progress rail, not another selected card. */
+.coach-stepper.guided-stepper{position:relative;isolation:isolate;gap:8px;padding:0 0 9px;margin-bottom:22px;border-radius:0;background:transparent}
+.coach-stepper.guided-stepper::before{content:'';position:absolute;z-index:0;left:2%;right:2%;bottom:3px;height:2px;border-radius:999px;background:var(--border)}
+.coach-stepper .coach-step-marker{z-index:1;border:0;border-radius:0;background:transparent;box-shadow:none;will-change:transform,width,height}
+.coach-stepper .coach-step-marker::before{content:'';position:absolute;left:50%;bottom:1px;width:34px;height:4px;border-radius:999px;background:var(--primary);box-shadow:0 0 0 4px var(--primary-tint);transform:translateX(-50%) scaleX(.72);transition:width var(--motion-control) var(--motion-ease),transform var(--motion-control) var(--motion-ease)}
+.coach-stepper>.step-pill{position:relative;z-index:2;border:1px solid transparent!important;border-radius:14px;background:transparent!important;box-shadow:none!important;color:var(--muted-foreground);transition:color var(--motion-control) ease,transform var(--motion-control) var(--motion-ease)}
+.coach-stepper>.step-pill.active{color:var(--primary-ink);font-weight:650}
+.coach-stepper>.step-pill.active>svg{color:var(--primary);transform:translateY(-1px) scale(1.08)}
+.coach-stepper>.step-pill>svg{transition:color var(--motion-control) ease,transform var(--motion-control) var(--motion-ease)}
+.coach-stepper>.step-pill:hover:not(:disabled){background:transparent!important;color:var(--primary-ink);transform:translateY(-1px)}
+.coach-stepper>.step-pill:focus-visible{outline:2px solid var(--ring);outline-offset:3px;border-radius:14px}
+
+@media(hover:hover){
+  .sidebar .nav-add-desktop:hover,.sidebar .nav-center-add:hover{filter:none;transform:translateY(-1px);box-shadow:0 6px 16px color-mix(in srgb,var(--primary) 24%,transparent)}
+}
+@media(max-width:1023px){
+  .nav-selection .selection-indicator-marker{background:transparent;box-shadow:none}
+  .nav-selection .selection-indicator-marker::before{left:50%;top:auto;bottom:1px;width:18px;height:3px;transform:translateX(-50%) scaleX(.8)}
+  .nav-selection .selection-indicator-marker::after{content:'';position:absolute;left:50%;top:3px;width:38px;height:30px;border-radius:50%;background:var(--primary-tint);transform:translateX(-50%);z-index:-1}
+  .nav-selection>[data-selection-key]:hover:not(:disabled){transform:none}
+  .nav-selection>[data-selection-key].nav-active>svg{transform:translateY(-1px) scale(1.08)}
+  .coach-stepper.guided-stepper::before{display:none}
+  .coach-stepper .coach-step-marker::before{bottom:0;width:26px;box-shadow:0 0 0 3px var(--primary-tint)}
+}
+@media(prefers-reduced-motion:reduce){
+  .sidebar .nav-add-desktop,.sidebar .nav-center-add,.segmented-control .selection-indicator-marker::after,.nav-selection .selection-indicator-marker::before,.coach-stepper .coach-step-marker::before{transition:none}
+}
