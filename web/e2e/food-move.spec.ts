@@ -100,4 +100,23 @@ test('food timeline supports single-item move to custom time, move to existing t
   await expect(reloaded19).toBeVisible();
   await expect(reloaded19.getByText('Rolled oats')).toBeVisible();
   await expect(reloaded19.getByText('Black coffee')).toBeVisible();
+
+  // The full diary is also available as its own page with visible hourly drop slots.
+  await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Food Log',exact:true})).toBeVisible();
+  await expect(page.locator('[data-time-row="20:00"]')).toBeVisible();
+
+  // Pointer drag moves an entry directly onto an empty hour.
+  const moving=page.locator('[data-time-row="19:00"] .food-time-card').filter({hasText:'Rolled oats'}).first();
+  const target=page.locator('[data-time-row="20:00"]');
+  await target.scrollIntoViewIfNeeded();
+  const from=await moving.boundingBox();
+  const to=await target.boundingBox();
+  expect(from).not.toBeNull();expect(to).not.toBeNull();
+  await page.mouse.move(from!.x+from!.width/2,from!.y+from!.height/2);
+  await page.mouse.down();
+  await page.mouse.move(to!.x+to!.width/2,to!.y+to!.height/2,{steps:6});
+  await page.mouse.up();
+  await expect(page.locator('[data-time-row="20:00"] .food-time-card')).toHaveCount(1);
+  await expect(page.locator('[data-time-row="20:00"]')).toContainText('Rolled oats');
 });

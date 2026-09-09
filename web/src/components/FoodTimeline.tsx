@@ -3,7 +3,7 @@ import {Copy,Trash2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
 import {number} from '../lib/format';
-import {timelineGroups,timeLabel,dropTarget,moveAnnouncement,type DropRow} from '../lib/foodDiary';
+import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow} from '../lib/foodDiary';
 import {Button} from './ui/Button';
 import {MoveFoodDialog} from './MoveFoodDialog';
 
@@ -14,6 +14,8 @@ export interface FoodTimelineProps {
   readOnly:boolean;
   onEdit:(entry:Entry)=>void;
   onMove:(moving:Entry[],time:string)=>Promise<void>|void;
+  showEmptySlots?:boolean;
+  onAddAtTime?:(time:string)=>void;
 }
 
 export function FoodTimeline({
@@ -23,19 +25,35 @@ export function FoodTimeline({
   readOnly,
   onEdit,
   onMove,
+  showEmptySlots=false,
+  onAddAtTime,
 }:FoodTimelineProps){
   const [movingEntries,setMovingEntries]=useState<Entry[]|null>(null);
   const [restoreFocus,setRestoreFocus]=useState<HTMLElement|null>(null);
   const [announcement,setAnnouncement]=useState('');
 
-  const groups=timelineGroups(entries);
+  const groups=showEmptySlots?timelineSlots(entries):timelineGroups(entries);
+  const previousTimes=useRef(new Map<string,string|null>());
+  const [movedIds,setMovedIds]=useState<Set<string>>(()=>new Set());
+
+  useEffect(()=>{
+    const changed=entries.filter(entry=>{
+      const previous=previousTimes.current.get(entry.id);
+      previousTimes.current.set(entry.id,entry.time??null);
+      return previous!==undefined&&previous!==(entry.time??null);
+    }).map(entry=>entry.id);
+    if(!changed.length||changed.length>8)return;
+    setMovedIds(new Set(changed));
+    const timer=window.setTimeout(()=>setMovedIds(new Set()),260);
+    return()=>window.clearTimeout(timer);
+  },[entries]);
 
   const handleMove=async(moving:Entry[],time:string)=>{
     await onMove(moving,time);
     setAnnouncement(moveAnnouncement(moving.length,time));
   };
 
-  const {isEnabled,draggingEntry,dropOverTime,bindDrag}=useTimelineDrag({
+  const {draggingEntry,dropOverTime,bindDrag}=useTimelineDrag({
     enabled:!readOnly,
     onDrop:(entry,targetTime)=>void handleMove([entry],targetTime),
   });
@@ -48,9 +66,17 @@ export function FoodTimeline({
         key={group.time}
         data-time-row={group.time}
         data-drop-over={dropOverTime===group.time?true:undefined}
+        data-empty={group.entries.length===0?true:undefined}
       >
         <div className="food-time-label">
-          {group.time?<time dateTime={`${date}T${group.time}`}>{group.label}</time>:group.label}
+          <span className="food-time-label-main">{group.time?<time dateTime={`${date}T${group.time}`}>{group.label}</time>:group.label}</span>
+          {group.time&&onAddAtTime&&<Button
+            variant="tertiary"
+            size="icon"
+            className="food-slot-add"
+            aria-label={`Add food at ${group.label}`}
+            onClick={()=>onAddAtTime(group.time)}
+          >+</Button>}
           {group.entries.length>1&&!readOnly&&<div style={{marginTop:4}}>
             <Button
               variant="tertiary"
@@ -65,12 +91,15 @@ export function FoodTimeline({
             </Button>
           </div>}
         </div>
-        <div className="food-time-cards">
+        <div className={`food-time-cards ${group.entries.length===0?'food-time-cards-empty':''}`}>
+          {group.entries.length===0&&onAddAtTime&&<Button variant="tertiary" className="food-empty-slot-action" onClick={()=>onAddAtTime(group.time)}>
+            Add food at {group.label}
+          </Button>}
           {group.entries.map(entry=>{
             const pending=store.local?.queue.filter(op=>op.kind==='entry'&&op.recordId===entry.id)??[];
             const dragProps=bindDrag(entry);
             return <article
-              className="panel food-time-card"
+              className={`panel food-time-card ${movedIds.has(entry.id)?'food-time-card-moved':''}`.trim()}
               key={entry.id}
               {...dragProps}
             >
@@ -147,19 +176,9 @@ function useTimelineDrag({
 }){
   const [draggingEntry,setDraggingEntry]=useState<Entry|null>(null);
   const [dropOverTime,setDropOverTime]=useState<string|null>(null);
-  const [reducedMotion,setReducedMotion]=useState(()=>
-    typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  );
-
-  useEffect(()=>{
-    if(typeof window==='undefined')return;
-    const media=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update=()=>setReducedMotion(media.matches);
-    media.addEventListener('change',update);
-    return()=>media.removeEventListener('change',update);
-  },[]);
-
-  const isEnabled=enabled&&!reducedMotion;
+  // Reduced motion settles visual feedback; it must not remove the drag
+  // affordance or the keyboard-friendly Move action.
+  const isEnabled=enabled;
 
   const activeRef=useRef<{
     entry:Entry;

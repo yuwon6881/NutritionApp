@@ -22,6 +22,7 @@ import {useHistoryWindow} from '../useHistoryWindow';
 import {useFoodBasket} from '../useFoodBasket';
 import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
+import {MotionPanel} from './ui/Motion';
 
 type SearchResult=Nutrients&{servingGrams:number};
 type FoodStep='selection'|'quick'|'editor'|'recipe'|'scan'|'batch';
@@ -34,6 +35,7 @@ export function LogFood({
   onClose,
   onSaved,
   initialAi=false,
+  initialTime,
   restoreFocus,
 }:{
   open:boolean;
@@ -43,6 +45,7 @@ export function LogFood({
   onClose:()=>void;
   onSaved:()=>void;
   initialAi?:boolean;
+  initialTime?:string;
   restoreFocus?:HTMLElement|null;
 }){
   const history=useHistoryWindow(store,date);
@@ -94,7 +97,7 @@ export function LogFood({
 
   const run=async(fn:()=>Promise<void>)=>{setBusy(true);setError('');try{await fn();}catch(ex){setError((ex as Error).message);}finally{setBusy(false);}};
   const go=(next:FoodStep)=>{setStepDirty(false);setStep(next);};
-  const newTime=()=>mealTime(store.state!.profile?.timeZone);
+  const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   const close=()=>{
     if(step!=='selection'&&!editing&&!basket.lines.length){
       go('selection');
@@ -181,7 +184,12 @@ export function LogFood({
     :step==='recipe'?<RecipeEditor store={store} onClose={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='scan'&&activeScanId&&store.local?.scans.find(scan=>scan.id===activeScanId)?.result?<ScanReview scan={store.local.scans.find(scan=>scan.id===activeScanId)!} store={store} date={date} onClose={()=>go('selection')} onSaved={onSaved} onDirtyChange={setStepDirty} onBatch={(scanId,foods,source)=>{basket.addAiFoods(scanId,foods,source);go('batch');}}/>
     :selection;
+  const steps:FoodStep[]=['selection','quick','editor','recipe','scan','batch'];
+  const previousStep=useRef(step);
+  const stepDirection:1|-1=steps.indexOf(step)>=steps.indexOf(previousStep.current)?1:-1;
+  useEffect(()=>{previousStep.current=step;},[step]);
+  const animatedChild=<MotionPanel motionKey={step} direction={stepDirection}>{child}</MotionPanel>;
 
-  const content=!history.state?<div className="dialog-step"><p role="status">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:child;
+  const content=!history.state?<div className="dialog-step"><p role="status">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
   return <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} dirty={stepDirty||selectionDirty} width="lg" className="food-modal">{content}</Modal>;
 }

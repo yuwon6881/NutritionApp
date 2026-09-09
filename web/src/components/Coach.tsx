@@ -373,7 +373,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
   return <>
     <header className="page-heading">
-      <div><h1>Coach</h1></div>
+      <div><h1 data-page-heading tabIndex={-1}>Coach</h1></div>
     </header>
 
     {!isInitialSetup&&<SegmentedControl<MainTab> className="section-segments" label="Coach sections" value={mainTab}

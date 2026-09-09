@@ -12,7 +12,7 @@ using Nutrition.Api.Data;
 namespace Nutrition.Api.Data.Migrations
 {
     [DbContext(typeof(AppDb))]
-    [Migration("20260909072351_ContinuousCoachingTrajectory")]
+    [Migration("20260909150000_ContinuousCoachingTrajectory")]
     partial class ContinuousCoachingTrajectory
     {
         /// <inheritdoc />

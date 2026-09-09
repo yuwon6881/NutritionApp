@@ -12,6 +12,7 @@ import {EnergyBalance} from './EnergyBalance';
 import {useHistoryWindow} from '../useHistoryWindow';
 import {WeightEntryDialog} from './WeightEntryDialog';
 import {SegmentedControl} from './ui/SegmentedControl';
+import {MotionPanel} from './ui/Motion';
 
 type Tab='weight'|'energy'|'photos';
 
@@ -30,11 +31,14 @@ export function Progress({store}:{store:Nourish}){
   const complete=energyDays({entries:state.entries,days:state.days,estimates:[],current:today(state.profile?.timeZone)},state.start,state.end).filter(day=>day.complete);
   const intake=complete.reduce((sum,day)=>sum+(day.intake??0),0);
   const tabs=[['weight','Weight'],['energy','Energy'],['photos','Photos']] as const;
+  const tabDirection:1|-1=tab==='photos'?-1:1;
   const addWeight=(trigger?:HTMLElement|null)=>{setWeightEdit(undefined);setWeightReturnFocus(trigger??null);setWeightOpen(true);};
 
   return <>
-    <header className="page-heading"><div><h1>Progress</h1></div>{tab==='weight'&&<Button variant="primary" onClick={event=>addWeight(event.currentTarget)}>Add weigh-in</Button>}</header>
-    <SegmentedControl<Tab> className="section-segments" label="Progress sections" value={tab} onChange={setTab} options={tabs.map(([value,label])=>({value,label}))}/>
+    <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div>{tab==='weight'&&<Button variant="primary" onClick={event=>addWeight(event.currentTarget)}>Add weigh-in</Button>}</header>
+    <SegmentedControl<Tab> id="progress-tabs" className="section-segments" label="Progress sections" value={tab} onChange={setTab} options={tabs.map(([value,label])=>({value,label}))}/>
+    <MotionPanel motionKey={tab} direction={tabDirection}>
+    <div role="tabpanel" aria-label={`${tabs.find(([value])=>value===tab)?.[1]??tab} progress`}>
     {tab==='weight'&&<>
       <SelectField label="Weight history period" value={period} onChange={setPeriod}>
         <option value="recent">Recent 90 days</option>
@@ -58,6 +62,8 @@ export function Progress({store}:{store:Nourish}){
     {tab==='energy'&&<><EnergyBalance store={store}/><CoachingProgress store={store}/></>}
     {tab==='photos'&&<PhysiquePhotos store={store}/>
     }
+    </div>
+    </MotionPanel>
     <WeightEntryDialog open={weightOpen} store={store} date={today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
   </>;
 }

@@ -13,6 +13,8 @@ export interface ModalProps {
   width?:ModalWidth;
   closeLabel?:string;
   restoreFocus?:HTMLElement|null;
+  /** Fires once after the close transition has completed. */
+  onCloseComplete?:()=>void;
   className?:string;
   children:ReactNode;
 }
@@ -37,12 +39,16 @@ export function Modal({
   width='md',
   closeLabel='Close dialog',
   restoreFocus,
+  onCloseComplete,
   className='',
   children,
 }:ModalProps){
   const dialog=useRef<HTMLDialogElement>(null);
   const previousFocus=useRef<HTMLElement|null>(null);
   const keepEditing=useRef<HTMLButtonElement>(null);
+  const confirmation=useRef<HTMLDivElement>(null);
+  const confirmationOrigin=useRef<HTMLElement|null>(null);
+  const onCloseCompleteRef=useRef(onCloseComplete);
   const titleId=useId();
   const descriptionId=useId();
   const [present,setPresent]=useState(open);
@@ -50,10 +56,13 @@ export function Modal({
   const [confirming,setConfirming]=useState(false);
   const reduceMotion=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+  useEffect(()=>{onCloseCompleteRef.current=onCloseComplete;},[onCloseComplete]);
+
   useEffect(()=>{
     if(open){
       if(!present){setPresent(true);return;}
       previousFocus.current=restoreFocus??(document.activeElement instanceof HTMLElement?document.activeElement:null);
+      dialog.current?.removeAttribute('data-modal-dismiss-intent');
       setPresent(true);setConfirming(false);setPhase('opening');
       const frame=window.requestAnimationFrame(()=>{
         const element=dialog.current;
@@ -73,23 +82,46 @@ export function Modal({
       dialog.current?.close();
       setPresent(false);setConfirming(false);setPhase('closed');
       const target=previousFocus.current;
-      if(target?.isConnected){window.requestAnimationFrame(()=>target.focus({preventScroll:true}));}
+      const complete=()=>onCloseCompleteRef.current?.();
+      if(target?.isConnected){
+        window.requestAnimationFrame(()=>{
+          target.focus({preventScroll:true});
+          complete();
+        });
+      }else complete();
     },reduceMotion?0:180);
     return()=>window.clearTimeout(timer);
   },[open,present,restoreFocus,reduceMotion]);
 
   useEffect(()=>{
-    if(confirming)keepEditing.current?.focus({preventScroll:true});
+    if(!confirming)return;
+    const frame=window.requestAnimationFrame(()=>keepEditing.current?.focus({preventScroll:true}));
+    return()=>window.cancelAnimationFrame(frame);
   },[confirming]);
 
+  const clearDismissIntent=useCallback(()=>dialog.current?.removeAttribute('data-modal-dismiss-intent'),[]);
+  const keepEditingAction=useCallback(()=>{
+    const target=confirmationOrigin.current;
+    confirmationOrigin.current=null;
+    clearDismissIntent();
+    setConfirming(false);
+    window.requestAnimationFrame(()=>{
+      if(target?.isConnected)target.focus({preventScroll:true});
+    });
+  },[clearDismissIntent]);
+
   const requestClose=useCallback(()=>{
-    if(dirty){setConfirming(true);return;}
+    if(dirty){
+      confirmationOrigin.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+      setConfirming(true);
+      return;
+    }
     onClose();
   },[dirty,onClose]);
 
   const onKeyDown=(event:React.KeyboardEvent<HTMLDialogElement>)=>{
     if(event.key!=='Tab')return;
-    const items=focusable(event.currentTarget);
+    const items=focusable(confirming?confirmation.current??event.currentTarget:event.currentTarget);
     if(!items.length){event.preventDefault();event.currentTarget.focus();return;}
     const first=items[0];const last=items[items.length-1];
     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
@@ -103,7 +135,13 @@ export function Modal({
     aria-labelledby={titleId}
     aria-describedby={description?descriptionId:undefined}
     aria-modal="true"
-    onCancel={event=>{event.preventDefault();requestClose();}}
+    onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else requestClose();}}
+    onPointerDownCapture={event=>{
+      if(confirming)return;
+      const target=event.target;
+      if(target instanceof Element&&(target===event.currentTarget||target.closest('[data-modal-dismiss]')))
+        dialog.current?.setAttribute('data-modal-dismiss-intent','true');
+    }}
     onKeyDown={onKeyDown}
     onClick={event=>{
       const rect=event.currentTarget.getBoundingClientRect();
@@ -112,22 +150,26 @@ export function Modal({
     }}
   >
     <div className="modal-surface">
-      <header className="modal-header">
-        <div className="modal-heading">
-          <h2 id={titleId} tabIndex={-1}>{title}</h2>
-          {description&&<p id={descriptionId}>{description}</p>}
-        </div>
-        <Button variant="tertiary" size="icon" aria-label={closeLabel} onClick={requestClose}><X size={19}/></Button>
-      </header>
-      <div className="modal-body">{children}</div>
-      {confirming&&<div className="modal-confirmation" role="alertdialog" aria-labelledby={`${titleId}-confirm-title`}>
-        <div>
-          <h3 id={`${titleId}-confirm-title`}>Discard changes?</h3>
-          <p>Your entered values will be lost.</p>
-        </div>
-        <div className="actions">
-          <Button ref={keepEditing} onClick={()=>setConfirming(false)}>Keep editing</Button>
-          <Button variant="destructive" onClick={()=>{setConfirming(false);onClose();}}>Discard changes</Button>
+      <div className={`modal-content ${confirming?'modal-content-inert':''}`} aria-hidden={confirming||undefined} inert={confirming||undefined}>
+        <header className="modal-header">
+          <div className="modal-heading">
+            <h2 id={titleId} tabIndex={-1}>{title}</h2>
+            {description&&<p id={descriptionId}>{description}</p>}
+          </div>
+          <Button data-modal-dismiss variant="tertiary" size="icon" aria-label={closeLabel} onClick={requestClose}><X size={19}/></Button>
+        </header>
+        <div className="modal-body">{children}</div>
+      </div>
+      {confirming&&<div ref={confirmation} className="modal-confirmation-layer">
+        <div className="modal-confirmation" role="alertdialog" aria-modal="true" aria-labelledby={`${titleId}-confirm-title`} aria-describedby={`${titleId}-confirm-description`}>
+          <div>
+            <h3 id={`${titleId}-confirm-title`}>Discard changes?</h3>
+            <p id={`${titleId}-confirm-description`}>Your entered values will be lost.</p>
+          </div>
+          <div className="actions">
+            <Button ref={keepEditing} onClick={keepEditingAction}>Keep editing</Button>
+            <Button variant="destructive" onClick={()=>{clearDismissIntent();onClose();}}>Discard changes</Button>
+          </div>
         </div>
       </div>}
     </div>

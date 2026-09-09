@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import {useRef,type ReactNode} from 'react';
 import {ChevronRight} from 'lucide-react';
 import {Button} from './Button';
 import {Modal} from './Modal';
@@ -29,12 +29,16 @@ export function ActionSheet({
   options,
   restoreFocus,
 }: ActionSheetProps) {
+  const pendingAction=useRef<(()=>void)|null>(null);
   const choose=(option:ActionSheetOption)=>{
+    pendingAction.current=option.onClick;
     onClose();
-    const delay=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?0:180;
-    window.setTimeout(option.onClick,delay);
   };
-  return <Modal open={isOpen} onClose={onClose} restoreFocus={restoreFocus} title={title} description={subtitle||undefined} width="sm">
+  return <Modal open={isOpen} onClose={onClose} onCloseComplete={()=>{
+    const action=pendingAction.current;
+    pendingAction.current=null;
+    action?.();
+  }} restoreFocus={restoreFocus} title={title} description={subtitle||undefined} width="sm">
     <div className="action-sheet-options">
       {options.map(option=><Button key={option.id} variant={option.variant??'secondary'} size="lg" className="action-sheet-item" onClick={()=>choose(option)} aria-label={option.label}>
         <span className="action-sheet-item-icon">{option.icon}</span>

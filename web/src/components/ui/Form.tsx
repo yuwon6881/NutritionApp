@@ -64,6 +64,9 @@ export function FieldFrame({label,validate,ref:externalRef,children,...props}:Fi
     if(typeof externalRef==='function')externalRef(element);else if(externalRef)externalRef.current=element;
   }} data-validation-field data-invalid={message?true:undefined}
     onBlurCapture={event=>{
+      // Closing a dirty modal is a discard intent, not a form interaction. Keep
+      // the field untouched so an empty value does not flash an error first.
+      if(event.currentTarget.closest('[data-modal-dismiss-intent="true"]'))return;
       if(!event.currentTarget.contains(event.relatedTarget as Node|null)){touched.current=true;check();}
     }} onChangeCapture={()=>{if(touched.current)queueMicrotask(()=>{if(root.current)check();});}}>
     {children}

@@ -1,6 +1,6 @@
 import {afterEach,expect,it,vi} from 'vitest';
 import type {AppState,Entry,LocalData,Mutation} from '../types';
-import {mealReadOnly,mealTime,timelineGroups,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget} from './foodDiary';
+import {mealReadOnly,mealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget} from './foodDiary';
 import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
 
@@ -12,6 +12,11 @@ it('starts at midnight, orders occupied times, and separates legacy entries',()=
   const groups=timelineGroups([entry('late','23:59'),entry('old'),entry('noon','12:00'),entry('midnight','00:00')]);
   expect(groups.map(g=>g.label)).toEqual(['12 AM','12 PM','11:59 PM','Time not recorded']);
   expect(groups.map(g=>g.entries[0].id)).toEqual(['midnight','noon','late','old']);
+});
+it('adds hourly drop slots while preserving exact occupied times',()=>{
+  const groups=timelineSlots([entry('late','23:45'),entry('breakfast','08:30')],6,10);
+  expect(groups.map(group=>group.time)).toEqual(['06:00','07:00','08:00','08:30','09:00','10:00','23:45']);
+  expect(groups.find(group=>group.time==='08:30')?.entries[0].id).toBe('breakfast');
 });
 it('uses the profile time zone and keeps already archived days read-only',()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date('2026-09-08T16:05:00Z'));
@@ -132,4 +137,3 @@ it('projects moved entry into newly created timeline row', () => {
   expect(row1530?.entries[0].id).toBe('item-1');
   expect(groups.find(g => g.time === '08:00')).toBeUndefined();
 });
-

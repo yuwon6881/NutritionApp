@@ -1,17 +1,18 @@
 import {useState} from 'react';
-import {ChevronLeft,ChevronRight,Plus,Trash2} from 'lucide-react';
+import {ChevronLeft,ChevronRight,Plus} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
 import {useHistoryWindow} from '../useHistoryWindow';
 import {number,today} from '../lib/format';
 import {shiftDate} from '../lib/energyBalance';
 import {dayStatus} from '../lib/loggingDay';
-import {mealReadOnly,timelineGroups} from '../lib/foodDiary';
+import {mealReadOnly,moveEntry} from '../lib/foodDiary';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
 import {SelectField} from './ui/Field';
+import {FoodTimeline} from './FoodTimeline';
 
-export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:string;setDate:(date:string)=>void;onLog:()=>void;onEdit:(entry:Entry)=>void}){
+export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void}){
   const history=useHistoryWindow(store,date);
   const [error,setError]=useState('');
   const current=today(store.state!.profile?.timeZone);
@@ -26,8 +27,9 @@ export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
   const act=async(action:()=>Promise<unknown>)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);}};
   const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=current){setError('');setDate(value);}};
-  return <>
-    <header className="page-heading"><h1>Food</h1><Button variant="primary" disabled={readOnly} onClick={onLog}><Plus size={18}/>Log food</Button></header>
+  const move=async(moving:Entry[],time:string)=>{await act(async()=>{for(const entry of moving){const operation=moveEntry(entry,time);if(operation)await store.mutate(operation);}});};
+  return <div className="food-log-page">
+    <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time and move them between hours.</p></div><Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button></header>
     <div className="food-date-navigation">
       <Button aria-label="Previous food day" disabled={date<='2000-01-01'} onClick={()=>changeDate(shiftDate(date,-1))}><ChevronLeft size={18}/></Button>
       <DatePicker label="Food date" value={date} min="2000-01-01" max={current} onChange={changeDate}/>
@@ -55,22 +57,17 @@ export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:
       </section>
       {readOnly?<section className="panel"><h2>Daily summary</h2><p>{count} food {count===1?'entry':'entries'}{count?` · ${number(total)} kcal`:''}</p><p>Individual food details are no longer available. Detailed food history is kept for {state.detailDays??90} calendar days; previously summarized days remain read-only.</p></section>:<>
         {!entries.length&&<p className="empty">{currentUncached?'No food entries saved on this device for today.':status==='fasting'?'This day is marked as fasting.':status==='not_logged'?'This day is marked as not logging.':'No food entries for this day.'}</p>}
-        <ol className="food-timeline" aria-label={`Food timeline for ${date}`}>
-          {timelineGroups(entries).map(group=><li className="food-time-row" key={group.time}>
-            <div className="food-time-label">{group.time?<time dateTime={`${date}T${group.time}`}>{group.label}</time>:group.label}</div>
-            <div className="food-time-cards">{group.entries.map(entry=>{
-              const pending=store.local!.queue.filter(op=>op.kind==='entry'&&op.recordId===entry.id);
-              return <article className="panel food-time-card" key={entry.id}>
-                <div className="section-heading"><h3><Button variant="tertiary" onClick={()=>onEdit(entry)}>{entry.name}</Button></h3><strong>{number(entry.calories)} <small>kcal</small></strong></div>
-                <p>{entry.meal} · {number(entry.quantity,1)} {entry.unit}</p>
-                <dl className="food-card-nutrients">{(['protein','carbs','fat','fiber'] as const).filter(key=>entry[key]!=null).map(key=><div key={key}><dt>{key[0].toUpperCase()+key.slice(1)}</dt><dd>{number(entry[key])} g</dd></div>)}</dl>
-                <div className="food-card-footer"><small className="source">{entry.source}</small><Button variant="tertiary" aria-label={`Delete ${entry.name}`} onClick={()=>void act(()=>store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,data:entry,delete:true}))}><Trash2 size={17}/></Button></div>
-                {pending.length>0&&<small className="sync-label" role="status">{pending.find(op=>op.error)?.error??'Saved on this device · pending sync'}</small>}
-              </article>;
-            })}</div>
-          </li>)}
-        </ol>
+        <FoodTimeline
+          store={store}
+          date={date}
+          entries={entries}
+          readOnly={readOnly}
+          onEdit={onEdit}
+          onMove={move}
+          showEmptySlots
+          onAddAtTime={readOnly?undefined:onLog}
+        />
       </>}
     </>}
-  </>;
+  </div>;
 }

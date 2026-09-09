@@ -1,9 +1,9 @@
 import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
-
-const reduced=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+import {useReducedMotion} from './Motion';
 
 /** One live form: navigation animates out before replacing its contents. */
 export function useCoachSteps<T extends string>(initial:T,order:readonly T[],scene:string){
+  const reduceMotion=useReducedMotion();
   const [step,setStep]=useState(initial);
   const stage=useRef<HTMLDivElement>(null);
   const desired=useRef(initial);
@@ -26,7 +26,7 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
       current.current=next;
       setStep(next);
     };
-    if(!stage.current||reduced()){finish();return;}
+    if(!stage.current||reduceMotion){finish();return;}
     const exit=stage.current.animate([{opacity:1,transform:'translateX(0)'},{opacity:0,transform:`translateX(${-direction.current*12}px)`}],{duration:80,easing:'ease-in',fill:'forwards'});
     animation.current=exit;
     void exit.finished.then(finish,()=>{});
@@ -37,19 +37,21 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
     const heading=stage.current.querySelector<HTMLElement>('[data-step-heading]');
     heading?.focus({preventScroll:true});
     if(heading&&heading.getBoundingClientRect().top<0)heading.scrollIntoView({block:'nearest'});
-    if(!reduced())animation.current=stage.current.animate([{opacity:0,transform:`translateX(${direction.current*24}px)`},{opacity:1,transform:'translateX(0)'}],{duration:direction.current<0?140:180,easing:'cubic-bezier(.2,.8,.2,1)'});
-  },[step,scene]);
+    if(!reduceMotion)animation.current=stage.current.animate([{opacity:0,transform:`translateX(${direction.current*24}px)`},{opacity:1,transform:'translateX(0)'}],{duration:direction.current<0?140:180,easing:'cubic-bezier(.2,.8,.2,1)'});
+  },[step,scene,reduceMotion]);
   useEffect(()=>{
-    const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const stop=()=>{if(preference.matches){animation.current?.cancel();if(desired.current!==current.current){navigated.current=true;current.current=desired.current;setStep(desired.current);}}};
-    preference.addEventListener('change',stop);
-    return()=>{++sequence.current;animation.current?.cancel();preference.removeEventListener('change',stop);};
-  },[]);
+    if(reduceMotion){
+      animation.current?.cancel();
+      if(desired.current!==current.current){navigated.current=true;current.current=desired.current;setStep(desired.current);}
+    }
+  },[reduceMotion]);
+  useEffect(()=>()=>{++sequence.current;animation.current?.cancel();},[]);
   return {step,go,stage};
 }
 
 /** Animate the wrapper, never clip the live controls or their popovers. */
 export function CoachLayout({children,className=''}:{children:ReactNode;className?:string}){
+  const reduced=useReducedMotion();
   const outer=useRef<HTMLDivElement>(null);
   const inner=useRef<HTMLDivElement>(null);
   useLayoutEffect(()=>{
@@ -62,14 +64,13 @@ export function CoachLayout({children,className=''}:{children:ReactNode;classNam
       if(Math.abs(next-height)<1)return;
       const from=animation?.playState==='running'?node.getBoundingClientRect().height:height;
       animation?.cancel();
-      if(!reduced())animation=node.animate([{height:`${from}px`},{height:`${next}px`}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});
+      if(!reduced)animation=node.animate([{height:`${from}px`},{height:`${next}px`}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});
       height=next;
     });
-    const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const stop=()=>{if(preference.matches)animation?.cancel();};
-    observer.observe(content);preference.addEventListener('change',stop);
-    return()=>{observer.disconnect();animation?.cancel();preference.removeEventListener('change',stop);};
-  },[]);
+    if(reduced)animation?.cancel();
+    observer.observe(content);
+    return()=>{observer.disconnect();animation?.cancel();};
+  },[reduced]);
   return <div ref={outer} className={className}><div ref={inner} className="coach-layout-content">{children}</div></div>;
 }
 
@@ -91,31 +92,29 @@ export function CoachWait({label,active=true}:{label:string;active?:boolean}){
 
 /** Values are exact immediately; emphasize only once a burst of input settles. */
 export function CoachNumber({children}:{children:ReactNode}){
+  const reduced=useReducedMotion();
   const node=useRef<HTMLSpanElement>(null);
   const first=useRef(true);
   useEffect(()=>{
     if(first.current){first.current=false;return;}
     let animation:Animation|undefined;
     const timer=setTimeout(()=>{
-      if(node.current&&!reduced())animation=node.current.animate([{opacity:.55,transform:'translateY(2px)'},{opacity:1,transform:'translateY(0)'}],{duration:160,easing:'ease-out'});
+      if(node.current&&!reduced)animation=node.current.animate([{opacity:.55,transform:'translateY(2px)'},{opacity:1,transform:'translateY(0)'}],{duration:160,easing:'ease-out'});
     },120);
-    const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const stop=()=>{if(preference.matches)animation?.cancel();};
-    preference.addEventListener('change',stop);
-    return()=>{clearTimeout(timer);animation?.cancel();preference.removeEventListener('change',stop);};
-  },[children]);
+    return()=>{clearTimeout(timer);animation?.cancel();};
+  },[children,reduced]);
   return <span ref={node} className="coach-number">{children}</span>;
 }
 
 export function CoachDelta({value,unit='kcal'}:{value:number|null|undefined;unit?:string}){
+  const reduced=useReducedMotion();
   const target=Math.round(value??0);
   const [display,setDisplay]=useState(target);
   const previous=useRef(target);
   useEffect(()=>{
-    const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
     let frame=0;
     const finish=()=>{previous.current=target;setDisplay(target);};
-    if(preference.matches){finish();return()=>{};}
+    if(reduced){finish();return()=>{};}
     const from=previous.current;const started=performance.now();
     const tick=(now:number)=>{
       const progress=Math.min((now-started)/360,1);const eased=1-Math.pow(1-progress,3);
@@ -123,11 +122,8 @@ export function CoachDelta({value,unit='kcal'}:{value:number|null|undefined;unit
       if(progress<1)frame=requestAnimationFrame(tick);else previous.current=target;
     };
     frame=requestAnimationFrame(tick);
-    // Keep a live reduced-motion preference from leaving a running animation behind.
-    const stop=()=>{if(preference.matches){cancelAnimationFrame(frame);finish();}};
-    preference.addEventListener('change',stop);
-    return()=>{cancelAnimationFrame(frame);preference.removeEventListener('change',stop);};
-  },[target]);
+    return()=>{cancelAnimationFrame(frame);};
+  },[target,reduced]);
   const sign=display>0?'+':'';const direction=display>0?'↑':display<0?'↓':'→';
   return <span className={`coach-delta ${display>0?'positive':display<0?'negative':'neutral'}`} aria-label={`${sign}${display} ${unit}`}>
     <span aria-hidden="true">{direction}</span> {sign}{display} {unit}

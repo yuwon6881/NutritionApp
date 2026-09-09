@@ -24,6 +24,23 @@ export function timelineGroups(entries:Entry[]){
   }));
 }
 
+/**
+ * The dedicated diary keeps an hourly drop target visible even when no food is
+ * logged there. Exact entry times are added alongside those slots so a drag
+ * can move an item to an empty hour without first opening the move dialog.
+ */
+export function timelineSlots(entries:Entry[],startHour=6,endHour=22){
+  const occupied=timelineGroups(entries).filter(group=>group.time!==''&&(group.time!=='00:00'||entries.some(entry=>entry.time==='00:00')));
+  const groups=new Map(occupied.map(group=>[group.time,group]));
+  for(let hour=startHour;hour<=endHour;hour++){
+    const time=`${String(hour).padStart(2,'0')}:00`;
+    if(!groups.has(time))groups.set(time,{time,label:timeLabel(time),entries:[]});
+  }
+  const slots=[...groups.values()].sort((a,b)=>a.time.localeCompare(b.time));
+  if(entries.some(entry=>!entry.time))slots.push({time:'',label:'Time not recorded',entries:entries.filter(entry=>!entry.time)});
+  return slots;
+}
+
 export const timePattern=/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
 
 export function normalizeTime(value?:string|null):string|null|undefined{
@@ -73,4 +90,3 @@ export function dropTarget(rows:DropRow[],y:number):string|undefined{
   }
   return closest.time;
 }
-

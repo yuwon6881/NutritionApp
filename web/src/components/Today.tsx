@@ -57,7 +57,7 @@ export function Today({
     <header className="page-heading">
       <div>
 
-        <h1>Diary</h1>
+        <h1 data-page-heading tabIndex={-1}>Diary</h1>
 
       </div>
       <DatePicker id="diary-date" name="date" label="Diary date" value={date} max={today(state.profile?.timeZone)} onChange={val=>{
