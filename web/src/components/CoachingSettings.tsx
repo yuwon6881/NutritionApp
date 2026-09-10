@@ -3,7 +3,7 @@ import type {Nourish} from '../useNourish';
 import {nextOccurrenceAfter} from '../lib/checkIn';
 import {today} from '../lib/format';
 import {SelectField} from './ui/Field';
-import type {EnergyUnit,HeightUnit,UnitPreferences,WeightUnit} from '../types';
+import type {CoachingSettings,EnergyUnit,HeightUnit,UnitPreferences,WeightUnit} from '../types';
 import {defaultUnits,unitsFor} from '../lib/units';
 
 const days=[
@@ -15,6 +15,19 @@ export function CoachingSettings({store}:{store:Nourish}){
   const settings=state.settings??{checkInWeekday:1,revision:0};
   const units=unitsFor(settings);
   const queued=store.local?.queue.find(operation=>operation.kind==='settings');
+  const savedSettings=store.local?.state.settings;
+  const saved={
+    checkInWeekday:savedSettings?.checkInWeekday??1,
+    weightUnit:savedSettings?.weightUnit??'kg',
+    energyUnit:savedSettings?.energyUnit??'kcal',
+    heightUnit:savedSettings?.heightUnit??'cm'
+  } as const;
+  const queuedData=queued?.data as Partial<CoachingSettings>|undefined;
+  const changes=queued&&!queued.error?[
+    queuedData?.checkInWeekday!==undefined&&queuedData.checkInWeekday!==saved.checkInWeekday?'check-in day':null,
+    queuedData?.weightUnit!==undefined&&queuedData.weightUnit!==saved.weightUnit||queuedData?.energyUnit!==undefined&&queuedData.energyUnit!==saved.energyUnit||queuedData?.heightUnit!==undefined&&queuedData.heightUnit!==saved.heightUnit?'unit preferences':null
+  ].filter((value):value is string=>value!==null):[];
+  const savingLabel=changes.length===1?`Saving your ${changes[0]}...`:changes.length>1?`Saving your ${changes.join(' and ')}...`:'Saving your coaching settings...';
   const current=today(state.profile?.timeZone);
   const next=useMemo(()=>nextOccurrenceAfter(current,settings.checkInWeekday),[current,settings.checkInWeekday]);
   const update=async(value:string)=>{
@@ -32,8 +45,8 @@ export function CoachingSettings({store}:{store:Nourish}){
     </SelectField>
     <p className="source">The active plan stays in place. Your next check-in is {next}.</p>
     <UnitPreferencesFields value={units} onChange={updateUnits}/>
-    {queued&&!queued.error&&<p className="notice" role="status">Saving your check-in day…</p>}
-    {queued?.error&&<p className="error" role="alert">{queued.error} Your change is retained for review.</p>}
+    {queued&&!queued.error&&<p className="notice settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
+    {queued?.error&&<p className="error settings-error" role="alert">This settings change is waiting for review in the saved edit notice above.</p>}
   </section>;
 }
 

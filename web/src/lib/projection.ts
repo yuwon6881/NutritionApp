@@ -26,6 +26,13 @@ export function project(state:AppState,queue:Mutation[]):AppState{
   return result;
 }
 export function wireMutation(op:Mutation){const {error:_,...wire}=op;return wire;}
-export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision:number):Mutation[]{
-  return queue.filter(q=>q.id!==completed.id).map(q=>q.kind===completed.kind&&q.recordId===completed.recordId?{...q,expectedRevision:revision}:q);
+export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision:number,newId=()=>crypto.randomUUID()):Mutation[]{
+  // A settings edit can be coalesced while its request is in flight. The
+  // queued object then has the same id but newer data; keep it as a fresh
+  // idempotent operation rebased on the revision just returned.
+  const remaining=queue.flatMap(q=>{
+    if(q.id!==completed.id)return [q];
+    return q===completed?[]:[{...q,id:newId(),expectedRevision:revision}];
+  });
+  return remaining.map(q=>q.kind===completed.kind&&q.recordId===completed.recordId?{...q,expectedRevision:revision}:q);
 }

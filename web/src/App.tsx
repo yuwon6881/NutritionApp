@@ -20,6 +20,7 @@ import {Coach} from './components/Coach';
 import {Settings} from './components/Settings';
 import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
+import {SyncConflictNotice} from './components/SyncConflictNotice';
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 
@@ -42,10 +43,10 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   const [copyDate,setCopyDate]=useState(today());
   const [copyEntries,setCopyEntries]=useState<Entry[]>([]);
   const [copyReturnFocus,setCopyReturnFocus]=useState<HTMLElement|null>(null);
-  const [conflictDetails,setConflictDetails]=useState(false);
   const [showAddSheet,setShowAddSheet]=useState(false);
   const [addReturnFocus,setAddReturnFocus]=useState<HTMLElement|null>(null);
   const needsProfile=!!store.state&&!store.state.profile;
+  const conflictCount=store.local?.queue.filter(queue=>queue.error).length??0;
 
   useEffect(()=>{if(needsProfile)setPage('coach');},[needsProfile]);
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setDate(current);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
@@ -95,9 +96,9 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
       </nav>
     </aside>
     <main id="main-content" className="main-content" tabIndex={-1}>
-      <div className="topbar"><span className="account-name">{store.state?.username}</span>{needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}{store.local?.queue.length?<span className="retained-status" role="status">{store.local.queue.length} saved on this device</span>:null}<Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button></div>
-      {store.error&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
-      {store.local?.queue.some(queue=>queue.error)&&<section className="notice"><h3>A saved edit needs review</h3><p>Copy any details you need, then discard the conflicting edit to use the server record.</p><Button onClick={()=>setConflictDetails(!conflictDetails)}>Review conflicting edits</Button>{conflictDetails&&store.local.queue.filter(queue=>queue.error).map(queue=><div key={queue.id}><p>{queue.error}</p><pre>{JSON.stringify(queue.data,null,2)}</pre><Button variant="destructive" onClick={()=>void store.discardConflict(queue.id)}>Discard this queued edit</Button></div>)}</section>}
+      <div className="topbar"><span className="account-name">{store.state?.username}</span>{needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}{store.local?.queue.length?<span className="retained-status" role="status">{conflictCount?`${conflictCount} edit${conflictCount===1?'':'s'} needs review`:`${store.local.queue.length} saved on this device`}</span>:null}<Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button></div>
+      {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
+      <SyncConflictNotice store={store}/>
       {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:<MotionScene sceneKey={needsProfile?'coach':page}>
         {!needsProfile&&page==='today'?<Today store={store} date={date} setDate={setDate} onLog={()=>openFood(date)} onCoach={()=>navigate('coach')} onEdit={entry=>openFood(entry.date,entry)} onWeight={trigger=>openWeight(date,undefined,trigger)} onCopyDay={openCopy}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} />:!needsProfile&&page==='progress'?<Progress store={store}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
       </MotionScene>}

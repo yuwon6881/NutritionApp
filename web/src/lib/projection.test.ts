@@ -6,6 +6,12 @@ const state:AppState={id:'a',username:'a',revision:1,profileRevision:0,profile:n
 describe('offline projection',()=>{
 it('marks edited days incomplete before sync and preserves unknown nutrients',()=>{const op:Mutation={id:'m',kind:'entry',recordId:'e',expectedRevision:0,delete:false,data:{date:'2026-02-01',name:'Rice',calories:130,protein:null}};const result=project(state,[op]);expect(result.days[0].status).toBe('incomplete');expect(result.entries[0].protein).toBeNull();expect(state.days[0].status).toBe('complete');});
 it('rebases only subsequent writes to the same record',()=>{const op:Mutation={id:'m',kind:'weight',recordId:'w',expectedRevision:0,delete:false,data:{}};const queue=[op,{...op,id:'n'},{...op,id:'o',recordId:'other',expectedRevision:3}];expect(rebaseAfterOwnWrite(queue,op,5).map(q=>q.expectedRevision)).toEqual([5,3]);});
+it('keeps a settings change coalesced during its in-flight write',()=>{
+  const sent:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:4,delete:false,data:{checkInWeekday:1,weightUnit:'kg'}};
+  const coalesced={...sent,data:{checkInWeekday:1,weightUnit:'lb'}};
+  const remaining=rebaseAfterOwnWrite([coalesced],sent,5,()=>'00000000-0000-0000-0000-000000000001');
+  expect(remaining).toEqual([{...coalesced,id:'00000000-0000-0000-0000-000000000001',expectedRevision:5}]);
+});
 it('never sends local error metadata as mutation content',()=>{const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'};expect(wireMutation(op)).not.toHaveProperty('error');});
 it('projects cadence edits without changing the active profile revision',()=>{
   const withPlan={...state,profileRevision:7,settings:{checkInWeekday:1,revision:4}};
