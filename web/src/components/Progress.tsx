@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {energyDays} from '../lib/energyBalance';
 import type {Nourish} from '../useNourish';
 import type {Weight} from '../types';
-import {number,today,trend} from '../lib/format';
+import {today,trend} from '../lib/format';
 import {Button} from './ui/Button';
 import {SelectField} from './ui/Field';
 import {PhysiquePhotos} from './PhysiquePhotos';
@@ -13,6 +13,7 @@ import {useHistoryWindow} from '../useHistoryWindow';
 import {WeightEntryDialog} from './WeightEntryDialog';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
+import {displayEnergy,displayWeight,energyLabel,unitsFor,weightLabel} from '../lib/units';
 
 type Tab='weight'|'energy'|'photos';
 
@@ -24,6 +25,7 @@ export function Progress({store}:{store:Nourish}){
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
   const history=useHistoryWindow(store,period,tab==='weight');
   const state=history.state??store.state!;
+  const units=unitsFor(state.settings);
   const weights=state.weights.filter(weight=>!weight.deleted);
   const smoothed=trend([...(state.weightTrendSeed??[]),...weights]).filter(weight=>weight.date>=state.start&&weight.date<=state.end);
   const latest=smoothed.at(-1);
@@ -40,22 +42,22 @@ export function Progress({store}:{store:Nourish}){
     <MotionPanel motionKey={tab} direction={tabDirection}>
     <div role="tabpanel" aria-label={`${tabs.find(([value])=>value===tab)?.[1]??tab} progress`}>
     {tab==='weight'&&<>
-      <SelectField label="Weight history period" value={period} onChange={setPeriod}>
+      <div className="history-filter"><SelectField label="Weight history period" value={period} onChange={setPeriod}>
         <option value="recent">Recent 90 days</option>
         {Array.from({length:Number(today(state.profile?.timeZone).slice(0,4))-1999},(_,index)=>String(Number(today(state.profile?.timeZone).slice(0,4))-index)).map(year=><option key={year} value={year}>{year}</option>)}
-      </SelectField>
+      </SelectField></div>
       {history.error&&<p className="notice" role="status">{history.state?'Saved history shown.':'This history is not available on this device.'} {history.error} <Button onClick={history.retry}>Retry history</Button></p>}
       {!history.state&&!history.error&&<p role="status">Loading weight history…</p>}
       {history.state&&<>
         <div className="stats-grid">
-          <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{number(latest?.kg,1)} <span className="unit">kg</span></h2><p>{latest?latest.date:'No weigh-in yet'}</p></section>
-          <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{number(mean,1)} <span className="unit">kg</span></h2><p>{weights.length} weigh-ins</p></section>
-          <section className="panel"><p className="eyebrow">COMPLETE-DAY INTAKE</p><h2>{number(complete.length?intake/complete.length:null)} <span className="unit">kcal</span></h2><p>{complete.length} complete days</p></section>
+          <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latest?.kg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{latest?latest.date:'No weigh-in yet'}</p></section>
+          <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(mean,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{weights.length} weigh-ins</p></section>
+          <section className="panel"><p className="eyebrow">COMPLETE-DAY INTAKE</p><h2>{displayEnergy(complete.length?intake/complete.length:null,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></h2><p>{complete.length} complete days</p></section>
         </div>
-        <WeightChart weights={weights} smoothed={smoothed}/>
+        <WeightChart weights={weights} smoothed={smoothed} weightUnit={units.weight}/>
         <section className="panel weight-history-panel">
           <div className="section-heading"><div><h2>Weight history</h2><p>Choose a weigh-in to edit it in the same dialog.</p></div></div>
-          <div className="weight-history">{weights.slice(-10).reverse().map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{number(weight.kg,2)} kg</strong><Button variant="tertiary" size="md" onClick={event=>{setWeightEdit(weight);setWeightReturnFocus(event.currentTarget);setWeightOpen(true);}}>Edit</Button><Button variant="tertiary" size="md" onClick={()=>void store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}>Delete</Button></div>)}</div>
+          <div className="weight-history">{weights.slice(-10).reverse().map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>{setWeightEdit(weight);setWeightReturnFocus(event.currentTarget);setWeightOpen(true);}}>Edit</Button><Button variant="tertiary" size="md" onClick={()=>void store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}>Delete</Button></div>)}</div>
         </section>
       </>}
     </>}

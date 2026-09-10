@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import type {AppState,LocalData,Mutation,ScanDraft,AiDraft,PhysiqueDraft} from './types';
+import type {AppState,LocalData,Mutation,ScanDraft,AiDraft,PhysiqueAngle,PhysiqueDraft} from './types';
 import {api,ApiError} from './lib/api';
 import {readLocal,saveLocal} from './lib/local';
 import {today} from './lib/format';
@@ -17,6 +17,16 @@ function queueEntries(current:LocalData,entries:unknown[]):Mutation[]{
       delete:false
     }))
   ];
+}
+
+function normalizePhotoDraft(value:PhysiqueDraft):PhysiqueDraft{
+  // Retain drafts created by the previous one-photo contract while users move
+  // to the set-based uploader. They are uploaded as a front slot without
+  // restoring removed photo metadata.
+  const legacy=value as PhysiqueDraft&{angle?:string;imageBase64?:string};
+  if(Array.isArray(value.photos))return value;
+  const angle=(legacy.angle==='side'||legacy.angle==='back')?legacy.angle as PhysiqueAngle:'front';
+  return {id:value.id,date:value.date,photos:legacy.imageBase64?[{id:value.id,angle,imageBase64:legacy.imageBase64}]:[]};
 }
 
 export function useNourish(user:string){
@@ -86,7 +96,16 @@ export function useNourish(user:string){
     finally{draining.current=false;if(alive.current){setBusy(false);if(drainRequested.current){drainRequested.current=false;void drain();}}}
   },[commit,refresh]);
   const mutate=useCallback(async(op:Omit<Mutation,'id'>)=>{
-    await commit(current=>({...current,queue:[...current.queue,{...op,id:crypto.randomUUID()}]}));
+    await commit(current=>{
+      // Settings are a single revisioned record. Coalesce rapid selector
+      // changes so choosing pounds + kJ + feet/inches offline produces one
+      // durable mutation instead of a chain of stale-revision conflicts.
+      if(op.kind==='settings'){
+        const queued=current.queue.find(item=>item.kind==='settings'&&!item.error);
+        if(queued)return {...current,queue:current.queue.map(item=>item.id===queued.id?{...item,data:{...(item.data as object),...(op.data as object)} }:item)};
+      }
+      return {...current,queue:[...current.queue,{...op,id:crypto.randomUUID()}]};
+    });
     if(draining.current)drainRequested.current=true;else void drain();
   },[commit,drain]);
   const runScans=useCallback(async()=>{
@@ -108,7 +127,12 @@ export function useNourish(user:string){
       }
       for(const draft of [...(ref.current.photoDrafts??[])]){
         if(!alive.current||draft.error)continue;
-        try{const {error:_,...input}=draft;await api('/photos',input);await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).filter(p=>p.id!==draft.id)}));}
+        try{
+          const normalized=normalizePhotoDraft(draft);
+          const {error:_,...input}=normalized;
+          await api('/photos',input);
+          await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).filter(p=>p.id!==draft.id)}));
+        }
         catch(ex){if(ex instanceof ApiError)await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).map(p=>p.id===draft.id?{...p,error:ex.message}:p)}));else setError('Photo is retained and will retry when connected.');}
       }
     }finally{scanning.current=false;}
@@ -139,7 +163,7 @@ export function useNourish(user:string){
     addScan:async(draft:ScanDraft)=>{await commit(c=>({...c,scans:[...c.scans,draft]}));void runScans();},
     removeScan:async(id:string)=>commit(c=>({...c,scans:c.scans.filter(s=>s.id!==id)})),
     retryScan:async(id:string)=>{await commit(c=>({...c,scans:c.scans.map(s=>s.id===id?{...s,id:crypto.randomUUID(),jobId:undefined,error:undefined}:s)}));void runScans();},
-    addPhoto:async(draft:PhysiqueDraft)=>{await commit(c=>({...c,photoDrafts:[...(c.photoDrafts??[]),draft]}));void runScans();},
+    addPhoto:async(draft:PhysiqueDraft)=>{await commit(c=>({...c,photoDrafts:[...(c.photoDrafts??[]).filter(photo=>photo.id!==draft.id),draft]}));void runScans();},
     retryPhoto:async(id:string)=>{await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).map(p=>p.id===id?{...p,id:/expired|deleted/i.test(p.error??'')?crypto.randomUUID():p.id,error:undefined}:p)}));void runScans();},
     removePhotoDraft:async(id:string)=>commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).filter(p=>p.id!==id)})),
   };

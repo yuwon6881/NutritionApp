@@ -6,6 +6,7 @@ import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {CoachDelta,CoachNumber} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
+import {displayEnergy,energyLabel,energyValue,unitsFor} from '../lib/units';
 
 const goalLabel=(goal?:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':goal==='maintain'?'Maintenance':'Starting plan';
 
@@ -16,12 +17,12 @@ export interface CheckInDialogProps {
   restoreFocus?:HTMLElement|null;
 }
 
-function ChangeRow({label,previous,proposed,unit=''}:{label:string;previous:number|null|undefined;proposed:number|null|undefined;unit?:string}){
+function ChangeRow({label,previous,proposed,unit='',formatValue=number,deltaValue=(value:number)=>value}:{label:string;previous:number|null|undefined;proposed:number|null|undefined;unit?:string;formatValue?:(value:number|null|undefined)=>string;deltaValue?:(value:number)=>number}){
   const delta=previous==null||proposed==null?null:proposed-previous;
   return <div className="check-in-change" data-check-in-reveal>
     <span>{label}</span>
-    <strong><CoachNumber>{number(previous)}</CoachNumber> <span className="unit">{unit}</span> <span aria-hidden="true">→</span> <CoachNumber>{number(proposed)}</CoachNumber> <span className="unit">{unit}</span></strong>
-    {delta!=null&&<CoachDelta value={delta} unit={unit||'kcal'}/>}
+    <strong><CoachNumber>{formatValue(previous)}</CoachNumber> <span className="unit">{unit}</span> <span aria-hidden="true">→</span> <CoachNumber>{formatValue(proposed)}</CoachNumber> <span className="unit">{unit}</span></strong>
+    {delta!=null&&<CoachDelta value={deltaValue(delta)} unit={unit||'kcal'}/>}
   </div>;
 }
 
@@ -72,6 +73,8 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
   const result=proposal?.result;
   const changes=proposal?.changes;
   const evidence=proposal?.evidence??result?.evidence;
+  const units=unitsFor(store.state?.settings);
+  const energyUnit=energyLabel(units.energy);
   const busy=['calculating','updating','accepting','refreshing'].includes(operation)||declining;
   return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} width="lg"
     title="Weekly check-in" description="Review what this week’s evidence would change before you decide.">
@@ -80,8 +83,8 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
       {error&&<Button onClick={()=>void loadProposal()} disabled={!online||pending}>Retry</Button>}
     </div>:<div className="check-in-dialog-content">
       <div ref={source} className="check-in-changes" aria-label="Target changes">
-        <ChangeRow label="Daily energy" previous={changes?.previousCalories} proposed={changes?.proposedCalories??result?.calories} unit="kcal"/>
-        <ChangeRow label="Maintenance" previous={changes?.previousExpenditure} proposed={changes?.proposedExpenditure??result?.expenditure} unit="kcal"/>
+        <ChangeRow label="Daily energy" previous={changes?.previousCalories} proposed={changes?.proposedCalories??result?.calories} unit={energyUnit} formatValue={value=>displayEnergy(value,units.energy)} deltaValue={value=>energyValue(value,units.energy)??value}/>
+        <ChangeRow label="Maintenance" previous={changes?.previousExpenditure} proposed={changes?.proposedExpenditure??result?.expenditure} unit={energyUnit} formatValue={value=>displayEnergy(value,units.energy)} deltaValue={value=>energyValue(value,units.energy)??value}/>
         <ChangeRow label="Protein" previous={changes?.previousProtein} proposed={changes?.proposedProtein??result?.protein} unit="g"/>
         <ChangeRow label="Carbohydrate" previous={changes?.previousCarbs} proposed={changes?.proposedCarbs??result?.carbs} unit="g"/>
         <ChangeRow label="Fat" previous={changes?.previousFat} proposed={changes?.proposedFat??result?.fat} unit="g"/>
@@ -92,8 +95,8 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
       </div>
       <section className="check-in-weekly-program" data-check-in-reveal aria-labelledby="check-in-weekly-title">
         <h3 id="check-in-weekly-title">Proposed weekly schedule</h3>
-        <p className="source">{result?.goalRatePercent==null?'Rate not available':`Goal rate: ${result.goalRatePercent}% bodyweight per week`} · Weekly budget: {number(result?.weeklyCalories)} kcal</p>
-        <div className="check-in-daily-targets">{(result?.dailyCalories??[]).map((calories,index)=><div key={index}><span>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][index]}</span><strong>{number(calories)} kcal</strong></div>)}</div>
+        <p className="source">{result?.goalRatePercent==null?'Rate not available':`Goal rate: ${result.goalRatePercent}% bodyweight per week`} · Weekly budget: {displayEnergy(result?.weeklyCalories,units.energy)} {energyUnit}</p>
+        <div className="check-in-daily-targets">{(result?.dailyCalories??[]).map((calories,index)=><div key={index}><span>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][index]}</span><strong>{displayEnergy(calories,units.energy)} {energyUnit}</strong></div>)}</div>
         {!result?.dailyCalories&&<p className="notice">This older plan has one average daily target; it remains unchanged unless you accept this proposal.</p>}
       </section>
       <div className="source check-in-evidence" data-check-in-reveal>

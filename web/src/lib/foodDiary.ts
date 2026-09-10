@@ -29,8 +29,11 @@ export function timelineGroups(entries:Entry[]){
  * logged there. Exact entry times are added alongside those slots so a drag
  * can move an item to an empty hour without first opening the move dialog.
  */
-export function timelineSlots(entries:Entry[],startHour=6,endHour=22){
+export type TimelineView='data'|'full';
+
+export function timelineSlots(entries:Entry[],startHour=0,endHour=23,view:TimelineView='full'){
   const occupied=timelineGroups(entries).filter(group=>group.time!==''&&(group.time!=='00:00'||entries.some(entry=>entry.time==='00:00')));
+  if(view==='data')return [...occupied,...(entries.some(entry=>!entry.time)?[{time:'',label:'Time not recorded',entries:entries.filter(entry=>!entry.time)}]:[])];
   const groups=new Map(occupied.map(group=>[group.time,group]));
   for(let hour=startHour;hour<=endHour;hour++){
     const time=`${String(hour).padStart(2,'0')}:00`;

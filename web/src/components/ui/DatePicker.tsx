@@ -1,6 +1,6 @@
 import {FieldFrame} from './Form';
-import {useEffect, useId, useRef, useState} from 'react';
-import {Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight} from 'lucide-react';
+import {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
+import {Calendar, ChevronLeft, ChevronRight} from 'lucide-react';
 
 export interface DatePickerProps {
   label: string;
@@ -66,6 +66,24 @@ export function DatePicker({
   const name = nameProp ?? idProp ?? id;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const closeCalendar = () => {setIsOpen(false);triggerRef.current?.focus({preventScroll:true});};
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const align = () => {
+      const popover=popoverRef.current;
+      const anchor=triggerRef.current;
+      if(!popover||!anchor)return;
+      const start=anchor.getBoundingClientRect().left;
+      const left=Math.max(12,Math.min(start,document.documentElement.clientWidth-popover.offsetWidth-12));
+      popover.style.left=`${left-start}px`;
+    };
+    align();
+    window.addEventListener('resize',align);
+    return()=>window.removeEventListener('resize',align);
+  },[isOpen]);
 
   const initialDate = value ? parseIso(value) : new Date();
   const [viewYear, setViewYear] = useState(initialDate.getFullYear());
@@ -94,6 +112,9 @@ export function DatePicker({
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
+  const minimumYear = min ? parseIso(min).getFullYear() : 1900;
+  const maximumYear = max ? parseIso(max).getFullYear() : Math.max(new Date().getFullYear(), viewYear);
+  const calendarYears = Array.from({length:Math.max(1,maximumYear-minimumYear+1)},(_,index)=>minimumYear+index);
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -103,9 +124,6 @@ export function DatePicker({
       setViewMonth(m => m - 1);
     }
   };
-
-  const prevYear = () => setViewYear(y => y - 1);
-  const nextYear = () => setViewYear(y => y + 1);
 
   const nextMonth = () => {
     if (viewMonth === 11) {
@@ -120,7 +138,7 @@ export function DatePicker({
     const selected = new Date(viewYear, viewMonth, day);
     const iso = toIso(selected);
     onChange(iso);
-    setIsOpen(false);
+    closeCalendar();
   };
 
   const todayIso = toIso(new Date());
@@ -163,13 +181,14 @@ export function DatePicker({
   }
 
   return (
-    <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef}>
+    <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef} onKeyDown={event=>{if(isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();}}}>
       <label htmlFor={id} className="date-picker-label">
         <span>{label}</span>
       </label>
 
       <div className="date-picker-wrapper">
         <button
+          ref={triggerRef}
           data-validation-focus
           aria-label={`Choose ${label.toLowerCase()}`}
           aria-describedby={[`${id}-value`,hint?`${id}-hint`:undefined].filter(Boolean).join(' ')}
@@ -202,25 +221,24 @@ export function DatePicker({
         />
 
         {isOpen && (
-          <div className="custom-calendar-popover" role="dialog" aria-modal="true" aria-label={label}>
+          <div ref={popoverRef} className="custom-calendar-popover" role="dialog" aria-label={label}>
             <div className="calendar-header">
               <div className="calendar-nav-group">
-                <button type="button" className="calendar-nav-btn" onClick={prevYear} aria-label="Previous year">
-                  <ChevronsLeft size={16} />
-                </button>
                 <button type="button" className="calendar-nav-btn" onClick={prevMonth} aria-label="Previous month">
                   <ChevronLeft size={16} />
                 </button>
               </div>
-              <span className="calendar-title">
-                {MONTHS[viewMonth]} {viewYear}
-              </span>
+              <div className="calendar-title-controls">
+                <select className="calendar-title-select" aria-label="Choose month" value={viewMonth} onChange={event=>setViewMonth(Number(event.target.value))}>
+                  {MONTHS.map((month,index)=><option key={month} value={index}>{month}</option>)}
+                </select>
+                <select className="calendar-title-select calendar-year-select" aria-label="Choose year" value={viewYear} onChange={event=>setViewYear(Number(event.target.value))}>
+                  {calendarYears.map(year=><option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
               <div className="calendar-nav-group">
                 <button type="button" className="calendar-nav-btn" onClick={nextMonth} aria-label="Next month">
                   <ChevronRight size={16} />
-                </button>
-                <button type="button" className="calendar-nav-btn" onClick={nextYear} aria-label="Next year">
-                  <ChevronsRight size={16} />
                 </button>
               </div>
             </div>
@@ -265,7 +283,7 @@ export function DatePicker({
                   const iso = toIso(now);
                   if ((!min || iso >= min) && (!max || iso <= max)) {
                     onChange(iso);
-                    setIsOpen(false);
+                    closeCalendar();
                   }
                 }}
               >
@@ -274,7 +292,7 @@ export function DatePicker({
               <button
                 type="button"
                 className="calendar-action-btn secondary"
-                onClick={() => setIsOpen(false)}
+                onClick={closeCalendar}
               >
                 Close
               </button>

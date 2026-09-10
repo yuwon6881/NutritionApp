@@ -10,11 +10,11 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
 {
     private GoogleCredential? credential;
     public bool Configured=>!string.IsNullOrWhiteSpace(bucketName);
-    private async Task<HttpResponseMessage> Send(HttpMethod method,string path,byte[]? bytes,CancellationToken ct,bool metadata=false,string? generation=null)
+    private async Task<HttpResponseMessage> Send(HttpMethod method,string path,byte[]? bytes,CancellationToken ct,bool metadata=false,string? generation=null,bool replace=false)
     {
         Validation.Require(Configured,"Physique photo storage is not configured yet.",503);
         var bucket=Uri.EscapeDataString(bucketName!);var name=Uri.EscapeDataString(path);
-        var url=method==HttpMethod.Post?$"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name={name}&ifGenerationMatch=0":$"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}"+(method==HttpMethod.Get?(metadata?"?fields=generation":"?alt=media"):generation==null?"":"?generation="+Uri.EscapeDataString(generation));
+        var url=method==HttpMethod.Post?$"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name={name}{(replace?string.Empty:"&ifGenerationMatch=0")}":$"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}"+(method==HttpMethod.Get?(metadata?"?fields=generation":"?alt=media"):generation==null?"":"?generation="+Uri.EscapeDataString(generation));
         using var request=new HttpRequestMessage(method,url);
         try
         {
@@ -27,9 +27,9 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         if(bytes!=null){request.Content=new ByteArrayContent(bytes);request.Content.Headers.ContentType=new("image/jpeg");}
         return await http.SendAsync(request,ct);
     }
-    public async Task Put(string path,byte[] bytes,CancellationToken ct)
+    public async Task Put(string path,byte[] bytes,CancellationToken ct,bool replace=false)
     {
-        using var response=await Send(HttpMethod.Post,path,bytes,ct);
+        using var response=await Send(HttpMethod.Post,path,bytes,ct,replace:replace);
         // The immutable path and stored payload hash make an upload retry safe after lost acknowledgement.
         Validation.Require(response.IsSuccessStatusCode||response.StatusCode==HttpStatusCode.PreconditionFailed,"Google Cloud could not save this photo. Your local draft is retained.",503);
     }

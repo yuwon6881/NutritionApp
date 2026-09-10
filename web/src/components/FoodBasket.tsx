@@ -7,6 +7,7 @@ import type {FoodBasketHook} from '../useFoodBasket';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {Form,FieldFrame} from './ui/Form';
+import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
 export interface FoodBasketProps {
   basket:FoodBasketHook;
@@ -28,6 +29,7 @@ export function FoodBasket({
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [announcement,setAnnouncement]=useState('');
+  const units=unitsFor(store.state!.settings);
 
   const totals=basketTotals(basket.lines);
 
@@ -61,7 +63,7 @@ export function FoodBasket({
       <div className="live-calorie-header">
         <span className="live-calorie-tag">BATCH TOTAL</span>
         <div className="live-calorie-value">
-          <strong>{number(totals.calories)}</strong> <span className="unit">kcal</span>
+          <strong>{displayEnergy(totals.calories,units.energy)}</strong> <span className="unit">{energyLabel(units.energy)}</span>
         </div>
       </div>
       <div className="live-calorie-meta">
@@ -123,7 +125,7 @@ export function FoodBasket({
             </SelectField>
           </div>
           <p style={{fontSize:'.84rem',margin:'8px 0'}}>
-            {number(line.calories)} kcal · 
+            {displayEnergy(line.calories,units.energy)} {energyLabel(units.energy)} ·
             P: {number(line.protein)} g · 
             C: {number(line.carbs)} g · 
             Fat: {number(line.fat)} g · 

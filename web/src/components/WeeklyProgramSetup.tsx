@@ -1,18 +1,21 @@
 import {useMemo} from 'react';
 import {allocateWeeklyCalories,equalDistribution,normaliseDistribution} from '../lib/dailyTargets';
-import {number} from '../lib/format';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
+import type {EnergyUnit} from '../types';
+import {displayEnergy,energyLabel,inputEnergy,parseEnergy} from '../lib/units';
 
 const labels=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
 export function WeeklyProgramSetup({
   budget,
   values,
+  energyUnit='kcal',
   onChange,
 }:{
   budget:number;
   values:number[];
+  energyUnit?:EnergyUnit;
   onChange:(values:number[])=>void;
 }){
   const target=Math.round(budget);
@@ -26,15 +29,15 @@ export function WeeklyProgramSetup({
       <Button type="button" variant="secondary" size="sm" onClick={()=>onChange(equal)}>Equal distribution</Button>
     </div>
     <div className="weekly-program-grid">
-      {labels.map((label,index)=><Field key={label} id={`weekly-calories-${index}`} name={`weeklyCalories${index}`} label={label} type="number" min="0" step="1" value={values[index]??''} onChange={event=>{
-        const next=[...values];next[index]=event.target.value===''?0:Number(event.target.value);onChange(next);
+      {labels.map((label,index)=><Field key={label} id={`weekly-calories-${index}`} name={`weeklyCalories${index}`} label={`${label} (${energyLabel(energyUnit)})`} type="number" min="0" step="1" value={values[index]==null?'':inputEnergy(values[index],energyUnit,0)} onChange={event=>{
+        const next=[...values];const parsed=parseEnergy(event.target.value,energyUnit);next[index]=event.target.value===''?0:Number.isFinite(parsed)?Math.round(parsed):0;onChange(next);
       }}/>) }
     </div>
     <div className={`weekly-program-total ${valid?'valid':'invalid'}`} role="status" aria-live="polite">
-      <span>Weekly budget <strong>{number(target)} kcal</strong></span>
-      <span>{valid?'Exact budget':'Remaining '+number(Math.abs(remaining))+' kcal'+(remaining<0?' over':'')}</span>
+      <span>Weekly budget <strong>{displayEnergy(target,energyUnit)} {energyLabel(energyUnit)}</strong></span>
+      <span>{valid?'Exact budget':'Remaining '+displayEnergy(Math.abs(remaining),energyUnit)+' '+energyLabel(energyUnit)+(remaining<0?' over':'')}</span>
     </div>
-    {!valid&&<p className="error">Enter seven non-negative whole calorie targets that total exactly {number(target)} kcal.</p>}
+    {!valid&&<p className="error">Enter seven non-negative whole {energyLabel(energyUnit)} targets that total exactly {displayEnergy(target,energyUnit)} {energyLabel(energyUnit)}.</p>}
     {valid&&<p className="source">Your saved distribution is {normaliseDistribution(values)?.map(value=>`${Math.round(value)}%`).join(' / ')} from Monday through Sunday.</p>}
   </section>;
 }

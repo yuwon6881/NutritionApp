@@ -1,19 +1,22 @@
 import type {CSSProperties} from 'react';
-import type {ProfileDraft} from '../types';
-import {today,number} from '../lib/format';
+import type {ProfileDraft,UnitPreferences} from '../types';
+import {today} from '../lib/format';
 import {calculateLivePace} from '../lib/coachCalc';
 import {Field,SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {CoachLayout,CoachNumber} from './ui/CoachMotion';
+import {displayEnergy,energyLabel,inputWeight,parseWeight,weightLabel} from '../lib/units';
 
 export function GoalSetup({
   profile,
   set,
-  acceptedExpenditure
+  acceptedExpenditure,
+  units
 }:{
   profile:ProfileDraft;
   set:(key:keyof ProfileDraft,value:unknown)=>void;
   acceptedExpenditure?:number|null;
+  units:UnitPreferences;
 }){
   const loss=profile.goal==='lose';
   const paced=profile.goal&&profile.goal!=='maintain';
@@ -27,12 +30,12 @@ export function GoalSetup({
       <div className="live-calorie-header">
         <span className="live-calorie-tag">ESTIMATED TARGET</span>
         <div className="live-calorie-value">
-          <strong><CoachNumber>{number(live.target)}</CoachNumber></strong> <span className="unit">kcal / day</span>
+        <strong><CoachNumber>{displayEnergy(live.target,units.energy)}</CoachNumber></strong> <span className="unit">{energyLabel(units.energy)} / day</span>
         </div>
       </div>
       <div className="live-calorie-meta">
-        <span>Maintenance ~{number(live.expenditure)} kcal</span>
-        {paced&&<span className="live-delta">{live.change<0?'−':'+'}{Math.abs(live.change)} kcal · {Math.abs(rate)}% bodyweight/week</span>}
+        <span>Maintenance ~{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</span>
+        {paced&&<span className="live-delta">{live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate)}% bodyweight/week</span>}
       </div>
     </div>
 
@@ -70,8 +73,8 @@ export function GoalSetup({
     </div>}
 
     {mode==='weight'&&<div className="form-grid coach-disclosure">
-      <Field id="goal-phase-start-weight" name="phaseStartWeightKg" label="Phase starting weight (kg)" required type="number" min="20" max="400" step="0.1" value={(profile.phaseStartWeightKg??profile.weightKg)||''} onChange={e=>set('phaseStartWeightKg',Number(e.target.value))}/>
-      <Field id="goal-target-weight" name="targetWeightKg" validate={()=>{const target=profile.targetWeightKg;const initial=profile.phaseStartWeightKg??profile.weightKg;if(target==null)return undefined;if(profile.goal==='lose'&&target>=initial)return 'Choose a target below your phase starting weight.';if(profile.goal==='gain'&&target<=initial)return 'Choose a target above your phase starting weight.';if(profile.goal==='lose'&&target/Math.pow(profile.heightCm/100,2)<18.5)return 'Choose a target with a BMI of at least 18.5.';return undefined;}} label="Target weight (kg)" required type="number" min="20" max="400" step="0.1" value={profile.targetWeightKg??''} onChange={e=>set('targetWeightKg',e.target.value?Number(e.target.value):null)}/>
+      <Field id="goal-phase-start-weight" name="phaseStartWeightKg" label={`Phase starting weight (${weightLabel(units.weight)})`} required type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={inputWeight(profile.phaseStartWeightKg??profile.weightKg,units.weight,1)} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('phaseStartWeightKg',Number.isFinite(next)?next:0);}}/>
+      <Field id="goal-target-weight" name="targetWeightKg" validate={()=>{const target=profile.targetWeightKg;const initial=profile.phaseStartWeightKg??profile.weightKg;if(target==null)return undefined;if(profile.goal==='lose'&&target>=initial)return 'Choose a target below your phase starting weight.';if(profile.goal==='gain'&&target<=initial)return 'Choose a target above your phase starting weight.';if(profile.goal==='lose'&&target/Math.pow(profile.heightCm/100,2)<18.5)return 'Choose a target with a BMI of at least 18.5.';return undefined;}} label={`Target weight (${weightLabel(units.weight)})`} required type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.targetWeightKg==null?'':inputWeight(profile.targetWeightKg,units.weight,1)} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('targetWeightKg',e.target.value===''?null:Number.isFinite(next)?next:null);}}/>
     </div>}
   </CoachLayout>;
 }

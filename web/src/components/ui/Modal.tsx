@@ -168,7 +168,7 @@ export function Modal({
           </div>
           <div className="actions">
             <Button ref={keepEditing} onClick={keepEditingAction}>Keep editing</Button>
-            <Button variant="destructive" onClick={()=>{clearDismissIntent();onClose();}}>Discard changes</Button>
+            <Button variant="destructive" onClick={()=>{clearDismissIntent();confirmationOrigin.current=null;setConfirming(false);onClose();}}>Discard changes</Button>
           </div>
         </div>
       </div>}

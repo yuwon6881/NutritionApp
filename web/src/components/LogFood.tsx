@@ -5,7 +5,6 @@ import type {Nourish} from '../useNourish';
 import type {Entry,Food,Nutrients,ScanDraft} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
-import {number} from '../lib/format';
 import {lineKey} from '../lib/foodBasket';
 import {Button} from './ui/Button';
 import {Field,SelectField,TextArea} from './ui/Field';
@@ -23,6 +22,7 @@ import {useFoodBasket} from '../useFoodBasket';
 import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
+import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
 type SearchResult=Nutrients&{servingGrams:number};
 type FoodStep='selection'|'quick'|'editor'|'recipe'|'scan'|'batch';
@@ -64,6 +64,7 @@ export function LogFood({
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
   const [camera,setCamera]=useState(false);
+  const energyUnit=unitsFor(store.state!.settings).energy;
 
   const wasOpen=useRef(false);
 
@@ -141,7 +142,7 @@ export function LogFood({
           aria-label={`Select ${food.name} for batch logging`}
           onChange={()=>basket.toggleItem(food)}
         />
-        <div className="food-description"><Button variant="tertiary" onClick={()=>choose(food)}>{food.name}</Button><small>{number(food.calories)} kcal / 100 g · {food.source}</small></div>
+        <div className="food-description"><Button variant="tertiary" onClick={()=>choose(food)}>{food.name}</Button><small>{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {food.source}</small></div>
         <Button variant="tertiary" aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`} onClick={()=>void run(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite}}))}><Star size={18} fill={food.favourite?'currentColor':'none'}/></Button>
         <Button onClick={()=>{setSaveFood(food);setDraft({...food,quantity:100,unit:'g'});go('editor');}}>Edit</Button>
       </div>)}
@@ -164,6 +165,7 @@ export function LogFood({
       run={run}
       open={open}
       step={step}
+      energyUnit={energyUnit}
     />}
     {tab==='ai'&&<Form onSubmit={()=>void run(async()=>{const id=crypto.randomUUID();setActiveScanId(id);await store.addScan({id,mode,description,imageBase64:mode==='description'?null:photo});setDescription('');setPhoto(null);})}>
       <h3>AI logging</h3>
@@ -180,7 +182,7 @@ export function LogFood({
   const child=step==='batch'
     ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onDirtyChange={setStepDirty}/>
-    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else onSaved();}} onDirtyChange={setStepDirty}/>
+    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else onSaved();}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor store={store} onClose={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='scan'&&activeScanId&&store.local?.scans.find(scan=>scan.id===activeScanId)?.result?<ScanReview scan={store.local.scans.find(scan=>scan.id===activeScanId)!} store={store} date={date} onClose={()=>go('selection')} onSaved={onSaved} onDirtyChange={setStepDirty} onBatch={(scanId,foods,source)=>{basket.addAiFoods(scanId,foods,source);go('batch');}}/>
     :selection;

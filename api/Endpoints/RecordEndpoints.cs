@@ -30,7 +30,7 @@ public static class RecordEndpoints
             }).Where(interval=>interval.end>=interval.start).ToList();
             return Results.Ok(new {
                 user.Id,user.Username,user.Revision,user.ProfileRevision,
-                settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate },
+                settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit },
                 profile=user.ProfileJson.Length==0?null:Json.Read<Profile>(user.ProfileJson), start,end,
                 detailCutoff=RetentionService.Cutoff(RetentionService.Today(user.ProfileJson),retention.DetailDays),detailDays=retention.DetailDays,
                 energyEstimates=energySnapshots.Select(snapshot=>new { date=snapshot.Date,revision=snapshot.SourceRevision,expenditure=snapshot.Expenditure,suggestedCalories=snapshot.SuggestedCalories,confidence=snapshot.Confidence,holdReason=snapshot.HoldReason,algorithmVersion=snapshot.AlgorithmVersion,trendWeightKg=snapshot.TrendWeightKg }),
@@ -56,7 +56,7 @@ public static class RecordEndpoints
             var data=new { schemaVersion=1,exportedAt=DateTime.UtcNow,profile=user.ProfileJson,
                 entries=await db.Entries.Where(x=>!x.Deleted).ToListAsync(ct),foods=await db.Foods.Where(x=>!x.Deleted).ToListAsync(ct),
                 weights=await db.Weights.Where(x=>!x.Deleted).ToListAsync(ct),days=await db.Days.Where(x=>!x.Deleted).ToListAsync(ct),plans=await db.Plans.ToListAsync(ct),
-                physiquePhotos=await db.Photos.Where(x=>!x.Deleted&&x.Status=="complete").Select(x=>new { x.Id,x.Date,x.Caption,x.Angle,x.Bytes,downloadPath="/api/photos/"+x.Id+"/content" }).ToListAsync(ct) };
+                physiquePhotos=await db.Photos.Where(x=>!x.Deleted&&x.Status=="complete").Select(x=>new { x.Id,x.SetId,x.Date,x.Angle,x.Bytes,downloadPath="/api/photos/"+x.Id+"/content" }).ToListAsync(ct) };
             return Results.File(System.Text.Encoding.UTF8.GetBytes(Json.Write(data)),"application/json","nutrition-export.json");
         });
     }

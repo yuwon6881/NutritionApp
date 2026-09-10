@@ -111,8 +111,12 @@ public sealed class CheckInTests
 
         var sync = new SyncService(db);
         var settingsRevision = await sync.Apply(new(Guid.NewGuid(), "settings", user.Id, user.CoachingSettingsRevision,
-            JsonSerializer.SerializeToElement(new { checkInWeekday = 5 }, Json.Options)), default);
-        Assert.Equal(settingsRevision, (await db.Users.SingleAsync(item => item.Id == user.Id)).CoachingSettingsRevision);
+            JsonSerializer.SerializeToElement(new { checkInWeekday = 5, weightUnit = "lb", energyUnit = "kj", heightUnit = "ft-in" }, Json.Options)), default);
+        var savedSettings = await db.Users.SingleAsync(item => item.Id == user.Id);
+        Assert.Equal(settingsRevision, savedSettings.CoachingSettingsRevision);
+        Assert.Equal("lb", savedSettings.WeightUnit);
+        Assert.Equal("kj", savedSettings.EnergyUnit);
+        Assert.Equal("ft-in", savedSettings.HeightUnit);
 
         var preview = await new CoachingService(db).Preview(default);
         Assert.False(preview.CanAccept);

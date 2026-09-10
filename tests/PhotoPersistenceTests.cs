@@ -31,14 +31,17 @@ public sealed class PhotoPersistenceTests
             db.CurrentUser=alice.Id;var handler=new Handler();var http=new HttpClient(handler);
             using var cache=new MemoryCache(new MemoryCacheOptions());
             var service=new PhotoService(db,new GcsPhotoStore(http,config,_=>Task.FromResult("fake-token")),config,new StorageService(db,cache,new TemporaryImageStore(http,config)));
-            var input=new PhotoInput(Guid.NewGuid(),new(2026,1,1),"First","front",Convert.ToBase64String([255,216,1,2,255,217]));
-            var photo=await service.Upload(input,default);Assert.Equal("complete",photo.Status);
+            var setId=Guid.NewGuid();var photoId=Guid.NewGuid();
+            var input=new PhotoSetInput(setId,new(2026,1,1),[new PhotoPart(photoId,"front",Convert.ToBase64String([255,216,1,2,255,217]))]);
+            var photo=await service.Upload(input,default);Assert.Single(photo);Assert.Equal("complete",photo[0].Status);Assert.Equal(setId,photo[0].SetId);
             Assert.Equal(photo,await service.Upload(input,default));Assert.Equal(1,handler.Writes);
+            var edited=input with {Photos=[new PhotoPart(photoId,"front",Convert.ToBase64String([255,216,2,3,255,217]))]};
+            var editedPhoto=await service.Upload(edited,default);Assert.Single(editedPhoto);Assert.Equal(2,handler.Writes);
             await Assert.ThrowsAsync<DomainException>(()=>service.Upload(input with {Id=Guid.NewGuid()},default));
             db.CurrentUser=bob.Id;Assert.Empty(await db.Photos.ToListAsync());
-            await Assert.ThrowsAsync<DomainException>(()=>service.Content(input.Id,default));
-            await Assert.ThrowsAsync<DomainException>(()=>service.Delete(input.Id,default));
-            db.CurrentUser=alice.Id;await service.Delete(input.Id,default);
+            await Assert.ThrowsAsync<DomainException>(()=>service.Content(photoId,default));
+            await Assert.ThrowsAsync<DomainException>(()=>service.Delete(photoId,default));
+            db.CurrentUser=alice.Id;await service.Delete(photoId,default);
             await Assert.ThrowsAsync<DomainException>(()=>service.Upload(input,default));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();File.Delete(path); }

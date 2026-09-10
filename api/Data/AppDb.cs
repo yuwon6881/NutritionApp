@@ -41,6 +41,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m);
         m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.Date });
+        m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.SetId });
         m.Entity<MutationReceipt>().HasIndex(x=>x.Created);
         m.Entity<DiaryEntry>().HasIndex(x => new { x.UserId, x.Date });
         m.Entity<Weight>().HasIndex(x => new { x.UserId, x.Date }).IsUnique();

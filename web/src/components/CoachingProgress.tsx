@@ -1,6 +1,7 @@
 import type {Nourish} from '../useNourish';
 import {mondayIndex} from '../lib/dailyTargets';
-import {number} from '../lib/format';
+import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {useChartLayout} from './ui/useChartLayout';
 
 function lineSegments(points:{date:string;value:number|null}[],x:(date:string)=>number,y:(value:number)=>number){
   const segments:string[][]=[];let current:string[]=[];
@@ -13,7 +14,10 @@ function lineSegments(points:{date:string;value:number|null}[],x:(date:string)=>
 }
 
 export function CoachingProgress({store}:{store:Nourish}){
+  const chart=useChartLayout();
   const state=store.state!;
+  const units=unitsFor(state.settings);
+  const energyUnit=energyLabel(units.energy);
   const points=(state.energyEstimates??[]).filter(point=>point.expenditure!=null).sort((a,b)=>a.date.localeCompare(b.date));
   const values=points.flatMap(point=>[point.expenditure,point.suggestedCalories].filter((value):value is number=>value!=null));
   const accepted=state.acceptedTargetIntervals??[];
@@ -23,7 +27,7 @@ export function CoachingProgress({store}:{store:Nourish}){
   const start=points[0]?.date??state.start;
   const end=points.at(-1)?.date??state.end;
   const duration=Math.max(1,Date.parse(end)-Date.parse(start));
-  const x=(date:string)=>55+(Date.parse(date)-Date.parse(start))/duration*615;
+  const x=(date:string)=>chart.left+(Date.parse(date)-Date.parse(start))/duration*chart.plotWidth;
   const y=(value:number)=>185-(value-min)/Math.max(1,max-min)*130;
   const maintenance=lineSegments(points.map(point=>({date:point.date,value:point.expenditure})),x,y);
   const goal=lineSegments(points.map(point=>({date:point.date,value:point.suggestedCalories})),x,y);
@@ -35,16 +39,16 @@ export function CoachingProgress({store}:{store:Nourish}){
   return <section className="panel coaching-progress">
     <div className="section-heading"><div><h2>Continuous coaching guidance</h2><p>These estimates can move as evidence changes. Accepted targets stay active until you accept a check-in.</p></div></div>
     {!points.length?<p className="notice">No trajectory points are available yet. Log complete days and weigh regularly to build the 28-day evidence window.</p>:<>
-      <svg viewBox="0 0 700 245" className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
-        <line x1="55" y1="185" x2="670" y2="185" className="chart-grid"/>
-        {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);return target==null?null:<line key={interval.start} x1={x(interval.start)} x2={x(interval.end>end?end:interval.end)} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{interval.start} to {interval.end}: accepted target {number(target)} kcal/day</title></line>;})}
+      <svg ref={chart.ref} viewBox={`0 0 ${chart.width} 245`} className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
+        <line x1={chart.left} y1="185" x2={chart.right} y2="185" className="chart-grid"/>
+        {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);return target==null?null:<line key={interval.start} x1={x(interval.start)} x2={x(interval.end>end?end:interval.end)} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{interval.start} to {interval.end}: accepted target {displayEnergy(target,units.energy)} {energyUnit}/day</title></line>;})}
         {maintenance.map((segment,index)=><polyline key={`maintenance-${index}`} className="trend-line" points={segment.join(' ')}/>)}
         {goal.map((segment,index)=><polyline key={`goal-${index}`} className="goal-trend-line" points={segment.join(' ')}/>)}
-        <text x="50" y="55" textAnchor="end">{number(max)}</text><text x="50" y="185" textAnchor="end">{number(min)}</text>
-        <text x="55" y="220">{start}</text><text x="670" y="220" textAnchor="end">{end}</text>
+        <text x={chart.left-8} y="55" textAnchor="end">{displayEnergy(max,units.energy)}</text><text x={chart.left-8} y="185" textAnchor="end">{displayEnergy(min,units.energy)}</text>
+        <text x={chart.left} y="220">{start}</text><text x={chart.right} y="220" textAnchor="end">{end}</text>
       </svg>
       <p className="chart-key"><span className="chart-key-maintenance">Maintenance</span> · <span className="chart-key-goal">Provisional goal</span> · <span className="chart-key-accepted">Accepted target</span></p>
-      <details><summary>Trajectory values as a table</summary><div className="table-scroll"><table><thead><tr><th>Date</th><th>Maintenance</th><th>Provisional goal</th><th>Accepted target</th><th>Evidence</th></tr></thead><tbody>{points.map(point=><tr key={point.date}><td>{point.date}</td><td>{number(point.expenditure)} kcal</td><td>{point.suggestedCalories==null?'Unknown':`${number(point.suggestedCalories)} kcal`}</td><td>{number(acceptedFor(point.date))} kcal</td><td>{point.holdReason??`${Math.round(point.confidence*100)}% confidence`}</td></tr>)}</tbody></table></div></details>
+      <details><summary>Trajectory values as a table</summary><div className="table-scroll"><table><thead><tr><th>Date</th><th>Maintenance</th><th>Provisional goal</th><th>Accepted target</th><th>Evidence</th></tr></thead><tbody>{points.map(point=><tr key={point.date}><td>{point.date}</td><td>{displayEnergy(point.expenditure,units.energy)} {energyUnit}</td><td>{point.suggestedCalories==null?'Unknown':`${displayEnergy(point.suggestedCalories,units.energy)} ${energyUnit}`}</td><td>{displayEnergy(acceptedFor(point.date),units.energy)} {energyUnit}</td><td>{point.holdReason??`${Math.round(point.confidence*100)}% confidence`}</td></tr>)}</tbody></table></div></details>
     </>}
   </section>;
 }

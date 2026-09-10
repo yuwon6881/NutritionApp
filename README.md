@@ -25,6 +25,7 @@ The browser suite targets a dedicated local test API at `http://127.0.0.1:5088`.
 
 ## Contracts
 
+- Phones below 640 px use five bottom navigation items with Add centered and Settings in the account header. Tablets from 640 to 1023 px use a compact side rail; wider screens use the labeled sidebar. Chart drawing widths follow their containers so axis labels remain readable. Calendar popovers stay within the viewport and return focus when dismissed with Escape.
 - Server-owned coaching is versioned. Preview/accept verifies the input revision and weekly cadence; accepted history is immutable.
 - Coach setup uses directional step transitions and selectable goal cards. Local estimates update immediately; calculation, retained synchronization, acceptance, and view-refresh feedback follow actual operations. Reduced motion disables movement and looping indicators. Stale previews are ignored, and an uncertain acceptance retries its original identity and input revision.
 - Today stays open in the profile time zone; past days with food complete automatically. Missing days prompt for fasting or not logging. Not logging preserves weight-based trends and coaching estimates without inventing calorie intake. Nutrients are immutable entry snapshots, with absent values remaining absent.

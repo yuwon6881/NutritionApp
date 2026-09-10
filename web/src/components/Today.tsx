@@ -14,6 +14,7 @@ import {CheckInCard} from './CheckInCard';
 import {CheckInDialog} from './CheckInDialog';
 import {mealReadOnly,moveEntry} from '../lib/foodDiary';
 import {FoodTimeline} from './FoodTimeline';
+import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 export function Today({
   store,
   date,
@@ -34,6 +35,7 @@ export function Today({
   onCopyDay:(sourceDate:string,entries:Entry[],trigger?:HTMLElement|null)=>void;
 }){
   const state=store.state!;
+  const energyUnit=unitsFor(state.settings).energy;
   const [error,setError]=useState('');
   const [checkInOpen,setCheckInOpen]=useState(false);
   const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
@@ -76,16 +78,16 @@ export function Today({
         <article className="panel energy-panel">
           <div>
             <p className="eyebrow">ENERGY</p>
-            <h2>{number(total)} <span className="unit">kcal logged</span></h2>
-            <p>{targets.calories?`${number(targets.calories)} kcal target`:'Set up your coach'}</p>
+            <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
+            <p>{targets.calories?`${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} target`:'Set up your coach'}</p>
             <Button variant="tertiary" onClick={onCoach}>
               {plan?'Targets':'Set up coach'}<ArrowRight size={16}/>
             </Button>
           </div>
-          <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={targets.calories?`${number(total)} of ${number(targets.calories)} calories logged`:`${number(total)} calories logged`}>
+          <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={targets.calories?`${displayEnergy(total,energyUnit)} of ${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} logged`:`${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)} logged`}>
             <circle className="ring-track" cx="60" cy="60" r="48"/>
             <circle className="ring-fill" cx="60" cy="60" r="48" strokeDasharray={`${ratio*301.59} 301.59`} transform="rotate(-90 60 60)"/>
-            <text x="60" y="58" textAnchor="middle">{targets.calories?number(Math.max(targets.calories-total,0)):'—'}</text>
+            <text x="60" y="58" textAnchor="middle">{targets.calories?displayEnergy(Math.max(targets.calories-total,0),energyUnit):'—'}</text>
             <text className="ring-label" x="60" y="76" textAnchor="middle">{total>(targets.calories??Infinity)?'target reached':'remaining'}</text>
           </svg>
         </article>
@@ -129,7 +131,7 @@ export function Today({
           </Button>
         </div>
         {savedDay?.archived?<div className="notice">
-          <h3>{number(savedDay.calories)} kcal · {savedDay.entryCount} food entries</h3>
+          <h3>{displayEnergy(savedDay.calories,energyUnit)} {energyLabel(energyUnit)} · {savedDay.entryCount} food entries</h3>
         </div>:!entries.length?<div className="empty">
           <Leaf size={30}/>
           <h3>No food entries</h3>

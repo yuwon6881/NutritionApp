@@ -97,6 +97,7 @@ export function SelectionIndicator({active,className='',dataLayout,style,childre
     const measure=()=>{
       const selected=[...container.querySelectorAll<HTMLElement>('[data-selection-key]')]
         .find(element=>element.dataset.selectionKey===active);
+      indicator.hidden=!selected;
       if(!selected)return;
       indicator.style.width=`${selected.offsetWidth}px`;
       indicator.style.height=`${selected.offsetHeight}px`;

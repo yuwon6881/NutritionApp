@@ -1,50 +1,75 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type ChangeEvent,type FormEvent} from 'react';
 import type {Nourish} from '../useNourish';
+import type {PhysiqueAngle,PhysiqueDraft,PhysiquePhotoSet} from '../types';
 import {prepareImage} from '../lib/image';
 import {number,today} from '../lib/format';
 import {Button} from './ui/Button';
-import {Field,SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {FileInput} from './ui/FileInput';
 import {Modal} from './ui/Modal';
+
+const angles:PhysiqueAngle[]=['front','side','back'];
+const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
+
+type UploadSlot={angle:PhysiqueAngle;id:string;existing?:PhysiquePhotoSet['photos'][number];imageBase64?:string;changed:boolean;fileKey:number};
+
+function makeSlots(initial?:PhysiquePhotoSet):UploadSlot[]{
+  return angles.map(angle=>{
+    const existing=initial?.photos.find(photo=>photo.angle===angle);
+    return {angle,id:existing?.id??crypto.randomUUID(),existing,changed:false,fileKey:0};
+  });
+}
 
 export interface PhotoUploadDialogProps {
   open:boolean;
   store:Nourish;
   onClose:()=>void;
   restoreFocus?:HTMLElement|null;
+  initial?:PhysiquePhotoSet;
 }
 
-export function PhotoUploadDialog({open,store,onClose,restoreFocus}:PhotoUploadDialogProps){
+export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:PhotoUploadDialogProps){
   const current=today(store.state!.profile?.timeZone);
-  const [date,setDate]=useState(current);
-  const [caption,setCaption]=useState('');
-  const [angle,setAngle]=useState('front');
-  const [image,setImage]=useState<string>();
+  const [date,setDate]=useState(initial?.date??current);
+  const [slots,setSlots]=useState<UploadSlot[]>(()=>makeSlots(initial));
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  const [fileKey,setFileKey]=useState(0);
-  const initial=useRef({date:current,caption:'',angle:'front',image:''});
+  const initialDate=useRef(initial?.date??current);
 
   useEffect(()=>{
     if(!open)return;
-    setDate(current);setCaption('');setAngle('front');setImage(undefined);setError('');setFileKey(key=>key+1);
-    initial.current={date:current,caption:'',angle:'front',image:''};
-  },[open,current]);
+    setDate(initial?.date??current);
+    setSlots(makeSlots(initial));
+    setError('');
+    setBusy(false);
+    initialDate.current=initial?.date??current;
+  },[open,current,initial?.id]);
 
-  const dirty=date!==initial.current.date||caption!==initial.current.caption||angle!==initial.current.angle||!!image!==!!initial.current.image;
-  const select=async(event:ChangeEvent<HTMLInputElement>)=>{
-    const file=event.currentTarget.files?.[0];event.currentTarget.value='';
-    if(!file){setImage(undefined);return;}
-    setBusy(true);setError('');
-    try{setImage(await prepareImage(file,750000));}catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
-  };
-  const save=async(event:FormEvent)=>{
-    event.preventDefault();if(!image||busy)return;
+  const dirty=date!==initialDate.current||slots.some(slot=>slot.changed);
+  const selectedBytes=slots.reduce((sum,slot)=>sum+(slot.imageBase64?slot.imageBase64.length*.75:0),0);
+  const select=async(angle:PhysiqueAngle,event:ChangeEvent<HTMLInputElement>)=>{
+    const file=event.currentTarget.files?.[0];
+    event.currentTarget.value='';
+    if(!file){
+      setSlots(currentSlots=>currentSlots.map(slot=>slot.angle===angle?{...slot,imageBase64:undefined,changed:false,fileKey:slot.fileKey+1}:slot));
+      return;
+    }
     setBusy(true);setError('');
     try{
-      await store.addPhoto({id:crypto.randomUUID(),date,caption,angle,imageBase64:image});
+      const imageBase64=await prepareImage(file,750000);
+      setSlots(currentSlots=>currentSlots.map(slot=>slot.angle===angle?{...slot,imageBase64,changed:true}:slot));
+    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+  };
+  const save=async(event:FormEvent)=>{
+    event.preventDefault();if(busy)return;
+    const photos=slots.filter(slot=>slot.changed&&slot.imageBase64).map(slot=>({id:slot.id,angle:slot.angle,imageBase64:slot.imageBase64!}));
+    if(!initial&&photos.length===0){setError('Choose at least one front, side, or back photo before saving.');return;}
+    if(initial&&photos.length===0&&date===initialDate.current){setError('Choose a new photo or change the photo date before saving.');return;}
+    setBusy(true);setError('');
+    try{
+      const draft:PhysiqueDraft={id:initial?.id??crypto.randomUUID(),date,photos};
+      await store.addPhoto(draft);
       onClose();
     }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
   };
@@ -53,21 +78,36 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus}:PhotoUploadD
     open={open}
     onClose={onClose}
     restoreFocus={restoreFocus}
-    title="Upload physique photo"
-    description="Prepare a private progress photo before it is queued for upload."
+    title={initial?'Edit physique photo set':'Upload physique photo set'}
+    description={initial?'Replace only the views you changed. Unchanged views stay on the server.':'Add up to three private progress views as one set. Each selected image is compressed before it is queued.'}
     dirty={dirty}
-    width="md"
+    width="lg"
   >
     <Form onSubmit={save} className="dialog-form">
-      <div className="form-grid">
-        <DatePicker id="photo-date" name="date" min="2000-01-01" label="Photo date" max={current} required value={date} onChange={setDate}/>
-        <SelectField id="photo-angle" name="angle" label="Photo angle" value={angle} onChange={setAngle}><option value="front">Front</option><option value="side">Side</option><option value="back">Back</option><option value="other">Other</option></SelectField>
+      <DatePicker id="photo-date" name="date" min="2000-01-01" label="Photo date" max={current} required value={date} onChange={setDate}/>
+      <div className="physique-upload-grid" aria-label="Physique photo views">
+        {slots.map(slot=>{
+          const label=angleLabel(slot.angle);
+          const preview=slot.imageBase64?`data:image/jpeg;base64,${slot.imageBase64}`:slot.existing?`/api/photos/${slot.existing.id}/content`:undefined;
+          return <section className="physique-upload-slot" key={slot.angle} aria-labelledby={`photo-slot-${slot.angle}`}>
+            <div className="physique-upload-slot-heading"><h3 id={`photo-slot-${slot.angle}`}>{label}</h3>{slot.existing&&!slot.changed&&<small>Kept unless replaced</small>}</div>
+            {preview&&<img className="photo-preview" src={preview} alt={`${slot.changed?'Selected':'Current'} ${slot.angle} physique photo`}/>}
+            <FileInput
+              id={`photo-file-${slot.angle}`}
+              name={`photo-${slot.angle}`}
+              key={slot.fileKey}
+              disabled={busy}
+              label={`${label} photo`}
+              accept="image/*"
+              hint="JPEG or PNG; compressed to 750 KB or less."
+              onChange={event=>void select(slot.angle,event)}
+            />
+          </section>;
+        })}
       </div>
-      <Field id="photo-caption" name="caption" label="Photo caption (optional)" maxLength={160} value={caption} onChange={event=>setCaption(event.target.value)}/>
-      <FileInput id="photo-file" name="photo" validate={()=>!image?'Choose a photo before saving.':undefined} key={fileKey} disabled={busy} label="Choose physique photo" accept="image/*" onChange={event=>void select(event)}/>
-      {image&&<><img className="photo-preview" src={`data:image/jpeg;base64,${image}`} alt="Your selected physique photo"/><p className="source">{number(image.length*.75/1000)} KB · location metadata removed</p></>}
+      {selectedBytes>0&&<p className="source">Selected upload: {number(selectedBytes/1000)} KB · location metadata removed</p>}
       {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Preparing…':'Save photo draft and upload'}</Button></div>
+      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Preparing…':initial?'Save changed views and upload':'Save photo set and upload'}</Button></div>
     </Form>
   </Modal>;
 }

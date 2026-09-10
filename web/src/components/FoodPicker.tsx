@@ -1,8 +1,7 @@
 import {useState} from 'react';
 import {Camera} from 'lucide-react';
-import type {Nutrients} from '../types';
+import type {EnergyUnit,Nutrients} from '../types';
 import {api} from '../lib/api';
-import {number} from '../lib/format';
 import {lineKey} from '../lib/foodBasket';
 import {outstanding,etaSeconds,waitMs} from '../lib/scanQueue';
 import type {FoodBasketHook} from '../useFoodBasket';
@@ -11,6 +10,7 @@ import {Field} from './ui/Field';
 import {Form} from './ui/Form';
 import {Checkbox} from './ui/Checkbox';
 import {BarcodeCamera} from './BarcodeCamera';
+import {displayEnergy,energyLabel} from '../lib/units';
 
 type SearchResult = Nutrients & {servingGrams:number};
 
@@ -31,6 +31,7 @@ export interface FoodPickerProps {
   run:(fn:()=>Promise<void>)=>Promise<void>;
   open:boolean;
   step:string;
+  energyUnit?:EnergyUnit;
 }
 
 export function FoodPicker({
@@ -50,6 +51,7 @@ export function FoodPicker({
   run,
   open,
   step,
+  energyUnit='kcal',
 }:FoodPickerProps){
   const [continuous,setContinuous]=useState(false);
   const pendingCount=outstanding(basket.queue);
@@ -136,7 +138,7 @@ export function FoodPicker({
       />
       <div className="food-description">
         <strong>{result.name}</strong>
-        <small>{number(result.calories)} kcal / 100 g · {result.source}</small>
+        <small>{displayEnergy(result.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {result.source}</small>
       </div>
       <Button onClick={()=>onChoose(result)}>Use</Button>
       <Button onClick={()=>onSaveFood(result)}>Save food</Button>

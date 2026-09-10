@@ -1,11 +1,12 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import type {Entry,Nutrients} from '../types';
+import type {EnergyUnit,Entry,Nutrients} from '../types';
 import {blankNutrients} from '../types';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 
 import {rescaleNutrients} from '../lib/nutrients';
+import {energyLabel,inputEnergy,parseEnergy} from '../lib/units';
 
 export type FoodDraft=Nutrients&{quantity:number;unit:'g'|'serving';meal:string;time?:string|null};
 
@@ -15,12 +16,14 @@ export function FoodEditor({
   onClose,
   title='Review your food',
   onDirtyChange,
+  energyUnit='kcal',
 }:{
   initial?:Partial<Entry>;
   onSave:(draft:FoodDraft)=>Promise<void>;
   onClose:()=>void;
   title?:string;
   onDirtyChange?:(dirty:boolean)=>void;
+  energyUnit?:EnergyUnit;
 }){
   const [draft,setDraft]=useState<FoodDraft>({...blankNutrients,quantity:1,unit:'serving',meal:'Meal',...initial});
   const [error,setError]=useState('');
@@ -49,7 +52,7 @@ export function FoodEditor({
         <Field id="food-quantity" name="quantity" readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
         <SelectField id="food-unit" name="unit" disabled={title.startsWith('Save food')} label="Unit" value={draft.unit} onChange={value=>set('unit',value)}><option value="serving">serving</option><option value="g">grams</option></SelectField>
         <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>
-        <Field id="food-calories" name="calories" label="Calories (kcal)" type="number" min="0" max="20000" step="any" required value={draft.calories} onChange={event=>set('calories',Number(event.target.value))}/>
+        <Field id="food-calories" name="calories" label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
         {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
       </div>
       <p className="source">Source: {draft.source}</p>

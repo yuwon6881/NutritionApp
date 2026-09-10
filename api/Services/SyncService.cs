@@ -6,7 +6,7 @@ using Nutrition.Api.Domain;
 namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
-public record CoachingSettingsInput(int CheckInWeekday);
+public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null);
 public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
@@ -43,8 +43,16 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             case "settings":
                 Validation.Require(!op.Delete && op.ExpectedRevision == user.CoachingSettingsRevision, "Coaching settings changed on another device. Review before retrying.", 409);
                 var settings = op.Data.Deserialize<CoachingSettingsInput>(Json.Options) ?? throw new DomainException("Coaching settings are required.");
-                CheckInWeek.ValidateWeekday(settings.CheckInWeekday);
-                user.CheckInWeekday = settings.CheckInWeekday;
+                var weekday = settings.CheckInWeekday ?? user.CheckInWeekday;
+                var weightUnit = settings.WeightUnit ?? user.WeightUnit;
+                var energyUnit = settings.EnergyUnit ?? user.EnergyUnit;
+                var heightUnit = settings.HeightUnit ?? user.HeightUnit;
+                CheckInWeek.ValidateWeekday(weekday);
+                Validation.Units(weightUnit, energyUnit, heightUnit);
+                user.CheckInWeekday = weekday;
+                user.WeightUnit = weightUnit;
+                user.EnergyUnit = energyUnit;
+                user.HeightUnit = heightUnit;
                 user.CoachingSettingsRevision = revision;
                 user.CoachingSettingsChangedDate = RetentionService.Today(user.ProfileJson);
                 break;

@@ -104,6 +104,7 @@ test('food timeline supports single-item move to custom time, move to existing t
   // The full diary is also available as its own page with visible hourly drop slots.
   await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Food Log',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Full day',exact:true}).click();
   await expect(page.locator('[data-time-row="20:00"]')).toBeVisible();
 
   // Pointer drag moves an entry directly onto an empty hour.

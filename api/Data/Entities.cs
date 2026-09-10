@@ -12,6 +12,9 @@ public class AppUser
     public long TrajectoryRevision { get; set; }
     public int CheckInWeekday { get; set; } = 1;
     public DateOnly? CoachingSettingsChangedDate { get; set; }
+    public string WeightUnit { get; set; } = "kg";
+    public string EnergyUnit { get; set; } = "kcal";
+    public string HeightUnit { get; set; } = "cm";
     public string ProfileJson { get; set; } = "";
 }
 public class Session
@@ -106,7 +109,7 @@ public class MutationReceipt
 public class PhysiquePhoto : OwnedRecord
 {
     public DateOnly Date { get; set; }
-    public string Caption { get; set; } = "";
+    public Guid SetId { get; set; }
     public string Angle { get; set; } = "front";
     public string ObjectPath { get; set; } = "";
     public int Bytes { get; set; }

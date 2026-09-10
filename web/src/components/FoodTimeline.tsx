@@ -3,9 +3,10 @@ import {Copy,Trash2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
 import {number} from '../lib/format';
-import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow} from '../lib/foodDiary';
+import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow,type TimelineView} from '../lib/foodDiary';
 import {Button} from './ui/Button';
 import {MoveFoodDialog} from './MoveFoodDialog';
+import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
 export interface FoodTimelineProps {
   store:Nourish;
@@ -15,6 +16,7 @@ export interface FoodTimelineProps {
   onEdit:(entry:Entry)=>void;
   onMove:(moving:Entry[],time:string)=>Promise<void>|void;
   showEmptySlots?:boolean;
+  timelineView?:TimelineView;
   onAddAtTime?:(time:string)=>void;
 }
 
@@ -26,13 +28,15 @@ export function FoodTimeline({
   onEdit,
   onMove,
   showEmptySlots=false,
+  timelineView='full',
   onAddAtTime,
 }:FoodTimelineProps){
   const [movingEntries,setMovingEntries]=useState<Entry[]|null>(null);
   const [restoreFocus,setRestoreFocus]=useState<HTMLElement|null>(null);
   const [announcement,setAnnouncement]=useState('');
+  const energyUnit=unitsFor(store.state?.settings).energy;
 
-  const groups=showEmptySlots?timelineSlots(entries):timelineGroups(entries);
+  const groups=showEmptySlots?timelineSlots(entries,0,23,timelineView):timelineGroups(entries);
   const previousTimes=useRef(new Map<string,string|null>());
   const [movedIds,setMovedIds]=useState<Set<string>>(()=>new Set());
 
@@ -107,7 +111,7 @@ export function FoodTimeline({
                 <h3>
                   <Button variant="tertiary" disabled={readOnly} onClick={()=>onEdit(entry)}>{entry.name}</Button>
                 </h3>
-                <strong>{number(entry.calories)} <small>kcal</small></strong>
+                <strong>{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
               </div>
               <p>{entry.meal} · {number(entry.quantity,1)} {entry.unit}</p>
               <dl className="food-card-nutrients">

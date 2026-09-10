@@ -2,7 +2,7 @@ import {Form,FieldFrame,validateFields} from './ui/Form';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,Activity,Check,PieChart,Sliders,Target,User} from 'lucide-react';
 import type {Nourish} from '../useNourish';
-import type {Profile,ProfileDraft,CoachResult} from '../types';
+import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
 import {profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
@@ -23,6 +23,8 @@ import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachStepper,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
+import {UnitPreferencesFields} from './CoachingSettings';
+import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor,weightLabel} from '../lib/units';
 
 const defaults:ProfileDraft={
   age:0,
@@ -59,14 +61,14 @@ const stepOrder=['body','activity','goal','macros'] as const;
 const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
 
-function TargetFigures({result}:{result:CoachResult}){
+function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}){
   return <div className="target-figures">
-    <div><p>Daily energy</p><strong>{number(result.calories)} <span className="unit">kcal</span></strong></div>
-    <div><p>Maintenance</p><strong>{number(result.expenditure)} <span className="unit">kcal</span></strong></div>
+    <div><p>Daily energy</p><strong>{displayEnergy(result.calories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong></div>
+    <div><p>Maintenance</p><strong>{displayEnergy(result.expenditure,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong></div>
     <div><p>Protein</p><strong>{number(result.protein)} <span className="unit">g</span></strong></div>
     <div><p>Carbohydrate</p><strong>{number(result.carbs)} <span className="unit">g</span></strong></div>
     <div><p>Fat</p><strong>{number(result.fat)} <span className="unit">g</span></strong></div>
-    {result.dailyCalories?.length===7&&<div className="target-weekly-summary"><p>Weekly budget</p><strong>{number(result.weeklyCalories)} <span className="unit">kcal</span></strong><small>{result.dailyCalories.map((calories,index)=><span key={index}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]} {number(calories)}</span>)}</small></div>}
+    {result.dailyCalories?.length===7&&<div className="target-weekly-summary"><p>Weekly budget</p><strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong><small>{result.dailyCalories.map((calories,index)=><span key={index}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]} {displayEnergy(calories,units.energy)} {energyLabel(units.energy)}</span>)}</small></div>}
   </div>;
 }
 
@@ -91,6 +93,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const accepted=plans[0];
   const acceptedPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const current=today(store.state!.profile?.timeZone);
+  const settings=store.state!.settings??{checkInWeekday:1,revision:0};
+  const units=unitsFor(settings);
   const derivedAge=ageOn(profile.dateOfBirth,current);
   const pending=store.local!.queue.length>0;
   const changed=!profilesEqual(profile,store.state!.profile);
@@ -100,6 +104,11 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     loadProposal:requestProposal,invalidate,acceptance,locked,online}=proposalFlow;
   const operation=saving?'saving':proposalOperation;
   const busy=saving||proposalFlow.busy;
+
+  const updateUnits=(patch:Partial<UnitPreferences>)=>{
+    const next={...units,...patch};
+    void store.mutate({kind:'settings',recordId:store.state!.id,expectedRevision:settings.revision,data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height},delete:false});
+  };
 
   const set=(key:keyof Profile,value:unknown)=>{
     invalidate();
@@ -158,7 +167,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}
     if(!canAdvanceActivity){setStep('activity');setError('Choose your usual activity.');return;}
     if(!canAdvanceGoal){setStep('goal');setError('Review your goal and phase details.');return;}
-    if(!weeklyValid){setError(`Your seven daily calories must total exactly ${number(Math.round(live.weeklyCalories))} kcal.`);return;}
+    if(!weeklyValid){setError(`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`);return;}
     locked.current=true;setSaving(true);setError('');
     try{
     await store.mutate({
@@ -202,8 +211,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         {operation==='accepting'?'Activating plan…':operation==='updating'?'Updating proposal…':'Accept this plan'}
       </Button>
     </div>
-    <TargetFigures result={proposal.result}/>
-    {proposal.result.goalProgress&&<GoalSummary progress={proposal.result.goalProgress}/>}
+    <TargetFigures result={proposal.result} units={units}/>
+    {proposal.result.goalProgress&&<GoalSummary progress={proposal.result.goalProgress} units={units}/>}
     {proposal.holdReason&&<p className="notice">{proposal.holdReason}</p>}
     {!proposal.canAccept&&!proposal.holdReason&&<p className="notice">{proposal.result.explanation}</p>}
     </>:<h2>{message?'Active plan':'Review plan'}</h2>}
@@ -227,8 +236,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           </Button>
         </div>
       </div>
-      <TargetFigures result={acceptedPlan}/>
-      {goalProgress&&<GoalSummary progress={goalProgress}/>}
+      <TargetFigures result={acceptedPlan} units={units}/>
+      {goalProgress&&<GoalSummary progress={goalProgress} units={units}/>}
     </section>}
     {proposalPanel}
     <section className="panel">
@@ -238,9 +247,9 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       <dl className="strategy-figures">
         <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
         <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${Math.abs(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15))}% bodyweight/week`}</dd></div>
-        <div><dt>Tracking</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${profile.targetWeightKg} kg`:'Ongoing'}</dd></div>
+        <div><dt>Tracking</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${displayWeight(profile.targetWeightKg,units.weight,1)} ${weightLabel(units.weight)}`:'Ongoing'}</dd></div>
         <div><dt>Macros</dt><dd>{presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')}</dd></div>
-        <div><dt>Body</dt><dd>{profile.weightKg} kg · {profile.heightCm} cm</dd></div>
+        <div><dt>Body</dt><dd>{displayWeight(profile.weightKg,units.weight,1)} {weightLabel(units.weight)} · {displayHeight(profile.heightCm,units.height)}</dd></div>
         <div><dt>Age</dt><dd>{derivedAge??profile.age}</dd></div>
       </dl>
     </section>
@@ -271,10 +280,14 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
       <h3 tabIndex={-1} data-step-heading className="coach-step-heading">{steps.find(s=>s.id===step)!.label}</h3>
       {step==='body'&&<div className="step-content">
+        {isInitialSetup&&<UnitPreferencesFields value={units} onChange={updateUnits}/>}
         <div className="form-grid">
           <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<13||derivedAge>120)?'Enter a date of birth for an age from 13 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`Age ${derivedAge}`:undefined}/>
-          <Field id="coach-height" name="heightCm" label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value))}/>
-          <Field id="coach-weight" name="weightKg" label="Starting weight (kg)" type="number" required min="20" max="400" step="0.1" value={profile.weightKg||''} onChange={e=>set('weightKg',Number(e.target.value))}/>
+          {units.height==='cm'?<Field id="coach-height" name="heightCm" label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value)||0)}/>:<>
+            <Field id="coach-height-feet" name="heightFeet" label="Height (feet)" type="number" required min="2" max="8" step="1" value={profile.heightCm?heightPartsFromCm(profile.heightCm).feet:''} onChange={e=>{const parts=heightPartsFromCm(profile.heightCm||0);const next=cmFromHeightParts(e.target.value,String(parts.inches));set('heightCm',Number.isFinite(next)?next:0);}}/>
+            <Field id="coach-height-inches" name="heightInches" label="Height (inches)" type="number" required min="0" max="11.9" step="0.1" value={profile.heightCm?heightPartsFromCm(profile.heightCm).inches:''} onChange={e=>{const parts=heightPartsFromCm(profile.heightCm||0);const next=cmFromHeightParts(String(parts.feet),e.target.value);set('heightCm',Number.isFinite(next)?next:0);}}/>
+          </>}
+          <Field id="coach-weight" name="weightKg" label={`Starting weight (${weightLabel(units.weight)})`} type="number" required min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.weightKg?inputWeight(profile.weightKg,units.weight,1):''} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('weightKg',Number.isFinite(next)?next:0);}}/>
           <SelectField id="coach-sex" name="sex" required label="Sex parameter for equation" value={profile.sex} onChange={v=>set('sex',v)}>
             <option value="" disabled>Choose an equation parameter</option>
             <option value="female">Female equation</option>
@@ -297,7 +310,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           <option value="1.8">Active most days · 1.8</option>
           <option value="2.0">Very active · 2.0</option>
         </SelectField>
-        <Field id="coach-maintenance" name="maintenance" label="Known maintenance calories (optional)" type="number" min="1000" max="7000" value={profile.maintenance??''} placeholder="Use the equation" onChange={e=>set('maintenance',e.target.value?Number(e.target.value):null)}/>
+        <Field id="coach-maintenance" name="maintenance" label={`Known maintenance calories${units.energy==='kcal'?'':` (${energyLabel(units.energy)})`} (optional)`} type="number" min={units.energy==='kj'?4184:1000} max={units.energy==='kj'?29288:7000} value={profile.maintenance==null?'':inputEnergy(profile.maintenance,units.energy,0)} placeholder="Use the equation" onChange={e=>{const next=parseEnergy(e.target.value,units.energy);set('maintenance',e.target.value===''?null:Number.isFinite(next)?next:null);}}/>
         <div className="checks">
           <label htmlFor="coach-resistance-training">
             <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
@@ -322,7 +335,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
             <span>{goalLabel(goal)}</span><Check size={16} aria-hidden="true"/>
           </label>)}
         </div></fieldset></FieldFrame>
-        <GoalSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure}/>
+        <GoalSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure} units={units}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('macros');}}>
@@ -338,14 +351,14 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           onChange={next=>setSplit(next,'custom')}
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
-        <WeeklyProgramSetup budget={live.weeklyCalories} values={weeklyValues} onChange={values=>{
+        <WeeklyProgramSetup budget={live.weeklyCalories} values={weeklyValues} energyUnit={units.energy} onChange={values=>{
           setWeeklyDraft(values);
           set('distributionShares',normaliseDistribution(values));
         }}/>
         <dl className="strategy-figures">
-          <div><dt>Resting</dt><dd>{number(live.resting)} kcal</dd></div>
-          <div><dt>Maintenance</dt><dd>{number(live.expenditure)} kcal</dd></div>
-          <div><dt>Daily target</dt><dd>{number(live.target)} kcal</dd></div>
+          <div><dt>Resting</dt><dd>{displayEnergy(live.resting,units.energy)} {energyLabel(units.energy)}</dd></div>
+          <div><dt>Maintenance</dt><dd>{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</dd></div>
+          <div><dt>Daily target</dt><dd>{displayEnergy(live.target,units.energy)} {energyLabel(units.energy)}</dd></div>
         </dl>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
@@ -365,7 +378,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         const result=JSON.parse(plan.resultJson) as CoachResult;
         return <div key={plan.id}>
           <dt>{plan.date}</dt>
-          <dd>{number(result.calories)} kcal · {number(result.protein)} / {number(result.carbs)} / {number(result.fat)} g</dd>
+        <dd>{displayEnergy(result.calories,units.energy)} {energyLabel(units.energy)} · {number(result.protein)} / {number(result.carbs)} / {number(result.fat)} g</dd>
         </div>;
       })}
     </dl>}

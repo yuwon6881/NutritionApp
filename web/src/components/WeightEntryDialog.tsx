@@ -7,6 +7,7 @@ import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
+import {inputWeight,parseWeight,unitsFor,weightLabel} from '../lib/units';
 
 export interface WeightEntryDialogProps {
   open:boolean;
@@ -25,12 +26,13 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
   const initialValues=useRef({date:'',kg:''});
   const state=store.state!;
   const current=today(state.profile?.timeZone);
+  const units=unitsFor(state.settings);
 
   useEffect(()=>{
     if(!open)return;
     const existing=initial??state.weights.find(weight=>!weight.deleted&&weight.date===(date??current));
     const nextDate=existing?.date??date??current;
-    const nextKg=existing?String(existing.kg):'';
+    const nextKg=existing?inputWeight(existing.kg,units.weight,2):'';
     setEntryDate(nextDate);setKg(nextKg);setError('');
     initialValues.current={date:nextDate,kg:nextKg};
   },[open,initial?.id,date]);
@@ -46,7 +48,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
         kind:'weight',
         recordId:target?.id??crypto.randomUUID(),
         expectedRevision:target?.revision??0,
-        data:{date:entryDate,kg:Number(kg)},
+        data:{date:entryDate,kg:parseWeight(kg,units.weight)},
         delete:false,
       });
       onClose();
@@ -65,7 +67,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
     <Form onSubmit={save} className="dialog-form">
       <div className="form-grid">
         <DatePicker id="weight-entry-date" name="date" min="2000-01-01" label="Weigh-in date" value={entryDate} max={current} required onChange={setEntryDate}/>
-        <Field id="weight-entry-kg" name="kg" data-modal-autofocus label="Weight (kg)" type="number" min="20" max="400" step="0.01" required value={kg} onChange={event=>setKg(event.target.value)}/>
+        <Field id="weight-entry-kg" name="kg" data-modal-autofocus label={`Weight (${weightLabel(units.weight)})`} type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.01" required value={kg} onChange={event=>setKg(event.target.value)}/>
       </div>
       <p className="source">A date with an existing weigh-in is updated.</p>
       {error&&<p role="alert" className="error">{error}</p>}

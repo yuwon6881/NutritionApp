@@ -49,7 +49,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
   await expect(page.getByText('80.8 kg',{exact:true}).first()).toBeVisible();
   await page.getByRole('button',{name:'Daily weight',exact:true}).click();await expect(page.getByRole('img',{name:/Daily scale weight chart/})).toBeVisible();
-  await page.getByRole('button',{name:'Calculated trend',exact:true}).click();await expect(page.getByRole('img',{name:/Calculated trend weight chart/})).toBeVisible();
+  await page.getByRole('button',{name:'Trend weight',exact:true}).click();await expect(page.getByRole('img',{name:/Trend weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Energy',exact:true}).click();
   await page.getByLabel('Group energy bars by',{exact:true}).selectOption('week');await expect(page.getByRole('img',{name:/Signed energy balance by week/})).toBeVisible();
   await page.getByLabel('Group energy bars by',{exact:true}).selectOption('month');await expect(page.getByRole('img',{name:/Signed energy balance by month/})).toBeVisible();
@@ -170,18 +170,19 @@ test('physique photo draft survives offline reopening without cloud credentials'
   await signIn(context.request);await page.goto('/');
   await page.getByRole('button',{name:'Progress',exact:true}).click();
   await page.getByRole('button',{name:'Photos',exact:true}).click();
-  await page.getByRole('button',{name:'Add photo',exact:true}).click();
-  await page.getByLabel('Choose physique photo',{exact:true}).setInputFiles('public/icon-512.png');
-  await expect(page.getByAltText('Your selected physique photo')).toBeVisible();
+  await page.getByRole('button',{name:'Add photo set',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Front',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Side',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Back',exact:true})).toBeVisible();
+  await page.getByLabel('Front photo',{exact:true}).setInputFiles('public/icon-512.png');
+  await expect(page.getByAltText('Selected front physique photo')).toBeVisible();
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await context.setOffline(true);
-  await page.getByRole('button',{name:'Save photo draft and upload',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Discard local photo draft',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Save photo set and upload',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
   await page.reload();await page.getByRole('button',{name:'Progress',exact:true}).click();
   await page.getByRole('button',{name:'Photos',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Discard local photo draft',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Discard local photo draft',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Discard local photo draft',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Discard local photo set',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toHaveCount(0);
 });
 
 test('weekly check-in is a reduced-motion-safe bottom sheet with focus restoration',async({page,context})=>{

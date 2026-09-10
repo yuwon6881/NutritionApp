@@ -11,6 +11,12 @@ public static class Validation
     public static void Require(bool condition, string message, int status = 400)
     { if (!condition) throw new DomainException(message, status); }
     public static void Number(double number, double min, double max, string name) => Require(double.IsFinite(number) && number >= min && number <= max, $"{name} must be between {min} and {max}.");
+    public static void Units(string weight, string energy, string height)
+    {
+        Require(weight is "kg" or "lb", "Choose kilograms or pounds.");
+        Require(energy is "kcal" or "kj", "Choose kilocalories or kilojoules.");
+        Require(height is "cm" or "ft-in", "Choose centimetres or feet and inches.");
+    }
     public static void Nutrients(NutrientRecord n)
     {
         Require(!string.IsNullOrWhiteSpace(n.Name) && n.Name.Length <= 160, "Food name is required (maximum 160 characters).");

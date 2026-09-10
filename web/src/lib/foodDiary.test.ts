@@ -18,6 +18,15 @@ it('adds hourly drop slots while preserving exact occupied times',()=>{
   expect(groups.map(group=>group.time)).toEqual(['06:00','07:00','08:00','08:30','09:00','10:00','23:45']);
   expect(groups.find(group=>group.time==='08:30')?.entries[0].id).toBe('breakfast');
 });
+it('switches between occupied hours and the complete midnight-to-11pm day',()=>{
+  const entries=[entry('breakfast','08:30'),entry('late','23:45'),entry('untimed')];
+  expect(timelineSlots(entries,0,23,'data').map(group=>group.time)).toEqual(['08:30','23:45','']);
+  const full=timelineSlots(entries,0,23,'full');
+  expect(full[0].time).toBe('00:00');
+  expect(full.at(-2)?.time).toBe('23:45');
+  expect(full.at(-1)?.time).toBe('');
+  expect(full.filter(group=>group.time).length).toBe(26);
+});
 it('uses the profile time zone and keeps already archived days read-only',()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date('2026-09-08T16:05:00Z'));
   expect(mealTime('Asia/Kuala_Lumpur')).toBe('00:05');
