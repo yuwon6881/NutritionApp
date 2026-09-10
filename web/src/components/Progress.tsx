@@ -37,7 +37,7 @@ export function Progress({store}:{store:Nourish}){
   const addWeight=(trigger?:HTMLElement|null)=>{setWeightEdit(undefined);setWeightReturnFocus(trigger??null);setWeightOpen(true);};
 
   return <>
-    <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div>{tab==='weight'&&<Button variant="primary" onClick={event=>addWeight(event.currentTarget)}>Add weigh-in</Button>}</header>
+    <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div><div className="page-heading-actions">{tab==='weight'&&<Button variant="primary" onClick={event=>addWeight(event.currentTarget)}>Add weigh-in</Button>}</div></header>
     <SegmentedControl<Tab> id="progress-tabs" className="section-segments" label="Progress sections" value={tab} onChange={setTab} options={tabs.map(([value,label])=>({value,label}))}/>
     <MotionPanel motionKey={tab} direction={tabDirection}>
     <div role="tabpanel" aria-label={`${tabs.find(([value])=>value===tab)?.[1]??tab} progress`}>

@@ -124,7 +124,7 @@ export function LogFood({
 
   const selection=<div className="dialog-step food-selection">
     {!editing&&<div className="dialog-toolbar"><Button variant="primary" onClick={()=>go('quick')}><Plus size={17}/>Quick add</Button><Button onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}>Manual entry</Button></div>}
-    <SegmentedControl className="section-segments" label="Food logging method" value={tab} onChange={setTab} options={[
+    <SegmentedControl layout="equal" className="section-segments" label="Food logging method" value={tab} onChange={setTab} options={[
       {value:'saved',label:<><Star size={17}/>Your foods</>},{value:'search',label:<><Search size={17}/>Search</>},
       {value:'barcode',label:<><ScanBarcode size={17}/>Barcode</>},{value:'ai',label:<><Sparkles size={17}/>AI logging</>}
     ]}/>
