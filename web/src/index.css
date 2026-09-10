@@ -41,7 +41,7 @@ html,body{overflow-x:hidden;max-width:100%}html{scrollbar-gutter:stable}*{box-si
 /* Guided Coach Wizard */
 
 .wizard-header{margin-bottom:20px}
-.guided-stepper{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:22px;background:var(--muted);padding:4px;border-radius:14px}
+.guided-stepper{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:22px;background:var(--muted);padding:4px;border-radius:14px}
 .step-pill{min-height:44px;border:none;border-radius:10px;font-size:.78rem;padding:8px 6px;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--muted-foreground)}
 .step-pill.active{background:var(--card);color:var(--ink-strong);font-weight:650;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
 .step-pill.step-indicator{cursor:default;user-select:none;pointer-events:none}
@@ -121,14 +121,14 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 /* Custom DatePicker */
-.date-picker-field{position:relative}
-.date-picker-wrapper{position:relative;width:100%}
-.custom-date-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;padding:11px 14px;background:var(--card);border:1px solid var(--border);border-radius:11px;color:var(--foreground);font-size:15px;cursor:pointer;text-align:left;transition:border-color .15s}
+.date-picker-field{position:relative;min-width:0}
+.date-picker-wrapper{position:relative;width:100%;min-width:0}
+.custom-date-trigger{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-width:0;min-height:44px;padding:11px 12px;background:var(--card);border:1px solid var(--border);border-radius:11px;color:var(--foreground);font-size:15px;cursor:pointer;text-align:left;transition:border-color .15s}
 .custom-date-trigger:hover:not(.disabled){background:var(--muted)}
 .custom-date-trigger.open{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
-.date-display{font-weight:500;color:var(--ink-strong)}
-.date-icon{color:var(--primary-ink);flex-shrink:0;margin-left:8px}
-.custom-calendar-popover{position:absolute;top:calc(100% + 6px);left:0;z-index:110;min-width:280px;width:100%;max-width:320px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.26);padding:16px;animation:fadeIn .15s ease-out}
+.date-display{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--ink-strong)}
+.date-icon{color:var(--primary-ink);flex:0 0 auto;margin-left:auto}
+.custom-calendar-popover{position:absolute;top:calc(100% + 6px);left:0;z-index:1000;isolation:isolate;min-width:280px;width:100%;max-width:320px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.26);padding:16px;animation:fadeIn .15s ease-out}
 .calendar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .calendar-title{flex:1;min-width:0;text-align:center;font-weight:650;font-size:.84rem;line-height:1.2;color:var(--ink-strong);overflow-wrap:anywhere}
 .calendar-nav-btn{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;border:1px solid var(--border);background:var(--muted);color:var(--foreground);cursor:pointer}
@@ -713,6 +713,53 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .calendar-dropdown-option.selected{background:var(--primary-tint);color:var(--primary-ink);font-weight:650}
 .calendar-dropdown-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .calendar-dropdown-check{color:var(--primary);flex-shrink:0}
+
+/* Keep keyboard focus visible inside compact tab controls without letting a scroll box clip it. */
+.segmented-control[data-layout=equal],.segmented-control[data-layout=wrap]{overflow:visible}
+.segmented-control>[data-selection-key]:focus-visible{outline:0;box-shadow:inset 0 0 0 2px var(--ring)}
+.modal-body{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.modal-body::-webkit-scrollbar{width:10px}
+.modal-body::-webkit-scrollbar-track{background:transparent}
+.modal-body::-webkit-scrollbar-thumb{background:var(--border);border:3px solid transparent;border-radius:999px;background-clip:content-box}
+
+/* Empty history should explain the state without reserving a large blank action row. */
+.recent-empty{padding:14px 0 8px;margin:0;text-align:left;color:var(--muted-foreground)}
+
+/* Barcode scanning uses an explicit mode choice instead of an unexplained toggle. */
+.barcode-scan-options{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 12px;margin:12px 0}
+.barcode-scan-options>.button{grid-row:1 / span 2}
+.barcode-scan-mode-copy{display:grid;gap:3px;min-width:0}
+.barcode-scan-mode-copy strong{font-size:.82rem}
+.barcode-scan-mode-copy small{font-size:.72rem}
+.barcode-scan-mode{width:100%;margin:0}
+.barcode-scan-mode>.button{font-size:.76rem}
+
+/* The macro editor is intentionally divided into preset, adjustment, distribution, and review steps. */
+.step-description{max-width:58ch;margin:-4px 0 20px;font-size:.82rem}
+.macro-selection-note{margin:14px 0 0}
+.macro-review-summary{padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--muted)}
+.macro-review-summary .section-heading{margin-bottom:16px}
+.macro-review-summary .section-heading h3{margin:0 0 4px}
+.macro-review-summary .section-heading p{margin:0;font-size:.78rem}
+.macro-review-summary .strategy-figures{margin-bottom:18px}
+.macro-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding-top:16px;border-top:1px solid var(--border)}
+.macro-review-grid>div{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:5px 8px;font-size:.8rem}
+.macro-review-grid>div>strong{grid-column:2;font-size:.92rem}
+.macro-review-grid>div>strong small{margin-left:4px;font-size:.72rem;font-weight:400}
+.weekly-review-summary{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);font-size:.8rem}
+.weekly-review-summary>div{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:10px}
+.weekly-review-summary span{display:grid;gap:3px;font-variant-numeric:tabular-nums}
+.weekly-review-summary span small{font-size:.68rem}
+@media(min-width:640px) and (max-width:1023px){.guided-stepper{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:639px){
+  .barcode-scan-options{grid-template-columns:1fr;gap:8px}
+  .barcode-scan-options>.button{grid-row:auto;width:100%}
+  .macro-review-summary{padding:14px}
+  .macro-review-grid{grid-template-columns:1fr}
+  .macro-review-grid>div{grid-template-columns:auto minmax(0,1fr) auto}
+  .macro-review-grid>div>strong{grid-column:3;grid-row:1}
+  .weekly-review-summary>div{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
 
 .unit-preferences{margin:20px 0 0;padding:16px;border-radius:13px}
 .unit-preferences legend{font-weight:600}

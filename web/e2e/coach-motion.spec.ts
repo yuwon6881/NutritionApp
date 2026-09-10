@@ -28,10 +28,19 @@ async function step(page:Page,name:string){
   await page.getByRole('button',{name:new RegExp(`\\d\\. ${name}`)}).click();
   await expect(page.locator('[data-step-heading]')).toHaveText(name);await settled(page);
 }
+async function reviewMacros(page:Page){
+  await step(page,'Macros');
+  await page.getByRole('button',{name:/^Next: Adjust/}).click();
+  await page.getByRole('button',{name:/^Next: Distribution/}).click();
+  await page.getByRole('button',{name:/^Next: Review/}).click();
+}
+async function savePlan(page:Page){
+  await reviewMacros(page);await page.getByRole('button',{name:'Save profile',exact:true}).click();
+}
 async function changeGoal(page:Page){
   await page.getByRole('button',{name:'Plan',exact:true}).click();await step(page,'Goal');
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
-  await step(page,'Macros');await page.getByRole('button',{name:'Save profile',exact:true}).click();
+  await savePlan(page);
 }
 async function transitionFrames(page:Page,name:string){
   return page.getByRole('button',{name,exact:true}).evaluate(button=>new Promise<string[]>(resolve=>{
@@ -54,7 +63,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
-    for(const name of ['Body','Activity','Goal','Macros']){
+    for(const name of ['Body','Activity','Goal','Macros','Adjust','Distribution','Review']){
       await step(page,name);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
       if(width<1024)expect(await page.locator('.coach-tab-scene button:visible').evaluateAll(nodes=>nodes.filter(n=>n.getBoundingClientRect().height<43).map(n=>n.textContent))).toEqual([]);
@@ -129,7 +138,7 @@ test('real calculation waits, errors, retry and stale responses after back to ed
   await page.screenshot({path:'artifacts/coach-calculating.png',fullPage:true});
   await page.getByRole('button',{name:'Back to edit',exact:true}).click();
   await step(page,'Goal');await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
-  await step(page,'Macros');await page.getByRole('button',{name:'Save profile',exact:true}).click();
+  await savePlan(page);
   await expect(page.getByRole('button',{name:'Accept this plan',exact:true})).toBeEnabled();
   release();await settled(page);
   await expect(page.locator('.proposal-card .target-figures > div:first-child strong')).toContainText('2,050');
@@ -142,7 +151,7 @@ test('real calculation waits, errors, retry and stale responses after back to ed
   await page.unroute('**/api/coach/preview');
   await page.route('**/api/coach/preview',route=>route.fulfill({status:503,json:{message:'Preview temporarily unavailable.'}}));
   await page.getByRole('button',{name:'Back to edit',exact:true}).click();
-  await page.getByRole('button',{name:'Save profile',exact:true}).click();
+  await savePlan(page);
   await expect(page.getByRole('alert')).toContainText('Preview temporarily unavailable.');
   await expect(page.locator('.coach-wait-arc')).toHaveCount(0);
   await page.unroute('**/api/coach/preview');
@@ -171,7 +180,7 @@ test('lost acceptance response replays the exact identity and revision',async({p
 
 test('offline profile retention and acceptance refresh failure recover without duplicate acceptance',async({page,context})=>{
   await page.getByRole('button',{name:'Plan',exact:true}).click();await step(page,'Goal');
-  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await step(page,'Macros');
+  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await reviewMacros(page);
   await context.setOffline(true);await page.getByRole('button',{name:'Save profile',exact:true}).click();
   await expect(page.getByText('Profile retained on this device. Waiting for a connection.')).toBeVisible();
   await expect(page.locator('.coach-wait-arc')).toHaveCount(0);

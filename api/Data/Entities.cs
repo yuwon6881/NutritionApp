@@ -47,12 +47,15 @@ public class DiaryEntry : NutrientRecord
     public string Meal { get; set; } = "Meal";
     public double Quantity { get; set; } = 1;
     public string Unit { get; set; } = "serving";
+    public string? PortionLabel { get; set; }
+    public double? PortionGrams { get; set; }
 }
 public class Food : NutrientRecord
 {
     public double ServingGrams { get; set; } = 100;
     public bool Favourite { get; set; }
     public string IngredientsJson { get; set; } = "[]";
+    public string PortionsJson { get; set; } = "[]";
     public double? CookedYieldGrams { get; set; }
 }
 public class Weight : OwnedRecord

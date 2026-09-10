@@ -350,6 +350,12 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<double>("Quantity")
                         .HasColumnType("double precision");
 
+                    b.Property<double?>("PortionGrams")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("PortionLabel")
+                        .HasColumnType("text");
+
                     b.Property<long>("Revision")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint");
@@ -408,6 +414,11 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("PortionsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasDefaultValue("[]");
 
                     b.Property<double?>("Protein")
                         .HasColumnType("double precision");

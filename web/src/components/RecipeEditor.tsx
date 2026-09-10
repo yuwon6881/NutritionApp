@@ -10,13 +10,14 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
   const foods=store.state!.foods.filter(food=>!food.deleted);
   const [name,setName]=useState('');
   const [yieldGrams,setYield]=useState(500);
+  const [servings,setServings]=useState(4);
   const [items,setItems]=useState<{food:Food;grams:number}[]>([]);
   const [selected,setSelected]=useState(foods[0]?.id??'');
   const [grams,setGrams]=useState(100);
   const [error,setError]=useState('');
   const {busy,run}=useAsyncAction();
-  const initial=useRef(JSON.stringify({name:'',yieldGrams:500,items:[],selected:foods[0]?.id??'',grams:100}));
-  const snapshot=JSON.stringify({name,yieldGrams,items,selected,grams});
+  const initial=useRef(JSON.stringify({name:'',yieldGrams:500,servings:4,items:[],selected:foods[0]?.id??'',grams:100}));
+  const snapshot=JSON.stringify({name,yieldGrams,servings,items,selected,grams});
 
   useEffect(()=>onDirtyChange?.(snapshot!==initial.current),[snapshot,onDirtyChange]);
 
@@ -24,7 +25,7 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
     if(busy)return;setError('');
     try{
       const nutrient=(key:'calories'|'protein'|'fat'|'carbs'|'fiber')=>items.some(item=>item.food[key]==null)?null:items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/yieldGrams*100;
-      await run(()=>store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{name,calories:nutrient('calories'),protein:nutrient('protein'),fat:nutrient('fat'),carbs:nutrient('carbs'),fiber:nutrient('fiber'),source:'Personal recipe',servingGrams:100,cookedYieldGrams:yieldGrams,ingredientsJson:JSON.stringify(items),favourite:true}}));
+      await run(()=>store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{name,calories:nutrient('calories'),protein:nutrient('protein'),fat:nutrient('fat'),carbs:nutrient('carbs'),fiber:nutrient('fiber'),source:'Personal recipe',servingGrams:100,portionsJson:JSON.stringify([{label:'serving',grams:yieldGrams/servings}]),cookedYieldGrams:yieldGrams,ingredientsJson:JSON.stringify(items),favourite:true}}));
       onClose();
     }catch(ex){setError((ex as Error).message);}
   };
@@ -45,6 +46,7 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
     <p data-validation-focus tabIndex={-1}>Ingredients · {items.length}</p>
     <ul className="recipe-list">{items.map((item,index)=><li key={`${item.food.id}-${index}`}><span>{item.food.name} · {item.grams} g</span><Button type="button" variant="tertiary" aria-label={`Remove ingredient ${index+1}`} onClick={()=>setItems(current=>current.filter((_,itemIndex)=>itemIndex!==index))}>Remove</Button></li>)}</ul>
     </FieldFrame>
+    <Field id="recipe-servings" name="servings" validate={()=>!Number.isFinite(servings)||servings<=0?'Enter a positive number of servings.':undefined} required label="Servings in cooked yield" type="number" min="0.1" max="10000" step="any" value={servings} onChange={event=>setServings(Number(event.target.value))}/>
     <Field id="recipe-cooked-yield" name="yieldGrams" validate={()=>{for(const key of ['calories','protein','fat','carbs','fiber'] as const){if(items.some(item=>item.food[key]==null))continue;const value=items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/yieldGrams*100;if(!Number.isFinite(value)||value>(key==='calories'?20000:3000))return 'Increase the yield or reduce ingredients to keep per-100 g nutrients within the supported range.';}return undefined;}} required label="Cooked yield (grams)" type="number" min="1" max="100000" value={yieldGrams} onChange={event=>setYield(Number(event.target.value))}/>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit">{busy?'Saving…':'Save recipe'}</Button></div>

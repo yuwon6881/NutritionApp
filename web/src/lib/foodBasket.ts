@@ -1,21 +1,28 @@
-import type {AiFood,Entry,Nutrients} from '../types';
+import type {AiFood,Entry,Nutrients,Portion} from '../types';
+import {parsePortions} from './portions';
 
 export interface BasketLine extends Nutrients {
   key:string;
   quantity:number;
   unit:'g'|'serving';
+  portionLabel:string|null;
+  portionGrams:number|null;
+  portions:Portion[];
 }
 
 export function lineKey(name:string,source:string):string{
   return `${source}|${name.trim().toLowerCase()}`;
 }
 
-export function lineFromPer100(item:Nutrients&{name:string;source:string}):BasketLine{
+export function lineFromPer100(item:Nutrients&{name:string;source:string;portions?:Portion[];portionsJson?:string}):BasketLine{
   return {
     key:lineKey(item.name,item.source),
     name:item.name,
     quantity:100,
     unit:'g',
+    portionLabel:null,
+    portionGrams:null,
+    portions:item.portions??parsePortions(item.portionsJson),
     calories:item.calories,
     protein:item.protein,
     carbs:item.carbs,
@@ -31,6 +38,9 @@ export function lineFromAi(food:AiFood,source='AI estimate · reviewed'):BasketL
     name:food.name,
     quantity:food.quantity,
     unit:food.unit,
+    portionLabel:food.portionLabel??null,
+    portionGrams:food.portionGrams??null,
+    portions:food.portionLabel&&food.portionGrams!=null?[{label:food.portionLabel,grams:food.portionGrams}]:[],
     calories:food.calories,
     protein:food.protein,
     carbs:food.carbs,
@@ -82,7 +92,7 @@ export function basketEntries(
   lines:BasketLine[],
   stamp:{date:string;time:string|null;meal:string}
 ):Omit<Entry,'id'|'revision'|'deleted'>[]{
-  return lines.map(({key:_,...line})=>({
+  return lines.map(({key:_,portions:__,...line})=>({
     ...line,
     ...stamp,
   }));

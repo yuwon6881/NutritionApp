@@ -50,14 +50,11 @@ public static class RecordEndpoints
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));
         app.MapPost("/api/coach/decline",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Decline(input.Id,input.Revision,ct));
         app.MapPost("/api/goal/complete",async(GoalDecisionInput input,CoachingService coach,CancellationToken ct)=>await coach.CompleteGoal(input.Id,input.Revision,input.Decision,ct));
-        app.MapGet("/api/export",async(AppDb db,CancellationToken ct)=>
-        {
-            var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);
-            var data=new { schemaVersion=1,exportedAt=DateTime.UtcNow,profile=user.ProfileJson,
-                entries=await db.Entries.Where(x=>!x.Deleted).ToListAsync(ct),foods=await db.Foods.Where(x=>!x.Deleted).ToListAsync(ct),
-                weights=await db.Weights.Where(x=>!x.Deleted).ToListAsync(ct),days=await db.Days.Where(x=>!x.Deleted).ToListAsync(ct),plans=await db.Plans.ToListAsync(ct),
-                physiquePhotos=await db.Photos.Where(x=>!x.Deleted&&x.Status=="complete").Select(x=>new { x.Id,x.SetId,x.Date,x.Angle,x.Bytes,downloadPath="/api/photos/"+x.Id+"/content" }).ToListAsync(ct) };
-            return Results.File(System.Text.Encoding.UTF8.GetBytes(Json.Write(data)),"application/json","nutrition-export.json");
-        });
+        app.MapGet("/api/export",async(ExportService export,CancellationToken ct)=>
+            Results.Stream(async stream=>await System.Text.Json.JsonSerializer.SerializeAsync(stream,await export.BuildJsonDocument(ct),Json.Options,ct),"application/json","nutrition-export.json"))
+            .RequireRateLimiting("export");
+        app.MapGet("/api/export/csv",(ExportService export,CancellationToken ct)=>
+            Results.Stream(stream=>export.WriteCsvBundle(stream,ct),"application/zip","nutrition-export-csv.zip"))
+            .RequireRateLimiting("export");
     }
 }

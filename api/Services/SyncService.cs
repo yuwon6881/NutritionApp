@@ -61,6 +61,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                     Validation.Nutrients(e); Date(e.Date); Validation.Number(e.Quantity, .001, 100000, "Quantity");
                     Validation.Require(e.Time==null || System.Text.RegularExpressions.Regex.IsMatch(e.Time,@"\A(?:[01][0-9]|2[0-3]):[0-5][0-9]\z"),"Choose a valid meal time (HH:mm).");
                     Validation.Require(e.Meal.Length is > 0 and <= 80 && e.Unit is "g" or "serving", "Invalid meal or unit.");
+                    Validation.EntryPortion(e);
                 }, ct); break;
             case "food":
                 if(!op.Delete&&storage!=null) await storage.AllowOptional(ct);
@@ -69,6 +70,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 {
                     Validation.Nutrients(f); Validation.Number(f.ServingGrams, .1, 100000, "Serving weight");
                     Validation.Require(f.IngredientsJson.Length <= 12000, "Recipe is too large.");
+                    Validation.Portions(f.PortionsJson);
                     if (f.CookedYieldGrams is {} yield) Validation.Number(yield, 1, 100000, "Cooked yield");
                     using var recipe = JsonDocument.Parse(f.IngredientsJson);
                     Validation.Require(recipe.RootElement.ValueKind == JsonValueKind.Array, "Recipe ingredients must be a list.");
@@ -136,6 +138,13 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if (op.Delete) { existing!.Deleted = true; existing.Revision = revision; return; }
         var next = op.Data.Deserialize<T>(Json.Options) ?? throw new DomainException("Record is required.");
         if(next is DiaryEntry entry&&existing is DiaryEntry savedEntry&&!op.Data.TryGetProperty("time",out _))entry.Time=savedEntry.Time;
+        if(next is DiaryEntry portionEntry&&existing is DiaryEntry savedPortionEntry)
+        {
+            if(!op.Data.TryGetProperty("portionLabel",out _)) portionEntry.PortionLabel=savedPortionEntry.PortionLabel;
+            if(!op.Data.TryGetProperty("portionGrams",out _)) portionEntry.PortionGrams=savedPortionEntry.PortionGrams;
+        }
+        if(next is Food food&&existing is Food savedFood&&!op.Data.TryGetProperty("portionsJson",out _))
+            food.PortionsJson=savedFood.PortionsJson;
         validate(next); next.Id = op.RecordId; next.UserId = db.CurrentUser!.Value; next.Revision = revision; next.Deleted = false;
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);

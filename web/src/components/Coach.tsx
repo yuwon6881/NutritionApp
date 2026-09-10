@@ -1,13 +1,13 @@
 import {Form,FieldFrame,validateFields} from './ui/Form';
 import {useEffect,useRef,useState} from 'react';
-import {ArrowLeft,ArrowRight,Activity,Check,PieChart,Sliders,Target,User} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Activity,CalendarDays,Check,PieChart,Sliders,Target,User} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
 import {profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
 import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
-import {macroPresets,type MacroSplit} from '../lib/macros';
+import {gramsFromSplit,macroKeys,macroLabels,macroPresets,type MacroSplit} from '../lib/macros';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
@@ -55,9 +55,9 @@ const defaults:ProfileDraft={
   macroPreset:null
 };
 
-type StepKey='body'|'activity'|'goal'|'macros';
+type StepKey='body'|'activity'|'goal'|'macros'|'macro-adjustments'|'distribution'|'review';
 type MainTab='targets'|'plan'|'history';
-const stepOrder=['body','activity','goal','macros'] as const;
+const stepOrder=['body','activity','goal','macros','macro-adjustments','distribution','review'] as const;
 
 const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
@@ -164,7 +164,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const openPlan=(target:StepKey='body')=>{if(locked.current||acceptance.current)return;invalidate();setReview(false);setError('');setMessage('');setMainTab('plan');setStep(target);};
 
   const submitProfile=async()=>{
-    if(locked.current||step!=='macros')return;
+    if(locked.current||step!=='review')return;
     if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}
     if(!canAdvanceActivity){setStep('activity');setError('Choose your usual activity.');return;}
     if(!canAdvanceGoal){setStep('goal');setError('Review your goal and phase details.');return;}
@@ -192,8 +192,21 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {id:'body',label:'Body',icon:User},
     {id:'activity',label:'Activity',icon:Activity},
     {id:'goal',label:'Goal',icon:Target},
-    {id:'macros',label:'Macros',icon:PieChart}
+    {id:'macros',label:'Macros',icon:PieChart},
+    {id:'macro-adjustments',label:'Adjust',icon:Sliders},
+    {id:'distribution',label:'Distribution',icon:CalendarDays},
+    {id:'review',label:'Review',icon:Check}
   ] as const;
+
+  const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
+  const reviewGrams=gramsFromSplit(live.target,split);
+  const weeklyError=`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`;
+  const canNavigateTo=(targetStep:StepKey)=>{
+    if(stepOrder.indexOf(targetStep)<stepOrder.indexOf(step))return true;
+    if(!validateFields(stage.current))return false;
+    if(targetStep==='review'&&!weeklyValid){setError(weeklyError);return false;}
+    return true;
+  };
 
   const queueError=store.local!.queue.find(op=>op.error)?.error;
   const waitingLabel=!online?'Profile retained on this device. Waiting for a connection.'
@@ -271,13 +284,13 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         if(isInitialSetup)return <div key={s.id} className={`step-pill step-indicator ${isCurrent?'active':''}`} aria-current={isCurrent?'step':undefined}>
           <Icon size={16}/><span>{i+1}. {s.label}</span>
         </div>;
-        return <Button key={s.id} type="button" variant={isCurrent?'primary':'secondary'} className={`step-pill ${isCurrent?'active':''}`} onClick={()=>{if(stepOrder.indexOf(s.id)<stepOrder.indexOf(step)||validateFields(stage.current))setStep(s.id);}}>
+        return <Button key={s.id} type="button" variant={isCurrent?'primary':'secondary'} className={`step-pill ${isCurrent?'active':''}`} onClick={()=>{if(canNavigateTo(s.id))setStep(s.id);}}>
           <Icon size={16}/><span>{i+1}. {s.label}</span>
         </Button>;
       })}
     </CoachStepper>
 
-    <Form onSubmit={e=>{e.preventDefault();if(step==='macros')void submitProfile();else setStep(stepOrder[stepOrder.indexOf(step)+1]);}}>
+    <Form onSubmit={e=>{e.preventDefault();if(step==='review')void submitProfile();else {const nextStep=stepOrder[stepOrder.indexOf(step)+1];if(nextStep&&canNavigateTo(nextStep))setStep(nextStep);}}}>
       <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
       <h3 tabIndex={-1} data-step-heading className="coach-step-heading">{steps.find(s=>s.id===step)!.label}</h3>
       {step==='body'&&<div className="step-content">
@@ -346,24 +359,82 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </div>}
 
       {step==='macros'&&<div className="step-content">
+        <p className="step-description">Choose a starting macro pattern. You can fine-tune its percentages on the next step.</p>
         <MacroSetup
           calories={live.target}
           split={split}
+          mode="presets"
+          presetId={selectedPresetId}
           onChange={next=>setSplit(next,'custom')}
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="primary" onClick={()=>setStep('macro-adjustments')}>
+            Next: Adjust <ArrowRight size={16}/>
+          </Button>
+        </div>
+      </div>}
+
+      {step==='macro-adjustments'&&<div className="step-content">
+        <p className="step-description">Adjust each macro when you want a different split. The total always stays at 100%.</p>
+        <MacroSetup
+          calories={live.target}
+          split={split}
+          mode="adjustments"
+          presetId={selectedPresetId}
+          onChange={next=>setSplit(next,'custom')}
+          onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
+        />
+        <p className="source macro-selection-note">Starting pattern: <strong>{presetLabel(selectedPresetId)}</strong></p>
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('macros')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('distribution');}}>
+            Next: Distribution <ArrowRight size={16}/>
+          </Button>
+        </div>
+      </div>}
+
+      {step==='distribution'&&<div className="step-content">
+        <p className="step-description">Keep the same weekly calorie budget while choosing how it lands across the week.</p>
         <WeeklyProgramSetup budget={live.weeklyCalories} values={weeklyValues} energyUnit={units.energy} onChange={values=>{
           setWeeklyDraft(values);
           set('distributionShares',normaliseDistribution(values));
         }}/>
-        <dl className="strategy-figures">
-          <div><dt>Resting</dt><dd>{displayEnergy(live.resting,units.energy)} {energyLabel(units.energy)}</dd></div>
-          <div><dt>Maintenance</dt><dd>{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</dd></div>
-          <div><dt>Daily target</dt><dd>{displayEnergy(live.target,units.energy)} {energyLabel(units.energy)}</dd></div>
-        </dl>
         <div className="step-actions">
-          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
-          <Button variant="primary" size="md" type="submit" disabled={busy}>
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('macro-adjustments')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="primary" onClick={()=>{if(weeklyValid)setStep('review');else setError(weeklyError);}}>
+            Next: Review <ArrowRight size={16}/>
+          </Button>
+        </div>
+      </div>}
+
+      {step==='review'&&<div className="step-content">
+        <p className="step-description">Review your choices before saving this profile and calculating targets.</p>
+        <section className="macro-review-summary" aria-labelledby="macro-review-title">
+          <div className="section-heading">
+            <div><h3 id="macro-review-title">Plan summary</h3><p>{presetLabel(selectedPresetId)} macro pattern</p></div>
+          </div>
+          <dl className="strategy-figures">
+            <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
+            <div><dt>Daily target</dt><dd>{displayEnergy(live.target,units.energy)} {energyLabel(units.energy)}</dd></div>
+            <div><dt>Weekly budget</dt><dd>{displayEnergy(live.weeklyCalories,units.energy)} {energyLabel(units.energy)}</dd></div>
+          </dl>
+          <div className="macro-review-grid">
+            {macroKeys.map(key=><div key={key}>
+              <span className={`macro-swatch ${key}`} aria-hidden="true"/>
+              <span>{macroLabels[key]}</span>
+              <strong>{split[key]}% <small>{reviewGrams[key]} g</small></strong>
+            </div>)}
+          </div>
+          <div className="weekly-review-summary">
+            <strong>Daily calories</strong>
+            <div>{weeklyValues.map((value,index)=><span key={index}><small>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]}</small>{displayEnergy(value,units.energy)}</span>)}</div>
+          </div>
+        </section>
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('distribution')}><ArrowLeft size={16}/> Back</Button>
+          <Button variant="primary" size="md" type="submit" disabled={busy||!weeklyValid}>
             {operation==='saving'?'Saving on this device…':isInitialSetup?'Create my starting estimate':'Save profile'}
           </Button>
         </div>

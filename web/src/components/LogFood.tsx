@@ -1,5 +1,5 @@
 import {Form} from './ui/Form';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Search,ScanBarcode,Sparkles,Plus,Star} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry,Food,Nutrients,ScanDraft} from '../types';
@@ -65,6 +65,7 @@ export function LogFood({
   const [error,setError]=useState('');
   const {busy,run:runAction}=useAsyncAction();
   const [camera,setCamera]=useState(false);
+  const selectionRef=useRef<HTMLDivElement>(null);
   const energyUnit=unitsFor(store.state!.settings).energy;
 
   const wasOpen=useRef(false);
@@ -91,6 +92,10 @@ export function LogFood({
 
   useEffect(()=>{if(!open||tab!=='barcode'||step!=='selection')setCamera(false);},[open,tab,step]);
 
+  useLayoutEffect(()=>{
+    if(step==='selection')selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'});
+  },[step,tab]);
+
   useEffect(()=>{
     if(step!=='selection'||!activeScanId)return;
     const scan=store.local?.scans.find(item=>item.id===activeScanId);
@@ -99,6 +104,10 @@ export function LogFood({
 
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
   const go=(next:FoodStep)=>{setStepDirty(false);setStep(next);};
+  const selectTab=(next:string)=>{
+    setTab(next);
+    window.requestAnimationFrame(()=>selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'}));
+  };
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   const close=()=>{
     if(step!=='selection'&&!editing&&!basket.lines.length){
@@ -113,24 +122,24 @@ export function LogFood({
       setSaveFood(false);setDraft(undefined);go('selection');
     }else{
       await store.mutate({kind:'entry',recordId:editing?.id??crypto.randomUUID(),expectedRevision:editing?.revision??0,delete:false,data:{...data,date}});
-      onSaved();
     }
   };
   const choose=(food:SearchResult)=>{setSaveFood(false);setDraft({...food,quantity:100,unit:'g',time:newTime()});go('editor');};
   const foods=store.state!.foods.filter(food=>!food.deleted&&food.name.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
+  const recentEntries=store.state!.entries.filter(entry=>!entry.deleted).slice(-8).reverse();
   const selectionDirty=(step==='selection'&&tab==='ai'&&(Boolean(description.trim())||Boolean(photo)))||Boolean(basket.lines.length);
   const scanDrafts=store.local?.scans??[];
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':step==='scan'?'Review scan':editing?'Edit food':saveFood?'Save custom food':'Review food';
   const descriptionText=step==='selection'?`For ${date}`:step==='scan'?'Review the estimate before adding it to your diary.':undefined;
 
-  const selection=<div className="dialog-step food-selection">
+  const selection=<div ref={selectionRef} className="dialog-step food-selection">
     {!editing&&<div className="dialog-toolbar"><Button variant="primary" onClick={()=>go('quick')}><Plus size={17}/>Quick add</Button><Button onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}>Manual entry</Button></div>}
-    <SegmentedControl layout="equal" className="section-segments" label="Food logging method" value={tab} onChange={setTab} options={[
+    <SegmentedControl layout="equal" className="section-segments" label="Food logging method" value={tab} options={[
       {value:'saved',label:<><Star size={16}/><span className="tab-label-full">Your foods</span><span className="tab-label-short">Saved</span></>,ariaLabel:'Your foods'},
       {value:'search',label:<><Search size={16}/><span>Search</span></>,ariaLabel:'Search'},
       {value:'barcode',label:<><ScanBarcode size={16}/><span className="tab-label-full">Barcode</span><span className="tab-label-short">Scan</span></>,ariaLabel:'Barcode'},
       {value:'ai',label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}
-    ]}/>
+    ]} onChange={selectTab}/>
     {basket.lines.length>0&&<div className="notice" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,marginBottom:18}}>
       <span><strong>{basket.lines.length} {basket.lines.length===1?'food':'foods'} in batch</strong></span>
       <Button variant="primary" size="sm" onClick={()=>go('batch')}>Review batch</Button>
@@ -149,7 +158,10 @@ export function LogFood({
         <Button variant="tertiary" aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`} onClick={()=>void run(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite}}))}><Star size={18} fill={food.favourite?'currentColor':'none'}/></Button>
         <Button onClick={()=>{setSaveFood(food);setDraft({...food,quantity:100,unit:'g'});go('editor');}}>Edit</Button>
       </div>)}
-      <h3>Recent</h3><div className="actions">{store.state!.entries.filter(entry=>!entry.deleted).slice(-8).reverse().map(entry=><Button key={entry.id} onClick={()=>{setSaveFood(false);setDraft({...entry,id:undefined});go('editor');}}>{entry.name}</Button>)}</div>
+      <h3>Recent</h3>
+      {recentEntries.length>0
+        ?<div className="actions">{recentEntries.map(entry=><Button key={entry.id} onClick={()=>{setSaveFood(false);setDraft({...entry,id:undefined});go('editor');}}>{entry.name}</Button>)}</div>
+        :<p className="empty recent-empty">No recent diary items yet.</p>}
     </>}
     {(tab==='search'||tab==='barcode')&&<FoodPicker
       tab={tab}
@@ -170,16 +182,16 @@ export function LogFood({
       step={step}
       energyUnit={energyUnit}
     />}
-    {tab==='ai'&&<Form onSubmit={()=>void run(async()=>{const id=crypto.randomUUID();setActiveScanId(id);await store.addScan({id,mode,description,imageBase64:mode==='description'?null:photo});setDescription('');setPhoto(null);})}>
+    {tab==='ai'&&<Form onSubmit={()=>void run(async()=>{const id=crypto.randomUUID();setActiveScanId(id);await store.addScan({id,mode,description,imageBase64:mode==='description'?null:photo});})}>
       <h3>AI logging</h3>
       <SelectField id="ai-log-mode" name="mode" disabled={busy} label="How would you like to log?" value={mode} onChange={value=>{setMode(value as ScanDraft['mode']);setPhoto(null);}}><option value="description">Describe my meal</option><option value="photo">Meal photo</option><option value="label">Nutrition label</option></SelectField>
       <TextArea id="ai-meal-description" name="description" required={mode==='description'} label="Meal description and portions" maxLength={3000} value={description} onChange={event=>setDescription(event.target.value)} placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"/>
       {mode!=='description'&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';setPhoto(null);if(file){void run(async()=>setPhoto(await prepareImage(file)));}}}/>}
       {photo&&mode!=='description'&&<p className="notice">Location metadata removed · deleted after processing.</p>}
-      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit"><Sparkles size={18}/>{mode==='label'?'Read nutrition label':'Estimate my meal'}</Button></div>
+      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit"><Sparkles size={18}/>{busy?'Estimating…':mode==='label'?'Read nutrition label':'Estimate my meal'}</Button></div>
     </Form>}
     {error&&<p className="error" role="alert">{error}</p>}
-    {scanDrafts.length>0&&<div className="scan-drafts"><h3>Saved scans</h3>{scanDrafts.map(scan=>scan.result?<div className="notice" key={scan.id}><p>{scan.mode==='label'?'Nutrition label':'Meal'} scan is ready to review.</p><Button onClick={()=>{setActiveScanId(scan.id);go('scan');}}>Review scan</Button></div>:<div className="notice" key={scan.id}><p>{scan.error??'Scan saved on this device and will process when connected.'}</p>{scan.description&&<small>{scan.description}</small>}<div className="actions">{scan.error&&<Button onClick={()=>void run(()=>store.retryScan(scan.id))}>Retry draft</Button>}<Button variant="tertiary" onClick={()=>void store.removeScan(scan.id)}>Discard local draft</Button></div></div>)}</div>}
+    {scanDrafts.length>0&&<div className="scan-drafts"><h3>AI drafts</h3>{scanDrafts.map(scan=>scan.result?<div className="notice" key={scan.id}><p>{scan.mode==='label'?'Nutrition label':'Meal'} estimate is ready to review.</p><Button onClick={()=>{setActiveScanId(scan.id);go('scan');}}>Review estimate</Button></div>:<div className="notice" key={scan.id}><p>{scan.error??'AI estimate is processing or retained locally for retry. It has not been added to your diary.'}</p>{scan.description&&<small>{scan.description}</small>}<div className="actions">{scan.error&&<Button onClick={()=>void run(()=>store.retryScan(scan.id))}>Retry estimate</Button>}<Button variant="tertiary" onClick={()=>void store.removeScan(scan.id)}>Discard local draft</Button></div></div>)}</div>}
   </div>;
 
   const child=step==='batch'

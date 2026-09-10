@@ -15,20 +15,27 @@ export function MacroSetup({
   split,
   onChange,
   onPreset,
+  mode='all',
+  presetId,
 }:{
   calories:number;
   split:MacroSplit;
   onChange:(split:MacroSplit)=>void;
   onPreset:(id:string,split:MacroSplit|null)=>void;
+  mode?:'all'|'presets'|'adjustments';
+  presetId?:string;
 }){
   const grams=gramsFromSplit(calories,split);
   const fill=(key:typeof macroKeys[number])=>Math.round(100*(split[key]-macroLimits[key].min)/(macroLimits[key].max-macroLimits[key].min));
-  const active=macroPresetId(split);
+  const active=presetId??macroPresetId(split);
+  const presetOptions=active==='custom'&& !macroPresets.some(preset=>preset.id==='custom')
+    ?[...macroPresets,{id:'custom',label:'Custom',split}]
+    :macroPresets;
   return <div className="macro-setup">
-    <SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm" layout="wrap"
-      options={macroPresets.map(preset=>({value:preset.id,label:preset.label}))}
-      onChange={id=>{const preset=macroPresets.find(p=>p.id===id);if(preset)onPreset(preset.id,preset.split);}}/>
-    <div className="macro-rows">
+    {mode!=='adjustments'&&<SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm" layout="wrap"
+      options={presetOptions.map(preset=>({value:preset.id,label:preset.label}))}
+      onChange={id=>{const preset=presetOptions.find(item=>item.id===id);if(preset)onPreset(preset.id,preset.split);}}/>}
+    {mode!=='presets'&&<div className="macro-rows">
       {macroKeys.map(key=><div className="macro-row" key={key}>
         <label className="macro-row-head" htmlFor={`macro-${key}`}>
           <span className={`macro-swatch ${key}`} aria-hidden="true"/>
@@ -69,6 +76,6 @@ export function MacroSetup({
           </div>
         </div>
       </div>)}
-    </div>
+    </div>}
   </div>;
 }

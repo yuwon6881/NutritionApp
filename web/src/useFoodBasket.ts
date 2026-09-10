@@ -1,5 +1,5 @@
 import {useState,useEffect,useCallback} from 'react';
-import type {AiFood,Nutrients} from './types';
+import type {AiFood,Nutrients,PortionBasis,Portion} from './types';
 import {api,ApiError} from './lib/api';
 import {
   type BasketLine,
@@ -19,7 +19,7 @@ import {
 } from './lib/scanQueue';
 import {rescaleNutrients} from './lib/nutrients';
 
-type SearchResult = Nutrients & {servingGrams: number};
+type SearchResult = Nutrients & {servingGrams: number;portions?:Portion[]};
 
 export function useFoodBasket(open:boolean){
   const [lines,setLines]=useState<BasketLine[]>([]);
@@ -95,12 +95,16 @@ export function useFoodBasket(open:boolean){
   },[]);
 
   const updateLineQuantity=useCallback((key:string,quantity:number)=>{
-    setLines(current=>current.map(l=>l.key===key?rescaleNutrients(l,quantity):l));
+    setLines(current=>current.map(l=>l.key===key?rescaleNutrients(l,{quantity}):l));
+  },[]);
+
+  const updateLineBasis=useCallback((key:string,next:Partial<PortionBasis>)=>{
+    setLines(current=>current.map(l=>l.key===key?rescaleNutrients(l,next):l));
   },[]);
 
   const updateLineUnit=useCallback((key:string,unit:'g'|'serving')=>{
-    setLines(current=>current.map(l=>l.key===key?{...l,unit}:l));
-  },[]);
+    updateLineBasis(key,{unit,portionLabel:unit==='g'?null:undefined,portionGrams:unit==='g'?null:undefined});
+  },[updateLineBasis]);
 
   const toggleItem=useCallback((item:Nutrients&{name:string;source:string})=>{
     const key=lineKey(item.name,item.source);
@@ -139,6 +143,7 @@ export function useFoodBasket(open:boolean){
     addLine,
     removeLine,
     updateLineQuantity,
+    updateLineBasis,
     updateLineUnit,
     toggleItem,
     addAiFoods,

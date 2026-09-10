@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Nutrition.Api.Data;
 
 namespace Nutrition.Api.Domain;
@@ -23,6 +24,51 @@ public static class Validation
         Number(n.Calories, 0, 20000, "Calories");
         foreach (var value in new[] { n.Protein, n.Fat, n.Carbs, n.Fiber }) if (value is {} v) Number(v, 0, 3000, "Nutrients");
         Require(n.Source.Length <= 240, "Source is too long.");
+    }
+
+    public static void EntryPortion(DiaryEntry entry)
+    {
+        var hasLabel = entry.PortionLabel is not null;
+        var hasGrams = entry.PortionGrams is not null;
+        Require(hasLabel == hasGrams, "Portion label and weight must be supplied together.");
+        if (!hasLabel) return;
+
+        Require(entry.Unit == "serving", "Portion details are only valid for serving entries.");
+        Require(entry.PortionLabel!.Trim().Length is > 0 and <= 24, "Portion label must be 1–24 characters.");
+        Number(entry.PortionGrams!.Value, .1, 10000, "Portion weight");
+        Number(entry.Quantity * entry.PortionGrams.Value, .001, 100000, "Portion total");
+    }
+
+    public static void Portions(string json)
+    {
+        Require(json.Length <= 1200, "Portions are too large.");
+        JsonDocument document;
+        try { document = JsonDocument.Parse(json); }
+        catch (JsonException) { throw new DomainException("Portions must be valid JSON."); }
+
+        using (document)
+        {
+            Require(document.RootElement.ValueKind == JsonValueKind.Array, "Portions must be a list.");
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var count = 0;
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                count++;
+                Require(count <= 12, "A food can have at most 12 portions.");
+                JsonElement label = default;
+                var labelValid = item.ValueKind == JsonValueKind.Object && item.TryGetProperty("label", out label) && label.ValueKind == JsonValueKind.String;
+                Require(labelValid,
+                    "Each portion needs a label.");
+                double weight = 0;
+                var weightValid = item.ValueKind == JsonValueKind.Object && item.TryGetProperty("grams", out var grams) && grams.TryGetDouble(out weight);
+                Require(weightValid,
+                    "Each portion needs a gram weight.");
+                var normalized = label.GetString()!.Trim();
+                Require(normalized.Length is > 0 and <= 24, "Portion label must be 1–24 characters.");
+                Require(seen.Add(normalized), "Portion labels must be unique.");
+                Number(weight, .1, 10000, "Portion weight");
+            }
+        }
     }
     public static void Profile(Profile p)
     {

@@ -68,7 +68,7 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
             scan.ResultJson=Json.Write(result.Draft);scan.Status="complete";scan.Error=null;
             await db.Usage.Where(u=>u.Date==usage.Date).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.InputTokens,u=>u.InputTokens+result.InputTokens).SetProperty(u=>u.OutputTokens,u=>u.OutputTokens+result.OutputTokens),CancellationToken.None);
         }
-        catch(Exception ex) when(ex is DomainException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        catch(Exception ex) when(ex is DomainException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or FormatException or InvalidOperationException or KeyNotFoundException)
         { scan.Status="failed";scan.Error=ex is DomainException?ex.Message:"AI processing was interrupted. Resubmit the retained draft."; }
         finally
         {
@@ -83,4 +83,3 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
         return scan;
     }
 }
-

@@ -37,6 +37,9 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'Keto',exact:true}).click();
   await page.getByRole('button',{name:'Coach default',exact:true}).click();
+  await page.getByRole('button',{name:/^Next: Adjust/}).click();
+  await page.getByRole('button',{name:/^Next: Distribution/}).click();
+  await page.getByRole('button',{name:/^Next: Review/}).click();
   await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
   await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled();await page.getByRole('button',{name:'Accept this plan'}).click();
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
@@ -155,7 +158,7 @@ test('changed food dialog asks before closing and keeps the draft',async({page,c
 });
 test('API idempotency, revisions, expiry-safe drafts and asset MIME protection',async({request})=>{
   await signIn(request);const state=await (await request.get('/api/state')).json();
-  const mutation={id:randomUUID(),recordId:randomUUID(),kind:'entry',expectedRevision:0,delete:false,data:{date:new Date().toISOString().slice(0,10),name:'Replay check',calories:25,quantity:1,unit:'serving',meal:'Snack'}};
+  const mutation={id:randomUUID(),recordId:randomUUID(),kind:'entry',expectedRevision:0,delete:false,data:{date:state.end,name:'Replay check',calories:25,quantity:1,unit:'serving',meal:'Snack'}};
   const one=await request.post('/api/sync',{headers,data:mutation});expect(one.ok()).toBeTruthy();
   const replay=await request.post('/api/sync',{headers,data:mutation});expect(await replay.json()).toEqual(await one.json());
   const changed=await request.post('/api/sync',{headers,data:{...mutation,data:{...mutation.data,calories:50}}});expect(changed.status()).toBe(409);
@@ -209,6 +212,9 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await page.getByLabel('Track my goal by',{exact:true}).selectOption('weight');await page.getByLabel('Phase starting weight (kg)').fill('80.8');await page.getByLabel('Target weight (kg)').fill('75');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'High protein',exact:true}).click();
+  await page.getByRole('button',{name:/^Next: Adjust/}).click();
+  await page.getByRole('button',{name:/^Next: Distribution/}).click();
+  await page.getByRole('button',{name:/^Next: Review/}).click();
   await page.getByRole('button',{name:'Save profile',exact:true}).click();
   await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled({timeout:25000});
   expect(await page.getByRole('button',{name:'Accept this plan'}).count()).toBe(1);
@@ -335,7 +341,8 @@ test('cached diary opens while the server sleeps and uploads retained food and w
 
 test('missed weight-only day asks once and keeps the weight after not logging',async({page,context})=>{
   await signIn(context.request);
-  const date=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const latest=await (await context.request.get('/api/state')).json();
+  const date=new Date(Date.parse(latest.end)-86400000).toISOString().slice(0,10);
   await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:randomUUID(),kind:'weight',expectedRevision:0,data:{date,kg:80.4}}});
   await page.goto('/');
   await expect(page.getByRole('dialog',{name:`No food logged for ${date}`})).toBeVisible();

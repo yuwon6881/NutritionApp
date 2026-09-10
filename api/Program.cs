@@ -23,6 +23,7 @@ builder.Services.AddDbContext<AppDb>(o=>
 builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<ExpenditureTrajectoryService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
 builder.Services.AddScoped<ScanService>();builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<RetentionService>();
+builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();
 builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45));
 builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
@@ -33,6 +34,11 @@ builder.Services.AddRateLimiter(o=>
 {
     o.RejectionStatusCode=429;
     o.AddPolicy("auth",http=>RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new FixedWindowRateLimiterOptions { PermitLimit=10,Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+    o.AddPolicy("export",http=>RateLimitPartition.GetFixedWindowLimiter(
+        string.IsNullOrEmpty(http.Request.Cookies["nutrition-session"])
+            ? "unauthenticated"
+            : AuthService.Hash(http.Request.Cookies["nutrition-session"]!),
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=5,Window=TimeSpan.FromMinutes(5),QueueLimit=0 }));
 });
 var app=builder.Build();
 app.UseForwardedHeaders();

@@ -23,7 +23,7 @@ export function QuickAdd({store,date,onDone,onDirtyChange}:{store:Nourish;date:s
     try{
       const parsed=parseEnergy(calories,energyUnit);
       if(!Number.isFinite(parsed))throw new Error(`Enter calories in ${energyLabel(energyUnit)}.`);
-      await run(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{date,time,meal:meal.trim()||'Meal',name:'Quick add',calories:parsed,quantity:1,unit:'serving',protein:null,fat:null,carbs:null,fiber:null,source:'Quick add'}}));
+      await run(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{date,time,meal:meal.trim()||'Meal',name:'Quick add',calories:parsed,quantity:1,unit:'serving',portionLabel:null,portionGrams:null,protein:null,fat:null,carbs:null,fiber:null,source:'Quick add'}}));
       onDone();
     }catch(ex){setError((ex as Error).message);}
   };

@@ -93,7 +93,9 @@ test('coaching validates the active step and retains an empty macro draft',async
   await expect(page.getByText('Enter 80 or more.')).toBeVisible();await expect(page.getByLabel('Height (cm)',{exact:true})).toBeFocused();
   await page.getByLabel('Height (cm)',{exact:true}).fill('170');await page.getByRole('button',{name:/Next: Activity/}).click();
   await page.getByRole('button',{name:/Next: Goal/}).click();await page.getByRole('button',{name:/Next: Macros/}).click();
-  await page.getByLabel('Protein percent',{exact:true}).fill('');await page.getByRole('button',{name:'Create my starting estimate'}).click();
+  await page.getByRole('button',{name:/Next: Adjust/}).click();
+  await page.getByLabel('Protein percent',{exact:true}).fill('');
+  await page.getByRole('button',{name:/Next: Distribution/}).click();
   await expect(page.getByLabel('Protein percent',{exact:true})).toHaveValue('');await expect(page.getByText('Enter protein percent.')).toBeVisible();expect(writes).toBe(0);
   await page.getByLabel('Protein percent',{exact:true}).fill('35');await expect(page.getByText('Enter protein percent.')).toHaveCount(0);
 });

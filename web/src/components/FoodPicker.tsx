@@ -9,6 +9,7 @@ import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {Form} from './ui/Form';
 import {Checkbox} from './ui/Checkbox';
+import {SegmentedControl} from './ui/SegmentedControl';
 import {BarcodeCamera} from './BarcodeCamera';
 import {displayEnergy,energyLabel} from '../lib/units';
 
@@ -53,7 +54,7 @@ export function FoodPicker({
   step,
   energyUnit='kcal',
 }:FoodPickerProps){
-  const [continuous,setContinuous]=useState(false);
+  const [scanMode,setScanMode]=useState<'single'|'multiple'>('single');
   const pendingCount=outstanding(basket.queue);
   const eta=etaSeconds(pendingCount,waitMs(basket.queue,Date.now()));
 
@@ -84,18 +85,29 @@ export function FoodPicker({
     </Form>
 
     {tab==='barcode'&&<>
-      <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',margin:'12px 0'}}>
+      <div className="barcode-scan-options">
         <Button onClick={()=>setCamera(value=>!value)}>
           <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
         </Button>
-        <Checkbox checked={continuous} onChange={setContinuous}>
-          Continuous scan
-        </Checkbox>
+        <div className="barcode-scan-mode-copy">
+          <strong>Scan mode</strong>
+          <small>Choose whether the camera stops after one barcode or keeps adding items to the batch.</small>
+        </div>
+        <SegmentedControl
+          className="barcode-scan-mode"
+          label="Barcode scan mode"
+          value={scanMode}
+          onChange={setScanMode}
+          options={[
+            {value:'single',label:'One barcode',ariaLabel:'Scan one barcode'},
+            {value:'multiple',label:'Multiple barcodes',ariaLabel:'Scan multiple barcodes'},
+          ]}
+        />
       </div>
       {camera&&open&&step==='selection'&&<BarcodeCamera
-        continuous={continuous}
+        continuous={scanMode==='multiple'}
         onDetected={code=>{
-          if(continuous){
+          if(scanMode==='multiple'){
             basket.enqueueCode(code);
           }else{
             setQuery(code);

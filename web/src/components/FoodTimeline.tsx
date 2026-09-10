@@ -7,6 +7,7 @@ import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow,ty
 import {Button} from './ui/Button';
 import {MoveFoodDialog} from './MoveFoodDialog';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {displayPortion} from '../lib/portions';
 
 export interface FoodTimelineProps {
   store:Nourish;
@@ -113,7 +114,7 @@ export function FoodTimeline({
                 </h3>
                 <strong>{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
               </div>
-              <p>{entry.meal} · {number(entry.quantity,1)} {entry.unit}</p>
+              <p>{entry.meal} · {displayPortion(entry)}</p>
               <dl className="food-card-nutrients">
                 {(['protein','carbs','fat','fiber'] as const).filter(key=>entry[key]!=null).map(key=><div key={key}>
                   <dt>{key[0].toUpperCase()+key.slice(1)}</dt>

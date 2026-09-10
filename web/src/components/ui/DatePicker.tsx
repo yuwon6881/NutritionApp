@@ -1,5 +1,6 @@
 import {FieldFrame} from './Form';
 import {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Calendar, Check, ChevronDown, ChevronLeft, ChevronRight} from 'lucide-react';
 
 interface CalendarDropdownProps {
@@ -10,6 +11,8 @@ interface CalendarDropdownProps {
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
+  id?: string;
+  name?: string;
   className?: string;
   selectClassName?: string;
   menuClassName?: string;
@@ -23,10 +26,15 @@ function CalendarDropdown({
   isOpen,
   onToggle,
   onClose,
+  id: idProp,
+  name: nameProp,
   className = '',
   selectClassName = '',
   menuClassName = '',
 }: CalendarDropdownProps) {
+  const generatedId = useId();
+  const id = idProp ?? generatedId;
+  const name = nameProp ?? id;
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -122,6 +130,8 @@ function CalendarDropdown({
       </button>
 
       <select
+        id={id}
+        name={name}
         className={`accessible-native-select ${selectClassName}`.trim()}
         aria-label={label}
         value={value}
@@ -235,7 +245,8 @@ export function DatePicker({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [activeDropdown, setActiveDropdown] = useState<'month' | 'year' | null>(null);
-  const closeCalendar = () => {setIsOpen(false);setActiveDropdown(null);triggerRef.current?.focus({preventScroll:true});};
+  const [popoverPosition, setPopoverPosition] = useState<{left:number;top:number}|null>(null);
+  const closeCalendar = () => {setIsOpen(false);setActiveDropdown(null);setPopoverPosition(null);triggerRef.current?.focus({preventScroll:true});};
 
   useLayoutEffect(() => {
     if (!isOpen) return;
@@ -243,13 +254,31 @@ export function DatePicker({
       const popover=popoverRef.current;
       const anchor=triggerRef.current;
       if(!popover||!anchor)return;
-      const start=anchor.getBoundingClientRect().left;
-      const left=Math.max(12,Math.min(start,document.documentElement.clientWidth-popover.offsetWidth-12));
-      popover.style.left=`${left-start}px`;
+      const anchorRect=anchor.getBoundingClientRect();
+      const host=containerRef.current?.closest('dialog');
+      const hostRect=host?.getBoundingClientRect();
+      const viewportWidth=window.visualViewport?.width??window.innerWidth;
+      const viewportHeight=window.visualViewport?.height??window.innerHeight;
+      const popoverWidth=popover.offsetWidth;
+      const popoverHeight=popover.offsetHeight;
+      const left=Math.max(12,Math.min(anchorRect.left,viewportWidth-popoverWidth-12));
+      const below=anchorRect.bottom+6;
+      const above=anchorRect.top-6-popoverHeight;
+      const top=below+popoverHeight<=viewportHeight-12||above<12?Math.max(12,below):above;
+      setPopoverPosition(hostRect
+        ?{left:left-hostRect.left,top:top-hostRect.top}
+        :{left:left+window.scrollX,top:top+window.scrollY});
     };
+    setPopoverPosition(null);
     align();
     window.addEventListener('resize',align);
-    return()=>window.removeEventListener('resize',align);
+    window.addEventListener('scroll',align,true);
+    window.visualViewport?.addEventListener('resize',align);
+    return()=>{
+      window.removeEventListener('resize',align);
+      window.removeEventListener('scroll',align,true);
+      window.visualViewport?.removeEventListener('resize',align);
+    };
   },[isOpen]);
 
   const initialDate = value ? parseIso(value) : new Date();
@@ -269,14 +298,24 @@ export function DatePicker({
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)&&!popoverRef.current?.contains(e.target as Node)) {
         setActiveDropdown(null);
         setIsOpen(false);
+        setPopoverPosition(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
+
+  useEffect(()=>{
+    if(!isOpen)return;
+    const handleEscape=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'&&!activeDropdown){event.preventDefault();closeCalendar();}
+    };
+    document.addEventListener('keydown',handleEscape);
+    return()=>document.removeEventListener('keydown',handleEscape);
+  },[isOpen,activeDropdown]);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
@@ -393,8 +432,9 @@ export function DatePicker({
           aria-hidden="true"
         />
 
-        {isOpen && (
-          <div ref={popoverRef} className="custom-calendar-popover" role="dialog" aria-label={label}>
+        {isOpen&&createPortal(
+          <div ref={popoverRef} className="custom-calendar-popover" role="dialog" aria-label={label}
+            style={{left:popoverPosition?.left??0,top:popoverPosition?.top??0,visibility:popoverPosition?'visible':'hidden'}}>
             <div className="calendar-header">
               <div className="calendar-nav-group">
                 <button type="button" className="calendar-nav-btn" onClick={prevMonth} aria-label="Previous month">
@@ -403,6 +443,8 @@ export function DatePicker({
               </div>
               <div className="calendar-title-controls">
                 <CalendarDropdown
+                  id={`${id}-month`}
+                  name={`${name}_month`}
                   label="Choose month"
                   value={viewMonth}
                   options={monthOptions}
@@ -413,6 +455,8 @@ export function DatePicker({
                   selectClassName="calendar-title-select"
                 />
                 <CalendarDropdown
+                  id={`${id}-year`}
+                  name={`${name}_year`}
                   label="Choose year"
                   value={viewYear}
                   options={yearOptions}
@@ -485,7 +529,8 @@ export function DatePicker({
                 Close
               </button>
             </div>
-          </div>
+          </div>,
+          containerRef.current?.closest('dialog')??document.body
         )}
       </div>
 

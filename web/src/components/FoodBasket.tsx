@@ -8,6 +8,7 @@ import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {Form,FieldFrame} from './ui/Form';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {displayPortion} from '../lib/portions';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface FoodBasketProps {
@@ -96,13 +97,20 @@ export function FoodBasket({
           BATCH FOODS ({basket.lines.length})
         </p>
 
-        {basket.lines.map(line=><fieldset key={line.key}>
+        {basket.lines.map(line=>{
+          const selectedChoice=line.unit==='g'?'g':line.portionLabel?`portion:${line.portionLabel}`:'serving';
+          const options=[
+            {value:'g',label:'Grams'},
+            ...line.portions.map(portion=>({value:`portion:${portion.label}`,label:`${portion.label} · ${portion.grams} g`})),
+            {value:'serving',label:'Serving (weight unknown)'},
+          ];
+          return <fieldset key={line.key}>
           <legend>{line.name}</legend>
           <div className="form-grid">
             <Field
               id={`basket-qty-${line.key}`}
               name={`qty_${line.key}`}
-              label={`Quantity (${line.unit})`}
+              label={`Quantity (${line.unit==='g'?'g':line.portionLabel??'serving'})`}
               type="number"
               min="0.001"
               max="100000"
@@ -115,13 +123,19 @@ export function FoodBasket({
               id={`basket-unit-${line.key}`}
               name={`unit_${line.key}`}
               label="Quantity unit"
-              value={line.unit}
-              onChange={value=>basket.updateLineUnit(line.key,value as 'g'|'serving')}
-            >
-              <option value="g">Grams</option>
-              <option value="serving">Servings</option>
-            </SelectField>
+              value={selectedChoice}
+              options={options}
+              onChange={value=>{
+                if(value==='g')basket.updateLineBasis(line.key,{unit:'g',portionLabel:null,portionGrams:null});
+                else if(value==='serving')basket.updateLineBasis(line.key,{unit:'serving',portionLabel:null,portionGrams:null});
+                else{
+                  const portion=line.portions.find(item=>`portion:${item.label}`===value);
+                  if(portion)basket.updateLineBasis(line.key,{unit:'serving',portionLabel:portion.label,portionGrams:portion.grams});
+                }
+              }}
+            />
           </div>
+          <p className="source">Basis: {displayPortion(line)}</p>
           <p style={{fontSize:'.84rem',margin:'8px 0'}}>
             {displayEnergy(line.calories,units.energy)} {energyLabel(units.energy)} ·
             P: {number(line.protein)} g · 
@@ -141,7 +155,8 @@ export function FoodBasket({
           >
             Remove {line.name}
           </Button>
-        </fieldset>)}
+        </fieldset>;
+        })}
       </FieldFrame>
 
       {error&&<p className="error" role="alert">{error}</p>}

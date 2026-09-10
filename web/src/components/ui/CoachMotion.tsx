@@ -13,7 +13,16 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
   const sequence=useRef(0);
   const navigated=useRef(false);
   const go=(next:T)=>{
-    if(next===desired.current)return;
+    if(next===desired.current){
+      // A quick second navigation can cancel the previous exit before its
+      // promise settles. Do not leave the visual step behind the requested one.
+      if(next===current.current)return;
+      animation.current?.cancel();
+      navigated.current=true;
+      current.current=next;
+      setStep(next);
+      return;
+    }
     desired.current=next;
     const token=++sequence.current;
     direction.current=Math.sign(order.indexOf(next)-order.indexOf(current.current));
@@ -34,10 +43,17 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
   useLayoutEffect(()=>{
     animation.current?.cancel();
     if(!navigated.current||!stage.current)return;
-    const heading=stage.current.querySelector<HTMLElement>('[data-step-heading]');
-    heading?.focus({preventScroll:true});
-    if(heading&&heading.getBoundingClientRect().top<0)heading.scrollIntoView({block:'nearest'});
+    const focusHeading=()=>{
+      const heading=stage.current?.querySelector<HTMLElement>('[data-step-heading]');
+      heading?.focus({preventScroll:true});
+      if(heading&&heading.getBoundingClientRect().top<0)heading.scrollIntoView({block:'nearest'});
+    };
+    focusHeading();
+    // Media-query changes can land in the same frame as a programmatic step
+    // click. Reassert the destination focus after that browser event settles.
+    const focusFrame=window.requestAnimationFrame(focusHeading);
     if(!reduceMotion)animation.current=stage.current.animate([{opacity:0,transform:`translateX(${direction.current*24}px)`},{opacity:1,transform:'translateX(0)'}],{duration:direction.current<0?140:180,easing:'cubic-bezier(.2,.8,.2,1)'});
+    return()=>window.cancelAnimationFrame(focusFrame);
   },[step,scene,reduceMotion]);
   useEffect(()=>{
     if(reduceMotion){

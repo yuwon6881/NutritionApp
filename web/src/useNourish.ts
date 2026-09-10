@@ -159,7 +159,10 @@ export function useNourish(user:string){
           if(job.status==='complete')await commit(current=>({...current,scans:current.scans.map(s=>s.id===draft.id?{...s,result:JSON.parse(job.resultJson!) as AiDraft,imageBase64:null}:s)}));
           else if(job.status==='failed')throw new ApiError(job.error??'Scan failed. Retry the retained draft.',422);
         }catch(ex){
-          if(ex instanceof ApiError&&[400,404,409,422,429,507].includes(ex.status))await commit(current=>({...current,scans:current.scans.map(s=>s.id===draft.id?{...s,error:ex.message}:s)}));
+          // HTTP failures are server-side scan outcomes, not offline state.
+          // Keep the draft for an explicit retry and show the provider/API
+          // message instead of claiming it is merely waiting for a connection.
+          if(ex instanceof ApiError&&ex.status!==401&&ex.status!==403)await commit(current=>({...current,scans:current.scans.map(s=>s.id===draft.id?{...s,error:ex.message}:s)}));
           else setError(ex instanceof Error?ex.message:'Scan will retry when connected.');
         }
       }
@@ -200,9 +203,9 @@ export function useNourish(user:string){
       void drain();
     },
     discardConflict:async(id:string)=>{await commit(c=>({...c,queue:c.queue.filter(q=>q.id!==id)}));await drain();},
-    addScan:async(draft:ScanDraft)=>{await commit(c=>({...c,scans:[...c.scans,draft]}));markSyncQueued('scan');void runScans();},
+    addScan:async(draft:ScanDraft)=>{await commit(c=>({...c,scans:[...c.scans,draft]}));markSyncQueued('scan');await runScans();},
     removeScan:async(id:string)=>commit(c=>({...c,scans:c.scans.filter(s=>s.id!==id)})),
-    retryScan:async(id:string)=>{await commit(c=>({...c,scans:c.scans.map(s=>s.id===id?{...s,id:crypto.randomUUID(),jobId:undefined,error:undefined}:s)}));void runScans();},
+    retryScan:async(id:string)=>{await commit(c=>({...c,scans:c.scans.map(s=>s.id===id?{...s,id:crypto.randomUUID(),jobId:undefined,error:undefined}:s)}));await runScans();},
     addPhoto:async(draft:PhysiqueDraft)=>{await commit(c=>({...c,photoDrafts:[...(c.photoDrafts??[]).filter(photo=>photo.id!==draft.id),draft]}));markSyncQueued('photo');void runScans();},
     retryPhoto:async(id:string)=>{await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).map(p=>p.id===id?{...p,id:/expired|deleted/i.test(p.error??'')?crypto.randomUUID():p.id,error:undefined}:p)}));void runScans();},
     removePhotoDraft:async(id:string)=>commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).filter(p=>p.id!==id)})),
