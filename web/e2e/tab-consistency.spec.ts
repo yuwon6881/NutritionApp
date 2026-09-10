@@ -78,6 +78,9 @@ test('tab switching preserves consistent button locations and modal coordinates'
   // 2. Progress page tabs consistency on mobile
   await page.setViewportSize({width:390,height:800});
   await page.getByRole('button',{name:'Progress',exact:true}).click();
+  await page.waitForTimeout(400);
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.waitForTimeout(50);
   const progressTabs=['Weight','Energy','Photos'] as const;
   const pMeasurements:number[]=[];
 

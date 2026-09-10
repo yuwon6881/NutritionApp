@@ -3,6 +3,7 @@ import type {CoachPreview,Profile,ProfileDraft} from './types';
 import type {Nourish} from './useNourish';
 import {api,ApiError} from './lib/api';
 import {profilesEqual} from './lib/profile';
+import {waitForMinimumDuration} from './lib/async';
 
 export type CoachProposal=CoachPreview&{acceptId:string};
 export type ProposalOperation='idle'|'waiting'|'calculating'|'updating'|'accepting'|'refreshing'|'error'|'refresh-error';
@@ -24,6 +25,7 @@ export function useCoachProposal({store,draft,changed=false,onAccepted}:{
   const calculating=useRef(false);
   const acceptance=useRef<{id:string;revision:number}|undefined>(undefined);
   const alive=useRef(true);
+  const operationStarted=useRef<number|undefined>(undefined);
   const latest=useRef(store);
   const draftRef=useRef<typeof draft>(draft);
   const changedRef=useRef(changed);
@@ -37,6 +39,16 @@ export function useCoachProposal({store,draft,changed=false,onAccepted}:{
   const setProposal=useCallback((next:CoachProposal|undefined)=>{
     proposalRef.current=next;
     setProposalState(next);
+  },[]);
+
+  const startOperation=useCallback((next:ProposalOperation)=>{
+    operationStarted.current=Date.now();setOperation(next);
+  },[]);
+  const finishOperation=useCallback(async(next:ProposalOperation,token?:number)=>{
+    await waitForMinimumDuration(operationStarted.current??Date.now(),420);
+    if(alive.current&&(token===undefined||token===request.current)){
+      operationStarted.current=Date.now();setOperation(next);
+    }
   },[]);
 
   useEffect(()=>{
@@ -56,24 +68,24 @@ export function useCoachProposal({store,draft,changed=false,onAccepted}:{
     calculating.current=true;
     const token=++request.current;
     const revision=latest.current.state!.revision;
-    setOperation('calculating');setError('');setProposal(undefined);
+    startOperation('calculating');setError('');setProposal(undefined);
     try{
       const next=await api<CoachPreview>('/coach/preview');
       if(!alive.current||token!==request.current)return;
       if(next.revision!==latest.current.state!.revision){
         await latest.current.refresh();
         if(!alive.current||token!==request.current)return;
-        setWantsProposal(true);setOperation('waiting');return;
+        setWantsProposal(true);await finishOperation('waiting',token);return;
       }
       const currentDraft=draftRef.current;
       const draftChanged=currentDraft!=null&&!profilesEqual(currentDraft as ProfileDraft,latest.current.state!.profile);
       if(latest.current.state!.revision!==revision||changedRef.current||draftChanged||!!latest.current.local?.queue.length){
-        setWantsProposal(true);setOperation('waiting');return;
+        setWantsProposal(true);await finishOperation('waiting',token);return;
       }
-      setProposal({...next,acceptId:crypto.randomUUID()});setOperation('idle');
-    }catch(ex){if(alive.current&&token===request.current){setError((ex as Error).message);setOperation('error');}}
+      setProposal({...next,acceptId:crypto.randomUUID()});await finishOperation('idle',token);
+    }catch(ex){if(alive.current&&token===request.current){setError((ex as Error).message);await finishOperation('error',token);}}
     finally{if(token===request.current)calculating.current=false;}
-  },[setProposal]);
+  },[finishOperation,setProposal,startOperation]);
 
   const pending=Boolean(store.local?.queue.length);
   useEffect(()=>{
@@ -91,54 +103,54 @@ export function useCoachProposal({store,draft,changed=false,onAccepted}:{
     const token=++request.current;
     try{
       if(!acceptance.current&&live.revision!==current.state!.revision){
-        setOperation('updating');
+        startOperation('updating');
         live={...await api<CoachPreview>('/coach/preview'),acceptId:live.acceptId};
         if(!alive.current||token!==request.current)return;
         if(live.revision!==latest.current.state!.revision){
           await latest.current.refresh();
           if(!alive.current||token!==request.current)return;
-          locked.current=false;setProposal(undefined);setWantsProposal(true);setOperation('waiting');return;
+          locked.current=false;setProposal(undefined);setWantsProposal(true);await finishOperation('waiting',token);return;
         }
         setProposal(live);
-        if(!live.canAccept){setOperation('idle');return;}
+        if(!live.canAccept){await finishOperation('idle',token);return;}
       }
       const currentDraft=draftRef.current;
       if(latest.current.local?.queue.length||changedRef.current||
         (currentDraft!=null&&!profilesEqual(currentDraft as ProfileDraft,latest.current.state!.profile))){
-        setProposal(undefined);setWantsProposal(true);setOperation('waiting');return;
+        setProposal(undefined);setWantsProposal(true);await finishOperation('waiting',token);return;
       }
-      setOperation('accepting');
+      startOperation('accepting');
       acceptance.current??={id:live.acceptId,revision:live.revision};
       await api('/coach/accept',acceptance.current);
       acceptance.current=undefined;
       if(!alive.current)return;
-      setProposal(undefined);setOperation('refreshing');
+      setProposal(undefined);await finishOperation('refreshing',token);
       try{
         await latest.current.refresh();
-        if(alive.current){setOperation('idle');await acceptedRef.current?.(true);}
+        if(alive.current){await finishOperation('idle',token);await acceptedRef.current?.(true);}
       }catch{
-        if(alive.current){await acceptedRef.current?.(false);setError('Your plan is active. The latest view could not be loaded.');setOperation('refresh-error');}
+        if(alive.current){await acceptedRef.current?.(false);setError('Your plan is active. The latest view could not be loaded.');await finishOperation('refresh-error',token);}
       }
     }catch(ex){
       if(ex instanceof ApiError&&[400,409,422].includes(ex.status))acceptance.current=undefined;
       if(ex instanceof ApiError&&ex.status===409&&alive.current&&token===request.current){
         try{
           await latest.current.refresh();
-          if(alive.current&&token===request.current){locked.current=false;setProposal(undefined);setWantsProposal(true);setOperation('waiting');}
+          if(alive.current&&token===request.current){locked.current=false;setProposal(undefined);setWantsProposal(true);await finishOperation('waiting',token);}
           return;
         }catch{/* Keep the failed proposal reviewable when refresh is unavailable. */}
       }
-      if(alive.current&&token===request.current){setError(acceptance.current?'Activation could not be confirmed. Retry accepting this plan to check the same request.':(ex as Error).message);setOperation('error');}
+      if(alive.current&&token===request.current){setError(acceptance.current?'Activation could not be confirmed. Retry accepting this plan to check the same request.':(ex as Error).message);await finishOperation('error',token);}
     }finally{locked.current=false;}
-  },[online,setProposal]);
+  },[finishOperation,online,setProposal,startOperation]);
 
   const retryRefresh=useCallback(async()=>{
     if(locked.current)return;
-    locked.current=true;setOperation('refreshing');setError('');
-    try{await latest.current.refresh();if(alive.current)setOperation('idle');}
-    catch{if(alive.current){setError('Your plan is active. The latest view could not be loaded.');setOperation('refresh-error');}}
+    locked.current=true;startOperation('refreshing');setError('');
+    try{await latest.current.refresh();if(alive.current)await finishOperation('idle');}
+    catch{if(alive.current){setError('Your plan is active. The latest view could not be loaded.');await finishOperation('refresh-error');}}
     finally{locked.current=false;}
-  },[]);
+  },[finishOperation,startOperation]);
 
   return {proposal,operation,setOperation,error,setError,setProposal,wantsProposal,setWantsProposal,loadProposal,acceptProposal,retryRefresh,
     invalidate,acceptance,locked,online,pending,busy:['calculating','updating','accepting','refreshing'].includes(operation)};

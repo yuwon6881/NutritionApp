@@ -13,8 +13,11 @@ export function validateFields(root:HTMLElement|null):boolean {
   }
   if(first){
     const control=first.querySelector<HTMLElement>('[data-validation-focus],input:not([aria-hidden="true"]),textarea,select:not([aria-hidden="true"])');
-    control?.focus({preventScroll:true});
     first.scrollIntoView({block:'nearest',behavior:'instant'});
+    control?.focus({preventScroll:true});
+    // A submit button may reclaim focus after the submit event finishes. Reassert
+    // the first-invalid target on the next frame so the error remains actionable.
+    window.requestAnimationFrame(()=>{if(control?.isConnected)control.focus({preventScroll:true});});
   }
   return !first;
 }
@@ -67,6 +70,10 @@ export function FieldFrame({label,validate,ref:externalRef,children,...props}:Fi
       // Closing a dirty modal is a discard intent, not a form interaction. Keep
       // the field untouched so an empty value does not flash an error first.
       if(event.currentTarget.closest('[data-modal-dismiss-intent="true"]'))return;
+      // Moving focus to submit must not insert an error block between mousedown
+      // and mouseup; that layout shift can make a real pointer click miss.
+      const related=event.relatedTarget;
+      if(related instanceof HTMLElement&&related.closest('button[type="submit"]'))return;
       if(!event.currentTarget.contains(event.relatedTarget as Node|null)){touched.current=true;check();}
     }} onChangeCapture={()=>{if(touched.current)queueMicrotask(()=>{if(root.current)check();});}}>
     {children}

@@ -7,7 +7,7 @@ export function Brand({size=27,className=''}:{size?:number;className?:string}){
       height={size}
       viewBox="0 0 192 192"
       role="img"
-      aria-label="Nourish"
+      aria-label="Nutrition App"
       focusable="false"
     >
       <rect width="192" height="192" rx="44" className="brand-mark-plate"/>

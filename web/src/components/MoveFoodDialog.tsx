@@ -5,6 +5,7 @@ import {Modal} from './ui/Modal';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {Form} from './ui/Form';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface MoveFoodDialogProps {
   open:boolean;
@@ -25,13 +26,13 @@ export function MoveFoodDialog({
 }:MoveFoodDialogProps){
   const [customTime,setCustomTime]=useState('');
   const [error,setError]=useState('');
-  const [busy,setBusy]=useState(false);
+  const {busy,run,reset}=useAsyncAction();
 
   useEffect(()=>{
     if(open){
       setCustomTime('');
       setError('');
-      setBusy(false);
+      reset();
     }
   },[open]);
 
@@ -45,16 +46,11 @@ export function MoveFoodDialog({
       setError('Choose a valid meal time (HH:mm).');
       return;
     }
-    setBusy(true);
     setError('');
     try{
-      await onMove(entries,valid);
+      await run(async()=>{await onMove(entries,valid);});
       onClose();
-    }catch(ex){
-      setError((ex as Error).message);
-    }finally{
-      setBusy(false);
-    }
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <Modal

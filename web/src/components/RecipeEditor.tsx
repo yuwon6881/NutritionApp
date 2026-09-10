@@ -4,6 +4,7 @@ import type {Food} from '../types';
 import type {Nourish} from '../useNourish';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClose:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const foods=store.state!.foods.filter(food=>!food.deleted);
@@ -13,19 +14,19 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
   const [selected,setSelected]=useState(foods[0]?.id??'');
   const [grams,setGrams]=useState(100);
   const [error,setError]=useState('');
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const initial=useRef(JSON.stringify({name:'',yieldGrams:500,items:[],selected:foods[0]?.id??'',grams:100}));
   const snapshot=JSON.stringify({name,yieldGrams,items,selected,grams});
 
   useEffect(()=>onDirtyChange?.(snapshot!==initial.current),[snapshot,onDirtyChange]);
 
   const save=async()=>{
-    setBusy(true);setError('');
+    if(busy)return;setError('');
     try{
       const nutrient=(key:'calories'|'protein'|'fat'|'carbs'|'fiber')=>items.some(item=>item.food[key]==null)?null:items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/yieldGrams*100;
-      await store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{name,calories:nutrient('calories'),protein:nutrient('protein'),fat:nutrient('fat'),carbs:nutrient('carbs'),fiber:nutrient('fiber'),source:'Personal recipe',servingGrams:100,cookedYieldGrams:yieldGrams,ingredientsJson:JSON.stringify(items),favourite:true}});
+      await run(()=>store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{name,calories:nutrient('calories'),protein:nutrient('protein'),fat:nutrient('fat'),carbs:nutrient('carbs'),fiber:nutrient('fiber'),source:'Personal recipe',servingGrams:100,cookedYieldGrams:yieldGrams,ingredientsJson:JSON.stringify(items),favourite:true}}));
       onClose();
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <div className="dialog-step recipe-editor">

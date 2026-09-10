@@ -5,6 +5,7 @@ import type {Nourish} from '../useNourish';
 import {api} from '../lib/api';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
 import {Button} from './ui/Button';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export function GoalReachedBanner({progress,onChooseGoal,action='Choose your next goal',store,onComplete}: {
   progress:GoalProgress|null|undefined;
@@ -13,7 +14,7 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
   store?:Nourish;
   onComplete?:(trigger:HTMLElement)=>void;
 }){
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const decisionId=useRef<string|undefined>(undefined);
   if(!progress)return null;
@@ -29,14 +30,16 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
   const shownWeight=(value:number|null|undefined,digits=1)=>`${displayWeight(value,units.weight,digits)} ${weightUnit}`;
   const decide=async(decision:'completed'|'await-trend',trigger:HTMLElement)=>{
     if(!store||busy)return;
-    setBusy(true);setError('');
+    setError('');
     const id=decisionId.current??crypto.randomUUID();decisionId.current=id;
     try{
-      await api('/goal/complete',{id,revision:store.state!.revision,decision});
-      decisionId.current=undefined;
-      await store.refresh();
+      await run(async()=>{
+        await api('/goal/complete',{id,revision:store.state!.revision,decision});
+        decisionId.current=undefined;
+        await store.refresh();
+      });
       if(decision==='completed')onComplete?.(trigger);
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
 
   if(awaiting)

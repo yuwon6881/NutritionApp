@@ -8,6 +8,7 @@ import {Field} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
 import {inputWeight,parseWeight,unitsFor,weightLabel} from '../lib/units';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface WeightEntryDialogProps {
   open:boolean;
@@ -21,7 +22,7 @@ export interface WeightEntryDialogProps {
 export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}:WeightEntryDialogProps){
   const [entryDate,setEntryDate]=useState(date??today(store.state!.profile?.timeZone));
   const [kg,setKg]=useState('');
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const initialValues=useRef({date:'',kg:''});
   const state=store.state!;
@@ -41,18 +42,18 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
   const dirty=entryDate!==initialValues.current.date||kg!==initialValues.current.kg;
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busy)return;
-    setBusy(true);setError('');
+    setError('');
     try{
       const target=existing??(initial&&initial.date===entryDate?initial:undefined);
-      await store.mutate({
+      await run(()=>store.mutate({
         kind:'weight',
         recordId:target?.id??crypto.randomUUID(),
         expectedRevision:target?.revision??0,
         data:{date:entryDate,kg:parseWeight(kg,units.weight)},
         delete:false,
-      });
+      }));
       onClose();
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <Modal

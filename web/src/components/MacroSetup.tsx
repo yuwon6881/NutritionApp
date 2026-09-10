@@ -7,25 +7,25 @@ import {SegmentedControl} from './ui/SegmentedControl';
 import {CoachNumber} from './ui/CoachMotion';
 
 /**
- * One slider and one input per macro, both bound to the same share of the calorie target.
- * Moving one macro moves the other two, so the three shares always describe the same target.
+ * Dragging sliders moves energy between macronutrients.
+ * Presets re-align the shares in one touch.
  */
 export function MacroSetup({
   calories,
   split,
   onChange,
-  onPreset
+  onPreset,
 }:{
   calories:number;
   split:MacroSplit;
-  onChange:(next:MacroSplit)=>void;
-  onPreset:(id:string,next:MacroSplit|null)=>void;
+  onChange:(split:MacroSplit)=>void;
+  onPreset:(id:string,split:MacroSplit|null)=>void;
 }){
   const grams=gramsFromSplit(calories,split);
   const fill=(key:typeof macroKeys[number])=>Math.round(100*(split[key]-macroLimits[key].min)/(macroLimits[key].max-macroLimits[key].min));
   const active=macroPresetId(split);
   return <div className="macro-setup">
-    <SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm"
+    <SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm" layout="wrap"
       options={macroPresets.map(preset=>({value:preset.id,label:preset.label}))}
       onChange={id=>{const preset=macroPresets.find(p=>p.id===id);if(preset)onPreset(preset.id,preset.split);}}/>
     <div className="macro-rows">

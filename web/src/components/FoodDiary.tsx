@@ -29,9 +29,9 @@ export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:
   const total=archived?day?.calories??0:entries.reduce((sum,e)=>sum+e.calories,0);
   const energyUnit=unitsFor(store.state?.settings).energy;
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
-  const act=async(action:()=>Promise<unknown>)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);}};
+  const act=async(action:()=>Promise<unknown>,rethrow=false)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);if(rethrow)throw ex;}};
   const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=current){setError('');setDate(value);}};
-  const move=async(moving:Entry[],time:string)=>{await act(async()=>{for(const entry of moving){const operation=moveEntry(entry,time);if(operation)await store.mutate(operation);}});};
+  const move=async(moving:Entry[],time:string)=>{await act(async()=>{for(const entry of moving){const operation=moveEntry(entry,time);if(operation)await store.mutate(operation);}},true);};
   return <div className="food-log-page">
     <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time and move them between hours.</p></div><Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button></header>
     <div className="food-date-navigation">
@@ -41,8 +41,9 @@ export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:
       <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
     </div>
     {history.error&&<div className="notice" role="status">{state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} {history.error} <Button onClick={history.retry}>Retry history</Button></div>}
-    {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
-    {!state&&!history.error&&<p role="status">Loading food history…</p>}
+    {history.loading&&<p className="notice loading-status" role="status" aria-busy="true">Loading food history…</p>}
+    {currentUncached&&!history.loading&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
+    {!state&&!history.loading&&!history.error&&<p className="loading-status" role="status">Loading food history…</p>}
     {error&&<p className="error" role="alert">{error}</p>}
     {state&&<>
       <section className="panel food-day-summary">

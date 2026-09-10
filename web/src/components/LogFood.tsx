@@ -22,6 +22,7 @@ import {useFoodBasket} from '../useFoodBasket';
 import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
+import {useAsyncAction} from './ui/useAsyncAction';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
 type SearchResult=Nutrients&{servingGrams:number};
@@ -62,7 +63,7 @@ export function LogFood({
   const [photo,setPhoto]=useState<string|null>(null);
   const [activeScanId,setActiveScanId]=useState<string>();
   const [error,setError]=useState('');
-  const [busy,setBusy]=useState(false);
+  const {busy,run:runAction}=useAsyncAction();
   const [camera,setCamera]=useState(false);
   const energyUnit=unitsFor(store.state!.settings).energy;
 
@@ -96,7 +97,7 @@ export function LogFood({
     if(scan?.result)setStep('scan');
   },[step,activeScanId,store.local?.scans]);
 
-  const run=async(fn:()=>Promise<void>)=>{setBusy(true);setError('');try{await fn();}catch(ex){setError((ex as Error).message);}finally{setBusy(false);}};
+  const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
   const go=(next:FoodStep)=>{setStepDirty(false);setStep(next);};
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   const close=()=>{
@@ -125,8 +126,10 @@ export function LogFood({
   const selection=<div className="dialog-step food-selection">
     {!editing&&<div className="dialog-toolbar"><Button variant="primary" onClick={()=>go('quick')}><Plus size={17}/>Quick add</Button><Button onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}>Manual entry</Button></div>}
     <SegmentedControl layout="equal" className="section-segments" label="Food logging method" value={tab} onChange={setTab} options={[
-      {value:'saved',label:<><Star size={17}/>Your foods</>},{value:'search',label:<><Search size={17}/>Search</>},
-      {value:'barcode',label:<><ScanBarcode size={17}/>Barcode</>},{value:'ai',label:<><Sparkles size={17}/>AI logging</>}
+      {value:'saved',label:<><Star size={16}/><span className="tab-label-full">Your foods</span><span className="tab-label-short">Saved</span></>,ariaLabel:'Your foods'},
+      {value:'search',label:<><Search size={16}/><span>Search</span></>,ariaLabel:'Search'},
+      {value:'barcode',label:<><ScanBarcode size={16}/><span className="tab-label-full">Barcode</span><span className="tab-label-short">Scan</span></>,ariaLabel:'Barcode'},
+      {value:'ai',label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}
     ]}/>
     {basket.lines.length>0&&<div className="notice" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,marginBottom:18}}>
       <span><strong>{basket.lines.length} {basket.lines.length===1?'food':'foods'} in batch</strong></span>
@@ -192,6 +195,6 @@ export function LogFood({
   useEffect(()=>{previousStep.current=step;},[step]);
   const animatedChild=<MotionPanel motionKey={step} direction={stepDirection}>{child}</MotionPanel>;
 
-  const content=!history.state?<div className="dialog-step"><p role="status">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
+  const content=history.loading||!history.state?<div className="dialog-step"><p role="status" aria-busy={history.loading||undefined}>{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
   return <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} dirty={stepDirty||selectionDirty} width="lg" className="food-modal">{content}</Modal>;
 }

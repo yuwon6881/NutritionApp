@@ -1,4 +1,4 @@
-# Nourish application guidance
+# Nutrition App application guidance
 
 This repository is independent of FinancialApp. These rules apply to NutritionApp and override FinancialApp-specific guidance from the parent directory. Keep AGENTS.md and CLAUDE.md identical when editing them.
 

@@ -7,6 +7,7 @@ import {Field,SelectField} from './ui/Field';
 
 import {rescaleNutrients} from '../lib/nutrients';
 import {energyLabel,inputEnergy,parseEnergy} from '../lib/units';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export type FoodDraft=Nutrients&{quantity:number;unit:'g'|'serving';meal:string;time?:string|null};
 
@@ -27,7 +28,7 @@ export function FoodEditor({
 }){
   const [draft,setDraft]=useState<FoodDraft>({...blankNutrients,quantity:1,unit:'serving',meal:'Meal',...initial});
   const [error,setError]=useState('');
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const initialDraft=useRef(JSON.stringify({...blankNutrients,quantity:1,unit:'serving',meal:'Meal',...initial}));
 
   useEffect(()=>onDirtyChange?.(JSON.stringify(draft)!==initialDraft.current),[draft,onDirtyChange]);
@@ -38,10 +39,9 @@ export function FoodEditor({
   });
 
   const save=async(event:FormEvent)=>{
-    event.preventDefault();setBusy(true);setError('');
-    try{await onSave(draft);onClose();}
+    event.preventDefault();if(busy)return;setError('');
+    try{await run(()=>onSave(draft));onClose();}
     catch(ex){setError((ex as Error).message);}
-    finally{setBusy(false);}
   };
 
   return <div className="dialog-step editor">

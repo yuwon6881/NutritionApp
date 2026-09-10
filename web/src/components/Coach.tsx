@@ -25,6 +25,7 @@ import {CoachLayout,CoachStepper,CoachWait,useCoachSteps} from './ui/CoachMotion
 import {useCoachProposal} from '../useCoachProposal';
 import {UnitPreferencesFields} from './CoachingSettings';
 import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor,weightLabel} from '../lib/units';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 const defaults:ProfileDraft={
   age:0,
@@ -75,7 +76,7 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
 export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolean}){
   const [profile,setProfile]=useState<ProfileDraft>(store.state!.profile??defaults);
   const [message,setMessage]=useState('');
-  const [saving,setSaving]=useState(false);
+  const {busy:saving,run:runSave}=useAsyncAction();
   const [checkInOpen,setCheckInOpen]=useState(false);
   const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
   const [mainTab,setMainTab]=useState<MainTab>('targets');
@@ -168,15 +169,15 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     if(!canAdvanceActivity){setStep('activity');setError('Choose your usual activity.');return;}
     if(!canAdvanceGoal){setStep('goal');setError('Review your goal and phase details.');return;}
     if(!weeklyValid){setError(`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`);return;}
-    locked.current=true;setSaving(true);setError('');
+    locked.current=true;setError('');
     try{
-    await store.mutate({
-      kind:'profile',
-      recordId:store.state!.id,
-      expectedRevision:store.state!.profileRevision,
-      data:profile,
-      delete:false
-    });
+    await runSave(()=>store.mutate({
+        kind:'profile',
+        recordId:store.state!.id,
+        expectedRevision:store.state!.profileRevision,
+        data:profile,
+        delete:false
+      }));
     setProposal(undefined);
     setReview(true);
     setWantsProposal(true);
@@ -184,7 +185,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     setMainTab('targets');
     setMessage('');
     }catch(ex){setError((ex as Error).message);setOperation('error');}
-    finally{locked.current=false;setSaving(false);}
+    finally{locked.current=false;}
   };
 
   const steps=[

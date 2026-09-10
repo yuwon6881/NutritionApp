@@ -1,4 +1,4 @@
-# Nourish
+# Nutrition App
 
 A separate two-user, mobile-first nutrition PWA. React/TypeScript/Vite frontend, ASP.NET Core 10 API, PostgreSQL on Neon, Vercel hosting for the PWA and Cloud Run hosting for the API. FinancialApp is not a runtime dependency.
 

@@ -5,6 +5,7 @@ import {api} from '../lib/api';
 import {number} from '../lib/format';
 import {Button} from './ui/Button';
 import {PhotoUploadDialog} from './PhotoUploadDialog';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 const angles:PhysiqueAngle[]=['front','side','back'];
 const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
@@ -20,11 +21,18 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   const [skip,setSkip]=useState(0);
   const [selected,setSelected]=useState<PhysiquePhoto[]>([]);
   const [deleting,setDeleting]=useState<string>();
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
+  const {busy:loading,run:runLoad}=useAsyncAction(320);
   const drafts=store.local!.photoDrafts??[];
 
-  const loadGallery=async()=>setGallery(await api<Gallery>('/photos?skip='+skip));
-  useEffect(()=>{void loadGallery().catch(ex=>setError(ex.message));},[skip,drafts.length]);
+  const loadGallery=async()=>{
+    setError('');
+    try{
+      const next=await runLoad(()=>api<Gallery>('/photos?skip='+skip));
+      setGallery(next);
+    }catch(ex){setError((ex as Error).message);}
+  };
+  useEffect(()=>{void loadGallery();},[skip,drafts.length]);
 
   const sets=useMemo<PhysiquePhotoSet[]>(()=>{
     const byId=new Map<string,PhysiquePhotoSet>();
@@ -36,7 +44,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
     return [...byId.values()].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
   },[gallery?.photos]);
 
-  const action=async(fn:()=>Promise<void>)=>{setBusy(true);setError('');try{await fn();}catch(ex){setError((ex as Error).message);}finally{setBusy(false);}};
+  const action=async(fn:()=>Promise<void>)=>{setError('');try{await run(fn);}catch(ex){setError((ex as Error).message);}};
   const openNew=(trigger:HTMLElement)=>{setEditingSet(undefined);setUploadReturnFocus(trigger);setUploadOpen(true);};
   const openEdit=(set:PhysiquePhotoSet,trigger:HTMLElement)=>{setEditingSet(set);setUploadReturnFocus(trigger);setUploadOpen(true);};
   const closeUpload=()=>{setUploadOpen(false);setEditingSet(undefined);};
@@ -44,8 +52,12 @@ export function PhysiquePhotos({store}:{store:Nourish}){
 
   return <>
     <section className="panel physique">
-      <div className="section-heading"><div><h2>Physique progress</h2><p>Compare private progress sets and track retained uploads.</p></div><Button variant="primary" onClick={event=>openNew(event.currentTarget)}>Add photo set</Button></div>
+      <div className="section-heading">
+        <div><h2>Physique progress</h2><p>Compare private progress sets and track retained uploads.</p></div>
+        <div className="actions"><Button variant="primary" onClick={event=>openNew(event.currentTarget)}>Add photo set</Button></div>
+      </div>
       {gallery&&!gallery.configured&&<p>Photo storage is not configured. A local draft can still be prepared.</p>}
+      {loading&&<p className="notice loading-status" role="status" aria-busy="true">Loading photo history…</p>}
       {drafts.map(draft=><div className="notice" key={draft.id}><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>)}
       {gallery&&<>
         <p className="source">{number(gallery.usedBytes/1048576,1)} / {number(gallery.maxBytes/1048576)} MiB used</p>

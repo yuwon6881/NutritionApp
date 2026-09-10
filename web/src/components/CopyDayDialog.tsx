@@ -6,6 +6,7 @@ import {today} from '../lib/format';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface CopyDayDialogProps {
   open:boolean;
@@ -18,7 +19,7 @@ export interface CopyDayDialogProps {
 
 export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocus}:CopyDayDialogProps){
   const [destination,setDestination]=useState(sourceDate);
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const [copied,setCopied]=useState(0);
   const initial=useRef(sourceDate);
@@ -32,14 +33,16 @@ export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocu
   const copy=async(event:FormEvent)=>{
     event.preventDefault();if(busy)return;
     if(destination===sourceDate){setError('Choose a different date.');return;}
-    setBusy(true);setError('');setCopied(0);
+    setError('');setCopied(0);
     try{
-      for(const entry of entries){
-        await store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,data:{...entry,date:destination},delete:false});
-        setCopied(count=>count+1);
-      }
+      await run(async()=>{
+        for(const entry of entries){
+          await store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,data:{...entry,date:destination},delete:false});
+          setCopied(count=>count+1);
+        }
+      });
       onClose();
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <Modal

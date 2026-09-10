@@ -8,6 +8,7 @@ import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
 import {FileInput} from './ui/FileInput';
 import {Modal} from './ui/Modal';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 const angles:PhysiqueAngle[]=['front','side','back'];
 const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
@@ -33,7 +34,7 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:Phot
   const current=today(store.state!.profile?.timeZone);
   const [date,setDate]=useState(initial?.date??current);
   const [slots,setSlots]=useState<UploadSlot[]>(()=>makeSlots(initial));
-  const [busy,setBusy]=useState(false);
+  const {busy,run,reset}=useAsyncAction();
   const [error,setError]=useState('');
   const initialDate=useRef(initial?.date??current);
 
@@ -42,7 +43,7 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:Phot
     setDate(initial?.date??current);
     setSlots(makeSlots(initial));
     setError('');
-    setBusy(false);
+    reset();
     initialDate.current=initial?.date??current;
   },[open,current,initial?.id]);
 
@@ -55,23 +56,23 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:Phot
       setSlots(currentSlots=>currentSlots.map(slot=>slot.angle===angle?{...slot,imageBase64:undefined,changed:false,fileKey:slot.fileKey+1}:slot));
       return;
     }
-    setBusy(true);setError('');
+    setError('');
     try{
-      const imageBase64=await prepareImage(file,750000);
+      const imageBase64=await run(()=>prepareImage(file,750000));
       setSlots(currentSlots=>currentSlots.map(slot=>slot.angle===angle?{...slot,imageBase64,changed:true}:slot));
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busy)return;
     const photos=slots.filter(slot=>slot.changed&&slot.imageBase64).map(slot=>({id:slot.id,angle:slot.angle,imageBase64:slot.imageBase64!}));
     if(!initial&&photos.length===0){setError('Choose at least one front, side, or back photo before saving.');return;}
     if(initial&&photos.length===0&&date===initialDate.current){setError('Choose a new photo or change the photo date before saving.');return;}
-    setBusy(true);setError('');
+    setError('');
     try{
       const draft:PhysiqueDraft={id:initial?.id??crypto.randomUUID(),date,photos};
-      await store.addPhoto(draft);
+      await run(()=>store.addPhoto(draft));
       onClose();
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <Modal

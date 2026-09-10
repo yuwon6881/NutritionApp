@@ -35,7 +35,7 @@ steps:
       - '--timeout=180'
       - '--concurrency=20'
       - '--service-account=nourish-api@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=PublicOrigin=https://nourish-coach-eta.vercel.app,Auth__MaxUsers=2,Database__MigrateOnStartup=false,Retention__MealDetailDays=7,Physique__Bucket=financialapp-vault-396431756440,ScanStorage__Bucket=nourish-scans-396431756440,OpenAi__Model=gpt-5.4-mini'
+      - '--set-env-vars=PublicOrigin=https://nutrition-diary-app.vercel.app,Auth__MaxUsers=2,Database__MigrateOnStartup=false,Retention__MealDetailDays=7,Physique__Bucket=financialapp-vault-396431756440,ScanStorage__Bucket=nourish-scans-396431756440,OpenAi__Model=gpt-5.4-mini'
       - '--set-secrets=ConnectionStrings__Database=nourish-neon-database:1,OpenAi__ApiKey=financialapp-openai-api-key:latest,Cleanup__Token=nourish-cleanup-token:1'
     id: Deploy
     waitFor:

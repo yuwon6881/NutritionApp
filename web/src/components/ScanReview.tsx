@@ -6,10 +6,11 @@ import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {mealTime} from '../lib/foodDiary';
 import {energyLabel,inputEnergy,parseEnergy,unitsFor} from '../lib/units';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export function ScanReview({scan,store,date,onClose,onSaved,onDirtyChange,onBatch}:{scan:ScanDraft;store:Nourish;date:string;onClose:()=>void;onSaved?:()=>void;onDirtyChange?:(dirty:boolean)=>void;onBatch?:(scanId:string,foods:AiFood[],source:string)=>void}){
   const [foods,setFoods]=useState(scan.result?.foods??[]);
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
   const [meal,setMeal]=useState('Meal');
@@ -21,11 +22,11 @@ export function ScanReview({scan,store,date,onClose,onSaved,onDirtyChange,onBatc
 
   const edit=(index:number,key:keyof AiFood,value:unknown)=>setFoods(current=>current.map((food,itemIndex)=>itemIndex===index?{...food,[key]:value}:food));
   const save=async(event:FormEvent)=>{
-    event.preventDefault();setBusy(true);setError('');
+    event.preventDefault();if(busy)return;setError('');
     try{
-      await store.saveReviewedScan(scan.id,foods.map(food=>({...food,date,time,meal,source:scan.mode==='label'?'AI label · reviewed':'AI estimate · reviewed'})));
+      await run(()=>store.saveReviewedScan(scan.id,foods.map(food=>({...food,date,time,meal,source:scan.mode==='label'?'AI label · reviewed':'AI estimate · reviewed'}))));
       (onSaved??onClose)();
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <div className="dialog-step scan-review">

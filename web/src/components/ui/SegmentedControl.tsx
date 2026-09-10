@@ -2,7 +2,7 @@ import type {ReactNode} from 'react';
 import {Button,type ButtonSize} from './Button';
 import {SelectionIndicator} from './Motion';
 
-export type SegmentOption<T extends string>={value:T;label:ReactNode;disabled?:boolean};
+export type SegmentOption<T extends string>={value:T;label:ReactNode;disabled?:boolean;ariaLabel?:string};
 
 /** Short choices share a row; longer sets scroll without wrapping on compact screens. */
 export function SegmentedControl<T extends string>({label,value,options,onChange,size='md',className='',layout:requestedLayout,id}:{
@@ -12,7 +12,7 @@ export function SegmentedControl<T extends string>({label,value,options,onChange
   onChange:(value:T)=>void;
   size?:ButtonSize;
   className?:string;
-  layout?:'equal'|'scroll';
+  layout?:'equal'|'scroll'|'wrap';
   id?:string;
 }){
   const layout=requestedLayout??(options.length<=3?'equal':'scroll');
@@ -23,11 +23,12 @@ export function SegmentedControl<T extends string>({label,value,options,onChange
     if(next){onChange(next.value);window.requestAnimationFrame(()=>document.getElementById(`${id??'segment'}-${next.value}`)?.focus());}
     else if(enabled[current])onChange(enabled[current].value);
   };
-  return <SelectionIndicator active={value} className={`segmented-control ${className}`.trim()} dataLayout={layout}
+  return <SelectionIndicator id={id} active={value} className={`segmented-control ${className}`.trim()} dataLayout={layout}
     style={layout==='equal'?{gridTemplateColumns:`repeat(${options.length}, minmax(0, 1fr))`}:undefined}>
     {options.map(option=><Button key={option.value} id={`${id??'segment'}-${option.value}`} data-selection-key={option.value} type="button" size={size}
       className={value===option.value?'segment-active':undefined}
       variant="secondary" aria-pressed={value===option.value}
+      aria-label={option.ariaLabel}
       disabled={option.disabled} onClick={()=>onChange(option.value)}
       onKeyDown={event=>{
         if(event.key==='ArrowRight'||event.key==='ArrowDown'){event.preventDefault();moveFocus(1);}

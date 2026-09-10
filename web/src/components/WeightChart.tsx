@@ -13,7 +13,11 @@ export function WeightChart({weights,smoothed,weightUnit='kg'}:{weights:Point[];
   const x=(p:Point)=>chart.left+(Date.parse(p.date)-start)/duration*chart.plotWidth;const y=(p:Point)=>180-(p.kg-min)/(max-min)*140;
   const points=(items:Point[])=>items.map(p=>`${x(p)},${y(p)}`).join(' ');
   return <section className="panel"><div className="section-heading"><div><h2>Weight</h2></div>
-    <SegmentedControl<'both'|'daily'|'trend'> layout="scroll" className="chart-view-toggle" label="Weight chart display" value={view} onChange={setView} options={[{value:'both',label:'Both'},{value:'daily',label:'Daily weight'},{value:'trend',label:'Trend weight'}]}/></div>
+    <SegmentedControl<'both'|'daily'|'trend'> layout="equal" className="chart-view-toggle" label="Weight chart display" value={view} onChange={setView} options={[
+      {value:'both',label:'Both',ariaLabel:'Both'},
+      {value:'daily',label:<><span className="tab-label-full">Daily weight</span><span className="tab-label-short">Daily</span></>,ariaLabel:'Daily weight'},
+      {value:'trend',label:<><span className="tab-label-full">Trend weight</span><span className="tab-label-short">Trend</span></>,ariaLabel:'Trend weight'}
+    ]}/></div>
     {weights.length?<><svg ref={chart.ref} viewBox={`0 0 ${chart.width} 220`} className="weight-chart" role="img" aria-label={`${view==='both'?'Daily and trend':view==='daily'?'Daily scale':'Trend'} weight chart across ${weights.length} weigh-ins. Values are also available in the table below.`}>
     {[min,(min+max)/2,max].map(v=><g key={v}><line x1={chart.left} y1={y({date:'',kg:v})} x2={chart.right} y2={y({date:'',kg:v})} className="chart-grid"/><text x={chart.left-8} y={y({date:'',kg:v})+4} textAnchor="end">{displayWeight(v,weightUnit,1)}</text></g>)}
     {view!=='trend'&&<><polyline points={points(weights)} className="scale-line"/>{weights.map(p=><circle key={p.date} cx={x(p)} cy={y(p)} r="2.5" className="scale-dot"><title>{p.date}: {displayWeight(p.kg,weightUnit,2)} {weightLabel(weightUnit)} scale weight</title></circle>)}</>}

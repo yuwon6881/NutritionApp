@@ -43,10 +43,10 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Nasi lemak reviewed portion');await page.getByLabel('Calories (kcal)',{exact:true}).fill('520');
   await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Save reviewed food'}).click();
-  await expect(page.getByRole('button',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('button',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Nasi lemak reviewed portion');}).toBeTruthy();
   await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
+  await page.getByRole('button',{name:'Progress',exact:true}).click();await expect(page.locator('[data-page-heading]')).toHaveText('Progress');await page.waitForTimeout(400);await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
   await expect(page.getByText('80.8 kg',{exact:true}).first()).toBeVisible();
   await page.getByRole('button',{name:'Daily weight',exact:true}).click();await expect(page.getByRole('img',{name:/Daily scale weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Trend weight',exact:true}).click();await expect(page.getByRole('img',{name:/Trend weight chart/})).toBeVisible();

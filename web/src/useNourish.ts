@@ -5,6 +5,14 @@ import {readLocal,saveLocal} from './lib/local';
 import {today} from './lib/format';
 import {project,rebaseAfterOwnWrite,wireMutation} from './lib/projection';
 import {acknowledgeHistory} from './lib/history';
+
+export type SyncKind=Mutation['kind']|'scan'|'photo';
+export type SyncPhase='idle'|'queued'|'syncing'|'synced';
+export type SyncState={phase:SyncPhase;kind?:SyncKind};
+
+const MIN_SYNC_ACTIVE_MS=420;
+const SYNC_SUCCESS_VISIBLE_MS=900;
+
 function queueEntries(current:LocalData,entries:unknown[]):Mutation[]{
   return [
     ...current.queue,
@@ -32,10 +40,35 @@ function normalizePhotoDraft(value:PhysiqueDraft):PhysiqueDraft{
 export function useNourish(user:string){
   const [calendarDate,setCalendarDate]=useState(today());
   const [local,setLocal]=useState<LocalData>();const [error,setError]=useState('');const [busy,setBusy]=useState(false);
+  const [sync,setSync]=useState<SyncState>({phase:'idle'});
   const ref=useRef<LocalData|undefined>(undefined);const writes=useRef(Promise.resolve());const draining=useRef(false);const scanning=useRef(false);const alive=useRef(true);
   const drainRequested=useRef(false);
   const windowDate=useRef<string|undefined>(undefined);const refreshSequence=useRef(0);
   const historySequences=useRef(new Map<string,number>());
+  const syncTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);const activeSync=useRef(0);const syncStartedAt=useRef<number|undefined>(undefined);
+  const clearSyncTimer=useCallback(()=>{if(syncTimer.current!==undefined){clearTimeout(syncTimer.current);syncTimer.current=undefined;}},[]);
+  const markSyncQueued=useCallback((kind:SyncKind)=>{
+    if(activeSync.current)return;
+    clearSyncTimer();setSync({phase:'queued',kind});
+  },[clearSyncTimer]);
+  const beginSync=useCallback((kind:SyncKind)=>{
+    if(activeSync.current===0){
+      clearSyncTimer();syncStartedAt.current=Date.now();setSync({phase:'syncing',kind});
+    }
+    activeSync.current+=1;
+  },[clearSyncTimer]);
+  const finishSync=useCallback(()=>{
+    if(activeSync.current===0)return;
+    activeSync.current-=1;if(activeSync.current)return;
+    const delay=Math.max(0,MIN_SYNC_ACTIVE_MS-(Date.now()-(syncStartedAt.current??Date.now())));
+    const showSuccess=()=>{
+      syncTimer.current=undefined;
+      if(!alive.current)return;
+      setSync(current=>({phase:'synced',kind:current.kind}));
+      syncTimer.current=setTimeout(()=>{if(alive.current)setSync({phase:'idle'});},SYNC_SUCCESS_VISIBLE_MS);
+    };
+    if(delay)syncTimer.current=setTimeout(showSuccess,delay);else showSuccess();
+  },[]);
   const commit=useCallback(async(change:(data:LocalData)=>LocalData)=>{
     const task=writes.current.catch(()=>{}).then(async()=>{if(!alive.current||!ref.current)return;const next=change(ref.current);if(next===ref.current)return;await saveLocal(user,next);if(!alive.current)return;ref.current=next;setLocal(next);});
     writes.current=task;return task;
@@ -66,7 +99,7 @@ export function useNourish(user:string){
   },[commit,user]);
   const drain=useCallback(async()=>{
     if(draining.current||!navigator.onLine||!ref.current)return;
-    draining.current=true;if(ref.current.queue.length)setBusy(true);
+    draining.current=true;if(ref.current.queue.length){beginSync(ref.current.queue[0]?.kind??'entry');setBusy(true);}
     try{
       while(alive.current&&ref.current?.queue.length){
         const op=ref.current.queue[0];if(op.error)break;
@@ -93,8 +126,8 @@ export function useNourish(user:string){
       }
       if(alive.current)await refresh();setError('');
     }catch(ex){if(alive.current)setError(ex instanceof Error?ex.message:'Sync is waiting for a connection.');}
-    finally{draining.current=false;if(alive.current){setBusy(false);if(drainRequested.current){drainRequested.current=false;void drain();}}}
-  },[commit,refresh]);
+    finally{draining.current=false;if(alive.current){setBusy(false);finishSync();if(drainRequested.current){drainRequested.current=false;void drain();}}}
+  },[beginSync,commit,finishSync,refresh]);
   const mutate=useCallback(async(op:Omit<Mutation,'id'>)=>{
     await commit(current=>{
       // Settings are a single revisioned record. Coalesce rapid selector
@@ -106,10 +139,15 @@ export function useNourish(user:string){
       }
       return {...current,queue:[...current.queue,{...op,id:crypto.randomUUID()}]};
     });
+    markSyncQueued(op.kind);
     if(draining.current)drainRequested.current=true;else void drain();
-  },[commit,drain]);
+  },[commit,drain,markSyncQueued]);
   const runScans=useCallback(async()=>{
     if(scanning.current||!navigator.onLine||!ref.current)return;scanning.current=true;
+    const hasScanWork=ref.current.scans.some(scan=>!scan.result&&!scan.error);
+    const hasPhotoWork=(ref.current.photoDrafts??[]).some(draft=>!draft.error);
+    if(!hasScanWork&&!hasPhotoWork){scanning.current=false;return;}
+    beginSync(hasScanWork?'scan':'photo');
     try{
       for(const draft of [...ref.current.scans]){
         if(!alive.current||draft.result||draft.error)continue;
@@ -135,8 +173,8 @@ export function useNourish(user:string){
         }
         catch(ex){if(ex instanceof ApiError)await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).map(p=>p.id===draft.id?{...p,error:ex.message}:p)}));else setError('Photo is retained and will retry when connected.');}
       }
-    }finally{scanning.current=false;}
-  },[commit]);
+    }finally{scanning.current=false;finishSync();}
+  },[beginSync,commit,finishSync]);
   useEffect(()=>{
     alive.current=true;
     void (async()=>{try{const cached=await readLocal(user);if(cached&&alive.current){ref.current=cached;setLocal(cached);}await refresh();if(ref.current?.queue.length)await drain();await runScans();}catch(ex){if(alive.current)setError(ex instanceof Error?ex.message:'Could not load diary.');}})();
@@ -147,23 +185,25 @@ export function useNourish(user:string){
     let heartbeat=Date.now();
     const retained=()=>Boolean(ref.current&&(ref.current.queue.length||ref.current.scans.length||ref.current.photoDrafts?.length));
     const interval=window.setInterval(()=>{if(retained()||Date.now()-heartbeat>=30000){heartbeat=Date.now();wake();}},10000);
-    return()=>{alive.current=false;window.removeEventListener('online',wake);document.removeEventListener('visibilitychange',wake);clearInterval(interval);};
+    return()=>{alive.current=false;clearSyncTimer();window.removeEventListener('online',wake);document.removeEventListener('visibilitychange',wake);clearInterval(interval);};
   },[user,refresh,drain,runScans]);
   const state=useMemo(()=>local?project(local.state,local.queue):undefined,[local]);
-  return {state,local,error,busy,mutate,refresh,refreshHistory,drain,calendarDate,
+  return {state,local,error,busy,sync,mutate,refresh,refreshHistory,drain,calendarDate,
     logEntries:async(entries:unknown[])=>{
       await commit(current=>({...current,queue:queueEntries(current,entries)}));
+      markSyncQueued('entry');
       void drain();
     },
     saveReviewedScan:async(scanId:string,entries:unknown[])=>{
       await commit(current=>({...current,queue:queueEntries(current,entries),scans:current.scans.filter(s=>s.id!==scanId)}));
+      markSyncQueued('entry');
       void drain();
     },
     discardConflict:async(id:string)=>{await commit(c=>({...c,queue:c.queue.filter(q=>q.id!==id)}));await drain();},
-    addScan:async(draft:ScanDraft)=>{await commit(c=>({...c,scans:[...c.scans,draft]}));void runScans();},
+    addScan:async(draft:ScanDraft)=>{await commit(c=>({...c,scans:[...c.scans,draft]}));markSyncQueued('scan');void runScans();},
     removeScan:async(id:string)=>commit(c=>({...c,scans:c.scans.filter(s=>s.id!==id)})),
     retryScan:async(id:string)=>{await commit(c=>({...c,scans:c.scans.map(s=>s.id===id?{...s,id:crypto.randomUUID(),jobId:undefined,error:undefined}:s)}));void runScans();},
-    addPhoto:async(draft:PhysiqueDraft)=>{await commit(c=>({...c,photoDrafts:[...(c.photoDrafts??[]).filter(photo=>photo.id!==draft.id),draft]}));void runScans();},
+    addPhoto:async(draft:PhysiqueDraft)=>{await commit(c=>({...c,photoDrafts:[...(c.photoDrafts??[]).filter(photo=>photo.id!==draft.id),draft]}));markSyncQueued('photo');void runScans();},
     retryPhoto:async(id:string)=>{await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).map(p=>p.id===id?{...p,id:/expired|deleted/i.test(p.error??'')?crypto.randomUUID():p.id,error:undefined}:p)}));void runScans();},
     removePhotoDraft:async(id:string)=>commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).filter(p=>p.id!==id)})),
   };

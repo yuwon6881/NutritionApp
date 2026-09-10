@@ -5,12 +5,13 @@ import {mealTime} from '../lib/foodDiary';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {energyLabel,parseEnergy,unitsFor} from '../lib/units';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export function QuickAdd({store,date,onDone,onDirtyChange}:{store:Nourish;date:string;onDone:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const [calories,setCalories]=useState('');
   const [meal,setMeal]=useState('Meal');
   const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const energyUnit=unitsFor(store.state!.settings).energy;
   const initial=useRef(JSON.stringify({calories:'',meal:'Meal',time}));
@@ -18,13 +19,13 @@ export function QuickAdd({store,date,onDone,onDirtyChange}:{store:Nourish;date:s
   useEffect(()=>onDirtyChange?.(snapshot!==initial.current),[snapshot,onDirtyChange]);
 
   const save=async(event:FormEvent)=>{
-    event.preventDefault();if(busy)return;setBusy(true);setError('');
+    event.preventDefault();if(busy)return;setError('');
     try{
       const parsed=parseEnergy(calories,energyUnit);
       if(!Number.isFinite(parsed))throw new Error(`Enter calories in ${energyLabel(energyUnit)}.`);
-      await store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{date,time,meal:meal.trim()||'Meal',name:'Quick add',calories:parsed,quantity:1,unit:'serving',protein:null,fat:null,carbs:null,fiber:null,source:'Quick add'}});
+      await run(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{date,time,meal:meal.trim()||'Meal',name:'Quick add',calories:parsed,quantity:1,unit:'serving',protein:null,fat:null,carbs:null,fiber:null,source:'Quick add'}}));
       onDone();
-    }catch(ex){setError((ex as Error).message);}finally{setBusy(false);}
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <div className="dialog-step editor"><Form onSubmit={save}>

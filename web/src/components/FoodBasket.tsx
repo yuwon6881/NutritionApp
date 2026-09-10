@@ -8,6 +8,7 @@ import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {Form,FieldFrame} from './ui/Form';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface FoodBasketProps {
   basket:FoodBasketHook;
@@ -26,7 +27,7 @@ export function FoodBasket({
 }:FoodBasketProps){
   const [meal,setMeal]=useState('Meal');
   const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
-  const [busy,setBusy]=useState(false);
+  const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const [announcement,setAnnouncement]=useState('');
   const units=unitsFor(store.state!.settings);
@@ -40,21 +41,18 @@ export function FoodBasket({
   const submitBatch=async(event:FormEvent)=>{
     event.preventDefault();
     if(!basket.lines.length||basket.lines.length>20)return;
-    setBusy(true);
     setError('');
     try{
-      const entries=basketEntries(basket.lines,{date,time,meal});
-      await store.logEntries(entries);
-      for(const scanId of basket.scanIds){
-        await store.removeScan(scanId);
-      }
-      basket.clear();
+      await run(async()=>{
+        const entries=basketEntries(basket.lines,{date,time,meal});
+        await store.logEntries(entries);
+        for(const scanId of basket.scanIds){
+          await store.removeScan(scanId);
+        }
+        basket.clear();
+      });
       onSaved();
-    }catch(ex){
-      setError((ex as Error).message);
-    }finally{
-      setBusy(false);
-    }
+    }catch(ex){setError((ex as Error).message);}
   };
 
   return <div className="dialog-step food-basket">

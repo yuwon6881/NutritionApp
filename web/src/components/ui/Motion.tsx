@@ -85,7 +85,7 @@ export function MotionPanel({motionKey,direction=1,children,className=''}:{motio
 }
 
 /** Moves one selection marker between buttons without changing the button semantics. */
-export function SelectionIndicator({active,className='',dataLayout,style,children}:{active:string;className?:string;dataLayout?:string;style?:CSSProperties;children:ReactNode}){
+export function SelectionIndicator({active,className='',dataLayout,style,id,children}:{active:string;className?:string;dataLayout?:string;style?:CSSProperties;id?:string;children:ReactNode}){
   const root=useRef<HTMLDivElement>(null);
   const marker=useRef<HTMLSpanElement>(null);
   const reduced=useReducedMotion();
@@ -110,7 +110,7 @@ export function SelectionIndicator({active,className='',dataLayout,style,childre
     return()=>{observer.disconnect();window.removeEventListener('resize',measure);};
   },[active]);
 
-  return <div ref={root} className={`selection-indicator ${className}`.trim()} data-layout={dataLayout} data-motion-reduced={reduced||undefined} style={style}>
+  return <div ref={root} id={id} className={`selection-indicator ${className}`.trim()} data-layout={dataLayout} data-motion-reduced={reduced||undefined} style={style}>
     <span ref={marker} className="selection-indicator-marker" aria-hidden="true"/>
     {children}
   </div>;

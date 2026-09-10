@@ -7,6 +7,7 @@ import {Modal} from './ui/Modal';
 import {CoachDelta,CoachNumber} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
 import {displayEnergy,energyLabel,energyValue,unitsFor} from '../lib/units';
+import {useAsyncAction} from './ui/useAsyncAction';
 
 const goalLabel=(goal?:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':goal==='maintain'?'Maintenance':'Starting plan';
 
@@ -27,7 +28,7 @@ function ChangeRow({label,previous,proposed,unit='',formatValue=number,deltaValu
 }
 
 export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogProps){
-  const [declining,setDeclining]=useState(false);
+  const {busy:declining,run:runDecline}=useAsyncAction();
   const [declineError,setDeclineError]=useState('');
   const declineId=useRef<string|undefined>(undefined);
   const source=useRef<HTMLDivElement>(null);
@@ -59,15 +60,16 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
 
   const decline=async()=>{
     if(!proposal||declining||!online||pending)return;
-    setDeclining(true);setDeclineError('');
+    setDeclineError('');
     const id=declineId.current??crypto.randomUUID();declineId.current=id;
     try{
-      await api('/coach/decline',{id,revision:proposal.revision});
-      declineId.current=undefined;
-      try{await store.refresh();}catch{/* The server decision is durable even if the refresh is delayed. */}
+      await runDecline(async()=>{
+        await api('/coach/decline',{id,revision:proposal.revision});
+        declineId.current=undefined;
+        try{await store.refresh();}catch{/* The server decision is durable even if the refresh is delayed. */}
+      });
       onClose();
     }catch(ex){setDeclineError((ex as Error).message);}
-    finally{setDeclining(false);}
   };
 
   const result=proposal?.result;

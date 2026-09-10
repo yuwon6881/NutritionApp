@@ -21,6 +21,7 @@ import {Settings} from './components/Settings';
 import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncConflictNotice} from './components/SyncConflictNotice';
+import {SyncStatus} from './components/ui/SyncStatus';
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 
@@ -80,7 +81,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside className="sidebar">
-      <a className="brand" href="/" aria-label="Nourish home"><Brand/><span>nourish</span></a>
+      <a className="brand" href="/" aria-label="Nutrition App home"><Brand/><span>Nutrition App</span></a>
       <nav aria-label="Main navigation">
         <SelectionIndicator active={page} className="nav-mobile-items nav-selection">
           <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><Utensils size={20}/><span>Today</span></Button>
@@ -96,7 +97,8 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
       </nav>
     </aside>
     <main id="main-content" className="main-content" tabIndex={-1}>
-      <div className="topbar"><span className="account-name">{store.state?.username}</span>{needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}{store.local?.queue.length?<span className="retained-status" role="status">{conflictCount?`${conflictCount} edit${conflictCount===1?'':'s'} needs review`:`${store.local.queue.length} saved on this device`}</span>:null}<Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button></div>
+      <div className="topbar"><span className="account-name">{store.state?.username}</span>{needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}<Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button></div>
+      <SyncStatus store={store}/>
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
       {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:<MotionScene sceneKey={needsProfile?'coach':page}>
