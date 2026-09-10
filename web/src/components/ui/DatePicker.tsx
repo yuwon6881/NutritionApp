@@ -1,6 +1,172 @@
 import {FieldFrame} from './Form';
 import {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
-import {Calendar, ChevronLeft, ChevronRight} from 'lucide-react';
+import {Calendar, Check, ChevronDown, ChevronLeft, ChevronRight} from 'lucide-react';
+
+interface CalendarDropdownProps {
+  label: string;
+  value: number;
+  options: {value: number; label: string}[];
+  onChange: (value: number) => void;
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  className?: string;
+  selectClassName?: string;
+  menuClassName?: string;
+}
+
+function CalendarDropdown({
+  label,
+  value,
+  options,
+  onChange,
+  isOpen,
+  onToggle,
+  onClose,
+  className = '',
+  selectClassName = '',
+  menuClassName = '',
+}: CalendarDropdownProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+
+  const selectedIndex = options.findIndex(o => o.value === value);
+  const selectedOption = options[selectedIndex];
+
+  useEffect(() => {
+    if (isOpen) {
+      setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          const selectedEl = listRef.current.querySelector('[aria-selected="true"]') as HTMLElement | null;
+          selectedEl?.scrollIntoView({block: 'center'});
+        }
+      });
+    }
+  }, [isOpen, selectedIndex]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen && focusedIndex >= 0 && listRef.current) {
+      const el = listRef.current.children[focusedIndex] as HTMLElement | undefined;
+      el?.scrollIntoView({block: 'nearest'});
+    }
+  }, [isOpen, focusedIndex]);
+
+  const handleSelect = (val: number) => {
+    onChange(val);
+    onClose();
+    triggerRef.current?.focus({preventScroll: true});
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Down' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggle();
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'Down') {
+      e.preventDefault();
+      e.stopPropagation();
+      setFocusedIndex(prev => Math.min(options.length - 1, prev + 1));
+    } else if (e.key === 'ArrowUp' || e.key === 'Up') {
+      e.preventDefault();
+      e.stopPropagation();
+      setFocusedIndex(prev => Math.max(0, prev - 1));
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (focusedIndex >= 0 && focusedIndex < options.length) {
+        handleSelect(options[focusedIndex].value);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+      triggerRef.current?.focus({preventScroll: true});
+    } else if (e.key === 'Tab') {
+      onClose();
+    }
+  };
+
+  return (
+    <div className={`calendar-dropdown-wrapper ${className}`.trim()} ref={containerRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`calendar-dropdown-trigger ${isOpen ? 'open' : ''}`}
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={onToggle}
+        onKeyDown={handleKeyDown}
+      >
+        <span className="calendar-dropdown-text">{selectedOption?.label ?? value}</span>
+        <ChevronDown size={14} className={`calendar-dropdown-chevron ${isOpen ? 'rotated' : ''}`} />
+      </button>
+
+      <select
+        className={`accessible-native-select ${selectClassName}`.trim()}
+        aria-label={label}
+        value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        {options.map(opt => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+
+      {isOpen && (
+        <ul
+          ref={listRef}
+          className={`calendar-dropdown-menu ${menuClassName}`.trim()}
+          role="listbox"
+          aria-label={label}
+          tabIndex={-1}
+          onKeyDown={handleKeyDown}
+        >
+          {options.map((opt, idx) => {
+            const isSelected = opt.value === value;
+            const isFocused = idx === focusedIndex;
+            return (
+              <li
+                key={opt.value}
+                role="option"
+                aria-selected={isSelected}
+                className={`calendar-dropdown-option ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''}`}
+                onClick={() => handleSelect(opt.value)}
+                onMouseEnter={() => setFocusedIndex(idx)}
+              >
+                <span className="calendar-dropdown-label">{opt.label}</span>
+                {isSelected && <Check size={13} className="calendar-dropdown-check" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export interface DatePickerProps {
   label: string;
@@ -68,7 +234,8 @@ export function DatePicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const closeCalendar = () => {setIsOpen(false);triggerRef.current?.focus({preventScroll:true});};
+  const [activeDropdown, setActiveDropdown] = useState<'month' | 'year' | null>(null);
+  const closeCalendar = () => {setIsOpen(false);setActiveDropdown(null);triggerRef.current?.focus({preventScroll:true});};
 
   useLayoutEffect(() => {
     if (!isOpen) return;
@@ -103,6 +270,7 @@ export function DatePicker({
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setActiveDropdown(null);
         setIsOpen(false);
       }
     };
@@ -115,8 +283,11 @@ export function DatePicker({
   const minimumYear = min ? parseIso(min).getFullYear() : 1900;
   const maximumYear = max ? parseIso(max).getFullYear() : Math.max(new Date().getFullYear(), viewYear);
   const calendarYears = Array.from({length:Math.max(1,maximumYear-minimumYear+1)},(_,index)=>minimumYear+index);
+  const monthOptions = MONTHS.map((month, index) => ({value: index, label: month}));
+  const yearOptions = calendarYears.map(year => ({value: year, label: String(year)}));
 
   const prevMonth = () => {
+    setActiveDropdown(null);
     if (viewMonth === 0) {
       setViewMonth(11);
       setViewYear(y => y - 1);
@@ -126,6 +297,7 @@ export function DatePicker({
   };
 
   const nextMonth = () => {
+    setActiveDropdown(null);
     if (viewMonth === 11) {
       setViewMonth(0);
       setViewYear(y => y + 1);
@@ -135,6 +307,7 @@ export function DatePicker({
   };
 
   const handleSelectDay = (day: number) => {
+    setActiveDropdown(null);
     const selected = new Date(viewYear, viewMonth, day);
     const iso = toIso(selected);
     onChange(iso);
@@ -181,7 +354,7 @@ export function DatePicker({
   }
 
   return (
-    <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef} onKeyDown={event=>{if(isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();}}}>
+    <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef} onKeyDown={event=>{if(!activeDropdown&&isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();}}}>
       <label htmlFor={id} className="date-picker-label">
         <span>{label}</span>
       </label>
@@ -229,12 +402,27 @@ export function DatePicker({
                 </button>
               </div>
               <div className="calendar-title-controls">
-                <select className="calendar-title-select" aria-label="Choose month" value={viewMonth} onChange={event=>setViewMonth(Number(event.target.value))}>
-                  {MONTHS.map((month,index)=><option key={month} value={index}>{month}</option>)}
-                </select>
-                <select className="calendar-title-select calendar-year-select" aria-label="Choose year" value={viewYear} onChange={event=>setViewYear(Number(event.target.value))}>
-                  {calendarYears.map(year=><option key={year} value={year}>{year}</option>)}
-                </select>
+                <CalendarDropdown
+                  label="Choose month"
+                  value={viewMonth}
+                  options={monthOptions}
+                  onChange={m => setViewMonth(m)}
+                  isOpen={activeDropdown === 'month'}
+                  onToggle={() => setActiveDropdown(curr => curr === 'month' ? null : 'month')}
+                  onClose={() => setActiveDropdown(null)}
+                  selectClassName="calendar-title-select"
+                />
+                <CalendarDropdown
+                  label="Choose year"
+                  value={viewYear}
+                  options={yearOptions}
+                  onChange={y => setViewYear(y)}
+                  isOpen={activeDropdown === 'year'}
+                  onToggle={() => setActiveDropdown(curr => curr === 'year' ? null : 'year')}
+                  onClose={() => setActiveDropdown(null)}
+                  selectClassName="calendar-title-select calendar-year-select"
+                  menuClassName="year-menu"
+                />
               </div>
               <div className="calendar-nav-group">
                 <button type="button" className="calendar-nav-btn" onClick={nextMonth} aria-label="Next month">

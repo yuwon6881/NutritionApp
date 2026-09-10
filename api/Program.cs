@@ -86,7 +86,20 @@ await using(var scope=app.Services.CreateAsyncScope())
 {
     var db=scope.ServiceProvider.GetRequiredService<AppDb>();
     if(db.Database.IsSqlite()&&app.Environment.IsDevelopment()) await db.Database.EnsureCreatedAsync();
-    else if(builder.Configuration.GetValue("Database:MigrateOnStartup",false)) await db.Database.MigrateAsync();
+    else if(builder.Configuration.GetValue("Database:MigrateOnStartup",true)||args.Contains("--migrate-only"))
+    {
+        var rawConn=builder.Configuration.GetConnectionString("Database");
+        if(!string.IsNullOrWhiteSpace(rawConn))
+        {
+            var directConn=ConnectionSettings.Direct(rawConn);
+            await using var migrateDb=new AppDb(new DbContextOptionsBuilder<AppDb>().UseNpgsql(directConn).Options);
+            await migrateDb.Database.MigrateAsync();
+        }
+        else
+        {
+            await db.Database.MigrateAsync();
+        }
+    }
 }
 if(args.Contains("--migrate-only")) return;
 app.Run();
