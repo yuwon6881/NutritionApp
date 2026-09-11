@@ -17,7 +17,7 @@ export function mealReadOnly(state:AppState,date:string){
   return date<detailCutoff(state)||state.days.some(day=>day.date===date&&day.archived);
 }
 export function timelineGroups(entries:Entry[]){
-  const times=[...new Set(['00:00',...entries.map(e=>e.time).filter((t):t is string=>!!t)])].sort();
+  const times=[...new Set(entries.map(e=>e.time).filter((t):t is string=>!!t))].sort();
   return [...times,...(entries.some(e=>!e.time)?['']:[])].map(time=>({
     time,label:time?timeLabel(time):'Time not recorded',
     entries:entries.filter(e=>(e.time??'')===time).sort((a,b)=>a.id.localeCompare(b.id))
@@ -32,7 +32,7 @@ export function timelineGroups(entries:Entry[]){
 export type TimelineView='data'|'full';
 
 export function timelineSlots(entries:Entry[],startHour=0,endHour=23,view:TimelineView='full'){
-  const occupied=timelineGroups(entries).filter(group=>group.time!==''&&(group.time!=='00:00'||entries.some(entry=>entry.time==='00:00')));
+  const occupied=timelineGroups(entries).filter(group=>group.time!=='');
   if(view==='data')return [...occupied,...(entries.some(entry=>!entry.time)?[{time:'',label:'Time not recorded',entries:entries.filter(entry=>!entry.time)}]:[])];
   const groups=new Map(occupied.map(group=>[group.time,group]));
   for(let hour=startHour;hour<=endHour;hour++){

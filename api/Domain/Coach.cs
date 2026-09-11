@@ -43,6 +43,7 @@ public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double
     public bool PhaseComplete { get; init; }
     public GoalProgress? GoalProgress { get; init; }
     public EnergyEvidence? Evidence { get; init; }
+    public bool ProteinFixed { get; init; }
 }
 
 public static class Coach
@@ -108,17 +109,20 @@ public static class Coach
         if (p.GoalRatePercent is {} selectedRate && effectiveGoal != "maintain") reason += $" Selected {Math.Abs(selectedRate):0.##}% bodyweight per week; weekly limits and the calorie floor may moderate this target.";
         else if (p.EnergyAdjustmentPercent is {} percent && effectiveGoal != "maintain") reason += $" Selected {percent}% {(effectiveGoal == "lose" ? "deficit" : "surplus")}; weekly limits and the calorie floor may moderate this target.";
         double protein, fat, carbs;
+        bool proteinFixed;
         if (p.ProteinPercent is {} proteinShare && p.FatPercent is {} fatShare && p.CarbsPercent is {} carbShare)
         {
             protein = Math.Round(target * proteinShare / 100 / 4);
             fat = target * fatShare / 100 / 9;
             carbs = target * carbShare / 100 / 4;
+            proteinFixed = false;
         }
         else
         {
             protein = p.ProteinGrams ?? Math.Round(p.WeightKg * (p.ResistanceTraining && effectiveGoal == "lose" ? 2 : 1.6));
             fat = target * .3 / 9;
             carbs = (target - protein * 4 - fat * 9) / 4;
+            proteinFixed = true;
         }
         if (carbs < 0) return Blocked("Protein and fat exceed the calorie target. Review your protein override.");
         var weekly = target * 7;
@@ -132,7 +136,8 @@ public static class Coach
             DailyCalories=p.GoalRatePercent is not null || p.DistributionShares is not null
                 ? DailyTargets.Allocate(weekly, p.DistributionShares)
                 : null,
-            GoalRatePercent=rate
+            GoalRatePercent=rate,
+            ProteinFixed=proteinFixed
         };
     }
 

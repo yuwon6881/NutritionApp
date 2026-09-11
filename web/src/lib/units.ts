@@ -49,9 +49,10 @@ export function parseEnergy(value:string,unit:EnergyUnit){
 }
 
 export function heightPartsFromCm(cm:number){
-  const totalInches=cm/2.54;
-  const feet=Math.floor(totalInches/12);
-  return {feet,inches:Math.round((totalInches-feet*12)*10)/10};
+  // Round the inches first: rounding a remainder just under twelve would otherwise read "5 ft 12 in".
+  const tenths=Math.round(cm/2.54*10);
+  const feet=Math.floor(tenths/120);
+  return {feet,inches:(tenths-feet*120)/10};
 }
 export function cmFromHeightParts(feetValue:string,inchesValue:string){
   const feet=Number(feetValue);const inches=Number(inchesValue);

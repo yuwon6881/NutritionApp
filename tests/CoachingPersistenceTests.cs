@@ -94,6 +94,50 @@ public class CoachingPersistenceTests
         await sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new { date=date.AddDays(-1),name="Rice",calories=100,meal="Lunch",quantity=100,unit="g" })),default);
         Assert.Equal(original,(await db.Plans.SingleAsync()).ResultJson);
     }
+    [Fact] public async Task A_trajectory_backed_proposal_keeps_one_calorie_target_across_a_completed_phase()
+    {
+        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
+        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
+        var user=await new AuthService(db,new ConfigurationBuilder().Build()).Register("alice","a very long test password",default);db.CurrentUser=user.Id;
+        user.ProfileJson=Json.Write(new Profile { Age=30,HeightCm=175,WeightKg=78,Sex="male",Activity=1.4,Goal="lose",
+            Maintenance=2500,PhaseMode="weight",TargetWeightKg=79,PhaseStartWeightKg=82,GoalRatePercent=-.5,TimeZone="UTC" });
+        user.ProfileRevision=++user.Revision;
+        var today=RetentionService.Today(user.ProfileJson);
+        for(var i=1;i<=28;i++){
+            db.Entries.Add(new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Name="Meals",Calories=2500});
+            db.Weights.Add(new Weight{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Kg=78});
+        }
+        db.PhaseDecisions.Add(new PhaseDecision{Id=Guid.NewGuid(),UserId=user.Id,Date=today,ProfileRevision=user.ProfileRevision,
+            Decision="completed",ReachedBy="scale",Revision=++user.Revision});
+        await db.SaveChangesAsync();
+
+        var result=(await new CoachingService(db,new ExpenditureTrajectoryService(db)).Preview(default)).Result;
+        Assert.True(result.Adaptive);Assert.True(result.PhaseComplete);Assert.Equal("maintain",result.EffectiveGoal);
+        // A completed phase ends the deficit, and every derived figure follows the same target.
+        Assert.InRange(result.Calories!.Value,2400,2600);
+        Assert.Equal(result.Calories!.Value*7,result.WeeklyCalories);
+        Assert.Equal((int)Math.Round(result.WeeklyCalories!.Value),result.DailyCalories!.Sum());
+        Assert.InRange(result.Protein!.Value*4+result.Fat!.Value*9+result.Carbs!.Value*4,result.Calories!.Value-2,result.Calories!.Value+2);
+    }
+
+    [Fact] public async Task Deleting_a_historical_weigh_in_rebuilds_the_trajectory_from_its_own_date()
+    {
+        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
+        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
+        var user=await new AuthService(db,new ConfigurationBuilder().Build()).Register("alice","a very long test password",default);db.CurrentUser=user.Id;
+        var trajectory=new ExpenditureTrajectoryService(db);var sync=new SyncService(db,trajectory:trajectory);
+        await sync.Apply(new(Guid.NewGuid(),"profile",user.Id,0,JsonSerializer.SerializeToElement(
+            new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500,TimeZone="UTC" },Json.Options)),default);
+        var date=RetentionService.Today(user.ProfileJson).AddDays(-40);
+        var id=Guid.NewGuid();
+        var added=await sync.Apply(new(Guid.NewGuid(),"weight",id,0,JsonSerializer.SerializeToElement(new { date,kg=79.5 })),default);
+        // A delete carries no date of its own, so the stored date has to drive the rebuild.
+        var deleted=await sync.Apply(new(Guid.NewGuid(),"weight",id,added,JsonSerializer.SerializeToElement(new {}),true),default);
+
+        var snapshots=await db.ExpenditureEstimates.AsNoTracking().OrderBy(snapshot=>snapshot.Date).ToListAsync();
+        Assert.Equal(date,snapshots.Where(snapshot=>snapshot.SourceRevision==deleted).Min(snapshot=>snapshot.Date));
+    }
+
     [Fact] public void Ai_validation_preserves_unknowns_and_rejects_negative_values()
     {
         var food=new AiFood("Nasi lemak",1,"serving",500,null,20,60,null,"Portion uncertain");

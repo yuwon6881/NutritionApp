@@ -44,14 +44,22 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
     event.preventDefault();if(busy)return;
     setError('');
     try{
-      const target=existing??(initial&&initial.date===entryDate?initial:undefined);
-      await run(()=>store.mutate({
-        kind:'weight',
-        recordId:target?.id??crypto.randomUUID(),
-        expectedRevision:target?.revision??0,
-        data:{date:entryDate,kg:parseWeight(kg,units.weight)},
-        delete:false,
-      }));
+      // Editing a weigh-in and changing its date moves that record. One date holds at most one
+      // weigh-in, so a destination that already has one is updated and the record left behind is
+      // removed rather than duplicated onto the new date.
+      const moved=initial&&initial.date!==entryDate?initial:undefined;
+      const target=existing??moved??initial;
+      await run(async()=>{
+        await store.mutate({
+          kind:'weight',
+          recordId:target?.id??crypto.randomUUID(),
+          expectedRevision:target?.revision??0,
+          data:{date:entryDate,kg:parseWeight(kg,units.weight)},
+          delete:false,
+        });
+        if(moved&&target?.id!==moved.id)
+          await store.mutate({kind:'weight',recordId:moved.id,expectedRevision:moved.revision,data:moved,delete:true});
+      });
       onClose();
     }catch(ex){setError((ex as Error).message);}
   };
@@ -70,9 +78,9 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
         <DatePicker id="weight-entry-date" name="date" min="2000-01-01" label="Weigh-in date" value={entryDate} max={current} required onChange={setEntryDate}/>
         <Field id="weight-entry-kg" name="kg" data-modal-autofocus label={`Weight (${weightLabel(units.weight)})`} type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.01" required value={kg} onChange={event=>setKg(event.target.value)}/>
       </div>
-      <p className="source">A date with an existing weigh-in is updated.</p>
+      <p className="source">{initial?'Changing the date moves this weigh-in. A date that already has one is updated instead.':'A date with an existing weigh-in is updated.'}</p>
       {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':existing?'Update weigh-in':'Save weigh-in'}</Button></div>
+      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':existing||initial?'Update weigh-in':'Save weigh-in'}</Button></div>
     </Form>
   </Modal>;
 }

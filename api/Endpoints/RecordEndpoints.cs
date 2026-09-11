@@ -36,7 +36,7 @@ public static class RecordEndpoints
                 energyEstimates=energySnapshots.Select(snapshot=>new { date=snapshot.Date,revision=snapshot.SourceRevision,expenditure=snapshot.Expenditure,suggestedCalories=snapshot.SuggestedCalories,confidence=snapshot.Confidence,holdReason=snapshot.HoldReason,algorithmVersion=snapshot.AlgorithmVersion,trendWeightKg=snapshot.TrendWeightKg }),
                 acceptedTargetIntervals,
                 entries=await db.Entries.Where(e=>e.Date>=start&&e.Date<=end).OrderBy(e=>e.Date).ThenBy(e=>e.Id).ToListAsync(ct),
-                foods=await db.Foods.OrderBy(f=>f.Name).Take(1000).ToListAsync(ct),
+                foods=await db.Foods.Where(f=>!f.Deleted).OrderBy(f=>f.Name).Take(1000).ToListAsync(ct),
                 weights=await db.Weights.Where(w=>w.Date>=start&&w.Date<=end).OrderBy(w=>w.Date).ToListAsync(ct),
                 weightTrendSeed=await db.Weights.Where(w=>w.Date>=start.AddDays(-56)&&w.Date<start&&!w.Deleted).OrderBy(w=>w.Date).ToListAsync(ct),
                 days=await db.Days.Where(d=>d.Date>=start&&d.Date<=end).ToListAsync(ct),

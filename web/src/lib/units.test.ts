@@ -18,4 +18,9 @@ describe('display units',()=>{
     expect(cmFromHeightParts(String(parts.feet),String(parts.inches))).toBeCloseTo(170,0);
     expect(displayHeight(170,'ft-in')).toBe('5 ft 6.9 in');
   });
+  it('carries a rounded twelve inches into the next foot',()=>{
+    expect(heightPartsFromCm(182.87)).toEqual({feet:6,inches:0});
+    expect(displayHeight(182.87,'ft-in')).toBe('6 ft 0 in');
+    expect(displayHeight(182.5,'ft-in')).toBe('5 ft 11.9 in');
+  });
 });

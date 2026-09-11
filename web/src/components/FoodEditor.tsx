@@ -127,10 +127,10 @@ export function FoodEditor({
         <Field id="food-quantity" name="quantity" readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
         <SelectField id="food-unit" name="unit" disabled={title.startsWith('Save food')} label="Unit" value={unitChoice} onChange={value=>{
           if(value==='g')setBasis({unit:'g',portionLabel:null,portionGrams:null});
-          else if(value==='serving')setBasis({unit:'serving',portionLabel:null,portionGrams:null});
+          else if(value==='serving')setBasis({quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
           else{
             const selected=portions.find(portion=>`portion:${portion.label}`===value);
-            if(selected)setBasis({unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
+            if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
           }
         }} options={unitOptions}/>
         <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>

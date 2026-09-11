@@ -46,14 +46,21 @@ export function Today({
   // Keep the latest accepted targets active while a newer profile proposal is
   // waiting for an explicit acceptance.
   const accepted=state.plans.find(p=>!p.deleted);
-  const plan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
+  const latestPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
+  // Use historical target intervals when browsing past dates so the diary shows
+  // the targets that were active at that time, not the current plan.
+  const intervals=state.acceptedTargetIntervals??[];
+  const historicalInterval=intervals.find(i=>i.start<=date&&i.end>=date);
+  const plan:CoachResult|undefined=historicalInterval
+    ?{version:latestPlan?.version??'2.0.0',eligible:true,adaptive:false,calories:historicalInterval.calories,expenditure:null,protein:latestPlan?.protein??null,fat:latestPlan?.fat??null,carbs:latestPlan?.carbs??null,explanation:'',weeklyCalories:historicalInterval.weeklyCalories,dailyCalories:historicalInterval.dailyCalories,proteinFixed:latestPlan?.proteinFixed}
+    :latestPlan;
   const targets=targetsForDate(plan,date);
   const day=state.days.find(d=>d.date===date);
   const status=dayStatus(date,today(state.profile?.timeZone),day&&!day.deleted?day.status:undefined,savedDay?.archived?(savedDay.entryCount??0)>0:entries.length>0);
   const ratio=targets.calories?Math.min(total/targets.calories,1):0;
   const act=async(fn:()=>Promise<unknown>)=>{try{setError('');await fn();}catch(ex){setError((ex as Error).message);}};
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
-  const goalProgress=mergeGoalProgress(plan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision),phaseDecision);
+  const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision),phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
   return <>
     <header className="page-heading">
@@ -81,7 +88,7 @@ export function Today({
             <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
             <p>{targets.calories?`${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} target`:'Set up your coach'}</p>
             <Button variant="tertiary" onClick={onCoach}>
-              {plan?'Targets':'Set up coach'}<ArrowRight size={16}/>
+              {latestPlan?'Targets':'Set up coach'}<ArrowRight size={16}/>
             </Button>
           </div>
           <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={targets.calories?`${displayEnergy(total,energyUnit)} of ${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} logged`:`${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)} logged`}>

@@ -127,10 +127,10 @@ export function FoodBasket({
               options={options}
               onChange={value=>{
                 if(value==='g')basket.updateLineBasis(line.key,{unit:'g',portionLabel:null,portionGrams:null});
-                else if(value==='serving')basket.updateLineBasis(line.key,{unit:'serving',portionLabel:null,portionGrams:null});
+                else if(value==='serving')basket.updateLineBasis(line.key,{quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
                 else{
                   const portion=line.portions.find(item=>`portion:${item.label}`===value);
-                  if(portion)basket.updateLineBasis(line.key,{unit:'serving',portionLabel:portion.label,portionGrams:portion.grams});
+                  if(portion)basket.updateLineBasis(line.key,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams});
                 }
               }}
             />

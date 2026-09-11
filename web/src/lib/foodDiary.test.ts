@@ -8,10 +8,14 @@ const state:AppState={id:'a',username:'a',revision:1,profileRevision:0,profile:n
 const entry=(id:string,time?:string|null):Entry=>({id,time,date:'2026-09-09',name:'Quick add',meal:'Meal',quantity:1,unit:'serving',calories:300,protein:null,carbs:null,fat:null,fiber:null,source:'Quick add',revision:0,deleted:false});
 afterEach(()=>vi.useRealTimers());
 
-it('starts at midnight, orders occupied times, and separates legacy entries',()=>{
+it('orders occupied times and separates legacy entries',()=>{
   const groups=timelineGroups([entry('late','23:59'),entry('old'),entry('noon','12:00'),entry('midnight','00:00')]);
   expect(groups.map(g=>g.label)).toEqual(['12 AM','12 PM','11:59 PM','Time not recorded']);
   expect(groups.map(g=>g.entries[0].id)).toEqual(['midnight','noon','late','old']);
+});
+it('does not insert a phantom midnight row when no entry exists at 00:00',()=>{
+  const groups=timelineGroups([entry('morning','08:00'),entry('lunch','12:30')]);
+  expect(groups.map(g=>g.time)).toEqual(['08:00','12:30']);
 });
 it('adds hourly drop slots while preserving exact occupied times',()=>{
   const groups=timelineSlots([entry('late','23:45'),entry('breakfast','08:30')],6,10);
@@ -87,7 +91,7 @@ it('builds move targets excluding untimed group and flagging current time', () =
   expect(targets.some(t => t.time === '')).toBe(false);
   expect(targets.find(t => t.time === '08:00')?.current).toBe(true);
   expect(targets.find(t => t.time === '12:00')?.current).toBe(false);
-  expect(targets.find(t => t.time === '00:00')?.current).toBe(false);
+  expect(targets.find(t => t.time === '00:00')).toBeUndefined();
 });
 
 it('moveEntry returns undefined for no-op and preserves all entry data for moves', () => {

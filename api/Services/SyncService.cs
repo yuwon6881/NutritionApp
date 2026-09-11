@@ -23,11 +23,24 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             if(op.Data.TryGetProperty("date",out var date)) retention.RequireEditable(date.Deserialize<DateOnly>(),user.ProfileJson);
             if(op.Kind=="entry"&&await db.Entries.SingleOrDefaultAsync(e=>e.Id==op.RecordId,ct) is {} existingEntry) retention.RequireEditable(existingEntry.Date,user.ProfileJson);
         }
+        // A dated record is read before the write replaces it: a move or a delete has to rebuild the
+        // trajectory from the earliest date it touches, which the incoming payload alone cannot name.
+        DateOnly? storedDate=null,mutatedDate=null;
+        if(op.Kind is "entry" or "weight" or "day")
+        {
+            storedDate=op.Kind switch
+            {
+                "entry" => await db.Entries.Where(e=>e.Id==op.RecordId).Select(e=>(DateOnly?)e.Date).SingleOrDefaultAsync(ct),
+                "weight" => await db.Weights.Where(w=>w.Id==op.RecordId).Select(w=>(DateOnly?)w.Date).SingleOrDefaultAsync(ct),
+                _ => await db.Days.Where(d=>d.Id==op.RecordId).Select(d=>(DateOnly?)d.Date).SingleOrDefaultAsync(ct)
+            };
+            if(op.Data.ValueKind==JsonValueKind.Object&&op.Data.TryGetProperty("date",out var dateValue)&&dateValue.ValueKind==JsonValueKind.String)
+                mutatedDate=dateValue.Deserialize<DateOnly>();
+        }
         if(op.Kind=="entry")
         {
-            var existingDate=await db.Entries.Where(e=>e.Id==op.RecordId).Select(e=>(DateOnly?)e.Date).SingleOrDefaultAsync(ct);
-            var requestedDate=op.Data.TryGetProperty("date",out var entryDate)?entryDate.Deserialize<DateOnly>():existingDate;
-            Validation.Require(!await db.Days.AnyAsync(d=>d.Archived&&(d.Date==requestedDate||d.Date==existingDate),ct),
+            var requestedDate=mutatedDate??storedDate;
+            Validation.Require(!await db.Days.AnyAsync(d=>d.Archived&&(d.Date==requestedDate||d.Date==storedDate),ct),
                 "This day has already been summarized. Meal details are read-only. Your unsynced edit is retained locally for review.",409);
         }
         var revision = user.Revision + 1;
@@ -65,7 +78,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 }, ct); break;
             case "food":
                 if(!op.Delete&&storage!=null) await storage.AllowOptional(ct);
-                if(!op.Delete&&!await db.Foods.AnyAsync(f=>f.Id==op.RecordId,ct)) Validation.Require(await db.Foods.CountAsync(ct)<1000,"The saved-food library limit is 1,000 records. Edit an existing food or log directly.",409);
+                if(!op.Delete&&!await db.Foods.AnyAsync(f=>f.Id==op.RecordId,ct)) Validation.Require(await db.Foods.CountAsync(f=>!f.Deleted,ct)<1000,"The saved-food library limit is 1,000 records. Edit an existing food or log directly.",409);
                 await Upsert<Food>(op, revision, f =>
                 {
                     Validation.Nutrients(f); Validation.Number(f.ServingGrams, .1, 100000, "Serving weight");
@@ -92,18 +105,9 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         }
 
         if (op.Kind is "entry" or "weight" or "day")
-        {
-            trajectoryFrom = op.Kind switch
-            {
-                "entry" => new[]
-                {
-                    op.Data.TryGetProperty("date", out var requested) ? requested.Deserialize<DateOnly>() : (DateOnly?)null,
-                    await db.Entries.Where(entry => entry.Id == op.RecordId).Select(entry => (DateOnly?)entry.Date).SingleOrDefaultAsync(ct)
-                }.Where(date => date != null).Select(date => date!.Value).DefaultIfEmpty(RetentionService.Today(user.ProfileJson)).Min(),
-                "weight" => op.Data.TryGetProperty("date", out var weightDate) ? weightDate.Deserialize<DateOnly>() : RetentionService.Today(user.ProfileJson),
-                _ => op.Data.TryGetProperty("date", out var dayDate) ? dayDate.Deserialize<DateOnly>() : RetentionService.Today(user.ProfileJson)
-            };
-        }
+            trajectoryFrom = new[] { mutatedDate, storedDate }
+                .Where(date => date != null).Select(date => date!.Value)
+                .DefaultIfEmpty(RetentionService.Today(user.ProfileJson)).Min();
         // Food edits clear fasting or missing-intake decisions; elapsed dates resolve automatically.
         if (op.Kind == "entry")
         {

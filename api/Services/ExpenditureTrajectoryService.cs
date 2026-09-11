@@ -54,7 +54,10 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         if (string.IsNullOrWhiteSpace(user.ProfileJson)) return;
         var profile = Json.Read<Profile>(user.ProfileJson);
         var today = Today(profile);
-        var start = from > today ? today : from;
+        // Only the backfill window is retained, so a mutation on a much older date rebuilds the
+        // window rather than replaying every year since that date.
+        var floor = today.AddDays(-(BackfillDays - 1));
+        var start = from > today ? today : from < floor ? floor : from;
         var seed = await db.ExpenditureEstimates.AsNoTracking()
             .Where(item => item.Date < start && item.AlgorithmVersion == ExpenditureTrajectory.AlgorithmVersion)
             .OrderByDescending(item => item.Date)
@@ -131,11 +134,9 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         return dates.Select(date =>
         {
             var status = statuses.LastOrDefault(day => day.Date == date);
-            var hasEntries = totals.ContainsKey(date);
-            var resolved = status?.Status is "complete" or "fasting"
-                ? status.Status
-                : status?.Status == "not_logged" ? "not_logged" : hasEntries ? "complete" : "incomplete";
-            return new NutritionDay(date, resolved, status?.Archived == true ? status.Calories : totals.GetValueOrDefault(date));
+            var hasFood = status?.Archived == true ? status.EntryCount > 0 : totals.ContainsKey(date);
+            return new NutritionDay(date, LoggingDay.Status(date, current, status?.Status, hasFood),
+                status?.Archived == true ? status.Calories : totals.GetValueOrDefault(date));
         }).ToList();
     }
 

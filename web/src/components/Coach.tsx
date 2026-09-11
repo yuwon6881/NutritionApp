@@ -148,7 +148,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const weeklyValues=weeklyDraft??(profile.distributionShares?.length===7
     ?allocateWeeklyCalories(live.weeklyCalories,profile.distributionShares)
     :live.dailyCalories);
-  const weeklyValid=weeklyValues.length===7&&weeklyValues.every(value=>Number.isInteger(value)&&value>=0)&&weeklyValues.reduce((sum,value)=>sum+value,0)===Math.round(live.weeklyCalories);
+  const weeklyValid=weeklyValues.length===7&&weeklyValues.every(value=>Number.isInteger(value)&&value>=0)&&Math.abs(weeklyValues.reduce((sum,value)=>sum+value,0)-Math.round(live.weeklyCalories))<=2;
   const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
   const weighIns=[...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)];
   const phaseDecision=store.state!.phaseDecisions?.find(decision=>decision.profileRevision===store.state!.profileRevision&&!decision.deleted);
