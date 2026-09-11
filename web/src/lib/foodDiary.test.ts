@@ -5,7 +5,7 @@ import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
 
 const state:AppState={id:'a',username:'a',revision:1,profileRevision:0,profile:null,start:'2026-06-12',end:'2026-09-09',entries:[],foods:[],weights:[],days:[],plans:[],detailDays:90};
-const entry=(id:string,time?:string|null):Entry=>({id,time,date:'2026-09-09',name:'Quick add',meal:'Meal',quantity:1,unit:'serving',calories:300,protein:null,carbs:null,fat:null,fiber:null,source:'Quick add',revision:0,deleted:false});
+const entry=(id:string,time?:string|null):Entry=>({id,time,date:'2026-09-09',name:'Quick add',quantity:1,unit:'serving',calories:300,protein:null,carbs:null,fat:null,fiber:null,source:'Quick add',revision:0,deleted:false});
 afterEach(()=>vi.useRealTimers());
 
 it('orders occupied times and separates legacy entries',()=>{
@@ -60,7 +60,7 @@ it('selects fresher covered history and retains archived unknown totals',()=>{
   const selected=historyState(local,'2026-09-01')!;
   expect(selected.days[0].calories).toBe(450);expect(selected.days[0].protein).toBeNull();
 });
-it('retains a conflicting meal edit without projecting it over an archived summary',()=>{
+it('retains a conflicting entry edit without projecting it over an archived summary',()=>{
   const archived:AppState={...state,days:[{id:'d',date:'2026-09-09',archived:true,calories:450,entryCount:1,status:'not_logged',revision:2,deleted:false}]};
   const op:Mutation={id:'m',recordId:'e',kind:'entry',expectedRevision:0,delete:false,data:entry('e','12:00'),error:'Already summarized'};
   const local:LocalData={state:archived,queue:[op],scans:[]};

@@ -75,7 +75,7 @@ export function FoodTimeline({
       >
         <div className="food-time-label">
           <span className="food-time-label-main">{group.time?<time dateTime={`${date}T${group.time}`}>{group.label}</time>:group.label}</span>
-          {group.time&&onAddAtTime&&<Button
+          {group.entries.length>0&&group.time&&onAddAtTime&&<Button
             variant="tertiary"
             size="icon"
             className="food-slot-add"
@@ -114,7 +114,7 @@ export function FoodTimeline({
                 </h3>
                 <strong>{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
               </div>
-              <p>{entry.meal} · {displayPortion(entry)}</p>
+              <p>{displayPortion(entry)}</p>
               <dl className="food-card-nutrients">
                 {(['protein','carbs','fat','fiber'] as const).filter(key=>entry[key]!=null).map(key=><div key={key}>
                   <dt>{key[0].toUpperCase()+key.slice(1)}</dt>

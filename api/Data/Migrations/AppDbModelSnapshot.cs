@@ -336,10 +336,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<double?>("Fiber")
                         .HasColumnType("double precision");
 
-                    b.Property<string>("Meal")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");

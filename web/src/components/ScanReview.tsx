@@ -11,15 +11,14 @@ import {useAsyncAction} from './ui/useAsyncAction';
 
 export function ScanReview({scan,store,date,onClose,onSaved,onDirtyChange,onBatch}:{scan:ScanDraft;store:Nourish;date:string;onClose:()=>void;onSaved?:()=>void;onDirtyChange?:(dirty:boolean)=>void;onBatch?:(scanId:string,foods:AiFood[],source:string)=>void}){
   const [foods,setFoods]=useState(()=>scan.result?.foods.map(food=>({...food}))??[]);
-  const [meal,setMeal]=useState('Meal');
   const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
   const [error,setError]=useState('');
   const [basisWarnings,setBasisWarnings]=useState<string[]>([]);
   const {busy,run}=useAsyncAction();
   const energyUnit=unitsFor(store.state!.settings).energy;
-  const initial=useRef(JSON.stringify({foods,meal,time}));
+  const initial=useRef(JSON.stringify({foods,time}));
 
-  useEffect(()=>onDirtyChange?.(JSON.stringify({foods,meal,time})!==initial.current),[foods,meal,time,onDirtyChange]);
+  useEffect(()=>onDirtyChange?.(JSON.stringify({foods,time})!==initial.current),[foods,time,onDirtyChange]);
 
   const edit=(index:number,key:keyof AiFood,value:unknown)=>{
     setFoods(current=>current.map((item,i)=>i===index?{...item,[key]:value}:item));
@@ -35,7 +34,7 @@ export function ScanReview({scan,store,date,onClose,onSaved,onDirtyChange,onBatc
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busy)return;setError('');
     try{
-      await run(()=>store.saveReviewedScan(scan.id,foods.map(food=>({...food,date,time,meal,source:scan.mode==='label'?'AI label · reviewed':'AI estimate · reviewed'}))));
+      await run(()=>store.saveReviewedScan(scan.id,foods.map(food=>({...food,date,time,source:scan.mode==='label'?'AI label · reviewed':'AI estimate · reviewed'}))));
       onSaved?.();
       onClose();
     }catch(ex){setError((ex as Error).message);}
@@ -45,7 +44,7 @@ export function ScanReview({scan,store,date,onClose,onSaved,onDirtyChange,onBatc
     <div className="notice"><strong>Editable estimate</strong><p>Review the quantities and nutrients before adding this scan to your diary.</p></div>
     {scan.result!.questions.length>0&&<ul>{scan.result!.questions.map((question,index)=><li key={index}>{question}</li>)}</ul>}
     <Form onSubmit={save}>
-      <div className="form-grid"><Field id="scan-meal" name="meal" label="Meal" required maxLength={80} value={meal} onChange={event=>setMeal(event.target.value)}/><TimePicker id="scan-time" name="time" label="Meal time" required value={time} onChange={setTime}/></div>
+      <TimePicker id="scan-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
       {foods.map((food,index)=>{
         const portionOption=food.portionLabel&&food.portionGrams!=null?{value:`portion:${food.portionLabel}`,label:`${food.portionLabel} · ${food.portionGrams} g`}:undefined;
         const unitChoice=food.unit==='g'?'g':portionOption?portionOption.value:'serving';

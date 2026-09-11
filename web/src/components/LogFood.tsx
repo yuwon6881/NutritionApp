@@ -63,7 +63,6 @@ export function LogFood({
   const [photo,setPhoto]=useState<string|null>(null);
   const [activeScanId,setActiveScanId]=useState<string>();
   const [error,setError]=useState('');
-  const [batchMeal,setBatchMeal]=useState('Meal');
   const [batchTime,setBatchTime]=useState<string|undefined>(undefined);
   const {busy,run:runAction}=useAsyncAction();
   const [camera,setCamera]=useState(false);
@@ -87,7 +86,6 @@ export function LogFood({
       setActiveScanId(undefined);
       setError('');
       setCamera(false);
-      setBatchMeal('Meal');
       setBatchTime(undefined);
       basket.clear();
     }
@@ -128,7 +126,6 @@ export function LogFood({
       await store.mutate({kind:'entry',recordId:editing.id,expectedRevision:editing.revision,delete:false,data:{...data,date}});
       onSaved();
     }else{
-      if(data.meal)setBatchMeal(data.meal);
       if(data.time)setBatchTime(data.time);
       basket.addLine({
         key:`${lineKey(data.name,data.source)}_${crypto.randomUUID().slice(0,8)}`,
@@ -260,7 +257,7 @@ export function LogFood({
   </div>;
 
   const child=step==='batch'
-    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved} initialMeal={batchMeal} initialTime={batchTime}/>
+    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved} initialTime={batchTime}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else if(editing){onSaved();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor store={store} onClose={()=>go('selection')} onDirtyChange={setStepDirty}/>

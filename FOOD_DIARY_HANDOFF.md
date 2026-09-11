@@ -20,7 +20,7 @@ Check both themes at 390, 768, and 1440 px:
 - Food navigation, date picker, previous/next/Today controls, mobile Settings access, wrapping food cards, keyboard focus, and touch targets.
 - Midnight first, same-time foods beside each other, chronological ordering, and the separate legacy untimed group.
 - Manual/saved/search/barcode/AI-reviewed time fields; edited times persist, recent-food logging defaults to now, and explicit copies preserve time.
-- Quick Add with only calories, editable meal/time, null macros, offline save/reload/reconnect, duplicate prevention, and return to the originating diary date.
+- Quick Add with only calories, editable time, null macros, offline save/reload/reconnect, duplicate prevention, and return to the originating diary date.
 - The 90-day boundary, an already archived date inside that window, unknown archived nutrients, editable archived logging decisions, and retained conflicts after cutoff.
 - Independent Weight/Energy year selections, effective-dated energy estimates, weight trend seeds, rapid navigation with delayed responses, account isolation, cached versus unavailable offline dates, and offline logging after midnight.
 

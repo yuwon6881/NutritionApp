@@ -9,16 +9,16 @@ namespace Nutrition.Tests;
 
 public sealed class FoodSearchTests
 {
-    // Shapes below are trimmed from live Open Food Facts responses: search returns brands as one
-    // comma string and serving_quantity as a number, the product endpoint sends it as a string.
+    // Shapes below are trimmed from live Open Food Facts responses. The two sources disagree: the
+    // search index sends brands as an array and indexes no serving at all, while the product
+    // endpoint sends brands as one comma string and serving_quantity as a string.
     private static JsonElement Product(string json)=>JsonDocument.Parse(json).RootElement;
 
     [Fact]
-    public void A_search_hit_keeps_its_nutrients_portion_and_attribution()
+    public void A_search_hit_keeps_its_nutrients_and_attribution()
     {
         var hit=Product("""
-            {"code":"4056489127277","product_name":"Culinea Nasi Goreng","brands":"Chef Select",
-             "serving_size":"375 g","serving_quantity":375,"serving_quantity_unit":"g",
+            {"code":"4056489127277","product_name":"Culinea Nasi Goreng","brands":["Chef Select","Lidl"],
              "nutriments":{"energy-kcal_100g":102,"proteins_100g":3.4,"fat_100g":2.1,"carbohydrates_100g":13.5,"fiber_100g":1.2}}
             """);
 
@@ -30,6 +30,48 @@ public sealed class FoodSearchTests
         Assert.Equal(13.5,result.Carbs);
         Assert.Equal("Open Food Facts / ODbL / 4056489127277",result.Source);
         Assert.Equal(100,result.ServingGrams);
+    }
+
+    [Fact]
+    public void A_search_hit_carries_no_portion_because_the_index_holds_no_serving()
+    {
+        var hit=Product("""
+            {"code":"5400141234633","product_name":"Nasi goreng","brands":["Colruyt"],"quantity":"400 g",
+             "nutriments":{"energy-kcal_100g":101,"proteins_100g":5.7}}
+            """);
+
+        Assert.Empty(FoodSearchService.ReadProduct(hit,null)!.Portions!);
+    }
+
+    [Fact]
+    public void A_hit_named_only_in_english_is_kept_rather_than_dropped()
+    {
+        var hit=Product("""{"code":"1","product_name_en":"Fried rice","nutriments":{"energy-kcal_100g":150}}""");
+
+        Assert.Equal("Fried rice",FoodSearchService.ReadProduct(hit,null)!.Name);
+    }
+
+    [Theory]
+    [InlineData("""{"brands":"Lidl, Toque du Chef"}""","Lidl, Toque du Chef")]
+    [InlineData("""{"brands":["Chef Select","Lidl"]}""","Chef Select")]
+    [InlineData("""{"brands":["","Lidl"]}""","Lidl")]
+    [InlineData("""{"brands":[]}""",null)]
+    [InlineData("""{"brands":null}""",null)]
+    [InlineData("""{}""",null)]
+    public void Both_brand_shapes_reduce_to_the_leading_brand(string json,string? expected)
+        => Assert.Equal(expected,FoodSearchService.Brand(Product(json)));
+
+    [Fact]
+    public void A_scanned_product_still_reads_its_comma_separated_brands()
+    {
+        var product=Product("""
+            {"product_name":"Nasi Goreng","brands":"Chef Select,Lidl","serving_size":"375 g",
+             "serving_quantity":"375","serving_quantity_unit":"g","nutriments":{"energy-kcal_100g":102}}
+            """);
+
+        var result=FoodSearchService.ReadProduct(product,"4056489127277")!;
+
+        Assert.Equal("Nasi Goreng · Chef Select",result.Name);
         var portion=Assert.Single(result.Portions!);
         Assert.Equal("375 g",portion.Label);
         Assert.Equal(375,portion.Grams);

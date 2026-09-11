@@ -26,7 +26,7 @@ public class FoodDiaryTests
     {
         var sync=new SyncService(db,null,new RetentionService(db,config));
         var date=RetentionService.Today(user.ProfileJson);
-        var op=new Mutation(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,time="00:00",name="Quick add",calories=450,meal="Lunch",quantity=1,unit="serving",source="Quick add"}));
+        var op=new Mutation(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,time="00:00",name="Quick add",calories=450,quantity=1,unit="serving",source="Quick add"}));
         var revision=await sync.Apply(op,default);
         Assert.Equal(revision,await sync.Apply(op,default));
         var entry=await db.Entries.SingleAsync();
@@ -80,14 +80,14 @@ public class FoodDiaryTests
         var entryId=Guid.NewGuid();
         var original=new DiaryEntry{
             Id=entryId,UserId=user.Id,Date=date,Time="08:00",Name="Breakfast",
-            Calories=400,Protein=25,Carbs=30,Fat=12,Fiber=5,Quantity=1.5,Unit="serving",Meal="Breakfast",Source="Manual"
+            Calories=400,Protein=25,Carbs=30,Fat=12,Fiber=5,Quantity=1.5,Unit="serving",Source="Manual"
         };
         db.Entries.Add(original);
         db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Status="fasting"});
         await db.SaveChangesAsync();
 
         var op=new Mutation(Guid.NewGuid(),"entry",entryId,0,JsonSerializer.SerializeToElement(new {
-            date,time="12:30",name="Breakfast",calories=400,protein=25,carbs=30,fat=12,fiber=5,quantity=1.5,unit="serving",meal="Breakfast",source="Manual"
+            date,time="12:30",name="Breakfast",calories=400,protein=25,carbs=30,fat=12,fiber=5,quantity=1.5,unit="serving",source="Manual"
         }));
         var revision=await sync.Apply(op,default);
         Assert.True(revision>0);
@@ -102,7 +102,6 @@ public class FoodDiaryTests
         Assert.Equal(5,entry.Fiber);
         Assert.Equal(1.5,entry.Quantity);
         Assert.Equal("serving",entry.Unit);
-        Assert.Equal("Breakfast",entry.Meal);
         Assert.Equal(revision,entry.Revision);
 
         var day=await db.Days.SingleAsync(d=>d.Date==date);

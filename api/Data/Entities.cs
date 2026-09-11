@@ -44,7 +44,6 @@ public class DiaryEntry : NutrientRecord
 {
     public DateOnly Date { get; set; }
     public string? Time { get; set; }
-    public string Meal { get; set; } = "Meal";
     public double Quantity { get; set; } = 1;
     public string Unit { get; set; } = "serving";
     public string? PortionLabel { get; set; }

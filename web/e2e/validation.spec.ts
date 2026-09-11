@@ -57,7 +57,7 @@ test('food, recipe and image actions explain invalid drafts without queuing writ
   await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('');
   await expect(page.getByText('Enter calories (kcal).')).toBeVisible();expect(writes).toBe(0);
   await page.getByLabel('Food name',{exact:true}).fill('Zero calorie reviewed item');
-  await page.getByLabel('Calories (kcal)',{exact:true}).fill('20001');await page.getByLabel('Meal',{exact:true}).focus();
+  await page.getByLabel('Calories (kcal)',{exact:true}).fill('20001');await page.getByLabel('Protein (g)',{exact:true}).focus();
   await expect(page.getByText('Enter 20000 or less.')).toBeVisible();
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('0');await page.getByLabel('Protein (g)').fill('');
   await page.getByRole('button',{name:'Save reviewed food'}).click();

@@ -158,7 +158,7 @@ test('changed food dialog asks before closing and keeps the draft',async({page,c
 });
 test('API idempotency, revisions, expiry-safe drafts and asset MIME protection',async({request})=>{
   await signIn(request);const state=await (await request.get('/api/state')).json();
-  const mutation={id:randomUUID(),recordId:randomUUID(),kind:'entry',expectedRevision:0,delete:false,data:{date:state.end,name:'Replay check',calories:25,quantity:1,unit:'serving',meal:'Snack'}};
+  const mutation={id:randomUUID(),recordId:randomUUID(),kind:'entry',expectedRevision:0,delete:false,data:{date:state.end,name:'Replay check',calories:25,quantity:1,unit:'serving'}};
   const one=await request.post('/api/sync',{headers,data:mutation});expect(one.ok()).toBeTruthy();
   const replay=await request.post('/api/sync',{headers,data:mutation});expect(await replay.json()).toEqual(await one.json());
   const changed=await request.post('/api/sync',{headers,data:{...mutation,data:{...mutation.data,calories:50}}});expect(changed.status()).toBe(409);

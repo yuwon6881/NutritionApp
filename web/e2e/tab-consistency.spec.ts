@@ -19,7 +19,7 @@ test('tab switching preserves consistent button locations and modal coordinates'
 
   const current=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   for(let i=0;i<6;i++){
-    await save('entry',{date:current,name:`Food item ${i}`,calories:200+i*50,protein:20,carbs:30,fat:10,quantity:100,unit:'g',meal:'Breakfast',time:'08:00'});
+    await save('entry',{date:current,name:`Food item ${i}`,calories:200+i*50,protein:20,carbs:30,fat:10,quantity:100,unit:'g',time:'08:00'});
     await save('food',{name:`Saved food ${i}`,calories:200+i*50,protein:20,carbs:30,fat:10,servingGrams:100,favourite:i%2===0,source:'custom'});
   }
 

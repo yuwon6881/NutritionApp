@@ -95,8 +95,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await expect(calorieCard.getByText('1 food')).toBeVisible();
   await expect(calorieCard.getByText('118')).toBeVisible();
 
-  // Set meal to Snack and time to 15:30
-  await page.getByLabel('Meal',{exact:true}).fill('Afternoon Snack');
+  // Set the batch time to 15:30
   await page.getByLabel('Meal time',{exact:true}).fill('15:30');
 
   // Submit batch

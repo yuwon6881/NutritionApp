@@ -70,13 +70,12 @@ it('basketTotals computes totals with partial flags and null preservation', () =
   expect(noProtein.protein.known).toBe(0);
 });
 
-it('basketEntries stamps date, time, and meal onto each line while omitting key', () => {
+it('basketEntries stamps date and time onto each line while omitting key', () => {
   const line = lineFromPer100({name: 'Apple', calories: 52, protein: 0.3, fat: 0.2, carbs: 14, fiber: 2.4, source: 'Open Food Facts'});
-  const entries = basketEntries([line], {date: '2026-09-09', time: '12:00', meal: 'Lunch'});
+  const entries = basketEntries([line], {date: '2026-09-09', time: '12:00'});
   expect(entries).toHaveLength(1);
   expect(entries[0].date).toBe('2026-09-09');
   expect(entries[0].time).toBe('12:00');
-  expect(entries[0].meal).toBe('Lunch');
   expect(entries[0].name).toBe('Apple');
   expect((entries[0] as any).key).toBeUndefined();
 });

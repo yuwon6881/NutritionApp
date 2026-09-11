@@ -9,11 +9,24 @@ public record FoodPortion(string Label,double Grams);
 public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null);
 public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
 {
-    // Open Food Facts meters per IP address, not per key: 10 search requests a minute and 15
-    // product reads a minute. Every request leaves from the one Cloud Run egress address, so the
-    // gates are app-wide rather than per user, and the two allowances are counted separately.
-    private const double SearchIntervalSeconds=6;
+    // Free text runs on Search-a-licious, the Elasticsearch service Open Food Facts built to
+    // replace cgi/search.pl. The legacy endpoint sheds load per IP and every request here leaves
+    // from the one Cloud Run egress address, so a shed answer was app-wide rather than per user.
+    // Barcode lookup stays on the product endpoint, which is not part of that shedding and is the
+    // only source carrying a declared serving.
+    private const string SearchUrl="https://search.openfoodfacts.org/search";
+    private const string ProductUrl="https://world.openfoodfacts.org/api/v2/product/";
+    // Search pacing is courtesy rather than quota: Search-a-licious is not metered per IP. The
+    // product endpoint still is, at roughly 15 reads a minute shared by everyone behind the egress.
+    // The search gate paces Open Food Facts, not the person typing, so a request that arrives early
+    // waits for its slot instead of failing; only a queue deeper than the cap is refused.
+    private const double SearchIntervalSeconds=1;
+    private const double MaxSearchWaitSeconds=3;
+    private const double BusyBackoffSeconds=10;
     private const double BarcodeIntervalSeconds=4.1;
+    // Search-a-licious does not index the serving fields, so a search hit carries no portion and
+    // the review step offers grams or an unweighed serving. A scanned barcode still gets both.
+    private const string SearchFields="code,product_name,product_name_en,brands,nutriments";
     private const string ProductFields="code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit";
     private const int MaxNameLength=160;
     private static readonly SemaphoreSlim RateGate=new(1);
@@ -25,24 +38,63 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         query=query.Trim(); Validation.Require(query.Length is >=2 and <=100,"Enter 2–100 characters.");
         var key="search:"+query.ToLowerInvariant();
         if(cache.TryGetValue<IReadOnlyList<FoodResult>>(key,out var saved)) return saved!;
+        var claimed=DateTime.MinValue; var released=DateTime.MinValue; var wait=TimeSpan.Zero;
         await RateGate.WaitAsync(ct);
-        try { Validation.Require(DateTime.UtcNow>=nextSearch,"Please wait a moment before searching again.",429); nextSearch=DateTime.UtcNow.AddSeconds(SearchIntervalSeconds); }
+        try
+        {
+            var now=DateTime.UtcNow;
+            var start=nextSearch>now?nextSearch:now;
+            wait=start-now;
+            Validation.Require(wait.TotalSeconds<=MaxSearchWaitSeconds,"Please wait a moment before searching again.",429);
+            released=nextSearch; nextSearch=claimed=start.AddSeconds(SearchIntervalSeconds);
+        }
         finally { RateGate.Release(); }
-        // The tag-filter search endpoint cannot match free text and the indexed one drops serving
-        // fields, so this is the only Open Food Facts search that ranks by relevance and still
-        // carries the declared serving a portion is derived from.
-        using var response=await http.GetAsync("https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=12&fields="+ProductFields+"&search_terms="+Uri.EscapeDataString(query),ct);
-        if(!response.IsSuccessStatusCode) throw SearchUnavailable(response.StatusCode);
-        using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         var results=new List<FoodResult>();
-        if(json.RootElement.TryGetProperty("products",out var products)&&products.ValueKind==JsonValueKind.Array)
-            foreach(var product in products.EnumerateArray())
-                if(ReadProduct(product,null) is {} result) results.Add(result);
+        try
+        {
+            if(wait>TimeSpan.Zero) await Task.Delay(wait,ct);
+            using var response=await http.GetAsync($"{SearchUrl}?page_size=12&fields={SearchFields}&q={Uri.EscapeDataString(query)}",ct);
+            if(!response.IsSuccessStatusCode) throw SearchUnavailable(response.StatusCode);
+            using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            if(json.RootElement.TryGetProperty("hits",out var hits)&&hits.ValueKind==JsonValueKind.Array)
+                foreach(var hit in hits.EnumerateArray())
+                    if(ReadProduct(hit,null) is {} result) results.Add(result);
+        }
+        catch(DomainException busy) when(busy.Status==429)
+        {
+            // Only Open Food Facts can reach here with a 429, and it means back off in earnest
+            // rather than resume the ordinary one-second pace.
+            await HoldSearch(DateTime.UtcNow.AddSeconds(BusyBackoffSeconds));
+            throw;
+        }
+        catch
+        {
+            // Any other failure hands its slot back, or the retry the error message asks for is
+            // answered by our own 429 instead of reaching Open Food Facts.
+            await ReturnSearchSlot(claimed,released);
+            throw;
+        }
         cache.Set(key,(IReadOnlyList<FoodResult>)results,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromHours(6) }); return results;
     }
 
-    // Open Food Facts sheds load on the search endpoint under pressure, which is a wait rather
-    // than a fault in the diary, so each failure names the remedy it actually has.
+    // Not cancellable: a cancelled or failed search still has to return the slot it claimed, and
+    // only while no later search has already claimed one of its own.
+    private static async Task ReturnSearchSlot(DateTime claimed,DateTime released)
+    {
+        await RateGate.WaitAsync(CancellationToken.None);
+        try { if(nextSearch==claimed) nextSearch=released; }
+        finally { RateGate.Release(); }
+    }
+
+    private static async Task HoldSearch(DateTime until)
+    {
+        await RateGate.WaitAsync(CancellationToken.None);
+        try { if(until>nextSearch) nextSearch=until; }
+        finally { RateGate.Release(); }
+    }
+
+    // Open Food Facts sheds load on search under pressure, which is a wait rather than a fault in
+    // the diary, so each failure names the remedy it actually has.
     public static DomainException SearchUnavailable(HttpStatusCode status) => status switch
     {
         HttpStatusCode.TooManyRequests => new DomainException("Food search is busy at Open Food Facts. Wait a few seconds and search again, or use custom food, recent foods, or AI describe.",429),
@@ -54,9 +106,11 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         Validation.Require(code.Length is >=8 and <=14 && code.All(char.IsAsciiDigit),"Enter an 8–14 digit barcode.");
         if(cache.TryGetValue<FoodResult>("barcode:"+code,out var saved)) return saved!;
         await RateGate.WaitAsync(ct);
+        // No slot is returned here on failure: the request reached a metered endpoint and counted
+        // against its allowance whatever it answered.
         try { Validation.Require(DateTime.UtcNow>=nextBarcode,"Wait four seconds before another barcode lookup.",429); nextBarcode=DateTime.UtcNow.AddSeconds(BarcodeIntervalSeconds); }
         finally { RateGate.Release(); }
-        using var response=await http.GetAsync($"https://world.openfoodfacts.org/api/v2/product/{code}?fields={ProductFields}",ct);
+        using var response=await http.GetAsync($"{ProductUrl}{code}?fields={ProductFields}",ct);
         Validation.Require(response.IsSuccessStatusCode,"Barcode lookup unavailable. Scan the label or enter this food manually.",503);
         using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         Validation.Require(json.RootElement.TryGetProperty("product",out var product),"Barcode not found. Scan the label or add a custom food.",404);
@@ -72,16 +126,30 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     /// </summary>
     public static FoodResult? ReadProduct(JsonElement product,string? scanned)
     {
-        var name=Text(product,"product_name");
+        var name=Text(product,"product_name")??Text(product,"product_name_en");
         if(name is null&&scanned is null) return null;
         if(Calories(product) is not {} calories) return null;
         var code=scanned??Text(product,"code");
         double? N(string key)=>Nutrient(product,key);
         return new FoodResult(
-            Label(name??"Packaged food",Text(product,"brands")),
+            Label(name??"Packaged food",Brand(product)),
             calories,N("proteins"),N("fat"),N("carbohydrates"),N("fiber"),
             code is null?"Open Food Facts / ODbL":"Open Food Facts / ODbL / "+code,
             100,MapPortions(product));
+    }
+
+    /// <summary>
+    /// The product endpoint sends brands as one comma-separated string and the search index sends
+    /// an array. Both reduce to the leading brand, which is all a label is built from.
+    /// </summary>
+    public static string? Brand(JsonElement product)
+    {
+        if(!product.TryGetProperty("brands",out var brands)) return null;
+        if(brands.ValueKind==JsonValueKind.String) return brands.GetString();
+        if(brands.ValueKind!=JsonValueKind.Array) return null;
+        foreach(var brand in brands.EnumerateArray())
+            if(brand.ValueKind==JsonValueKind.String&&brand.GetString()?.Trim() is {Length:>0} text) return text;
+        return null;
     }
 
     /// <summary>
@@ -107,7 +175,8 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
 
     /// <summary>
     /// A declared serving becomes one portion. Servings measured in millilitres are left out: this
-    /// app weighs portions in grams, and only water-like liquids convert one to one.
+    /// app weighs portions in grams, and only water-like liquids convert one to one. Search hits
+    /// carry no serving at all, so they arrive here without portions.
     /// </summary>
     public static IReadOnlyList<FoodPortion> MapPortions(JsonElement product)
     {

@@ -27,9 +27,9 @@ test.beforeAll(async({request})=>{
     const day=new Date(`${current}T12:00:00Z`);day.setUTCDate(day.getUTCDate()-offset);
     const date=day.toISOString().slice(0,10);
     await save('weight',{date,kg:80.5+offset*.06+(offset%3)*.12});
-    await save('entry',{date,name:'Greek yogurt, berries and rolled oats',calories:420,protein:28,carbs:52,fat:12,fiber:7,quantity:1,unit:'serving',meal:'Breakfast',time:'08:00'});
+    await save('entry',{date,name:'Greek yogurt, berries and rolled oats',calories:420,protein:28,carbs:52,fat:12,fiber:7,quantity:1,unit:'serving',time:'08:00'});
   }
-  await save('entry',{date:current,name:'Grilled chicken with brown rice and vegetables',calories:640,protein:46,carbs:68,fat:18,fiber:9,quantity:1,unit:'serving',meal:'Lunch',time:'12:30'});
+  await save('entry',{date:current,name:'Grilled chicken with brown rice and vegetables',calories:640,protein:46,carbs:68,fat:18,fiber:9,quantity:1,unit:'serving',time:'12:30'});
   session=await request.storageState();
 });
 

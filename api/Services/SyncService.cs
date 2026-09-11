@@ -73,7 +73,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 {
                     Validation.Nutrients(e); Date(e.Date); Validation.Number(e.Quantity, .001, 100000, "Quantity");
                     Validation.Require(e.Time==null || System.Text.RegularExpressions.Regex.IsMatch(e.Time,@"\A(?:[01][0-9]|2[0-3]):[0-5][0-9]\z"),"Choose a valid meal time (HH:mm).");
-                    Validation.Require(e.Meal.Length is > 0 and <= 80 && e.Unit is "g" or "serving", "Invalid meal or unit.");
+                    Validation.Require(e.Unit is "g" or "serving", "Invalid unit.");
                     Validation.EntryPortion(e);
                 }, ct); break;
             case "food":

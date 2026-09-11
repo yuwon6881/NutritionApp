@@ -15,7 +15,6 @@ import {useAsyncAction} from './ui/useAsyncAction';
 export type FoodDraft=Nutrients&{
   quantity:number;
   unit:'g'|'serving';
-  meal:string;
   time?:string|null;
   portionLabel:string|null;
   portionGrams:number|null;
@@ -37,7 +36,6 @@ function makeDraft(initial?:FoodEditorInitial):FoodDraft{
     ...blankNutrients,
     quantity:1,
     unit:'serving',
-    meal:'Meal',
     ...initial,
     portionLabel:initial?.portionLabel??null,
     portionGrams:initial?.portionGrams??null,
@@ -157,7 +155,6 @@ export function FoodEditor({
                 if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
               }
             }} options={unitOptions}/>
-            <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>
             <TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>
           </div>
         </>
@@ -175,7 +172,6 @@ export function FoodEditor({
                 if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
               }
             }} options={unitOptions}/>
-            <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>
             <Field id="food-calories" name="calories" label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
             {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
           </div>

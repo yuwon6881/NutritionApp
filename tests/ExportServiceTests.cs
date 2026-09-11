@@ -30,12 +30,12 @@ public sealed class ExportServiceTests : IAsyncLifetime
         }
         await using (var seed = Open(alice.Id))
         {
-            seed.Entries.Add(new DiaryEntry { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),Meal="Lunch",Name="Rice",Quantity=1.5,Unit="serving",PortionLabel="bowl",PortionGrams=180,Calories=390,Source="manual" });
+            seed.Entries.Add(new DiaryEntry { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),Name="Rice",Quantity=1.5,Unit="serving",PortionLabel="bowl",PortionGrams=180,Calories=390,Source="manual" });
             await seed.SaveChangesAsync();
         }
         await using (var seed = Open(bob.Id))
         {
-            seed.Entries.Add(new DiaryEntry { Id=Guid.NewGuid(),UserId=bob.Id,Date=new(2026,9,10),Meal="Dinner",Name="Private",Quantity=1,Unit="serving",Calories=500,Source="manual" });
+            seed.Entries.Add(new DiaryEntry { Id=Guid.NewGuid(),UserId=bob.Id,Date=new(2026,9,10),Name="Private",Quantity=1,Unit="serving",Calories=500,Source="manual" });
             await seed.SaveChangesAsync();
         }
 

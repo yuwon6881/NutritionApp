@@ -47,7 +47,7 @@ public sealed class StorageTests : IAsyncLifetime
         var user=await User("alice"); var foodId=Guid.NewGuid();
         async Task<long> Apply(string kind,Guid id,long rev,object data) { await using var db=Open(user.Id); return await new SyncService(db).Apply(new(Guid.NewGuid(),kind,id,rev,JsonSerializer.SerializeToElement(data)),default); }
         var rev=await Apply("food",foodId,0,new { name="Rice",calories=130,servingGrams=100 });
-        await Apply("entry",Guid.NewGuid(),0,new { name="Rice",calories=130,date="2026-01-01",meal="Lunch",quantity=100,unit="g" });
+        await Apply("entry",Guid.NewGuid(),0,new { name="Rice",calories=130,date="2026-01-01",quantity=100,unit="g" });
         await Apply("food",foodId,rev,new { name="Rice",calories=150,servingGrams=100 });
         await using var verify=Open(user.Id); Assert.Equal(130,(await verify.Entries.SingleAsync()).Calories);
     }

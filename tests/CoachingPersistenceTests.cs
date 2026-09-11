@@ -68,7 +68,7 @@ public class CoachingPersistenceTests
             JsonSerializer.SerializeToElement(profile, Json.Options)), default);
         var date = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1);
         revision = await sync.Apply(new(Guid.NewGuid(), "entry", Guid.NewGuid(), 0,
-            JsonSerializer.SerializeToElement(new { date, name = "Rice", calories = 500, meal = "Lunch", quantity = 1, unit = "serving" }, Json.Options)), default);
+            JsonSerializer.SerializeToElement(new { date, name = "Rice", calories = 500, quantity = 1, unit = "serving" }, Json.Options)), default);
 
         var snapshots = await trajectory.EnsureThroughToday(default);
         Assert.Equal(ExpenditureTrajectoryService.BackfillDays, snapshots.Count);
@@ -91,7 +91,7 @@ public class CoachingPersistenceTests
         preview=await coach.Preview(default);var id=Guid.NewGuid();var plan=await coach.Accept(id,preview.Revision,default);var original=plan.ResultJson;
         Assert.Equal(id,(await coach.Accept(id,preview.Revision,default)).Id);
         Assert.False((await coach.Preview(default)).CanAccept);
-        await sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new { date=date.AddDays(-1),name="Rice",calories=100,meal="Lunch",quantity=100,unit="g" })),default);
+        await sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new { date=date.AddDays(-1),name="Rice",calories=100,quantity=100,unit="g" })),default);
         Assert.Equal(original,(await db.Plans.SingleAsync()).ResultJson);
     }
     [Fact] public async Task A_trajectory_backed_proposal_keeps_one_calorie_target_across_a_completed_phase()

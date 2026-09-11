@@ -17,7 +17,6 @@ export interface FoodBasketProps {
   date:string;
   onBack:()=>void;
   onSaved:()=>void;
-  initialMeal?:string;
   initialTime?:string;
 }
 
@@ -27,10 +26,8 @@ export function FoodBasket({
   date,
   onBack,
   onSaved,
-  initialMeal,
   initialTime,
 }:FoodBasketProps){
-  const [meal,setMeal]=useState(initialMeal??'Meal');
   const [time,setTime]=useState(initialTime??(()=>mealTime(store.state!.profile?.timeZone)));
   const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
@@ -49,7 +46,7 @@ export function FoodBasket({
     setError('');
     try{
       await run(async()=>{
-        const entries=basketEntries(basket.lines,{date,time,meal});
+        const entries=basketEntries(basket.lines,{date,time});
         await store.logEntries(entries);
         for(const scanId of basket.scanIds){
           await store.removeScan(scanId);
@@ -84,10 +81,7 @@ export function FoodBasket({
     </div>
 
     <Form onSubmit={submitBatch}>
-      <div className="form-grid">
-        <Field id="batch-meal" name="meal" label="Meal" required maxLength={80} value={meal} onChange={event=>setMeal(event.target.value)}/>
-        <TimePicker id="batch-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
-      </div>
+      <TimePicker id="batch-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
 
       <FieldFrame
         label="Batch foods"

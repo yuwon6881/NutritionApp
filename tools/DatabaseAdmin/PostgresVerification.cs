@@ -41,7 +41,7 @@ public static class PostgresVerification
                 for(var i=1;i<=28;i++)
                 {
                     db.Days.Add(new(){Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Status="complete"});
-                    db.Entries.Add(new(){Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Name="Verified meal",Calories=2000,Quantity=1,Unit="serving",Meal="Meal"});
+                    db.Entries.Add(new(){Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Name="Verified meal",Calories=2000,Quantity=1,Unit="serving"});
                     db.Weights.Add(new(){Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Kg=80});
                 }
                 await db.SaveChangesAsync();var before=(await new CoachingService(db).Preview(default)).Result;

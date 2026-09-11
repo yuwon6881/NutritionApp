@@ -90,7 +90,7 @@ export function basketTotals(lines:BasketLine[]):BasketTotals{
 
 export function basketEntries(
   lines:BasketLine[],
-  stamp:{date:string;time:string|null;meal:string}
+  stamp:{date:string;time:string|null}
 ):Omit<Entry,'id'|'revision'|'deleted'>[]{
   return lines.map(({key:_,portions:__,...line})=>({
     ...line,
