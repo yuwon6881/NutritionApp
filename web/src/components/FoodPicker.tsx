@@ -1,14 +1,12 @@
 import {useState} from 'react';
-import {Camera} from 'lucide-react';
+import {Camera, Star} from 'lucide-react';
 import type {EnergyUnit,Nutrients} from '../types';
 import {api} from '../lib/api';
-import {lineKey} from '../lib/foodBasket';
 import {outstanding,etaSeconds,waitMs} from '../lib/scanQueue';
 import type {FoodBasketHook} from '../useFoodBasket';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {Form} from './ui/Form';
-import {Checkbox} from './ui/Checkbox';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {BarcodeCamera} from './BarcodeCamera';
 import {displayEnergy,energyLabel} from '../lib/units';
@@ -28,7 +26,9 @@ export interface FoodPickerProps {
   setCamera:(v:boolean|((prev:boolean)=>boolean))=>void;
   basket:FoodBasketHook;
   onChoose:(food:SearchResult)=>void;
-  onSaveFood:(food:SearchResult)=>void;
+  onSaveFood?:(food:SearchResult)=>void;
+  isSaved?:(food:SearchResult)=>boolean;
+  onToggleSave?:(food:SearchResult)=>void;
   run:(fn:()=>Promise<void>)=>Promise<void>;
   open:boolean;
   step:string;
@@ -48,7 +48,9 @@ export function FoodPicker({
   setCamera,
   basket,
   onChoose,
-  onSaveFood,
+  onSaveFood: _onSaveFood,
+  isSaved,
+  onToggleSave,
   run,
   open,
   step,
@@ -79,8 +81,8 @@ export function FoodPicker({
           required
           value={query}
           onChange={event=>setQuery(event.target.value)}
+          action={<Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>}
         />
-        <Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>
       </div>
     </Form>
 
@@ -142,18 +144,38 @@ export function FoodPicker({
       </div>}
     </>}
 
-    {results.map((result,index)=><div className="food-row" key={`${result.source}|${result.name}|${index}`}>
-      <Checkbox
-        checked={basket.lines.some(l=>l.key===lineKey(result.name,result.source))}
-        aria-label={`Select ${result.name} for batch logging`}
-        onChange={()=>basket.toggleItem(result)}
-      />
-      <div className="food-description">
-        <strong>{result.name}</strong>
-        <small>{displayEnergy(result.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {result.source}</small>
-      </div>
-      <Button onClick={()=>onChoose(result)}>Use</Button>
-      <Button onClick={()=>onSaveFood(result)}>Save food</Button>
-    </div>)}
+    {results.map((result,index)=>{
+      const starred=isSaved?isSaved(result):false;
+      return <div
+        className="food-row interactive"
+        key={`${result.source}|${result.name}|${index}`}
+        role="button"
+        tabIndex={0}
+        onClick={()=>onChoose(result)}
+        onKeyDown={event=>{
+          if(event.key==='Enter'||event.key===' '){
+            event.preventDefault();
+            onChoose(result);
+          }
+        }}
+      >
+        <div className="food-description">
+          <strong>{result.name}</strong>
+          <small>{displayEnergy(result.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {result.source}</small>
+        </div>
+        <Button
+          variant="tertiary"
+          className={`food-row-star ${starred?'starred':''}`}
+          aria-label={starred?`Remove ${result.name} from saved foods`:`Save ${result.name} to your foods`}
+          onClick={event=>{
+            event.stopPropagation();
+            onToggleSave?.(result);
+          }}
+        >
+          <Star size={18} fill={starred?'currentColor':'none'}/>
+        </Button>
+      </div>;
+    })}
   </>;
 }
+

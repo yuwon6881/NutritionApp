@@ -1,9 +1,10 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
+import {Trash2,Plus} from 'lucide-react';
 import type {EnergyUnit,Entry,Food,Nutrients} from '../types';
 import {blankNutrients} from '../types';
 import {Button} from './ui/Button';
-import {Field,SelectField} from './ui/Field';
+import {Field,SelectField,TimePicker} from './ui/Field';
 
 import {nutrientRescaleWarning,rescaleNutrients} from '../lib/nutrients';
 import {parsePortions,serializePortions,validatePortions} from '../lib/portions';
@@ -114,17 +115,20 @@ export function FoodEditor({
           setPortionError('');
         }catch(ex){setPortionError((ex as Error).message);return;}
       }
-      await run(()=>onSave(next));onClose();
+      await run(()=>onSave(next));
     }
     catch(ex){setError((ex as Error).message);}
   };
 
+  const isProviderFood = !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add';
+  const submitLabel = busy ? 'Saving…' : title.startsWith('Save food') ? 'Save custom food' : title.startsWith('Edit') ? 'Save changes' : 'Add to batch';
+
   return <div className="dialog-step editor">
     <Form onSubmit={save}>
-      <Field id="food-name" name="name" data-modal-autofocus label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
-      {!title.startsWith('Save food')&&<Field id="food-time" name="time" label="Meal time" type="time" value={draft.time??''} onChange={event=>set('time',event.target.value||null)} hint={!draft.time?'Time not recorded':undefined}/>}
+      <Field id="food-name" name="name" data-modal-autofocus={!isProviderFood} readOnly={isProviderFood} label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
+      {!title.startsWith('Save food')&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
       <div className="form-grid">
-        <Field id="food-quantity" name="quantity" readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
+        <Field id="food-quantity" name="quantity" data-modal-autofocus={isProviderFood} readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
         <SelectField id="food-unit" name="unit" disabled={title.startsWith('Save food')} label="Unit" value={unitChoice} onChange={value=>{
           if(value==='g')setBasis({unit:'g',portionLabel:null,portionGrams:null});
           else if(value==='serving')setBasis({quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
@@ -134,8 +138,8 @@ export function FoodEditor({
           }
         }} options={unitOptions}/>
         <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>
-        <Field id="food-calories" name="calories" label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
-        {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
+        <Field id="food-calories" name="calories" readOnly={isProviderFood} label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
+        {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} readOnly={isProviderFood} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
       </div>
       {draft.unit==='serving'&&<div className="form-grid">
         <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
@@ -145,17 +149,17 @@ export function FoodEditor({
       {showPortionDefinitions&&<fieldset className="portion-definitions">
         <legend>Saved portion definitions</legend>
         <p className="source">Optional household portions for this food. Nutrients remain per 100 g.</p>
-        {portionDrafts.map((portion,index)=><div className="form-grid" key={index}>
+        {portionDrafts.map((portion,index)=><div className="portion-definition-row" key={index}>
           <Field id={`food-portion-definition-${index}-label`} name={`portion_${index}_label`} label="Label" maxLength={24} value={portion.label} onChange={event=>syncPortionDrafts(portionDrafts.map((item,itemIndex)=>itemIndex===index?{...item,label:event.target.value}:item))}/>
           <Field id={`food-portion-definition-${index}-grams`} name={`portion_${index}_grams`} label="Weight (g)" type="number" min="0.1" max="10000" step="any" value={portion.grams} onChange={event=>syncPortionDrafts(portionDrafts.map((item,itemIndex)=>itemIndex===index?{...item,grams:event.target.value}:item))}/>
-          <Button type="button" variant="tertiary" onClick={()=>syncPortionDrafts(portionDrafts.filter((_,itemIndex)=>itemIndex!==index))}>Remove portion</Button>
+          <Button type="button" variant="tertiary" aria-label={`Remove portion ${portion.label||index+1}`} onClick={()=>syncPortionDrafts(portionDrafts.filter((_,itemIndex)=>itemIndex!==index))}><Trash2 size={16}/></Button>
         </div>)}
-        <Button type="button" variant="secondary" onClick={()=>setPortionDrafts(current=>[...current,{label:'',grams:''}])}>Add portion</Button>
+        <Button type="button" variant="secondary" onClick={()=>setPortionDrafts(current=>[...current,{label:'',grams:''}])}><Plus size={16}/>Add portion</Button>
         {portionError&&<p className="error" role="alert">{portionError}</p>}
       </fieldset>}
       <p className="source">Source: {draft.source}</p>
       {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit">{busy?'Saving…':'Save reviewed food'}</Button></div>
+      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit">{submitLabel}</Button></div>
     </Form>
   </div>;
 }

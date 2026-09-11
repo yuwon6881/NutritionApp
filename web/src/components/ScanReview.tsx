@@ -3,37 +3,41 @@ import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {Nourish} from '../useNourish';
 import type {ScanDraft,AiFood} from '../types';
 import {Button} from './ui/Button';
-import {Field,SelectField} from './ui/Field';
+import {Field,SelectField,TimePicker} from './ui/Field';
 import {mealTime} from '../lib/foodDiary';
 import {energyLabel,inputEnergy,parseEnergy,unitsFor} from '../lib/units';
 import {nutrientRescaleWarning,rescaleNutrients} from '../lib/nutrients';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export function ScanReview({scan,store,date,onClose,onSaved,onDirtyChange,onBatch}:{scan:ScanDraft;store:Nourish;date:string;onClose:()=>void;onSaved?:()=>void;onDirtyChange?:(dirty:boolean)=>void;onBatch?:(scanId:string,foods:AiFood[],source:string)=>void}){
-  const [foods,setFoods]=useState(scan.result?.foods??[]);
-  const {busy,run}=useAsyncAction();
-  const [error,setError]=useState('');
-  const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
+  const [foods,setFoods]=useState(()=>scan.result?.foods.map(food=>({...food}))??[]);
   const [meal,setMeal]=useState('Meal');
-  const [basisWarnings,setBasisWarnings]=useState<Record<number,string|undefined>>({});
+  const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
+  const [error,setError]=useState('');
+  const [basisWarnings,setBasisWarnings]=useState<string[]>([]);
+  const {busy,run}=useAsyncAction();
   const energyUnit=unitsFor(store.state!.settings).energy;
-  const initial=useRef(JSON.stringify({foods:scan.result?.foods??[],time:mealTime(store.state!.profile?.timeZone),meal:'Meal'}));
-  const snapshot=JSON.stringify({foods,time,meal});
+  const initial=useRef(JSON.stringify({foods,meal,time}));
 
-  useEffect(()=>onDirtyChange?.(snapshot!==initial.current),[snapshot,onDirtyChange]);
+  useEffect(()=>onDirtyChange?.(JSON.stringify({foods,meal,time})!==initial.current),[foods,meal,time,onDirtyChange]);
 
-  const edit=(index:number,key:keyof AiFood,value:unknown)=>setFoods(current=>current.map((food,itemIndex)=>itemIndex===index?{...food,[key]:value}:food));
-  const editBasis=(index:number,next:Partial<Pick<AiFood,'unit'|'portionLabel'|'portionGrams'>>)=>{
-    const current=foods[index];
-    if(!current)return;
-    setBasisWarnings(previous=>({...previous,[index]:nutrientRescaleWarning(current,next)}));
-    setFoods(items=>items.map((food,itemIndex)=>itemIndex===index?rescaleNutrients(food,next):food));
+  const edit=(index:number,key:keyof AiFood,value:unknown)=>{
+    setFoods(current=>current.map((item,i)=>i===index?{...item,[key]:value}:item));
+  };
+  const editBasis=(index:number,next:Parameters<typeof rescaleNutrients>[1])=>{
+    setFoods(current=>current.map((item,i)=>{
+      if(i!==index)return item;
+      const warning=nutrientRescaleWarning(item,next);
+      setBasisWarnings(w=>w.map((msg,msgIndex)=>msgIndex===index?(warning??''):msg));
+      return rescaleNutrients(item,next);
+    }));
   };
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busy)return;setError('');
     try{
       await run(()=>store.saveReviewedScan(scan.id,foods.map(food=>({...food,date,time,meal,source:scan.mode==='label'?'AI label · reviewed':'AI estimate · reviewed'}))));
-      (onSaved??onClose)();
+      onSaved?.();
+      onClose();
     }catch(ex){setError((ex as Error).message);}
   };
 
@@ -41,7 +45,7 @@ export function ScanReview({scan,store,date,onClose,onSaved,onDirtyChange,onBatc
     <div className="notice"><strong>Editable estimate</strong><p>Review the quantities and nutrients before adding this scan to your diary.</p></div>
     {scan.result!.questions.length>0&&<ul>{scan.result!.questions.map((question,index)=><li key={index}>{question}</li>)}</ul>}
     <Form onSubmit={save}>
-      <div className="form-grid"><Field id="scan-meal" name="meal" label="Meal" required maxLength={80} value={meal} onChange={event=>setMeal(event.target.value)}/><Field id="scan-time" name="time" label="Meal time" type="time" required value={time} onChange={event=>setTime(event.target.value)}/></div>
+      <div className="form-grid"><Field id="scan-meal" name="meal" label="Meal" required maxLength={80} value={meal} onChange={event=>setMeal(event.target.value)}/><TimePicker id="scan-time" name="time" label="Meal time" required value={time} onChange={setTime}/></div>
       {foods.map((food,index)=>{
         const portionOption=food.portionLabel&&food.portionGrams!=null?{value:`portion:${food.portionLabel}`,label:`${food.portionLabel} · ${food.portionGrams} g`}:undefined;
         const unitChoice=food.unit==='g'?'g':portionOption?portionOption.value:'serving';

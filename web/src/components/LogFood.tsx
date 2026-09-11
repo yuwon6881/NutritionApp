@@ -6,6 +6,7 @@ import type {Entry,Food,Nutrients,ScanDraft} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {lineKey} from '../lib/foodBasket';
+import {parsePortions} from '../lib/portions';
 import {Button} from './ui/Button';
 import {Field,SelectField,TextArea} from './ui/Field';
 import {FileInput} from './ui/FileInput';
@@ -63,6 +64,8 @@ export function LogFood({
   const [photo,setPhoto]=useState<string|null>(null);
   const [activeScanId,setActiveScanId]=useState<string>();
   const [error,setError]=useState('');
+  const [batchMeal,setBatchMeal]=useState('Meal');
+  const [batchTime,setBatchTime]=useState<string|undefined>(undefined);
   const {busy,run:runAction}=useAsyncAction();
   const [camera,setCamera]=useState(false);
   const selectionRef=useRef<HTMLDivElement>(null);
@@ -85,6 +88,8 @@ export function LogFood({
       setActiveScanId(undefined);
       setError('');
       setCamera(false);
+      setBatchMeal('Meal');
+      setBatchTime(undefined);
       basket.clear();
     }
     wasOpen.current=open;
@@ -120,8 +125,28 @@ export function LogFood({
     if(saveFood){
       await store.mutate({kind:'food',recordId:saveFood===true?crypto.randomUUID():saveFood.id,expectedRevision:saveFood===true?0:saveFood.revision,delete:false,data:{...data,servingGrams:100,favourite:saveFood===true?true:saveFood.favourite,ingredientsJson:saveFood===true?'[]':saveFood.ingredientsJson,cookedYieldGrams:saveFood===true?null:saveFood.cookedYieldGrams}});
       setSaveFood(false);setDraft(undefined);go('selection');
+    }else if(editing){
+      await store.mutate({kind:'entry',recordId:editing.id,expectedRevision:editing.revision,delete:false,data:{...data,date}});
+      onSaved();
     }else{
-      await store.mutate({kind:'entry',recordId:editing?.id??crypto.randomUUID(),expectedRevision:editing?.revision??0,delete:false,data:{...data,date}});
+      if(data.meal)setBatchMeal(data.meal);
+      if(data.time)setBatchTime(data.time);
+      basket.addLine({
+        key:`${lineKey(data.name,data.source)}_${crypto.randomUUID().slice(0,8)}`,
+        name:data.name,
+        calories:data.calories,
+        protein:data.protein,
+        carbs:data.carbs,
+        fat:data.fat,
+        fiber:data.fiber,
+        source:data.source,
+        quantity:data.quantity,
+        unit:data.unit,
+        portionLabel:data.portionLabel,
+        portionGrams:data.portionGrams,
+        portions:parsePortions(data.portionsJson),
+      });
+      go('batch');
     }
   };
   const choose=(food:SearchResult)=>{setSaveFood(false);setDraft({...food,quantity:100,unit:'g',time:newTime()});go('editor');};
@@ -176,7 +201,15 @@ export function LogFood({
       setCamera={setCamera}
       basket={basket}
       onChoose={choose}
-      onSaveFood={food=>{setSaveFood(true);setDraft({...food,quantity:100,unit:'g'});go('editor');}}
+      isSaved={food=>store.state!.foods.some(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source&&f.favourite)}
+      onToggleSave={food=>void run(async()=>{
+        const existing=store.state!.foods.find(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source);
+        if(existing){
+          await store.mutate({kind:'food',recordId:existing.id,expectedRevision:existing.revision,delete:false,data:{...existing,favourite:!existing.favourite}});
+        }else{
+          await store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...food,servingGrams:100,favourite:true,ingredientsJson:'[]',cookedYieldGrams:null}});
+        }
+      })}
       run={run}
       open={open}
       step={step}
@@ -195,9 +228,9 @@ export function LogFood({
   </div>;
 
   const child=step==='batch'
-    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved}/>
+    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved} initialMeal={batchMeal} initialTime={batchTime}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onDirtyChange={setStepDirty}/>
-    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else onSaved();}} onDirtyChange={setStepDirty}/>
+    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else if(editing){onSaved();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor store={store} onClose={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='scan'&&activeScanId&&store.local?.scans.find(scan=>scan.id===activeScanId)?.result?<ScanReview scan={store.local.scans.find(scan=>scan.id===activeScanId)!} store={store} date={date} onClose={()=>go('selection')} onSaved={onSaved} onDirtyChange={setStepDirty} onBatch={(scanId,foods,source)=>{basket.addAiFoods(scanId,foods,source);go('batch');}}/>
     :selection;

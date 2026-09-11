@@ -5,7 +5,7 @@ import {mealTime} from '../lib/foodDiary';
 import {basketTotals,basketEntries} from '../lib/foodBasket';
 import type {FoodBasketHook} from '../useFoodBasket';
 import {Button} from './ui/Button';
-import {Field,SelectField} from './ui/Field';
+import {Field,SelectField,TimePicker} from './ui/Field';
 import {Form,FieldFrame} from './ui/Form';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {displayPortion} from '../lib/portions';
@@ -17,6 +17,8 @@ export interface FoodBasketProps {
   date:string;
   onBack:()=>void;
   onSaved:()=>void;
+  initialMeal?:string;
+  initialTime?:string;
 }
 
 export function FoodBasket({
@@ -25,9 +27,11 @@ export function FoodBasket({
   date,
   onBack,
   onSaved,
+  initialMeal,
+  initialTime,
 }:FoodBasketProps){
-  const [meal,setMeal]=useState('Meal');
-  const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
+  const [meal,setMeal]=useState(initialMeal??'Meal');
+  const [time,setTime]=useState(initialTime??(()=>mealTime(store.state!.profile?.timeZone)));
   const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const [announcement,setAnnouncement]=useState('');
@@ -82,7 +86,7 @@ export function FoodBasket({
     <Form onSubmit={submitBatch}>
       <div className="form-grid">
         <Field id="batch-meal" name="meal" label="Meal" required maxLength={80} value={meal} onChange={event=>setMeal(event.target.value)}/>
-        <Field id="batch-time" name="time" label="Meal time" type="time" required value={time} onChange={event=>setTime(event.target.value)}/>
+        <TimePicker id="batch-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
       </div>
 
       <FieldFrame
@@ -161,9 +165,9 @@ export function FoodBasket({
 
       {error&&<p className="error" role="alert">{error}</p>}
       <div className="modal-actions">
-        <Button type="button" variant="secondary" onClick={onBack} disabled={busy}>Back to search</Button>
+        <Button type="button" variant="secondary" onClick={onBack} disabled={busy}>Add more food</Button>
         <Button type="submit" variant="primary" disabled={busy||!basket.lines.length}>
-          {busy?'Logging…':`Log all ${basket.lines.length} foods`}
+          {busy?'Logging…':`Log all ${basket.lines.length} ${basket.lines.length===1?'food':'foods'}`}
         </Button>
       </div>
     </Form>

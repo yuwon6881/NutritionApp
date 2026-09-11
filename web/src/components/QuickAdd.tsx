@@ -3,7 +3,7 @@ import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {Nourish} from '../useNourish';
 import {mealTime} from '../lib/foodDiary';
 import {Button} from './ui/Button';
-import {Field} from './ui/Field';
+import {Field,TimePicker} from './ui/Field';
 import {energyLabel,parseEnergy,unitsFor} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
 
@@ -30,7 +30,7 @@ export function QuickAdd({store,date,onDone,onDirtyChange}:{store:Nourish;date:s
 
   return <div className="dialog-step editor"><Form onSubmit={save}>
     <Field id="quick-add-calories" name="calories" data-modal-autofocus label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={calories} onChange={event=>setCalories(event.target.value)}/>
-    <div className="form-grid"><Field id="quick-add-meal" name="meal" label="Meal" maxLength={80} value={meal} onChange={event=>setMeal(event.target.value)}/><Field id="quick-add-time" name="time" label="Meal time" type="time" required value={time} onChange={event=>setTime(event.target.value)}/></div>
+    <div className="form-grid"><Field id="quick-add-meal" name="meal" label="Meal" maxLength={80} value={meal} onChange={event=>setMeal(event.target.value)}/><TimePicker id="quick-add-time" name="time" label="Meal time" required value={time} onChange={setTime}/></div>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':'Add calories'}</Button></div>
   </Form></div>;
