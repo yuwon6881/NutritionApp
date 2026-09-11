@@ -153,6 +153,7 @@ export function FoodPicker({
         tabIndex={0}
         onClick={()=>onChoose(result)}
         onKeyDown={event=>{
+          if(event.target!==event.currentTarget)return;
           if(event.key==='Enter'||event.key===' '){
             event.preventDefault();
             onChoose(result);
@@ -178,4 +179,3 @@ export function FoodPicker({
     })}
   </>;
 }
-

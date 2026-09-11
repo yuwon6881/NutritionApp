@@ -52,7 +52,7 @@ test('food, recipe and image actions explain invalid drafts without queuing writ
   let writes=0;page.on('request',request=>{if(request.url().endsWith('/api/sync')&&request.method()==='POST')writes++;});
   await food(page);await page.getByRole('button',{name:'Manual entry',exact:true}).click();
   await page.getByLabel('Food name',{exact:true}).fill('   ');await page.getByLabel('Calories (kcal)',{exact:true}).fill('');
-  await page.getByRole('button',{name:'Save reviewed food'}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();
   await expect(page.getByLabel('Food name',{exact:true})).toBeFocused();
   await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('');
   await expect(page.getByText('Enter calories (kcal).')).toBeVisible();expect(writes).toBe(0);
@@ -60,11 +60,12 @@ test('food, recipe and image actions explain invalid drafts without queuing writ
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('20001');await page.getByLabel('Protein (g)',{exact:true}).focus();
   await expect(page.getByText('Enter 20000 or less.')).toBeVisible();
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('0');await page.getByLabel('Protein (g)').fill('');
-  await page.getByRole('button',{name:'Save reviewed food'}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();
+  await page.getByRole('button',{name:/Log all 1 food/}).click();
   await expect.poll(()=>writes).toBe(1);
   const state=await (await context.request.get('/api/state')).json();const entry=state.entries.find((item:{name:string})=>item.name==='Zero calorie reviewed item');
   expect(entry.calories).toBe(0);expect(entry.protein).toBeNull();
-  await food(page);await page.getByRole('button',{name:'New recipe',exact:true}).click();await page.getByRole('button',{name:'Save recipe',exact:true}).click();
+  await food(page);await page.getByRole('button',{name:'Your foods',exact:true}).click();await page.getByRole('button',{name:'New recipe',exact:true}).click();await page.getByRole('button',{name:'Save recipe',exact:true}).click();
   await expect(page.getByText('Enter recipe name.')).toBeVisible();await expect(page.getByText('Add at least one ingredient.')).toBeVisible();expect(writes).toBe(1);
   await page.reload();await food(page);await page.getByRole('button',{name:'AI logging',exact:true}).click();
   await page.getByRole('button',{name:'Estimate my meal'}).click();await expect(page.getByText('Enter meal description and portions.')).toBeVisible();

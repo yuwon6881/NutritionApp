@@ -21,11 +21,11 @@ export interface ModalProps {
 
 function focusable(root:HTMLElement){
   return [...root.querySelectorAll<HTMLElement>([
-    'button:not([disabled])',
-    'input:not([disabled]):not([type="hidden"])',
-    'select:not([disabled])',
-    'textarea:not([disabled])',
-    '[href]',
+    'button:not([disabled]):not([tabindex="-1"])',
+    'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
+    'select:not([disabled]):not([tabindex="-1"])',
+    'textarea:not([disabled]):not([tabindex="-1"])',
+    '[href]:not([tabindex="-1"])',
     '[tabindex]:not([tabindex="-1"])',
   ].join(','))].filter(element=>element.getClientRects().length>0);
 }
@@ -181,9 +181,10 @@ export function Modal({
     onKeyDown={onKeyDown}
     onClick={event=>{
       if(confirming)return;
-      const rect=event.currentTarget.getBoundingClientRect();
-      const inside=event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom;
-      if(!inside)requestClose();
+      // A keyboard-activated button can bubble a synthetic click with no useful
+      // pointer coordinates. Only the dialog backdrop itself dismisses here;
+      // controls inside the surface own their click actions.
+      if(event.target===event.currentTarget)requestClose();
     }}
   >
     <div className="modal-surface">

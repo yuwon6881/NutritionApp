@@ -98,6 +98,15 @@ export function LogFood({
     if(step==='selection')selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'});
   },[step,tab]);
 
+  useLayoutEffect(()=>{
+    if(!open)return;
+    const frame=window.requestAnimationFrame(()=>{
+      const target=document.querySelector<HTMLElement>('.food-modal [data-modal-autofocus]');
+      if(target?.isConnected)target.focus({preventScroll:true});
+    });
+    return()=>window.cancelAnimationFrame(frame);
+  },[open,step,tab]);
+
   useEffect(()=>{
     if(step!=='selection'||!activeScanId)return;
     const scan=store.local?.scans.find(item=>item.id===activeScanId);
@@ -176,6 +185,7 @@ export function LogFood({
         tabIndex={0}
         onClick={()=>choose(food)}
         onKeyDown={event=>{
+          if(event.target!==event.currentTarget)return;
           if(event.key==='Enter'||event.key===' '){
             event.preventDefault();
             choose(food);

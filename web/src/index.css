@@ -28,9 +28,10 @@ html,body{overflow-x:hidden;max-width:100%}html{scrollbar-gutter:stable}*{box-si
 
 /* Live Calorie Feedback Card */
 .live-calorie-card{background:var(--primary-tint);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:18px}
-.live-calorie-header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:8px}
-.live-calorie-tag{font-size:.65rem;letter-spacing:.12em;font-weight:700;color:var(--primary-ink)}
-.live-calorie-value strong{font-size:1.45rem;color:var(--primary-ink)}
+.live-calorie-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.live-calorie-tag{font-size:.74rem;line-height:1.1;letter-spacing:.1em;font-weight:700;color:var(--primary-ink)}
+.live-calorie-value{display:flex;align-items:baseline;gap:5px;line-height:1}
+.live-calorie-value strong{font-size:1.45rem;line-height:1;color:var(--primary-ink)}
 .live-calorie-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:.78rem;color:var(--foreground)}
 .live-delta{font-weight:600;color:var(--primary-ink)}
 .live-macros{color:var(--muted-foreground)}

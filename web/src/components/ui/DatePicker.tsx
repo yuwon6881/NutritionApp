@@ -393,7 +393,7 @@ export function DatePicker({
   }
 
   return (
-    <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef} onKeyDown={event=>{if(!activeDropdown&&isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();}}}>
+    <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef} onKeyDown={event=>{if(isOpen&&event.key==='Tab'){closeCalendar();return;}if(!activeDropdown&&isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();}}}>
       <label htmlFor={id} className="date-picker-label">
         <span>{label}</span>
       </label>

@@ -13,6 +13,7 @@ export interface TimePickerProps {
   id?: string;
   name?: string;
   className?: string;
+  dataModalAutofocus?: boolean;
 }
 
 function parseTimeParts(val: string): {hour12: number; minute: number; period: 'AM' | 'PM'} {
@@ -65,6 +66,7 @@ export function TimePicker({
   id: idProp,
   name: nameProp,
   className = '',
+  dataModalAutofocus = false,
 }: TimePickerProps) {
   const generatedId = useId();
   const timeId = idProp ?? generatedId;
@@ -88,9 +90,15 @@ export function TimePicker({
   }, [isOpen]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Tab' && isOpen) {
       setIsOpen(false);
-      triggerRef.current?.focus();
+      return;
+    }
+    if (e.key === 'Escape' && isOpen) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsOpen(false);
+      triggerRef.current?.focus({preventScroll: true});
     }
   };
 
@@ -126,6 +134,7 @@ export function TimePicker({
         <button
           ref={triggerRef}
           id={`${timeId}-trigger`}
+          data-modal-autofocus={dataModalAutofocus||undefined}
           type="button"
           disabled={disabled}
           className={`custom-time-trigger ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
@@ -147,6 +156,8 @@ export function TimePicker({
           disabled={disabled}
           onChange={e => onChange(e.target.value)}
           className="accessible-native-time"
+          tabIndex={-1}
+          aria-hidden="true"
         />
 
         {isOpen && (

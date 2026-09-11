@@ -140,6 +140,7 @@ export function Select({
     } else if (e.key === 'Escape') {
       if (isOpen) {
         e.preventDefault();
+        e.stopPropagation();
         setIsOpen(false);
       }
     } else if (e.key === 'Tab') {

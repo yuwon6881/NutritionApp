@@ -81,7 +81,7 @@ export function FoodBasket({
     </div>
 
     <Form onSubmit={submitBatch}>
-      <TimePicker id="batch-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
+      <TimePicker id="batch-time" name="time" label="Meal time" required dataModalAutofocus value={time} onChange={setTime}/>
 
       <FieldFrame
         label="Batch foods"

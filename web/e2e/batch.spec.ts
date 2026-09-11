@@ -56,7 +56,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
 
   // Click Greek Yogurt row to review portion and add to batch
-  await page.getByRole('button',{name:/Greek Yogurt 0%/}).click();
+  await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
   await expect(page.getByRole('heading',{name:'Review food'})).toBeVisible();
   await page.getByRole('button',{name:'Add to batch'}).click();
   await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
@@ -74,7 +74,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
 
   // Click Blueberries Fresh row to review and add to batch
-  await page.getByRole('button',{name:/Blueberries Fresh/}).click();
+  await page.locator('.food-row.interactive').filter({hasText:'Blueberries Fresh'}).click();
   await expect(page.getByRole('heading',{name:'Review food'})).toBeVisible();
   await page.getByRole('button',{name:'Add to batch'}).click();
   await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();

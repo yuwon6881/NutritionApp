@@ -87,7 +87,14 @@ export function FileInput({
         className={`custom-file-dropzone ${isDragging ? 'dragging' : ''} ${
           selectedFileName ? 'has-file' : ''
         } ${disabled ? 'disabled' : ''}`}
-        onClick={() => !disabled && inputRef.current?.click()}
+        onClick={event => {
+          // The programmatic file-input click bubbles back through this
+          // dropzone. Ignore that second pass so keyboard activation opens one
+          // chooser instead of re-entering the outer action.
+          if (event.target === inputRef.current) return;
+          if (event.target instanceof Element && event.target.closest('button')) return;
+          if (!disabled) inputRef.current?.click();
+        }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -97,6 +104,7 @@ export function FileInput({
         role="button"
         tabIndex={disabled ? -1 : 0}
         onKeyDown={e => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             inputRef.current?.click();
