@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
@@ -21,7 +22,7 @@ public sealed class FoodSearchService(HttpClient http,IConfiguration config,IMem
         try { Validation.Require(DateTime.UtcNow>=nextSearch,"Please wait a moment before searching again.",429); nextSearch=DateTime.UtcNow.AddSeconds(4); }
         finally { RateGate.Release(); }
         using var response=await http.GetAsync("https://api.nal.usda.gov/fdc/v1/foods/search?api_key="+Uri.EscapeDataString(config["Usda:ApiKey"]!)+"&pageSize=12&query="+Uri.EscapeDataString(query),ct);
-        Validation.Require(response.IsSuccessStatusCode,"Food search is temporarily unavailable. Your diary is still available.",503);
+        if(!response.IsSuccessStatusCode) throw SearchUnavailable(response.StatusCode);
         using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         var results=new List<FoodResult>();
         foreach(var food in json.RootElement.GetProperty("foods").EnumerateArray())
@@ -32,6 +33,15 @@ public sealed class FoodSearchService(HttpClient http,IConfiguration config,IMem
         }
         cache.Set(key,(IReadOnlyList<FoodResult>)results,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromHours(6) }); return results;
     }
+    // A rejected key and an exhausted hourly allowance both read as a generic outage before, so an
+    // unconfigured deployment looked identical to a provider blip. Each failure now names its remedy.
+    public static DomainException SearchUnavailable(HttpStatusCode status) => status switch
+    {
+        HttpStatusCode.TooManyRequests => new DomainException("Ingredient search has used its hourly allowance at the food database. Try again later, or use custom food, recent foods, or AI describe.",429),
+        HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new DomainException("Ingredient search is misconfigured: the food database rejected this deployment key. Use custom food, recent foods, or AI describe.",503),
+        _ => new DomainException("Food search is temporarily unavailable. Your diary is still available.",503),
+    };
+
     public async Task<FoodResult> Barcode(string code,CancellationToken ct)
     {
         Validation.Require(code.Length is >=8 and <=14 && code.All(char.IsAsciiDigit),"Enter an 8–14 digit barcode.");

@@ -18,28 +18,36 @@ steps:
     id: BuildPush
 
   # 2. Deploy to Cloud Run
+  #    Ingredient search stays disabled until _USDA_SECRET names a Secret Manager version, so a
+  #    project that has not provisioned that secret still deploys instead of failing the build.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
+    entrypoint: bash
     args:
-      - 'run'
-      - 'deploy'
-      - 'nourish-api'
-      - '--image=asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/nourish-api:$COMMIT_SHA'
-      - '--region=asia-southeast1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--min-instances=0'
-      - '--max-instances=1'
-      - '--memory=512Mi'
-      - '--cpu=1'
-      - '--timeout=180'
-      - '--concurrency=20'
-      - '--service-account=nourish-api@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=PublicOrigin=https://nutrition-diary-app.vercel.app,Auth__MaxUsers=2,Database__MigrateOnStartup=true,Retention__MealDetailDays=90,Physique__Bucket=financialapp-vault-396431756440,ScanStorage__Bucket=nourish-scans-396431756440,OpenAi__Model=gpt-5.4-mini'
-      - '--set-secrets=ConnectionStrings__Database=nourish-neon-database:1,OpenAi__ApiKey=financialapp-openai-api-key:latest,Cleanup__Token=nourish-cleanup-token:1'
+      - '-c'
+      - |
+        set -euo pipefail
+        SECRETS="ConnectionStrings__Database=nourish-neon-database:1,OpenAi__ApiKey=financialapp-openai-api-key:latest,Cleanup__Token=nourish-cleanup-token:1"
+        if [ -n "${_USDA_SECRET}" ]; then SECRETS="$$SECRETS,Usda__ApiKey=${_USDA_SECRET}"; fi
+        gcloud run deploy nourish-api \
+          --image="asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/nourish-api:$COMMIT_SHA" \
+          --region=asia-southeast1 \
+          --platform=managed \
+          --allow-unauthenticated \
+          --min-instances=0 \
+          --max-instances=1 \
+          --memory=512Mi \
+          --cpu=1 \
+          --timeout=180 \
+          --concurrency=20 \
+          --service-account="nourish-api@$PROJECT_ID.iam.gserviceaccount.com" \
+          --set-env-vars=PublicOrigin=https://nutrition-diary-app.vercel.app,Auth__MaxUsers=2,Database__MigrateOnStartup=true,Retention__MealDetailDays=90,Physique__Bucket=financialapp-vault-396431756440,ScanStorage__Bucket=nourish-scans-396431756440,OpenAi__Model=gpt-5.4-mini \
+          --set-secrets="$$SECRETS"
     id: Deploy
     waitFor:
       - BuildPush
+
+substitutions:
+  _USDA_SECRET: ''
 
 options:
   logging: CLOUD_LOGGING_ONLY
