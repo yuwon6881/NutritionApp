@@ -6,6 +6,7 @@ export interface CheckboxProps {
   checked:boolean;
   onChange:(checked:boolean)=>void;
   disabled?:boolean;
+  role?:string;
   'aria-label'?:string;
   className?:string;
   children?:ReactNode;
@@ -17,6 +18,7 @@ export function Checkbox({
   checked,
   onChange,
   disabled=false,
+  role,
   'aria-label':ariaLabel,
   className='',
   children,
@@ -27,6 +29,8 @@ export function Checkbox({
         id={id}
         name={name}
         type="checkbox"
+        role={role}
+        aria-checked={role==='switch'?checked:undefined}
         checked={checked}
         disabled={disabled}
         aria-label={ariaLabel}

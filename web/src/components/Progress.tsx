@@ -47,8 +47,11 @@ export function Progress({store}:{store:Nourish}){
         {Array.from({length:Number(today(state.profile?.timeZone).slice(0,4))-1999},(_,index)=>String(Number(today(state.profile?.timeZone).slice(0,4))-index)).map(year=><option key={year} value={year}>{year}</option>)}
       </SelectField></div>
       {history.error&&<p className="notice" role="status">{history.state?'Saved history shown.':'This history is not available on this device.'} {history.error} <Button onClick={history.retry}>Retry history</Button></p>}
-      {history.loading&&<p className="notice loading-status" role="status" aria-busy="true">Loading weight history…</p>}
-      {!history.state&&!history.loading&&!history.error&&<p className="loading-status" role="status">Loading weight history…</p>}
+      {!history.state&&!history.error&&<div className="stats-grid skeleton" aria-busy="true">
+        <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section>
+        <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section>
+        <section className="panel"><p className="eyebrow">COMPLETE-DAY INTAKE</p><h2>— <span className="unit">{energyLabel(units.energy)}</span></h2><p>Loading history…</p></section>
+      </div>}
       {history.state&&<>
         <div className="stats-grid">
           <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latest?.kg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{latest?latest.date:'No weigh-in yet'}</p></section>

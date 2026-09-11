@@ -3,7 +3,6 @@ import type {CSSProperties} from 'react';
 import type {MacroKey,MacroSplit} from '../lib/macros';
 import {adjustSplit,gramsFromSplit,macroEnergy,macroKeys,macroLabels,macroLimits,macroPresetId,macroPresets} from '../lib/macros';
 import {SegmentedControl} from './ui/SegmentedControl';
-import {CoachNumber} from './ui/CoachMotion';
 
 /**
  * Dragging sliders moves energy between macronutrients.
@@ -41,7 +40,7 @@ export function MacroSetup({
         <label className="macro-row-head" htmlFor={`macro-${key}`}>
           <span className={`macro-swatch ${key}`} aria-hidden="true"/>
           <span className="macro-row-label">{macroLabels[key]}</span>
-          <strong className="macro-row-percent"><CoachNumber>{split[key]}</CoachNumber>%</strong>
+          <strong className="macro-row-percent">{split[key]}%</strong>
         </label>
         <div className="macro-row-controls">
           <input

@@ -10,9 +10,6 @@ export type SyncKind=Mutation['kind']|'scan'|'photo';
 export type SyncPhase='idle'|'queued'|'syncing'|'synced';
 export type SyncState={phase:SyncPhase;kind?:SyncKind};
 
-const MIN_SYNC_ACTIVE_MS=420;
-const SYNC_SUCCESS_VISIBLE_MS=900;
-
 function queueEntries(current:LocalData,entries:unknown[]):Mutation[]{
   return [
     ...current.queue,
@@ -46,6 +43,45 @@ export function useNourish(user:string){
   const windowDate=useRef<string|undefined>(undefined);const refreshSequence=useRef(0);
   const historySequences=useRef(new Map<string,number>());
   const syncTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);const activeSync=useRef(0);const syncStartedAt=useRef<number|undefined>(undefined);
+  const activeOperations=useRef(new Set<string>());
+  const [isActivityActive,setIsActivityActive]=useState(false);
+  const isActivityActiveRef=useRef(false);
+  const activityTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+
+  const checkActivity=useCallback(()=>{
+    const hasWork=activeOperations.current.size>0||activeSync.current>0;
+    if(hasWork){
+      if(activityTimer.current===undefined&&!isActivityActiveRef.current){
+        activityTimer.current=setTimeout(()=>{
+          activityTimer.current=undefined;
+          if(!alive.current)return;
+          if(activeOperations.current.size>0||activeSync.current>0){
+            isActivityActiveRef.current=true;
+            setIsActivityActive(true);
+          }
+        },300);
+      }
+    }else{
+      if(activityTimer.current!==undefined){
+        clearTimeout(activityTimer.current);
+        activityTimer.current=undefined;
+      }
+      if(isActivityActiveRef.current){
+        isActivityActiveRef.current=false;
+        setIsActivityActive(false);
+      }
+    }
+  },[]);
+
+  const beginActivity=useCallback((id:string)=>{
+    activeOperations.current.add(id);
+    checkActivity();
+    return ()=>{
+      activeOperations.current.delete(id);
+      checkActivity();
+    };
+  },[checkActivity]);
+
   const clearSyncTimer=useCallback(()=>{if(syncTimer.current!==undefined){clearTimeout(syncTimer.current);syncTimer.current=undefined;}},[]);
   const markSyncQueued=useCallback((kind:SyncKind)=>{
     if(activeSync.current)return;
@@ -56,47 +92,56 @@ export function useNourish(user:string){
       clearSyncTimer();syncStartedAt.current=Date.now();setSync({phase:'syncing',kind});
     }
     activeSync.current+=1;
-  },[clearSyncTimer]);
+    checkActivity();
+  },[checkActivity,clearSyncTimer]);
   const finishSync=useCallback(()=>{
     if(activeSync.current===0)return;
-    activeSync.current-=1;if(activeSync.current)return;
-    const delay=Math.max(0,MIN_SYNC_ACTIVE_MS-(Date.now()-(syncStartedAt.current??Date.now())));
-    const showSuccess=()=>{
-      syncTimer.current=undefined;
-      if(!alive.current)return;
-      setSync(current=>({phase:'synced',kind:current.kind}));
-      syncTimer.current=setTimeout(()=>{if(alive.current)setSync({phase:'idle'});},SYNC_SUCCESS_VISIBLE_MS);
-    };
-    if(delay)syncTimer.current=setTimeout(showSuccess,delay);else showSuccess();
-  },[]);
+    activeSync.current-=1;
+    checkActivity();
+    if(activeSync.current)return;
+    clearSyncTimer();
+    if(alive.current){
+      setSync({phase:'idle'});
+    }
+  },[checkActivity,clearSyncTimer]);
   const commit=useCallback(async(change:(data:LocalData)=>LocalData)=>{
     const task=writes.current.catch(()=>{}).then(async()=>{if(!alive.current||!ref.current)return;const next=change(ref.current);if(next===ref.current)return;await saveLocal(user,next);if(!alive.current)return;ref.current=next;setLocal(next);});
     writes.current=task;return task;
   },[user]);
   const refresh=useCallback(async(date?:string)=>{
-    if(date!==undefined)windowDate.current=date==='recent'?undefined:date;
-    const selected=windowDate.current;const sequence=++refreshSequence.current;
-    const state=await api<AppState>('/state'+(selected?(selected.length===4?'?year=':'?date=')+selected:''));
-    if(!alive.current||sequence!==refreshSequence.current)return;
-    if(state.id!==user)throw new Error('The signed-in account changed. Sign in again.');
-    if(!ref.current){const data={state,queue:[],scans:[]};await saveLocal(user,data);if(alive.current){ref.current=data;setLocal(data);}}
-    else await commit(current=>state.revision<current.state.revision||JSON.stringify(state)===JSON.stringify(current.state)?current:{...current,state});
-  },[commit,user]);
+    const endActivity=beginActivity('refresh');
+    try{
+      if(date!==undefined)windowDate.current=date==='recent'?undefined:date;
+      const selected=windowDate.current;const sequence=++refreshSequence.current;
+      const state=await api<AppState>('/state'+(selected?(selected.length===4?'?year=':'?date=')+selected:''));
+      if(!alive.current||sequence!==refreshSequence.current)return;
+      if(state.id!==user)throw new Error('The signed-in account changed. Sign in again.');
+      if(!ref.current){const data={state,queue:[],scans:[]};await saveLocal(user,data);if(alive.current){ref.current=data;setLocal(data);}}
+      else await commit(current=>state.revision<current.state.revision||JSON.stringify(state)===JSON.stringify(current.state)?current:{...current,state});
+    }finally{
+      endActivity();
+    }
+  },[beginActivity,commit,user]);
   const refreshHistory=useCallback(async(key:string)=>{
-    const sequence=(historySequences.current.get(key)??0)+1;historySequences.current.set(key,sequence);
-    const state=await api<AppState>('/state'+(key==='recent'?'':(key.length===4?'?year=':'?date=')+encodeURIComponent(key)));
-    if(!alive.current||historySequences.current.get(key)!==sequence)return;
-    if(state.id!==user)throw new Error('The signed-in account changed. Sign in again.');
-    await commit(current=>{
-      if(historySequences.current.get(key)!==sequence||state.revision<current.state.revision)return current;
-      const previous=current.history?.[key];
-      if(previous&&state.revision<previous.revision)return current;
-      // Bound downloaded history only; retained mutations and image drafts are never evicted.
-      const history={...current.history};delete history[key];history[key]=state;
-      while(Object.keys(history).length>16)delete history[Object.keys(history)[0]];
-      return {...current,history};
-    });
-  },[commit,user]);
+    const endActivity=beginActivity('history:'+key);
+    try{
+      const sequence=(historySequences.current.get(key)??0)+1;historySequences.current.set(key,sequence);
+      const state=await api<AppState>('/state'+(key==='recent'?'':(key.length===4?'?year=':'?date=')+encodeURIComponent(key)));
+      if(!alive.current||historySequences.current.get(key)!==sequence)return;
+      if(state.id!==user)throw new Error('The signed-in account changed. Sign in again.');
+      await commit(current=>{
+        if(historySequences.current.get(key)!==sequence||state.revision<current.state.revision)return current;
+        const previous=current.history?.[key];
+        if(previous&&state.revision<previous.revision)return current;
+        // Bound downloaded history only; retained mutations and image drafts are never evicted.
+        const history={...current.history};delete history[key];history[key]=state;
+        while(Object.keys(history).length>16)delete history[Object.keys(history)[0]];
+        return {...current,history};
+      });
+    }finally{
+      endActivity();
+    }
+  },[beginActivity,commit,user]);
   const drain=useCallback(async()=>{
     if(draining.current||!navigator.onLine||!ref.current)return;
     draining.current=true;if(ref.current.queue.length){beginSync(ref.current.queue[0]?.kind??'entry');setBusy(true);}
@@ -188,10 +233,17 @@ export function useNourish(user:string){
     let heartbeat=Date.now();
     const retained=()=>Boolean(ref.current&&(ref.current.queue.length||ref.current.scans.length||ref.current.photoDrafts?.length));
     const interval=window.setInterval(()=>{if(retained()||Date.now()-heartbeat>=30000){heartbeat=Date.now();wake();}},10000);
-    return()=>{alive.current=false;clearSyncTimer();window.removeEventListener('online',wake);document.removeEventListener('visibilitychange',wake);clearInterval(interval);};
+    return()=>{
+      alive.current=false;
+      clearSyncTimer();
+      if(activityTimer.current!==undefined)clearTimeout(activityTimer.current);
+      window.removeEventListener('online',wake);
+      document.removeEventListener('visibilitychange',wake);
+      clearInterval(interval);
+    };
   },[user,refresh,drain,runScans]);
   const state=useMemo(()=>local?project(local.state,local.queue):undefined,[local]);
-  return {state,local,error,busy,sync,mutate,refresh,refreshHistory,drain,calendarDate,
+  return {state,local,error,busy,sync,isActivityActive,beginActivity,mutate,refresh,refreshHistory,drain,calendarDate,
     logEntries:async(entries:unknown[])=>{
       await commit(current=>({...current,queue:queueEntries(current,entries)}));
       markSyncQueued('entry');

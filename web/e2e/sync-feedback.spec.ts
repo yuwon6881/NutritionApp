@@ -36,8 +36,53 @@ test('fast saves keep server feedback readable through completion',async({page,c
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('250');
   await page.getByRole('button',{name:'Save reviewed food',exact:true}).click();
 
-  await expect(page.locator('.sync-status')).toBeVisible();
-  await expect(page.locator('.sync-status-syncing')).toBeVisible();
-  await expect(page.getByText('All changes saved',{exact:true})).toBeVisible();
-  await expect(page.getByText('Your latest changes are on the server.',{exact:true})).toBeVisible();
+  // Ordinary autosaves use the quiet delayed topbar indicator; no routine success toast or checkmark
+  await expect(page.locator('.sync-status-synced')).toHaveCount(0);
+  await expect(page.getByText('All changes saved',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Stable feedback test',{exact:true})).toBeVisible();
+
+  // Test discard confirmation across shared modal
+  const weighInBtn=page.getByRole('button',{name:'Add weigh-in',exact:true});
+  await page.getByRole('button',{name:'Progress',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Progress',exact:true})).toBeVisible();
+  await weighInBtn.click();
+
+  const weightModal=page.getByRole('dialog',{name:'Log weight',exact:true});
+  await expect(weightModal).toBeVisible();
+  const kgInput=weightModal.getByLabel(/Weight/);
+  await kgInput.fill('79.5');
+
+  // Attempt to dismiss by clicking the close button
+  await weightModal.getByRole('button',{name:'Close dialog',exact:true}).click();
+
+  // Discard confirmation appears as an alertdialog
+  const confirmDialog=page.getByRole('alertdialog',{name:'Discard changes?',exact:true});
+  await expect(confirmDialog).toBeVisible();
+  const keepEditingBtn=confirmDialog.getByRole('button',{name:'Keep editing',exact:true});
+  await expect(keepEditingBtn).toBeFocused();
+
+  // The underlying editor remains mounted and visible beneath the confirmation layer
+  await expect(kgInput).toBeVisible();
+  await expect(kgInput).toHaveValue('79.5');
+
+  // Backdrop click while confirming does nothing
+  await page.mouse.click(10,10);
+  await expect(confirmDialog).toBeVisible();
+
+  // Escape dismisses only the confirmation and restores focus to the input
+  await page.keyboard.press('Escape');
+  await expect(confirmDialog).toHaveCount(0);
+  await expect(weightModal).toBeVisible();
+  await expect(kgInput).toBeFocused();
+  await expect(kgInput).toHaveValue('79.5');
+
+  // Open confirmation again and confirm discard
+  await weightModal.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await expect(confirmDialog).toBeVisible();
+  await confirmDialog.getByRole('button',{name:'Discard changes',exact:true}).click();
+
+  // Dialog closes and focus restores to the page trigger
+  await expect(weightModal).toHaveCount(0);
+  await expect(weighInBtn).toBeFocused();
 });
+

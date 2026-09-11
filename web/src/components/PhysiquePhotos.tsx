@@ -22,15 +22,17 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   const [selected,setSelected]=useState<PhysiquePhoto[]>([]);
   const [deleting,setDeleting]=useState<string>();
   const {busy,run}=useAsyncAction();
-  const {busy:loading,run:runLoad}=useAsyncAction(320);
+  const {run:runLoad}=useAsyncAction();
   const drafts=store.local!.photoDrafts??[];
 
   const loadGallery=async()=>{
     setError('');
+    const end=store.beginActivity('photos');
     try{
       const next=await runLoad(()=>api<Gallery>('/photos?skip='+skip));
       setGallery(next);
     }catch(ex){setError((ex as Error).message);}
+    finally{end();}
   };
   useEffect(()=>{void loadGallery();},[skip,drafts.length]);
 
@@ -57,7 +59,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
         <div className="actions"><Button variant="primary" onClick={event=>openNew(event.currentTarget)}>Add photo set</Button></div>
       </div>
       {gallery&&!gallery.configured&&<p>Photo storage is not configured. A local draft can still be prepared.</p>}
-      {loading&&<p className="notice loading-status" role="status" aria-busy="true">Loading photo history…</p>}
+      {!gallery&&!error&&<div className="skeleton" aria-busy="true" style={{minHeight:240}}/>}
       {drafts.map(draft=><div className="notice" key={draft.id}><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>)}
       {gallery&&<>
         <p className="source">{number(gallery.usedBytes/1048576,1)} / {number(gallery.maxBytes/1048576)} MiB used</p>

@@ -3,7 +3,6 @@ import type {CoachPreview,Profile,ProfileDraft} from './types';
 import type {Nourish} from './useNourish';
 import {api,ApiError} from './lib/api';
 import {profilesEqual} from './lib/profile';
-import {waitForMinimumDuration} from './lib/async';
 
 export type CoachProposal=CoachPreview&{acceptId:string};
 export type ProposalOperation='idle'|'waiting'|'calculating'|'updating'|'accepting'|'refreshing'|'error'|'refresh-error';
@@ -44,8 +43,7 @@ export function useCoachProposal({store,draft,changed=false,onAccepted}:{
   const startOperation=useCallback((next:ProposalOperation)=>{
     operationStarted.current=Date.now();setOperation(next);
   },[]);
-  const finishOperation=useCallback(async(next:ProposalOperation,token?:number)=>{
-    await waitForMinimumDuration(operationStarted.current??Date.now(),420);
+  const finishOperation=useCallback((next:ProposalOperation,token?:number)=>{
     if(alive.current&&(token===undefined||token===request.current)){
       operationStarted.current=Date.now();setOperation(next);
     }

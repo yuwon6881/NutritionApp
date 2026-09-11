@@ -13,7 +13,13 @@ test.beforeAll(async({request})=>{
     await new Promise(resolve=>setTimeout(resolve,5000));
     response=await request.post('/api/auth/login',{headers,data});
   }
-  if(response.status()===401)response=await request.post('/api/auth/register',{headers,data});
+  if(response.status()===401){
+    response=await request.post('/api/auth/register',{headers,data});
+    for(let attempt=0;response.status()===429&&attempt<12;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      response=await request.post('/api/auth/register',{headers,data});
+    }
+  }
   expect(response.ok(),await response.text()).toBeTruthy();
   const state=await (await request.get('/api/state')).json();
   const saved=await request.post('/api/sync',{headers,data:{

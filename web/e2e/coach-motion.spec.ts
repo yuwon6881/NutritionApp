@@ -7,6 +7,7 @@ test.use({video:'on'});
 test.setTimeout(120000);
 test.describe.configure({mode:'serial'});
 test.beforeEach(async({page,context})=>{
+  await page.emulateMedia({reducedMotion:'no-preference'});
   expect((await context.request.post('/api/auth/dev-reset',{headers})).ok()).toBeTruthy();
   const credentials={username:'coach-motion',password:'nutrition test password 2026'};
   let registered=await context.request.post('/api/auth/register',{headers,data:credentials});
@@ -136,6 +137,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   await expect(page.locator('[data-step-heading]')).toHaveText('Macros');
   await expect(page.locator('[data-step-heading]')).toBeFocused();
   await expect(page.locator('.coach-step-stage')).toHaveCSS('opacity','1');
+  await page.emulateMedia({reducedMotion:'no-preference'});
 });
 
 test('real calculation waits, errors, retry and stale responses after back to edit',async({page})=>{

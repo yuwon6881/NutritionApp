@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon} from 'lucide-react';
+import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle} from 'lucide-react';
 import {api,ApiError} from './lib/api';
 import {readLocal} from './lib/local';
 import {today} from './lib/format';
@@ -97,7 +97,18 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
       </nav>
     </aside>
     <main id="main-content" className="main-content" tabIndex={-1}>
-      <div className="topbar"><span className="account-name">{store.state?.username}</span>{needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}<Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button></div>
+      <div className="topbar">
+        <span className="account-name">{store.state?.username}</span>
+        <div className="topbar-activity" role="status" aria-label="Activity indicator" aria-live="polite">
+          {store.isActivityActive && (
+            <span className="topbar-activity-indicator" aria-label="Working…">
+              <LoaderCircle size={16} className="topbar-activity-spinner" aria-hidden="true"/>
+            </span>
+          )}
+        </div>
+        {needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}
+        <Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button>
+      </div>
       <SyncStatus store={store}/>
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>

@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {allocateWeeklyCalories,adjustWeeklyCalories,dailyCalories,mondayIndex,normaliseDistribution,scaledMacros,weeklyCalories} from './dailyTargets';
+import {allocateWeeklyCalories,adjustWeeklyCalories,dailyCalories,mondayIndex,normaliseDistribution,scaledMacros,weeklyCalories,weekendDistribution} from './dailyTargets';
 
 describe('daily targets',()=>{
   it('conserves the weekly budget and allocates remainders by stable index',()=>{
@@ -7,6 +7,19 @@ describe('daily targets',()=>{
     expect(targets).toEqual([0,0,0,0,0,0,14001]);
     expect(targets.reduce((sum,value)=>sum+value,0)).toBe(14001);
     expect(allocateWeeklyCalories(100,[1,1,1,1,1,1,1])).toEqual([15,15,14,14,14,14,14]);
+  });
+
+  it('provides a 100% weekend-boost distribution with higher targets on Saturday and Sunday',()=>{
+    const dist=weekendDistribution();
+    expect(dist).toHaveLength(7);
+    expect(dist.reduce((sum,v)=>sum+v,0)).toBe(100);
+    expect(dist[5]).toBeGreaterThan(dist[0]);
+    expect(dist[6]).toBeGreaterThan(dist[0]);
+    const allocated=allocateWeeklyCalories(14000,dist);
+    expect(allocated[0]).toBe(1750);
+    expect(allocated[5]).toBe(2625);
+    expect(allocated[6]).toBe(2625);
+    expect(allocated.reduce((sum,v)=>sum+v,0)).toBe(14000);
   });
 
   it('normalises non-negative shares but rejects malformed distributions',()=>{

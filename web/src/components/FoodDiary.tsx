@@ -41,9 +41,10 @@ export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:
       <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
     </div>
     {history.error&&<div className="notice" role="status">{state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} {history.error} <Button onClick={history.retry}>Retry history</Button></div>}
-    {history.loading&&<p className="notice loading-status" role="status" aria-busy="true">Loading food history…</p>}
-    {currentUncached&&!history.loading&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
-    {!state&&!history.loading&&!history.error&&<p className="loading-status" role="status">Loading food history…</p>}
+    {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
+    {!state&&!history.error&&<section className="panel food-day-summary skeleton" aria-busy="true">
+      <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>Loading diary date…</p></div></div>
+    </section>}
     {error&&<p className="error" role="alert">{error}</p>}
     {state&&<>
       <section className="panel food-day-summary">

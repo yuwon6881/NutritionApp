@@ -1,15 +1,14 @@
 import {useState, useMemo, type CSSProperties} from 'react';
-import {allocateWeeklyCalories, adjustWeeklyCalories, equalDistribution} from '../lib/dailyTargets';
+import {allocateWeeklyCalories, adjustWeeklyCalories, equalDistribution, weekendDistribution, normaliseDistribution} from '../lib/dailyTargets';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
-import {CoachNumber} from './ui/CoachMotion';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Lock, Unlock, Check} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {displayEnergy, energyLabel, inputEnergy, parseEnergy} from '../lib/units';
 
 const labels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-type DistributionMode = 'coach' | 'custom';
+type DistributionMode = 'even' | 'weekend' | 'custom';
 
 export function WeeklyProgramSetup({
   budget,
@@ -24,13 +23,31 @@ export function WeeklyProgramSetup({
   custom?: boolean;
   onChange: (values: number[], isCustom?: boolean) => void;
 }) {
-  const [mode, setMode] = useState<DistributionMode>(custom ? 'custom' : 'coach');
-  const [locked, setLocked] = useState<boolean[]>([false, false, false, false, false, false, false]);
   const target = Math.round(budget);
+  const equal = useMemo(() => allocateWeeklyCalories(target, equalDistribution()), [target]);
+  const weekend = useMemo(() => allocateWeeklyCalories(target, weekendDistribution()), [target]);
+
+  const detectInitialMode = (): DistributionMode => {
+    if (!custom) return 'even';
+    if (values.length === 7) {
+      const shares = normaliseDistribution(values);
+      const weekendShares = weekendDistribution();
+      if (shares && shares.every((s, i) => Math.abs(s - weekendShares[i]) < 0.2)) {
+        return 'weekend';
+      }
+      const equalShares = equalDistribution();
+      if (shares && shares.every((s, i) => Math.abs(s - equalShares[i]) < 0.2)) {
+        return 'even';
+      }
+    }
+    return 'custom';
+  };
+
+  const [mode, setMode] = useState<DistributionMode>(detectInitialMode);
+  const [locked, setLocked] = useState<boolean[]>([false, false, false, false, false, false, false]);
   const sum = values.reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0);
   const valid = values.length === 7 && values.every(value => Number.isInteger(value) && value >= 0) && sum === target;
   const remaining = target - sum;
-  const equal = useMemo(() => allocateWeeklyCalories(target, equalDistribution()), [target]);
 
   const unlockedCount = locked.filter(l => !l).length;
 
@@ -64,10 +81,29 @@ export function WeeklyProgramSetup({
     }
   };
 
+  const handleWeekendBoost = () => {
+    if (locked.every(l => !l)) {
+      onChange(weekend, true);
+    } else {
+      const unlocked = [0, 1, 2, 3, 4, 5, 6].filter(i => !locked[i]);
+      const lockedSum = values.reduce((total, v, i) => locked[i] ? total + v : total, 0);
+      const avail = Math.max(0, target - lockedSum);
+      const rawWeights = unlocked.map(i => (i >= 5 ? 1.5 : 1.0));
+      const totalWeight = rawWeights.reduce((s, w) => s + w, 0);
+      const shares = rawWeights.map(w => (w / totalWeight) * 100);
+      const allocated = allocateWeeklyCalories(avail, shares);
+      const next = [...values];
+      unlocked.forEach((idx, k) => { next[idx] = allocated[k]; });
+      onChange(next, true);
+    }
+  };
+
   const handleModeChange = (nextMode: DistributionMode) => {
     setMode(nextMode);
-    if (nextMode === 'coach') {
+    if (nextMode === 'even') {
       onChange(equal, false);
+    } else if (nextMode === 'weekend') {
+      onChange(weekend, true);
     } else {
       onChange(values, true);
     }
@@ -88,7 +124,7 @@ export function WeeklyProgramSetup({
       <div className="section-heading">
         <div>
           <h3 id="weekly-program-title">Weekly calorie distribution</h3>
-          <p>Choose whether to distribute calories evenly or customize them across the week.</p>
+          <p>Choose whether to distribute calories evenly, allocate more to weekends, or customize each day.</p>
         </div>
       </div>
 
@@ -97,7 +133,8 @@ export function WeeklyProgramSetup({
         value={mode}
         size="sm"
         options={[
-          {value: 'coach', label: 'Coach default'},
+          {value: 'even', label: 'Even distributed'},
+          {value: 'weekend', label: 'Higher on weekends'},
           {value: 'custom', label: 'Custom'},
         ]}
         onChange={handleModeChange}
@@ -122,10 +159,10 @@ export function WeeklyProgramSetup({
         </div>
       </div>
 
-      {mode === 'coach' ? (
+      {mode === 'even' && (
         <div className="weekly-coach-default-card">
           <p className="weekly-coach-default-desc">
-            Your coach distributes your <strong>{displayEnergy(target, energyUnit)} {energyLabel(energyUnit)}</strong> weekly budget evenly across all seven days.
+            Your weekly budget of <strong>{displayEnergy(target, energyUnit)} {energyLabel(energyUnit)}</strong> is distributed evenly across all seven days.
           </p>
           <div className="weekly-preview-grid">
             {labels.map((label, index) => (
@@ -137,7 +174,30 @@ export function WeeklyProgramSetup({
             ))}
           </div>
         </div>
-      ) : (
+      )}
+
+      {mode === 'weekend' && (
+        <div className="weekly-coach-default-card">
+          <p className="weekly-coach-default-desc">
+            Your weekly budget of <strong>{displayEnergy(target, energyUnit)} {energyLabel(energyUnit)}</strong> is weighted so weekdays have a lower target, reserving more calories for Saturday and Sunday.
+          </p>
+          <div className="weekly-preview-grid">
+            {labels.map((label, index) => {
+              const isWeekendDay = index >= 5;
+              return (
+                <div key={label} className={`weekly-preview-pill ${isWeekendDay ? 'is-weekend' : ''}`}>
+                  <span className="weekly-preview-day">{label.slice(0, 3)}</span>
+                  <strong className="weekly-preview-val">{displayEnergy(weekend[index], energyUnit)}</strong>
+                  <small>{energyLabel(energyUnit)}</small>
+                  {isWeekendDay && <span className="weekly-preview-badge">+50% boost</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {mode === 'custom' && (
         <>
           <div className="weekly-custom-toolbar">
             <p className="source weekly-program-hint">
@@ -153,6 +213,9 @@ export function WeeklyProgramSetup({
               )}
               <Button type="button" variant="secondary" size="sm" onClick={handleEqualize}>
                 Equal distribution
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={handleWeekendBoost}>
+                Weekend boost
               </Button>
             </div>
           </div>
@@ -175,7 +238,7 @@ export function WeeklyProgramSetup({
                         </span>
                       )}
                       <strong className="weekly-row-percent">
-                        <CoachNumber>{pct.toFixed(1)}</CoachNumber>%
+                        {pct.toFixed(1)}%
                       </strong>
                     </span>
                   </div>

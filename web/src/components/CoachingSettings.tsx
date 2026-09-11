@@ -28,8 +28,7 @@ export function CoachingSettings({store}:{store:Nourish}){
     queuedData?.weightUnit!==undefined&&queuedData.weightUnit!==saved.weightUnit||queuedData?.energyUnit!==undefined&&queuedData.energyUnit!==saved.energyUnit||queuedData?.heightUnit!==undefined&&queuedData.heightUnit!==saved.heightUnit?'unit preferences':null
   ].filter((value):value is string=>value!==null):[];
   const savingLabel=changes.length===1?`Saving your ${changes[0]}...`:changes.length>1?`Saving your ${changes.join(' and ')}...`:'Saving your coaching settings...';
-  const settingsSaving=queued&&!queued.error||store.sync.kind==='settings'&&(store.sync.phase==='queued'||store.sync.phase==='syncing');
-  const settingsSaved=!queued&&store.sync.kind==='settings'&&store.sync.phase==='synced';
+  const settingsSaving=Boolean(queued&&!queued.error);
   const current=today(state.profile?.timeZone);
   const next=useMemo(()=>nextOccurrenceAfter(current,settings.checkInWeekday),[current,settings.checkInWeekday]);
   const update=async(value:string)=>{
@@ -47,7 +46,7 @@ export function CoachingSettings({store}:{store:Nourish}){
     </SelectField>
     <p className="source">The active plan stays in place. Your next check-in is {next}.</p>
     <UnitPreferencesFields value={units} onChange={updateUnits}/>
-    {(settingsSaving||settingsSaved)&&<p className={`notice settings-save-status${settingsSaved?' settings-save-complete':''}`} role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{settingsSaved?'Changes saved':savingLabel}</strong><small>{settingsSaved?'Your preferences are on the server.':'Changes are saved automatically.'}</small></span></p>}
+    {settingsSaving&&<p className="notice settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
     {queued?.error&&<p className="error settings-error" role="alert">This settings change is waiting for review in the saved edit notice above.</p>}
   </section>;
 }

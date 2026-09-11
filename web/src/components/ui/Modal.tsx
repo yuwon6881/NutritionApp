@@ -48,6 +48,8 @@ export function Modal({
   const keepEditing=useRef<HTMLButtonElement>(null);
   const confirmation=useRef<HTMLDivElement>(null);
   const confirmationOrigin=useRef<HTMLElement|null>(null);
+  const lastEditorFocus=useRef<HTMLElement|null>(null);
+  const wasConfirming=useRef(false);
   const onCloseCompleteRef=useRef(onCloseComplete);
   const titleId=useId();
   const descriptionId=useId();
@@ -72,6 +74,7 @@ export function Modal({
         }
         setPhase('open');
         const target=element.querySelector<HTMLElement>('[data-modal-autofocus]')??focusable(element)[0]??element;
+        lastEditorFocus.current=target;
         target.focus({preventScroll:true});
       });
       return()=>window.cancelAnimationFrame(frame);
@@ -94,25 +97,40 @@ export function Modal({
   },[open,present,restoreFocus,reduceMotion]);
 
   useEffect(()=>{
-    if(!confirming)return;
-    const frame=window.requestAnimationFrame(()=>keepEditing.current?.focus({preventScroll:true}));
-    return()=>window.cancelAnimationFrame(frame);
+    if(confirming){
+      wasConfirming.current=true;
+      const frame=window.requestAnimationFrame(()=>keepEditing.current?.focus({preventScroll:true}));
+      return()=>window.cancelAnimationFrame(frame);
+    }
+    if(wasConfirming.current){
+      wasConfirming.current=false;
+      const target=confirmationOrigin.current
+        ??(lastEditorFocus.current?.isConnected?lastEditorFocus.current:null)
+        ??dialog.current?.querySelector<HTMLElement>('[data-modal-autofocus]')
+        ??(dialog.current?.querySelector<HTMLElement>('.modal-body')?focusable(dialog.current.querySelector<HTMLElement>('.modal-body')!)[0]:null);
+      confirmationOrigin.current=null;
+      if(target?.isConnected){
+        window.requestAnimationFrame(()=>target.focus({preventScroll:true}));
+      }
+    }
   },[confirming]);
 
   const clearDismissIntent=useCallback(()=>dialog.current?.removeAttribute('data-modal-dismiss-intent'),[]);
   const keepEditingAction=useCallback(()=>{
-    const target=confirmationOrigin.current;
-    confirmationOrigin.current=null;
     clearDismissIntent();
     setConfirming(false);
-    window.requestAnimationFrame(()=>{
-      if(target?.isConnected)target.focus({preventScroll:true});
-    });
   },[clearDismissIntent]);
 
   const requestClose=useCallback(()=>{
     if(dirty){
-      confirmationOrigin.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+      const active=document.activeElement instanceof HTMLElement?document.activeElement:null;
+      const isDismissControl=active?.closest('[data-modal-dismiss]')||active===dialog.current;
+      const origin=(!isDismissControl&&active&&dialog.current?.contains(active))
+        ? active
+        : (lastEditorFocus.current?.isConnected
+            ? lastEditorFocus.current
+            : (dialog.current?.querySelector<HTMLElement>('[data-modal-autofocus]')??(dialog.current?.querySelector<HTMLElement>('.modal-body')?focusable(dialog.current.querySelector<HTMLElement>('.modal-body')!)[0]:undefined)));
+      confirmationOrigin.current=origin??null;
       setConfirming(true);
       return;
     }
@@ -120,6 +138,12 @@ export function Modal({
   },[dirty,onClose]);
 
   const onKeyDown=(event:React.KeyboardEvent<HTMLDialogElement>)=>{
+    if(confirming&&event.key==='Escape'){
+      event.preventDefault();
+      event.stopPropagation();
+      keepEditingAction();
+      return;
+    }
     if(event.key!=='Tab')return;
     const items=focusable(confirming?confirmation.current??event.currentTarget:event.currentTarget);
     if(!items.length){event.preventDefault();event.currentTarget.focus();return;}
@@ -142,15 +166,22 @@ export function Modal({
       if(target instanceof Element&&(target===event.currentTarget||target.closest('[data-modal-dismiss]')))
         dialog.current?.setAttribute('data-modal-dismiss-intent','true');
     }}
+    onFocusCapture={event=>{
+      if(confirming)return;
+      const target=event.target;
+      if(target instanceof HTMLElement&&!target.closest('[data-modal-dismiss]')&&!confirmation.current?.contains(target))
+        lastEditorFocus.current=target;
+    }}
     onKeyDown={onKeyDown}
     onClick={event=>{
+      if(confirming)return;
       const rect=event.currentTarget.getBoundingClientRect();
       const inside=event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom;
       if(!inside)requestClose();
     }}
   >
     <div className="modal-surface">
-      <div className={`modal-content ${confirming?'modal-content-inert':''}`} aria-hidden={confirming||undefined} inert={confirming||undefined}>
+      <div className={`modal-content ${confirming||phase==='closing'?'modal-content-inert':''}`} aria-hidden={confirming||phase==='closing'||undefined} inert={confirming||phase==='closing'||undefined}>
         <header className="modal-header">
           <div className="modal-heading">
             <h2 id={titleId} tabIndex={-1}>{title}</h2>
@@ -168,7 +199,7 @@ export function Modal({
           </div>
           <div className="actions">
             <Button ref={keepEditing} onClick={keepEditingAction}>Keep editing</Button>
-            <Button variant="destructive" onClick={()=>{clearDismissIntent();confirmationOrigin.current=null;setConfirming(false);onClose();}}>Discard changes</Button>
+            <Button variant="destructive" onClick={()=>{clearDismissIntent();confirmationOrigin.current=null;wasConfirming.current=false;setConfirming(false);onClose();}}>Discard changes</Button>
           </div>
         </div>
       </div>}

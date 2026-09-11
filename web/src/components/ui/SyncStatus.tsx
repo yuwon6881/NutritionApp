@@ -1,4 +1,4 @@
-import {AlertTriangle,Check,Cloud,CloudOff,LoaderCircle} from 'lucide-react';
+import {AlertTriangle,CloudOff,LoaderCircle} from 'lucide-react';
 import {useEffect,useState} from 'react';
 import type {Nourish} from '../../useNourish';
 
@@ -19,33 +19,28 @@ export function SyncStatus({store}:{store:Nourish}){
 
   const conflicts=store.local?.queue.filter(operation=>operation.error).length??0;
   const pending=pendingWork(store);
-  const syncing=store.sync.phase==='syncing';
-  const synced=store.sync.phase==='synced'&&pending===0&&!conflicts;
+  const meaningfulSync=store.sync.phase==='syncing'&&(store.sync.kind==='scan'||store.sync.kind==='photo');
+  const retainedOffline=pending>0&&!online;
   const attention=conflicts>0;
-  if(!syncing&&!synced&&!pending&&!attention)return null;
+  if(!meaningfulSync&&!retainedOffline&&!attention)return null;
 
   let title='Saved on this device';
-  let detail=online?'Syncing when ready.':'Will sync when you reconnect.';
+  let detail='Will sync when you reconnect.';
   let tone='pending';
-  let Icon=online?Cloud:CloudOff;
+  let Icon=CloudOff;
   if(attention){
     title=`${conflicts} saved edit${conflicts===1?'':'s'} needs review`;
     detail='The server record is protected until you review the queued change.';
     tone='attention';
     Icon=AlertTriangle;
-  }else if(syncing){
-    title=store.sync.kind==='scan'?'Processing scan…':store.sync.kind==='photo'?'Uploading photo set…':'Syncing changes…';
+  }else if(meaningfulSync){
+    title=store.sync.kind==='scan'?'Processing scan…':'Uploading photo set…';
     detail='Your latest changes are being sent to the server.';
     tone='syncing';
     Icon=LoaderCircle;
-  }else if(synced){
-    title='All changes saved';
-    detail='Your latest changes are on the server.';
-    tone='synced';
-    Icon=Check;
   }
 
-  return <div className={`sync-status sync-status-${tone}`} role="status" aria-live="polite" aria-atomic="true" aria-busy={syncing||undefined}>
+  return <div className={`sync-status sync-status-${tone}`} role="status" aria-live="polite" aria-atomic="true" aria-busy={meaningfulSync||undefined}>
     <span className="sync-status-icon" aria-hidden="true"><Icon size={17}/></span>
     <span className="sync-status-copy"><strong>{title}</strong><small>{detail}</small></span>
   </div>;

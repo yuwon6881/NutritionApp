@@ -320,11 +320,11 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         <Field id="coach-maintenance" name="maintenance" label={`Known maintenance calories${units.energy==='kcal'?'':` (${energyLabel(units.energy)})`} (optional)`} type="number" min={units.energy==='kj'?4184:1000} max={units.energy==='kj'?29288:7000} value={profile.maintenance==null?'':inputEnergy(profile.maintenance,units.energy,0)} placeholder="Use the equation" onChange={e=>{const next=parseEnergy(e.target.value,units.energy);set('maintenance',e.target.value===''?null:Number.isFinite(next)?next:null);}}/>
         <div className="checks">
           <label htmlFor="coach-resistance-training">
-            <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
+            <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" role="switch" aria-checked={profile.resistanceTraining} checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
             Resistance training
           </label>
           {([['pregnancyOrBreastfeeding','Pregnant or breastfeeding'],['medicalNutrition','Medically managed nutrition']] as const).map(([key,label])=><label key={key} htmlFor={`coach-${key}`}>
-            <input id={`coach-${key}`} name={key} type="checkbox" checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
+            <input id={`coach-${key}`} name={key} type="checkbox" role="switch" aria-checked={profile[key]} checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
           </label>)}
         </div>
         <div className="step-actions">

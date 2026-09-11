@@ -13,6 +13,8 @@ export function normaliseDistribution(shares?:readonly number[]|null):number[]|n
 
 export function equalDistribution():number[]{return Array.from({length:7},()=>100/7);}
 
+export function weekendDistribution():number[]{return [12.5,12.5,12.5,12.5,12.5,18.75,18.75];}
+
 export function allocateWeeklyCalories(weeklyCalories:number,shares?:readonly number[]|null):number[]{
   const budget=Math.round(weeklyCalories);
   const normalised=normaliseDistribution(shares)??equalDistribution();

@@ -94,10 +94,10 @@ test('coaching validates the active step and retains an empty macro draft',async
   await page.getByLabel('Height (cm)',{exact:true}).fill('170');await page.getByRole('button',{name:/Next: Activity/}).click();
   await page.getByRole('button',{name:/Next: Goal/}).click();await page.getByRole('button',{name:/Next: Macros/}).click();
   await page.getByRole('button',{name:/Next: Adjust/}).click();
-  await page.getByLabel('Protein percent',{exact:true}).fill('');
+  await page.getByLabel('Protein grams',{exact:true}).fill('');
   await page.getByRole('button',{name:/Next: Distribution/}).click();
-  await expect(page.getByLabel('Protein percent',{exact:true})).toHaveValue('');await expect(page.getByText('Enter protein percent.')).toBeVisible();expect(writes).toBe(0);
-  await page.getByLabel('Protein percent',{exact:true}).fill('35');await expect(page.getByText('Enter protein percent.')).toHaveCount(0);
+  await expect(page.getByLabel('Protein grams',{exact:true})).toHaveValue('');await expect(page.getByText('Enter protein grams.')).toBeVisible();expect(writes).toBe(0);
+  await page.getByLabel('Protein grams',{exact:true}).fill('140');await expect(page.getByText('Enter protein grams.')).toHaveCount(0);
 });
 
 test('real decoding ignores barcodes outside the frame and stops every camera session',async({page,context})=>{
