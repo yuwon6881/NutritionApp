@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {ArrowRight,Plus,Trash2,Copy,Leaf,Scale,Compass} from 'lucide-react';
+import {ArrowRight,Plus,Copy,Leaf,Scale} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult,Entry} from '../types';
 import {number,today} from '../lib/format';
@@ -69,10 +69,16 @@ export function Today({
         <h1 data-page-heading tabIndex={-1}>Diary</h1>
 
       </div>
-      <DatePicker id="diary-date" name="date" label="Diary date" value={date} max={today(state.profile?.timeZone)} onChange={val=>{
-        setDate(val);
-        if(val<state.start||val>state.end)void store.refresh(val).catch(ex=>setError(ex.message));
-      }}/>
+      <div className="page-heading-actions">
+        <Button variant="secondary" onClick={event=>onWeight(event.currentTarget)}>
+          <Scale size={18}/>
+          <span>Log weight</span>
+        </Button>
+        <DatePicker id="diary-date" name="date" label="Diary date" value={date} max={today(state.profile?.timeZone)} onChange={val=>{
+          setDate(val);
+          if(val<state.start||val>state.end)void store.refresh(val).catch(ex=>setError(ex.message));
+        }}/>
+      </div>
     </header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
       onComplete={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
@@ -112,20 +118,6 @@ export function Today({
           })}
         </article>
       </section>
-      <div className="quick-actions-bar" role="group" aria-label="Quick mobile actions">
-        <Button variant="primary" className="quick-action-btn" onClick={onLog} disabled={readOnly}>
-          <Plus size={18}/>
-          <span>Log food</span>
-        </Button>
-        <Button variant="secondary" className="quick-action-btn" onClick={event=>onWeight(event.currentTarget)}>
-          <Scale size={18}/>
-          <span>Log weight</span>
-        </Button>
-        <Button variant="tertiary" className="quick-action-btn" onClick={onCoach}>
-          <Compass size={18}/>
-          <span>Targets</span>
-        </Button>
-      </div>
       <section className="panel diary">
         <div className="section-heading">
           <div>
@@ -142,7 +134,6 @@ export function Today({
         </div>:!entries.length?<div className="empty">
           <Leaf size={30}/>
           <h3>No food entries</h3>
-          <Button size="md" onClick={onLog}>Log food<ArrowRight size={16}/></Button>
         </div>:<FoodTimeline store={store} date={date} entries={entries} readOnly={readOnly} onEdit={onEdit}
            onMove={(moving,time)=>void act(async()=>{for(const entry of moving){const op=moveEntry(entry,time);if(op)await store.mutate(op);}})}/>}
         {!!entries.length&&<div className="copy-day">
