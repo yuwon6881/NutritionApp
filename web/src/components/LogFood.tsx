@@ -16,7 +16,6 @@ import {ScanReview} from './ScanReview';
 import {QuickAdd} from './QuickAdd';
 import {FoodPicker} from './FoodPicker';
 import {FoodBasket} from './FoodBasket';
-import {Checkbox} from './ui/Checkbox';
 import {mealReadOnly,mealTime} from '../lib/foodDiary';
 import {useHistoryWindow} from '../useHistoryWindow';
 import {useFoodBasket} from '../useFoodBasket';
@@ -173,15 +172,48 @@ export function LogFood({
       <div className="section-heading"><div><h3>Your foods</h3><p>Saved foods and recent diary items.</p></div><div className="actions"><Button onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}>Custom food</Button><Button onClick={()=>go('recipe')}>New recipe</Button></div></div>
       <Field id="log-food-search" name="query" data-modal-autofocus label="Find your food" value={query} onChange={event=>setQuery(event.target.value)}/>
       {foods.length===0&&<p className="empty">No saved foods yet.</p>}
-      {foods.map(food=><div className="food-row" key={food.id}>
-        <Checkbox
-          checked={basket.lines.some(l=>l.key===lineKey(food.name,food.source))}
-          aria-label={`Select ${food.name} for batch logging`}
-          onChange={()=>basket.toggleItem(food)}
-        />
-        <div className="food-description"><Button variant="tertiary" onClick={()=>choose(food)}>{food.name}</Button><small>{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {food.source}</small></div>
-        <Button variant="tertiary" aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`} onClick={()=>void run(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite}}))}><Star size={18} fill={food.favourite?'currentColor':'none'}/></Button>
-        <Button onClick={()=>{setSaveFood(food);setDraft({...food,quantity:100,unit:'g'});go('editor');}}>Edit</Button>
+      {foods.map(food=><div
+        className="food-row interactive"
+        key={food.id}
+        role="button"
+        tabIndex={0}
+        onClick={()=>choose(food)}
+        onKeyDown={event=>{
+          if(event.key==='Enter'||event.key===' '){
+            event.preventDefault();
+            choose(food);
+          }
+        }}
+      >
+        <div className="food-description">
+          <strong>{food.name}</strong>
+          <small>{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {food.source}</small>
+        </div>
+        <div className="food-row-actions" style={{display:'flex',alignItems:'center',gap:4}}>
+          <Button
+            variant="tertiary"
+            className={`food-row-star ${food.favourite?'starred':''}`}
+            aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`}
+            onClick={event=>{
+              event.stopPropagation();
+              void runAction(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite}}));
+            }}
+          >
+            <Star size={18} fill={food.favourite?'currentColor':'none'}/>
+          </Button>
+          <Button
+            variant="tertiary"
+            aria-label={`Edit ${food.name}`}
+            onClick={event=>{
+              event.stopPropagation();
+              setSaveFood(food);
+              setDraft({...food,quantity:100,unit:'g'});
+              go('editor');
+            }}
+          >
+            Edit
+          </Button>
+        </div>
       </div>)}
       <h3>Recent</h3>
       {recentEntries.length>0

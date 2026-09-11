@@ -55,24 +55,28 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   // Search is the default tab; saved foods carry the batch checkboxes.
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
 
-  // Test dirty close protection with basket item
-  await page.getByRole('checkbox',{name:'Select Greek Yogurt 0% for batch logging'}).check();
-  await expect(page.getByText('1 food in batch')).toBeVisible();
+  // Click Greek Yogurt row to review portion and add to batch
+  await page.getByRole('button',{name:/Greek Yogurt 0%/}).click();
+  await expect(page.getByRole('heading',{name:'Review food'})).toBeVisible();
+  await page.getByRole('button',{name:'Add to batch'}).click();
+  await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
 
-  // Clicking close button triggers confirmation dialog
+  // Test dirty close protection with basket item
   await page.getByRole('button',{name:'Close dialog',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Discard changes?'})).toBeVisible();
 
   // Keep editing keeps the dialog and basket intact
   await page.getByRole('button',{name:'Keep editing'}).click();
-  await expect(page.getByText('1 food in batch')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
 
-  // Also select Blueberries Fresh
-  await page.getByRole('checkbox',{name:'Select Blueberries Fresh for batch logging'}).check();
-  await expect(page.getByText('2 foods in batch')).toBeVisible();
+  // Add more food to return to selection
+  await page.getByRole('button',{name:'Add more food'}).click();
+  await page.getByRole('button',{name:'Your foods',exact:true}).click();
 
-  // Review batch
-  await page.getByRole('button',{name:'Review batch'}).click();
+  // Click Blueberries Fresh row to review and add to batch
+  await page.getByRole('button',{name:/Blueberries Fresh/}).click();
+  await expect(page.getByRole('heading',{name:'Review food'})).toBeVisible();
+  await page.getByRole('button',{name:'Add to batch'}).click();
   await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();
 
   // Live calorie card checks (59 + 57 = 116 kcal)

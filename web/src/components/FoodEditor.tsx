@@ -9,6 +9,7 @@ import {Field,SelectField,TimePicker} from './ui/Field';
 import {nutrientRescaleWarning,rescaleNutrients} from '../lib/nutrients';
 import {parsePortions,serializePortions,validatePortions} from '../lib/portions';
 import {energyLabel,inputEnergy,parseEnergy} from '../lib/units';
+import {number} from '../lib/format';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export type FoodDraft=Nutrients&{
@@ -125,28 +126,67 @@ export function FoodEditor({
 
   return <div className="dialog-step editor">
     <Form onSubmit={save}>
-      <Field id="food-name" name="name" data-modal-autofocus={!isProviderFood} readOnly={isProviderFood} label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
-      {!title.startsWith('Save food')&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
-      <div className="form-grid">
-        <Field id="food-quantity" name="quantity" data-modal-autofocus={isProviderFood} readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
-        <SelectField id="food-unit" name="unit" disabled={title.startsWith('Save food')} label="Unit" value={unitChoice} onChange={value=>{
-          if(value==='g')setBasis({unit:'g',portionLabel:null,portionGrams:null});
-          else if(value==='serving')setBasis({quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
-          else{
-            const selected=portions.find(portion=>`portion:${portion.label}`===value);
-            if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
-          }
-        }} options={unitOptions}/>
-        <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>
-        <Field id="food-calories" name="calories" readOnly={isProviderFood} label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
-        {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} readOnly={isProviderFood} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
-      </div>
-      {draft.unit==='serving'&&<div className="form-grid">
+      {isProviderFood ? (
+        <>
+          <div className="review-food-heading" style={{marginBottom: 14}}>
+            <h3 style={{fontSize: '1.2rem', marginBottom: 4, color: 'var(--foreground)'}}>{draft.name}</h3>
+            <small className="source">{draft.source}</small>
+          </div>
+
+          <div className="live-calorie-card" style={{margin: '12px 0 18px'}}>
+            <div className="live-calorie-header">
+              <span className="live-calorie-tag">CALORIES</span>
+              <div className="live-calorie-value">
+                <strong>{inputEnergy(draft.calories, energyUnit, 0)}</strong> <span className="unit">{energyLabel(energyUnit)}</span>
+              </div>
+            </div>
+            <div className="live-calorie-meta">
+              <span className="live-macros">
+                Protein {number(draft.protein, 1)} g · Carbs {number(draft.carbs, 1)} g · Fat {number(draft.fat, 1)} g{draft.fiber != null ? ` · Fibre ${number(draft.fiber, 1)} g` : ''}
+              </span>
+            </div>
+          </div>
+
+          <div className="form-grid">
+            <Field id="food-quantity" name="quantity" data-modal-autofocus label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
+            <SelectField id="food-unit" name="unit" label="Unit" value={unitChoice} onChange={value=>{
+              if(value==='g')setBasis({unit:'g',portionLabel:null,portionGrams:null});
+              else if(value==='serving')setBasis({quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
+              else{
+                const selected=portions.find(portion=>`portion:${portion.label}`===value);
+                if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
+              }
+            }} options={unitOptions}/>
+            <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>
+            <TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>
+          </div>
+        </>
+      ) : (
+        <>
+          <Field id="food-name" name="name" data-modal-autofocus label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
+          {!title.startsWith('Save food')&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
+          <div className="form-grid">
+            <Field id="food-quantity" name="quantity" readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
+            <SelectField id="food-unit" name="unit" disabled={title.startsWith('Save food')} label="Unit" value={unitChoice} onChange={value=>{
+              if(value==='g')setBasis({unit:'g',portionLabel:null,portionGrams:null});
+              else if(value==='serving')setBasis({quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
+              else{
+                const selected=portions.find(portion=>`portion:${portion.label}`===value);
+                if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
+              }
+            }} options={unitOptions}/>
+            <Field id="food-meal" name="meal" label="Meal" required maxLength={80} value={draft.meal} onChange={event=>set('meal',event.target.value)}/>
+            <Field id="food-calories" name="calories" label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
+            {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
+          </div>
+        </>
+      )}
+      {!isProviderFood && draft.unit==='serving'&&<div className="form-grid">
         <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
         <Field id="food-portion-grams" name="portionGrams" label="Portion weight (g)" type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
       </div>}
-      {basisWarning&&<p className="notice" role="status">{basisWarning}</p>}
-      {showPortionDefinitions&&<fieldset className="portion-definitions">
+      {!isProviderFood && basisWarning&&<p className="notice" role="status">{basisWarning}</p>}
+      {!isProviderFood && showPortionDefinitions&&<fieldset className="portion-definitions">
         <legend>Saved portion definitions</legend>
         <p className="source">Optional household portions for this food. Nutrients remain per 100 g.</p>
         {portionDrafts.map((portion,index)=><div className="portion-definition-row" key={index}>
@@ -157,7 +197,7 @@ export function FoodEditor({
         <Button type="button" variant="secondary" onClick={()=>setPortionDrafts(current=>[...current,{label:'',grams:''}])}><Plus size={16}/>Add portion</Button>
         {portionError&&<p className="error" role="alert">{portionError}</p>}
       </fieldset>}
-      <p className="source">Source: {draft.source}</p>
+      {!isProviderFood&&<p className="source">Source: {draft.source}</p>}
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit">{submitLabel}</Button></div>
     </Form>
