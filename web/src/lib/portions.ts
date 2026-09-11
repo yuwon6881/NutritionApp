@@ -71,6 +71,7 @@ export function resolveGrams(basis: Partial<PortionBasis>): number | null {
   if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) return null;
   if (basis.unit === 'g') return quantity;
   if (basis.unit !== 'serving') return null;
+  if (typeof basis.portionLabel !== 'string' || !basis.portionLabel.trim()) return null;
   const grams = basis.portionGrams;
   if (typeof grams !== 'number' || !Number.isFinite(grams) || grams <= 0) return null;
   const total = quantity * grams;

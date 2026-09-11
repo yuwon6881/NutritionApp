@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
@@ -106,14 +107,14 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         {
             await writer.WriteAsync(Csv.Line(Csv.Field("key"), Csv.Field("value")));
             var rows = new (string Key, string? Value)[] {
-                ("id", Csv.Field(user.Id)),
+                ("id", user.Id.ToString("D")),
                 ("username", user.Username),
-                ("revision", Csv.Field(user.Revision)),
-                ("profile_revision", Csv.Field(user.ProfileRevision)),
-                ("coaching_settings_revision", Csv.Field(user.CoachingSettingsRevision)),
-                ("trajectory_revision", Csv.Field(user.TrajectoryRevision)),
-                ("check_in_weekday", Csv.Field(user.CheckInWeekday)),
-                ("coaching_settings_changed_date", Csv.Field(user.CoachingSettingsChangedDate)),
+                ("revision", user.Revision.ToString(CultureInfo.InvariantCulture)),
+                ("profile_revision", user.ProfileRevision.ToString(CultureInfo.InvariantCulture)),
+                ("coaching_settings_revision", user.CoachingSettingsRevision.ToString(CultureInfo.InvariantCulture)),
+                ("trajectory_revision", user.TrajectoryRevision.ToString(CultureInfo.InvariantCulture)),
+                ("check_in_weekday", user.CheckInWeekday.ToString(CultureInfo.InvariantCulture)),
+                ("coaching_settings_changed_date", user.CoachingSettingsChangedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
                 ("weight_unit", user.WeightUnit),
                 ("energy_unit", user.EnergyUnit),
                 ("height_unit", user.HeightUnit),

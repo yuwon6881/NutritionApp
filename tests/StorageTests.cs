@@ -15,6 +15,11 @@ public sealed class StorageTests : IAsyncLifetime
     public Task DisposeAsync() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(path); return Task.CompletedTask; }
     private static IConfiguration Config => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Auth:MaxUsers"] = "2" }).Build();
     private async Task<AppUser> User(string name) { await using var db = Open(); return await new AuthService(db,Config).Register(name,"a sufficiently long password",default); }
+    [Fact] public async Task Food_portion_migration_is_discoverable()
+    {
+        await using var db = Open();
+        Assert.Contains("20260910120000_FoodPortions", db.Database.GetMigrations());
+    }
     [Fact] public async Task Concurrent_registrations_stop_at_two()
     {
         var results = await Task.WhenAll(Enumerable.Range(1,8).Select(async i => { try { await User($"user{i}"); return true; } catch(DomainException) { return false; } }));

@@ -1,6 +1,6 @@
 import {Form,FieldFrame,validateFields} from './ui/Form';
 import {useEffect,useRef,useState} from 'react';
-import {ArrowLeft,ArrowRight,Activity,CalendarDays,Check,PieChart,Sliders,Target,User} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Check,Sliders} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
@@ -21,7 +21,7 @@ import {CheckInDialog} from './CheckInDialog';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
-import {CoachLayout,CoachStepper,CoachWait,useCoachSteps} from './ui/CoachMotion';
+import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
 import {UnitPreferencesFields} from './CoachingSettings';
 import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor,weightLabel} from '../lib/units';
@@ -189,14 +189,15 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   };
 
   const steps=[
-    {id:'body',label:'Body',icon:User},
-    {id:'activity',label:'Activity',icon:Activity},
-    {id:'goal',label:'Goal',icon:Target},
-    {id:'macros',label:'Macros',icon:PieChart},
-    {id:'macro-adjustments',label:'Adjust',icon:Sliders},
-    {id:'distribution',label:'Distribution',icon:CalendarDays},
-    {id:'review',label:'Review',icon:Check}
+    {id:'body',label:'Body'},
+    {id:'activity',label:'Activity'},
+    {id:'goal',label:'Goal'},
+    {id:'macros',label:'Macros'},
+    {id:'macro-adjustments',label:'Adjust'},
+    {id:'distribution',label:'Distribution'},
+    {id:'review',label:'Review'}
   ] as const;
+  const stepIndex=stepOrder.indexOf(step);
 
   const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const reviewGrams=gramsFromSplit(live.target,split);
@@ -277,22 +278,14 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </Button>}
     </div>
 
-    <CoachStepper active={step}>
-      {steps.map((s,i)=>{
-        const isCurrent=step===s.id;
-        const Icon=s.icon;
-        if(isInitialSetup)return <div key={s.id} className={`step-pill step-indicator ${isCurrent?'active':''}`} aria-current={isCurrent?'step':undefined}>
-          <Icon size={16}/><span>{i+1}. {s.label}</span>
-        </div>;
-        return <Button key={s.id} type="button" variant={isCurrent?'primary':'secondary'} className={`step-pill ${isCurrent?'active':''}`} onClick={()=>{if(canNavigateTo(s.id))setStep(s.id);}}>
-          <Icon size={16}/><span>{i+1}. {s.label}</span>
-        </Button>;
-      })}
-    </CoachStepper>
-
     <Form onSubmit={e=>{e.preventDefault();if(step==='review')void submitProfile();else {const nextStep=stepOrder[stepOrder.indexOf(step)+1];if(nextStep&&canNavigateTo(nextStep))setStep(nextStep);}}}>
       <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
-      <h3 tabIndex={-1} data-step-heading className="coach-step-heading">{steps.find(s=>s.id===step)!.label}</h3>
+      <div className="coach-step-progress" aria-label={`Plan progress: step ${stepIndex+1} of ${steps.length}, ${steps[stepIndex].label}`}>
+        <div className="coach-step-progress-label"><span>Step {stepIndex+1} of {steps.length}</span><h3 tabIndex={-1} data-step-heading className="coach-step-heading">{steps[stepIndex].label}</h3></div>
+        <div className="coach-step-progress-track" role="progressbar" aria-label="Plan completion" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={stepIndex+1}>
+          <span style={{width:`${((stepIndex+1)/steps.length)*100}%`}}/>
+        </div>
+      </div>
       {step==='body'&&<div className="step-content">
         {isInitialSetup&&<UnitPreferencesFields value={units} onChange={updateUnits}/>}
         <div className="form-grid">

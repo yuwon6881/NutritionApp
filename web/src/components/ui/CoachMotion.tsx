@@ -145,23 +145,3 @@ export function CoachDelta({value,unit='kcal'}:{value:number|null|undefined;unit
     <span aria-hidden="true">{direction}</span> {sign}{display} {unit}
   </span>;
 }
-
-export function CoachStepper({active,children}:{active:string;children:ReactNode}){
-  const nav=useRef<HTMLElement>(null);
-  const marker=useRef<HTMLSpanElement>(null);
-  useLayoutEffect(()=>{
-    const container=nav.current,indicator=marker.current;
-    if(!container||!indicator)return;
-    const measure=()=>{
-      const selected=container.querySelector<HTMLElement>('.step-pill.active');
-      if(!selected)return;
-      indicator.style.width=`${selected.offsetWidth}px`;
-      indicator.style.height=`${selected.offsetHeight}px`;
-      indicator.style.transform=`translate(${selected.offsetLeft}px,${selected.offsetTop}px)`;
-    };
-    measure();
-    const observer=new ResizeObserver(measure);observer.observe(container);
-    return()=>observer.disconnect();
-  },[active]);
-  return <nav ref={nav} className="guided-stepper coach-stepper" aria-label="Plan steps"><span ref={marker} className="coach-step-marker" aria-hidden="true"/>{children}</nav>;
-}

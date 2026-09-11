@@ -64,7 +64,10 @@ export function FoodEditor({
   const [portionError,setPortionError]=useState('');
   const [basisWarning,setBasisWarning]=useState('');
   const {busy,run}=useAsyncAction();
-  const initialDraft=useRef(JSON.stringify({draft:makeDraft(initial),portionDrafts:initialPortions(initial)}));
+  const initialDraft=useRef(JSON.stringify({
+    draft:makeDraft(initial),
+    portionDrafts:initialPortions(initial).map(portion=>({label:portion.label,grams:String(portion.grams)})),
+  }));
 
   useEffect(()=>onDirtyChange?.(JSON.stringify({draft,portionDrafts})!==initialDraft.current),[draft,portionDrafts,onDirtyChange]);
 
@@ -135,8 +138,8 @@ export function FoodEditor({
         {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
       </div>
       {draft.unit==='serving'&&<div className="form-grid">
-        <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
-        <Field id="food-portion-grams" name="portionGrams" label="Portion weight (g)" type="number" min="0.1" max="10000" step="any" value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
+        <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
+        <Field id="food-portion-grams" name="portionGrams" label="Portion weight (g)" type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
       </div>}
       {basisWarning&&<p className="notice" role="status">{basisWarning}</p>}
       {showPortionDefinitions&&<fieldset className="portion-definitions">

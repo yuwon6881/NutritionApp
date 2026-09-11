@@ -20,7 +20,7 @@ public sealed class NutritionAiTests
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("""
-                    {"status":"completed","output":[{"content":[{"type":"output_text","text":"{\"foods\":[{\"name\":\"Banana\",\"quantity\":1,\"unit\":\"serving\",\"calories\":100,\"protein\":null,\"fat\":null,\"carbs\":23,\"fiber\":3,\"notes\":\"One serving\"}],\"questions\":[],\"explanation\":\"Review the portion.\"}"}]}]}
+                    {"status":"completed","output":[{"content":[{"type":"output_text","text":"{\"foods\":[{\"name\":\"Banana\",\"quantity\":1,\"unit\":\"serving\",\"portionLabel\":\"medium banana\",\"portionGrams\":118,\"calories\":100,\"protein\":null,\"fat\":null,\"carbs\":23,\"fiber\":3,\"notes\":\"One serving\"}],\"questions\":[],\"explanation\":\"Review the portion.\"}"}]}]}
                     """)
             };
         }));
@@ -36,6 +36,8 @@ public sealed class NutritionAiTests
         using var request = JsonDocument.Parse(requestBody!);
         Assert.Equal("test-model", request.RootElement.GetProperty("model").GetString());
         Assert.Single(result.Draft.Foods);
+        Assert.Equal("medium banana", result.Draft.Foods[0].PortionLabel);
+        Assert.Equal(118, result.Draft.Foods[0].PortionGrams);
         Assert.Equal(0, result.InputTokens);
         Assert.Equal(0, result.OutputTokens);
     }

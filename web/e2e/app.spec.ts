@@ -206,7 +206,8 @@ test('weekly check-in is a reduced-motion-safe bottom sheet with focus restorati
 test('phase pace and target-weight goals preserve learned maintenance',async({page,context})=>{
   await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Coach',exact:true}).click();
   await page.getByRole('button',{name:'Plan',exact:true}).click();
-  await page.getByRole('button',{name:/3\. Goal/}).click();
+  await page.getByRole('button',{name:/^Next: Activity/}).click();
+  await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
   for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowLeft');
   await page.getByLabel('Track my goal by',{exact:true}).selectOption('weight');await page.getByLabel('Phase starting weight (kg)').fill('80.8');await page.getByLabel('Target weight (kg)').fill('75');

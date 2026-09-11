@@ -25,7 +25,23 @@ async function settled(page:Page){
   await page.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
 }
 async function step(page:Page,name:string){
-  await page.getByRole('button',{name:new RegExp(`\\d\\. ${name}`)}).click();
+  const order=['Body','Activity','Goal','Macros','Adjust','Distribution','Review'];
+  const heading=page.locator('[data-step-heading]');
+  let current=(await heading.textContent())?.trim()??'';
+  while(order.indexOf(current)<order.indexOf(name)){
+    const previous=current;
+    await page.getByRole('button',{name:/^Next:/}).click();
+    await expect(heading).not.toHaveText(previous);
+    await settled(page);
+    current=(await heading.textContent())?.trim()??'';
+  }
+  while(order.indexOf(current)>order.indexOf(name)){
+    const previous=current;
+    await page.getByRole('button',{name:'Back',exact:true}).click();
+    await expect(heading).not.toHaveText(previous);
+    await settled(page);
+    current=(await heading.textContent())?.trim()??'';
+  }
   await expect(page.locator('[data-step-heading]')).toHaveText(name);await settled(page);
 }
 async function reviewMacros(page:Page){
@@ -58,7 +74,7 @@ async function transitionFrames(page:Page,name:string){
 }
 
 test('directional navigation, interrupted exits, focus, layouts and reduced motion',async({page})=>{
-  test.setTimeout(120000);
+  test.setTimeout(300000);
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});
@@ -72,6 +88,11 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
         await page.locator('.custom-date-trigger').click();
         const calendar=page.getByRole('dialog',{name:'Date of birth'});await expect(calendar).toBeVisible();
         const bounds=await calendar.boundingBox();expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(width);
+        await calendar.getByRole('button',{name:'Choose year'}).click();
+        const yearMenu=calendar.getByRole('listbox',{name:'Choose year'});await expect(yearMenu).toBeVisible();
+        expect(await yearMenu.evaluate(element=>getComputedStyle(element).scrollbarColor)).not.toBe('auto');
+        if(width===390)await page.screenshot({path:`artifacts/date-picker-${theme}-${width}-year.png`,fullPage:true});
+        await page.keyboard.press('Escape');
         await page.getByRole('button',{name:'Close',exact:true}).click();
       }
       if(name==='Goal'){
@@ -102,18 +123,15 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   await expect(page.getByLabel('Starting weight (kg)')).toHaveValue('82.5');
   await expect(page.locator('[data-step-heading]')).toBeFocused();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.locator('.coach-stepper').evaluate(nav=>{
-    (nav.querySelectorAll('button')[1] as HTMLButtonElement).click();
-    (nav.querySelectorAll('button')[0] as HTMLButtonElement).click();
-  });
-  await settled(page);await expect(page.locator('.coach-step-stage')).toHaveCSS('opacity','1');
-  await expect(page.locator('[data-step-heading]')).toHaveText('Body');
+  await expect(page.locator('.coach-step-progress').getByRole('button')).toHaveCount(0);
+  await expect(page.getByRole('progressbar',{name:'Plan completion'})).toHaveAttribute('aria-valuenow','1');
+  await expect(page.locator('.coach-step-stage')).toHaveCSS('opacity','1');
   await page.emulateMedia({reducedMotion:'reduce'});await step(page,'Goal');
   await page.getByRole('radio',{name:'Fat loss',exact:true}).focus();
   await page.keyboard.press('ArrowRight');await expect(page.getByRole('radio',{name:'Maintenance',exact:true})).toBeChecked();
   expect(await page.evaluate(()=>document.getAnimations().filter(a=>a.playState==='running').length)).toBe(0);
   await page.emulateMedia({reducedMotion:'no-preference'});
-  await page.getByRole('button',{name:/4\. Macros/}).evaluate(node=>(node as HTMLButtonElement).click());
+  await step(page,'Macros');
   await page.emulateMedia({reducedMotion:'reduce'});
   await expect(page.locator('[data-step-heading]')).toHaveText('Macros');
   await expect(page.locator('[data-step-heading]')).toBeFocused();

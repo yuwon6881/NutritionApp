@@ -100,5 +100,8 @@ public class CoachingPersistenceTests
         NutritionAi.Validate(new([food],["How much rice?"],"Estimate"));Assert.Null(food.Protein);
         Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { Calories=-1 }],[],"Estimate")));
         Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { Quantity=double.NaN }],[],"Estimate")));
+        Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { PortionLabel="bowl" }],[],"Estimate")));
+        Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { Unit="g",PortionLabel="bowl",PortionGrams=150 }],[],"Estimate")));
+        NutritionAi.Validate(new([food with { PortionLabel="bowl",PortionGrams=150 }],[],"Estimate"));
     }
 }

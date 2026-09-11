@@ -23,6 +23,7 @@ it('validates by returning a normalized copy and serializes compactly',()=>{
 it('resolves all portion basis shapes while keeping unknown grams null',()=>{
   expect(resolveGrams({quantity:200,unit:'g',portionLabel:null,portionGrams:null})).toBe(200);
   expect(resolveGrams({quantity:1.5,unit:'serving',portionLabel:'cup',portionGrams:90})).toBe(135);
+  expect(resolveGrams({quantity:1.5,unit:'serving',portionLabel:null,portionGrams:90})).toBeNull();
   expect(resolveGrams({quantity:1,unit:'serving',portionLabel:null,portionGrams:null})).toBeNull();
   expect(resolveGrams({quantity:0,unit:'g',portionLabel:null,portionGrams:null})).toBeNull();
 });

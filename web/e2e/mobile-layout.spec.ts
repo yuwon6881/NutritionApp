@@ -101,9 +101,11 @@ test('mobile view (360px & 390px): eliminates horizontal scroll and fixes button
     const editPlanBtn=page.getByRole('button',{name:'Edit plan'});
     if(await editPlanBtn.isVisible()){
       await editPlanBtn.click();
-      // Click Macros step
-      const macrosStepBtn=page.locator('.coach-stepper').getByRole('button',{name:/Macros/i});
-      await macrosStepBtn.click();
+      // Progress is informational; move through the plan with the forward action.
+      await expect(page.locator('.coach-step-progress').getByRole('button')).toHaveCount(0);
+      await page.getByRole('button',{name:/^Next: Activity/}).click();
+      await page.getByRole('button',{name:/^Next: Goal/}).click();
+      await page.getByRole('button',{name:/^Next: Macros/}).click();
 
       // Check Macro presets: zero horizontal scroll and selectable buttons
       const macroPresets=page.locator('.macro-presets');

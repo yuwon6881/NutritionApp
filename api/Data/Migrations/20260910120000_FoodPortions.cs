@@ -1,9 +1,12 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Nutrition.Api.Data.Migrations;
 
+[DbContext(typeof(AppDb))]
+[Migration("20260910120000_FoodPortions")]
 public partial class FoodPortions : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

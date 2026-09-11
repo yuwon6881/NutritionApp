@@ -14,7 +14,7 @@ Neon Free currently includes 0.5 GB storage per project. The 350 MB warning and 
 
 ## API and files
 
-Build the API-only Dockerfile using Cloud Build. Deploy a new Cloud Run service with `Auth__MaxUsers=2`, `OpenAi__Model=gpt-5.4-mini`, `Database__MigrateOnStartup=false`, `Retention__MealDetailDays=90`, minimum instances 0 and maximum instances 1. `PublicOrigin` must be the exact Vercel production HTTPS origin, without a trailing slash. Review memory and request timeouts against actual workloads.
+Build the API-only Dockerfile using Cloud Build. Deploy a new Cloud Run service with `Auth__MaxUsers=2`, `OpenAi__Model=gpt-5.4-mini`, `Database__MigrateOnStartup=true`, `Retention__MealDetailDays=90`, minimum instances 0 and maximum instances 1. The API applies pending EF migrations over the direct database connection before it begins serving traffic, so every migration must include its EF migration metadata and appear in `dotnet ef migrations list`. Keep the controlled DatabaseAdmin path for inspection and recovery. `PublicOrigin` must be the exact Vercel production HTTPS origin, without a trailing slash. Review memory and request timeouts against actual workloads.
 
 `Physique__Bucket` selects the existing private GCS bucket. Grant the nutrition runtime identity access only to the `nutrition-physique/` prefix. Keep FinancialApp bucket policies unchanged. Its versioning/30-day soft-delete policy applies to physique photos; deletion targets the exact generation.
 
