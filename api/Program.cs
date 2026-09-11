@@ -27,7 +27,12 @@ builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();
 builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45));
 builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
-builder.Services.AddHttpClient<FoodSearchService>(c=>c.Timeout=TimeSpan.FromSeconds(20));
+// Open Food Facts asks every read to identify its caller or risk being served as a bot, and both
+// food search and barcode lookup now go there, so the identity belongs on the shared client.
+builder.Services.AddHttpClient<FoodSearchService>(c=>{
+  c.Timeout=TimeSpan.FromSeconds(20);
+  c.DefaultRequestHeaders.UserAgent.ParseAdd("NutritionCoach/1.0 (two-user personal nutrition tracker)");
+});
 builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90));
 builder.Services.AddRateLimiter(o=>

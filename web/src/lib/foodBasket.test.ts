@@ -2,8 +2,8 @@ import {expect,it} from 'vitest';
 import {basketEntries,basketTotals,lineFromAi,lineFromPer100,lineKey} from './foodBasket';
 
 it('keys by source and trimmed lowercased name', () => {
-  expect(lineKey(' Banana ', 'USDA')).toBe('USDA|banana');
-  expect(lineKey('egg', 'USDA')).toBe('USDA|egg');
+  expect(lineKey(' Banana ', 'Open Food Facts')).toBe('Open Food Facts|banana');
+  expect(lineKey('egg', 'Open Food Facts')).toBe('Open Food Facts|egg');
 });
 
 it('lineFromPer100 defaults quantity to 100 grams', () => {
@@ -14,12 +14,12 @@ it('lineFromPer100 defaults quantity to 100 grams', () => {
     fat: 6.9,
     carbs: 66.3,
     fiber: 10.6,
-    source: 'USDA',
+    source: 'Open Food Facts',
   });
   expect(line.quantity).toBe(100);
   expect(line.unit).toBe('g');
   expect(line.calories).toBe(389);
-  expect(line.key).toBe('USDA|oats');
+  expect(line.key).toBe('Open Food Facts|oats');
 });
 
 it('lineFromAi preserves existing quantity and unit without rescaling', () => {
@@ -71,7 +71,7 @@ it('basketTotals computes totals with partial flags and null preservation', () =
 });
 
 it('basketEntries stamps date, time, and meal onto each line while omitting key', () => {
-  const line = lineFromPer100({name: 'Apple', calories: 52, protein: 0.3, fat: 0.2, carbs: 14, fiber: 2.4, source: 'USDA'});
+  const line = lineFromPer100({name: 'Apple', calories: 52, protein: 0.3, fat: 0.2, carbs: 14, fiber: 2.4, source: 'Open Food Facts'});
   const entries = basketEntries([line], {date: '2026-09-09', time: '12:00', meal: 'Lunch'});
   expect(entries).toHaveLength(1);
   expect(entries[0].date).toBe('2026-09-09');

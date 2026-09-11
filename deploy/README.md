@@ -6,13 +6,13 @@ The nutrition app uses an independent Neon PostgreSQL database, a Vercel PWA, an
 
 The API accepts a PostgreSQL URL or an Npgsql connection string in `ConnectionStrings__Database`. Neon URLs are normalized with verified TLS, required channel binding, and a maximum local pool size of 10. Runtime uses the supplied `-pooler` hostname. Migrations use its direct counterpart without `-pooler`.
 
-Store the connection, `OpenAi__ApiKey`, `Usda__ApiKey`, and `Cleanup__Token` in Google Secret Manager. No secret belongs in Vite variables or source control. The ignored `deploy/neon.local.json` is only for local provisioning; it is excluded from Git and Docker contexts. The previously supplied Neon project ID was discarded.
+Store the connection, `OpenAi__ApiKey`, and `Cleanup__Token` in Google Secret Manager. No secret belongs in Vite variables or source control. The ignored `deploy/neon.local.json` is only for local provisioning; it is excluded from Git and Docker contexts. The previously supplied Neon project ID was discarded.
 
 `dotnet run --project tools/DatabaseAdmin/DatabaseAdmin.csproj -- inspect deploy/neon.local.json` reads tables and size. The `migrate` command refuses unexpected public tables before applying EF migrations. `neon deploy` manages Neon infrastructure configuration; it does not replace the ASP.NET EF schema migrations. No Neon Auth, Neon Functions, or Neon object storage are needed by this application.
 
 Neon Free currently includes 0.5 GB storage per project. The 350 MB warning and 400 MB optional-write limit are application budgets, not provider quota telemetry; monitor branch/history overhead and Neon compute quotas in its console. Meal details now default to 90 calendar days before compaction. [Neon pricing](https://neon.com/pricing).
 
-`Usda__ApiKey` is optional but ingredient search is the one feature that needs it: without a key every `/api/foods/search` request answers 503 with the configured-off message, and only custom food, recent foods, barcode lookup, and AI describe stay usable. Cloud Build attaches it only when the `_USDA_SECRET` substitution names a Secret Manager version, so pass `--substitutions=_USDA_SECRET=nourish-usda-api-key:latest` (after creating that secret and granting the runtime service account access) to turn search on. A key the provider rejects reports a distinct misconfiguration message, and an exhausted hourly allowance reports 429 — neither is reported as an outage. Free keys come from [FoodData Central](https://fdc.nal.usda.gov/api-key-signup).
+Food search and barcode lookup both read Open Food Facts, which needs no key and no secret. It meters per IP address rather than per caller: 10 search requests a minute and 15 product reads a minute, counted separately, which the service paces with its own gates. Reads must identify the caller through the User-Agent set on the shared HttpClient, or Open Food Facts may answer as though the request came from a bot. The search endpoint sheds load under pressure, so a 503 there is a wait, not a misconfiguration. Results carry ODbL attribution in each row Source.
 
 ## API and files
 

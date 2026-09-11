@@ -59,7 +59,7 @@ export function FoodPicker({
   const eta=etaSeconds(pendingCount,waitMs(basket.queue,Date.now()));
 
   return <>
-    <h3>{tab==='barcode'?'Packaged food':'Ingredients'}</h3>
+    <h3>{tab==='barcode'?'Packaged food':'Food search'}</h3>
     <Form onSubmit={event=>{
       event.preventDefault();
       void run(async()=>setResults(tab==='barcode'

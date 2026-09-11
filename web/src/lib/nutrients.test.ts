@@ -8,7 +8,7 @@ const base = {
   fat: 0.3,
   carbs: 28,
   fiber: null,
-  source: 'USDA',
+  source: 'Open Food Facts',
   quantity: 100,
   unit: 'g' as const,
 };
