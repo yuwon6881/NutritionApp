@@ -38,7 +38,7 @@ test('tab switching preserves consistent button locations and modal coordinates'
   await expect(foodDialog).toBeVisible();
 
   const surface=page.locator('.food-modal .modal-surface');
-  const tabs=['Your foods','Search','Barcode','AI logging'] as const;
+  const tabs=['Search','Your foods','Barcode','AI logging'] as const;
   const segmentedControl=foodDialog.locator('.segmented-control');
 
   const measurements:Array<{tab:string;surfaceY:number;surfaceH:number;quickAddX:number;quickAddY:number;tabBtnY:number}>=[];

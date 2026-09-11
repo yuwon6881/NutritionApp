@@ -52,6 +52,9 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
   await expect(page.getByRole('heading',{name:'Log food'})).toBeVisible();
 
+  // Search is the default tab; saved foods carry the batch checkboxes.
+  await page.getByRole('button',{name:'Your foods',exact:true}).click();
+
   // Test dirty close protection with basket item
   await page.getByRole('checkbox',{name:'Select Greek Yogurt 0% for batch logging'}).check();
   await expect(page.getByText('1 food in batch')).toBeVisible();

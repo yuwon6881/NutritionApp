@@ -53,7 +53,7 @@ export function LogFood({
   const basket=useFoodBasket(open);
   const [step,setStep]=useState<FoodStep>(editing?'editor':'selection');
   const [stepDirty,setStepDirty]=useState(false);
-  const [tab,setTab]=useState(initialAi?'ai':'saved');
+  const [tab,setTab]=useState(initialAi?'ai':'search');
   const [query,setQuery]=useState('');
   const [results,setResults]=useState<SearchResult[]>([]);
   const [draft,setDraft]=useState<Partial<Entry>|undefined>(editing);
@@ -74,7 +74,7 @@ export function LogFood({
     if(open&&!wasOpen.current){
       setStep(editing?'editor':'selection');
       setStepDirty(false);
-      setTab(initialAi?'ai':'saved');
+      setTab(initialAi?'ai':'search');
       setQuery('');
       setResults([]);
       setDraft(editing);
@@ -135,8 +135,8 @@ export function LogFood({
   const selection=<div ref={selectionRef} className="dialog-step food-selection">
     {!editing&&<div className="dialog-toolbar"><Button variant="primary" onClick={()=>go('quick')}><Plus size={17}/>Quick add</Button><Button onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}>Manual entry</Button></div>}
     <SegmentedControl layout="equal" className="section-segments" label="Food logging method" value={tab} options={[
-      {value:'saved',label:<><Star size={16}/><span className="tab-label-full">Your foods</span><span className="tab-label-short">Saved</span></>,ariaLabel:'Your foods'},
       {value:'search',label:<><Search size={16}/><span>Search</span></>,ariaLabel:'Search'},
+      {value:'saved',label:<><Star size={16}/><span className="tab-label-full">Your foods</span><span className="tab-label-short">Saved</span></>,ariaLabel:'Your foods'},
       {value:'barcode',label:<><ScanBarcode size={16}/><span className="tab-label-full">Barcode</span><span className="tab-label-short">Scan</span></>,ariaLabel:'Barcode'},
       {value:'ai',label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}
     ]} onChange={selectTab}/>
