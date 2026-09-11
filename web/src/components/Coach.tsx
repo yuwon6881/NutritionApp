@@ -390,10 +390,16 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
       {step==='distribution'&&<div className="step-content">
         <p className="step-description">Keep the same weekly calorie budget while choosing how it lands across the week.</p>
-        <WeeklyProgramSetup budget={live.weeklyCalories} values={weeklyValues} energyUnit={units.energy} onChange={values=>{
-          setWeeklyDraft(values);
-          set('distributionShares',normaliseDistribution(values));
-        }}/>
+        <WeeklyProgramSetup
+          budget={live.weeklyCalories}
+          values={weeklyValues}
+          energyUnit={units.energy}
+          custom={Boolean(profile.distributionShares && !profile.distributionShares.every((v, _, a) => Math.abs(v - a[0]) < 0.01))}
+          onChange={(values, isCustom)=>{
+            setWeeklyDraft(values);
+            set('distributionShares', isCustom ? normaliseDistribution(values) : null);
+          }}
+        />
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('macro-adjustments')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(weeklyValid)setStep('review');else setError(weeklyError);}}>

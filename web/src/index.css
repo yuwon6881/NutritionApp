@@ -465,8 +465,18 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .target-weekly-summary small span{display:grid;gap:3px;color:var(--muted-foreground)}
 .target-weekly-summary small span::first-line{color:var(--foreground)}
 .weekly-program{border:1px solid var(--border);border-radius:13px;padding:18px;margin:20px 0}
+.weekly-program .segmented-control{margin:12px 0 16px}
 .weekly-heading-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.weekly-rows{display:grid;gap:12px;margin-top:16px}
+.weekly-custom-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px 0 6px;flex-wrap:wrap}
+.weekly-custom-toolbar .weekly-program-hint{margin:0}
+.weekly-coach-default-card{margin-top:16px;padding:18px;border-radius:12px;background:color-mix(in srgb,var(--card) 60%,transparent);border:1px solid var(--border)}
+.weekly-coach-default-desc{margin-bottom:14px;font-size:.84rem;line-height:1.5}
+.weekly-preview-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.weekly-preview-pill{display:flex;flex-direction:column;align-items:center;padding:10px 6px;border-radius:8px;background:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.weekly-preview-day{font-size:.72rem;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.weekly-preview-val{font-size:.9rem;font-weight:600;color:var(--ink-strong)}
+.weekly-preview-pill small{font-size:.65rem;color:var(--muted-foreground)}
+.weekly-rows{display:grid;gap:12px;margin-top:12px}
 .weekly-row{border-radius:10px;padding:10px 12px;background:color-mix(in srgb,var(--card) 65%,transparent);border:1px solid var(--border);transition:border-color var(--motion-control) ease,background var(--motion-control) ease}
 .weekly-row.is-locked{background:color-mix(in srgb,var(--muted) 35%,transparent);opacity:.9}
 .weekly-row-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:.82rem}
@@ -482,11 +492,12 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .weekly-range{flex:1;min-width:0;padding:0;cursor:pointer;accent-color:var(--primary)}
 .weekly-range.locked{opacity:.4;cursor:not-allowed;accent-color:var(--muted-foreground)}
 .weekly-number{display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:.82rem;color:var(--muted-foreground)}
-.weekly-number .field{margin-bottom:0}
-.weekly-number input{width:76px;text-align:right;font-variant-numeric:tabular-nums}
+.weekly-number>.field{margin:0;gap:0}
+.weekly-number>.field>label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.weekly-number input{width:86px;min-width:86px;text-align:right;font-variant-numeric:tabular-nums;padding:7px 8px}
 .weekly-number input:disabled{opacity:.6;cursor:not-allowed;background:var(--muted)}
 .weekly-unit-label{min-width:28px}
-.weekly-program-total{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:.82rem;font-variant-numeric:tabular-nums}
+.weekly-program-total{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:.82rem;font-variant-numeric:tabular-nums}
 .weekly-total-budget{display:flex;align-items:baseline;gap:8px}
 .weekly-total-status{display:flex;align-items:center;gap:6px}
 .weekly-valid-badge{display:inline-flex;align-items:center;gap:4px;color:var(--success);font-weight:600}
@@ -506,8 +517,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .chart-key-goal{color:var(--protein)}
 .chart-key-accepted{color:var(--muted-foreground)}
 .coaching-settings .source{margin:12px 0 0}
-@media(max-width:1023px){.weekly-program-grid,.check-in-daily-targets{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:639px){.weekly-program{padding:14px}.weekly-program .section-heading{flex-direction:column;align-items:stretch;gap:10px}.weekly-heading-actions{justify-content:flex-start}.weekly-row-controls{gap:8px}.weekly-number input{width:68px}.check-in-daily-targets{grid-template-columns:repeat(2,minmax(0,1fr))}.weekly-program-total{align-items:flex-start;flex-direction:column;gap:8px}.target-weekly-summary small{grid-template-columns:repeat(4,minmax(0,1fr))}.check-in-daily-targets strong{font-size:.78rem}}
+@media(max-width:1023px){.weekly-program-grid,.check-in-daily-targets,.weekly-preview-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:639px){.weekly-program{padding:14px}.weekly-program .section-heading{flex-direction:column;align-items:stretch;gap:10px}.weekly-heading-actions{justify-content:flex-start}.weekly-row-controls{gap:6px}.weekly-number input{width:82px;min-width:82px;padding:7px 6px}.weekly-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.weekly-custom-toolbar{flex-direction:column;align-items:stretch;gap:8px}.check-in-daily-targets{grid-template-columns:repeat(2,minmax(0,1fr))}.weekly-program-total{align-items:flex-start;flex-direction:column;gap:8px}.target-weekly-summary small{grid-template-columns:repeat(4,minmax(0,1fr))}.check-in-daily-targets strong{font-size:.78rem}}
 
 /* Layered selection motion: each navigation level has its own shape and cue. */
 .sidebar .nav-add-desktop,.sidebar .nav-center-add{transition:transform var(--motion-control) var(--motion-ease),box-shadow var(--motion-control) ease,filter var(--motion-control) ease}
@@ -588,7 +599,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .food-time-card .section-heading>h3{flex:1}
 .settings-grid{display:grid;gap:24px;margin-bottom:24px;align-items:start}
 .settings-grid>.panel{margin:0}
-.settings-grid>.panel form{max-width:640px}
+.settings-grid>.panel form{width:100%}
+.settings-grid>.panel form .field{width:100%}
 .settings-grid>.panel>p:last-child{margin-bottom:0;font-size:.84rem}
 @media(min-width:1100px){
   .settings-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}
