@@ -882,3 +882,27 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 @keyframes syncStatusSpin{to{transform:rotate(360deg)}}
 @media(max-width:639px){.sync-status{right:16px;bottom:calc(78px + env(safe-area-inset-bottom));width:calc(100vw - 32px);padding:11px 13px}.sync-status-copy small{font-size:.7rem}}
 @media(prefers-reduced-motion:reduce){.sync-status{animation:none}.sync-status-syncing .sync-status-icon svg{animation:none}}
+
+/* Align energy values with the complete summary. */
+.live-calorie-card{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:18px;align-items:center}
+.live-calorie-header{display:contents}
+.live-calorie-tag{grid-column:1;grid-row:1}
+.live-calorie-value{grid-column:2;grid-row:1 / span 3;align-self:center}
+.live-calorie-meta{grid-column:1;margin-top:8px;gap:6px 12px}
+.live-calorie-card>small{grid-column:1}
+.batch-shortcut{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:.8rem;color:var(--muted-foreground);border-bottom:1px solid var(--border);margin:4px 0 12px}
+.batch-food{border-bottom:1px solid var(--border);touch-action:pan-y}
+.batch-food-summary{display:flex;align-items:center;gap:12px;min-height:72px;padding:8px 0}
+.batch-food-summary>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.batch-food-summary strong{display:block;font-size:.9rem}
+.batch-food-summary small{display:block;color:var(--muted-foreground);font-size:.78rem;margin-top:4px}
+.batch-food-energy{flex-shrink:0;font-variant-numeric:tabular-nums}
+.batch-food-energy small{display:inline}
+.batch-food-actions{display:flex;justify-content:flex-end;gap:8px;padding-bottom:10px}
+.recipe-search-results{display:grid;gap:6px;max-height:240px;overflow:auto}
+.batch-food{position:relative;overflow:hidden}
+.batch-food-summary{position:relative;z-index:1;background:var(--card);transition:transform 160ms ease}
+.batch-food.actions-open .batch-food-summary{transform:translateX(-166px)}
+.batch-food-actions{position:absolute;inset:0 0 0 auto;align-items:center;width:158px;padding:0;z-index:0}
+@media(prefers-reduced-motion:reduce){.batch-food-summary{transition:none}}
+.food-basket details>summary{min-height:44px;display:flex;align-items:center;cursor:pointer}

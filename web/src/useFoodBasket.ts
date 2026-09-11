@@ -117,7 +117,7 @@ export function useFoodBasket(open:boolean){
   },[]);
 
   const addAiFoods=useCallback((scanId:string,foods:AiFood[],source='AI estimate · reviewed')=>{
-    const newLines=foods.map(f=>lineFromAi(f,source));
+    const newLines=foods.map((f,index)=>({...lineFromAi(f,source),key:`ai:${scanId}:${index}`}));
     setLines(current=>{
       const existingKeys=new Set(current.map(l=>l.key));
       const filtered=newLines.filter(l=>!existingKeys.has(l.key));
@@ -142,6 +142,7 @@ export function useFoodBasket(open:boolean){
     scanIds,
     addLine,
     removeLine,
+    replaceLine:(key:string,line:BasketLine)=>setLines(current=>current.map(item=>item.key===key?{...line,key}:item)),
     updateLineQuantity,
     updateLineBasis,
     updateLineUnit,

@@ -26,15 +26,15 @@ test('fast saves keep server feedback readable through completion',async({page,c
   expect(accepted.ok(),await accepted.text()).toBeTruthy();
 
   await page.reload();
-  await page.getByRole('button',{name:'Today',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
   const addDialog=page.getByRole('dialog',{name:'Add',exact:true});
   await addDialog.getByRole('button',{name:'Log food'}).click();
   await page.getByRole('button',{name:'Manual entry',exact:true}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Stable feedback test');
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('250');
-  await page.getByRole('button',{name:'Save reviewed food',exact:true}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
 
   // Ordinary autosaves use the quiet delayed topbar indicator; no routine success toast or checkmark
   await expect(page.locator('.sync-status-synced')).toHaveCount(0);

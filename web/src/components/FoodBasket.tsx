@@ -1,14 +1,16 @@
-import {useState,type FormEvent} from 'react';
+import {useLayoutEffect,useRef,useState,type FormEvent} from 'react';
 import type {Nourish} from '../useNourish';
 import {number} from '../lib/format';
 import {mealTime} from '../lib/foodDiary';
 import {basketTotals,basketEntries} from '../lib/foodBasket';
 import type {FoodBasketHook} from '../useFoodBasket';
 import {Button} from './ui/Button';
-import {Field,SelectField,TimePicker} from './ui/Field';
+import {TimePicker} from './ui/Field';
 import {Form,FieldFrame} from './ui/Form';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {displayPortion} from '../lib/portions';
+import {FoodEditor} from './FoodEditor';
+import {parsePortions} from '../lib/portions';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface FoodBasketProps {
@@ -18,6 +20,7 @@ export interface FoodBasketProps {
   onBack:()=>void;
   onSaved:()=>void;
   initialTime?:string;
+  onTimeChange?:(time:string)=>void;
 }
 
 export function FoodBasket({
@@ -27,11 +30,24 @@ export function FoodBasket({
   onBack,
   onSaved,
   initialTime,
+  onTimeChange,
 }:FoodBasketProps){
   const [time,setTime]=useState(initialTime??(()=>mealTime(store.state!.profile?.timeZone)));
   const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const [announcement,setAnnouncement]=useState('');
+  const [editingKey,setEditingKey]=useState<string>();
+  const [actionsKey,setActionsKey]=useState<string>();
+  const [touchStart,setTouchStart]=useState<{x:number;y:number}>();
+  const root=useRef<HTMLDivElement>(null);
+  const previousEditing=useRef<string|undefined>(undefined);
+  useLayoutEffect(()=>{
+    const target=editingKey?root.current?.querySelector<HTMLElement>('[data-modal-autofocus]'):previousEditing.current?Array.from(root.current?.querySelectorAll<HTMLElement>('[data-batch-actions]')??[]).find(element=>element.dataset.batchActions===previousEditing.current):undefined;
+    previousEditing.current=editingKey;
+    if(!target)return;
+    const frame=requestAnimationFrame(()=>target.focus({preventScroll:true}));
+    return()=>cancelAnimationFrame(frame);
+  },[editingKey]);
   const units=unitsFor(store.state!.settings);
 
   const totals=basketTotals(basket.lines);
@@ -57,7 +73,9 @@ export function FoodBasket({
     }catch(ex){setError((ex as Error).message);}
   };
 
-  return <div className="dialog-step food-basket">
+  const editing=basket.lines.find(line=>line.key===editingKey);
+  if(editing)return <div ref={root}><FoodEditor initial={editing} title="Edit batch food" energyUnit={units.energy} onClose={()=>setEditingKey(undefined)} onSave={async data=>{basket.replaceLine(editing.key,{...editing,...data,portions:parsePortions(data.portionsJson)});setEditingKey(undefined);}}/></div>;
+  return <div ref={root} className="dialog-step food-basket">
     {announcement&&<p role="status" style={{position:'absolute',width:1,height:1,padding:0,margin:-1,overflow:'hidden',clip:'rect(0,0,0,0)',whiteSpace:'nowrap',border:0}}>{announcement}</p>}
     <div className="live-calorie-card">
       <div className="live-calorie-header">
@@ -80,8 +98,9 @@ export function FoodBasket({
       </small>)}
     </div>
 
+    {basket.scanIds.map(id=>store.local?.scans.find(scan=>scan.id===id)).filter(scan=>scan?.result).map(scan=><details key={scan!.id} className="source"><summary>AI estimate notes</summary>{scan!.result!.questions.map((question,index)=><p key={index}>{question}</p>)}{scan!.result!.foods.filter(food=>food.notes).map((food,index)=><p key={index}>{food.name}: {food.notes}</p>)}</details>)}
     <Form onSubmit={submitBatch}>
-      <TimePicker id="batch-time" name="time" label="Meal time" required dataModalAutofocus value={time} onChange={setTime}/>
+      <TimePicker id="batch-time" name="time" label="Meal time" required dataModalAutofocus value={time} onChange={value=>{setTime(value);onTimeChange?.(value);}}/>
 
       <FieldFrame
         label="Batch foods"
@@ -96,64 +115,14 @@ export function FoodBasket({
         </p>
 
         {basket.lines.map(line=>{
-          const selectedChoice=line.unit==='g'?'g':line.portionLabel?`portion:${line.portionLabel}`:'serving';
-          const options=[
-            {value:'g',label:'Grams'},
-            ...line.portions.map(portion=>({value:`portion:${portion.label}`,label:`${portion.label} · ${portion.grams} g`})),
-            {value:'serving',label:'Serving (weight unknown)'},
-          ];
-          return <fieldset key={line.key}>
-          <legend>{line.name}</legend>
-          <div className="form-grid">
-            <Field
-              id={`basket-qty-${line.key}`}
-              name={`qty_${line.key}`}
-              label={`Quantity (${line.unit==='g'?'g':line.portionLabel??'serving'})`}
-              type="number"
-              min="0.001"
-              max="100000"
-              step="any"
-              required
-              value={line.quantity}
-              onChange={event=>basket.updateLineQuantity(line.key,Number(event.target.value))}
-            />
-            <SelectField
-              id={`basket-unit-${line.key}`}
-              name={`unit_${line.key}`}
-              label="Quantity unit"
-              value={selectedChoice}
-              options={options}
-              onChange={value=>{
-                if(value==='g')basket.updateLineBasis(line.key,{unit:'g',portionLabel:null,portionGrams:null});
-                else if(value==='serving')basket.updateLineBasis(line.key,{quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
-                else{
-                  const portion=line.portions.find(item=>`portion:${item.label}`===value);
-                  if(portion)basket.updateLineBasis(line.key,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams});
-                }
-              }}
-            />
-          </div>
-          <p className="source">Basis: {displayPortion(line)}</p>
-          <p style={{fontSize:'.84rem',margin:'8px 0'}}>
-            {displayEnergy(line.calories,units.energy)} {energyLabel(units.energy)} ·
-            P: {number(line.protein)} g · 
-            C: {number(line.carbs)} g · 
-            Fat: {number(line.fat)} g · 
-            Fibre: {number(line.fiber)} g
-          </p>
-          <p className="source">Source: {line.source}</p>
-          <Button
-            type="button"
-            variant="tertiary"
-            aria-label={`Remove ${line.name}`}
-            onClick={()=>{
-              basket.removeLine(line.key);
-              setAnnouncement(`Removed ${line.name} from batch.`);
-            }}
-          >
-            Remove {line.name}
-          </Button>
-        </fieldset>;
+          return <div className={'batch-food'+(actionsKey===line.key?' actions-open':'')} key={line.key} onTouchStart={event=>{const point=event.touches[0];setTouchStart({x:point.clientX,y:point.clientY});}} onTouchEnd={event=>{const point=event.changedTouches[0];if(touchStart&&Math.abs(point.clientY-touchStart.y)<35&&Math.abs(point.clientX-touchStart.x)>50)setActionsKey(point.clientX<touchStart.x?line.key:undefined);setTouchStart(undefined);}}>
+            <div className="batch-food-summary">
+              <div><strong>{line.name}</strong><small>{displayPortion(line)}{line.source.startsWith('AI')?' · AI estimate':''}</small></div>
+              <span className="batch-food-energy">{displayEnergy(line.calories,units.energy)} <small>{energyLabel(units.energy)}</small></span>
+              <Button type="button" variant="tertiary" data-batch-actions={line.key} aria-label={'Actions for '+line.name} aria-expanded={actionsKey===line.key} onClick={()=>setActionsKey(actionsKey===line.key?undefined:line.key)}>•••</Button>
+            </div>
+            {actionsKey===line.key&&<div className="batch-food-actions"><Button type="button" onClick={()=>setEditingKey(line.key)}>Edit</Button><Button type="button" variant="destructive" aria-label={'Remove '+line.name} onClick={()=>{basket.removeLine(line.key);setAnnouncement('Removed '+line.name+' from batch.');}}>Remove</Button></div>}
+          </div>;
         })}
       </FieldFrame>
 

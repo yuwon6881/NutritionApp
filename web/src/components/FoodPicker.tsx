@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Camera, Star} from 'lucide-react';
 import type {EnergyUnit,Nutrients} from '../types';
 import {api} from '../lib/api';
@@ -56,6 +56,8 @@ export function FoodPicker({
   step,
   energyUnit='kcal',
 }:FoodPickerProps){
+  const requestId=useRef(0);
+  useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open,query]);
   const [scanMode,setScanMode]=useState<'single'|'multiple'>('single');
   const pendingCount=outstanding(basket.queue);
   const eta=etaSeconds(pendingCount,waitMs(basket.queue,Date.now()));
@@ -64,10 +66,8 @@ export function FoodPicker({
     <h3>{tab==='barcode'?'Packaged food':'Food search'}</h3>
     <Form onSubmit={event=>{
       event.preventDefault();
-      void run(async()=>setResults(tab==='barcode'
-        ?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(query))]
-        :await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(query))
-      ));
+      const id=++requestId.current;
+      void run(async()=>{try{const found=tab==='barcode'?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(query))]:await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(query));if(id===requestId.current)setResults(found);}catch(error){if(id===requestId.current)throw error;}});
     }}>
       <div className="search-line">
         <Field

@@ -35,7 +35,7 @@ test.beforeAll(async({request})=>{
 test('food timeline supports single-item move to custom time, move to existing time, and group move',async({page,context})=>{
   await context.addCookies(session.cookies);
   await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Diary'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
 
   // Log first entry: Oatmeal at 08:00
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
@@ -45,7 +45,7 @@ test('food timeline supports single-item move to custom time, move to existing t
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('380');
   await page.getByLabel('Protein (g)',{exact:true}).fill('13');
   await page.getByLabel('Meal time',{exact:true}).fill('08:00');
-  await page.getByRole('button',{name:'Save reviewed food'}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('button',{name:'Rolled oats',exact:true})).toBeVisible();
 
   // Log second entry: Black coffee at 08:00
@@ -55,7 +55,7 @@ test('food timeline supports single-item move to custom time, move to existing t
   await page.getByLabel('Food name',{exact:true}).fill('Black coffee');
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('5');
   await page.getByLabel('Meal time',{exact:true}).fill('08:00');
-  await page.getByRole('button',{name:'Save reviewed food'}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('button',{name:'Black coffee',exact:true})).toBeVisible();
 
   // Check that both items are grouped under 08:00
@@ -80,8 +80,9 @@ test('food timeline supports single-item move to custom time, move to existing t
 
   // Move Black coffee using existing target button (12:15 PM)
   await page.getByRole('button',{name:'Move Black coffee',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Move Black coffee'})).toBeVisible();
-  await page.getByRole('button',{name:/12:15 PM/}).click();
+  const moveDialog=page.getByRole('dialog',{name:'Move Black coffee'});
+  await expect(moveDialog).toBeVisible();
+  await moveDialog.getByRole('button',{name:/12:15 PM/}).click();
 
   // Both items are now under 12:15
   await expect(row1215.getByText('Rolled oats')).toBeVisible();
@@ -101,7 +102,8 @@ test('food timeline supports single-item move to custom time, move to existing t
 
   // Reload page to verify persistence across reload
   await page.reload();
-  await expect(page.getByRole('heading',{name:'Diary'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
+  await page.getByRole('button',{name:'Food Log',exact:true}).click();
   const reloaded19=page.locator('[data-time-row="19:00"]');
   await expect(reloaded19).toBeVisible();
   await expect(reloaded19.getByText('Rolled oats')).toBeVisible();

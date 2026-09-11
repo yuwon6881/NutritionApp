@@ -50,7 +50,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});
     await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
     await page.goto('/');
-    await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
     const launcher=page.getByRole('button',{name:'Add entry',exact:true});
     const nav=page.getByRole('navigation',{name:'Main navigation'});
     const sidebar=await page.locator('.sidebar').boundingBox();
@@ -65,12 +65,12 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       expect(sidebar!.height).toBe(900);
       expect(sidebar!.width).toBe(width<1024?88:228);
     }
-    for(const name of ['Today','Food Log','Progress','Coach','Settings']){
+    for(const name of ['Dashboard','Food Log','Progress','Coach','Settings']){
       await page.getByRole('button',{name,exact:true}).click();
-      await expect(page.locator('[data-page-heading]')).toHaveText(name==='Today'?'Diary':name);
+      await expect(page.locator('[data-page-heading]')).toHaveText(name);
       await capture(page,`${theme}-${width}-${name.replaceAll(' ','-')}`);
-      if(name==='Today'||name==='Food Log'){
-        const trigger=page.getByRole('button',{name:name==='Today'?'Choose diary date':'Choose food date',exact:true});
+      if(name==='Food Log'){
+        const trigger=page.getByRole('button',{name:'Choose food date',exact:true});
         await trigger.click();
         const calendar=page.locator('.custom-calendar-popover');
         await expect(calendar).toBeVisible();await contained(page);
@@ -135,7 +135,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
 
 test('phone navigation remains centered at narrow widths and after resizing from the rail',async({page,context})=>{
   await context.addCookies(session.cookies);await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   for(const width of [320,639,640,1023,1024,390]){
     await page.setViewportSize({width,height:800});await contained(page);
     const launcher=page.getByRole('button',{name:'Add entry',exact:true});

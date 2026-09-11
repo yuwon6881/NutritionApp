@@ -34,8 +34,8 @@ export function SyncStatus({store}:{store:Nourish}){
     tone='attention';
     Icon=AlertTriangle;
   }else if(meaningfulSync){
-    title=store.sync.kind==='scan'?'Processing scan…':'Uploading photo set…';
-    detail='Your latest changes are being sent to the server.';
+    title=store.sync.kind==='scan'?'Estimating food…':'Uploading photo set…';
+    detail=store.sync.kind==='scan'?'AI estimates remain drafts until you log the batch.':'Your latest changes are being sent to the server.';
     tone='syncing';
     Icon=LoaderCircle;
   }

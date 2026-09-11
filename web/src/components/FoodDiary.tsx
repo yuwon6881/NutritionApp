@@ -14,7 +14,7 @@ import {FoodTimeline} from './FoodTimeline';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
-export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void}){
+export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nourish;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void}){
   const history=useHistoryWindow(store,date);
   const [error,setError]=useState('');
   const [timelineView,setTimelineView]=useState<TimelineView>('data');
@@ -34,6 +34,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit}:{store:Nourish;date:
   const move=async(moving:Entry[],time:string)=>{await act(async()=>{for(const entry of moving){const operation=moveEntry(entry,time);if(operation)await store.mutate(operation);}},true);};
   return <div className="food-log-page">
     <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time and move them between hours.</p></div><Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button></header>
+    {entries.length>0&&!readOnly&&<Button variant="tertiary" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>Copy day</Button>}
     <div className="food-date-navigation">
       <Button aria-label="Previous food day" disabled={date<='2000-01-01'} onClick={()=>changeDate(shiftDate(date,-1))}><ChevronLeft size={18}/></Button>
       <DatePicker label="Food date" value={date} min="2000-01-01" max={current} onChange={changeDate}/>

@@ -38,7 +38,7 @@ test('mobile view (360px & 390px): eliminates horizontal scroll and fixes button
   for(const width of [360,390]){
     await page.setViewportSize({width,height:800});
     await page.goto('/');
-    await expect(page.getByRole('heading',{name:'Diary',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
 
     // 1. Verify page has zero horizontal scroll
     const pageScrollWidth=await page.evaluate(()=>document.documentElement.scrollWidth);

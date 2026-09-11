@@ -119,7 +119,7 @@ export function FoodEditor({
     catch(ex){setError((ex as Error).message);}
   };
 
-  const isProviderFood = !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add';
+  const isProviderFood = !title.startsWith('Edit batch') && !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add';
   const submitLabel = busy ? 'Saving…' : title.startsWith('Save food') ? 'Save custom food' : title.startsWith('Edit') ? 'Save changes' : 'Add to batch';
 
   return <div className="dialog-step editor">
@@ -161,7 +161,7 @@ export function FoodEditor({
       ) : (
         <>
           <Field id="food-name" name="name" data-modal-autofocus label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
-          {!title.startsWith('Save food')&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
+          {!title.startsWith('Save food')&&!title.startsWith('Edit batch')&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
           <div className="form-grid">
             <Field id="food-quantity" name="quantity" readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
             <SelectField id="food-unit" name="unit" disabled={title.startsWith('Save food')} label="Unit" value={unitChoice} onChange={value=>{

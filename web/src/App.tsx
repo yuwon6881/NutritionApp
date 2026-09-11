@@ -62,7 +62,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
     setCopyDate(sourceDate);setCopyEntries(entries);setCopyReturnFocus(restoreFocus??null);setCopyOpen(true);
   };
   const activeDate=store.state?.profile?today(store.state.profile.timeZone):date;
-  const selectedEntryDate=page==='today'?date:page==='food'?foodDate:activeDate;
+  const selectedEntryDate=page==='food'?foodDate:activeDate;
   const addOptions:ActionSheetOption[]=[
     {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,false,addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
@@ -71,7 +71,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   const navigate=(next:Page)=>{if(next===page)return;if(next==='food')setFoodDate(date);setPage(next);window.scrollTo({top:0,behavior:'instant'});};
   const foodSavedPage=foodOriginPage==='food'?'food':'today';
   const nav=[
-    {id:'today',label:'Today',icon:Utensils},
+    {id:'today',label:'Dashboard',icon:Utensils},
     {id:'food',label:'Food Log',icon:BookOpen},
     {id:'progress',label:'Progress',icon:ChartNoAxesCombined},
     {id:'coach',label:'Coach',icon:Compass},
@@ -84,7 +84,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
       <a className="brand" href="/" aria-label="Nutrition App home"><Brand/><span>Nutrition App</span></a>
       <nav aria-label="Main navigation">
         <SelectionIndicator active={page} className="nav-mobile-items nav-selection">
-          <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><Utensils size={20}/><span>Today</span></Button>
+          <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><Utensils size={20}/><span>Dashboard</span></Button>
           <Button data-selection-key="food" disabled={needsProfile} variant="tertiary" className={page==='food'?'nav-active':''} aria-current={page==='food'?'page':undefined} onClick={()=>navigate('food')}><BookOpen size={20}/><span>Food Log</span></Button>
           <Button disabled={needsProfile} variant="primary" className="nav-center-add" aria-label="Add entry" onClick={event=>{setAddReturnFocus(event.currentTarget);setShowAddSheet(true);}}><Plus size={22} className="nav-icon"/><span>Add</span></Button>
           <Button data-selection-key="progress" disabled={needsProfile} variant="tertiary" className={page==='progress'?'nav-active':''} aria-current={page==='progress'?'page':undefined} onClick={()=>navigate('progress')}><ChartNoAxesCombined size={20}/><span>Progress</span></Button>
@@ -113,7 +113,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
       {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:<MotionScene sceneKey={needsProfile?'coach':page}>
-        {!needsProfile&&page==='today'?<Today store={store} date={date} setDate={setDate} onLog={()=>openFood(date)} onCoach={()=>navigate('coach')} onEdit={entry=>openFood(entry.date,entry)} onWeight={trigger=>openWeight(date,undefined,trigger)} onCopyDay={openCopy}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} />:!needsProfile&&page==='progress'?<Progress store={store}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
+        {!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
       </MotionScene>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>

@@ -12,7 +12,6 @@ import {Field,SelectField,TextArea} from './ui/Field';
 import {FileInput} from './ui/FileInput';
 import {FoodEditor,type FoodDraft} from './FoodEditor';
 import {RecipeEditor} from './RecipeEditor';
-import {ScanReview} from './ScanReview';
 import {QuickAdd} from './QuickAdd';
 import {FoodPicker} from './FoodPicker';
 import {FoodBasket} from './FoodBasket';
@@ -26,7 +25,7 @@ import {useAsyncAction} from './ui/useAsyncAction';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
 type SearchResult=Nutrients&{servingGrams:number};
-type FoodStep='selection'|'quick'|'editor'|'recipe'|'scan'|'batch';
+type FoodStep='selection'|'quick'|'editor'|'recipe'|'batch';
 
 export function LogFood({
   open,
@@ -108,15 +107,15 @@ export function LogFood({
   },[open,step,tab]);
 
   useEffect(()=>{
-    if(step!=='selection'||!activeScanId)return;
+    if(!open||!activeScanId)return;
     const scan=store.local?.scans.find(item=>item.id===activeScanId);
-    if(scan?.result)setStep('scan');
-  },[step,activeScanId,store.local?.scans]);
+    if(scan?.result&&!basket.scanIds.includes(scan.id)){basket.addAiFoods(scan.id,scan.result.foods,scan.mode==='label'?'AI label estimate':'AI estimate');setDescription('');setPhoto(null);setActiveScanId(undefined);if(step==='selection')setStep('batch');}
+  },[open,step,activeScanId,store.local?.scans,basket]);
 
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
-  const go=(next:FoodStep)=>{setStepDirty(false);setStep(next);};
+  const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
   const selectTab=(next:string)=>{
-    setTab(next);
+    setQuery('');setResults([]);setError('');setCamera(false);setTab(next);
     window.requestAnimationFrame(()=>selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'}));
   };
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
@@ -158,9 +157,9 @@ export function LogFood({
   const foods=store.state!.foods.filter(food=>!food.deleted&&food.name.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
   const recentEntries=store.state!.entries.filter(entry=>!entry.deleted).slice(-8).reverse();
   const selectionDirty=(step==='selection'&&tab==='ai'&&(Boolean(description.trim())||Boolean(photo)))||Boolean(basket.lines.length);
-  const scanDrafts=store.local?.scans??[];
-  const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':step==='scan'?'Review scan':editing?'Edit food':saveFood?'Save custom food':'Review food';
-  const descriptionText=step==='selection'?`For ${date}`:step==='scan'?'Review the estimate before adding it to your diary.':undefined;
+  const scanDrafts=(store.local?.scans??[]).filter(scan=>!basket.scanIds.includes(scan.id));
+  const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
+  const descriptionText=step==='selection'?`For ${date}`:undefined;
 
   const selection=<div ref={selectionRef} className="dialog-step food-selection">
     {!editing&&<div className="dialog-toolbar"><Button variant="primary" onClick={()=>go('quick')}><Plus size={17}/>Quick add</Button><Button onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}>Manual entry</Button></div>}
@@ -170,9 +169,9 @@ export function LogFood({
       {value:'barcode',label:<><ScanBarcode size={16}/><span className="tab-label-full">Barcode</span><span className="tab-label-short">Scan</span></>,ariaLabel:'Barcode'},
       {value:'ai',label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}
     ]} onChange={selectTab}/>
-    {basket.lines.length>0&&<div className="notice" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,marginBottom:18}}>
+    {basket.lines.length>0&&<div className="batch-shortcut">
       <span><strong>{basket.lines.length} {basket.lines.length===1?'food':'foods'} in batch</strong></span>
-      <Button variant="primary" size="sm" onClick={()=>go('batch')}>Review batch</Button>
+      <Button variant="tertiary" size="sm" onClick={()=>go('batch')}>View batch</Button>
     </div>}
     {tab==='saved'&&<>
       <div className="section-heading"><div><h3>Your foods</h3><p>Saved foods and recent diary items.</p></div><div className="actions"><Button onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}>Custom food</Button><Button onClick={()=>go('recipe')}>New recipe</Button></div></div>
@@ -257,23 +256,22 @@ export function LogFood({
     {tab==='ai'&&<Form onSubmit={()=>void run(async()=>{const id=crypto.randomUUID();setActiveScanId(id);await store.addScan({id,mode,description,imageBase64:mode==='description'?null:photo});})}>
       <h3>AI logging</h3>
       <SelectField id="ai-log-mode" name="mode" disabled={busy} label="How would you like to log?" value={mode} onChange={value=>{setMode(value as ScanDraft['mode']);setPhoto(null);}}><option value="description">Describe my meal</option><option value="photo">Meal photo</option><option value="label">Nutrition label</option></SelectField>
-      <TextArea id="ai-meal-description" name="description" required={mode==='description'} label="Meal description and portions" maxLength={3000} value={description} onChange={event=>setDescription(event.target.value)} placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"/>
+      <TextArea id="ai-meal-description" name="description" disabled={busy} required={mode==='description'} label="Meal description and portions" maxLength={3000} value={description} onChange={event=>setDescription(event.target.value)} placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"/>
       {mode!=='description'&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';setPhoto(null);if(file){void run(async()=>setPhoto(await prepareImage(file)));}}}/>}
       {photo&&mode!=='description'&&<p className="notice">Location metadata removed · deleted after processing.</p>}
       <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit"><Sparkles size={18}/>{busy?'Estimating…':mode==='label'?'Read nutrition label':'Estimate my meal'}</Button></div>
     </Form>}
     {error&&<p className="error" role="alert">{error}</p>}
-    {scanDrafts.length>0&&<div className="scan-drafts"><h3>AI drafts</h3>{scanDrafts.map(scan=>scan.result?<div className="notice" key={scan.id}><p>{scan.mode==='label'?'Nutrition label':'Meal'} estimate is ready to review.</p><Button onClick={()=>{setActiveScanId(scan.id);go('scan');}}>Review estimate</Button></div>:<div className="notice" key={scan.id}><p>{scan.error??'AI estimate is processing or retained locally for retry. It has not been added to your diary.'}</p>{scan.description&&<small>{scan.description}</small>}<div className="actions">{scan.error&&<Button onClick={()=>void run(()=>store.retryScan(scan.id))}>Retry estimate</Button>}<Button variant="tertiary" onClick={()=>void store.removeScan(scan.id)}>Discard local draft</Button></div></div>)}</div>}
+    {scanDrafts.length>0&&<div className="scan-drafts"><h3>AI drafts</h3>{scanDrafts.map(scan=>scan.result?<div className="notice" key={scan.id}><p>{scan.mode==='label'?'Nutrition label':'Meal'} estimate is ready to review.</p><Button onClick={()=>{setActiveScanId(scan.id);go('selection');}}>Review estimate</Button></div>:<div className="notice" key={scan.id}><p>{scan.error??'AI estimate is processing or retained locally for retry. It has not been added to your diary.'}</p>{scan.description&&<small>{scan.description}</small>}<div className="actions">{scan.error&&<Button onClick={()=>void run(()=>store.retryScan(scan.id))}>Retry estimate</Button>}<Button variant="tertiary" onClick={()=>void store.removeScan(scan.id)}>Discard local draft</Button></div></div>)}</div>}
   </div>;
 
   const child=step==='batch'
-    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved} initialTime={batchTime}/>
+    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else if(editing){onSaved();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor store={store} onClose={()=>go('selection')} onDirtyChange={setStepDirty}/>
-    :step==='scan'&&activeScanId&&store.local?.scans.find(scan=>scan.id===activeScanId)?.result?<ScanReview scan={store.local.scans.find(scan=>scan.id===activeScanId)!} store={store} date={date} onClose={()=>go('selection')} onSaved={onSaved} onDirtyChange={setStepDirty} onBatch={(scanId,foods,source)=>{basket.addAiFoods(scanId,foods,source);go('batch');}}/>
     :selection;
-  const steps:FoodStep[]=['selection','quick','editor','recipe','scan','batch'];
+  const steps:FoodStep[]=['selection','quick','editor','recipe','batch'];
   const previousStep=useRef(step);
   const stepDirection:1|-1=steps.indexOf(step)>=steps.indexOf(previousStep.current)?1:-1;
   useEffect(()=>{previousStep.current=step;},[step]);

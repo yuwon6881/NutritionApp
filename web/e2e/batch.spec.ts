@@ -45,7 +45,7 @@ test.beforeAll(async({request})=>{
 test('batch multi-food logging: checkboxes, live totals rescaling, removal, atomic commit, and dirty close protection',async({page,context})=>{
   await context.addCookies(session.cookies);
   await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Diary'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
 
   // Open Log food modal
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
@@ -86,11 +86,16 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await expect(calorieCard.getByText('2 foods')).toBeVisible();
 
   // Rescale quantity of Greek Yogurt from 100g to 200g (59 * 2 = 118 + 57 = 175 kcal)
-  const qtyInput=page.locator('input[id*="basket-qty"]').first();
+  await expect(page.locator('.batch-food input')).toHaveCount(0);
+  await page.getByRole('button',{name:'Actions for Greek Yogurt 0%'}).click();
+  await page.getByRole('button',{name:'Edit',exact:true}).click();
+  const qtyInput=page.getByLabel('Quantity',{exact:true});
   await qtyInput.fill('200');
+  await page.getByRole('button',{name:'Save changes',exact:true}).click();
   await expect(calorieCard.getByText('175')).toBeVisible();
 
   // Remove Blueberries Fresh from batch
+  await page.getByRole('button',{name:'Actions for Blueberries Fresh'}).click();
   await page.getByRole('button',{name:'Remove Blueberries Fresh'}).click();
   await expect(calorieCard.getByText('1 food')).toBeVisible();
   await expect(calorieCard.getByText('118')).toBeVisible();
@@ -102,6 +107,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await page.getByRole('button',{name:/Log all 1 food/}).click();
 
   // Check that the entry appears in timeline at 15:30
+  await page.getByRole('button',{name:'Food Log',exact:true}).click();
   const row1530=page.locator('[data-time-row="15:30"]');
   await expect(row1530).toBeVisible();
   await expect(row1530.getByText('Greek Yogurt 0%')).toBeVisible();
