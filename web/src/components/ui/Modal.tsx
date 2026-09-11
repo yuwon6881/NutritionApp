@@ -81,6 +81,9 @@ export function Modal({
     }
     if(!present)return;
     setPhase('closing');
+    if(document.activeElement instanceof HTMLElement&&dialog.current?.contains(document.activeElement)){
+      document.activeElement.blur();
+    }
     const timer=window.setTimeout(()=>{
       dialog.current?.close();
       setPresent(false);setConfirming(false);setPhase('closed');
@@ -131,6 +134,9 @@ export function Modal({
             ? lastEditorFocus.current
             : (dialog.current?.querySelector<HTMLElement>('[data-modal-autofocus]')??(dialog.current?.querySelector<HTMLElement>('.modal-body')?focusable(dialog.current.querySelector<HTMLElement>('.modal-body')!)[0]:undefined)));
       confirmationOrigin.current=origin??null;
+      if(document.activeElement instanceof HTMLElement&&dialog.current?.contains(document.activeElement)){
+        document.activeElement.blur();
+      }
       setConfirming(true);
       return;
     }
@@ -181,7 +187,7 @@ export function Modal({
     }}
   >
     <div className="modal-surface">
-      <div className={`modal-content ${confirming||phase==='closing'?'modal-content-inert':''}`} aria-hidden={confirming||phase==='closing'||undefined} inert={confirming||phase==='closing'||undefined}>
+      <div className={`modal-content ${confirming||phase==='closing'?'modal-content-inert':''}`} inert={confirming||phase==='closing'||undefined}>
         <header className="modal-header">
           <div className="modal-heading">
             <h2 id={titleId} tabIndex={-1}>{title}</h2>
