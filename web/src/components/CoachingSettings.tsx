@@ -10,7 +10,7 @@ const days=[
   ['1','Monday'],['2','Tuesday'],['3','Wednesday'],['4','Thursday'],['5','Friday'],['6','Saturday'],['0','Sunday']
 ] as const;
 
-export function CoachingSettings({store}:{store:Nourish}){
+export function CoachingSettings({store,hideUnits=false,hideSaveStatus=false}:{store:Nourish;hideUnits?:boolean;hideSaveStatus?:boolean}){
   const state=store.state!;
   const settings=state.settings??{checkInWeekday:1,revision:0};
   const units=unitsFor(settings);
@@ -45,16 +45,14 @@ export function CoachingSettings({store}:{store:Nourish}){
       {days.map(([value,label])=><option key={value} value={value}>{label}</option>)}
     </SelectField>
     <p className="source">The active plan stays in place. Your next check-in is {next}.</p>
-    <UnitPreferencesFields value={units} onChange={updateUnits}/>
-    {settingsSaving&&<p className="notice settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
-    {queued?.error&&<p className="error settings-error" role="alert">This settings change is waiting for review in the saved edit notice above.</p>}
+    {!hideUnits&&<UnitPreferencesFields value={units} onChange={updateUnits}/>}
+    {!hideSaveStatus&&settingsSaving&&<p className="notice settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
+    {!hideSaveStatus&&queued?.error&&<p className="error settings-error" role="alert">This settings change is waiting for review in the saved edit notice above.</p>}
   </section>;
 }
 
-export function UnitPreferencesFields({value=defaultUnits,onChange,compact=false}:{value?:UnitPreferences;onChange:(patch:Partial<UnitPreferences>)=>void;compact?:boolean}){
-  return <fieldset className={`unit-preferences${compact?' compact':''}`}>
-    <legend>Units</legend>
-    <p className="source">Units apply across your diary, charts, and coach.</p>
+export function UnitPreferencesFields({value=defaultUnits,onChange,compact=false,asFieldset=true}:{value?:UnitPreferences;onChange:(patch:Partial<UnitPreferences>)=>void;compact?:boolean;asFieldset?:boolean}){
+  const content=(
     <div className="form-grid">
       <SelectField id="settings-weight-unit" name="weightUnit" label="Weight" value={value.weight} onChange={v=>onChange({weight:v as WeightUnit})}>
         <option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option>
@@ -66,5 +64,11 @@ export function UnitPreferencesFields({value=defaultUnits,onChange,compact=false
         <option value="cm">Centimetres (cm)</option><option value="ft-in">Feet / inches</option>
       </SelectField>
     </div>
+  );
+  if(!asFieldset)return content;
+  return <fieldset className={`unit-preferences${compact?' compact':''}`}>
+    <legend>Units</legend>
+    <p className="source">Units apply across your diary, charts, and coach.</p>
+    {content}
   </fieldset>;
 }
