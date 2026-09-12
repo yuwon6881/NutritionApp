@@ -4,7 +4,7 @@ import {api} from '../lib/api';
 import {number} from '../lib/format';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
-import {CoachDelta,CoachNumber} from './ui/CoachMotion';
+import {CoachDelta,CoachNumber,CoachWait} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
 import {displayEnergy,energyLabel,energyValue,unitsFor} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
@@ -82,6 +82,8 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
     title="Weekly check-in" description="Review what this week’s evidence would change before you decide.">
     {!proposal?<div className="check-in-loading" role={error?'alert':'status'}>
       <p>{error||operation==='error'?'Could not prepare this check-in yet.':operation==='refresh-error'?'Your plan is active. The latest view could not be loaded.':'Preparing your weekly evidence…'}</p>
+      {operation==='calculating'&&<CoachWait label="Calculating targets…" active/>}
+      {operation==='refreshing'&&<CoachWait label="Refreshing active targets…" active/>}
       {error&&<Button onClick={()=>void loadProposal()} disabled={!online||pending}>Retry</Button>}
     </div>:<div className="check-in-dialog-content">
       <div ref={source} className="check-in-changes" aria-label="Target changes">

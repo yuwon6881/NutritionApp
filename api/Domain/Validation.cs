@@ -82,6 +82,7 @@ public static class Validation
         Number(p.HeightCm, 80, 250, "Height"); Number(p.WeightKg, 20, 400, "Weight");
         Number(p.Activity, 1.2, 2.5, "Activity");
         Require(p.Sex is "male" or "female", "Choose the equation parameter.");
+        Require(p.Sex != "male" || !p.PregnancyOrBreastfeeding, "Pregnancy or breastfeeding must be cleared for the male equation parameter.");
         Require(p.Goal is "lose" or "maintain" or "gain", "Unknown goal.");
         Require(p.PhaseMode is "open" or "duration" or "weight", "Choose a goal tracking mode.");
         if (p.GoalRatePercent is {} rate)

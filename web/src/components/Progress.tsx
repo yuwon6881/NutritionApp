@@ -1,40 +1,58 @@
-import {useState} from 'react';
-import {energyDays} from '../lib/energyBalance';
+import {useCallback,useEffect,useState} from 'react';
 import type {Nourish} from '../useNourish';
-import type {Weight} from '../types';
-import {today,trend} from '../lib/format';
+import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
+import {today} from '../lib/format';
 import {Button} from './ui/Button';
-import {SelectField} from './ui/Field';
 import {PhysiquePhotos} from './PhysiquePhotos';
 import {WeightChart} from './WeightChart';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
-import {useHistoryWindow} from '../useHistoryWindow';
 import {WeightEntryDialog} from './WeightEntryDialog';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
+import {SelectField} from './ui/Field';
 import {displayEnergy,displayWeight,energyLabel,unitsFor,weightLabel} from '../lib/units';
+import {progressPeriodOptions} from '../lib/progress';
 
-type Tab='weight'|'energy'|'photos';
+type Tab='weight'|'energy'|'body';
+const progressKinds=new Set(['entry','weight','day','profile','settings']);
+
+function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean){
+  const [error,setError]=useState('');
+  const [loading,setLoading]=useState(enabled);
+  const cached=store.local?.progress?.[period];
+  const load=useCallback(async()=>{
+    if(!enabled)return;
+    setLoading(true);setError('');
+    try{await store.refreshProgress(period);}catch(ex){setError((ex as Error).message);}
+    finally{setLoading(false);}
+  },[enabled,period,store.refreshProgress]);
+  const revision=store.local?.state.revision;
+  const queueKey=store.local?.queue.filter(item=>progressKinds.has(item.kind)).map(item=>item.id+item.error).join('|')??'';
+  useEffect(()=>{void load();},[load,revision,queueKey,store.calendarDate]);
+  return {summary:cached,error,loading,retry:load};
+}
 
 export function Progress({store}:{store:Nourish}){
   const [tab,setTab]=useState<Tab>('weight');
-  const [period,setPeriod]=useState('recent');
+  const [weightPeriod,setWeightPeriod]=useState<ProgressPeriod>('month');
+  const [energyPeriod,setEnergyPeriod]=useState<ProgressPeriod>('month');
   const [weightOpen,setWeightOpen]=useState(false);
   const [weightEdit,setWeightEdit]=useState<Weight>();
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
-  const history=useHistoryWindow(store,period,tab==='weight');
-  const state=history.state??store.state!;
+  const weight=useProgressSummary(store,weightPeriod,tab==='weight');
+  const energy=useProgressSummary(store,energyPeriod,tab==='energy');
+  const state=store.state!;
   const units=unitsFor(state.settings);
-  const weights=state.weights.filter(weight=>!weight.deleted);
-  const smoothed=trend([...(state.weightTrendSeed??[]),...weights]).filter(weight=>weight.date>=state.start&&weight.date<=state.end);
-  const latest=smoothed.at(-1);
-  const mean=weights.length?weights.reduce((sum,weight)=>sum+weight.kg,0)/weights.length:null;
-  const complete=energyDays({entries:state.entries,days:state.days,estimates:[],current:today(state.profile?.timeZone)},state.start,state.end).filter(day=>day.complete);
-  const intake=complete.reduce((sum,day)=>sum+(day.intake??0),0);
-  const tabs=[['weight','Weight'],['energy','Energy'],['photos','Photos']] as const;
-  const tabDirection:1|-1=tab==='photos'?-1:1;
+  const tabs=[['weight','Weight'],['energy','Energy'],['body','Body']] as const;
+  const tabDirection:1|-1=tab==='body'?-1:1;
+  const pending=store.local?.queue.some(item=>progressKinds.has(item.kind))??false;
   const addWeight=(trigger?:HTMLElement|null)=>{setWeightEdit(undefined);setWeightReturnFocus(trigger??null);setWeightOpen(true);};
+  const editWeight=(weight:Weight,trigger:HTMLElement)=>{setWeightEdit(weight);setWeightReturnFocus(trigger);setWeightOpen(true);};
+  const summary=tab==='weight'?weight.summary:energy.summary;
+  const error=tab==='weight'?weight.error:energy.error;
+  const loading=tab==='weight'?weight.loading:energy.loading;
+  const retry=tab==='weight'?weight.retry:energy.retry;
 
   return <>
     <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div><div className="page-heading-actions">{tab==='weight'&&<Button variant="primary" onClick={event=>addWeight(event.currentTarget)}>Add weigh-in</Button>}</div></header>
@@ -42,34 +60,39 @@ export function Progress({store}:{store:Nourish}){
     <MotionPanel motionKey={tab} direction={tabDirection}>
     <div role="tabpanel" aria-label={`${tabs.find(([value])=>value===tab)?.[1]??tab} progress`}>
     {tab==='weight'&&<>
-      <div className="history-filter"><SelectField label="Weight history period" value={period} onChange={setPeriod}>
-        <option value="recent">Recent 90 days</option>
-        {Array.from({length:Number(today(state.profile?.timeZone).slice(0,4))-1999},(_,index)=>String(Number(today(state.profile?.timeZone).slice(0,4))-index)).map(year=><option key={year} value={year}>{year}</option>)}
+      <div className="history-filter"><SelectField label="Weight history period" value={weightPeriod} onChange={value=>setWeightPeriod(value as ProgressPeriod)}>
+        {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
       </SelectField></div>
-      {history.error&&<p className="notice" role="status">{history.state?'Saved history shown.':'This history is not available on this device.'} {history.error} <Button onClick={history.retry}>Retry history</Button></p>}
-      {!history.state&&!history.error&&<div className="stats-grid skeleton" aria-busy="true">
-        <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section>
-        <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section>
-        <section className="panel"><p className="eyebrow">COMPLETE-DAY INTAKE</p><h2>— <span className="unit">{energyLabel(units.energy)}</span></h2><p>Loading history…</p></section>
-      </div>}
-      {history.state&&<>
-        <div className="stats-grid">
-          <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latest?.kg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{latest?latest.date:'No weigh-in yet'}</p></section>
-          <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(mean,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{weights.length} weigh-ins</p></section>
-          <section className="panel"><p className="eyebrow">COMPLETE-DAY INTAKE</p><h2>{displayEnergy(complete.length?intake/complete.length:null,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></h2><p>{complete.length} complete days</p></section>
-        </div>
-        <WeightChart weights={weights} smoothed={smoothed} weightUnit={units.weight}/>
-        <section className="panel weight-history-panel">
-          <div className="section-heading"><div><h2>Weight history</h2><p>Choose a weigh-in to edit it in the same dialog.</p></div></div>
-          <div className="weight-history">{weights.slice(-10).reverse().map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>{setWeightEdit(weight);setWeightReturnFocus(event.currentTarget);setWeightOpen(true);}}>Edit</Button><Button variant="tertiary" size="md" onClick={()=>void store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}>Delete</Button></div>)}</div>
-        </section>
-      </>}
+      {error&&<p className="notice" role="status">{summary?'Saved summary shown.':'This summary is not available on this device.'} {error} <Button onClick={()=>void retry()}>Retry summary</Button></p>}
+      {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2><p>Loading history…</p></section></div>}
+      {summary&&<WeightSummary summary={summary} units={units} pending={pending} onEdit={editWeight} onDelete={weight=>void store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}/>}
     </>}
-    {tab==='energy'&&<><EnergyBalance store={store}/><CoachingProgress store={store}/></>}
-    {tab==='photos'&&<PhysiquePhotos store={store}/>
-    }
+    {tab==='energy'&&<>
+      <EnergyBalance store={store} period={energyPeriod} summary={energy.summary} error={energy.error} onPeriodChange={setEnergyPeriod}/>
+      {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading the selected energy period…</p>}
+      <CoachingProgress store={store}/>
+    </>}
+    {tab==='body'&&<PhysiquePhotos store={store}/>}
     </div>
     </MotionPanel>
-    <WeightEntryDialog open={weightOpen} store={store} date={today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
+    <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
+  </>;
+}
+
+function WeightSummary({summary,units,pending,onEdit,onDelete}:{summary:ProgressSummary;units:ReturnType<typeof unitsFor>;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight)=>void}){
+  const stats=summary.weight.statistics;
+  const editable=summary.weight.editableWeighIns;
+  return <>
+    {pending&&<p className="notice" role="status">Recent progress edits are retained locally and this summary will refresh after synchronization.</p>}
+    <div className="stats-grid">
+      <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{summary.start} to {summary.end}</p></section>
+      <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{stats.count} weigh-ins</p></section>
+      <section className="panel"><p className="eyebrow">CHANGE IN TREND</p><h2>{stats.trendChangeKg==null?'—':`${stats.trendChangeKg>0?'+':''}${displayWeight(stats.trendChangeKg,units.weight,1)}`} <span className="unit">{weightLabel(units.weight)}</span></h2><p>From first to latest point</p></section>
+    </div>
+    <WeightChart series={summary.weight.series} weightUnit={units.weight}/>
+    <section className="panel weight-history-panel">
+      <div className="section-heading"><div><h2>Latest weigh-ins</h2><p>Only recent retained weigh-ins can be edited. Older points remain in the chart.</p></div></div>
+      {editable.length?<div className="weight-history">{editable.map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>onEdit(weight,event.currentTarget)}>Edit</Button><Button variant="tertiary" size="md" onClick={()=>onDelete(weight)}>Delete</Button></div>)}</div>:<p className="empty">No weigh-ins in this period.</p>}
+    </section>
   </>;
 }

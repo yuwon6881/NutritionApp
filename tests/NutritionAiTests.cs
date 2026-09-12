@@ -63,6 +63,36 @@ public sealed class NutritionAiTests
         Assert.Equal(3, result.OutputTokens);
     }
 
+    [Fact]
+    public void Mismatched_optional_portion_fields_become_an_uncertainty_note_without_a_gram_basis()
+    {
+        var normalized=NutritionAi.NormalizePortionMetadata(new AiDraft(
+            [new AiFood("Bread",1,"serving",120,4,2,20,null,"", "one slice", null)],
+            [],
+            "Review the estimate."));
+
+        var food=Assert.Single(normalized.Foods);
+        Assert.Null(food.PortionLabel);
+        Assert.Null(food.PortionGrams);
+        Assert.Contains("one slice",food.Notes);
+        NutritionAi.Validate(normalized);
+    }
+
+    [Fact]
+    public async Task Ambiguous_massimo_bread_returns_a_question_without_calling_the_provider()
+    {
+        var calls=0;
+        using var client=new HttpClient(new Handler(_=>{calls++;return new HttpResponseMessage(HttpStatusCode.OK); }));
+        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>()).Build();
+
+        var result=await new NutritionAi(client,config).Analyze("description","one massimo bread",null,default);
+
+        Assert.Empty(result.Draft.Foods);
+        Assert.Single(result.Draft.Questions);
+        Assert.Contains("Massimo",result.Draft.Questions[0]);
+        Assert.Equal(0,calls);
+    }
+
     private sealed class Handler(Func<HttpRequestMessage,HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(respond(request));

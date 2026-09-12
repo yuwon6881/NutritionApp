@@ -59,6 +59,33 @@ async function changeGoal(page:Page){
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
   await savePlan(page);
 }
+
+test('male plan selection hides and clears pregnancy through save and reload',async({page,context})=>{
+  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await step(page,'Activity');
+  const pregnancy=page.getByLabel('Pregnant or breastfeeding',{exact:true});
+  await pregnancy.check();
+  await step(page,'Body');
+  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('male');
+  await step(page,'Activity');
+  await expect(pregnancy).toHaveCount(0);
+  await expect(page.getByLabel('Medically managed nutrition',{exact:true})).toBeVisible();
+  await step(page,'Body');
+  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('female');
+  await step(page,'Activity');
+  await expect(pregnancy).not.toBeChecked();
+  await pregnancy.check();
+  await step(page,'Body');
+  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('male');
+  await savePlan(page);
+  await expect.poll(async()=>{
+    const state=await (await context.request.get('/api/state')).json();
+    return {sex:state.profile.sex,pregnancy:state.profile.pregnancyOrBreastfeeding};
+  }).toEqual({sex:'male',pregnancy:false});
+  await page.reload();await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await step(page,'Activity');await expect(pregnancy).toHaveCount(0);
+});
 async function transitionFrames(page:Page,name:string){
   return page.getByRole('button',{name,exact:true}).evaluate(button=>new Promise<string[]>(resolve=>{
     const stage=document.querySelector('.coach-step-stage')!;
@@ -140,7 +167,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   await page.emulateMedia({reducedMotion:'no-preference'});
 });
 
-test('real calculation waits, errors, retry and stale responses after back to edit',async({page})=>{
+test('weekly check-in opens immediately, waits in the modal, and retries',async({page})=>{
   test.setTimeout(90000);
   let release!:()=>void;
   const gate=new Promise<void>(resolve=>{release=resolve;});
@@ -152,31 +179,28 @@ test('real calculation waits, errors, retry and stale responses after back to ed
     await route.fulfill({response});
   });
   await page.getByRole('button',{name:'Check in',exact:true}).click();
-  await expect(page.getByRole('status').filter({hasText:'Calculating targets'})).toBeVisible();
-  await expect(page.locator('.coach-wait-arc')).toBeVisible();
-  await expect(page.getByText('Taking longer than usual.')).toBeVisible({timeout:12000});
-  await page.screenshot({path:'artifacts/coach-calculating.png',fullPage:true});
-  await page.getByRole('button',{name:'Back to edit',exact:true}).click();
-  await step(page,'Goal');await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
-  await savePlan(page);
-  await expect(page.getByRole('button',{name:'Accept this plan',exact:true})).toBeEnabled();
-  release();await settled(page);
-  await expect(page.locator('.proposal-card .target-figures > div:first-child strong')).toContainText('2,050');
-  await expect(page.getByRole('button',{name:'Accept this plan',exact:true})).toBeEnabled();
-  for(const theme of ['light','dark'])for(const width of [390,768,1440]){
-    await page.setViewportSize({width,height:900});await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
-    await page.screenshot({path:`artifacts/coach-${theme}-${width}-review.png`,fullPage:true});
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  }
+  const dialog=page.getByRole('dialog',{name:'Weekly check-in'});
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Preparing your weekly evidence…',{exact:true})).toBeVisible();
+  await expect(dialog.locator('.coach-wait-arc')).toBeVisible();
+  await expect(dialog.getByText('Taking longer than usual.',{exact:true})).toBeVisible({timeout:12000});
+  await page.screenshot({path:'artifacts/coach-check-in-calculating.png',fullPage:true});
+  release();
+  await expect(dialog.locator('[aria-label="Target changes"]')).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Not now',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();
+
   await page.unroute('**/api/coach/preview');
   await page.route('**/api/coach/preview',route=>route.fulfill({status:503,json:{message:'Preview temporarily unavailable.'}}));
-  await page.getByRole('button',{name:'Back to edit',exact:true}).click();
-  await savePlan(page);
-  await expect(page.getByRole('alert')).toContainText('Preview temporarily unavailable.');
-  await expect(page.locator('.coach-wait-arc')).toHaveCount(0);
+  await page.getByRole('button',{name:'Check in',exact:true}).click();
+  const failed=page.getByRole('dialog',{name:'Weekly check-in'});
+  await expect(failed.getByRole('alert')).toContainText('Could not prepare this check-in yet.');
+  await expect(failed.getByRole('button',{name:'Retry',exact:true})).toBeVisible();
   await page.unroute('**/api/coach/preview');
-  await page.getByRole('button',{name:'Retry calculation',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Accept this plan',exact:true})).toBeEnabled();
+  await failed.getByRole('button',{name:'Retry',exact:true}).click();
+  await expect(failed.locator('[aria-label="Target changes"]')).toBeVisible();
+  await failed.getByRole('button',{name:'Not now',exact:true}).click();
+  expect(calls).toBeGreaterThanOrEqual(1);
 });
 
 test('lost acceptance response replays the exact identity and revision',async({page})=>{

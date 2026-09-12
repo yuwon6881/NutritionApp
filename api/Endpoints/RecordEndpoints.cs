@@ -45,6 +45,8 @@ public static class RecordEndpoints
                 phaseDecisions=await db.PhaseDecisions.OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct)
             });
         });
+        app.MapGet("/api/progress/summary",async(string? period,ProgressSummaryService progress,CancellationToken ct)
+            =>Results.Ok(await progress.Get(period,ct)));
         app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,CancellationToken ct)=>Results.Ok(new { revision=await sync.Apply(mutation,ct) }));
         app.MapGet("/api/coach/preview",async(CoachingService coach,CancellationToken ct)=>await coach.Preview(ct));
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));

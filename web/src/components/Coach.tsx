@@ -4,7 +4,7 @@ import {ArrowLeft,ArrowRight,Check,Sliders} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
-import {profilesEqual} from '../lib/profile';
+import {normalizeProfileSex,profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
 import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
 import {gramsFromSplit,macroKeys,macroLabels,macroPresets,type MacroSplit} from '../lib/macros';
@@ -74,7 +74,7 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
 }
 
 export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolean}){
-  const [profile,setProfile]=useState<ProfileDraft>(store.state!.profile??defaults);
+  const [profile,setProfile]=useState<ProfileDraft>(()=>normalizeProfileSex(store.state!.profile??defaults));
   const [message,setMessage]=useState('');
   const {busy:saving,run:runSave}=useAsyncAction();
   const [checkInOpen,setCheckInOpen]=useState(false);
@@ -100,7 +100,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const pending=store.local!.queue.length>0;
   const changed=!profilesEqual(profile,store.state!.profile);
   const proposalFlow=useCoachProposal({store,draft:profile,changed,
-    onAccepted:refreshed=>{setMessage('Plan active.');if(refreshed)setReview(false);}});
+    onAccepted:refreshed=>{setMessage('Plan active.');if(refreshed){setReview(false);setMainTab('targets');}}});
   const {proposal,operation:proposalOperation,setOperation,error,setError,setProposal,setWantsProposal,acceptProposal,retryRefresh:refreshTargets,
     loadProposal:requestProposal,invalidate,acceptance,locked,online}=proposalFlow;
   const operation=saving?'saving':proposalOperation;
@@ -114,7 +114,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const set=(key:keyof Profile,value:unknown)=>{
     invalidate();
     if(key!=='distributionShares')setWeeklyDraft(undefined);
-    setProfile(p=>({
+    setProfile(p=>normalizeProfileSex({
       ...p,
       [key]:value,
       // The stored age mirrors the date of birth so an older record stays consistent offline.
@@ -182,7 +182,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     setReview(true);
     setWantsProposal(true);
     setOperation('waiting');
-    setMainTab('targets');
+    setMainTab('plan');
     setMessage('');
     }catch(ex){setError((ex as Error).message);setOperation('error');}
     finally{locked.current=false;}
@@ -246,7 +246,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         <div><h2>Active targets</h2></div>
         <div className="actions">
           <Button variant="secondary" size="md" disabled={busy||!!acceptance.current} onClick={()=>openPlan()}><Sliders size={16}/>Edit plan</Button>
-          <Button variant="primary" size="md" disabled={busy||pending||!online||changed||!!acceptance.current} onClick={()=>void loadProposal()}>
+          <Button variant="primary" size="md" disabled={busy||pending||!online||changed||!!acceptance.current} onClick={event=>{setCheckInRestore(event.currentTarget);setCheckInOpen(true);}}>
             Check in
           </Button>
         </div>
@@ -254,7 +254,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       <TargetFigures result={acceptedPlan} units={units}/>
       {goalProgress&&<GoalSummary progress={goalProgress} units={units}/>}
     </section>}
-    {proposalPanel}
     <section className="panel">
       <div className="section-heading">
         <div><h2>Strategy</h2></div>
@@ -323,7 +322,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
             <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" role="switch" aria-checked={profile.resistanceTraining} checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
             Resistance training
           </label>
-          {([['pregnancyOrBreastfeeding','Pregnant or breastfeeding'],['medicalNutrition','Medically managed nutrition']] as const).map(([key,label])=><label key={key} htmlFor={`coach-${key}`}>
+          {([['pregnancyOrBreastfeeding','Pregnant or breastfeeding'],['medicalNutrition','Medically managed nutrition']] as const).filter(([key])=>key!=='pregnancyOrBreastfeeding'||profile.sex!=='male').map(([key,label])=><label key={key} htmlFor={`coach-${key}`}>
             <input id={`coach-${key}`} name={key} type="checkbox" role="switch" aria-checked={profile[key]} checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
           </label>)}
         </div>
@@ -469,8 +468,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
     <div key={isInitialSetup?(review?'review':'setup'):mainTab} className="coach-tab-scene">
     {isInitialSetup?<>{review?proposalPanel:planTab}</>
-      :mainTab==='targets'?targetsTab
-      :mainTab==='plan'?planTab
+    :mainTab==='targets'?targetsTab
+      :mainTab==='plan'?(review?proposalPanel:planTab)
       :historyTab}</div>
     <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>
   </>;

@@ -81,7 +81,7 @@ test('tab switching preserves consistent button locations and modal coordinates'
   await page.waitForTimeout(400);
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.waitForTimeout(50);
-  const progressTabs=['Weight','Energy','Photos'] as const;
+  const progressTabs=['Weight','Energy','Body'] as const;
   const pMeasurements:number[]=[];
 
   for(const pTab of progressTabs){

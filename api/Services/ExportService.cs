@@ -44,7 +44,8 @@ public sealed record NutritionExport(
     IReadOnlyList<CheckInDecision> CheckIns,
     IReadOnlyList<PhaseDecision> PhaseDecisions,
     IReadOnlyList<DailyExpenditureEstimate> ExpenditureEstimates,
-    IReadOnlyList<ExportPhoto> PhysiquePhotos);
+    IReadOnlyList<ExportPhoto> PhysiquePhotos,
+    IReadOnlyList<BodyRecordView> BodyRecords);
 
 public sealed class ExportService(AppDb db, RetentionService retention)
 {
@@ -57,7 +58,7 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         var detailCutoff = RetentionService.Cutoff(today, detailDays);
 
         return new NutritionExport(
-            SchemaVersion: 2,
+            SchemaVersion: 3,
             ExportedAt: DateTime.UtcNow,
             Profile: profile,
             Settings: new ExportSettings(user.CheckInWeekday, user.CoachingSettingsRevision, user.CoachingSettingsChangedDate, user.WeightUnit, user.EnergyUnit, user.HeightUnit),
@@ -77,7 +78,8 @@ public sealed class ExportService(AppDb db, RetentionService retention)
             PhysiquePhotos: await db.Photos.AsNoTracking().Where(item => !item.Deleted && item.Status == "complete")
                 .OrderBy(item => item.Date).ThenBy(item => item.SetId).ThenBy(item => item.Angle).ThenBy(item => item.Id)
                 .Select(item => new ExportPhoto(item.Id, item.SetId, item.Date, item.Angle, item.Bytes, item.Status, item.Created, $"/api/photos/{item.Id}/content"))
-                .ToListAsync(ct));
+                .ToListAsync(ct),
+            BodyRecords: await BuildBodyRecords(ct));
     }
 
     public async Task WriteCsvBundle(Stream output, CancellationToken ct)
@@ -99,6 +101,7 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         counts["phase-decisions.csv"] = await WritePhaseDecisions(archive, ct);
         counts["expenditure-estimates.csv"] = await WriteExpenditureEstimates(archive, ct);
         counts["physique-photos.csv"] = await WritePhotos(archive, ct);
+        counts["body-records.csv"] = await WriteBodyRecords(archive, ct);
         await WriteReadme(archive, counts, detailDays, detailCutoff, ct);
     }
 
@@ -248,11 +251,12 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, leaveOpen: false);
         await writer.WriteAsync("NutritionApp CSV export\r\n");
-        await writer.WriteAsync("csvSchemaVersion=1\r\n\r\n");
+        await writer.WriteAsync("csvSchemaVersion=3\r\n\r\n");
         await writer.WriteAsync("Files use RFC 4180 commas and CRLF line endings. CSV files are UTF-8 with a BOM for spreadsheet compatibility.\r\n");
         await writer.WriteAsync("Null values are empty cells. Text beginning with =, +, -, @, tab, or carriage return is prefixed with an apostrophe.\r\n");
         await writer.WriteAsync("Dates use yyyy-MM-dd; timestamps use yyyy-MM-ddTHH:mm:ssZ; numeric values are invariant round-trip values.\r\n");
         await writer.WriteAsync("weights.csv is always kilograms, regardless of the account display preference.\r\n");
+        await writer.WriteAsync("body-records.csv uses canonical centimetres and kilograms. Body fat uses percent; blank measurements and snapshots are unknown. Photo set_id is the Body record id; photo_ids includes pending relationships. Frozen weight source dates, capture time, provenance and calculation version are exported unchanged.\r\n");
         await writer.WriteAsync($"Meal-level detail is retained for {detailDays} days from {detailCutoff:yyyy-MM-dd}; earlier dates export as daily totals only because detail was deleted on schedule.\r\n");
         await writer.WriteAsync("Physique photo binaries are excluded. physique-photos.csv includes metadata and authenticated download paths.\r\n\r\n");
         await writer.WriteAsync("Data rows per file:\r\n");
@@ -270,4 +274,30 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         await writer.FlushAsync(ct);
         return count;
     }
+
+    private async Task<IReadOnlyList<BodyRecordView>> BuildBodyRecords(CancellationToken ct)
+    {
+        var records=await db.BodyRecords.AsNoTracking().Where(b=>!b.Deleted).OrderBy(b=>b.Date).ThenBy(b=>b.CreationOrder).ToListAsync(ct);
+        var photos=await db.Photos.AsNoTracking().Where(p=>!p.Deleted).ToListAsync(ct);
+        var bySet=photos.ToLookup(p=>p.SetId);
+        return records.Select(b=>BodyRecordService.View(b,bySet[b.Id])).ToList();
+    }
+
+    private async Task<int> WriteBodyRecords(ZipArchive archive,CancellationToken ct)
+        =>await WriteCsv(archive,"body-records.csv",async writer=>
+        {
+            var fields=BodyRecordService.MeasurementFields.ToArray();
+            var names=fields.Select(field=>System.Text.RegularExpressions.Regex.Replace(field.Key,"[A-Z]",match=>"_"+match.Value.ToLowerInvariant()));
+            await writer.WriteAsync(Csv.Line(new[]{"id","date","creation_order","revision","created_at","updated_at"}.Concat(names)
+                .Concat(new[]{"scale_kg","scale_source_date","trend_kg","trend_source_date","snapshot_captured_at","calculation_version","provenance","photo_ids"}).ToArray()));
+            var records=await BuildBodyRecords(ct);
+            foreach(var body in records)
+            {
+                var snapshot=body.WeightContext;
+                await writer.WriteAsync(Csv.Line(new[]{Csv.Field(body.Id),Csv.Field(body.Date),Csv.Field(body.CreationOrder),Csv.Field(body.Revision),Csv.Field(body.Created),Csv.Field(body.Updated)}
+                    .Concat(fields.Select(field=>Csv.Field((double?)field.Value.GetValue(body.Measurements))))
+                    .Concat(new[]{Csv.Field(snapshot.ScaleKg),Csv.Field(snapshot.ScaleDate),Csv.Field(snapshot.TrendKg),Csv.Field(snapshot.TrendDate),Csv.Field(snapshot.CapturedAt),Csv.Field(snapshot.CalculationVersion),Csv.Field(snapshot.Provenance),Csv.Field(string.Join(";",body.Photos.Select(p=>p.Id)))}).ToArray()));
+            }
+            return records.Count;
+        },ct);
 }

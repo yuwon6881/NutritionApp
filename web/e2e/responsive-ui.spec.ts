@@ -100,7 +100,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       }
     }
     await page.getByRole('button',{name:'Progress',exact:true}).click();
-    for(const section of ['Energy','Photos']){
+    for(const section of ['Energy','Body']){
       await page.getByRole('button',{name:section,exact:true}).click();
       await capture(page,`${theme}-${width}-Progress-${section}`);
     }

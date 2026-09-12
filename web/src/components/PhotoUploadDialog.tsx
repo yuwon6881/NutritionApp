@@ -9,6 +9,7 @@ import {DatePicker} from './ui/DatePicker';
 import {FileInput} from './ui/FileInput';
 import {Modal} from './ui/Modal';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {api} from '../lib/api';
 
 const angles:PhysiqueAngle[]=['front','side','back'];
 const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
@@ -28,14 +29,16 @@ export interface PhotoUploadDialogProps {
   onClose:()=>void;
   restoreFocus?:HTMLElement|null;
   initial?:PhysiquePhotoSet;
+  onChanged?:()=>void;
 }
 
-export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:PhotoUploadDialogProps){
+export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onChanged}:PhotoUploadDialogProps){
   const current=today(store.state!.profile?.timeZone);
   const [date,setDate]=useState(initial?.date??current);
   const [slots,setSlots]=useState<UploadSlot[]>(()=>makeSlots(initial));
   const {busy,run,reset}=useAsyncAction();
   const [error,setError]=useState('');
+  const [deleteSlot,setDeleteSlot]=useState<UploadSlot>();
   const initialDate=useRef(initial?.date??current);
 
   useEffect(()=>{
@@ -43,6 +46,7 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:Phot
     setDate(initial?.date??current);
     setSlots(makeSlots(initial));
     setError('');
+    setDeleteSlot(undefined);
     reset();
     initialDate.current=initial?.date??current;
   },[open,current,initial?.id]);
@@ -74,6 +78,15 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:Phot
       onClose();
     }catch(ex){setError((ex as Error).message);}
   };
+  const deleteView=async()=>{
+    if(!deleteSlot?.existing)return;
+    setError('');
+    try{
+      await run(async()=>{await api(`/photos/${deleteSlot.existing!.id}/delete`,{});});
+      setSlots(currentSlots=>currentSlots.map(slot=>slot.angle===deleteSlot.angle?{...slot,id:crypto.randomUUID(),existing:undefined,changed:false,fileKey:slot.fileKey+1}:slot));
+      onChanged?.();setDeleteSlot(undefined);
+    }catch(ex){setError((ex as Error).message);}
+  };
 
   return <Modal
     open={open}
@@ -91,7 +104,7 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:Phot
           const label=angleLabel(slot.angle);
           const preview=slot.imageBase64?`data:image/jpeg;base64,${slot.imageBase64}`:slot.existing?`/api/photos/${slot.existing.id}/content`:undefined;
           return <section className="physique-upload-slot" key={slot.angle} aria-labelledby={`photo-slot-${slot.angle}`}>
-            <div className="physique-upload-slot-heading"><h3 id={`photo-slot-${slot.angle}`}>{label}</h3>{slot.existing&&!slot.changed&&<small>Kept unless replaced</small>}</div>
+            <div className="physique-upload-slot-heading"><h3 id={`photo-slot-${slot.angle}`}>{label}</h3>{slot.existing&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busy} onClick={()=>setDeleteSlot(slot)}>Delete</Button>}</div>
             {preview&&<img className="photo-preview" src={preview} alt={`${slot.changed?'Selected':'Current'} ${slot.angle} physique photo`}/>}
             <FileInput
               id={`photo-file-${slot.angle}`}
@@ -110,5 +123,8 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial}:Phot
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Preparing…':initial?'Save changed views and upload':'Save photo set and upload'}</Button></div>
     </Form>
+    <Modal open={Boolean(deleteSlot)} onClose={()=>setDeleteSlot(undefined)} title={`Delete ${deleteSlot?.angle??''} photo?`} description="This view will be removed from the private photo set." width="sm">
+      <div className="modal-actions"><Button variant="secondary" onClick={()=>setDeleteSlot(undefined)}>Keep view</Button><Button variant="destructive" disabled={busy} onClick={()=>void deleteView()}>{busy?'Deleting…':'Delete view'}</Button></div>
+    </Modal>
   </Modal>;
 }

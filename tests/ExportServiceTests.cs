@@ -31,6 +31,7 @@ public sealed class ExportServiceTests : IAsyncLifetime
         await using (var seed = Open(alice.Id))
         {
             seed.Entries.Add(new DiaryEntry { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),Name="Rice",Quantity=1.5,Unit="serving",PortionLabel="bowl",PortionGrams=180,Calories=390,Source="manual" });
+            seed.BodyRecords.Add(new BodyRecord { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),CreationOrder=1,Measurements=new BodyMeasurements { WaistCm=82 },WeightContextJson=Json.Write(new BodyWeightContext()),PendingPhotosJson="[]" });
             await seed.SaveChangesAsync();
         }
         await using (var seed = Open(bob.Id))
@@ -46,6 +47,8 @@ public sealed class ExportServiceTests : IAsyncLifetime
         Assert.Equal("Rice", entry.Name);
         Assert.Equal("bowl", entry.PortionLabel);
         Assert.Equal(180, entry.PortionGrams);
+        var body=Assert.Single(json.BodyRecords);
+        Assert.Equal(82,body.Measurements.WaistCm);
 
         await using var output = new MemoryStream();
         await service.WriteCsvBundle(output, default);
@@ -55,6 +58,9 @@ public sealed class ExportServiceTests : IAsyncLifetime
         var entriesCsv = await Read(archive, "entries.csv");
         Assert.Contains(",bowl,180,", entriesCsv, StringComparison.Ordinal);
         Assert.DoesNotContain("Private", entriesCsv, StringComparison.Ordinal);
+        var bodyCsv=await Read(archive,"body-records.csv");
+        Assert.Contains("waist_cm",bodyCsv,StringComparison.Ordinal);
+        Assert.Contains("82",bodyCsv,StringComparison.Ordinal);
         var profileCsv = await Read(archive, "profile.csv");
         Assert.Contains("profile_json,\"{\"\"age\"\":30", profileCsv, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("profile_json,\"\"\"", profileCsv, StringComparison.Ordinal);

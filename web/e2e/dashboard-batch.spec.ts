@@ -101,7 +101,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.getByLabel('Search ingredients').fill('oats');
   await page.getByRole('button',{name:'Search',exact:true}).click();
   await page.getByRole('button',{name:'API oats',exact:true}).click();
-  await expect(page.getByLabel('Search ingredients')).toHaveValue('');
+  await expect(page.getByRole('heading',{name:'Set ingredient quantity',exact:true})).toBeVisible();
+  await expect(page.getByText('API oats',{exact:true})).toBeVisible();
   await page.getByLabel('Ingredient grams').fill('150');
   await page.getByRole('button',{name:'Add ingredient',exact:true}).click();
   await page.getByLabel('Recipe name').fill('Oats recipe '+theme+width);

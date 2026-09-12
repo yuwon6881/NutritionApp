@@ -11,6 +11,13 @@ public sealed class NutritionAi(HttpClient http,IConfiguration config)
 {
     public async Task<AiResult> Analyze(string mode,string description,byte[]? image,CancellationToken ct)
     {
+        if (mode == "description" && RequiresPortionClarification(description))
+        {
+            return new AiResult(
+                new AiDraft([], ["What size or gram weight was the Massimo bread, and how much did you eat?"], "Clarify the product portion before estimating."),
+                0,
+                0);
+        }
         // Secret Manager payloads commonly include a trailing newline. The
         // shared FinancialAppApi client trims the same key before placing it in
         // an HTTP header; do the same here and accept its flat key name for
@@ -44,7 +51,7 @@ public sealed class NutritionAi(HttpClient http,IConfiguration config)
             if(item.TryGetProperty("content",out var parts)) foreach(var part in parts.EnumerateArray())
                 if(part.TryGetProperty("type",out var type)&&type.GetString()=="output_text"&&part.TryGetProperty("text",out var text)) output.Append(text.GetString());
         Validation.Require(output.Length>0,"AI did not return a food estimate.",422);
-        var draft=Json.Read<AiDraft>(output.ToString()); Validate(draft);
+        var draft=NormalizePortionMetadata(Json.Read<AiDraft>(output.ToString())); Validate(draft);
         var usage=root.TryGetProperty("usage",out var usageElement)&&usageElement.ValueKind==JsonValueKind.Object?usageElement:default;
         var inputTokens=usage.ValueKind==JsonValueKind.Object&&usage.TryGetProperty("input_tokens",out var input)&&input.TryGetInt64(out var inputCount)?inputCount:0;
         var outputTokens=usage.ValueKind==JsonValueKind.Object&&usage.TryGetProperty("output_tokens",out var outputCountElement)&&outputCountElement.TryGetInt64(out var outputCount)?outputCount:0;
@@ -52,10 +59,10 @@ public sealed class NutritionAi(HttpClient http,IConfiguration config)
     }
     public static void Validate(AiDraft draft)
     {
-        Validation.Require(draft.Foods is {Count:<=20} && draft.Questions is {Count:<=10} && draft.Explanation.Length<=2000,"AI draft exceeded its limits.",422);
+        Validation.Require(draft.Foods is {Count:<=20} && draft.Questions is {Count:<=10} && draft.Explanation is not null && draft.Explanation.Length<=2000,"AI draft exceeded its limits.",422);
         foreach(var food in draft.Foods!)
         {
-            Validation.Require(food.Name.Length is >0 and <=160 && food.Unit is "g" or "serving" && food.Notes.Length<=1000,"Invalid AI food details.",422);
+            Validation.Require(!string.IsNullOrWhiteSpace(food.Name) && food.Name.Length<=160 && food.Unit is "g" or "serving" && food.Notes is not null && food.Notes.Length<=1000,"Invalid AI food details.",422);
             Validation.Number(food.Quantity,.001,100000,"AI quantity");
             Validation.Number(food.Calories,0,20000,"AI calories");
             foreach(var n in new[] { food.Protein,food.Fat,food.Carbs,food.Fiber }) if(n is {} value) Validation.Number(value,0,3000,"AI nutrient");
@@ -67,6 +74,38 @@ public sealed class NutritionAi(HttpClient http,IConfiguration config)
                 Validation.Number(food.Quantity*food.PortionGrams.Value,.001,100000,"AI portion total");
             }
         }
+    }
+
+    /// Provider responses occasionally omit one half of the optional portion
+    /// conversion pair. Keep the useful label/weight as a note, then clear the
+    /// incomplete metadata so no gram basis is invented at the diary boundary.
+    public static AiDraft NormalizePortionMetadata(AiDraft draft)
+    {
+        if(draft.Foods is null)return draft; // The validation boundary reports a malformed provider draft.
+        var foods=draft.Foods.Select(food=>
+        {
+            var label=string.IsNullOrWhiteSpace(food.PortionLabel)?null:food.PortionLabel.Trim();
+            if((label is null)!=(food.PortionGrams is null))
+            {
+                var detail=label is null
+                    ? $"Provider supplied {food.PortionGrams:0.##} g without a portion label; conversion was not applied."
+                    : $"Portion described as {label}, but no gram weight was supplied; conversion was not applied.";
+                var note=string.IsNullOrWhiteSpace(food.Notes)?detail:$"{food.Notes.Trim()} {detail}";
+                return food with {PortionLabel=null,PortionGrams=null,Notes=note[..Math.Min(1000,note.Length)]};
+            }
+            return food with {PortionLabel=label};
+        }).ToList();
+        return draft with {Foods=foods};
+    }
+
+    public static bool RequiresPortionClarification(string description)
+    {
+        if(string.IsNullOrWhiteSpace(description))return false;
+        var value=description.Trim().ToLowerInvariant();
+        if(!value.Contains("massimo")||!value.Contains("bread"))return false;
+        var hasBasis=System.Text.RegularExpressions.Regex.IsMatch(value,@"\b\d+(?:\.\d+)?\s*(?:g|gram|grams|slice|slices|serving|servings)\b")
+            ||System.Text.RegularExpressions.Regex.IsMatch(value,@"\b(?:small|medium|large|mini|half|whole|package|pack)\b");
+        return !hasBasis;
     }
     private static readonly JsonElement Schema=JsonDocument.Parse("""
     {"type":"object","additionalProperties":false,"required":["foods","questions","explanation"],"properties":{

@@ -54,8 +54,11 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:'Daily weight',exact:true}).click();await expect(page.getByRole('img',{name:/Daily scale weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Trend weight',exact:true}).click();await expect(page.getByRole('img',{name:/Trend weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Energy',exact:true}).click();
-  await page.getByLabel('Group energy bars by',{exact:true}).selectOption('week');await expect(page.getByRole('img',{name:/Signed energy balance by week/})).toBeVisible();
-  await page.getByLabel('Group energy bars by',{exact:true}).selectOption('month');await expect(page.getByRole('img',{name:/Signed energy balance by month/})).toBeVisible();
+  const energyPeriod=page.getByLabel('Energy history period',{exact:true});
+  await expect(energyPeriod.locator('option')).toHaveText(['Last week','Last month','Last 6 months','One year','All']);
+  await energyPeriod.selectOption('week');await expect(page.getByRole('img',{name:/grouped daily/})).toBeVisible();
+  await energyPeriod.selectOption('six-months');await expect(page.getByRole('img',{name:/grouped weekly/})).toBeVisible();
+  await energyPeriod.selectOption('year');await expect(page.getByRole('img',{name:/grouped monthly/})).toBeVisible();
   await page.getByRole('button',{name:'Weight',exact:true}).click();
   await expect(page.getByRole('button',{name:'Sync',exact:true})).toHaveCount(0);
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
@@ -71,6 +74,21 @@ test('private app: create profile, accept targets, log food and weight, retain o
   const third=await second.post('/api/auth/register',{headers,data:{username:'third-user',password}});expect(third.status()).toBe(409);
   const csrf=await context.request.post('/api/sync',{data:{}});expect(csrf.status()).toBe(403);
   await secondContext.close();
+});
+test('Body records save, review, edit, and clear measurement values',async({page,context})=>{
+  await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Body',exact:true}).click();
+  await page.getByRole('button',{name:'Add body record',exact:true}).click();
+  await page.getByLabel('Waist (cm)',{exact:true}).fill('82');await page.getByLabel('Body fat (%)',{exact:true}).fill('21');
+  await page.getByRole('button',{name:'Save Body record',exact:true}).click();
+  await page.getByRole('button',{name:'Open history',exact:true}).click();await expect(page.getByRole('heading',{name:'Body history',exact:true})).toBeVisible();
+  // The save is queued independently of closing the editor; reopen history after the retained write settles.
+  await expect.poll(async()=>{const response=await context.request.get('/api/body-records');return (await response.json()).records.length;}).toBe(1);
+  if(await page.getByRole('button',{name:/2 measurements/}).count()===0){await page.getByRole('button',{name:'Back to Body',exact:true}).click();await page.getByRole('button',{name:'Open history',exact:true}).click();}
+  const historyRow=page.getByRole('button',{name:/2 measurements/}).first();await expect(historyRow).toBeVisible();await historyRow.click();
+  await expect(page.getByRole('heading',{name:'Body record',exact:true})).toBeVisible();await expect(page.getByText('82',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Back to Body history',exact:true}).click();await page.getByRole('button',{name:'Edit',exact:true}).click();
+  await page.getByLabel('Waist (cm)',{exact:true}).fill('');await page.getByRole('button',{name:'Save Body record',exact:true}).click();
+  await expect(page.getByRole('button',{name:/1 measurement/})).toBeVisible();
 });
 test('responsive screens have no horizontal overflow and working touch targets',async({page,context})=>{
   await signIn(context.request);await page.goto('/');await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
@@ -154,7 +172,11 @@ test('changed food dialog asks before closing and keeps the draft',async({page,c
   await page.keyboard.press('Escape');await page.getByRole('button',{name:'Discard changes'}).click();await expect(page.getByRole('dialog',{name:'Log food'})).toBeVisible();await expect(page.getByLabel('Food name',{exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'AI logging',exact:true}).click();await page.getByLabel('Meal description and portions').fill('Backdrop draft');
   const foodDialog=page.getByRole('dialog',{name:'Log food'});const box=await foodDialog.boundingBox();expect(box).not.toBeNull();await page.mouse.click(Math.max(1,box!.x-8),box!.y+8);
-  await expect(page.getByText('Discard changes?',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Discard changes'}).click();await expect(foodDialog).not.toBeVisible();await expect(launcher).toBeFocused();
+  await expect(page.getByText('Discard changes?',{exact:true})).toHaveCount(0);await expect(foodDialog).not.toBeVisible();await expect(launcher).toBeFocused();
+  await launcher.click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'AI logging',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Resume estimate',exact:true})).toBeVisible({timeout:5000});await page.getByRole('button',{name:'Resume estimate',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Resume estimate'})).toBeVisible();await expect(page.getByText(/Backdrop draft/)).toBeVisible();
+  await page.getByRole('button',{name:'Discard',exact:true}).click();await expect(page.getByRole('dialog',{name:'Resume estimate'})).not.toBeVisible();await page.getByRole('button',{name:'Close dialog',exact:true}).click();await expect(launcher).toBeFocused();
 });
 test('API idempotency, revisions, expiry-safe drafts and asset MIME protection',async({request})=>{
   await signIn(request);const state=await (await request.get('/api/state')).json();
@@ -172,7 +194,7 @@ test('API idempotency, revisions, expiry-safe drafts and asset MIME protection',
 test('physique photo draft survives offline reopening without cloud credentials',async({page,context})=>{
   await signIn(context.request);await page.goto('/');
   await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Photos',exact:true}).click();
+  await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Add photo set',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Front',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Side',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Back',exact:true})).toBeVisible();
   await page.getByLabel('Front photo',{exact:true}).setInputFiles('public/icon-512.png');
@@ -182,10 +204,36 @@ test('physique photo draft survives offline reopening without cloud credentials'
   await page.getByRole('button',{name:'Save photo set and upload',exact:true}).click();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
   await page.reload();await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Photos',exact:true}).click();
+  await page.getByRole('button',{name:'Body',exact:true}).click();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Discard local photo set',exact:true}).click();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toHaveCount(0);
+});
+
+test('photo gallery paginates complete sets and keeps missing angles explicit',async({page,context})=>{
+  await signIn(context.request);
+  const newestSet=randomUUID(),oldestSet=randomUUID();
+  const newestFront=randomUUID(),newestBack=randomUUID(),oldestFront=randomUUID(),oldestSide=randomUUID();
+  const photo=(id:string,setId:string,date:string,angle:'front'|'side'|'back')=>({id,setId,date,angle,bytes:128,status:'complete'});
+  const first={configured:true,usedBytes:512,maxBytes:268435456,sets:[{id:newestSet,date:'2026-09-12',photos:[photo(newestFront,newestSet,'2026-09-12','front'),photo(newestBack,newestSet,'2026-09-12','back')]}],nextCursor:'older-cursor',hasMore:true};
+  const second={configured:true,usedBytes:512,maxBytes:268435456,sets:[{id:oldestSet,date:'2026-09-01',photos:[photo(oldestFront,oldestSet,'2026-09-01','front'),photo(oldestSide,oldestSet,'2026-09-01','side')]}],nextCursor:null,hasMore:false};
+  await page.route('**/api/photos**',async route=>{
+    const url=new URL(route.request().url());
+    if(url.pathname==='/api/photos'&&route.request().method()==='GET')return route.fulfill({contentType:'application/json',body:JSON.stringify(url.searchParams.has('cursor')?second:first)});
+    if(url.pathname.endsWith('/delete')&&route.request().method()==='POST')return route.fulfill({status:204});
+    if(url.pathname.endsWith('/content')&&route.request().method()==='GET')return route.fulfill({contentType:'image/jpeg',body:Buffer.from([0xff,0xd8,0xff,0xd9])});
+    return route.continue();
+  });
+  await page.goto('/');await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Body',exact:true}).click();
+  await page.getByRole('button',{name:'Open gallery',exact:true}).click();await expect(page.getByRole('heading',{name:'Gallery',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'2026-09-12',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Load more',exact:true})).toBeVisible();
+  await expect(page.getByText('Side · Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Load more',exact:true}).click();await expect(page.getByRole('heading',{name:'2026-09-01',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Compare',exact:true}).click();await expect(page.getByRole('heading',{name:'Compare photos',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'2026-09-12',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Side',exact:true}).click();await expect(page.getByText('Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Older set',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'2026-09-01',exact:true})).toBeVisible();await expect(page.getByRole('img',{name:'Side physique photo from 2026-09-01'})).toBeVisible();await page.getByRole('button',{name:'Back to Gallery',exact:true}).click();
+  await page.getByRole('button',{name:'Edit',exact:true}).first().click();await expect(page.getByRole('dialog',{name:'Edit physique photo set'})).toBeVisible();await page.getByRole('button',{name:'Delete',exact:true}).first().click();
+  const deleteDialog=page.getByRole('dialog',{name:'Delete front photo?'});await expect(deleteDialog).toBeVisible();await deleteDialog.getByRole('button',{name:'Keep view',exact:true}).click();await expect(deleteDialog).not.toBeVisible();
+  await page.getByRole('button',{name:'Delete',exact:true}).first().click();await page.getByRole('dialog',{name:'Delete front photo?'}).getByRole('button',{name:'Delete view',exact:true}).click();await expect(page.getByRole('dialog',{name:/Delete .*photo\?/})).not.toBeVisible();await page.getByRole('dialog',{name:'Edit physique photo set'}).getByRole('button',{name:'Close dialog',exact:true}).click();
 });
 
 test('weekly check-in is a reduced-motion-safe bottom sheet with focus restoration',async({page,context})=>{

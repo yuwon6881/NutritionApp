@@ -5,12 +5,78 @@ using Nutrition.Api.Domain;
 namespace Nutrition.Api.Services;
 
 public record PhotoPart(Guid Id,string Angle,string? ImageBase64);
-public record PhotoSetInput(Guid Id,DateOnly Date,IReadOnlyList<PhotoPart> Photos);
+public record PhotoSetInput(Guid Id,DateOnly Date,IReadOnlyList<PhotoPart> Photos,Guid? MutationId=null,long? ExpectedRevision=null);
 public record PhotoView(Guid Id,Guid SetId,DateOnly Date,string Angle,int Bytes,string Status);
+public record PhotoSetView(Guid Id,DateOnly Date,IReadOnlyList<PhotoView> Photos);
+public record PhotoPage(bool Configured,long UsedBytes,long MaxBytes,IReadOnlyList<PhotoSetView> Sets,string? NextCursor,bool HasMore);
+public record PhotoLegacyPage(bool Configured,long UsedBytes,long MaxBytes,IReadOnlyList<PhotoView> Photos);
 
 public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration config,StorageService storage)
 {
     private static readonly DateOnly EarliestDate=new(2000,1,1);
+    public bool Configured => store.Configured;
+
+    public async Task<PhotoPage> Page(string? cursor,int limit,CancellationToken ct)
+    {
+        limit=Math.Clamp(limit,1,20);
+        var (used,max)=await Totals(ct);
+        var grouped=db.Photos.AsNoTracking().Where(photo=>!photo.Deleted&&photo.Status=="complete")
+            .GroupBy(photo=>new {photo.SetId,photo.Date})
+            .Select(group=>new {group.Key.SetId,group.Key.Date});
+        CursorValue? after=null;
+        if(!string.IsNullOrWhiteSpace(cursor))
+        {
+            var decoded=DecodeCursor(cursor!);
+            after=new CursorValue(decoded.Date,decoded.SetId);
+        }
+        var keys=await grouped.Where(key=>after==null||key.Date<after.Date).OrderByDescending(key=>key.Date).ThenByDescending(key=>key.SetId).Take(limit+1).ToListAsync(ct);
+        if(after is not null)
+        {
+            // Guid ordering is intentionally applied after the date predicate,
+            // keeping tied dates stable without relying on provider-specific
+            // Guid comparison SQL.
+            var tied=await grouped.Where(key=>key.Date==after.Date).ToListAsync(ct);
+            keys=keys.Concat(tied.Where(key=>key.SetId.CompareTo(after.SetId)<0)).OrderByDescending(key=>key.Date).ThenByDescending(key=>key.SetId).Take(limit+1).ToList();
+        }
+        var hasMore=keys.Count>limit;
+        var pageKeys=keys.Take(limit).ToList();
+        var ids=pageKeys.Select(key=>key.SetId).ToArray();
+        var photos=ids.Length==0?[]:await db.Photos.AsNoTracking().Where(photo=>ids.Contains(photo.SetId)&&!photo.Deleted&&photo.Status=="complete").OrderBy(photo=>photo.Angle).ToListAsync(ct);
+        var sets=pageKeys.Select(key=>new PhotoSetView(key.SetId,key.Date,photos.Where(photo=>photo.SetId==key.SetId).Select(View).ToList())).ToList();
+        var next=hasMore&&pageKeys.Count>0?EncodeCursor(pageKeys[^1].Date,pageKeys[^1].SetId):null;
+        return new PhotoPage(store.Configured,used,max,sets,next,hasMore);
+    }
+
+    public async Task<PhotoLegacyPage> LegacyPage(int skip,CancellationToken ct)
+    {
+        var (used,max)=await Totals(ct);
+        var photos=(await db.Photos.AsNoTracking().Where(photo=>!photo.Deleted&&photo.Status=="complete").OrderByDescending(photo=>photo.Date).ThenBy(photo=>photo.Id).Skip(Math.Clamp(skip,0,100000)).Take(24).ToListAsync(ct)).Select(View).ToList();
+        return new PhotoLegacyPage(store.Configured,used,max,photos);
+    }
+
+    private async Task<(long UsedBytes,long MaxBytes)> Totals(CancellationToken ct)
+        => (await db.Photos.Where(photo=>!photo.Deleted).SumAsync(photo=>(long)photo.Bytes,ct),config.GetValue("Physique:MaxBytesPerUser",268435456L));
+
+    public static string EncodeCursor(DateOnly date,Guid setId)
+        =>Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{date:yyyy-MM-dd}|{setId:D}"))
+            .TrimEnd('=').Replace('+','-').Replace('/','_');
+
+    public static (DateOnly Date,Guid SetId) DecodeCursor(string value)
+    {
+        try
+        {
+            var padded=value.Replace('-','+').Replace('_','/');
+            padded+=new string('=',(4-padded.Length%4)%4);
+            var parts=System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(padded)).Split('|',2);
+            var date=default(DateOnly);var id=default(Guid);
+            var validDate=parts.Length==2&&DateOnly.TryParseExact(parts[0],"yyyy-MM-dd",out date);
+            var validId=parts.Length==2&&Guid.TryParse(parts[1],out id);
+            Validation.Require(validDate&&validId,"Photo cursor is invalid.");
+            return (date,id);
+        }
+        catch(DomainException){throw;}
+        catch{throw new DomainException("Photo cursor is invalid.");}
+    }
 
     public async Task<IReadOnlyList<PhotoView>> Upload(PhotoSetInput input,CancellationToken ct)
     {
@@ -21,6 +87,8 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         Validation.Require(parts.Count<=3,"A physique photo set can contain at most three views.");
         Validation.Require(parts.Select(part=>part.Angle).Distinct(StringComparer.Ordinal).Count()==parts.Count&&parts.All(part=>part.Angle is "front" or "side" or "back"),"Choose one front, side, and back photo at most.");
         Validation.Require(parts.All(part=>part.Id!=Guid.Empty),"Photo identity is required.");
+        Validation.Require(parts.Select(part=>part.Id).Distinct().Count()==parts.Count,"Each photo needs its own identity.");
+        Validation.Require((input.MutationId==null)==(input.ExpectedRevision==null)&&input.MutationId!=Guid.Empty,"Photo mutation identity and revision must be supplied together.");
 
         var uid=db.CurrentUser??throw new DomainException("Sign in again.",401);
         var prepared=new List<PreparedPhoto>();
@@ -37,6 +105,19 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         await using(var gate=await MutationLock.Acquire(db,uid,ct))
         {
             await storage.AllowOptional(ct);
+            var body=await BodyRecordService.EnsureLegacyUnderLock(db,input.Id,input.Date,ct);
+            var dateChanged=body.Date!=input.Date;
+            var user=await db.Users.SingleAsync(u=>u.Id==uid,ct);
+            var requestHash=AuthService.Hash(Json.Write(new {kind="body-photos",input}));
+            var receipt=input.MutationId is {} mutationId?await db.Receipts.SingleOrDefaultAsync(r=>r.Id==mutationId,ct):null;
+            if(receipt!=null)Validation.Require(receipt.Hash==requestHash,"Idempotency key reused for different photos.",409);
+            else if(input.ExpectedRevision is {} expected)Validation.Require(body.Revision==expected,"This Body record changed on another device. Review the conflict.",409);
+            // A replay must not move a corrected date back or revive deleted photos.
+            if(receipt==null)
+            {
+                if(input.ExpectedRevision!=null)Validation.Require(body.Date==input.Date,"The Body record date changed. Review before uploading.",409);
+                else body.Date=input.Date;
+            }
             var set=await db.Photos.Where(photo=>photo.SetId==input.Id).ToListAsync(ct);
             var partIds=parts.Select(part=>part.Id).ToArray();
             var byId=partIds.Length==0?new Dictionary<Guid,PhysiquePhoto>():await db.Photos.Where(photo=>partIds.Contains(photo.Id)).ToDictionaryAsync(photo=>photo.Id,ct);
@@ -58,6 +139,8 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                 {
                     Validation.Require(existing.Id==part.Id,"Keep the existing photo identity when replacing a view.",409);
                 }
+
+                if(receipt!=null)Validation.Require(existing!=null&&existing.RequestHash==preparedPhoto.Hash,"This photo mutation was superseded. Review before retrying.",409);
 
                 var hashMatches=existing!=null&&!existing.Deleted&&existing.RequestHash==preparedPhoto.Hash;
                 if(hashMatches&&existing!.Status=="complete")continue;
@@ -82,7 +165,12 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                 uploads.Add(new PendingUpload(existing,preparedPhoto.Bytes,preparedPhoto.Hash,photoById!=null));
             }
 
-            foreach(var photo in set.Where(photo=>!photo.Deleted))photo.Date=input.Date;
+            foreach(var photo in set.Where(photo=>!photo.Deleted))photo.Date=body.Date;
+            if(receipt==null&&(uploads.Count>0||dateChanged||input.MutationId!=null))
+            {
+                body.Revision=++user.Revision;body.Updated=DateTime.UtcNow;
+                if(input.MutationId is {} id)db.Receipts.Add(new MutationReceipt {Id=id,UserId=uid,Hash=requestHash,Revision=body.Revision});
+            }
             await db.SaveChangesAsync(ct);
             await gate.Commit(ct);
         }
@@ -93,10 +181,14 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         {
             await db.Entry(pending.Photo).ReloadAsync(ct);
             Validation.Require(!pending.Photo.Deleted,"Photo draft expired or was deleted. Create a new draft.",409);
+            Validation.Require(pending.Photo.RequestHash==pending.Hash,"This photo was replaced on another device. Review before retrying.",409);
             if(pending.Photo.Status=="complete"&&pending.Photo.RequestHash==pending.Hash)continue;
             await store.Put(pending.Photo.ObjectPath,pending.Bytes,ct,pending.Replace);
             pending.Photo.Status="complete";
         }
+        var uploadedBody=await db.BodyRecords.SingleAsync(b=>b.Id==input.Id,ct);
+        var completedIds=uploads.Select(p=>p.Photo.Id).ToHashSet();
+        uploadedBody.PendingPhotosJson=Json.Write(Json.Read<List<BodyPhotoIntent>>(uploadedBody.PendingPhotosJson).Where(p=>!completedIds.Contains(p.Id)).ToList());
         await db.SaveChangesAsync(ct);
         await uploadGate.Commit(ct);
         return await SetViews(input.Id,ct);
@@ -115,6 +207,13 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     {
         await using var gate=await MutationLock.Acquire(db,db.CurrentUser,ct);
         var photo=await db.Photos.SingleOrDefaultAsync(p=>p.Id==id,ct)??throw new DomainException("Photo not found.",404);
+        var body=await db.BodyRecords.SingleOrDefaultAsync(b=>b.Id==photo.SetId,ct);
+        if(body!=null)
+        {
+            var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);
+            body.Revision=++user.Revision;body.Updated=DateTime.UtcNow;
+            body.PendingPhotosJson=Json.Write(Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson).Where(p=>p.Id!=id).ToList());
+        }
         photo.Deleted=true;photo.Status="deleting";await db.SaveChangesAsync(ct);await gate.Commit(ct);
         // Keep a deletion marker until GCS confirms deletion; scheduled cleanup retries failures.
         await store.Delete(photo.ObjectPath,ct);photo.Status="deleted";await db.SaveChangesAsync(ct);
@@ -138,4 +237,5 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
 
     private sealed record PreparedPhoto(PhotoPart Part,byte[] Bytes,string Hash);
     private sealed record PendingUpload(PhysiquePhoto Photo,byte[] Bytes,string Hash,bool Replace);
+    private sealed record CursorValue(DateOnly Date,Guid SetId);
 }

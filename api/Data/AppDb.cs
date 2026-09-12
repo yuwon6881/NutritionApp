@@ -19,6 +19,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<ScanJob> Scans => Set<ScanJob>();
     public DbSet<AiUsage> Usage => Set<AiUsage>();
     public DbSet<PhysiquePhoto> Photos => Set<PhysiquePhoto>();
+    public DbSet<BodyRecord> BodyRecords => Set<BodyRecord>();
     public DbSet<DailyExpenditureEstimate> ExpenditureEstimates => Set<DailyExpenditureEstimate>();
 
     protected override void OnModelCreating(ModelBuilder m)
@@ -41,6 +42,18 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m);
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m);
+        Configure<BodyRecord>(m);
+        m.Entity<BodyRecord>().HasIndex(x=>new {x.UserId,x.Deleted,x.Date,x.CreationOrder});
+        m.Entity<BodyRecord>().HasIndex(x=>new {x.UserId,x.CreationOrder}).IsUnique();
+        m.Entity<BodyRecord>().OwnsOne(x=>x.Measurements, owned=>
+        {
+            foreach(var field in typeof(BodyMeasurements).GetProperties())
+                owned.Property(field.Name).HasColumnName(field.Name);
+        });
+        m.Entity<BodyRecord>().Navigation(x=>x.Measurements).IsRequired();
+        // SetId remains a compatibility relationship by identity only: legacy photo sets
+        // predate BodyRecord rows, so a database FK would reject their migration and
+        // account deletion. The service enforces the account-owned association.
         m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.Date });
         m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.SetId });
         m.Entity<MutationReceipt>().HasIndex(x=>x.Created);

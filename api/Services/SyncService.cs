@@ -50,6 +50,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             case "profile":
                 Validation.Require(!op.Delete && op.ExpectedRevision == user.ProfileRevision, "Profile changed on another device. Review before retrying.", 409);
                 var profile = op.Data.Deserialize<Profile>(Json.Options) ?? throw new DomainException("Profile is required.");
+                if (profile.Sex == "male") profile = profile with { PregnancyOrBreastfeeding = false };
                 Validation.Profile(profile); user.ProfileJson = Json.Write(profile); user.ProfileRevision = revision;
                 trajectoryFrom = RetentionService.Today(user.ProfileJson).AddDays(-(ExpenditureTrajectoryService.BackfillDays - 1));
                 break;

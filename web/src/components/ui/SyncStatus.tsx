@@ -4,9 +4,10 @@ import type {Nourish} from '../../useNourish';
 
 function pendingWork(store:Nourish){
   const queue=store.local?.queue.length??0;
-  const scans=store.local?.scans.filter(scan=>!scan.result&&!scan.error).length??0;
+  const scans=store.local?.scans.filter(scan=>scan.submitted!==false&&!scan.result&&!scan.error).length??0;
   const photos=store.local?.photoDrafts?.filter(draft=>!draft.error).length??0;
-  return queue+scans+photos;
+  const body=store.local?.bodyDrafts?.filter(draft=>!draft.error).length??0;
+  return queue+scans+photos+body;
 }
 
 export function SyncStatus({store}:{store:Nourish}){
@@ -19,7 +20,7 @@ export function SyncStatus({store}:{store:Nourish}){
 
   const conflicts=store.local?.queue.filter(operation=>operation.error).length??0;
   const pending=pendingWork(store);
-  const meaningfulSync=store.sync.phase==='syncing'&&(store.sync.kind==='scan'||store.sync.kind==='photo');
+  const meaningfulSync=store.sync.phase==='syncing'&&(store.sync.kind==='scan'||store.sync.kind==='photo'||store.sync.kind==='body');
   const retainedOffline=pending>0&&!online;
   const attention=conflicts>0;
   if(!meaningfulSync&&!retainedOffline&&!attention)return null;
@@ -34,7 +35,7 @@ export function SyncStatus({store}:{store:Nourish}){
     tone='attention';
     Icon=AlertTriangle;
   }else if(meaningfulSync){
-    title=store.sync.kind==='scan'?'Estimating food…':'Uploading photo set…';
+    title=store.sync.kind==='scan'?'Estimating food…':store.sync.kind==='body'?'Saving Body record…':'Uploading photo set…';
     detail=store.sync.kind==='scan'?'AI estimates remain drafts until you log the batch.':'Your latest changes are being sent to the server.';
     tone='syncing';
     Icon=LoaderCircle;

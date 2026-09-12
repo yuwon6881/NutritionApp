@@ -24,7 +24,8 @@ builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<Expenditure
 builder.Services.AddScoped<ScanService>();builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<ExportService>();
-builder.Services.AddScoped<PhotoService>();
+builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSummaryService>();
+builder.Services.AddScoped<BodyRecordService>();
 builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45));
 builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
 // Open Food Facts asks every read to identify its caller or risk being served as a bot, and both
@@ -84,7 +85,7 @@ app.Use(async(http,next)=>
 });
 app.UseRateLimiter();
 app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> { if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache"; } });
-app.MapAuth();app.MapRecords();app.MapAi();app.MapPhotos();
+app.MapAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>
 {

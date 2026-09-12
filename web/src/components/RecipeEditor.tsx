@@ -16,6 +16,7 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
   const [query,setQuery]=useState('');
   const [results,setResults]=useState<Nutrients[]>([]);
   const [selected,setSelected]=useState<Nutrients>();
+  const [ingredientStep,setIngredientStep]=useState<'recipe'|'quantity'>('recipe');
   const [grams,setGrams]=useState(100);
   const [error,setError]=useState('');
   const {busy,run}=useAsyncAction();
@@ -34,16 +35,15 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
   };
 
   return <div className="dialog-step recipe-editor">
-    <Form onSubmit={()=>void run(async()=>{setError('');try{setResults(await api<Nutrients[]>('/foods/search?q='+encodeURIComponent(query)));}catch(ex){setError((ex as Error).message);}})}>
+    {ingredientStep==='recipe'&&<Form onSubmit={()=>void run(async()=>{setError('');try{setResults(await api<Nutrients[]>('/foods/search?q='+encodeURIComponent(query)));}catch(ex){setError((ex as Error).message);}})}>
       <Field id="recipe-search" name="query" label="Search ingredients" required minLength={2} maxLength={100} value={query} onChange={event=>setQuery(event.target.value)} action={<Button type="submit" disabled={busy}>Search</Button>}/>
-    </Form>
-    <div className="recipe-search-results">{[...results,...foods.filter(food=>query.trim()&&food.name.toLowerCase().includes(query.toLowerCase()))].map((food,index)=><Button key={index} onClick={()=>{setSelected(food);setQuery('');setResults([]);}}>{food.name}</Button>)}</div>
-    {selected&&<Form onSubmit={()=>{setItems(current=>[...current,{food:selected,grams}]);setSelected(undefined);setGrams(100);}}>
-      <strong>{selected.name}</strong>
+    </Form>}
+    {ingredientStep==='recipe'&&<div className="recipe-search-results">{[...results,...foods.filter(food=>query.trim()&&food.name.toLowerCase().includes(query.toLowerCase()))].map((food,index)=><Button key={index} onClick={()=>{setSelected(food);setQuery('');setResults([]);setIngredientStep('quantity');}}>{food.name}</Button>)}</div>}
+    {ingredientStep==='quantity'&&selected&&<section className="recipe-quantity-step" aria-labelledby="recipe-quantity-title"><div className="section-heading"><div><h3 id="recipe-quantity-title">Set ingredient quantity</h3><p>{selected.name}</p></div><Button type="button" variant="tertiary" onClick={()=>{setSelected(undefined);setIngredientStep('recipe');}}>Back to recipe</Button></div><Form onSubmit={()=>{setItems(current=>[...current,{food:selected,grams}]);setSelected(undefined);setGrams(100);setIngredientStep('recipe');}}>
       <Field id="recipe-ingredient-grams" name="grams" required label="Ingredient grams" type="number" min="0.1" max="100000" step="any" value={grams} onChange={event=>setGrams(Number(event.target.value))}/>
       <Button type="submit">Add ingredient</Button>
-    </Form>}
-    <Form onSubmit={()=>void save()}>
+    </Form></section>}
+    {ingredientStep==='recipe'&&<Form onSubmit={()=>void save()}>
     <Field id="recipe-name" name="name" data-modal-autofocus label="Recipe name" required maxLength={160} value={name} onChange={event=>setName(event.target.value)}/>
     <FieldFrame label="Ingredients" validate={()=>!items.length?"Add at least one ingredient.":JSON.stringify(items).length>12000?"This recipe has too many ingredients. Remove an ingredient before saving.":undefined}>
     <p data-validation-focus tabIndex={-1}>Ingredients · {items.length}</p>
@@ -53,6 +53,6 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
     <Field id="recipe-cooked-yield" name="yieldGrams" validate={()=>{for(const key of ['calories','protein','fat','carbs','fiber'] as const){if(items.some(item=>item.food[key]==null))continue;const value=items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/yieldGrams*100;if(!Number.isFinite(value)||value>(key==='calories'?20000:3000))return 'Increase the yield or reduce ingredients to keep per-100 g nutrients within the supported range.';}return undefined;}} required label="Cooked yield (grams)" type="number" min="1" max="100000" value={yieldGrams} onChange={event=>setYield(Number(event.target.value))}/>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit">{busy?'Saving…':'Save recipe'}</Button></div>
-    </Form>
+    </Form>}
   </div>;
 }

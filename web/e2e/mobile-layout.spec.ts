@@ -82,9 +82,9 @@ test('mobile view (360px & 390px): eliminates horizontal scroll and fixes button
     const chartClientW=await chartToggle.evaluate(el=>el.clientWidth);
     expect(chartScrollW).toBeLessThanOrEqual(chartClientW+2);
 
-    // Check Photos tab and "Add photo set" button layout
+    // Check Body tab and "Add photo set" button layout
     const progressTabs=page.locator('#progress-tabs');
-    await progressTabs.getByRole('button',{name:'Photos'}).click();
+    await progressTabs.getByRole('button',{name:'Body'}).click();
     const physiquePanel=page.locator('.physique');
     await expect(physiquePanel).toBeVisible();
 

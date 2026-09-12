@@ -57,10 +57,14 @@ export function FoodPicker({
   energyUnit='kcal',
 }:FoodPickerProps){
   const requestId=useRef(0);
-  useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open,query]);
+  useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
   const [scanMode,setScanMode]=useState<'single'|'multiple'>('single');
   const pendingCount=outstanding(basket.queue);
   const eta=etaSeconds(pendingCount,waitMs(basket.queue,Date.now()));
+  const lookup=(value:string)=>{
+    const id=++requestId.current;
+    void run(async()=>{try{const found=tab==='barcode'?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(value))]:await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value));if(id===requestId.current)setResults(found);}catch(error){if(id===requestId.current)throw error;}});
+  };
 
   return <>
     <h3>{tab==='barcode'?'Packaged food':'Food search'}</h3>
@@ -80,7 +84,7 @@ export function FoodPicker({
           label={tab==='barcode'?'Barcode digits':'Search term'}
           required
           value={query}
-          onChange={event=>setQuery(event.target.value)}
+          onChange={event=>{requestId.current++;setQuery(event.target.value);}}
           action={<Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>}
         />
       </div>
@@ -88,12 +92,9 @@ export function FoodPicker({
 
     {tab==='barcode'&&<>
       <div className="barcode-scan-options">
-        <Button onClick={()=>setCamera(value=>!value)}>
-          <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
-        </Button>
         <div className="barcode-scan-mode-copy">
           <strong>Scan mode</strong>
-          <small>Choose whether the camera stops after one barcode or keeps adding items to the batch.</small>
+          <small>Choose whether the scanner stops after one barcode or keeps adding items to the batch.</small>
         </div>
         <SegmentedControl
           className="barcode-scan-mode"
@@ -105,22 +106,29 @@ export function FoodPicker({
             {value:'multiple',label:'Multiple barcodes',ariaLabel:'Scan multiple barcodes'},
           ]}
         />
+        <Button onClick={()=>setCamera(value=>!value)}>
+          <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
+        </Button>
       </div>
-      {camera&&open&&step==='selection'&&<BarcodeCamera
-        continuous={scanMode==='multiple'}
-        onDetected={code=>{
-          if(scanMode==='multiple'){
-            basket.enqueueCode(code);
-          }else{
-            setQuery(code);
+      {camera&&open&&step==='selection'&&<section className="barcode-scanner-step" aria-labelledby="barcode-scanner-title">
+        <div className="section-heading"><div><h3 id="barcode-scanner-title">Barcode scanner</h3><p>{scanMode==='multiple'?'Scan as many items as needed, then finish when the queue is ready.':'Scan one item and return to its lookup result.'}</p></div><Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button></div>
+        <BarcodeCamera
+          continuous={scanMode==='multiple'}
+          onDetected={code=>{
+            if(scanMode==='multiple'){
+              basket.enqueueCode(code);
+            }else{
+              setCamera(false);
+              setQuery(code);
+              lookup(code);
+            }
+          }}
+          onError={message=>{
+            setError(message);
             setCamera(false);
-          }
-        }}
-        onError={message=>{
-          setError(message);
-          setCamera(false);
-        }}
-      />}
+          }}
+        />
+      </section>}
       {basket.queue.items.length>0&&<div className="scan-queue" style={{margin:'14px 0'}}>
         {pendingCount>0&&<p className="notice" role="status">
           Resolving {pendingCount} {pendingCount===1?'barcode lookup':'barcode lookups'} (about {eta} s)…
