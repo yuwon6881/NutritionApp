@@ -7,17 +7,17 @@ import {Modal} from './ui/Modal';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export function MissedDays({store}:{store:Nourish}){
-  const [dismissed,setDismissed]=useState(false);
   const [remember,setRemember]=useState(false);
   const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');
   const dates=missingDays(store.state!);
   const date=dates[0];
   const missingDayAction=store.state?.settings?.missingDayAction??'ask';
+  const hasConflict=store.local?.queue.some(operation=>Boolean(operation.error))??false;
 
   // Automatically apply default action when configured to fasting or not logging
   useEffect(()=>{
-    if(missingDayAction==='ask'||dates.length===0||busy)return;
+    if(hasConflict||missingDayAction==='ask'||dates.length===0||busy)return;
     void run(async()=>{
       for(const d of dates){
         const day=store.state!.days.find(item=>item.date===d);
@@ -30,15 +30,16 @@ export function MissedDays({store}:{store:Nourish}){
         });
       }
     });
-  },[missingDayAction,dates,busy,run,store]);
+  },[hasConflict,missingDayAction,dates,busy,run,store]);
 
-  // Each date is its own question, so recording or skipping one must not hide the rest.
+  // Reset toggle when date changes
   useEffect(()=>{
-    setDismissed(false);
     setRemember(false);
   },[date]);
 
-  if(missingDayAction!=='ask')return null;
+  // Conflict review owns the next user decision. Do not open another blocking
+  // modal that could enqueue a second edit for the same protected record.
+  if(hasConflict||missingDayAction!=='ask')return null;
 
   const save=async(status:'fasting'|'not_logged')=>{
     setError('');
@@ -82,13 +83,18 @@ export function MissedDays({store}:{store:Nourish}){
       });
     }catch(ex){setError((ex as Error).message);}
   };
-  return <Modal open={!!date&&!dismissed} onClose={()=>setDismissed(true)} title={`No food logged for ${date??''}`} description={dates.length>1?`${dates.length} days to review.`:'Fasting or not logging?'} width="sm">
+  return <Modal open={!!date} onClose={()=>{}} title={`No food logged for ${date??''}`} description={dates.length>1?`${dates.length} days to review.`:'Fasting or not logging?'} width="sm" hideCloseButton preventDismiss>
     {error&&<p className="error" role="alert">{error}</p>}
-    <div className="missed-days-toggle">
-      <Checkbox id="missed-days-remember" role="switch" checked={remember} onChange={setRemember} disabled={busy}>
-        Remember my choice
-      </Checkbox>
+    <div className="missed-days-actions">
+      <div className="missed-days-buttons">
+        <Button disabled={busy} onClick={()=>void save('fasting')}>Fasting</Button>
+        <Button variant="primary" disabled={busy} onClick={()=>void save('not_logged')}>Not logging</Button>
+      </div>
+      <div className="missed-days-toggle-bottom">
+        <Checkbox id="missed-days-remember" role="switch" checked={remember} onChange={setRemember} disabled={busy}>
+          Remember my choice
+        </Checkbox>
+      </div>
     </div>
-    <div className="modal-actions"><Button variant="tertiary" disabled={busy} onClick={()=>setDismissed(true)}>Later</Button><Button disabled={busy} onClick={()=>void save('fasting')}>Fasting</Button><Button variant="primary" disabled={busy} onClick={()=>void save('not_logged')}>Not logging</Button></div>
   </Modal>;
 }

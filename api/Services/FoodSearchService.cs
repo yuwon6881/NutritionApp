@@ -63,6 +63,8 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
                 foreach(var hit in hits.EnumerateArray())
                     if(ReadProduct(hit,null) is {} result) results.Add(result);
             await EnrichSearchResults(results,ct);
+            var prioritized=PrioritizeResults(results,query);
+            cache.Set(key,prioritized,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromHours(6) }); return prioritized;
         }
         catch(DomainException busy) when(busy.Status==429)
         {
@@ -78,7 +80,6 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             await ReturnSearchSlot(claimed,released);
             throw;
         }
-        cache.Set(key,(IReadOnlyList<FoodResult>)results,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromHours(6) }); return results;
     }
 
     // Not cancellable: a cancelled or failed search still has to return the slot it claimed, and
@@ -174,6 +175,53 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             // Serving hydration improves the search list but must not make free-text search fail.
         }
     }
+
+    /// <summary>
+    /// Keeps the provider's name relevance ahead of portion availability, then prefers a declared
+    /// gram serving when names are equivalent. The search index does not include serving fields,
+    /// so this ordering must run after the bulk product hydration step.
+    /// </summary>
+    public static IReadOnlyList<FoodResult> PrioritizeResults(IEnumerable<FoodResult> results,string query)
+    {
+        var needle=NormalizeSearchText(query);
+        var queryTokens=SearchTokens(query);
+        return results
+            .Select((result,index)=>new
+            {
+                result,
+                index,
+                nameRank=SearchNameRank(result.Name,needle,queryTokens),
+                hasServing=result.Portions?.Count>0,
+            })
+            .OrderBy(item=>item.nameRank)
+            .ThenByDescending(item=>item.hasServing)
+            .ThenBy(item=>item.index)
+            .Select(item=>item.result)
+            .ToArray();
+    }
+
+    private static int SearchNameRank(string name,string needle,IReadOnlyList<string> queryTokens)
+    {
+        var candidateText=name.Split(" · ",2,StringSplitOptions.None)[0];
+        var candidate=NormalizeSearchText(candidateText);
+        if(needle.Length==0||candidate.Length==0)return 0;
+        if(string.Equals(candidate,needle,StringComparison.Ordinal))return 0;
+        if(candidate.StartsWith(needle,StringComparison.Ordinal))return 1;
+        if(candidate.Contains(needle,StringComparison.Ordinal))return 2;
+        var candidateTokens=SearchTokens(candidateText);
+        var matched=queryTokens.Count(token=>candidateTokens.Contains(token,StringComparer.Ordinal));
+        return matched==queryTokens.Count?3:matched>0?4+(queryTokens.Count-matched):100;
+    }
+
+    private static string[] SearchTokens(string value)
+        =>value.Split([' ', '-', '_', '/', ',', '.', '(', ')', '[', ']', ':', ';'],StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeSearchText)
+            .Where(token=>token.Length>0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+    private static string NormalizeSearchText(string value)
+        =>new string(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
     private static async Task<TimeSpan> ReserveBatchProductSlot(CancellationToken ct)
     {

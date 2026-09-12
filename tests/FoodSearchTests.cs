@@ -14,6 +14,9 @@ public sealed class FoodSearchTests
     // endpoint sends brands as one comma string and serving_quantity as a string.
     private static JsonElement Product(string json)=>JsonDocument.Parse(json).RootElement;
 
+    private static FoodResult Result(string name,IReadOnlyList<FoodPortion>? portions=null)
+        =>new(name,100,null,null,null,null,"test",100,portions);
+
     [Fact]
     public void A_search_hit_keeps_its_nutrients_and_attribution()
     {
@@ -165,6 +168,18 @@ public sealed class FoodSearchTests
         var product=Product("""{"product_name":"Nasi Goreng","nutriments":{"energy-kcal_100g":92}}""");
 
         Assert.Empty(FoodSearchService.ReadProduct(product,null)!.Portions!);
+    }
+
+    [Fact]
+    public void Name_relevance_is_primary_and_a_declared_serving_breaks_name_ties()
+    {
+        var noServing=Result("Nasi Goreng");
+        var withServing=Result("Nasi Goreng · Brand",[new FoodPortion("serving",250)]);
+        var weakerName=Result("Chicken nasi goreng",[new FoodPortion("serving",300)]);
+
+        var ranked=FoodSearchService.PrioritizeResults([weakerName,noServing,withServing],"nasi goreng");
+
+        Assert.Equal([withServing.Name,noServing.Name,weakerName.Name],ranked.Select(result=>result.Name));
     }
 
     [Theory]

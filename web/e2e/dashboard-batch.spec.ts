@@ -49,6 +49,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+  await expect(page.locator('.energy-panel .button')).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Log weight',exact:true})).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Food entries',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Choose diary date'})).toHaveCount(0);
@@ -56,6 +57,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log food'}).click();
   await page.getByLabel('Search term',{exact:true}).fill('old query');
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
+  await page.locator('.food-selection .section-heading .actions').getByRole('button',{name:'Search',exact:true}).click();
   await expect(page.getByLabel('Find your food')).toHaveValue('');
   await page.getByLabel('Find your food').fill('Greek');
   await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt'}).click();

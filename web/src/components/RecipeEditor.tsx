@@ -36,6 +36,11 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
   };
 
   return <div className="dialog-step recipe-editor">
+    {ingredientStep==='recipe'&&<div style={{marginBottom: 12}}>
+      <Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={onClose}>
+        <ArrowLeft size={16} aria-hidden="true"/>Back
+      </Button>
+    </div>}
     {ingredientStep==='recipe'&&<Form onSubmit={()=>void run(async()=>{setError('');try{setResults(await api<Nutrients[]>('/foods/search?q='+encodeURIComponent(query)));}catch(ex){setError((ex as Error).message);}})}>
       <Field id="recipe-search" name="query" label="Search ingredients" required minLength={2} maxLength={100} value={query} onChange={event=>setQuery(event.target.value)} action={<Button type="submit" disabled={busy}>Search</Button>}/>
     </Form>}
@@ -53,7 +58,10 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
     <Field id="recipe-servings" name="servings" validate={()=>!Number.isFinite(servings)||servings<=0?'Enter a positive number of servings.':undefined} required label="Servings in cooked yield" type="number" min="0.1" max="10000" step="any" value={servings} onChange={event=>setServings(Number(event.target.value))}/>
     <Field id="recipe-cooked-yield" name="yieldGrams" validate={()=>{for(const key of ['calories','protein','fat','carbs','fiber'] as const){if(items.some(item=>item.food[key]==null))continue;const value=items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/yieldGrams*100;if(!Number.isFinite(value)||value>(key==='calories'?20000:3000))return 'Increase the yield or reduce ingredients to keep per-100 g nutrients within the supported range.';}return undefined;}} required label="Cooked yield (grams)" type="number" min="1" max="100000" value={yieldGrams} onChange={event=>setYield(Number(event.target.value))}/>
     {error&&<p className="error" role="alert">{error}</p>}
-    <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit">{busy?'Saving…':'Save recipe'}</Button></div>
+    <div className="modal-actions">
+      <Button type="button" variant="secondary" onClick={onClose}>Back</Button>
+      <Button variant="primary" disabled={busy} type="submit">{busy?'Saving…':'Save recipe'}</Button>
+    </div>
     </Form>}
   </div>;
 }

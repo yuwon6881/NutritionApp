@@ -31,5 +31,8 @@ it('resolves all portion basis shapes while keeping unknown grams null',()=>{
 it('displays a frozen portion or an honest legacy serving',()=>{
   expect(displayPortion({quantity:200,unit:'g',portionLabel:null,portionGrams:null})).toBe('200 g');
   expect(displayPortion({quantity:1.5,unit:'serving',portionLabel:'cup',portionGrams:90})).toBe('1.5 cup · 135 g');
+  expect(displayPortion({quantity:1,unit:'serving',portionLabel:'1 slice',portionGrams:25})).toBe('1 slice · 25 g');
+  expect(displayPortion({quantity:2,unit:'serving',portionLabel:'1 slice',portionGrams:25})).toBe('2 slice · 50 g');
+  expect(displayPortion({quantity:1,unit:'serving',portionLabel:'1 scoop',portionGrams:30})).toBe('1 scoop · 30 g');
   expect(displayPortion({quantity:1,unit:'serving',portionLabel:null,portionGrams:null})).toBe('1 serving');
 });

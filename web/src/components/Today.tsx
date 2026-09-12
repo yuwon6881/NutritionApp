@@ -1,9 +1,7 @@
 import {useState} from 'react';
-import {ArrowRight} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult} from '../types';
 import {number,today,trend} from '../lib/format';
-import {Button} from './ui/Button';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
@@ -51,9 +49,6 @@ export function Today({store,onCoach}:{store:Nourish;onCoach:()=>void}){
             <p className="eyebrow">ENERGY</p>
             <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
             <p>{targets.calories?`${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} target`:'Set up your coach'}</p>
-            <Button variant="tertiary" onClick={onCoach}>
-              {latestPlan?'Targets':'Set up coach'}<ArrowRight size={16}/>
-            </Button>
           </div>
           <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={targets.calories?`${displayEnergy(total,energyUnit)} of ${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} logged`:`${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)} logged`}>
             <circle className="ring-track" cx="60" cy="60" r="48"/>

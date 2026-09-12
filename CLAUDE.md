@@ -29,3 +29,8 @@ This repository is independent of FinancialApp. These rules apply to NutritionAp
 - Run dotnet test tests/Nutrition.Tests.csproj, then in web run npm.cmd run typecheck, npm.cmd test, npm.cmd run build. For UI changes also run npm.cmd run test:visual against an isolated local API.
 - Browser tests reset local test accounts. Never run them against production or a personal diary database. Use an isolated Data Source with the development API.
 - Document any unavailable live-provider or deployment checks honestly. Keep documentation aligned with the implemented contracts.
+
+## UI/UX extension rule
+
+- Treat `docs/UI_UX_DESIGN_PRINCIPLES.md` and `docs/UI_UX_EXTENSION_CHECKLIST.md` as living instructions. Before adding a screen or interaction, reuse the existing shared components and tokens they catalog; when a reusable pattern or contract changes, update both instruction files and the corresponding unit/browser tests in the same change.
+- Keep `AGENTS.md` and `CLAUDE.md` identical when editing this repository guidance.

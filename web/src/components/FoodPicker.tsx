@@ -104,19 +104,21 @@ export function FoodPicker({
           <strong>Scan mode</strong>
           <small>Choose whether the scanner stops after one barcode or keeps adding items to the batch.</small>
         </div>
-        <SegmentedControl
-          className="barcode-scan-mode"
-          label="Barcode scan mode"
-          value={scanMode}
-          onChange={setScanMode}
-          options={[
-            {value:'single',label:'One barcode',ariaLabel:'Scan one barcode'},
-            {value:'multiple',label:'Multiple barcodes',ariaLabel:'Scan multiple barcodes'},
-          ]}
-        />
-        <Button onClick={()=>setCamera(value=>!value)}>
-          <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
-        </Button>
+        <div className="barcode-scan-controls">
+          <SegmentedControl
+            className="barcode-scan-mode"
+            label="Barcode scan mode"
+            value={scanMode}
+            onChange={setScanMode}
+            options={[
+              {value:'single',label:'One barcode',ariaLabel:'Scan one barcode'},
+              {value:'multiple',label:'Multiple barcodes',ariaLabel:'Scan multiple barcodes'},
+            ]}
+          />
+          <Button variant="primary" onClick={()=>setCamera(value=>!value)}>
+            <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
+          </Button>
+        </div>
       </div>
       {camera&&open&&step==='selection'&&<section className="barcode-scanner-step" aria-labelledby="barcode-scanner-title">
         <div className="section-heading"><div><h3 id="barcode-scanner-title">Barcode scanner</h3><p>{scanMode==='multiple'?'Scan as many items as needed, then finish when the queue is ready.':'Scan one item and return to its lookup result.'}</p></div><Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button></div>

@@ -2,12 +2,13 @@ import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {Nourish} from '../useNourish';
 import {mealTime} from '../lib/foodDiary';
+import {ArrowLeft} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Field,TimePicker} from './ui/Field';
 import {energyLabel,parseEnergy,unitsFor} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
 
-export function QuickAdd({store,date,onDone,onDirtyChange}:{store:Nourish;date:string;onDone:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
+export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:Nourish;date:string;onDone:()=>void;onBack?:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const [calories,setCalories]=useState('');
   const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
   const {busy,run}=useAsyncAction();
@@ -28,9 +29,17 @@ export function QuickAdd({store,date,onDone,onDirtyChange}:{store:Nourish;date:s
   };
 
   return <div className="dialog-step editor"><Form onSubmit={save}>
+    {onBack&&<div style={{marginBottom: 12}}>
+      <Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={onBack}>
+        <ArrowLeft size={16} aria-hidden="true"/>Back
+      </Button>
+    </div>}
     <Field id="quick-add-calories" name="calories" data-modal-autofocus label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={calories} onChange={event=>setCalories(event.target.value)}/>
     <TimePicker id="quick-add-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
     {error&&<p className="error" role="alert">{error}</p>}
-    <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':'Add calories'}</Button></div>
+    <div className="modal-actions">
+      {onBack&&<Button type="button" variant="secondary" onClick={onBack}>Back</Button>}
+      <Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':'Add calories'}</Button>
+    </div>
   </Form></div>;
 }

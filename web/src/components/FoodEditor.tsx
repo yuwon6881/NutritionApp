@@ -1,6 +1,6 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import {Trash2,Plus} from 'lucide-react';
+import {Trash2,Plus,ArrowLeft} from 'lucide-react';
 import type {EnergyUnit,Entry,Food,Nutrients} from '../types';
 import {blankNutrients} from '../types';
 import {Button} from './ui/Button';
@@ -125,6 +125,12 @@ export function FoodEditor({
 
   return <div className="dialog-step editor">
     <Form onSubmit={save}>
+      <div style={{marginBottom: 12}}>
+        <Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={onClose}>
+          <ArrowLeft size={16} aria-hidden="true"/>
+          Back
+        </Button>
+      </div>
       {isProviderFood ? (
         <>
           <div className="review-food-heading" style={{marginBottom: 14}}>
@@ -208,7 +214,10 @@ export function FoodEditor({
       </fieldset>}
       {!isProviderFood&&<p className="source">Source: {draft.source}</p>}
       {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit">{submitLabel}</Button></div>
+      <div className="modal-actions">
+        <Button variant="secondary" type="button" onClick={onClose}>Back</Button>
+        <Button variant="primary" disabled={busy} type="submit">{submitLabel}</Button>
+      </div>
     </Form>
   </div>;
 }

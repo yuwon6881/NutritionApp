@@ -22,28 +22,63 @@ function CalorieChange({previous,proposed,unit}:{previous:number|null|undefined;
   const hasValues=previous!=null&&proposed!=null;
   const delta=hasValues?proposed-previous:0;
   const [revealed,setRevealed]=useState(!hasValues||reduced);
+  const [currentDisplay,setCurrentDisplay]=useState(previous??proposed??0);
 
   useEffect(()=>{
-    if(!hasValues||reduced){setRevealed(true);return;}
+    if(!hasValues||reduced){
+      setCurrentDisplay(proposed??previous??0);
+      setRevealed(true);
+      return;
+    }
     setRevealed(false);
-    const timer=window.setTimeout(()=>setRevealed(true),520);
-    return()=>window.clearTimeout(timer);
+    setCurrentDisplay(previous);
+
+    let frame:number;
+    const startDelay=200;
+    const duration=380;
+    const startVal=previous;
+    const endVal=proposed;
+    let startTime:number|null=null;
+
+    const timer=window.setTimeout(()=>{
+      const step=(timestamp:number)=>{
+        if(startTime==null)startTime=timestamp;
+        const elapsed=timestamp-startTime;
+        const progress=Math.min(1,elapsed/duration);
+        const ease=1-Math.pow(1-progress,3);
+        const interpolated=Math.round(startVal+(endVal-startVal)*ease);
+        setCurrentDisplay(interpolated);
+        if(progress<1){
+          frame=window.requestAnimationFrame(step);
+        }else{
+          setCurrentDisplay(endVal);
+          setRevealed(true);
+        }
+      };
+      frame=window.requestAnimationFrame(step);
+    },startDelay);
+
+    return ()=>{
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(frame);
+    };
   },[hasValues,previous,proposed,reduced]);
 
-  const value=revealed?(proposed??previous):(previous??proposed);
+  const value=revealed?(proposed??previous):(hasValues?currentDisplay:(previous??proposed));
   const direction=delta>0?'positive':delta<0?'negative':'neutral';
   const copy=delta>0
     ?`Add ${displayEnergy(delta,unit)} ${energyLabel(unit)}`
     :delta<0
     ?`Deduct ${displayEnergy(Math.abs(delta),unit)} ${energyLabel(unit)}`
     :'Unchanged';
-  return <div className={`check-in-calorie ${revealed?'is-revealed':''}`} data-check-in-calorie aria-live="polite">
+  return <div className={`check-in-calorie ${revealed?'is-revealed':''} direction-${direction}`} data-check-in-calorie aria-live="polite">
     <span className="check-in-calorie-label">{revealed?'New daily calories':'Current daily calories'}</span>
     <div className="check-in-calorie-value" aria-label={`${displayEnergy(value,unit)} ${energyLabel(unit)}`}>
       <CoachNumber>{displayEnergy(value,unit)}</CoachNumber><span className="unit">{energyLabel(unit)}</span>
     </div>
     {hasValues&&<span className={`check-in-calorie-delta ${revealed?direction:'pending'}`} aria-hidden={!revealed}>
-      <span aria-hidden="true">{delta>0?'↑':delta<0?'↓':'→'}</span>{revealed?copy:''}
+      <span className="check-in-delta-icon" aria-hidden="true">{delta>0?'↑':delta<0?'↓':'→'}</span>
+      <span className="check-in-delta-text">{revealed?copy:''}</span>
     </span>}
   </div>;
 }

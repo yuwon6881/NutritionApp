@@ -86,12 +86,13 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </SelectField>
-          <UnitPreferencesFields value={units} onChange={updateUnits} asFieldset={false}/>
-          <SelectField id="settings-missing-day-action" name="missingDayAction" label="Unlogged days" value={settings.missingDayAction??'ask'} onChange={v=>updateMissingDayAction(v as MissingDayAction)}>
-            <option value="ask">Ask each time</option>
-            <option value="fasting">Default to fasting</option>
-            <option value="not_logged">Default to not logging</option>
-          </SelectField>
+          <UnitPreferencesFields value={units} onChange={updateUnits} asFieldset={false}>
+            <SelectField id="settings-missing-day-action" name="missingDayAction" label="Unlogged days" value={settings.missingDayAction??'ask'} onChange={v=>updateMissingDayAction(v as MissingDayAction)}>
+              <option value="ask">Ask each time</option>
+              <option value="fasting">Default to fasting</option>
+              <option value="not_logged">Default to not logging</option>
+            </SelectField>
+          </UnitPreferencesFields>
           <p className="source">Units apply across your diary, charts, and coach. Profile time zone: {state.profile?.timeZone??'Asia/Kuala_Lumpur'}.</p>
         </section>
         {state.profile&&<CoachingSettings store={store} hideUnits hideSaveStatus/>}

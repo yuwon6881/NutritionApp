@@ -42,6 +42,8 @@ The browser suite targets a dedicated local test API at `http://127.0.0.1:5088`.
 
 See [methodology](web/src/components/Methodology.tsx), [deployment/recovery](deploy/README.md), and [verification status](VERIFICATION.md). This is a research-informed provisional estimator, not clinical validation or a reproduction of MacroFactor's proprietary algorithm.
 
+The UI contract and extension checklist live in [UI/UX design principles](docs/UI_UX_DESIGN_PRINCIPLES.md) and [UI/UX extension checklist](docs/UI_UX_EXTENSION_CHECKLIST.md). Future screens and interactions must update those instructions and their focused/browser tests together.
+
 
 ## First-login setup
 

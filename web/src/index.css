@@ -1,4 +1,8 @@
 /* Explicit Light and Dark palettes. Feature styles consume only semantic tokens. */
+.food-diary-toolbar{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.food-diary-toolbar .food-date-navigation{margin-bottom:0}
+.food-diary-toolbar-right{display:flex;align-items:flex-end;min-width:200px}
+.food-diary-toolbar-right .field{margin-bottom:0;width:100%}
 .food-date-navigation{display:grid;grid-template-columns:44px minmax(140px,240px) 44px auto;align-items:end;justify-content:start;gap:10px;margin-bottom:24px}
 .food-date-navigation>.field{margin:0}.food-date-navigation>.button{min-width:44px;padding-inline:10px}
 .food-day-nutrients,.food-card-nutrients{display:flex;flex-wrap:wrap;gap:12px 24px;margin:0 0 18px}
@@ -781,17 +785,16 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .recent-empty{padding:14px 0 8px;margin:0;text-align:left;color:var(--muted-foreground)}
 
 /* Barcode scanning uses an explicit mode choice instead of an unexplained toggle. */
-.barcode-scan-options{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 16px;margin:16px 0}
+.barcode-scan-options{display:flex;flex-direction:column;gap:12px;margin:20px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
 .barcode-scan-mode-copy{display:grid;gap:3px;min-width:0}
-.barcode-scan-mode-copy{grid-column:1;grid-row:1}
-.barcode-scan-mode-copy strong{font-size:.82rem}
-.barcode-scan-mode-copy small{font-size:.72rem}
-.barcode-scan-mode{grid-column:1;grid-row:2;width:min(420px,100%);margin:0}
-.barcode-scan-mode>.button{font-size:.76rem}
-.barcode-scan-options>.button{grid-column:2;grid-row:1 / span 2;align-self:center;justify-self:end;min-height:44px;white-space:nowrap}
+.barcode-scan-mode-copy strong{font-size:.88rem;color:var(--ink-strong)}
+.barcode-scan-mode-copy small{font-size:.76rem;color:var(--muted-foreground)}
+.barcode-scan-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px}
+.barcode-scan-mode{width:min(420px,100%);min-width:240px;margin:0}
+.barcode-scan-mode>.button{font-size:.78rem}
+.barcode-scan-controls>.button{min-height:44px;white-space:nowrap}
 .barcode-scanner-step{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
-.barcode-scanner-step .section-heading{align-items:flex-start}
-@media(max-width:1023px){.barcode-scan-options{grid-template-columns:1fr}.barcode-scan-mode-copy,.barcode-scan-mode,.barcode-scan-options>.button{grid-column:1;grid-row:auto}.barcode-scan-options>.button{justify-self:stretch}}
+@media(max-width:1023px){.barcode-scan-controls{grid-template-columns:1fr}.barcode-scan-mode,.barcode-scan-controls>.button{width:100%;max-width:none}}
 
 /* The macro editor is intentionally divided into preset, adjustment, distribution, and review steps. */
 .step-description{max-width:58ch;margin:-4px 0 20px;font-size:.82rem}
@@ -811,8 +814,8 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .weekly-review-summary span small{font-size:.68rem}
 @media(min-width:640px) and (max-width:1023px){.guided-stepper{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:639px){
-  .barcode-scan-options{gap:8px}
-  .barcode-scan-mode,.barcode-scan-options>.button{width:100%;max-width:none}
+  .barcode-scan-controls{flex-direction:column;align-items:stretch}
+  .barcode-scan-mode,.barcode-scan-controls>.button{width:100%;max-width:none}
   .macro-review-summary{padding:14px}
   .macro-review-grid{grid-template-columns:1fr}
   .macro-review-grid>div{grid-template-columns:auto minmax(0,1fr) auto}
@@ -906,12 +909,18 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .body-measurement-difference{display:block;font-size:.72rem;font-weight:500;color:var(--muted-foreground)}
 .body-draft-notice{margin-top:12px}
 .body-draft-notice .actions{margin-top:8px}
-.missed-days-toggle{margin:14px 0 6px}
+.missed-days-actions{display:flex;flex-direction:column;gap:18px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.missed-days-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.missed-days-buttons>.button{min-height:44px;font-size:.88rem;justify-content:center}
+.missed-days-toggle-bottom{display:flex;align-items:center;justify-content:center;padding-top:2px}
+.missed-days-toggle-bottom .check-row{min-height:44px;font-size:.85rem;color:var(--foreground)}
 @media(max-width:1023px){
   .physique-upload-grid,.photo-set-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .physique-upload-slot:last-child,.photo-set-grid>*:last-child{grid-column:1/-1;max-width:calc((100% - 14px)/2)}
 }
 @media(max-width:639px){
+  .food-diary-toolbar{flex-direction:column;align-items:stretch;gap:12px}
+  .food-diary-toolbar-right{min-width:0;width:100%}
   .food-timeline-toolbar{align-items:stretch;flex-direction:column;gap:10px}
   .food-timeline-toolbar .segmented-control{width:100%;min-width:0}
   .physique-upload-grid,.photo-set-grid{grid-template-columns:1fr}
@@ -936,20 +945,34 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 
 .ai-logging-form .modal-actions{margin-top:4px;padding-top:0;border-top:0}
 
-.check-in-calorie{display:grid;justify-items:center;gap:10px;padding:34px 12px 18px;text-align:center}
-.check-in-calorie-label{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground)}
+.check-in-calorie{display:grid;justify-items:center;gap:12px;padding:34px 14px 20px;text-align:center;position:relative;border-radius:var(--radius);transition:background var(--motion-fade) ease}
+.check-in-calorie.is-revealed.direction-positive{background:radial-gradient(ellipse at center,color-mix(in srgb,var(--destructive) 6%,transparent),transparent 70%)}
+.check-in-calorie.is-revealed.direction-negative{background:radial-gradient(ellipse at center,color-mix(in srgb,var(--success) 6%,transparent),transparent 70%)}
+.check-in-calorie.is-revealed.direction-neutral{background:radial-gradient(ellipse at center,color-mix(in srgb,var(--muted) 35%,transparent),transparent 70%)}
+.check-in-calorie-label{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);transition:color var(--motion-fade) ease}
 .check-in-calorie-value{display:flex;align-items:baseline;gap:8px;color:var(--ink-strong);font-size:clamp(3rem,8vw,4.5rem);font-weight:650;line-height:1;font-variant-numeric:tabular-nums}
 .check-in-calorie-value .coach-number{display:inline-block}
 .check-in-calorie-value .unit{font-size:1rem}
-.check-in-calorie-delta{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:6px 12px;border:1px solid var(--border);border-radius:999px;font-size:.82rem;font-weight:650}
-.check-in-calorie-delta.positive{color:var(--destructive);background:color-mix(in srgb,var(--destructive) 9%,var(--card))}
-.check-in-calorie-delta.negative{color:var(--success);background:color-mix(in srgb,var(--success) 9%,var(--card))}
+.check-in-calorie-delta{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.84rem;font-weight:650;box-shadow:0 2px 8px rgba(0,0,0,.04);transition:transform var(--motion-control) cubic-bezier(.2,.8,.2,1),opacity var(--motion-fade) ease}
+.check-in-calorie-delta.positive{color:var(--destructive);background:color-mix(in srgb,var(--destructive) 10%,var(--card));border-color:color-mix(in srgb,var(--destructive) 25%,var(--border))}
+.check-in-calorie-delta.negative{color:var(--success);background:color-mix(in srgb,var(--success) 10%,var(--card));border-color:color-mix(in srgb,var(--success) 25%,var(--border))}
 .check-in-calorie-delta.neutral{color:var(--muted-foreground);background:var(--muted)}
 .check-in-calorie-delta.pending{visibility:hidden}
-@keyframes checkInCalorieReveal{from{opacity:.45;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
-@keyframes checkInDeltaReveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.check-in-calorie.is-revealed .check-in-calorie-value{animation:checkInCalorieReveal 220ms cubic-bezier(.2,.8,.2,1)}
-.check-in-calorie.is-revealed .check-in-calorie-delta:not(.pending){animation:checkInDeltaReveal 220ms cubic-bezier(.2,.8,.2,1)}
+.check-in-delta-icon{display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem;line-height:1;font-weight:700}
+.check-in-calorie.is-revealed .check-in-calorie-delta.positive .check-in-delta-icon{animation:checkInArrowUp 1.2s ease-in-out infinite}
+.check-in-calorie.is-revealed .check-in-calorie-delta.negative .check-in-delta-icon{animation:checkInArrowDown 1.2s ease-in-out infinite}
+@keyframes checkInCalorieReveal{0%{opacity:.6;transform:scale(.96)}65%{transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
+@keyframes checkInDeltaReveal{0%{opacity:0;transform:translateY(8px) scale(.92)}70%{transform:translateY(-2px) scale(1.03)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes checkInArrowUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes checkInArrowDown{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+.check-in-calorie.is-revealed .check-in-calorie-value{animation:checkInCalorieReveal 260ms cubic-bezier(.2,.8,.2,1)}
+.check-in-calorie.is-revealed .check-in-calorie-delta:not(.pending){animation:checkInDeltaReveal 280ms cubic-bezier(.2,.8,.2,1)}
+@media(prefers-reduced-motion:reduce){
+  .check-in-calorie.is-revealed .check-in-calorie-value,
+  .check-in-calorie.is-revealed .check-in-calorie-delta:not(.pending),
+  .check-in-calorie.is-revealed .check-in-calorie-delta.positive .check-in-delta-icon,
+  .check-in-calorie.is-revealed .check-in-calorie-delta.negative .check-in-delta-icon{animation:none}
+}
 @media(max-width:639px){
   .sync-conflict-notice{padding:16px}
   .sync-conflict-heading{grid-template-columns:auto minmax(0,1fr)}

@@ -8,6 +8,9 @@ async function signIn(request:APIRequestContext,username='test-alice'){
   if(response.status()===401)response=await request.post('/api/auth/register',{headers,data:{username,password}});
   expect(response.ok(),await response.text()).toBeTruthy();return response.json();
 }
+async function resolveMissingDays(page:import('@playwright/test').Page){
+  await page.getByRole('dialog',{name:/^No food logged for /}).getByRole('button',{name:'Not logging',exact:true}).click({timeout:5000}).catch(()=>{});
+}
 test.describe.configure({mode:'serial'});
 test.beforeAll(async({request})=>{
   await request.post('/api/auth/dev-reset',{headers});
@@ -292,14 +295,14 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   };
   await saveWeight(shift(latest.end,-3),80.8);await saveWeight(shift(latest.end,-2),80.8);await saveWeight(latest.end,74.8);
   await markNotLogging(shift(latest.end,-3));await markNotLogging(shift(latest.end,-2));
-  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Coach',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Fat loss goal reached',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Wait for trend weight',exact:true}).click();
   await expect(page.getByText('Waiting for trend weight',{exact:false})).toBeVisible();
   latest=await (await context.request.get('/api/state')).json();
   await saveWeight(shift(latest.end,-3),74.8);await saveWeight(shift(latest.end,-2),74.8);await saveWeight(latest.end,74.8);
-  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Coach',exact:true}).click();
   await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Complete goal',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Weekly check-in'})).toBeVisible({timeout:25000});
@@ -325,15 +328,15 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   const proposal=await (await context.request.get('/api/coach/preview')).json();expect(proposal.canAccept).toBeTruthy();expect(proposal.result.dailyCalories).toHaveLength(7);expect(proposal.result.dailyCalories.reduce((sum:number,value:number)=>sum+value,0)).toBe(proposal.result.weeklyCalories);
   await page.goto('/');
   const target=page.locator('.energy-panel p').filter({hasText:'kcal target'});await expect(target).toBeVisible();expect((await target.textContent())!.replaceAll(',','')).toContain(String(activeDaily));
-  await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});
+  await resolveMissingDays(page);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();await expect(page.getByRole('heading',{name:'Continuous coaching guidance',exact:true})).toBeVisible();
   const acceptedResponse=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:proposal.revision}});expect(acceptedResponse.ok(),await acceptedResponse.text()).toBeTruthy();
   state=await (await context.request.get('/api/state')).json();const nextResult=JSON.parse(state.plans[0].resultJson) as {calories:number;weeklyCalories:number;dailyCalories:number[]};expect(state.plans[0].id).not.toBe(active.id);expect(nextResult.dailyCalories).toEqual(proposal.result.dailyCalories);expect(nextResult.dailyCalories.reduce((sum,value)=>sum+value,0)).toBe(nextResult.weeklyCalories);
-  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Settings',exact:true}).click();await context.setOffline(true);
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await context.setOffline(true);
   await page.locator('#settings-weight-unit').selectOption('lb');await expect(page.getByText(/Saving your unit preferences/)).toBeVisible();
   await page.locator('#settings-energy-unit').selectOption('kj');await page.locator('#settings-height-unit').selectOption('ft-in');await expect(page.getByText(/Saving your unit preferences/)).toBeVisible();
   await page.locator('#coaching-check-in-weekday').selectOption('5');await expect(page.getByText(/Saving your check-in day and unit preferences/)).toBeVisible();
-  await page.reload();await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Settings',exact:true}).click();await expect(page.locator('#coaching-check-in-weekday')).toHaveValue('5');await expect(page.locator('#settings-weight-unit')).toHaveValue('lb');await expect(page.locator('#settings-energy-unit')).toHaveValue('kj');await expect(page.locator('#settings-height-unit')).toHaveValue('ft-in');await expect(page.getByText(/Saving your check-in day and unit preferences/)).toBeVisible();
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await expect(page.locator('#coaching-check-in-weekday')).toHaveValue('5');await expect(page.locator('#settings-weight-unit')).toHaveValue('lb');await expect(page.locator('#settings-energy-unit')).toHaveValue('kj');await expect(page.locator('#settings-height-unit')).toHaveValue('ft-in');await expect(page.getByText(/Saving your check-in day and unit preferences/)).toBeVisible();
   await context.setOffline(false);await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday===5&&latest.settings?.weightUnit==='lb'&&latest.settings?.energyUnit==='kj'&&latest.settings?.heightUnit==='ft-in';}).toBeTruthy();
   const afterSettings=await (await context.request.get('/api/state')).json();expect(afterSettings.profileRevision).toBe(state.profileRevision);expect(afterSettings.plans[0].id).toBe(state.plans[0].id);
   await page.locator('#coaching-check-in-weekday').selectOption('1');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday;}).toBe(1);
@@ -348,11 +351,11 @@ test('conflicting retained edits explain the saved record and can be discarded',
   const existing=state.days.find((day:{date:string;deleted:boolean})=>day.date===previousDate&&!day.deleted);
   const seeded=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:existing?.id??randomUUID(),kind:'day',expectedRevision:existing?.revision??0,data:{date:previousDate,status:'not_logged'}}});expect(seeded.ok(),await seeded.text()).toBeTruthy();
   state=await (await context.request.get('/api/state')).json();const day=state.days.find((item:{date:string;deleted:boolean})=>item.date===previousDate&&!item.deleted);expect(day).toBeTruthy();
-  await page.goto('/');await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Food Log',exact:true}).click();await page.getByRole('button',{name:'Previous food day',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Close dialog',exact:true}).click({timeout:5000}).catch(()=>{});await expect(page.getByLabel('Logging status',{exact:true})).toHaveValue('not_logged');
+  await page.goto('/');await resolveMissingDays(page);await page.getByRole('button',{name:'Food Log',exact:true}).click();await page.getByRole('button',{name:'Previous food day',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Close dialog',exact:true}).click({timeout:5000}).catch(()=>{});await expect(page.getByLabel('Logging status',{exact:true})).toHaveValue('not_logged');
   await context.setOffline(true);await page.getByLabel('Logging status',{exact:true}).selectOption('incomplete');await expect(page.getByRole('button',{name:'Discard local edit',exact:true})).toHaveCount(0);
   const changed=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:day.id,kind:'day',expectedRevision:day.revision,data:{date:previousDate,status:'complete'}}});expect(changed.ok(),await changed.text()).toBeTruthy();
   await context.setOffline(false);await expect(page.getByRole('heading',{name:'A saved edit needs review',exact:true})).toBeVisible();await expect(page.getByText(`Daily logging decision · ${previousDate}`,{exact:true})).toBeVisible();await expect(page.getByText('Queued choice',{exact:true})).toBeVisible();await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
-  await page.getByRole('dialog').getByRole('button',{name:'Close dialog',exact:true}).click({timeout:1000}).catch(()=>{});await page.getByRole('button',{name:'Discard local edit',exact:true}).click();await expect(page.getByRole('heading',{name:'A saved edit needs review',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('dialog',{name:/^No food logged for /})).toHaveCount(0);await page.getByRole('button',{name:'Discard local edit',exact:true}).click();await expect(page.getByRole('heading',{name:'A saved edit needs review',exact:true})).toHaveCount(0);
   const saved=await (await context.request.get('/api/state')).json();expect(saved.days.find((item:{date:string;deleted:boolean})=>item.date===previousDate&&!item.deleted).status).toBe('complete');
 });
 
@@ -374,7 +377,7 @@ test('cached diary opens while the server sleeps and uploads retained food and w
   });
   await page.reload();
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible({timeout:3000});
-  await page.getByRole('button',{name:'Later',exact:true}).click({timeout:1000}).catch(()=>{});
+  await resolveMissingDays(page);
   await page.getByRole('button',{name:'Add entry',exact:true}).click();await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log food',exact:true}).click();
   await page.getByRole('button',{name:'Manual entry',exact:true}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Server wake meal');
@@ -392,7 +395,11 @@ test('missed weight-only day asks once and keeps the weight after not logging',a
   await signIn(context.request);
   const latest=await (await context.request.get('/api/state')).json();
   const date=new Date(Date.parse(latest.end)-86400000).toISOString().slice(0,10);
-  await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:randomUUID(),kind:'weight',expectedRevision:0,data:{date,kg:80.4}}});
+  const existingDay=latest.days.find((day:{date:string;deleted:boolean})=>day.date===date&&!day.deleted);
+  const seededDay=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:existingDay?.id??randomUUID(),kind:'day',expectedRevision:existingDay?.revision??0,data:{date,status:'incomplete'}}});
+  expect(seededDay.ok(),await seededDay.text()).toBeTruthy();
+  const seededWeight=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:randomUUID(),kind:'weight',expectedRevision:0,data:{date,kg:80.4}}});
+  expect(seededWeight.ok(),await seededWeight.text()).toBeTruthy();
   await page.goto('/');
   await expect(page.getByRole('dialog',{name:`No food logged for ${date}`})).toBeVisible();
   await page.getByRole('button',{name:'Not logging',exact:true}).click();

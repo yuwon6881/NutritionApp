@@ -1,4 +1,4 @@
-import {useMemo} from 'react';
+import {useMemo,type ReactNode} from 'react';
 import type {Nourish} from '../useNourish';
 import {nextOccurrenceAfter} from '../lib/checkIn';
 import {today} from '../lib/format';
@@ -53,7 +53,7 @@ export function CoachingSettings({store,hideUnits=false,hideSaveStatus=false}:{s
   </section>;
 }
 
-export function UnitPreferencesFields({value=defaultUnits,onChange,compact=false,asFieldset=true}:{value?:UnitPreferences;onChange:(patch:Partial<UnitPreferences>)=>void;compact?:boolean;asFieldset?:boolean}){
+export function UnitPreferencesFields({value=defaultUnits,onChange,compact=false,asFieldset=true,children}:{value?:UnitPreferences;onChange:(patch:Partial<UnitPreferences>)=>void;compact?:boolean;asFieldset?:boolean;children?:ReactNode}){
   const content=(
     <div className="form-grid">
       <SelectField id="settings-weight-unit" name="weightUnit" label="Weight" value={value.weight} onChange={v=>onChange({weight:v as WeightUnit})}>
@@ -65,6 +65,7 @@ export function UnitPreferencesFields({value=defaultUnits,onChange,compact=false
       <SelectField id="settings-height-unit" name="heightUnit" label="Height" value={value.height} onChange={v=>onChange({height:v as HeightUnit})}>
         <option value="cm">Centimetres (cm)</option><option value="ft-in">Feet / inches</option>
       </SelectField>
+      {children}
     </div>
   );
   if(!asFieldset)return content;

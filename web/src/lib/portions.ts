@@ -83,9 +83,23 @@ function displayNumber(value: number): string {
 }
 
 export function displayPortion(basis: Partial<PortionBasis>): string {
+  const qty = typeof basis.quantity === 'number' && Number.isFinite(basis.quantity) ? basis.quantity : 0;
   const quantity = typeof basis.quantity === 'number' && Number.isFinite(basis.quantity) ? displayNumber(basis.quantity) : '—';
   if (basis.unit === 'g') return `${quantity} g`;
-  if (basis.portionLabel && typeof basis.portionGrams === 'number' && Number.isFinite(basis.portionGrams) && basis.portionGrams > 0)
-    return `${quantity} ${basis.portionLabel} · ${displayNumber(basis.portionGrams * (typeof basis.quantity === 'number' && Number.isFinite(basis.quantity) ? basis.quantity : 0))} g`;
+  if (basis.portionLabel && typeof basis.portionGrams === 'number' && Number.isFinite(basis.portionGrams) && basis.portionGrams > 0) {
+    const totalGrams = displayNumber(basis.portionGrams * qty);
+    const label = basis.portionLabel.trim();
+    const match = label.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+    if (match) {
+      const baseNum = Number(match[1]);
+      const rest = match[2];
+      if (qty === 1) return `${label} · ${totalGrams} g`;
+      if (Number.isFinite(baseNum) && baseNum > 0) {
+        const scaled = displayNumber(qty * baseNum);
+        return `${scaled}${rest ? ` ${rest}` : ''} · ${totalGrams} g`;
+      }
+    }
+    return `${quantity} ${label} · ${totalGrams} g`;
+  }
   return `${quantity} serving`;
 }

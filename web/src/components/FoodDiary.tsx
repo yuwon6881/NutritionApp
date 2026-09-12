@@ -33,13 +33,25 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=current){setError('');setDate(value);}};
   const move=async(moving:Entry[],time:string)=>{await act(async()=>{for(const entry of moving){const operation=moveEntry(entry,time);if(operation)await store.mutate(operation);}},true);};
   return <div className="food-log-page">
-    <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time and move them between hours.</p></div><Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button></header>
-    {entries.length>0&&!readOnly&&<Button variant="tertiary" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>Copy day</Button>}
-    <div className="food-date-navigation">
-      <Button aria-label="Previous food day" disabled={date<='2000-01-01'} onClick={()=>changeDate(shiftDate(date,-1))}><ChevronLeft size={18}/></Button>
-      <DatePicker label="Food date" value={date} min="2000-01-01" max={current} onChange={changeDate}/>
-      <Button aria-label="Next food day" disabled={date>=current} onClick={()=>changeDate(shiftDate(date,1))}><ChevronRight size={18}/></Button>
-      <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
+    <header className="page-heading">
+      <div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time and move them between hours.</p></div>
+      <div className="page-heading-actions">
+        {entries.length>0&&!readOnly&&<Button variant="tertiary" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>Copy day</Button>}
+        <Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button>
+      </div>
+    </header>
+    <div className="food-diary-toolbar">
+      <div className="food-date-navigation">
+        <Button aria-label="Previous food day" disabled={date<='2000-01-01'} onClick={()=>changeDate(shiftDate(date,-1))}><ChevronLeft size={18}/></Button>
+        <DatePicker label="Food date" value={date} min="2000-01-01" max={current} onChange={changeDate}/>
+        <Button aria-label="Next food day" disabled={date>=current} onClick={()=>changeDate(shiftDate(date,1))}><ChevronRight size={18}/></Button>
+        <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
+      </div>
+      {date<current&&<div className="food-diary-toolbar-right">
+        <SelectField label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}>
+          <option value="incomplete">{count?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging</option><option value="fasting" disabled={total>0}>Fasting</option>
+        </SelectField>
+      </div>}
     </div>
     {history.error&&<div className="notice" role="status">{state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} {history.error} <Button onClick={history.retry}>Retry history</Button></div>}
     {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
@@ -58,9 +70,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
           const partial=!archived&&known.length>0&&known.length<entries.length;
           return <div key={key}><dt>{key[0].toUpperCase()+key.slice(1)}</dt><dd>{number(value)} g{partial?' · partial':''}</dd></div>;
         })}</dl>
-        {date<current&&<SelectField label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}>
-          <option value="incomplete">{count?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging</option><option value="fasting" disabled={total>0}>Fasting</option>
-        </SelectField>}
       </section>
       {readOnly?<section className="panel"><h2>Daily summary</h2><p>{count} food {count===1?'entry':'entries'}{count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}</p><p>Individual food details are no longer available. Detailed food history is kept for {state.detailDays??90} calendar days; previously summarized days remain read-only.</p></section>:<>
         <div className="food-timeline-toolbar">

@@ -57,6 +57,7 @@ export function LogFood({
   const [stepDirty,setStepDirty]=useState(false);
   const [tab,setTab]=useState(initialAi?'ai':'search');
   const [query,setQuery]=useState('');
+  const [showSavedSearch,setShowSavedSearch]=useState(false);
   const selectionRequest=useRef(0);
   const [detail,setDetail]=useState<{food:SearchResult;error?:string}|null>(null);
   useEffect(()=>{selectionRequest.current++;setDetail(null);return()=>{selectionRequest.current++;};},[open,step,tab,query]);
@@ -81,6 +82,7 @@ export function LogFood({
       setStepDirty(false);
       setTab(initialAi?'ai':'search');
       setQuery('');
+      setShowSavedSearch(false);
       setResults([]);
       setDraft(editing);
       setSaveFood(false);
@@ -113,6 +115,7 @@ export function LogFood({
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
   const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
   const selectTab=(next:string)=>{
+    setShowSavedSearch(false);
     setQuery('');setResults([]);setError('');setCamera(false);setTab(next);
     window.requestAnimationFrame(()=>selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'}));
   };
@@ -196,8 +199,17 @@ export function LogFood({
       <div className="actions">{detail.error&&<Button onClick={()=>void chooseSearch(detail.food)}>Retry serving lookup</Button>}<Button onClick={()=>choose(detail.food)}>Review using 100 g</Button></div>
     </div>}
     {tab==='saved'&&<>
-      <div className="section-heading"><div><h3>Your foods</h3><p>Saved foods and recent diary items.</p></div><div className="actions"><Button onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}>Custom food</Button><Button onClick={()=>go('recipe')}>New recipe</Button></div></div>
-      <Field id="log-food-search" name="query" data-modal-autofocus label="Find your food" value={query} onChange={event=>setQuery(event.target.value)}/>
+      <div className="section-heading">
+        <div><h3>Your foods</h3><p>Saved foods and recent diary items.</p></div>
+        <div className="actions">
+          <Button variant={showSavedSearch?'primary':'secondary'} onClick={()=>setShowSavedSearch(prev=>{if(prev)setQuery('');return !prev;})}>
+            <Search size={16}/>Search
+          </Button>
+          <Button onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}>Custom food</Button>
+          <Button onClick={()=>go('recipe')}>New recipe</Button>
+        </div>
+      </div>
+      {showSavedSearch&&<Field id="log-food-search" name="query" data-modal-autofocus label="Find your food" value={query} onChange={event=>setQuery(event.target.value)}/>}
       {foods.length===0&&<p className="empty">No saved foods yet.</p>}
       {foods.map(food=><div
         className="food-row interactive"
@@ -288,8 +300,8 @@ export function LogFood({
 
   const child=step==='batch'
     ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
-    :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onDirtyChange={setStepDirty}/>
-    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else if(editing){onSaved();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
+    :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
+    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);go('selection');}else if(editing){onClose();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor store={store} onClose={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :selection;
   const steps:FoodStep[]=['selection','quick','editor','recipe','batch'];

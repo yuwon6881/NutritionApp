@@ -14,6 +14,8 @@ export interface ModalProps {
   width?:ModalWidth;
   closeLabel?:string;
   restoreFocus?:HTMLElement|null;
+  preventDismiss?:boolean;
+  hideCloseButton?:boolean;
   /** Fires once after the close transition has completed. */
   onCloseComplete?:()=>void;
   className?:string;
@@ -41,6 +43,8 @@ export function Modal({
   width='md',
   closeLabel='Close dialog',
   restoreFocus,
+  preventDismiss=false,
+  hideCloseButton=false,
   onCloseComplete,
   className='',
   children,
@@ -170,10 +174,10 @@ export function Modal({
     aria-labelledby={titleId}
     aria-describedby={description?descriptionId:undefined}
     aria-modal="true"
-    onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else requestClose();}}
+    onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else if(!preventDismiss)requestClose();}}
     onPointerDownCapture={event=>{
       backdropPointer.current=null;backdropClick.current=false;clearDismissIntent();
-      if(confirming||!event.isPrimary||event.button!==0)return;
+      if(confirming||preventDismiss||!event.isPrimary||event.button!==0)return;
       const target=event.target;
       if(target===event.currentTarget)backdropPointer.current=event.pointerId;
       if(target instanceof Element&&(target===event.currentTarget||target.closest('[data-modal-dismiss]')))
@@ -193,7 +197,7 @@ export function Modal({
     }}
     onKeyDown={onKeyDown}
     onClick={event=>{
-      if(confirming)return;
+      if(confirming||preventDismiss)return;
       // A keyboard-activated button can bubble a synthetic click with no useful
       // pointer coordinates. Only the dialog backdrop itself dismisses here;
       // controls inside the surface own their click actions.
@@ -210,7 +214,7 @@ export function Modal({
             {description&&<p id={descriptionId}>{description}</p>}
           </div>
           {headerActions&&<div className="modal-header-actions">{headerActions}</div>}
-          <Button data-modal-dismiss variant="tertiary" size="icon" aria-label={closeLabel} onClick={requestClose}><X size={19}/></Button>
+          {!hideCloseButton&&<Button data-modal-dismiss variant="tertiary" size="icon" aria-label={closeLabel} onClick={requestClose}><X size={19}/></Button>}
         </header>
         <div className="modal-body">{children}</div>
       </div>
