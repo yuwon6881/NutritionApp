@@ -121,27 +121,3 @@ export function CoachNumber({children}:{children:ReactNode}){
   },[children,reduced]);
   return <span ref={node} className="coach-number">{children}</span>;
 }
-
-export function CoachDelta({value,unit='kcal'}:{value:number|null|undefined;unit?:string}){
-  const reduced=useReducedMotion();
-  const target=Math.round(value??0);
-  const [display,setDisplay]=useState(target);
-  const previous=useRef(target);
-  useEffect(()=>{
-    let frame=0;
-    const finish=()=>{previous.current=target;setDisplay(target);};
-    if(reduced){finish();return()=>{};}
-    const from=previous.current;const started=performance.now();
-    const tick=(now:number)=>{
-      const progress=Math.min((now-started)/360,1);const eased=1-Math.pow(1-progress,3);
-      setDisplay(Math.round(from+(target-from)*eased));
-      if(progress<1)frame=requestAnimationFrame(tick);else previous.current=target;
-    };
-    frame=requestAnimationFrame(tick);
-    return()=>{cancelAnimationFrame(frame);};
-  },[target,reduced]);
-  const sign=display>0?'+':'';const direction=display>0?'↑':display<0?'↓':'→';
-  return <span className={`coach-delta ${display>0?'positive':display<0?'negative':'neutral'}`} aria-label={`${sign}${display} ${unit}`}>
-    <span aria-hidden="true">{direction}</span> {sign}{display} {unit}
-  </span>;
-}

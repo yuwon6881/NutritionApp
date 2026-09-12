@@ -35,9 +35,9 @@ public sealed class NutritionAiTests
         Assert.Equal("Bearer shared-key", authorization);
         using var request = JsonDocument.Parse(requestBody!);
         Assert.Equal("test-model", request.RootElement.GetProperty("model").GetString());
-        Assert.Single(result.Draft.Foods);
-        Assert.Equal("medium banana", result.Draft.Foods[0].PortionLabel);
-        Assert.Equal(118, result.Draft.Foods[0].PortionGrams);
+        Assert.Single(result.Estimate.Foods);
+        Assert.Equal("medium banana", result.Estimate.Foods[0].PortionLabel);
+        Assert.Equal(118, result.Estimate.Foods[0].PortionGrams);
         Assert.Equal(0, result.InputTokens);
         Assert.Equal(0, result.OutputTokens);
     }
@@ -58,7 +58,7 @@ public sealed class NutritionAiTests
 
         var result = await new NutritionAi(client, config).Analyze("description", "Rice", null, default);
 
-        Assert.Empty(result.Draft.Foods);
+        Assert.Empty(result.Estimate.Foods);
         Assert.Equal(2, result.InputTokens);
         Assert.Equal(3, result.OutputTokens);
     }
@@ -66,7 +66,7 @@ public sealed class NutritionAiTests
     [Fact]
     public void Mismatched_optional_portion_fields_become_an_uncertainty_note_without_a_gram_basis()
     {
-        var normalized=NutritionAi.NormalizePortionMetadata(new AiDraft(
+        var normalized=NutritionAi.NormalizePortionMetadata(new AiEstimate(
             [new AiFood("Bread",1,"serving",120,4,2,20,null,"", "one slice", null)],
             [],
             "Review the estimate."));
@@ -79,18 +79,25 @@ public sealed class NutritionAiTests
     }
 
     [Fact]
-    public async Task Ambiguous_massimo_bread_returns_a_question_without_calling_the_provider()
+    public async Task Ambiguous_food_description_still_asks_the_provider_for_a_best_effort_estimate()
     {
         var calls=0;
-        using var client=new HttpClient(new Handler(_=>{calls++;return new HttpResponseMessage(HttpStatusCode.OK); }));
-        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>()).Build();
+        using var client=new HttpClient(new Handler(_=>{calls++;return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content=new StringContent("""
+                {"status":"completed","output":[{"content":[{"type":"output_text","text":"{\"foods\":[{\"name\":\"Massimo bread\",\"quantity\":1,\"unit\":\"serving\",\"portionLabel\":null,\"portionGrams\":null,\"calories\":250,\"protein\":null,\"fat\":null,\"carbs\":null,\"fiber\":null,\"notes\":\"Best-effort estimate from the description.\"}],\"questions\":[],\"explanation\":\"Estimated from the described food.\"}"}]}]}
+                """)
+        }; }));
+        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
+        {
+            ["OpenAi:ApiKey"]="shared-key"
+        }).Build();
 
         var result=await new NutritionAi(client,config).Analyze("description","one massimo bread",null,default);
 
-        Assert.Empty(result.Draft.Foods);
-        Assert.Single(result.Draft.Questions);
-        Assert.Contains("Massimo",result.Draft.Questions[0]);
-        Assert.Equal(0,calls);
+        Assert.Single(result.Estimate.Foods);
+        Assert.Empty(result.Estimate.Questions);
+        Assert.Equal(1,calls);
     }
 
     private sealed class Handler(Func<HttpRequestMessage,HttpResponseMessage> respond) : HttpMessageHandler

@@ -76,6 +76,7 @@ public sealed class FoodSearchTests
         var portion=Assert.Single(result.Portions!);
         Assert.Equal("375 g",portion.Label);
         Assert.Equal(375,portion.Grams);
+        Assert.Equal(382.5,result.ServingCalories);
     }
 
     [Fact]

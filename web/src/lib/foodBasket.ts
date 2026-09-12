@@ -36,7 +36,7 @@ export function lineFromPer100(item:Nutrients&{name:string;source:string;portion
   return portion?rescaleNutrients(line,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams}):line;
 }
 
-export function lineFromAi(food:AiFood,source='AI estimate · reviewed'):BasketLine{
+export function lineFromAi(food:AiFood,source='AI estimate'):BasketLine{
   return {
     key:lineKey(food.name,source),
     name:food.name,

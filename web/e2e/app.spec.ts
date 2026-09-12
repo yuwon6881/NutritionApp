@@ -164,7 +164,7 @@ test('explicit light and dark themes persist without following the browser',asyn
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();await page.getByLabel('Appearance',{exact:true}).selectOption('light');
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#fcfcfc');
 });
-test('changed food dialog asks before closing and keeps the draft',async({page,context})=>{
+test('changed food dialog asks before closing while AI input stays transient',async({page,context})=>{
   await signIn(context.request);await page.goto('/');const launcher=page.getByRole('button',{name:'Add entry'}).first();await launcher.click();
   await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Keep this draft');await page.getByRole('button',{name:'Close dialog'}).click();
@@ -174,9 +174,9 @@ test('changed food dialog asks before closing and keeps the draft',async({page,c
   const foodDialog=page.getByRole('dialog',{name:'Log food'});const box=await foodDialog.boundingBox();expect(box).not.toBeNull();await page.mouse.click(Math.max(1,box!.x-8),box!.y+8);
   await expect(page.getByText('Discard changes?',{exact:true})).toHaveCount(0);await expect(foodDialog).not.toBeVisible();await expect(launcher).toBeFocused();
   await launcher.click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'AI logging',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Resume estimate',exact:true})).toBeVisible({timeout:5000});await page.getByRole('button',{name:'Resume estimate',exact:true}).click();
-  await expect(page.getByRole('dialog',{name:'Resume estimate'})).toBeVisible();await expect(page.getByText(/Backdrop draft/)).toBeVisible();
-  await page.getByRole('button',{name:'Discard',exact:true}).click();await expect(page.getByRole('dialog',{name:'Resume estimate'})).not.toBeVisible();await page.getByRole('button',{name:'Close dialog',exact:true}).click();await expect(launcher).toBeFocused();
+  await expect(page.getByRole('button',{name:'Resume estimate',exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Meal description and portions')).toHaveValue('');
+  await page.getByRole('button',{name:'Close dialog',exact:true}).click();await expect(launcher).toBeFocused();
 });
 test('API idempotency, revisions, expiry-safe drafts and asset MIME protection',async({request})=>{
   await signIn(request);const state=await (await request.get('/api/state')).json();
@@ -247,7 +247,7 @@ test('weekly check-in is a reduced-motion-safe bottom sheet with focus restorati
   await launcher.click();
   const dialog=page.getByRole('dialog',{name:'Weekly check-in'});await expect(dialog).toBeVisible();
   const box=await dialog.boundingBox();expect(box).not.toBeNull();expect(Math.abs((box!.y+box!.height)-900)).toBeLessThanOrEqual(2);
-  await expect(dialog).toHaveCSS('transition-duration','0s');await expect(dialog.getByRole('button',{name:'Accept new targets'})).toBeVisible();
+  await expect(dialog).toHaveCSS('transition-duration','0s');await expect(dialog.getByRole('button',{name:'Accept',exact:true})).toBeVisible();await expect(dialog.getByRole('button',{name:'Decline',exact:true})).toBeVisible();
   await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(launcher).toBeFocused();
 });
 
@@ -303,7 +303,7 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Complete goal',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Weekly check-in'})).toBeVisible({timeout:25000});
-  await expect(page.getByRole('dialog',{name:'Weekly check-in'}).getByText('Maintenance',{exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('dialog',{name:'Weekly check-in'}).locator('[data-check-in-calorie]')).toBeVisible();
   await page.keyboard.press('Escape');
 });
 

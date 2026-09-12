@@ -50,6 +50,29 @@ async function openLog(page:import('@playwright/test').Page){
   await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log food'}).click();
 }
 const powder={name:'Protein powder with a deliberately long product name',source:'Open Food Facts / ODbL / 12345678',code:'12345678',servingGrams:100,calories:400,protein:80,carbs:null,fat:4,fiber:2};
+for(const theme of ['light','dark'])test(`${theme} large barcode controls stay aligned`,async({page,context})=>{
+  await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
+  await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
+  await openLog(page);await page.getByRole('button',{name:'Barcode',exact:true}).click();
+  const options=page.locator('.barcode-scan-options');
+  const mode=options.locator('.barcode-scan-mode');
+  const camera=options.getByRole('button',{name:'Scan barcode with camera',exact:true});
+  await expect(camera).toBeVisible();
+  const modeBox=(await mode.boundingBox())!,cameraBox=(await camera.boundingBox())!;
+  expect(cameraBox.x).toBeGreaterThanOrEqual(modeBox.x+modeBox.width);
+  expect(cameraBox.y).toBeLessThan(modeBox.y+modeBox.height);
+  expect(cameraBox.y+cameraBox.height).toBeGreaterThan(modeBox.y);
+  await page.screenshot({animations:'disabled',path:`artifacts/food-review/${theme}-1440-barcode.png`});
+});
+test('search results show declared serving calories and reuse them in review',async({page,context})=>{
+  await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
+  const served={...powder,portions:[{label:'scoop',grams:30}],servingCalories:120};let lookups=0;
+  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[served]}));
+  await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:served});});
+  await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('powder');await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  const row=page.locator('.food-row').first();await expect(row.locator('.food-description small')).toContainText('120 kcal / scoop (30 g)');
+  await row.click();await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');await expect(page.locator('.live-calorie-value')).toContainText('120');expect(lookups).toBe(0);
+});
 for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${theme} ${width}: serving review, batch header and actions`,async({page,context})=>{
   await context.addCookies(session.cookies);await page.setViewportSize({width,height:900});
   await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);

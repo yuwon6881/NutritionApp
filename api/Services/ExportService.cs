@@ -13,7 +13,8 @@ public sealed record ExportSettings(
     DateOnly? ChangedDate,
     string WeightUnit,
     string EnergyUnit,
-    string HeightUnit);
+    string HeightUnit,
+    string MissingDayAction = "ask");
 
 public sealed record ExportRetention(
     int DetailDays,
@@ -61,7 +62,7 @@ public sealed class ExportService(AppDb db, RetentionService retention)
             SchemaVersion: 3,
             ExportedAt: DateTime.UtcNow,
             Profile: profile,
-            Settings: new ExportSettings(user.CheckInWeekday, user.CoachingSettingsRevision, user.CoachingSettingsChangedDate, user.WeightUnit, user.EnergyUnit, user.HeightUnit),
+            Settings: new ExportSettings(user.CheckInWeekday, user.CoachingSettingsRevision, user.CoachingSettingsChangedDate, user.WeightUnit, user.EnergyUnit, user.HeightUnit, user.MissingDayAction ?? "ask"),
             Retention: new ExportRetention(detailDays, detailCutoff, [
                 "Meal detail before detailCutoff is removed by scheduled retention compaction.",
                 "Archived days retain daily totals; deleted meal detail cannot be restored.",
@@ -121,6 +122,7 @@ public sealed class ExportService(AppDb db, RetentionService retention)
                 ("weight_unit", user.WeightUnit),
                 ("energy_unit", user.EnergyUnit),
                 ("height_unit", user.HeightUnit),
+                ("missing_day_action", user.MissingDayAction ?? "ask"),
                 ("profile_json", user.ProfileJson.Length == 0 ? null : user.ProfileJson)
             };
             foreach (var row in rows) await writer.WriteAsync(Csv.Line(Csv.Field(row.Key), Csv.Field(row.Value)));

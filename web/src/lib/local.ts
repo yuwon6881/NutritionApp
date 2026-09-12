@@ -5,3 +5,11 @@ function database(){return connection??=new Promise<IDBDatabase>((resolve,reject
 });}
 export async function readLocal(user:string):Promise<LocalData|undefined>{const db=await database();return new Promise((resolve,reject)=>{const request=db.transaction('accounts').objectStore('accounts').get(user);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
 export async function saveLocal(user:string,data:LocalData){const db=await database();return new Promise<void>((resolve,reject)=>{const tx=db.transaction('accounts','readwrite');tx.objectStore('accounts').put(data,user);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('Local save aborted.'));});}
+
+/** Remove the retired client-side AI scan records when an older cache is reopened. */
+export function stripLegacyScanDrafts(data:LocalData):LocalData{
+  if(!Object.prototype.hasOwnProperty.call(data,'scans'))return data;
+  const current={...data} as LocalData&{scans?:unknown};
+  delete current.scans;
+  return current;
+}

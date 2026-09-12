@@ -2,7 +2,7 @@ import {Form} from './ui/Form';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Search,ScanBarcode,Sparkles,Plus,Star} from 'lucide-react';
 import type {Nourish} from '../useNourish';
-import type {Entry,Food,ScanDraft} from '../types';
+import type {AiEstimate,Entry,Food} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {api} from '../lib/api';
@@ -27,6 +27,8 @@ import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
 type SearchResult=import('../types').FoodSearchResult;
 type FoodStep='selection'|'quick'|'editor'|'recipe'|'batch';
+type AiMode='photo'|'label'|'description';
+type AiJob={id:string;status:string;resultJson?:string|null;error?:string|null};
 
 export function LogFood({
   open,
@@ -62,13 +64,8 @@ export function LogFood({
   const [draft,setDraft]=useState<Partial<Entry>|undefined>(editing);
   const [saveFood,setSaveFood]=useState<Food|true|false>(false);
   const [description,setDescription]=useState('');
-  const [mode,setMode]=useState<ScanDraft['mode']>('description');
+  const [mode,setMode]=useState<AiMode>('description');
   const [photo,setPhoto]=useState<string|null>(null);
-  const [activeScanId,setActiveScanId]=useState<string>();
-  const [scanDraftId,setScanDraftId]=useState<string>();
-  const [scanPickerOpen,setScanPickerOpen]=useState(false);
-  const [scanStatusOpen,setScanStatusOpen]=useState(false);
-  const [scanBatchAfterClose,setScanBatchAfterClose]=useState(false);
   const [error,setError]=useState('');
   const [batchTime,setBatchTime]=useState<string|undefined>(undefined);
   const {busy,run:runAction}=useAsyncAction();
@@ -90,11 +87,6 @@ export function LogFood({
       setDescription('');
       setMode('description');
       setPhoto(null);
-       setActiveScanId(undefined);
-       setScanDraftId(undefined);
-       setScanPickerOpen(false);
-       setScanStatusOpen(false);
-       setScanBatchAfterClose(false);
       setError('');
       setCamera(false);
       setBatchTime(undefined);
@@ -118,40 +110,6 @@ export function LogFood({
     return()=>window.cancelAnimationFrame(frame);
   },[open,step,tab]);
 
-  useEffect(()=>{
-    if(!open||tab!=='ai'||!activeScanId)return;
-    const scan=store.local?.scans.find(item=>item.id===activeScanId);
-    if(!scan)return;
-    if(scan.result?.foods.length&&!basket.scanIds.includes(scan.id)){
-      basket.addAiFoods(scan.id,scan.result.foods,scan.mode==='label'?'AI label estimate':'AI estimate');
-      setDescription('');setPhoto(null);setScanDraftId(undefined);setActiveScanId(undefined);setScanStatusOpen(false);
-      if(step==='selection')setScanBatchAfterClose(true);
-      return;
-    }
-    setScanStatusOpen(true);
-  },[open,tab,step,activeScanId,store.local?.scans,basket]);
-
-  const persistAiDraft=()=>{
-    if(!open||tab!=='ai'||step!=='selection')return;
-    const hasInput=mode==='description'?Boolean(description.trim()):Boolean(photo);
-    if(!hasInput)return;
-    const id=scanDraftId??crypto.randomUUID();
-    const existing=scanDraftId?store.local?.scans.find(scan=>scan.id===scanDraftId):undefined;
-    // A completed question or failed request is an immutable submitted job.
-    // Keep it available so submitScan can create a new id and preserve the
-    // original description instead of overwriting the server request hash.
-    if(existing?.submitted&& (existing.result||existing.error||existing.jobId))return;
-    if(!scanDraftId)setScanDraftId(id);
-    void store.saveScanDraft({id,mode,description,imageBase64:mode==='description'?null:photo});
-  };
-  useEffect(()=>{
-    if(!open||tab!=='ai'||step!=='selection')return;
-    const hasInput=mode==='description'?Boolean(description.trim()):Boolean(photo);
-    if(!hasInput)return;
-    const timer=window.setTimeout(persistAiDraft,250);
-    return()=>window.clearTimeout(timer);
-  },[open,tab,step,mode,description,photo,scanDraftId]);
-
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
   const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
   const selectTab=(next:string)=>{
@@ -160,12 +118,27 @@ export function LogFood({
   };
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   const close=()=>{
-    persistAiDraft();
     if(step!=='selection'&&!editing&&!basket.lines.length){
       go('selection');
       return;
     }
     onClose();
+  };
+  const submitAiEstimate=async()=>{
+    const id=crypto.randomUUID();
+    let job=await api<AiJob>('/scans',{
+      id,
+      mode,
+      description:mode==='description'?description:'',
+      imageBase64:mode==='description'?null:photo,
+    });
+    if(job.status==='queued'||job.status==='processing')job=await api<AiJob>('/scans/'+job.id+'/process',{});
+    if(job.status!=='complete'||!job.resultJson)throw new Error(job.error??'AI could not estimate this meal. Try again.');
+    let estimate:AiEstimate;
+    try{estimate=JSON.parse(job.resultJson) as AiEstimate;}catch{throw new Error('AI returned an invalid estimate. Try again.');}
+    if(!Array.isArray(estimate.foods)||estimate.foods.length===0)throw new Error(estimate.explanation||'AI could not identify a food. Add more detail and try again.');
+    basket.addAiFoods(estimate.foods,mode==='label'?'AI label estimate':'AI estimate');
+    setDescription('');setPhoto(null);go('batch');
   };
   const log=async(data:FoodDraft)=>{
     if(saveFood){
@@ -207,34 +180,6 @@ export function LogFood({
   const foods=store.state!.foods.filter(food=>!food.deleted&&food.name.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
   const recentEntries=store.state!.entries.filter(entry=>!entry.deleted).slice(-8).reverse();
   const selectionDirty=Boolean(basket.lines.length);
-  const scanDrafts=(store.local?.scans??[]).filter(scan=>!basket.scanIds.includes(scan.id));
-  const activeScan=activeScanId?store.local?.scans.find(scan=>scan.id===activeScanId):undefined;
-  const discardScan=async(id:string)=>{
-    await store.removeScan(id);
-    if(scanPickerOpen)setScanPickerOpen(false);
-    if(scanDraftId===id){setScanDraftId(undefined);setDescription('');setPhoto(null);}
-    if(activeScanId===id){setActiveScanId(undefined);setScanStatusOpen(false);}
-  };
-  const resumeScan=(scan:ScanDraft)=>{
-    setScanPickerOpen(false);setScanDraftId(scan.id);setMode(scan.mode);setDescription(scan.description);setPhoto(scan.imageBase64);
-    if(scan.submitted!==false||scan.result||scan.error){setActiveScanId(scan.id);setScanStatusOpen(true);}
-  };
-  const submitScan=async()=>{
-    const previous=scanDraftId?store.local?.scans.find(scan=>scan.id===scanDraftId):undefined;
-    const isAnswer=Boolean(previous?.submitted&&previous.result&&!previous.result.foods.length);
-    const id=isAnswer?crypto.randomUUID():(scanDraftId??crypto.randomUUID());
-    const submittedDescription=isAnswer&&previous&&description.trim()!==previous.description.trim()
-      ?`${previous.description}\nClarification: ${description.trim()}`
-      :description;
-    setScanDraftId(id);setActiveScanId(id);setScanStatusOpen(true);
-    await store.submitScan({id,mode,description:submittedDescription,imageBase64:mode==='description'?null:photo,submitted:true});
-  };
-  const consumeScan=()=>{
-    const scan=activeScan;
-    if(!scan?.result?.foods.length)return;
-    if(!basket.scanIds.includes(scan.id))basket.addAiFoods(scan.id,scan.result.foods,scan.mode==='label'?'AI label estimate':'AI estimate');
-    setDescription('');setPhoto(null);setScanDraftId(undefined);setActiveScanId(undefined);setScanBatchAfterClose(true);setScanStatusOpen(false);
-  };
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
   const descriptionText=step==='selection'?`For ${date}`:undefined;
 
@@ -330,13 +275,13 @@ export function LogFood({
       step={step}
       energyUnit={energyUnit}
     />}
-    {tab==='ai'&&<Form onSubmit={()=>void run(submitScan)}>
+    {tab==='ai'&&<Form onSubmit={()=>void run(submitAiEstimate)} className="ai-logging-form">
       <h3>AI logging</h3>
-      <SelectField id="ai-log-mode" name="mode" disabled={busy} label="How would you like to log?" value={mode} onChange={value=>{setMode(value as ScanDraft['mode']);setPhoto(null);}}><option value="description">Describe my meal</option><option value="photo">Meal photo</option><option value="label">Nutrition label</option></SelectField>
+      <SelectField id="ai-log-mode" name="mode" disabled={busy} label="How would you like to log?" value={mode} onChange={value=>{setMode(value as AiMode);setPhoto(null);}}><option value="description">Describe my meal</option><option value="photo">Meal photo</option><option value="label">Nutrition label</option></SelectField>
       <TextArea id="ai-meal-description" name="description" disabled={busy} required={mode==='description'} label="Meal description and portions" maxLength={3000} value={description} onChange={event=>setDescription(event.target.value)} placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"/>
       {mode!=='description'&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';setPhoto(null);if(file){void run(async()=>setPhoto(await prepareImage(file)));}}}/>}
       {photo&&mode!=='description'&&<p className="notice">Location metadata removed · deleted after processing.</p>}
-      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit"><Sparkles size={18}/>{busy?'Saving estimate…':mode==='label'?'Read nutrition label':'Estimate my meal'}</Button>{scanDrafts.length>0&&<Button type="button" variant="tertiary" size="sm" onClick={()=>setScanPickerOpen(true)}>Resume estimate</Button>}{(description.trim()||photo||scanDraftId)&&<Button type="button" variant="tertiary" size="sm" onClick={()=>void (scanDraftId?discardScan(scanDraftId):(setDescription(''),setPhoto(null)))}>Discard draft</Button>}</div>
+      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit"><Sparkles size={18}/>{busy?'Estimating…':mode==='label'?'Read nutrition label':'Estimate my meal'}</Button></div>
     </Form>}
     {error&&<p className="error" role="alert">{error}</p>}
   </div>;
@@ -354,23 +299,7 @@ export function LogFood({
   const animatedChild=<MotionPanel motionKey={step} direction={stepDirection}>{child}</MotionPanel>;
 
   const content=!history.state?<div className="dialog-step"><p role="status" aria-busy="true">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
-  const closeScanStatus=()=>{setScanBatchAfterClose(false);setScanStatusOpen(false);setActiveScanId(undefined);};
-  const finishScanStatusClose=()=>{if(scanBatchAfterClose){setScanBatchAfterClose(false);setStep('batch');}};
   return <>
     <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}>Batch · {basket.lines.length}</Button>:undefined} dirty={stepDirty||selectionDirty} width="lg" className="food-modal">{content}</Modal>
-    <Modal open={scanPickerOpen} onClose={()=>setScanPickerOpen(false)} title="Resume estimate" description="Choose a retained draft or estimate to continue." width="md">
-      <div className="scan-draft-list">
-        {scanDrafts.map(scan=>{
-          const status=scan.submitted===false?'Unfinished draft':scan.result?(scan.result.foods.length?'Ready to review':'Clarification needed'):scan.error?'Needs retry':'Processing';
-          return <div className="scan-draft-row" key={scan.id}><div><strong>{scan.mode==='label'?'Nutrition label':scan.mode==='photo'?'Meal photo':'Meal description'}</strong><small>{status}{scan.description?` · ${scan.description}`:''}</small></div><div className="actions"><Button size="sm" onClick={()=>resumeScan(scan)}>{scan.result?.foods.length?'Review estimate':'Resume estimate'}</Button><Button size="sm" variant="tertiary" onClick={()=>void discardScan(scan.id)}>Discard</Button></div></div>;
-        })}
-      </div>
-    </Modal>
-    <Modal open={scanStatusOpen&&Boolean(activeScan)} onClose={closeScanStatus} onCloseComplete={finishScanStatusClose} title={activeScan?.result?.foods.length?'Estimate ready':activeScan?.result?'Clarification needed':'Estimating food…'} description="This estimate remains a draft until you review and log the batch." width="md">
-      {activeScan?.error&&<div className="scan-status-content"><p className="error" role="alert">{activeScan.error}</p>{activeScan.description&&<p className="source">Original description: {activeScan.description}</p>}<div className="modal-actions"><Button variant="primary" onClick={async()=>{const next=await store.retryScan(activeScan.id);setScanDraftId(next);setActiveScanId(next);setScanStatusOpen(true);}}>Retry estimate</Button><Button variant="destructive" onClick={()=>void discardScan(activeScan.id)}>Discard estimate</Button></div></div>}
-      {activeScan&&!activeScan.error&&!activeScan.result&&<div className="scan-status-content"><p role="status" aria-busy="true">{navigator.onLine?'The estimate is being prepared. You can close this window; the retained draft will not interrupt another tab.':'You are offline. The description or image is retained and will resume when you reconnect.'}</p><div className="modal-actions"><Button variant="secondary" onClick={closeScanStatus}>Close</Button></div></div>}
-      {activeScan?.result&&!activeScan.result.foods.length&&<div className="scan-status-content"><p className="notice" role="status">No food was added yet. Answer the clarification in the original description, then submit again.</p>{activeScan.result.questions.length>0&&<ul>{activeScan.result.questions.map((question,index)=><li key={index}>{question}</li>)}</ul>}<p className="source">{activeScan.result.explanation}</p><div className="modal-actions"><Button variant="primary" onClick={()=>{setActiveScanId(undefined);setScanStatusOpen(false);setTab('ai');setStep('selection');}}>Edit description</Button><Button variant="destructive" onClick={()=>void discardScan(activeScan.id)}>Discard estimate</Button></div></div>}
-      {activeScan?.result?.foods.length&&<div className="scan-status-content"><p role="status">The estimate is ready as editable batch food. No diary entry has been written.</p><div className="modal-actions"><Button variant="primary" onClick={consumeScan}>Review estimate</Button><Button variant="secondary" onClick={closeScanStatus}>Close</Button></div></div>}
-    </Modal>
   </>;
 }

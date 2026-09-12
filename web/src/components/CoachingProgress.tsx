@@ -48,7 +48,6 @@ export function CoachingProgress({store}:{store:Nourish}){
         <text x={chart.left} y="220">{start}</text><text x={chart.right} y="220" textAnchor="end">{end}</text>
       </svg>
       <p className="chart-key"><span className="chart-key-maintenance">Maintenance</span> · <span className="chart-key-goal">Provisional goal</span> · <span className="chart-key-accepted">Accepted target</span></p>
-      <details><summary>Trajectory values as a table</summary><div className="table-scroll"><table><thead><tr><th>Date</th><th>Maintenance</th><th>Provisional goal</th><th>Accepted target</th><th>Evidence</th></tr></thead><tbody>{points.map(point=><tr key={point.date}><td>{point.date}</td><td>{displayEnergy(point.expenditure,units.energy)} {energyUnit}</td><td>{point.suggestedCalories==null?'Unknown':`${displayEnergy(point.suggestedCalories,units.energy)} ${energyUnit}`}</td><td>{displayEnergy(acceptedFor(point.date),units.energy)} {energyUnit}</td><td>{point.holdReason??`${Math.round(point.confidence*100)}% confidence`}</td></tr>)}</tbody></table></div></details>
     </>}
   </section>;
 }

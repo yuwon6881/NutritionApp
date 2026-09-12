@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {Camera, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api} from '../lib/api';
+import {number} from '../lib/format';
 import {outstanding,etaSeconds,waitMs} from '../lib/scanQueue';
 import type {FoodBasketHook} from '../useFoodBasket';
 import {Button} from './ui/Button';
@@ -12,6 +13,13 @@ import {BarcodeCamera} from './BarcodeCamera';
 import {displayEnergy,energyLabel} from '../lib/units';
 
 type SearchResult = import('../types').FoodSearchResult;
+
+function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit){
+  const serving=result.portions?.[0];
+  if(!serving)return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
+  const calories=result.servingCalories??result.calories*serving.grams/100;
+  return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${serving.label} (${number(serving.grams,1)} g)`;
+}
 
 export interface FoodPickerProps {
   tab:'search'|'barcode';
@@ -170,7 +178,7 @@ export function FoodPicker({
       >
         <div className="food-description">
           <strong>{result.name}</strong>
-          <small>{displayEnergy(result.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {result.source}</small>
+          <small>{nutritionSummary(result,energyUnit)} · {result.source}</small>
         </div>
         <Button
           variant="tertiary"

@@ -2,6 +2,7 @@ import {Form,FieldFrame} from './ui/Form';
 import {useEffect,useRef,useState} from 'react';
 import type {Nutrients} from '../types';
 import type {Nourish} from '../useNourish';
+import {ArrowLeft} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {api} from '../lib/api';
@@ -39,7 +40,7 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
       <Field id="recipe-search" name="query" label="Search ingredients" required minLength={2} maxLength={100} value={query} onChange={event=>setQuery(event.target.value)} action={<Button type="submit" disabled={busy}>Search</Button>}/>
     </Form>}
     {ingredientStep==='recipe'&&<div className="recipe-search-results">{[...results,...foods.filter(food=>query.trim()&&food.name.toLowerCase().includes(query.toLowerCase()))].map((food,index)=><Button key={index} onClick={()=>{setSelected(food);setQuery('');setResults([]);setIngredientStep('quantity');}}>{food.name}</Button>)}</div>}
-    {ingredientStep==='quantity'&&selected&&<section className="recipe-quantity-step" aria-labelledby="recipe-quantity-title"><div className="section-heading"><div><h3 id="recipe-quantity-title">Set ingredient quantity</h3><p>{selected.name}</p></div><Button type="button" variant="tertiary" onClick={()=>{setSelected(undefined);setIngredientStep('recipe');}}>Back to recipe</Button></div><Form onSubmit={()=>{setItems(current=>[...current,{food:selected,grams}]);setSelected(undefined);setGrams(100);setIngredientStep('recipe');}}>
+    {ingredientStep==='quantity'&&selected&&<section className="recipe-quantity-step" aria-labelledby="recipe-quantity-title"><div className="section-heading"><div><h3 id="recipe-quantity-title">Set ingredient quantity</h3><p>{selected.name}</p></div><Button type="button" variant="tertiary" className="subpage-back-button" onClick={()=>{setSelected(undefined);setIngredientStep('recipe');}}><ArrowLeft size={16} aria-hidden="true"/>Back to recipe</Button></div><Form onSubmit={()=>{setItems(current=>[...current,{food:selected,grams}]);setSelected(undefined);setGrams(100);setIngredientStep('recipe');}}>
       <Field id="recipe-ingredient-grams" name="grams" required label="Ingredient grams" type="number" min="0.1" max="100000" step="any" value={grams} onChange={event=>setGrams(Number(event.target.value))}/>
       <Button type="submit">Add ingredient</Button>
     </Form></section>}

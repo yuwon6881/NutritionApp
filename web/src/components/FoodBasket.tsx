@@ -63,9 +63,6 @@ export function FoodBasket({
       await run(async()=>{
         const entries=basketEntries(basket.lines,{date,time});
         await store.logEntries(entries);
-        for(const scanId of basket.scanIds){
-          await store.removeScan(scanId);
-        }
         basket.clear();
       });
       onSaved();
@@ -96,7 +93,6 @@ export function FoodBasket({
       </small>)}
     </div>
 
-    {basket.scanIds.map(id=>store.local?.scans.find(scan=>scan.id===id)).filter(scan=>scan?.result).map(scan=><details key={scan!.id} className="source"><summary>AI estimate notes</summary>{scan!.result!.questions.map((question,index)=><p key={index}>{question}</p>)}{scan!.result!.foods.filter(food=>food.notes).map((food,index)=><p key={index}>{food.name}: {food.notes}</p>)}</details>)}
     <Form onSubmit={submitBatch}>
       <TimePicker id="batch-time" name="time" label="Meal time" required dataModalAutofocus value={time} onChange={value=>{setTime(value);onTimeChange?.(value);}}/>
 

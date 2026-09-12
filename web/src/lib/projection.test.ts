@@ -15,9 +15,9 @@ it('keeps a settings change coalesced during its in-flight write',()=>{
 it('never sends local error metadata as mutation content',()=>{const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'};expect(wireMutation(op)).not.toHaveProperty('error');});
 it('projects cadence edits without changing the active profile revision',()=>{
   const withPlan={...state,profileRevision:7,settings:{checkInWeekday:1,revision:4}};
-  const op:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:4,delete:false,data:{checkInWeekday:5}};
+  const op:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:4,delete:false,data:{checkInWeekday:5,missingDayAction:'fasting'}};
   const result=project(withPlan,[op]);
-  expect(result.settings).toEqual({checkInWeekday:5,revision:4});
+  expect(result.settings).toEqual({checkInWeekday:5,revision:4,missingDayAction:'fasting'});
   expect(result.profileRevision).toBe(7);
   expect(result.plans).toEqual(withPlan.plans);
 });

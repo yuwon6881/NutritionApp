@@ -41,6 +41,7 @@ function detailsOf(operation:Mutation){
       {settings.weightUnit!==undefined&&<div><dt>Weight display</dt><dd>{settings.weightUnit==='lb'?'Pounds (lb)':'Kilograms (kg)'}</dd></div>}
       {settings.energyUnit!==undefined&&<div><dt>Energy display</dt><dd>{settings.energyUnit==='kj'?'Kilojoules (kJ)':'Kilocalories (kcal)'}</dd></div>}
       {settings.heightUnit!==undefined&&<div><dt>Height display</dt><dd>{settings.heightUnit==='ft-in'?'Feet / inches':'Centimetres (cm)'}</dd></div>}
+      {settings.missingDayAction!==undefined&&<div><dt>Unlogged days</dt><dd>{settings.missingDayAction==='fasting'?'Default to fasting':settings.missingDayAction==='not_logged'?'Default to not logging':'Ask each time'}</dd></div>}
     </dl>;
   }
   const values=[

@@ -28,6 +28,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<AppUser>().HasIndex(x => x.Slot).IsUnique();
         m.Entity<AppUser>().Property(x => x.Username).HasMaxLength(80);
         m.Entity<AppUser>().Property(x => x.CheckInWeekday).HasDefaultValue(1);
+        m.Entity<AppUser>().Property(x => x.MissingDayAction).HasDefaultValue("ask");
         m.Entity<Food>().Property(x => x.PortionsJson).HasDefaultValue("[]");
         m.Entity<Session>().HasKey(x => x.Hash);
         m.Entity<Session>().HasIndex(x => x.Expires);

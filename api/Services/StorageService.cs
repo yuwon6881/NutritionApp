@@ -41,7 +41,7 @@ public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageSto
         foreach(var scan in candidates)
         {
             if(scan.LeaseUntil>now) continue;
-            try { await images.Delete(scan.ObjectPath!,ct); scan.ObjectPath=null; if(scan.Status is "queued" or "uploading" or "processing") { scan.Status="failed";scan.Error="Scan expired. Resubmit your local draft."; } count++; }
+            try { await images.Delete(scan.ObjectPath!,ct); scan.ObjectPath=null; if(scan.Status is "queued" or "uploading" or "processing") { scan.Status="failed";scan.Error="Scan expired. Try again."; } count++; }
             catch(DomainException) { /* Keep the durable path so the next scheduler call retries. */ }
         }
         await db.SaveChangesAsync(ct);

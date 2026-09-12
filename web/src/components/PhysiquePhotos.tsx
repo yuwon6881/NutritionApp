@@ -1,16 +1,18 @@
 import {useCallback,useEffect,useRef,useState,type ChangeEvent, type FormEvent} from 'react';
+import {ArrowLeft,Camera,Scale} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {BodyDraft,BodyMeasurementKey,BodyPage,BodyRecord,BodyWeightContext,PhysiqueAngle,PhysiquePhoto,PhysiquePhotoPage,PhysiquePhotoSet} from '../types';
 import {api} from '../lib/api';
 import {number,today} from '../lib/format';
 import {Button} from './ui/Button';
+import {Checkbox} from './ui/Checkbox';
 import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {PhotoUploadDialog} from './PhotoUploadDialog';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {Form} from './ui/Form';
 import {DatePicker} from './ui/DatePicker';
-import {Field,SelectField} from './ui/Field';
+import {Field} from './ui/Field';
 import {FileInput} from './ui/FileInput';
 import {prepareImage} from '../lib/image';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
@@ -134,7 +136,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   const bodyDrafts=store.local?.bodyDrafts??[];
   const viewer=page==='viewer';
   if(page==='history')return <>
-    <header className="page-heading photo-view-heading"><div><Button variant="tertiary" onClick={closeHistory}>Back to Body</Button><h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
+    <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeHistory}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
     {bodyError&&<p className="notice" role="status">{bodyError} <Button onClick={()=>void loadBodyPage(!bodyRecords.length)}>Retry history</Button></p>}
     <section className="panel body-history-panel">
       <div className="section-heading"><div><h2>Measurements and photos</h2><p>Records are ordered by date. Weight attachments are server snapshots.</p></div><Button variant="secondary" disabled={!bodyRecords.length} onClick={openBodyCompare}>Compare</Button></div>
@@ -149,14 +151,14 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   if(page==='body-viewer'){
     const current=bodyRecords[bodyViewerIndex];
     return <>
-      <header className="page-heading photo-view-heading"><div><Button variant="tertiary" onClick={()=>setPage('history')}>Back to Body history</Button><h2>Body record</h2></div><Button variant="secondary" onClick={event=>openBodyEditor(current,event.currentTarget)}>Edit record</Button></header>
+      <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={()=>setPage('history')}><ArrowLeft size={16} aria-hidden="true"/>Back to Body history</Button><h2>Body record</h2></div><Button variant="secondary" onClick={event=>openBodyEditor(current,event.currentTarget)}>Edit record</Button></header>
       {current&&<BodyRecordViewer record={current} previous={bodyRecords[bodyViewerIndex+1]} angle={bodyViewerAngle} onAngle={setBodyViewerAngle} weightUnit={unitsFor(store.state!.settings).weight}/>}
       <div className="modal-actions body-history-nav"><Button variant="secondary" disabled={bodyViewerIndex===0} onClick={goBodyNewer}>Newer record</Button><Button variant="secondary" disabled={bodyViewerIndex===bodyRecords.length-1} onClick={goBodyOlder}>Older record</Button></div>
     </>;
   }
 
   if(page==='gallery')return <>
-    <header className="page-heading photo-view-heading"><div><Button variant="tertiary" onClick={closeGallery}>Back to Body</Button><h2>Gallery</h2></div><Button variant="primary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button></header>
+    <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeGallery}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Gallery</h2></div><Button variant="primary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button></header>
     {error&&<p className="notice" role="status">{error} <Button onClick={()=>void loadPage(!sets.length)}>Retry gallery</Button></p>}
     <section className="panel physique-gallery-panel">
       <div className="section-heading"><div><h2>Compare</h2><p>Newest sets appear first. Missing views stay missing.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}>Compare</Button></div>
@@ -173,7 +175,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
     const photo=current?.photos.find(item=>item.angle===viewerAngle);
     const adjacent=viewerIndex>0?sets[viewerIndex-1]:sets[viewerIndex+1];
     return <>
-      <header className="page-heading photo-view-heading"><div><Button variant="tertiary" onClick={()=>{setPage('gallery');}}>Back to Gallery</Button><h2>Compare photos</h2></div></header>
+      <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={()=>{setPage('gallery');}}><ArrowLeft size={16} aria-hidden="true"/>Back to Gallery</Button><h2>Compare photos</h2></div></header>
       {current&&<section className="panel photo-viewer-panel"><div className="section-heading"><div><h2>{current.date}</h2><p>Set {viewerIndex+1} of {sets.length}{hasMore?' · More older sets available':''}</p></div></div>
         <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={viewerAngle} onChange={setViewerAngle} options={angles.map(angle=>({value:angle,label:angleLabel(angle)}))}/>
         <div className="photo-viewer-image">{photo?<img src={`/api/photos/${photo.id}/content`} alt={`${angleLabel(viewerAngle)} physique photo from ${current.date}`}/>:<div className="photo-slot-empty"><strong>{angleLabel(viewerAngle)}</strong><span>Not uploaded</span></div>}</div>
@@ -184,10 +186,37 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   }
 
   return <>
-    <section className="panel physique physique-photo-home"><div className="section-heading"><div><h2>Body</h2><p>Measurements, weight snapshots, and private progress views.</p></div></div>
-      <div className="actions photo-home-actions"><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button><Button variant="secondary" onClick={openHistory}>Open history</Button><Button variant="tertiary" onClick={openGallery}>Open gallery</Button><Button variant="tertiary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button></div>
-      {loaded&&<p className="source">{sets.length} legacy photo {sets.length===1?'set':'sets'} loaded · {number((store.local?.photoDrafts?.length??0))} retained upload{drafts.length===1?'':'s'}</p>}
-      {!store.local?.photoDrafts?.length&&!bodyDrafts.length&&<p className="source">Retained entries and upload status appear here when a connection is unavailable.</p>}
+    <section className="panel physique physique-photo-home"><div className="section-heading"><div><h2>Body tracking & progress</h2><p>Measurements, circumference tracking, weight context, and private physique photos.</p></div></div>
+      <div className="body-hub-grid">
+        <article className="body-hub-card">
+          <div className="body-hub-card-header">
+            <div className="body-hub-icon-wrap" aria-hidden="true"><Scale size={20}/></div>
+            <div>
+              <h3>Measurements & records</h3>
+              <p>Track circumference across core, arms, and legs alongside body fat and server weight snapshots.</p>
+            </div>
+          </div>
+          <div className="body-hub-card-footer">
+            <Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button>
+            <Button variant="secondary" onClick={openHistory}>Open history</Button>
+          </div>
+        </article>
+        <article className="body-hub-card">
+          <div className="body-hub-card-header">
+            <div className="body-hub-icon-wrap" aria-hidden="true"><Camera size={20}/></div>
+            <div>
+              <h3>Physique photos & gallery</h3>
+              <p>Private front, side, and back visual progress with historical comparison timeline.</p>
+            </div>
+          </div>
+          <div className="body-hub-card-footer">
+            <Button variant="secondary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button>
+            <Button variant="secondary" onClick={openGallery}>Open gallery</Button>
+          </div>
+        </article>
+      </div>
+      {loaded&&<p className="source body-hub-status">{sets.length} legacy photo {sets.length===1?'set':'sets'} loaded · {number((store.local?.photoDrafts?.length??0))} retained upload{drafts.length===1?'':'s'}</p>}
+      {!store.local?.photoDrafts?.length&&!bodyDrafts.length&&<p className="source body-hub-status">Retained entries and upload status appear here when a connection is unavailable.</p>}
     </section>
     {drafts.map(draft=><div className="notice" key={draft.id}><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>)}
     {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}
@@ -306,11 +335,32 @@ function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRecordDia
   };
   return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} title={record?'Edit Body record':'Add Body record'} description="Measurements are stored in centimetres. Weight context is captured once by the server and remains reviewable." dirty={dirty} width="xl">
     <Form onSubmit={save} className="dialog-form body-record-form">
-      <div className="body-record-form-top"><DatePicker id="body-date" name="date" min="2000-01-01" max={current} required label="Record date" value={date} onChange={setDate}/><SelectField label="Circumference unit" value={unit} onChange={value=>setUnit(value as 'cm'|'in')}><option value="cm">Centimetres (cm)</option><option value="in">Inches (in)</option></SelectField></div>
-      {measurementGroups.map(([group,keys])=><fieldset className="body-measurement-fields" key={group}><legend>{group}</legend><div className="body-field-grid">{keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={measurementLabel(key)+' ('+unit+')'} value={values[key]===''?'':unit==='cm'?values[key]:String(Number(values[key])/2.54)} onChange={event=>{const raw=event.currentTarget.value;setValues(currentValues=>({...currentValues,[key]:raw===''?'':String(toCm(Number(raw),unit))}));}}/>)}</div></fieldset>)}
-      <fieldset className="body-measurement-fields"><legend>Composition</legend><div className="body-field-grid"><Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={event=>setValues(currentValues=>({...currentValues,bodyFatPercent:event.currentTarget.value}))}/></div></fieldset>
-      <fieldset className="body-measurement-fields body-context-fields"><legend>Weight context</legend><p className="source">Captured when this record is saved. Missing values stay unavailable.</p><label className="body-context-option"><input type="checkbox" checked={omitScale} onChange={event=>setOmitScale(event.currentTarget.checked)}/> Omit scale snapshot</label><label className="body-context-option"><input type="checkbox" checked={omitTrend} onChange={event=>setOmitTrend(event.currentTarget.checked)}/> Omit trend snapshot</label></fieldset>
-      <div className="body-photo-fields"><h3>Photos</h3><p className="source">Optional. Replace or remove one view without changing the other angles.</p><div className="physique-upload-grid">{slots.map(slot=>{const preview=slot.imageBase64?'data:image/jpeg;base64,'+slot.imageBase64:slot.existing&&!slot.deleted?'/api/photos/'+slot.existing.id+'/content':undefined;return <section className="physique-upload-slot" key={slot.angle}><div className="physique-upload-slot-heading"><h3>{angleLabel(slot.angle)}</h3>{slot.existing&&!slot.deleted&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busy} onClick={()=>setSlots(currentSlots=>currentSlots.map(item=>item.angle===slot.angle?{...item,deleted:true}:item))}>Delete</Button>}</div>{preview&&<img className="photo-preview" src={preview} alt={(slot.changed?'Selected':'Current')+' '+slot.angle+' physique photo'}/>}<FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busy} label={angleLabel(slot.angle)+' photo'} accept="image/*" hint="JPEG or PNG; compressed to 750 KB or less." onChange={event=>void select(slot.angle,event)}/></section>})}</div></div>
+      <div className="body-record-form-top">
+        <DatePicker id="body-date" name="date" min="2000-01-01" max={current} required label="Record date" value={date} onChange={setDate}/>
+        <div className="field body-unit-toggle-field">
+          <span>Circumference unit</span>
+          <SegmentedControl<'cm'|'in'> id="body-circumference-unit" label="Circumference unit" value={unit} onChange={setUnit} options={[{value:'cm',label:'Centimetres (cm)'},{value:'in',label:'Inches (in)'}]}/>
+        </div>
+      </div>
+      {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
+        <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
+        <div className="body-field-grid">{keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={measurementLabel(key)+' ('+unit+')'} value={values[key]===''?'':unit==='cm'?values[key]:String(Number(values[key])/2.54)} onChange={event=>{const raw=event.currentTarget.value;setValues(currentValues=>({...currentValues,[key]:raw===''?'':String(toCm(Number(raw),unit))}));}}/>)}</div>
+      </section>)}
+      <section className="body-form-section">
+        <div className="body-form-section-header"><h3>Composition</h3><span className="unit-indicator">%</span></div>
+        <div className="body-field-grid body-composition-grid"><Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={event=>setValues(currentValues=>({...currentValues,bodyFatPercent:event.currentTarget.value}))}/></div>
+      </section>
+      <section className="body-form-section body-context-section">
+        <div className="body-form-section-header"><h3>Weight context</h3><p className="source">Captured when this record is saved. Missing values stay unavailable.</p></div>
+        <div className="body-context-switches">
+          <Checkbox id="body-omit-scale" role="switch" checked={omitScale} onChange={setOmitScale}>Omit scale snapshot</Checkbox>
+          <Checkbox id="body-omit-trend" role="switch" checked={omitTrend} onChange={setOmitTrend}>Omit trend snapshot</Checkbox>
+        </div>
+      </section>
+      <section className="body-form-section body-photo-section">
+        <div className="body-form-section-header"><h3>Photos</h3><p className="source">Optional. Replace or remove one view without changing the other angles.</p></div>
+        <div className="physique-upload-grid">{slots.map(slot=>{const preview=slot.imageBase64?'data:image/jpeg;base64,'+slot.imageBase64:slot.existing&&!slot.deleted?'/api/photos/'+slot.existing.id+'/content':undefined;return <section className="physique-upload-slot" key={slot.angle}><div className="physique-upload-slot-heading"><h4>{angleLabel(slot.angle)}</h4>{slot.existing&&!slot.deleted&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busy} onClick={()=>setSlots(currentSlots=>currentSlots.map(item=>item.angle===slot.angle?{...item,deleted:true}:item))}>Delete</Button>}</div>{preview&&<img className="photo-preview" src={preview} alt={(slot.changed?'Selected':'Current')+' '+slot.angle+' physique photo'}/>}<FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busy} label={angleLabel(slot.angle)+' photo'} accept="image/*" hint="JPEG or PNG; ≤750 KB." onChange={event=>void select(slot.angle,event)}/></section>})}</div>
+      </section>
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions">{record&&<Button type="button" variant="destructive" disabled={busy} onClick={()=>setConfirmDelete(true)}>Delete record</Button>}<Button type="submit" variant="primary" disabled={busy}>{busy?'Preparing…':'Save Body record'}</Button></div>
     </Form>

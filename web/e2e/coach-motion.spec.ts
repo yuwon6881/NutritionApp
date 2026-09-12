@@ -181,13 +181,13 @@ test('weekly check-in opens immediately, waits in the modal, and retries',async(
   await page.getByRole('button',{name:'Check in',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Weekly check-in'});
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('Preparing your weekly evidence…',{exact:true})).toBeVisible();
+  await expect(dialog.getByText('Preparing your check-in…',{exact:true})).toBeVisible();
   await expect(dialog.locator('.coach-wait-arc')).toBeVisible();
   await expect(dialog.getByText('Taking longer than usual.',{exact:true})).toBeVisible({timeout:12000});
   await page.screenshot({path:'artifacts/coach-check-in-calculating.png',fullPage:true});
   release();
-  await expect(dialog.locator('[aria-label="Target changes"]')).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Not now',exact:true})).toBeVisible();
+  await expect(dialog.locator('[data-check-in-calorie]')).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Decline',exact:true})).toBeVisible();
   await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();
 
   await page.unroute('**/api/coach/preview');
@@ -198,8 +198,8 @@ test('weekly check-in opens immediately, waits in the modal, and retries',async(
   await expect(failed.getByRole('button',{name:'Retry',exact:true})).toBeVisible();
   await page.unroute('**/api/coach/preview');
   await failed.getByRole('button',{name:'Retry',exact:true}).click();
-  await expect(failed.locator('[aria-label="Target changes"]')).toBeVisible();
-  await failed.getByRole('button',{name:'Not now',exact:true}).click();
+  await expect(failed.locator('[data-check-in-calorie]')).toBeVisible();
+  await failed.getByRole('button',{name:'Decline',exact:true}).click();
   expect(calls).toBeGreaterThanOrEqual(1);
 });
 
@@ -253,6 +253,10 @@ test('weekly check-in card and dialog settle across themes and responsive widths
     await page.screenshot({path:`artifacts/check-in-${theme}-${width}-card.png`,fullPage:true});
     const launcher=page.getByRole('button',{name:'Review this week',exact:true});await launcher.click();
     const dialog=page.getByRole('dialog',{name:'Weekly check-in'});await expect(dialog).toBeVisible();await settled(page);
+    await expect(dialog.getByText('Current daily calories',{exact:true})).toBeVisible();
+    await expect(dialog.locator('.check-in-calorie')).toHaveClass(/is-revealed/, {timeout:1500});
+    await expect(dialog.getByText('New daily calories',{exact:true})).toBeVisible();
+    await expect(dialog.locator('.check-in-calorie-delta')).toContainText('Unchanged');
     await page.screenshot({path:`artifacts/check-in-${theme}-${width}-dialog.png`,fullPage:true});
     await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(launcher).toBeFocused();
   }

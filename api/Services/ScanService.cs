@@ -26,14 +26,14 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
             var duplicate=await db.Scans.SingleOrDefaultAsync(s=>s.Id==input.Id,ct);
             if(duplicate!=null) { Validation.Require(duplicate.RequestHash==hash,"Scan identity was reused.",409); return duplicate; }
             await storage.AllowOptional(ct);
-            Validation.Require(await db.Scans.CountAsync(s=>s.Created>DateTime.UtcNow.AddDays(-1),ct)<40,"Too many scan drafts today.",429);
+            Validation.Require(await db.Scans.CountAsync(s=>s.Created>DateTime.UtcNow.AddDays(-1),ct)<40,"Too many AI requests today.",429);
             scan=new ScanJob { Id=input.Id,UserId=db.CurrentUser!.Value,RequestHash=hash,ImageBytes=bytes?.Length??0,Mode=input.Mode,Description=input.Description,Status=bytes==null?"queued":"uploading",ObjectPath=bytes==null?null:$"nutrition-scans/{db.CurrentUser}/{input.Id}.jpg" };
             db.Scans.Add(scan); await db.SaveChangesAsync(ct); await gate.Commit(ct);
         }
         if(bytes!=null)
         {
             try { await images.Put(scan.ObjectPath!,bytes,ct); scan.Status="queued"; }
-            catch { scan.Status="failed";scan.Error="Upload interrupted. Resubmit the local photo draft."; }
+            catch { scan.Status="failed";scan.Error="Upload interrupted. Try again."; }
             await db.SaveChangesAsync(CancellationToken.None);
         }
         return scan;
@@ -65,11 +65,11 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
         {
             var bytes=scan.ObjectPath==null?null:await images.Get(scan.ObjectPath,ct);
             var result=await ai.Analyze(scan.Mode,scan.Description,bytes,ct);
-            scan.ResultJson=Json.Write(result.Draft);scan.Status="complete";scan.Error=null;
+            scan.ResultJson=Json.Write(result.Estimate);scan.Status="complete";scan.Error=null;
             await db.Usage.Where(u=>u.Date==usage.Date).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.InputTokens,u=>u.InputTokens+result.InputTokens).SetProperty(u=>u.OutputTokens,u=>u.OutputTokens+result.OutputTokens),CancellationToken.None);
         }
         catch(Exception ex) when(ex is DomainException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or FormatException or InvalidOperationException or KeyNotFoundException)
-        { scan.Status="failed";scan.Error=ex is DomainException?ex.Message:"AI processing was interrupted. Resubmit the retained draft."; }
+        { scan.Status="failed";scan.Error=ex is DomainException?ex.Message:"AI processing was interrupted. Try again."; }
         finally
         {
             scan.LeaseUntil=null;

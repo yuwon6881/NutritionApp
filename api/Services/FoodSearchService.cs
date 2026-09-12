@@ -6,16 +6,17 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
 public record FoodPortion(string Label,double Grams);
-public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null,string? Code=null);
+public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null,string? Code=null,double? ServingCalories=null);
 public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
 {
     // Free text runs on Search-a-licious, the Elasticsearch service Open Food Facts built to
     // replace cgi/search.pl. The legacy endpoint sheds load per IP and every request here leaves
     // from the one Cloud Run egress address, so a shed answer was app-wide rather than per user.
-    // Barcode lookup stays on the product endpoint, which is not part of that shedding and is the
-    // only source carrying a declared serving.
+    // Barcode lookup and serving hydration use the Open Food Facts product API. Search results are
+    // hydrated in one bulk request so the list and editor share the same declared gram serving.
     private const string SearchUrl="https://search.openfoodfacts.org/search";
     private const string ProductUrl="https://world.openfoodfacts.org/api/v2/product/";
+    private const string BatchProductUrl="https://world.openfoodfacts.org/api/v2/search";
     // Search pacing is courtesy rather than quota: Search-a-licious is not metered per IP. The
     // product endpoint still is, at roughly 15 reads a minute shared by everyone behind the egress.
     // The search gate paces Open Food Facts, not the person typing, so a request that arrives early
@@ -24,14 +25,16 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     private const double MaxSearchWaitSeconds=3;
     private const double BusyBackoffSeconds=10;
     private const double BarcodeIntervalSeconds=4.1;
-    // Search-a-licious does not index the serving fields, so a search hit carries no portion and
-    // selection fetches product details on demand to obtain a declared serving.
+    private const double BatchProductIntervalSeconds=1;
+    // Search-a-licious does not index the serving fields. The bulk product request fills them for
+    // the list without making one metered barcode request per result.
     private const string SearchFields="code,product_name,product_name_en,brands,nutriments";
     private const string ProductFields="code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit";
     private const int MaxNameLength=160;
     private static readonly SemaphoreSlim RateGate=new(1);
     private static DateTime nextBarcode=DateTime.MinValue;
     private static DateTime nextSearch=DateTime.MinValue;
+    private static DateTime nextBatchProduct=DateTime.MinValue;
 
     public async Task<IReadOnlyList<FoodResult>> Search(string query,CancellationToken ct)
     {
@@ -59,6 +62,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             if(json.RootElement.TryGetProperty("hits",out var hits)&&hits.ValueKind==JsonValueKind.Array)
                 foreach(var hit in hits.EnumerateArray())
                     if(ReadProduct(hit,null) is {} result) results.Add(result);
+            await EnrichSearchResults(results,ct);
         }
         catch(DomainException busy) when(busy.Status==429)
         {
@@ -129,13 +133,59 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         var name=Text(product,"product_name")??Text(product,"product_name_en");
         if(name is null&&scanned is null) return null;
         if(Calories(product) is not {} calories) return null;
-        var code=scanned??Text(product,"code");
+        var code=scanned??Code(product);
         double? N(string key)=>Nutrient(product,key);
+        var portions=MapPortions(product);
         return new FoodResult(
             Label(name??"Packaged food",Brand(product)),
             calories,N("proteins"),N("fat"),N("carbohydrates"),N("fiber"),
             code is null?"Open Food Facts / ODbL":"Open Food Facts / ODbL / "+code,
-            100,MapPortions(product),code);
+            100,portions,code,ServingCalories(calories,portions));
+    }
+
+    private async Task EnrichSearchResults(List<FoodResult> results,CancellationToken ct)
+    {
+        var codes=results.Select(result=>result.Code).OfType<string>().Where(code=>code.Length>0).Distinct(StringComparer.Ordinal).ToArray();
+        if(codes.Length==0)return;
+        try
+        {
+            var wait=await ReserveBatchProductSlot(ct);
+            if(wait>TimeSpan.Zero)await Task.Delay(wait,ct);
+            using var response=await http.GetAsync($"{BatchProductUrl}?code={Uri.EscapeDataString(string.Join(',',codes))}&fields={Uri.EscapeDataString(ProductFields)}&page_size={codes.Length}",ct);
+            if(!response.IsSuccessStatusCode)return;
+            using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)return;
+            var portionsByCode=new Dictionary<string,IReadOnlyList<FoodPortion>>(StringComparer.Ordinal);
+            foreach(var product in products.EnumerateArray())
+            {
+                var code=Code(product);
+                if(code is not null)portionsByCode[code]=MapPortions(product);
+            }
+            for(var index=0;index<results.Count;index++)
+            {
+                var result=results[index];
+                if(result.Code is {Length:>0} code&&portionsByCode.TryGetValue(code,out var portions))
+                    results[index]=result with {Portions=portions,ServingCalories=ServingCalories(result.Calories,portions)};
+            }
+        }
+        catch(OperationCanceledException){throw;}
+        catch
+        {
+            // Serving hydration improves the search list but must not make free-text search fail.
+        }
+    }
+
+    private static async Task<TimeSpan> ReserveBatchProductSlot(CancellationToken ct)
+    {
+        await RateGate.WaitAsync(ct);
+        try
+        {
+            var now=DateTime.UtcNow;
+            var start=nextBatchProduct>now?nextBatchProduct:now;
+            nextBatchProduct=start.AddSeconds(BatchProductIntervalSeconds);
+            return start-now;
+        }
+        finally { RateGate.Release(); }
     }
 
     /// <summary>
@@ -165,6 +215,9 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
 
     private static double? Calories(JsonElement product)=>Nutrient(product,"energy-kcal");
 
+    private static double? ServingCalories(double calories,IReadOnlyList<FoodPortion> portions)
+        =>portions.FirstOrDefault() is { } portion?calories*portion.Grams/100:null;
+
     private static double? Nutrient(JsonElement product,string key)=>
         product.TryGetProperty("nutriments",out var nutrients)&&nutrients.ValueKind==JsonValueKind.Object
         &&nutrients.TryGetProperty(key+"_100g",out var value)&&TryNumber(value,out var number)?number:null;
@@ -173,10 +226,17 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         product.TryGetProperty(name,out var value)&&value.ValueKind==JsonValueKind.String
         &&value.GetString()?.Trim() is {Length:>0} text?text:null;
 
+    private static string? Code(JsonElement product)
+    {
+        if(!product.TryGetProperty("code",out var value))return null;
+        if(value.ValueKind==JsonValueKind.String)return value.GetString()?.Trim() is {Length:>0} text?text:null;
+        return value.ValueKind==JsonValueKind.Number?value.ToString():null;
+    }
+
     /// <summary>
     /// A declared serving becomes one portion. Servings measured in millilitres are left out: this
-    /// app weighs portions in grams, and only water-like liquids convert one to one. Search hits
-    /// carry no serving at all, so they arrive here without portions.
+    /// app weighs portions in grams, and only water-like liquids convert one to one. Free-text hits
+    /// can arrive without serving metadata; the search path hydrates those fields in bulk.
     /// </summary>
     public static IReadOnlyList<FoodPortion> MapPortions(JsonElement product)
     {

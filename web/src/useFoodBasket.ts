@@ -24,14 +24,12 @@ type SearchResult = import('./types').FoodSearchResult;
 export function useFoodBasket(open:boolean){
   const [lines,setLines]=useState<BasketLine[]>([]);
   const [queue,setQueue]=useState<ScanQueueState>(initialQueueState);
-  const [scanIds,setScanIds]=useState<string[]>([]);
   const [tick,setTick]=useState(0);
 
   useEffect(()=>{
     if(!open){
       setLines([]);
       setQueue(initialQueueState());
-      setScanIds([]);
       setTick(0);
     }
   },[open]);
@@ -116,14 +114,14 @@ export function useFoodBasket(open:boolean){
     });
   },[]);
 
-  const addAiFoods=useCallback((scanId:string,foods:AiFood[],source='AI estimate · reviewed')=>{
-    const newLines=foods.map((f,index)=>({...lineFromAi(f,source),key:`ai:${scanId}:${index}`}));
+  const addAiFoods=useCallback((foods:AiFood[],source='AI estimate')=>{
+    const batchId=crypto.randomUUID();
+    const newLines=foods.map((f,index)=>({...lineFromAi(f,source),key:`ai:${batchId}:${index}`}));
     setLines(current=>{
       const existingKeys=new Set(current.map(l=>l.key));
       const filtered=newLines.filter(l=>!existingKeys.has(l.key));
       return [...current,...filtered];
     });
-    setScanIds(current=>current.includes(scanId)?current:[...current,scanId]);
   },[]);
 
   const enqueueCode=useCallback((code:string)=>{
@@ -133,13 +131,11 @@ export function useFoodBasket(open:boolean){
   const clear=useCallback(()=>{
     setLines([]);
     setQueue(initialQueueState());
-    setScanIds([]);
   },[]);
 
   return {
     lines,
     queue,
-    scanIds,
     addLine,
     removeLine,
     replaceLine:(key:string,line:BasketLine)=>setLines(current=>current.map(item=>item.key===key?{...line,key}:item)),

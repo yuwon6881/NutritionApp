@@ -109,14 +109,19 @@ public sealed class CheckInTests
         db.ChangeTracker.Clear();
         db.CurrentUser = user.Id;
 
+        Assert.Equal("ask", user.MissingDayAction);
         var sync = new SyncService(db);
         var settingsRevision = await sync.Apply(new(Guid.NewGuid(), "settings", user.Id, user.CoachingSettingsRevision,
-            JsonSerializer.SerializeToElement(new { checkInWeekday = 5, weightUnit = "lb", energyUnit = "kj", heightUnit = "ft-in" }, Json.Options)), default);
+            JsonSerializer.SerializeToElement(new { checkInWeekday = 5, weightUnit = "lb", energyUnit = "kj", heightUnit = "ft-in", missingDayAction = "fasting" }, Json.Options)), default);
         var savedSettings = await db.Users.SingleAsync(item => item.Id == user.Id);
         Assert.Equal(settingsRevision, savedSettings.CoachingSettingsRevision);
         Assert.Equal("lb", savedSettings.WeightUnit);
         Assert.Equal("kj", savedSettings.EnergyUnit);
         Assert.Equal("ft-in", savedSettings.HeightUnit);
+        Assert.Equal("fasting", savedSettings.MissingDayAction);
+
+        await Assert.ThrowsAsync<DomainException>(() => sync.Apply(new(Guid.NewGuid(), "settings", user.Id, savedSettings.CoachingSettingsRevision,
+            JsonSerializer.SerializeToElement(new { missingDayAction = "invalid_choice" }, Json.Options)), default));
 
         var preview = await new CoachingService(db).Preview(default);
         Assert.False(preview.CanAccept);

@@ -7,7 +7,7 @@ import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {CoachingSettings,UnitPreferencesFields} from './CoachingSettings';
 import {unitsFor} from '../lib/units';
-import type {CoachingSettings as CoachingSettingsType,UnitPreferences} from '../types';
+import type {CoachingSettings as CoachingSettingsType,MissingDayAction,UnitPreferences} from '../types';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {DataExport} from './DataExport';
 
@@ -28,12 +28,14 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
     checkInWeekday:savedSettings?.checkInWeekday??1,
     weightUnit:savedSettings?.weightUnit??'kg',
     energyUnit:savedSettings?.energyUnit??'kcal',
-    heightUnit:savedSettings?.heightUnit??'cm'
+    heightUnit:savedSettings?.heightUnit??'cm',
+    missingDayAction:savedSettings?.missingDayAction??'ask'
   } as const;
   const queuedData=queued?.data as Partial<CoachingSettingsType>|undefined;
   const changes=queued&&!queued.error?[
     queuedData?.checkInWeekday!==undefined&&queuedData.checkInWeekday!==saved.checkInWeekday?'check-in day':null,
-    queuedData?.weightUnit!==undefined&&queuedData.weightUnit!==saved.weightUnit||queuedData?.energyUnit!==undefined&&queuedData.energyUnit!==saved.energyUnit||queuedData?.heightUnit!==undefined&&queuedData.heightUnit!==saved.heightUnit?'unit preferences':null
+    queuedData?.weightUnit!==undefined&&queuedData.weightUnit!==saved.weightUnit||queuedData?.energyUnit!==undefined&&queuedData.energyUnit!==saved.energyUnit||queuedData?.heightUnit!==undefined&&queuedData.heightUnit!==saved.heightUnit?'unit preferences':null,
+    queuedData?.missingDayAction!==undefined&&queuedData.missingDayAction!==saved.missingDayAction?'unlogged day preference':null
   ].filter((value):value is string=>value!==null):[];
   const savingLabel=changes.length===1?`Saving your ${changes[0]}...`:changes.length>1?`Saving your ${changes.join(' and ')}...`:'Saving your coaching settings...';
   const settingsSaving=Boolean(queued&&!queued.error);
@@ -44,7 +46,17 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       kind:'settings',
       recordId:state.id,
       expectedRevision:settings.revision,
-      data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height},
+      data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height,missingDayAction:settings.missingDayAction??'ask'},
+      delete:false
+    });
+  };
+
+  const updateMissingDayAction=(value:MissingDayAction)=>{
+    void store.mutate({
+      kind:'settings',
+      recordId:state.id,
+      expectedRevision:settings.revision,
+      data:{checkInWeekday:settings.checkInWeekday,weightUnit:units.weight,energyUnit:units.energy,heightUnit:units.height,missingDayAction:value},
       delete:false
     });
   };
@@ -75,6 +87,11 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
             <option value="dark">Dark</option>
           </SelectField>
           <UnitPreferencesFields value={units} onChange={updateUnits} asFieldset={false}/>
+          <SelectField id="settings-missing-day-action" name="missingDayAction" label="Unlogged days" value={settings.missingDayAction??'ask'} onChange={v=>updateMissingDayAction(v as MissingDayAction)}>
+            <option value="ask">Ask each time</option>
+            <option value="fasting">Default to fasting</option>
+            <option value="not_logged">Default to not logging</option>
+          </SelectField>
           <p className="source">Units apply across your diary, charts, and coach. Profile time zone: {state.profile?.timeZone??'Asia/Kuala_Lumpur'}.</p>
         </section>
         {state.profile&&<CoachingSettings store={store} hideUnits hideSaveStatus/>}

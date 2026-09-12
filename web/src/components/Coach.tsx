@@ -108,7 +108,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
   const updateUnits=(patch:Partial<UnitPreferences>)=>{
     const next={...units,...patch};
-    void store.mutate({kind:'settings',recordId:store.state!.id,expectedRevision:settings.revision,data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height},delete:false});
+    void store.mutate({kind:'settings',recordId:store.state!.id,expectedRevision:settings.revision,data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height,missingDayAction:settings.missingDayAction??'ask'},delete:false});
   };
 
   const set=(key:keyof Profile,value:unknown)=>{

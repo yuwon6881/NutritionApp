@@ -6,7 +6,7 @@ using Nutrition.Api.Domain;
 namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
-public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null);
+public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null);
 public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
@@ -61,12 +61,15 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 var weightUnit = settings.WeightUnit ?? user.WeightUnit;
                 var energyUnit = settings.EnergyUnit ?? user.EnergyUnit;
                 var heightUnit = settings.HeightUnit ?? user.HeightUnit;
+                var missingDayAction = settings.MissingDayAction ?? user.MissingDayAction;
                 CheckInWeek.ValidateWeekday(weekday);
                 Validation.Units(weightUnit, energyUnit, heightUnit);
+                Validation.Require(missingDayAction is "ask" or "fasting" or "not_logged", "Choose a valid unlogged day setting.");
                 user.CheckInWeekday = weekday;
                 user.WeightUnit = weightUnit;
                 user.EnergyUnit = energyUnit;
                 user.HeightUnit = heightUnit;
+                user.MissingDayAction = missingDayAction;
                 user.CoachingSettingsRevision = revision;
                 user.CoachingSettingsChangedDate = RetentionService.Today(user.ProfileJson);
                 break;

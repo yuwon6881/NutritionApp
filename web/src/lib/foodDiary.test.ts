@@ -41,7 +41,7 @@ it('uses the profile time zone and keeps already archived days read-only',()=>{
 it('projects retained quick adds into cached days without replacing the main window',()=>{
   const food=entry('e','09:00');
   const op:Mutation={id:'m',recordId:'e',kind:'entry',expectedRevision:0,delete:false,data:food};
-  const local:LocalData={state,queue:[op],scans:[]};
+  const local:LocalData={state,queue:[op]};
   const selected=historyState(local,'2026-09-09')!;
   expect(selected.entries).toEqual([food]);expect(selected.start).toBe('2026-09-09');
   expect(state.entries).toEqual([]);expect(state.start).toBe('2026-06-12');
@@ -50,20 +50,20 @@ it('projects retained quick adds into cached days without replacing the main win
   expect(saved.entries[0].time).toBe('09:00');
 });
 it('distinguishes missing cache coverage and rejects another account cache',()=>{
-  const local:LocalData={state,queue:[],scans:[],history:{'2025':{...state,id:'other',start:'2025-01-01',end:'2025-12-31'}}};
+  const local:LocalData={state,queue:[],history:{'2025':{...state,id:'other',start:'2025-01-01',end:'2025-12-31'}}};
   expect(historyState(local,'2025')).toBeUndefined();
   expect(historyState(local,'2026-09-09')?.entries).toEqual([]);
 });
 it('selects fresher covered history and retains archived unknown totals',()=>{
   const archived:AppState={...state,revision:2,days:[{id:'d',date:'2026-09-01',archived:true,calories:450,protein:null,entryCount:1,status:'complete',revision:2,deleted:false}]};
-  const local:LocalData={state,queue:[],scans:[],history:{recent:archived}};
+  const local:LocalData={state,queue:[],history:{recent:archived}};
   const selected=historyState(local,'2026-09-01')!;
   expect(selected.days[0].calories).toBe(450);expect(selected.days[0].protein).toBeNull();
 });
 it('retains a conflicting entry edit without projecting it over an archived summary',()=>{
   const archived:AppState={...state,days:[{id:'d',date:'2026-09-09',archived:true,calories:450,entryCount:1,status:'not_logged',revision:2,deleted:false}]};
   const op:Mutation={id:'m',recordId:'e',kind:'entry',expectedRevision:0,delete:false,data:entry('e','12:00'),error:'Already summarized'};
-  const local:LocalData={state:archived,queue:[op],scans:[]};
+  const local:LocalData={state:archived,queue:[op]};
   const selected=historyState(local,'2026-09-09')!;
   expect(selected.entries).toEqual([]);expect(selected.days[0].status).toBe('not_logged');
   expect(selected.days[0].calories).toBe(450);expect(local.queue).toEqual([op]);

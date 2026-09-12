@@ -43,7 +43,7 @@ test.beforeAll(async({request})=>{
 });
 
 
-for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme+' '+width+': compact batch, fresh searches, AI draft and recipe',async({page,context})=>{
+for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme+' '+width+': compact batch, fresh searches, AI estimate and recipe',async({page,context})=>{
   await context.addCookies(session.cookies);
   await page.setViewportSize({width,height:900});
   await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
@@ -84,6 +84,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await expect(page.getByLabel('Meal time',{exact:true})).toHaveValue('13:45');
   await expect(page.locator('.batch-food').filter({hasText:'Text meal'})).toBeVisible();
   await expect(page.getByRole('button',{name:/Add reviewed meal/})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Resume estimate',exact:true})).toHaveCount(0);
   const textRow=page.locator('.batch-food').filter({hasText:'Text meal'});
   if(width<1024){await page.getByRole('button',{name:'Actions for Text meal'}).focus();await page.keyboard.press('Enter');}
   await textRow.getByRole('button',{name:'Edit',exact:true}).click();

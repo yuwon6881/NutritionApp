@@ -20,12 +20,14 @@ export function CoachingSettings({store,hideUnits=false,hideSaveStatus=false}:{s
     checkInWeekday:savedSettings?.checkInWeekday??1,
     weightUnit:savedSettings?.weightUnit??'kg',
     energyUnit:savedSettings?.energyUnit??'kcal',
-    heightUnit:savedSettings?.heightUnit??'cm'
+    heightUnit:savedSettings?.heightUnit??'cm',
+    missingDayAction:savedSettings?.missingDayAction??'ask'
   } as const;
   const queuedData=queued?.data as Partial<CoachingSettings>|undefined;
   const changes=queued&&!queued.error?[
     queuedData?.checkInWeekday!==undefined&&queuedData.checkInWeekday!==saved.checkInWeekday?'check-in day':null,
-    queuedData?.weightUnit!==undefined&&queuedData.weightUnit!==saved.weightUnit||queuedData?.energyUnit!==undefined&&queuedData.energyUnit!==saved.energyUnit||queuedData?.heightUnit!==undefined&&queuedData.heightUnit!==saved.heightUnit?'unit preferences':null
+    queuedData?.weightUnit!==undefined&&queuedData.weightUnit!==saved.weightUnit||queuedData?.energyUnit!==undefined&&queuedData.energyUnit!==saved.energyUnit||queuedData?.heightUnit!==undefined&&queuedData.heightUnit!==saved.heightUnit?'unit preferences':null,
+    queuedData?.missingDayAction!==undefined&&queuedData.missingDayAction!==saved.missingDayAction?'unlogged day preference':null
   ].filter((value):value is string=>value!==null):[];
   const savingLabel=changes.length===1?`Saving your ${changes[0]}...`:changes.length>1?`Saving your ${changes.join(' and ')}...`:'Saving your coaching settings...';
   const settingsSaving=Boolean(queued&&!queued.error);
@@ -33,11 +35,11 @@ export function CoachingSettings({store,hideUnits=false,hideSaveStatus=false}:{s
   const next=useMemo(()=>nextOccurrenceAfter(current,settings.checkInWeekday),[current,settings.checkInWeekday]);
   const update=async(value:string)=>{
     const weekday=Number(value);
-    await store.mutate({kind:'settings',recordId:state.id,expectedRevision:settings.revision,data:{checkInWeekday:weekday,weightUnit:units.weight,energyUnit:units.energy,heightUnit:units.height},delete:false});
+    await store.mutate({kind:'settings',recordId:state.id,expectedRevision:settings.revision,data:{checkInWeekday:weekday,weightUnit:units.weight,energyUnit:units.energy,heightUnit:units.height,missingDayAction:settings.missingDayAction??'ask'},delete:false});
   };
   const updateUnits=(patch:Partial<UnitPreferences>)=>{
     const next={...units,...patch};
-    void store.mutate({kind:'settings',recordId:state.id,expectedRevision:settings.revision,data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height},delete:false});
+    void store.mutate({kind:'settings',recordId:state.id,expectedRevision:settings.revision,data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height,missingDayAction:settings.missingDayAction??'ask'},delete:false});
   };
   return <section className="panel coaching-settings" aria-labelledby="coaching-settings-title">
     <h2 id="coaching-settings-title">Coaching cadence</h2>

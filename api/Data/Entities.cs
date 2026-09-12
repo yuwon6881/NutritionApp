@@ -15,6 +15,7 @@ public class AppUser
     public string WeightUnit { get; set; } = "kg";
     public string EnergyUnit { get; set; } = "kcal";
     public string HeightUnit { get; set; } = "cm";
+    public string MissingDayAction { get; set; } = "ask";
     public string ProfileJson { get; set; } = "";
 }
 public class Session
