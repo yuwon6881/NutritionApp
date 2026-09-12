@@ -87,8 +87,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
 
   // Rescale quantity of Greek Yogurt from 100g to 200g (59 * 2 = 118 + 57 = 175 kcal)
   await expect(page.locator('.batch-food input')).toHaveCount(0);
-  // This viewport is expanded, so row actions stay inline.
-  await page.getByRole('button',{name:'Edit Greek Yogurt 0%',exact:true}).click();
+  await page.locator('.batch-food').filter({hasText:'Greek Yogurt 0%'}).getByRole('button',{name:'Edit',exact:true}).click();
   const qtyInput=page.getByLabel('Quantity',{exact:true});
   await qtyInput.fill('200');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
@@ -111,54 +110,4 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await expect(row1530).toBeVisible();
   await expect(row1530.getByText('Greek Yogurt 0%')).toBeVisible();
   await expect(row1530.getByText('118 kcal')).toBeVisible();
-});
-
-test('compact batch rows show per-food macros and keep their actions behind a swipe',async({page,context})=>{
-  await context.addCookies(session.cookies);
-  await page.setViewportSize({width:375,height:812});
-  await page.goto('/');
-
-  await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
-  await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
-  await page.getByRole('button',{name:'Your foods',exact:true}).click();
-  await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
-  await page.getByRole('button',{name:'Add to batch'}).click();
-  await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
-
-  // Every row reports its own macros, not just its calories.
-  const line=page.locator('.swipe-row').first();
-  const macros=line.locator('.batch-food-macros');
-  await expect(macros).toBeVisible();
-  await expect(macros.getByText('10 g')).toBeVisible();
-  await expect(macros.getByText('3.6 g')).toBeVisible();
-
-  // A swipe reveals the actions; the trailing click the drag emits must not
-  // close the row it just opened.
-  const box=(await line.boundingBox())!;
-  const y=box.y+18;
-  await page.mouse.move(box.x+box.width-16,y);
-  await page.mouse.down();
-  await page.mouse.move(box.x+box.width-160,y,{steps:12});
-  await page.mouse.up();
-  await expect(line).toHaveAttribute('data-open','true');
-
-  await page.getByRole('button',{name:'Remove Greek Yogurt 0%',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Batch (0 foods)'})).toBeVisible();
-});
-
-test('expanded batch rows keep their actions inline',async({page,context})=>{
-  await context.addCookies(session.cookies);
-  await page.setViewportSize({width:1440,height:900});
-  await page.goto('/');
-
-  await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
-  await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
-  await page.getByRole('button',{name:'Your foods',exact:true}).click();
-  await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
-  await page.getByRole('button',{name:'Add to batch'}).click();
-  await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
-
-  await expect(page.locator('.swipe-row')).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Edit Greek Yogurt 0%',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Remove Greek Yogurt 0%',exact:true})).toBeVisible();
 });

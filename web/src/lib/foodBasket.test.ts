@@ -79,3 +79,15 @@ it('basketEntries stamps date and time onto each line while omitting key', () =>
   expect(entries[0].name).toBe('Apple');
   expect((entries[0] as any).key).toBeUndefined();
 });
+
+
+it('starts a declared serving with scaled nutrients and preserves unknowns',()=>{
+  const line=lineFromPer100({name:'Powder',source:'OFF',calories:400,protein:80,carbs:null,fat:4,fiber:null,portions:[{label:'scoop',grams:30}]});
+  expect(line).toMatchObject({quantity:1,unit:'serving',portionLabel:'scoop',portionGrams:30,calories:120,protein:24,carbs:null,fiber:null});
+  expect(basketEntries([line],{date:'2026-09-12',time:null})[0]).toMatchObject({portionGrams:30,calories:120,fiber:null});
+});
+it('restores saved portions and rejects invalid serving weights',()=>{
+  const food={name:'Powder',source:'OFF',calories:400,protein:80,carbs:null,fat:4,fiber:null};
+  expect(lineFromPer100({...food,portionsJson:'[{"label":"scoop","grams":30}]'}).calories).toBe(120);
+  expect(lineFromPer100({...food,portions:[{label:'scoop',grams:0}]})).toMatchObject({quantity:100,unit:'g',calories:400});
+});

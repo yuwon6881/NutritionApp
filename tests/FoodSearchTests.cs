@@ -30,6 +30,7 @@ public sealed class FoodSearchTests
         Assert.Equal(13.5,result.Carbs);
         Assert.Equal("Open Food Facts / ODbL / 4056489127277",result.Source);
         Assert.Equal(100,result.ServingGrams);
+        Assert.Equal("4056489127277",result.Code);
     }
 
     [Fact]
@@ -131,11 +132,22 @@ public sealed class FoodSearchTests
     }
 
     [Fact]
-    public void A_serving_without_a_declared_unit_is_read_as_grams()
+    public void A_serving_without_a_normalized_unit_requires_grams_in_its_label()
     {
         var product=Product("""{"serving_quantity":30,"serving_size":"1 biscuit (30 g)"}""");
 
         Assert.Equal(30,Assert.Single(FoodSearchService.MapPortions(product)).Grams);
+    }
+
+    [Theory]
+    [InlineData("1 scoop")]
+    [InlineData("30 ml")]
+    [InlineData("")]
+    [InlineData("15 g")]
+    public void An_ambiguous_or_conflicting_serving_weight_is_not_assumed_to_be_grams(string label)
+    {
+        var product=Product(JsonSerializer.Serialize(new {serving_quantity=30,serving_size=label}));
+        Assert.Empty(FoodSearchService.MapPortions(product));
     }
 
     [Fact]

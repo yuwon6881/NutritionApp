@@ -63,13 +63,14 @@ export function FoodEditor({
   const [error,setError]=useState('');
   const [portionError,setPortionError]=useState('');
   const [basisWarning,setBasisWarning]=useState('');
+  const [customServing,setCustomServing]=useState({label:'serving',grams:''});
   const {busy,run}=useAsyncAction();
   const initialDraft=useRef(JSON.stringify({
     draft:makeDraft(initial),
     portionDrafts:initialPortions(initial).map(portion=>({label:portion.label,grams:String(portion.grams)})),
   }));
 
-  useEffect(()=>onDirtyChange?.(JSON.stringify({draft,portionDrafts})!==initialDraft.current),[draft,portionDrafts,onDirtyChange]);
+  useEffect(()=>onDirtyChange?.(JSON.stringify({draft,portionDrafts})!==initialDraft.current||customServing.grams!==''||customServing.label!=='serving'),[draft,portionDrafts,customServing,onDirtyChange]);
 
   const set=(key:keyof FoodDraft,value:unknown)=>setDraft(current=>{
     if(key==='quantity')return rescaleNutrients(current,typeof value==='number'?value:current.quantity);
@@ -140,7 +141,7 @@ export function FoodEditor({
             </div>
             <div className="live-calorie-meta">
               <span className="live-macros">
-                Protein {number(draft.protein, 1)} g · Carbs {number(draft.carbs, 1)} g · Fat {number(draft.fat, 1)} g{draft.fiber != null ? ` · Fibre ${number(draft.fiber, 1)} g` : ''}
+                Protein {number(draft.protein, 1)} g · Carbs {number(draft.carbs, 1)} g · Fat {number(draft.fat, 1)} g
               </span>
             </div>
           </div>
@@ -181,7 +182,19 @@ export function FoodEditor({
         <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
         <Field id="food-portion-grams" name="portionGrams" label="Portion weight (g)" type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
       </div>}
-      {!isProviderFood && basisWarning&&<p className="notice" role="status">{basisWarning}</p>}
+      {isProviderFood&&portions.length===0&&<fieldset className="portion-definitions">
+        <legend>Serving weight</legend>
+        <div className="form-grid">
+          <Field id="review-serving-label" name="servingLabel" label="Serving label" maxLength={24} value={customServing.label} onChange={event=>setCustomServing(current=>({...current,label:event.target.value}))}/>
+          <Field id="review-serving-grams" name="servingGrams" label="Serving weight (g)" type="number" min="0.1" max="10000" step="any" value={customServing.grams} onChange={event=>setCustomServing(current=>({...current,grams:event.target.value}))}/>
+        </div>
+        <Button type="button" disabled={!customServing.label.trim()||!Number.isFinite(Number(customServing.grams))||Number(customServing.grams)<0.1||Number(customServing.grams)>10000} onClick={()=>{
+          const portion={label:customServing.label.trim(),grams:Number(customServing.grams)};
+          setBasisWarning(nutrientRescaleWarning(draft,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams})??'');
+          setDraft(current=>({...rescaleNutrients(current,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams}),portionsJson:serializePortions([portion])}));
+        }}>Use this serving</Button>
+      </fieldset>}
+      {basisWarning&&<p className="notice" role="status">{basisWarning}</p>}
       {!isProviderFood && showPortionDefinitions&&<fieldset className="portion-definitions">
         <legend>Saved portion definitions</legend>
         <p className="source">Optional household portions for this food. Nutrients remain per 100 g.</p>

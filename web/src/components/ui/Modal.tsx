@@ -9,6 +9,7 @@ export interface ModalProps {
   onClose:()=>void;
   title:string;
   description?:string;
+  headerActions?:ReactNode;
   dirty?:boolean;
   width?:ModalWidth;
   closeLabel?:string;
@@ -35,6 +36,7 @@ export function Modal({
   onClose,
   title,
   description,
+  headerActions,
   dirty=false,
   width='md',
   closeLabel='Close dialog',
@@ -44,6 +46,8 @@ export function Modal({
   children,
 }:ModalProps){
   const dialog=useRef<HTMLDialogElement>(null);
+  const backdropPointer=useRef<number|null>(null);
+  const backdropClick=useRef(false);
   const previousFocus=useRef<HTMLElement|null>(null);
   const keepEditing=useRef<HTMLButtonElement>(null);
   const confirmation=useRef<HTMLDivElement>(null);
@@ -64,6 +68,7 @@ export function Modal({
     if(open){
       if(!present){setPresent(true);return;}
       previousFocus.current=restoreFocus??(document.activeElement instanceof HTMLElement?document.activeElement:null);
+      backdropPointer.current=null;backdropClick.current=false;
       dialog.current?.removeAttribute('data-modal-dismiss-intent');
       setPresent(true);setConfirming(false);setPhase('opening');
       const frame=window.requestAnimationFrame(()=>{
@@ -167,15 +172,23 @@ export function Modal({
     aria-modal="true"
     onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else requestClose();}}
     onPointerDownCapture={event=>{
-      if(confirming)return;
+      backdropPointer.current=null;backdropClick.current=false;clearDismissIntent();
+      if(confirming||!event.isPrimary||event.button!==0)return;
       const target=event.target;
+      if(target===event.currentTarget)backdropPointer.current=event.pointerId;
       if(target instanceof Element&&(target===event.currentTarget||target.closest('[data-modal-dismiss]')))
         dialog.current?.setAttribute('data-modal-dismiss-intent','true');
     }}
+    onPointerUpCapture={event=>{
+      backdropClick.current=backdropPointer.current===event.pointerId&&event.target===event.currentTarget;
+      backdropPointer.current=null;
+      if(!backdropClick.current)clearDismissIntent();
+    }}
+    onPointerCancel={()=>{backdropPointer.current=null;backdropClick.current=false;clearDismissIntent();}}
     onFocusCapture={event=>{
       if(confirming)return;
       const target=event.target;
-      if(target instanceof HTMLElement&&!target.closest('[data-modal-dismiss]')&&!confirmation.current?.contains(target))
+      if(target instanceof HTMLElement&&target!==event.currentTarget&&!target.closest('[data-modal-dismiss]')&&!confirmation.current?.contains(target))
         lastEditorFocus.current=target;
     }}
     onKeyDown={onKeyDown}
@@ -184,7 +197,9 @@ export function Modal({
       // A keyboard-activated button can bubble a synthetic click with no useful
       // pointer coordinates. Only the dialog backdrop itself dismisses here;
       // controls inside the surface own their click actions.
-      if(event.target===event.currentTarget)requestClose();
+      const dismiss=backdropClick.current&&event.target===event.currentTarget;
+      backdropClick.current=false;clearDismissIntent();
+      if(dismiss)requestClose();
     }}
   >
     <div className="modal-surface">
@@ -194,6 +209,7 @@ export function Modal({
             <h2 id={titleId} tabIndex={-1}>{title}</h2>
             {description&&<p id={descriptionId}>{description}</p>}
           </div>
+          {headerActions&&<div className="modal-header-actions">{headerActions}</div>}
           <Button data-modal-dismiss variant="tertiary" size="icon" aria-label={closeLabel} onClick={requestClose}><X size={19}/></Button>
         </header>
         <div className="modal-body">{children}</div>

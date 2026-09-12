@@ -1,6 +1,7 @@
 export type RecordBase={id:string;revision:number;deleted:boolean};
 export type Nutrients={name:string;calories:number;protein:number|null;fat:number|null;carbs:number|null;fiber:number|null;source:string};
 export type Portion={label:string;grams:number};
+export type FoodSearchResult=Nutrients&{servingGrams:number;portions?:Portion[];code?:string|null};
 export type PortionBasis={quantity:number;unit:'g'|'serving';portionLabel:string|null;portionGrams:number|null};
 export type Entry=RecordBase&Nutrients&{date:string;time?:string|null;portionLabel?:string|null;portionGrams?:number|null;quantity:number;unit:'g'|'serving'};
 export type Food=RecordBase&Nutrients&{servingGrams:number;favourite:boolean;ingredientsJson:string;portionsJson:string;cookedYieldGrams:number|null};

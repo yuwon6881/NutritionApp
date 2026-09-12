@@ -1,20 +1,17 @@
 import {useEffect,useRef,useState} from 'react';
 import {barcodeCrop} from '../lib/barcode';
 
-/**
- * Single-shot barcode scanner. The camera stops the moment one code is read, so
- * the stream is never left running behind the lookup that reading triggered.
- */
-export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>void;onError:(message:string)=>void}){
+export function BarcodeCamera({onDetected,onError,continuous=false}:{onDetected:(code:string)=>void;onError:(message:string)=>void;continuous?:boolean}){
   const video=useRef<HTMLVideoElement>(null);
   const frame=useRef<HTMLDivElement>(null);
-  const callbacks=useRef({onDetected,onError});
-  callbacks.current={onDetected,onError};
+  const callbacks=useRef({onDetected,onError,continuous});
+  callbacks.current={onDetected,onError,continuous};
   const [ready,setReady]=useState(false);
   useEffect(()=>{
     let cancelled=false;
     let stream:MediaStream|undefined;
     let timer:ReturnType<typeof setTimeout>|undefined;
+    const cooldowns=new Map<string,number>();
     const preview=video.current!;
     const stop=()=>{cancelled=true;clearTimeout(timer);stream?.getTracks().forEach(track=>track.stop());preview.srcObject=null;};
     const start=async()=>{
@@ -42,9 +39,18 @@ export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>vo
               try{
                 const result=reader.decodeFromCanvas(canvas);
                 if(result&&!cancelled){
-                  stop();
-                  callbacks.current.onDetected(result.getText());
-                  return;
+                  const code=result.getText();
+                  if(!callbacks.current.continuous){
+                    stop();
+                    callbacks.current.onDetected(code);
+                    return;
+                  }
+                  const now=Date.now();
+                  const lastSeen=cooldowns.get(code)??0;
+                  if(now-lastSeen>1200){
+                    cooldowns.set(code,now);
+                    callbacks.current.onDetected(code);
+                  }
                 }
               }catch(error){
                 // No code, incomplete data, and checksum misses are normal while positioning.

@@ -6,7 +6,7 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
 public record FoodPortion(string Label,double Grams);
-public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null);
+public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null,string? Code=null);
 public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
 {
     // Free text runs on Search-a-licious, the Elasticsearch service Open Food Facts built to
@@ -25,7 +25,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     private const double BusyBackoffSeconds=10;
     private const double BarcodeIntervalSeconds=4.1;
     // Search-a-licious does not index the serving fields, so a search hit carries no portion and
-    // the review step offers grams or an unweighed serving. A scanned barcode still gets both.
+    // selection fetches product details on demand to obtain a declared serving.
     private const string SearchFields="code,product_name,product_name_en,brands,nutriments";
     private const string ProductFields="code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit";
     private const int MaxNameLength=160;
@@ -135,7 +135,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             Label(name??"Packaged food",Brand(product)),
             calories,N("proteins"),N("fat"),N("carbohydrates"),N("fiber"),
             code is null?"Open Food Facts / ODbL":"Open Food Facts / ODbL / "+code,
-            100,MapPortions(product));
+            100,MapPortions(product),code);
     }
 
     /// <summary>
@@ -186,6 +186,13 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             : null;
         if (!string.IsNullOrEmpty(unit) && !string.Equals(unit, "g", StringComparison.OrdinalIgnoreCase)) return [];
         var label = Text(product, "serving_size");
+        if (string.IsNullOrEmpty(unit))
+        {
+            // Older records omit the normalized unit. Require an explicit gram weight
+            // in their label rather than interpreting a scoop or liquid as grams.
+            var match = System.Text.RegularExpressions.Regex.Match(label ?? "", @"(?<grams>\d+(?:[.,]\d+)?)\s*g\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!match.Success || !double.TryParse(match.Groups["grams"].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var declared) || declared != grams) return [];
+        }
         return LimitPortions([new FoodPortion(string.IsNullOrWhiteSpace(label) ? "serving" : label!, grams)]);
     }
 

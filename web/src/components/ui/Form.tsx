@@ -73,7 +73,7 @@ export function FieldFrame({label,validate,ref:externalRef,children,...props}:Fi
       // Moving focus to submit must not insert an error block between mousedown
       // and mouseup; that layout shift can make a real pointer click miss.
       const related=event.relatedTarget;
-      if(related instanceof HTMLElement&&related.closest('button[type="submit"]'))return;
+      if(related instanceof HTMLElement&&related.closest('button, [role="button"]'))return;
       if(!event.currentTarget.contains(event.relatedTarget as Node|null)){touched.current=true;check();}
     }} onChangeCapture={()=>{if(touched.current)queueMicrotask(()=>{if(root.current)check();});}}>
     {children}

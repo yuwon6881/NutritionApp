@@ -2,11 +2,12 @@ import {Form} from './ui/Form';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Search,ScanBarcode,Sparkles,Plus,Star} from 'lucide-react';
 import type {Nourish} from '../useNourish';
-import type {Entry,Food,Nutrients,ScanDraft} from '../types';
+import type {Entry,Food,ScanDraft} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
-import {basketTotals,lineKey} from '../lib/foodBasket';
-import {parsePortions} from '../lib/portions';
+import {api} from '../lib/api';
+import {lineFromPer100,lineKey} from '../lib/foodBasket';
+import {serializePortions,parsePortions} from '../lib/portions';
 import {Button} from './ui/Button';
 import {Field,SelectField,TextArea} from './ui/Field';
 import {FileInput} from './ui/FileInput';
@@ -24,7 +25,7 @@ import {MotionPanel} from './ui/Motion';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
-type SearchResult=Nutrients&{servingGrams:number};
+type SearchResult=import('../types').FoodSearchResult;
 type FoodStep='selection'|'quick'|'editor'|'recipe'|'batch';
 
 export function LogFood({
@@ -54,6 +55,9 @@ export function LogFood({
   const [stepDirty,setStepDirty]=useState(false);
   const [tab,setTab]=useState(initialAi?'ai':'search');
   const [query,setQuery]=useState('');
+  const selectionRequest=useRef(0);
+  const [detail,setDetail]=useState<{food:SearchResult;error?:string}|null>(null);
+  useEffect(()=>{selectionRequest.current++;setDetail(null);return()=>{selectionRequest.current++;};},[open,step,tab,query]);
   const [results,setResults]=useState<SearchResult[]>([]);
   const [draft,setDraft]=useState<Partial<Entry>|undefined>(editing);
   const [saveFood,setSaveFood]=useState<Food|true|false>(false);
@@ -153,7 +157,16 @@ export function LogFood({
       go('batch');
     }
   };
-  const choose=(food:SearchResult)=>{setSaveFood(false);setDraft({...food,quantity:100,unit:'g',time:newTime()});go('editor');};
+  const choose=(food:SearchResult)=>{selectionRequest.current++;setDetail(null);setSaveFood(false);setDraft({...lineFromPer100(food),time:newTime()});go('editor');};
+  const chooseSearch=async(food:SearchResult)=>{
+    if(tab!=='search'||!food.code||food.portions?.length){choose(food);return;}
+    const id=++selectionRequest.current;
+    setDetail({food});
+    try{
+      const resolved=await api<SearchResult>('/foods/barcode/'+encodeURIComponent(food.code));
+      if(id===selectionRequest.current)choose(resolved);
+    }catch(ex){if(id===selectionRequest.current)setDetail({food,error:(ex as Error).message});}
+  };
   const foods=store.state!.foods.filter(food=>!food.deleted&&food.name.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
   const recentEntries=store.state!.entries.filter(entry=>!entry.deleted).slice(-8).reverse();
   const selectionDirty=(step==='selection'&&tab==='ai'&&(Boolean(description.trim())||Boolean(photo)))||Boolean(basket.lines.length);
@@ -169,12 +182,9 @@ export function LogFood({
       {value:'barcode',label:<><ScanBarcode size={16}/><span className="tab-label-full">Barcode</span><span className="tab-label-short">Scan</span></>,ariaLabel:'Barcode'},
       {value:'ai',label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}
     ]} onChange={selectTab}/>
-    {basket.lines.length>0&&<div className="batch-shortcut">
-      <div className="batch-shortcut-text">
-        <strong>{basket.lines.length} {basket.lines.length===1?'food':'foods'} in batch</strong>
-        <small>{displayEnergy(basketTotals(basket.lines).calories,energyUnit)} {energyLabel(energyUnit)} staged for {date}</small>
-      </div>
-      <Button variant="secondary" size="sm" onClick={()=>go('batch')}>View batch</Button>
+    {detail&&<div className="food-detail-status" role="status" aria-busy={!detail.error}>
+      <p>{detail.error?`Serving details unavailable for ${detail.food.name}. ${detail.error}`:`Loading serving details for ${detail.food.name}…`}</p>
+      <div className="actions">{detail.error&&<Button onClick={()=>void chooseSearch(detail.food)}>Retry serving lookup</Button>}<Button onClick={()=>choose(detail.food)}>Review using 100 g</Button></div>
     </div>}
     {tab==='saved'&&<>
       <div className="section-heading"><div><h3>Your foods</h3><p>Saved foods and recent diary items.</p></div><div className="actions"><Button onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}>Custom food</Button><Button onClick={()=>go('recipe')}>New recipe</Button></div></div>
@@ -240,14 +250,15 @@ export function LogFood({
       setError={setError}
       camera={camera}
       setCamera={setCamera}
-      onChoose={choose}
+      basket={basket}
+      onChoose={food=>void chooseSearch(food)}
       isSaved={food=>store.state!.foods.some(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source&&f.favourite)}
       onToggleSave={food=>void run(async()=>{
         const existing=store.state!.foods.find(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source);
         if(existing){
           await store.mutate({kind:'food',recordId:existing.id,expectedRevision:existing.revision,delete:false,data:{...existing,favourite:!existing.favourite}});
         }else{
-          await store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...food,servingGrams:100,favourite:true,ingredientsJson:'[]',cookedYieldGrams:null}});
+          await store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...food,portionsJson:serializePortions(food.portions??[]),servingGrams:100,favourite:true,ingredientsJson:'[]',cookedYieldGrams:null}});
         }
       })}
       run={run}
@@ -280,5 +291,5 @@ export function LogFood({
   const animatedChild=<MotionPanel motionKey={step} direction={stepDirection}>{child}</MotionPanel>;
 
   const content=!history.state?<div className="dialog-step"><p role="status" aria-busy="true">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
-  return <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} dirty={stepDirty||selectionDirty} width="lg" className="food-modal">{content}</Modal>;
+  return <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}>Batch · {basket.lines.length}</Button>:undefined} dirty={stepDirty||selectionDirty} width="lg" className="food-modal">{content}</Modal>;
 }

@@ -4,22 +4,14 @@ import {number} from '../lib/format';
 import {mealTime} from '../lib/foodDiary';
 import {basketTotals,basketEntries} from '../lib/foodBasket';
 import type {FoodBasketHook} from '../useFoodBasket';
+import {BatchFoodRow} from './BatchFoodRow';
 import {Button} from './ui/Button';
 import {TimePicker} from './ui/Field';
 import {Form,FieldFrame} from './ui/Form';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
-import {displayPortion} from '../lib/portions';
 import {FoodEditor} from './FoodEditor';
 import {parsePortions} from '../lib/portions';
-import {SwipeableRow} from './ui/SwipeableRow';
 import {useAsyncAction} from './ui/useAsyncAction';
-
-const MACROS=[
-  {key:'protein',label:'Protein',short:'P'},
-  {key:'carbs',label:'Carbs',short:'C'},
-  {key:'fat',label:'Fat',short:'F'},
-  {key:'fiber',label:'Fibre',short:'Fib'},
-] as const;
 
 export interface FoodBasketProps {
   basket:FoodBasketHook;
@@ -46,11 +38,10 @@ export function FoodBasket({
   const [announcement,setAnnouncement]=useState('');
   const [editingKey,setEditingKey]=useState<string>();
   const [actionsKey,setActionsKey]=useState<string>();
-  const [touchStart,setTouchStart]=useState<{x:number;y:number}>();
   const root=useRef<HTMLDivElement>(null);
   const previousEditing=useRef<string|undefined>(undefined);
   useLayoutEffect(()=>{
-    const target=editingKey?root.current?.querySelector<HTMLElement>('[data-modal-autofocus]'):previousEditing.current?Array.from(root.current?.querySelectorAll<HTMLElement>('[data-batch-actions]')??[]).find(element=>element.dataset.batchActions===previousEditing.current):undefined;
+    const target=editingKey?root.current?.querySelector<HTMLElement>('[data-modal-autofocus]'):previousEditing.current?Array.from(root.current?.querySelectorAll<HTMLElement>('[data-batch-actions]')??[]).find(element=>element.dataset.batchActions===previousEditing.current&&element.getClientRects().length>0):undefined;
     previousEditing.current=editingKey;
     if(!target)return;
     const frame=requestAnimationFrame(()=>target.focus({preventScroll:true}));
@@ -60,9 +51,9 @@ export function FoodBasket({
 
   const totals=basketTotals(basket.lines);
 
-  const partials=(['protein','carbs','fat','fiber'] as const)
+  const partials=(['protein','carbs','fat'] as const)
     .filter(k=>totals[k].partial)
-    .map(k=>({nutrient:k==='fiber'?'fibre':k,known:totals[k].known,total:totals[k].total}));
+    .map(k=>({nutrient:k,known:totals[k].known,total:totals[k].total}));
 
   const submitBatch=async(event:FormEvent)=>{
     event.preventDefault();
@@ -97,8 +88,7 @@ export function FoodBasket({
         <span className="live-macros">
           Protein {number(totals.protein.value)} g{totals.protein.partial?' · partial':''} · 
           Carbs {number(totals.carbs.value)} g{totals.carbs.partial?' · partial':''} · 
-          Fat {number(totals.fat.value)} g{totals.fat.partial?' · partial':''} · 
-          Fibre {number(totals.fiber.value)} g{totals.fiber.partial?' · partial':''}
+          Fat {number(totals.fat.value)} g{totals.fat.partial?' · partial':''}
         </span>
       </div>
       {partials.map(p=><small key={p.nutrient} style={{display:'block',marginTop:4}}>
@@ -122,31 +112,7 @@ export function FoodBasket({
           BATCH FOODS ({basket.lines.length})
         </p>
 
-        {basket.lines.map(line=><SwipeableRow
-          key={line.key}
-          className="batch-food"
-          actionsLabel={'Actions for '+line.name}
-          actionsWidth={148}
-          actions={<>
-            <Button type="button" data-batch-actions={line.key} aria-label={'Edit '+line.name} onClick={()=>setEditingKey(line.key)}>Edit</Button>
-            <Button type="button" variant="destructive" aria-label={'Remove '+line.name} onClick={()=>{basket.removeLine(line.key);setAnnouncement('Removed '+line.name+' from batch.');}}>Remove</Button>
-          </>}
-        >
-          <div className="batch-food-body">
-            <div className="batch-food-summary">
-              <div><strong>{line.name}</strong><small>{displayPortion(line)}{line.source.startsWith('AI')?' · AI estimate':''}</small></div>
-              <span className="batch-food-energy">{displayEnergy(line.calories,units.energy)} <small>{energyLabel(units.energy)}</small></span>
-            </div>
-            {/* Each food reports its own macros, not just the batch total. An
-                absent nutrient stays absent rather than reading as zero. */}
-            <dl className="batch-food-macros">
-              {MACROS.map(macro=><div key={macro.key}>
-                <dt><span className="macro-name-full">{macro.label}</span><span className="macro-name-short">{macro.short}</span></dt>
-                <dd>{number(line[macro.key],1)} g</dd>
-              </div>)}
-            </dl>
-          </div>
-        </SwipeableRow>)}
+        {basket.lines.map(line=><BatchFoodRow key={line.key} line={line} energyUnit={units.energy} open={actionsKey===line.key} onOpen={open=>setActionsKey(open?line.key:undefined)} onEdit={()=>setEditingKey(line.key)} onRemove={()=>{basket.removeLine(line.key);setActionsKey(undefined);setAnnouncement('Removed '+line.name+' from batch.');}}/>)}
       </FieldFrame>
 
       {error&&<p className="error" role="alert">{error}</p>}
