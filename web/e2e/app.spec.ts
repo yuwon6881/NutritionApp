@@ -378,8 +378,10 @@ test('mobile scan shortcut supports food photos and label autofill before review
     await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
     const foodName=mode==='label'?'Label yoghurt':'Photo meal';
     await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
-    await page.getByRole('button',{name:'Actions for '+foodName}).click();
-    await page.getByRole('button',{name:'Edit',exact:true}).click();
+    // Compact hides row actions behind the swipe; focusing one opens its row.
+    const editAction=page.getByRole('button',{name:'Edit '+foodName,exact:true});
+    await editAction.focus();
+    await editAction.click();
     await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');
     await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
     if(mode==='label')await page.getByLabel('Calories (kcal)',{exact:true}).fill('135');

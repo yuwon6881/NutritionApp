@@ -5,7 +5,7 @@ import type {Nourish} from '../useNourish';
 import type {Entry,Food,Nutrients,ScanDraft} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
-import {lineKey} from '../lib/foodBasket';
+import {basketTotals,lineKey} from '../lib/foodBasket';
 import {parsePortions} from '../lib/portions';
 import {Button} from './ui/Button';
 import {Field,SelectField,TextArea} from './ui/Field';
@@ -170,8 +170,11 @@ export function LogFood({
       {value:'ai',label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}
     ]} onChange={selectTab}/>
     {basket.lines.length>0&&<div className="batch-shortcut">
-      <span><strong>{basket.lines.length} {basket.lines.length===1?'food':'foods'} in batch</strong></span>
-      <Button variant="tertiary" size="sm" onClick={()=>go('batch')}>View batch</Button>
+      <div className="batch-shortcut-text">
+        <strong>{basket.lines.length} {basket.lines.length===1?'food':'foods'} in batch</strong>
+        <small>{displayEnergy(basketTotals(basket.lines).calories,energyUnit)} {energyLabel(energyUnit)} staged for {date}</small>
+      </div>
+      <Button variant="secondary" size="sm" onClick={()=>go('batch')}>View batch</Button>
     </div>}
     {tab==='saved'&&<>
       <div className="section-heading"><div><h3>Your foods</h3><p>Saved foods and recent diary items.</p></div><div className="actions"><Button onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}>Custom food</Button><Button onClick={()=>go('recipe')}>New recipe</Button></div></div>
@@ -237,7 +240,6 @@ export function LogFood({
       setError={setError}
       camera={camera}
       setCamera={setCamera}
-      basket={basket}
       onChoose={choose}
       isSaved={food=>store.state!.foods.some(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source&&f.favourite)}
       onToggleSave={food=>void run(async()=>{

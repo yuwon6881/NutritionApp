@@ -1,90 +1,23 @@
 import {useState,useEffect,useCallback} from 'react';
-import type {AiFood,Nutrients,PortionBasis,Portion} from './types';
-import {api,ApiError} from './lib/api';
+import type {AiFood,Nutrients,PortionBasis} from './types';
 import {
   type BasketLine,
   lineKey,
   lineFromPer100,
   lineFromAi,
 } from './lib/foodBasket';
-import {
-  type ScanQueueState,
-  type ScanOutcome,
-  initialQueueState,
-  enqueue,
-  nextCode,
-  begin,
-  settle,
-  waitMs,
-} from './lib/scanQueue';
 import {rescaleNutrients} from './lib/nutrients';
-
-type SearchResult = Nutrients & {servingGrams: number;portions?:Portion[]};
 
 export function useFoodBasket(open:boolean){
   const [lines,setLines]=useState<BasketLine[]>([]);
-  const [queue,setQueue]=useState<ScanQueueState>(initialQueueState);
   const [scanIds,setScanIds]=useState<string[]>([]);
-  const [tick,setTick]=useState(0);
 
   useEffect(()=>{
     if(!open){
       setLines([]);
-      setQueue(initialQueueState());
       setScanIds([]);
-      setTick(0);
     }
   },[open]);
-
-  useEffect(()=>{
-    let cancelled=false;
-    const now=Date.now();
-    const code=nextCode(queue,now);
-
-    if(code){
-      setQueue(current=>begin(current,code,now));
-      (async()=>{
-        try{
-          const food=await api<SearchResult>('/foods/barcode/'+encodeURIComponent(code));
-          if(!cancelled){
-            setQueue(current=>settle(current,code,{status:'added',name:food.name},Date.now()));
-            setLines(current=>{
-              const line=lineFromPer100(food);
-              return current.some(l=>l.key===line.key)?current:[...current,line];
-            });
-          }
-        }catch(ex){
-          const err=ex as ApiError;
-          const status=err.status;
-          let outcome:ScanOutcome;
-          if(status===404){
-            outcome={status:'not-found',message:err.message||'Barcode not found.'};
-          }else if(status===422){
-            outcome={status:'no-calories',message:err.message||'No calorie data reported.'};
-          }else if(status===429){
-            outcome={status:'rate-limited',message:err.message||'Rate limited. Retrying…'};
-          }else{
-            outcome={status:'failed',message:err.message||'Lookup failed.'};
-          }
-          if(!cancelled){
-            setQueue(current=>settle(current,code,outcome,Date.now()));
-          }
-        }
-      })();
-      return()=>{cancelled=true;};
-    }
-
-    const delay=waitMs(queue,now);
-    if(delay>0&&queue.items.some(i=>i.status==='queued'||i.status==='rate-limited')){
-      const timer=window.setTimeout(()=>{
-        if(!cancelled)setTick(t=>t+1);
-      },delay+20);
-      return()=>{
-        cancelled=true;
-        clearTimeout(timer);
-      };
-    }
-  },[queue,tick]);
 
   const addLine=useCallback((line:BasketLine)=>{
     setLines(current=>current.some(l=>l.key===line.key)?current:[...current,line]);
@@ -126,19 +59,13 @@ export function useFoodBasket(open:boolean){
     setScanIds(current=>current.includes(scanId)?current:[...current,scanId]);
   },[]);
 
-  const enqueueCode=useCallback((code:string)=>{
-    setQueue(current=>enqueue(current,code));
-  },[]);
-
   const clear=useCallback(()=>{
     setLines([]);
-    setQueue(initialQueueState());
     setScanIds([]);
   },[]);
 
   return {
     lines,
-    queue,
     scanIds,
     addLine,
     removeLine,
@@ -148,7 +75,6 @@ export function useFoodBasket(open:boolean){
     updateLineUnit,
     toggleItem,
     addAiFoods,
-    enqueueCode,
     clear,
   };
 }

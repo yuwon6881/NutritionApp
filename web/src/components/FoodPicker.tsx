@@ -2,12 +2,9 @@ import {useEffect,useRef,useState} from 'react';
 import {Camera, Star} from 'lucide-react';
 import type {EnergyUnit,Nutrients} from '../types';
 import {api} from '../lib/api';
-import {outstanding,etaSeconds,waitMs} from '../lib/scanQueue';
-import type {FoodBasketHook} from '../useFoodBasket';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {Form} from './ui/Form';
-import {SegmentedControl} from './ui/SegmentedControl';
 import {BarcodeCamera} from './BarcodeCamera';
 import {displayEnergy,energyLabel} from '../lib/units';
 
@@ -24,7 +21,6 @@ export interface FoodPickerProps {
   setError:(err:string)=>void;
   camera:boolean;
   setCamera:(v:boolean|((prev:boolean)=>boolean))=>void;
-  basket:FoodBasketHook;
   onChoose:(food:SearchResult)=>void;
   onSaveFood?:(food:SearchResult)=>void;
   isSaved?:(food:SearchResult)=>boolean;
@@ -46,7 +42,6 @@ export function FoodPicker({
   setError,
   camera,
   setCamera,
-  basket,
   onChoose,
   onSaveFood: _onSaveFood,
   isSaved,
@@ -58,16 +53,61 @@ export function FoodPicker({
 }:FoodPickerProps){
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open,query]);
-  const [scanMode,setScanMode]=useState<'single'|'multiple'>('single');
-  const pendingCount=outstanding(basket.queue);
-  const eta=etaSeconds(pendingCount,waitMs(basket.queue,Date.now()));
+  const [scannedCode,setScannedCode]=useState<string>();
+
+  const lookup=(value:string,barcode:boolean)=>{
+    const id=++requestId.current;
+    return run(async()=>{
+      try{
+        const found=barcode
+          ?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(value))]
+          :await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value));
+        if(id===requestId.current)setResults(found);
+      }catch(error){
+        if(id===requestId.current)throw error;
+      }
+    });
+  };
+
+  // A scanned code fills the field and looks itself up. The lookup waits for the
+  // committed query so the effect above cannot retire its own request as stale.
+  useEffect(()=>{
+    if(scannedCode===undefined||scannedCode!==query)return;
+    setScannedCode(undefined);
+    void lookup(scannedCode,true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[scannedCode,query]);
 
   return <>
     <h3>{tab==='barcode'?'Packaged food':'Food search'}</h3>
+
+    {/* Scanning leads this tab and takes the initial focus. Autofocusing the
+        digit field instead raises a phone keyboard over the scanner, and its
+        required-field error would shift the camera button out from under a
+        pointer that is already pressing it. */}
+    {tab==='barcode'&&<>
+      <div className="barcode-scan-options">
+        <Button variant="primary" data-modal-autofocus onClick={()=>setCamera(value=>!value)}>
+          <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
+        </Button>
+        <small>The camera stops on the first barcode it reads and looks it up. Type the digits below if the code will not scan.</small>
+      </div>
+      {camera&&open&&step==='selection'&&<BarcodeCamera
+        onDetected={code=>{
+          setCamera(false);
+          setQuery(code);
+          setScannedCode(code);
+        }}
+        onError={message=>{
+          setError(message);
+          setCamera(false);
+        }}
+      />}
+    </>}
+
     <Form onSubmit={event=>{
       event.preventDefault();
-      const id=++requestId.current;
-      void run(async()=>{try{const found=tab==='barcode'?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(query))]:await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(query));if(id===requestId.current)setResults(found);}catch(error){if(id===requestId.current)throw error;}});
+      void lookup(query,tab==='barcode');
     }}>
       <div className="search-line">
         <Field
@@ -76,7 +116,7 @@ export function FoodPicker({
           key={tab}
           validate={()=>tab==='barcode'&&!/^[0-9]{8,14}$/.test(query)?'Enter an 8–14 digit barcode.':tab==='search'&&(query.trim().length<2||query.trim().length>100)?'Enter 2–100 characters.':undefined}
           inputMode={tab==='barcode'?'numeric':undefined}
-          data-modal-autofocus
+          data-modal-autofocus={tab==='search'?true:undefined}
           label={tab==='barcode'?'Barcode digits':'Search term'}
           required
           value={query}
@@ -85,64 +125,6 @@ export function FoodPicker({
         />
       </div>
     </Form>
-
-    {tab==='barcode'&&<>
-      <div className="barcode-scan-options">
-        <Button onClick={()=>setCamera(value=>!value)}>
-          <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
-        </Button>
-        <div className="barcode-scan-mode-copy">
-          <strong>Scan mode</strong>
-          <small>Choose whether the camera stops after one barcode or keeps adding items to the batch.</small>
-        </div>
-        <SegmentedControl
-          className="barcode-scan-mode"
-          label="Barcode scan mode"
-          value={scanMode}
-          onChange={setScanMode}
-          options={[
-            {value:'single',label:'One barcode',ariaLabel:'Scan one barcode'},
-            {value:'multiple',label:'Multiple barcodes',ariaLabel:'Scan multiple barcodes'},
-          ]}
-        />
-      </div>
-      {camera&&open&&step==='selection'&&<BarcodeCamera
-        continuous={scanMode==='multiple'}
-        onDetected={code=>{
-          if(scanMode==='multiple'){
-            basket.enqueueCode(code);
-          }else{
-            setQuery(code);
-            setCamera(false);
-          }
-        }}
-        onError={message=>{
-          setError(message);
-          setCamera(false);
-        }}
-      />}
-      {basket.queue.items.length>0&&<div className="scan-queue" style={{margin:'14px 0'}}>
-        {pendingCount>0&&<p className="notice" role="status">
-          Resolving {pendingCount} {pendingCount===1?'barcode lookup':'barcode lookups'} (about {eta} s)…
-        </p>}
-        <div className="queue-list" style={{display:'grid',gap:6}}>
-          {basket.queue.items.map(item=><div
-            key={item.code}
-            className="queue-item"
-            style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'.8rem',padding:'6px 0',borderBottom:'1px solid var(--border)'}}
-          >
-            <span><strong>{item.code}</strong>{item.name?` · ${item.name}`:''}</span>
-            <small style={{color:item.status==='failed'||item.status==='not-found'||item.status==='no-calories'?'var(--destructive)':'var(--muted-foreground)'}}>
-              {item.status==='added'?'Added to batch':
-               item.status==='looking-up'?'Looking up…':
-               item.status==='rate-limited'?item.message??'Rate limited. Retrying…':
-               item.status==='queued'?'Queued':
-               item.message??item.status}
-            </small>
-          </div>)}
-        </div>
-      </div>}
-    </>}
 
     {results.map((result,index)=>{
       const starred=isSaved?isSaved(result):false;

@@ -11,7 +11,15 @@ import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {displayPortion} from '../lib/portions';
 import {FoodEditor} from './FoodEditor';
 import {parsePortions} from '../lib/portions';
+import {SwipeableRow} from './ui/SwipeableRow';
 import {useAsyncAction} from './ui/useAsyncAction';
+
+const MACROS=[
+  {key:'protein',label:'Protein',short:'P'},
+  {key:'carbs',label:'Carbs',short:'C'},
+  {key:'fat',label:'Fat',short:'F'},
+  {key:'fiber',label:'Fibre',short:'Fib'},
+] as const;
 
 export interface FoodBasketProps {
   basket:FoodBasketHook;
@@ -114,16 +122,31 @@ export function FoodBasket({
           BATCH FOODS ({basket.lines.length})
         </p>
 
-        {basket.lines.map(line=>{
-          return <div className={'batch-food'+(actionsKey===line.key?' actions-open':'')} key={line.key} onTouchStart={event=>{const point=event.touches[0];setTouchStart({x:point.clientX,y:point.clientY});}} onTouchEnd={event=>{const point=event.changedTouches[0];if(touchStart&&Math.abs(point.clientY-touchStart.y)<35&&Math.abs(point.clientX-touchStart.x)>50)setActionsKey(point.clientX<touchStart.x?line.key:undefined);setTouchStart(undefined);}}>
+        {basket.lines.map(line=><SwipeableRow
+          key={line.key}
+          className="batch-food"
+          actionsLabel={'Actions for '+line.name}
+          actionsWidth={148}
+          actions={<>
+            <Button type="button" data-batch-actions={line.key} aria-label={'Edit '+line.name} onClick={()=>setEditingKey(line.key)}>Edit</Button>
+            <Button type="button" variant="destructive" aria-label={'Remove '+line.name} onClick={()=>{basket.removeLine(line.key);setAnnouncement('Removed '+line.name+' from batch.');}}>Remove</Button>
+          </>}
+        >
+          <div className="batch-food-body">
             <div className="batch-food-summary">
               <div><strong>{line.name}</strong><small>{displayPortion(line)}{line.source.startsWith('AI')?' · AI estimate':''}</small></div>
               <span className="batch-food-energy">{displayEnergy(line.calories,units.energy)} <small>{energyLabel(units.energy)}</small></span>
-              <Button type="button" variant="tertiary" data-batch-actions={line.key} aria-label={'Actions for '+line.name} aria-expanded={actionsKey===line.key} onClick={()=>setActionsKey(actionsKey===line.key?undefined:line.key)}>•••</Button>
             </div>
-            {actionsKey===line.key&&<div className="batch-food-actions"><Button type="button" onClick={()=>setEditingKey(line.key)}>Edit</Button><Button type="button" variant="destructive" aria-label={'Remove '+line.name} onClick={()=>{basket.removeLine(line.key);setAnnouncement('Removed '+line.name+' from batch.');}}>Remove</Button></div>}
-          </div>;
-        })}
+            {/* Each food reports its own macros, not just the batch total. An
+                absent nutrient stays absent rather than reading as zero. */}
+            <dl className="batch-food-macros">
+              {MACROS.map(macro=><div key={macro.key}>
+                <dt><span className="macro-name-full">{macro.label}</span><span className="macro-name-short">{macro.short}</span></dt>
+                <dd>{number(line[macro.key],1)} g</dd>
+              </div>)}
+            </dl>
+          </div>
+        </SwipeableRow>)}
       </FieldFrame>
 
       {error&&<p className="error" role="alert">{error}</p>}

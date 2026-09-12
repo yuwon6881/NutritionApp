@@ -84,13 +84,14 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await expect(page.getByLabel('Meal time',{exact:true})).toHaveValue('13:45');
   await expect(page.locator('.batch-food').filter({hasText:'Text meal'})).toBeVisible();
   await expect(page.getByRole('button',{name:/Add reviewed meal/})).toHaveCount(0);
-  await page.getByRole('button',{name:'Actions for Text meal'}).focus();
+  // Focusing a swipe-revealed action opens its row, so the keyboard never needs
+  // the gesture. On wider screens the same action is already inline.
+  await page.getByRole('button',{name:'Edit Text meal',exact:true}).focus();
   await page.keyboard.press('Enter');
-  await page.getByRole('button',{name:'Edit',exact:true}).click();
   await expect(page.getByLabel('Food name',{exact:true})).toBeFocused();
   await expect(page.getByLabel('Protein (g)',{exact:true})).toHaveValue('');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Actions for Text meal'})).toBeFocused();
+  await expect(page.getByRole('button',{name:'Edit Text meal',exact:true})).toBeFocused();
   await page.getByRole('button',{name:'Remove Text meal',exact:true}).click();
   await page.getByRole('button',{name:'Add more food'}).click();
   await expect(page.getByLabel('Meal description and portions')).toHaveValue('');
