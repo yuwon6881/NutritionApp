@@ -11,14 +11,19 @@ import {displayEnergy,energyLabel} from '../lib/units';
 
 type SearchResult = import('../types').FoodSearchResult;
 
-function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit){
+export function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit='kcal'){
   const serving=result.portions?.[0];
-  if(!serving)return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
-  const calories=result.servingCalories??result.calories*serving.grams/100;
-  const label=/^\d+(?:[.,]\d+)?\s*g$/i.test(serving.label.trim())
-    ?`${number(serving.grams,1)} g`
-    :`${serving.label} (${number(serving.grams,1)} g)`;
-  return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${label}`;
+  if(serving){
+    const calories=result.servingCalories??result.calories*serving.grams/100;
+    const label=/^\d+(?:[.,]\d+)?\s*g$/i.test(serving.label.trim())
+      ?`${number(serving.grams,1)} g`
+      :`${serving.label} (${number(serving.grams,1)} g)`;
+    return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${label}`;
+  }
+  if(result.basis==='per100g'){
+    return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
+  }
+  return 'Basis unavailable';
 }
 
 export interface FoodPickerProps {
@@ -85,35 +90,42 @@ export function FoodPicker({
           inputMode={tab==='barcode'?'numeric':undefined}
           data-modal-autofocus
           label={tab==='barcode'?'Barcode digits':'Search term'}
+          hint={tab==='barcode'?'Enter 8–14 digits or tap the camera icon to scan.':undefined}
           required
           value={query}
           onChange={event=>{requestId.current++;setQuery(event.target.value);}}
+          insideAction={tab==='barcode'?(
+            <Button
+              type="button"
+              variant="tertiary"
+              size="icon"
+              className={`barcode-camera-btn ${camera?'active':''}`}
+              aria-label={camera?'Stop barcode camera':'Scan barcode with camera'}
+              title={camera?'Stop barcode camera':'Scan barcode with camera'}
+              onClick={()=>setCamera(value=>!value)}
+            >
+              <Camera size={18}/>
+            </Button>
+          ):undefined}
           action={<Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>}
         />
       </div>
     </Form>
 
-    {tab==='barcode'&&<>
-      <div className="barcode-scan-options">
-        <Button variant="primary" onClick={()=>setCamera(value=>!value)}>
-          <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
-        </Button>
-      </div>
-      {camera&&open&&step==='selection'&&<section className="barcode-scanner-step" aria-labelledby="barcode-scanner-title">
-        <div className="section-heading"><div><h3 id="barcode-scanner-title">Barcode scanner</h3><p>Scan one item and return to its lookup result.</p></div><Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button></div>
-        <BarcodeCamera
-          onDetected={code=>{
-            setCamera(false);
-            setQuery(code);
-            lookup(code);
-          }}
-          onError={message=>{
-            setError(message);
-            setCamera(false);
-          }}
-          />
-      </section>}
-    </>}
+    {tab==='barcode'&&camera&&open&&step==='selection'&&<section className="barcode-scanner-step" aria-labelledby="barcode-scanner-title">
+      <div className="section-heading"><div><h3 id="barcode-scanner-title">Barcode scanner</h3><p>Scan one item and return to its lookup result.</p></div><Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button></div>
+      <BarcodeCamera
+        onDetected={code=>{
+          setCamera(false);
+          setQuery(code);
+          lookup(code);
+        }}
+        onError={message=>{
+          setError(message);
+          setCamera(false);
+        }}
+      />
+    </section>}
 
     {results.map((result,index)=>{
       const starred=isSaved?isSaved(result):false;

@@ -79,9 +79,15 @@ Food search has one ranking contract:
 2. Among equivalent name matches, a previously logged product may be preferred for that account; a declared gram serving and then provider order break remaining ties.
 3. The search index is hydrated through the bulk product lookup before the tie-breaker runs. If hydration is unavailable, the name-ranked results still display and no serving is invented.
 
-`FoodSearchService.PrioritizeResults` owns this ordering. `FoodPicker` owns the existing compact result row and displays a declared serving label/weight when available, otherwise the honest `/ 100 g` basis. Update the API regression test and the relevant browser coverage whenever this contract changes.
+`FoodSearchService.PrioritizeResults` owns this ordering. Food results carry an explicit nutrition basis discriminator (`per100g` vs `unverified`). `FoodPicker` owns the existing compact result row and prioritizes declared serving summaries first, verified authoritative `/ 100 g` summaries second, and a concise basis-unavailable state for unverified hits without declared servings. Selecting an unverified coded result resolves its authoritative serving through the barcode endpoint before review. Update the API regression test and the relevant browser coverage whenever this contract changes.
 
-Food logging rows expose the three primary macros as a compact `P`, `C`, and `F` summary in both batch review and the diary timeline. Unknown values remain `—`; a known fibre value may remain available as a secondary `Fi` value in the detailed timeline.
+Food logging rows expose the three primary macros as a compact `P`, `C`, and `F` summary in both batch review and the diary timeline. Unknown values remain `—`; a known fibre value may remain available as a secondary `Fi` value in the detailed timeline. Timeline cards adopt an ultra-compact presentation with the food name, energy, and more actions button grouped on the top line, and portion with macros on the secondary line, omitting repetitive source provenance strings for maximum screen density and scanability.
+
+Barcode search embeds the camera trigger directly into the digits input field as an trailing icon action, avoiding separate button rows and unifying manual and camera lookup.
+
+The "Your foods" selection tab organizes saved foods, custom items, recipes, and recent diary items with persistent search, category segment filtering (`All`, `Favourites`, `Recipes`, `Recent`), and structured recent food cards containing portion and energy context.
+
+Recipe ingredient search links directly to the application's food search capabilities (online provider, saved foods, and barcode lookup). Ingredient search results share the application's food presentation with calories, basis, source, and P/C/F macro badges. When setting an ingredient quantity, a live calorie card displays the scaled nutritional contribution, and declared portions synchronize with editable grams. As ingredients are added or adjusted, a live recipe nutrition preview reflects total batch calories and macros, per-serving targets, and cooked-yield nutrient density.
 
 Diary timeline entries expose one keyboard-accessible action surface for Edit, Copy, Move to, and Delete. Copy and Move to preserve the logged snapshot and allow an editable date through today plus an optional time; Delete is confirmed before the existing retained mutation is queued. Keep drag/drop, group move, and Copy day as complementary shortcuts rather than separate mutation contracts.
 

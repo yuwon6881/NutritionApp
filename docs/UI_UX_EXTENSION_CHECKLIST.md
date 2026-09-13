@@ -22,8 +22,8 @@ Do not reimplement a button, field, form validator, select, date/time picker, mo
 - Dialogs use `Modal` or `ActionSheet`, including dirty-close confirmation and focus restoration.
 - Page and panel changes use `MotionScene`/`MotionPanel`; coach step changes use `CoachMotion`.
 - Async work uses `useAsyncAction` and the existing sync/status language.
-- Food search, portions, serving labels, batch review, swipe, and mobile menus extend `LogFood`, `FoodPicker`, `FoodBasket`, `BatchFoodRow`, and the API service.
-- Food timeline entry actions use one accessible action sheet for Edit, Copy, Move to, and Delete; copy/move destination dialogs must preserve the entry snapshot, keep date/time validation explicit, and confirm destructive deletion before queueing the existing entry mutation.
+- Food search, portions, serving labels, batch review, swipe, and mobile menus extend `LogFood`, `FoodPicker`, `FoodBasket`, `BatchFoodRow`, and the API service. Search results explicitly distinguish authoritative product data (with declared servings or verified per-100 g) from unverified provider search hits that display a basis-unavailable state. Barcode input embeds the camera trigger inside the field adornment. "Your foods" supports persistent search and category filtering with structured recent entries. Recipe ingredient search reuses the food search presentation, live calorie card, and portion synchronization.
+- Food timeline cards use an ultra-compact two-line layout without source strings; entry actions use one accessible action sheet for Edit, Copy, Move to, and Delete; copy/move destination dialogs must preserve the entry snapshot, keep date/time validation explicit, and confirm destructive deletion before queueing the existing entry mutation.
 - New styling uses semantic Ayu tokens and the existing responsive breakpoints. Avoid inline colors, remote fonts, feature-only typography, and duplicate card/button systems.
 
 ## 3. Implement the contract, not just the happy path
@@ -38,6 +38,7 @@ For each new interaction, define and render the states that apply:
 - retryable error and conflict;
 - conflict review taking precedence over secondary prompts that could enqueue another edit for the same protected record;
 - compact protein/carbohydrate/fat values in food batch and diary rows at every responsive width, with unknown nutrients still visible;
+- recipe ingredient selection displaying live calorie/macro contribution cards, portion selection synchronized with grams, and live recipe-level nutrition preview cards;
 - an explicit past-date `No food logged` choice that is not overwritten by an account-level missing-day default;
 - a check-in countdown with a disabled muted circular control before the selected local day and an actionable colored circular control only when due;
 - weight-goal progress showing the recorded start, current trend or labelled scale fallback, target, percentage, and remaining amount in Goal and Coach history;
@@ -57,7 +58,7 @@ Use the narrowest test that protects the contract, then add browser coverage for
 | Screen layout or interaction | An isolated-API Playwright test in `web/e2e`, with light/dark and 390/768/1440 coverage when the screen is responsive |
 | Dialog, destructive action, or dirty draft | Browser assertions for focus trapping, Escape/backdrop behavior, confirmation, restoration, and retained draft/error state |
 | Food timeline entry actions | Browser assertions for the action sheet, date/time copy and move, delete confirmation, focus restoration, and retained mutation behavior |
-| Search or serving contract | API test for ordering/basis plus browser assertion for the displayed name, serving label, weight, and fallback basis |
+| Search or serving contract | API test for ordering/basis discriminator plus browser assertion for the displayed name, serving label, weight, verified per-100 g, and basis-unavailable state |
 | Check-in cadence or goal progress display | Date-state unit tests plus browser coverage for the circular due/countdown control and the start-to-target weight journey across the responsive/theme matrix |
 | Animation | Browser assertion with `reducedMotion: 'reduce'` and, if the motion itself matters, a bounded no-preference assertion; content must remain usable without motion |
 

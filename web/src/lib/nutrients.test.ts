@@ -62,3 +62,49 @@ it('does not rescale when switching to weight-unknown serving', () => {
   expect(switched.quantity).toBe(1);
   expect(switched.calories).toBe(130);
 });
+
+it('calculates recipe batch nutrients, per-serving targets, and cooked yield density from food ingredients', () => {
+  const ingredients = [
+    {
+      food: {name: 'Rolled Oats', calories: 380, protein: 13, fat: 7, carbs: 68, fiber: 10, source: 'USDA'},
+      grams: 100, // 380 kcal, 13g P, 7g F, 68g C
+    },
+    {
+      food: {name: 'Whole Milk', calories: 60, protein: 3.2, fat: 3.2, carbs: 4.8, fiber: 0, source: 'USDA'},
+      grams: 200, // 120 kcal, 6.4g P, 6.4g F, 9.6g C
+    },
+    {
+      food: {name: 'Whey Protein', calories: 400, protein: 80, fat: 3, carbs: 4, fiber: null, source: 'Open Food Facts'},
+      grams: 30, // 120 kcal, 24g P, 0.9g F, 1.2g C
+    }
+  ];
+
+  const yieldGrams = 400;
+  const servings = 2;
+
+  const totalNutrient = (key: 'calories'|'protein'|'fat'|'carbs'|'fiber') => {
+    if (ingredients.some(item => item.food[key] == null)) return null;
+    return ingredients.reduce((sum, item) => sum + item.food[key]! * item.grams / 100, 0);
+  };
+
+  const totalCalories = totalNutrient('calories');
+  const totalProtein = totalNutrient('protein');
+  const totalFiber = totalNutrient('fiber');
+
+  // 380 + 120 + 120 = 620 kcal total
+  expect(totalCalories).toBe(620);
+  // 13 + 6.4 + 24 = 43.4g protein
+  expect(totalProtein).toBeCloseTo(43.4);
+  // Whey fiber is null, so total fiber should preserve unknown as null
+  expect(totalFiber).toBeNull();
+
+  // Per serving (2 servings)
+  expect(totalCalories! / servings).toBe(310);
+  expect(totalProtein! / servings).toBeCloseTo(21.7);
+
+  // Per 100 g cooked yield (400 g yield)
+  // 620 / 400 * 100 = 155 kcal / 100 g
+  const per100Calories = (totalCalories! / yieldGrams) * 100;
+  expect(per100Calories).toBe(155);
+});
+

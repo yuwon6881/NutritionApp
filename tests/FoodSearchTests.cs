@@ -27,6 +27,7 @@ public sealed class FoodSearchTests
 
         var result=FoodSearchService.ReadProduct(hit,null)!;
 
+        Assert.Equal("unverified",result.Basis);
         Assert.Equal("Culinea Nasi Goreng · Chef Select",result.Name);
         Assert.Equal(102,result.Calories);
         Assert.Equal(3.4,result.Protein);
@@ -63,10 +64,28 @@ public sealed class FoodSearchTests
 
         var merged=FoodSearchService.ApplyHydratedProduct(search,product);
 
+        Assert.Equal("unverified",search.Basis);
+        Assert.Equal("per100g",product.Basis);
+        Assert.Equal("per100g",merged.Basis);
         Assert.Equal(384.868421052632,merged.Calories,10);
         Assert.Equal(78.9473684210526,merged.Protein.GetValueOrDefault(),10);
         Assert.True(Math.Abs(merged.ServingCalories.GetValueOrDefault()-117)<1e-10);
-        Assert.Equal(30.4,Assert.Single(merged.Portions!).Grams);
+    }
+
+    [Fact]
+    public void A_barcode_product_without_declared_serving_is_authoritative_per_100g()
+    {
+        var product=Product("""
+            {"product_name":"Optimum nutrition whey protein","brands":"Optimum Nutrition",
+             "nutriments":{"energy-kcal_100g":384.87,"proteins_100g":78.95,"fat_100g":3.29,"carbohydrates_100g":9.87}}
+            """);
+
+        var result=FoodSearchService.ReadProduct(product,"0748927065725")!;
+
+        Assert.Equal("per100g",result.Basis);
+        Assert.Empty(result.Portions!);
+        Assert.Equal(384.87,result.Calories);
+        Assert.Equal("Optimum nutrition whey protein",result.Name);
     }
 
     [Fact]

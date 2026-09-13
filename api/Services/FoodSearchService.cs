@@ -8,7 +8,7 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
 public record FoodPortion(string Label,double Grams);
-public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null,string? Code=null,double? ServingCalories=null);
+public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null,string? Code=null,double? ServingCalories=null,string Basis="per100g");
 public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
 {
     // Free text runs on Search-a-licious, the Elasticsearch service Open Food Facts built to
@@ -43,7 +43,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         query=query.Trim(); Validation.Require(query.Length is >=2 and <=100,"Enter 2–100 characters.");
         // Bump this when the provider-basis mapping changes so a process does not keep serving
         // search rows cached under the old (possibly serving-labelled-as-100 g) basis.
-        var key="search:hydrated-v2:"+query.ToLowerInvariant();
+        var key="search:hydrated-v3:"+query.ToLowerInvariant();
         if(cache.TryGetValue<IReadOnlyList<FoodResult>>(key,out var saved)) return saved!;
         var claimed=DateTime.MinValue; var released=DateTime.MinValue; var wait=TimeSpan.Zero;
         await RateGate.WaitAsync(ct);
@@ -65,7 +65,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
             if(json.RootElement.TryGetProperty("hits",out var hits)&&hits.ValueKind==JsonValueKind.Array)
                 foreach(var hit in hits.EnumerateArray())
-                    if(ReadProduct(hit,null) is {} result) results.Add(result);
+                    if(ReadProduct(hit,null,"unverified") is {} result) results.Add(result);
             await EnrichSearchResults(results,ct);
             var prioritized=PrioritizeResults(results,query);
             cache.Set(key,prioritized,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromHours(6) }); return prioritized;
@@ -120,6 +120,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         finally { RateGate.Release(); }
     }
 
+
     // Open Food Facts sheds load on search under pressure, which is a wait rather than a fault in
     // the diary, so each failure names the remedy it actually has.
     public static DomainException SearchUnavailable(HttpStatusCode status) => status switch
@@ -142,7 +143,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         Validation.Require(json.RootElement.TryGetProperty("product",out var product),"Barcode not found. Scan the label or add a custom food.",404);
         Validation.Require(Calories(product)!=null,"This product has no calorie data. Scan its label.",422);
-        var result=ReadProduct(product,code)!;
+        var result=ReadProduct(product,code,"per100g")!;
         cache.Set("barcode:"+code,result,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromDays(1) }); return result;
     }
 
@@ -151,7 +152,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     /// generic name a label scan can still correct; a search hit without a name or calories is
     /// dropped, because an unnamed or calorie-less row cannot be logged honestly.
     /// </summary>
-    public static FoodResult? ReadProduct(JsonElement product,string? scanned)
+    public static FoodResult? ReadProduct(JsonElement product,string? scanned,string? basis=null)
     {
         var name=Text(product,"product_name")??Text(product,"product_name_en");
         if(name is null&&scanned is null) return null;
@@ -163,7 +164,8 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             Label(name??"Packaged food",Brand(product)),
             calories,N("proteins"),N("fat"),N("carbohydrates"),N("fiber"),
             code is null?"Open Food Facts / ODbL":"Open Food Facts / ODbL / "+code,
-            100,portions,code,ServingCalories(calories,portions));
+            100,portions,code,ServingCalories(calories,portions),
+            basis??(scanned is not null?"per100g":"unverified"));
     }
 
     private async Task EnrichSearchResults(List<FoodResult> results,CancellationToken ct)
@@ -182,7 +184,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             foreach(var product in products.EnumerateArray())
             {
                 var code=Code(product);
-                if(code is {Length:>0}&&ReadProduct(product,code) is {} hydrated)hydratedByCode[code]=hydrated;
+                if(code is {Length:>0}&&ReadProduct(product,code,"per100g") is {} hydrated)hydratedByCode[code]=hydrated;
             }
             for(var index=0;index<results.Count;index++)
             {
@@ -214,7 +216,8 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             ServingGrams=hydrated.ServingGrams,
             Portions=hydrated.Portions,
             Code=hydrated.Code??searchResult.Code,
-            ServingCalories=hydrated.ServingCalories
+            ServingCalories=hydrated.ServingCalories,
+            Basis=hydrated.Basis
         };
 
     /// <summary>

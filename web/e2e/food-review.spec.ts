@@ -55,7 +55,7 @@ async function openLog(page:import('@playwright/test').Page){
   await page.getByRole('button',{name:'Add entry',exact:true}).click();
   await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log food'}).click();
 }
-const powder={name:'Protein powder with a deliberately long product name',source:'Open Food Facts / ODbL / 12345678',code:'12345678',servingGrams:100,calories:400,protein:80,carbs:null,fat:4,fiber:2};
+const powder={name:'Protein powder with a deliberately long product name',source:'Open Food Facts / ODbL / 12345678',code:'12345678',servingGrams:100,calories:400,protein:80,carbs:null,fat:4,fiber:2,basis:'unverified' as const};
 for(const theme of ['light','dark'])test(`${theme} large barcode controls stay aligned`,async({page,context})=>{
   await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
   await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
@@ -73,7 +73,7 @@ for(const theme of ['light','dark'])test(`${theme} large barcode controls stay a
 });
 test('search results show declared serving calories and reuse them in review',async({page,context})=>{
   await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
-  const served={...powder,portions:[{label:'scoop',grams:30}],servingCalories:120};let lookups=0;
+  const served={...powder,portions:[{label:'scoop',grams:30}],servingCalories:120,basis:'per100g' as const};let lookups=0;
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[served]}));
   await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:served});});
   await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('powder');await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
@@ -85,12 +85,16 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${th
   await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
   let lookups=0;
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder]}));
-  await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:{...powder,portions:[{label:'scoop',grams:30}]}});});
+  await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:{...powder,basis:'per100g' as const,portions:[{label:'scoop',grams:30}]}});});
   await openLog(page);
   await page.getByLabel('Search term',{exact:true}).fill('powder');
   await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
-  await expect(page.locator('.food-row')).toHaveCount(1);expect(lookups).toBe(0);
-  await page.locator('.food-row').click();
+  const searchRow=page.locator('.food-row').first();
+  await expect(searchRow).toBeVisible();
+  await expect(searchRow.locator('.food-description small')).toContainText('Basis unavailable');
+  await expect(searchRow.locator('.food-description small')).not.toContainText('/ 100 g');
+  expect(lookups).toBe(0);
+  await searchRow.click();
   await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
   await expect(page.locator('.live-calorie-value')).toContainText('120');
   await expect(page.locator('.live-calorie-meta')).not.toContainText('Fibre');
@@ -171,7 +175,7 @@ test('late product details cannot replace a manually opened editor',async({page,
 
 test('saved barcode portions survive reopening and conversion to grams',async({page,context})=>{
   await context.addCookies(session.cookies);
-  await page.route('**/api/foods/barcode/*',route=>route.fulfill({json:{...powder,portions:[{label:'scoop',grams:30}]}}));
+  await page.route('**/api/foods/barcode/*',route=>route.fulfill({json:{...powder,basis:'per100g' as const,portions:[{label:'scoop',grams:30}]}}));
   await openLog(page);await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await page.getByLabel('Barcode digits').fill('12345678');await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
   await page.getByRole('button',{name:`Save ${powder.name} to your foods`,exact:true}).click();
@@ -180,4 +184,95 @@ test('saved barcode portions survive reopening and conversion to grams',async({p
   await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
   await page.locator('#food-unit').selectOption('g');
   await page.getByLabel('Quantity',{exact:true}).fill('30');await expect(page.locator('.live-calorie-value')).toContainText('120');
+});
+
+test('hydrated search hit for Optimum Nutrition displays declared serving calories and opens review directly',async({page,context})=>{
+  await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
+  const hydrated={
+    name:'Optimum nutrition whey protein',
+    source:'Open Food Facts / ODbL / 0748927065725',
+    code:'0748927065725',
+    calories:384.87,
+    protein:78.95,
+    fat:3.29,
+    carbs:9.87,
+    fiber:null,
+    servingGrams:100,
+    portions:[{label:'30.4 g',grams:30.4}],
+    servingCalories:117,
+    basis:'per100g' as const,
+  };
+  let lookups=0;
+  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[hydrated]}));
+  await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:hydrated});});
+  await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('Optimum nutrition');await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  const row=page.locator('.food-row').first();
+  await expect(row.locator('.food-description small')).toContainText('117 kcal / 30.4 g');
+  await expect(row.locator('.food-description small')).not.toContainText('/ 100 g');
+  await row.click();
+  await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
+  await expect(page.locator('.live-calorie-value')).toContainText('117');
+  expect(lookups).toBe(0);
+});
+
+test('failed bulk hydration displays basis unavailable and resolves serving on click',async({page,context})=>{
+  await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
+  const unverifiedHit={
+    name:'Optimum nutrition whey protein',
+    source:'Open Food Facts / ODbL / 0748927065725',
+    code:'0748927065725',
+    calories:117,
+    protein:24,
+    fat:1,
+    carbs:3,
+    fiber:null,
+    servingGrams:100,
+    portions:[],
+    basis:'unverified' as const,
+  };
+  const authoritativeDetail={
+    ...unverifiedHit,
+    calories:384.87,
+    protein:78.95,
+    fat:3.29,
+    carbs:9.87,
+    portions:[{label:'30.4 g',grams:30.4}],
+    servingCalories:117,
+    basis:'per100g' as const,
+  };
+  let lookups=0;
+  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[unverifiedHit]}));
+  await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:authoritativeDetail});});
+  await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('Optimum nutrition');await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  const row=page.locator('.food-row').first();
+  await expect(row.locator('.food-description strong')).toContainText('Optimum nutrition whey protein');
+  await expect(row.locator('.food-description small')).toContainText('Basis unavailable · Open Food Facts / ODbL / 0748927065725');
+  await expect(row.locator('.food-description small')).not.toContainText('/ 100 g');
+  await expect(row.locator('.food-description small')).not.toContainText('117 kcal');
+  await row.click();
+  expect(lookups).toBe(1);
+  await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
+  await expect(page.locator('.live-calorie-value')).toContainText('117');
+});
+
+test('direct barcode result without declared serving displays / 100 g',async({page,context})=>{
+  await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
+  const servinglessBarcode={
+    name:'Rolled Oats · Quaker',
+    source:'Open Food Facts / ODbL / 0123456789012',
+    code:'0123456789012',
+    calories:370,
+    protein:13,
+    fat:7,
+    carbs:60,
+    fiber:null,
+    servingGrams:100,
+    portions:[],
+    basis:'per100g' as const,
+  };
+  await page.route('**/api/foods/barcode/*',route=>route.fulfill({json:servinglessBarcode}));
+  await openLog(page);await page.getByRole('button',{name:'Barcode',exact:true}).click();
+  await page.getByLabel('Barcode digits').fill('0123456789012');await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  const row=page.locator('.food-row').first();
+  await expect(row.locator('.food-description small')).toContainText('370 kcal / 100 g');
 });

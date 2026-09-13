@@ -135,24 +135,27 @@ export function FoodTimeline({
               key={entry.id}
               {...dragProps}
             >
-              <div className="section-heading">
-                <h3>
+              <div className="food-time-card-header">
+                <h3 className="food-time-card-title">
                   <Button variant="tertiary" disabled={readOnly} onClick={()=>onEdit(entry)}>{entry.name}</Button>
                 </h3>
-                <strong>{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
+                <div className="food-time-card-aside">
+                  <strong className="food-time-card-energy">{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
+                  <Button
+                    variant="tertiary"
+                    size="icon"
+                    className="food-time-card-more"
+                    disabled={readOnly}
+                    aria-label={`More actions for ${entry.name}`}
+                    title="More actions"
+                    onClick={event=>openActions(entry,event.currentTarget)}
+                  ><MoreHorizontal size={19}/></Button>
+                </div>
               </div>
-              <p>{displayPortion(entry)}</p>
-              <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat} fiber={entry.fiber} includeFiber/>
-              <div className="food-card-footer">
-                <small className="source">{entry.source}</small>
-                <Button
-                  variant="tertiary"
-                  size="icon"
-                  disabled={readOnly}
-                  aria-label={`More actions for ${entry.name}`}
-                  title="More actions"
-                  onClick={event=>openActions(entry,event.currentTarget)}
-                ><MoreHorizontal size={19}/></Button>
+              <div className="food-time-card-details">
+                <span className="food-time-card-portion">{displayPortion(entry)}</span>
+                <span className="food-time-card-dot" aria-hidden="true">·</span>
+                <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat} fiber={entry.fiber} includeFiber/>
               </div>
               {pending.length>0&&<small className="sync-label" role="status">{pending.find(op=>op.error)?.error??'Pending sync'}</small>}
             </article>;

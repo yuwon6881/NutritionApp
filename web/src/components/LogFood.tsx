@@ -7,7 +7,8 @@ import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {api} from '../lib/api';
 import {lineFromPer100,lineKey} from '../lib/foodBasket';
-import {serializePortions,parsePortions} from '../lib/portions';
+import {serializePortions,parsePortions,displayPortion} from '../lib/portions';
+import {FoodMacroSummary} from './FoodMacroSummary';
 import {Button} from './ui/Button';
 import {Field,SelectField,TextArea} from './ui/Field';
 import {FileInput} from './ui/FileInput';
@@ -29,6 +30,16 @@ type SearchResult=import('../types').FoodSearchResult;
 type FoodStep='selection'|'quick'|'editor'|'recipe'|'batch';
 type AiMode='photo'|'label'|'description';
 type AiJob={id:string;status:string;resultJson?:string|null;error?:string|null};
+
+function isRecipe(food:Food):boolean{
+  if(!food.ingredientsJson)return false;
+  try{
+    const parsed=JSON.parse(food.ingredientsJson);
+    return Array.isArray(parsed)&&parsed.length>0;
+  }catch{
+    return false;
+  }
+}
 
 export function LogFood({
   open,
@@ -57,7 +68,7 @@ export function LogFood({
   const [stepDirty,setStepDirty]=useState(false);
   const [tab,setTab]=useState(initialAi?'ai':'search');
   const [query,setQuery]=useState('');
-  const [showSavedSearch,setShowSavedSearch]=useState(false);
+  const [savedFilter,setSavedFilter]=useState<'all'|'favourites'|'recipes'|'recent'>('all');
   const selectionRequest=useRef(0);
   const [detail,setDetail]=useState<{food:SearchResult;error?:string}|null>(null);
   useEffect(()=>{selectionRequest.current++;setDetail(null);return()=>{selectionRequest.current++;};},[open,step,tab,query]);
@@ -82,7 +93,7 @@ export function LogFood({
       setStepDirty(false);
       setTab(initialAi?'ai':'search');
       setQuery('');
-      setShowSavedSearch(false);
+      setSavedFilter('all');
       setResults([]);
       setDraft(editing);
       setSaveFood(false);
@@ -115,7 +126,7 @@ export function LogFood({
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
   const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
   const selectTab=(next:string)=>{
-    setShowSavedSearch(false);
+    setSavedFilter('all');
     setQuery('');setResults([]);setError('');setCamera(false);setTab(next);
     window.requestAnimationFrame(()=>selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'}));
   };
@@ -180,8 +191,27 @@ export function LogFood({
       if(id===selectionRequest.current)choose(resolved);
     }catch(ex){if(id===selectionRequest.current)setDetail({food,error:(ex as Error).message});}
   };
-  const foods=store.state!.foods.filter(food=>!food.deleted&&food.name.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
-  const recentEntries=store.state!.entries.filter(entry=>!entry.deleted).slice(-8).reverse();
+  const allSavedFoods=store.state!.foods.filter(food=>!food.deleted);
+  const favoriteCount=allSavedFoods.filter(f=>f.favourite).length;
+  const recipeCount=allSavedFoods.filter(isRecipe).length;
+  const recentEntries=Array.from(
+    store.state!.entries
+      .filter(entry=>!entry.deleted)
+      .reverse()
+      .reduce((map,entry)=>{
+        const key=entry.name.toLowerCase().trim();
+        if(!map.has(key))map.set(key,entry);
+        return map;
+      },new Map<string,Entry>())
+      .values()
+  ).slice(0,8);
+  const foods=allSavedFoods.filter(food=>{
+    const matchesQuery=!query.trim()||food.name.toLowerCase().includes(query.toLowerCase().trim());
+    if(!matchesQuery)return false;
+    if(savedFilter==='favourites')return food.favourite;
+    if(savedFilter==='recipes')return isRecipe(food);
+    return true;
+  }).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
   const selectionDirty=Boolean(basket.lines.length);
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
   const descriptionText=step==='selection'?`For ${date}`:undefined;
@@ -199,66 +229,133 @@ export function LogFood({
       <div className="actions">{detail.error&&<Button onClick={()=>void chooseSearch(detail.food)}>Retry serving lookup</Button>}<Button onClick={()=>choose(detail.food)}>Review using 100 g</Button></div>
     </div>}
     {tab==='saved'&&<>
-      <div className="section-heading">
-        <div><h3>Your foods</h3><p>Saved foods and recent diary items.</p></div>
-        <div className="actions">
-          <Button variant={showSavedSearch?'primary':'secondary'} onClick={()=>setShowSavedSearch(prev=>{if(prev)setQuery('');return !prev;})}>
-            <Search size={16}/>Search
-          </Button>
-          <Button onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}>Custom food</Button>
-          <Button onClick={()=>go('recipe')}>New recipe</Button>
+      <div className="saved-foods-header">
+        <div><h3>Your foods</h3><p>Saved custom foods, recipes, and recent diary items.</p></div>
+        <div className="saved-foods-actions">
+          <Button variant="secondary" onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}><Plus size={16}/>Custom food</Button>
+          <Button variant="secondary" onClick={()=>go('recipe')}><Plus size={16}/>New recipe</Button>
         </div>
       </div>
-      {showSavedSearch&&<Field id="log-food-search" name="query" data-modal-autofocus label="Find your food" value={query} onChange={event=>setQuery(event.target.value)}/>}
-      {foods.length===0&&<p className="empty">No saved foods yet.</p>}
-      {foods.map(food=><div
-        className="food-row interactive"
-        key={food.id}
-        role="button"
-        tabIndex={0}
-        onClick={()=>choose(food)}
-        onKeyDown={event=>{
-          if(event.target!==event.currentTarget)return;
-          if(event.key==='Enter'||event.key===' '){
-            event.preventDefault();
-            choose(food);
-          }
-        }}
-      >
-        <div className="food-description">
-          <strong>{food.name}</strong>
-          <small>{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g · {food.source}</small>
-        </div>
-        <div className="food-row-actions" style={{display:'flex',alignItems:'center',gap:4}}>
-          <Button
-            variant="tertiary"
-            className={`food-row-star ${food.favourite?'starred':''}`}
-            aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`}
-            onClick={event=>{
-              event.stopPropagation();
-              void runAction(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite}}));
-            }}
-          >
-            <Star size={18} fill={food.favourite?'currentColor':'none'}/>
-          </Button>
-          <Button
-            variant="tertiary"
-            aria-label={`Edit ${food.name}`}
-            onClick={event=>{
-              event.stopPropagation();
-              setSaveFood(food);
-              setDraft({...food,quantity:100,unit:'g'});
-              go('editor');
-            }}
-          >
-            Edit
-          </Button>
-        </div>
-      </div>)}
-      <h3>Recent</h3>
-      {recentEntries.length>0
-        ?<div className="actions">{recentEntries.map(entry=><Button key={entry.id} onClick={()=>{setSaveFood(false);setDraft({...entry,id:undefined});go('editor');}}>{entry.name}</Button>)}</div>
-        :<p className="empty recent-empty">No recent diary items yet.</p>}
+      <div className="saved-foods-search">
+        <Field id="log-food-search" name="query" data-modal-autofocus label="Find your food" placeholder="Filter by food or recipe name…" value={query} onChange={event=>setQuery(event.target.value)}/>
+      </div>
+      <SegmentedControl<'all'|'favourites'|'recipes'|'recent'>
+        layout="wrap"
+        className="saved-filter-segments"
+        label="Filter your foods"
+        value={savedFilter}
+        options={[
+          {value:'all',label:`All (${allSavedFoods.length})`},
+          {value:'favourites',label:`Favourites (${favoriteCount})`},
+          {value:'recipes',label:`Recipes (${recipeCount})`},
+          {value:'recent',label:`Recent (${recentEntries.length})`},
+        ]}
+        onChange={setSavedFilter}
+      />
+      {savedFilter==='recent'?(
+        recentEntries.length>0?(
+          <div className="recent-foods-grid">
+            {recentEntries.map(entry=><button
+              type="button"
+              key={entry.id}
+              className="recent-food-card"
+              onClick={()=>{setSaveFood(false);setDraft({...entry,id:undefined});go('editor');}}
+            >
+              <div className="recent-food-info">
+                <strong className="recent-food-name">{entry.name}</strong>
+                <span className="recent-food-portion">{displayPortion(entry)}</span>
+              </div>
+              <strong className="recent-food-energy">{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
+            </button>)}
+          </div>
+        ):<p className="empty recent-empty">No recent diary items yet.</p>
+      ):(
+        <>
+          {savedFilter==='all'&&!query.trim()&&recentEntries.length>0&&<section className="recent-foods-section" aria-labelledby="recent-section-heading">
+            <div className="recent-foods-heading">
+              <h4 id="recent-section-heading">Recent items</h4>
+            </div>
+            <div className="recent-foods-grid">
+              {recentEntries.slice(0,4).map(entry=><button
+                type="button"
+                key={entry.id}
+                className="recent-food-card"
+                onClick={()=>{setSaveFood(false);setDraft({...entry,id:undefined});go('editor');}}
+              >
+                <div className="recent-food-info">
+                  <strong className="recent-food-name">{entry.name}</strong>
+                  <span className="recent-food-portion">{displayPortion(entry)}</span>
+                </div>
+                <strong className="recent-food-energy">{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
+              </button>)}
+            </div>
+          </section>}
+          {foods.length===0?(
+            <p className="empty">
+              {query.trim()
+                ?`No saved foods matching “${query}”.`
+                :savedFilter==='favourites'
+                ?'No favourite foods yet. Star foods to find them quickly here.'
+                :savedFilter==='recipes'
+                ?'No recipes yet. Create one with the New recipe button.'
+                :'No saved foods yet.'}
+            </p>
+          ):(
+            foods.map(food=><div
+              className="food-row interactive"
+              key={food.id}
+              role="button"
+              tabIndex={0}
+              onClick={()=>choose(food)}
+              onKeyDown={event=>{
+                if(event.target!==event.currentTarget)return;
+                if(event.key==='Enter'||event.key===' '){
+                  event.preventDefault();
+                  choose(food);
+                }
+              }}
+            >
+              <div className="food-description">
+                <div className="saved-food-title-row">
+                  <strong>{food.name}</strong>
+                  {isRecipe(food)&&<span className="food-badge recipe-badge">Recipe</span>}
+                </div>
+                <div className="saved-food-meta">
+                  <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g</span>
+                  {(food.protein!=null||food.carbs!=null||food.fat!=null)&&(
+                    <FoodMacroSummary protein={food.protein} carbs={food.carbs} fat={food.fat} className="food-macro-summary-inline"/>
+                  )}
+                </div>
+              </div>
+              <div className="food-row-actions" style={{display:'flex',alignItems:'center',gap:4}}>
+                <Button
+                  variant="tertiary"
+                  className={`food-row-star ${food.favourite?'starred':''}`}
+                  aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`}
+                  onClick={event=>{
+                    event.stopPropagation();
+                    void runAction(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite}}));
+                  }}
+                >
+                  <Star size={18} fill={food.favourite?'currentColor':'none'}/>
+                </Button>
+                <Button
+                  variant="tertiary"
+                  aria-label={`Edit ${food.name}`}
+                  onClick={event=>{
+                    event.stopPropagation();
+                    setSaveFood(food);
+                    setDraft({...food,quantity:100,unit:'g'});
+                    go('editor');
+                  }}
+                >
+                  Edit
+                </Button>
+              </div>
+            </div>)
+          )}
+        </>
+      )}
     </>}
     {(tab==='search'||tab==='barcode')&&<FoodPicker
       tab={tab}
