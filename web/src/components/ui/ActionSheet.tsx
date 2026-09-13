@@ -1,6 +1,6 @@
 import {useRef,type ReactNode} from 'react';
 import {ChevronRight} from 'lucide-react';
-import {Button} from './Button';
+import {Button,type ButtonVariant} from './Button';
 import {Modal} from './Modal';
 
 export interface ActionSheetOption {
@@ -9,7 +9,7 @@ export interface ActionSheetOption {
   description?: string;
   icon: ReactNode;
   onClick: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: ButtonVariant;
 }
 
 export interface ActionSheetProps {

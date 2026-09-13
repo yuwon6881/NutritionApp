@@ -23,6 +23,7 @@ Do not reimplement a button, field, form validator, select, date/time picker, mo
 - Page and panel changes use `MotionScene`/`MotionPanel`; coach step changes use `CoachMotion`.
 - Async work uses `useAsyncAction` and the existing sync/status language.
 - Food search, portions, serving labels, batch review, swipe, and mobile menus extend `LogFood`, `FoodPicker`, `FoodBasket`, `BatchFoodRow`, and the API service.
+- Food timeline entry actions use one accessible action sheet for Edit, Copy, Move to, and Delete; copy/move destination dialogs must preserve the entry snapshot, keep date/time validation explicit, and confirm destructive deletion before queueing the existing entry mutation.
 - New styling uses semantic Ayu tokens and the existing responsive breakpoints. Avoid inline colors, remote fonts, feature-only typography, and duplicate card/button systems.
 
 ## 3. Implement the contract, not just the happy path
@@ -55,6 +56,7 @@ Use the narrowest test that protects the contract, then add browser coverage for
 | Shared component behavior | Extend the existing consumer/browser test and cover keyboard, focus, accessible name, and reduced motion where relevant |
 | Screen layout or interaction | An isolated-API Playwright test in `web/e2e`, with light/dark and 390/768/1440 coverage when the screen is responsive |
 | Dialog, destructive action, or dirty draft | Browser assertions for focus trapping, Escape/backdrop behavior, confirmation, restoration, and retained draft/error state |
+| Food timeline entry actions | Browser assertions for the action sheet, date/time copy and move, delete confirmation, focus restoration, and retained mutation behavior |
 | Search or serving contract | API test for ordering/basis plus browser assertion for the displayed name, serving label, weight, and fallback basis |
 | Check-in cadence or goal progress display | Date-state unit tests plus browser coverage for the circular due/countdown control and the start-to-target weight journey across the responsive/theme matrix |
 | Animation | Browser assertion with `reducedMotion: 'reduce'` and, if the motion itself matters, a bounded no-preference assertion; content must remain usable without motion |

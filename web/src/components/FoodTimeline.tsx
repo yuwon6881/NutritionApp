@@ -1,9 +1,12 @@
 import {useState,useRef,useEffect,useCallback} from 'react';
-import {Copy,Trash2} from 'lucide-react';
+import {Copy,MoreHorizontal,MoveRight,Pencil,Trash2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
 import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow,type TimelineView} from '../lib/foodDiary';
 import {Button} from './ui/Button';
+import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
+import {CopyFoodDialog} from './CopyFoodDialog';
+import {DeleteFoodDialog} from './DeleteFoodDialog';
 import {MoveFoodDialog} from './MoveFoodDialog';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {displayPortion} from '../lib/portions';
@@ -12,10 +15,13 @@ import {FoodMacroSummary} from './FoodMacroSummary';
 export interface FoodTimelineProps {
   store:Nourish;
   date:string;
+  currentDate:string;
   entries:Entry[];
   readOnly:boolean;
   onEdit:(entry:Entry)=>void;
-  onMove:(moving:Entry[],time:string)=>Promise<void>|void;
+  onMove:(moving:Entry[],date:string,time:string|null)=>Promise<void>|void;
+  onCopy:(entry:Entry,date:string,time:string|null)=>Promise<void>|void;
+  onDelete:(entry:Entry)=>Promise<void>|void;
   showEmptySlots?:boolean;
   timelineView?:TimelineView;
   onAddAtTime?:(time:string)=>void;
@@ -24,15 +30,21 @@ export interface FoodTimelineProps {
 export function FoodTimeline({
   store,
   date,
+  currentDate,
   entries,
   readOnly,
   onEdit,
   onMove,
+  onCopy,
+  onDelete,
   showEmptySlots=false,
   timelineView='full',
   onAddAtTime,
 }:FoodTimelineProps){
   const [movingEntries,setMovingEntries]=useState<Entry[]|null>(null);
+  const [copyingEntry,setCopyingEntry]=useState<Entry|null>(null);
+  const [deletingEntry,setDeletingEntry]=useState<Entry|null>(null);
+  const [actionEntry,setActionEntry]=useState<Entry|null>(null);
   const [restoreFocus,setRestoreFocus]=useState<HTMLElement|null>(null);
   const [announcement,setAnnouncement]=useState('');
   const energyUnit=unitsFor(store.state?.settings).energy;
@@ -53,14 +65,29 @@ export function FoodTimeline({
     return()=>window.clearTimeout(timer);
   },[entries]);
 
-  const handleMove=async(moving:Entry[],time:string)=>{
-    await onMove(moving,time);
+  const handleMove=async(moving:Entry[],destinationDate:string,time:string|null)=>{
+    await onMove(moving,destinationDate,time);
     setAnnouncement(moveAnnouncement(moving.length,time));
   };
 
+  const openActions=(entry:Entry,trigger:HTMLElement)=>{
+    setRestoreFocus(trigger);
+    setActionEntry(entry);
+  };
+
+  const actionOptions:ActionSheetOption[]=actionEntry?[{
+    id:'edit',label:'Edit',description:'Change the logged food or portion.',icon:<Pencil size={20}/>,onClick:()=>onEdit(actionEntry)
+  },{
+    id:'copy',label:'Copy',description:'Add this food to another date or time.',icon:<Copy size={20}/>,onClick:()=>setCopyingEntry(actionEntry)
+  },{
+    id:'move',label:'Move to',description:'Change the date or time without duplicating it.',icon:<MoveRight size={20}/>,onClick:()=>setMovingEntries([actionEntry])
+  },{
+    id:'delete',label:'Delete',description:'Remove this logged entry.',icon:<Trash2 size={20}/>,variant:'destructive',onClick:()=>setDeletingEntry(actionEntry)
+  }]:[];
+
   const {draggingEntry,dropOverTime,bindDrag}=useTimelineDrag({
     enabled:!readOnly,
-    onDrop:(entry,targetTime)=>void handleMove([entry],targetTime),
+    onDrop:(entry,targetTime)=>void handleMove([entry],date,targetTime),
   });
 
   return <>
@@ -118,37 +145,14 @@ export function FoodTimeline({
               <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat} fiber={entry.fiber} includeFiber/>
               <div className="food-card-footer">
                 <small className="source">{entry.source}</small>
-                <div className="actions" style={{display:'inline-flex',gap:6}}>
-                  <Button
-                    variant="tertiary"
-                    size="sm"
-                    disabled={readOnly}
-                    aria-label={`Move ${entry.name}`}
-                    onClick={e=>{
-                      setRestoreFocus(e.currentTarget);
-                      setMovingEntries([entry]);
-                    }}
-                  >
-                    Move
-                  </Button>
-                  <Button
-                    variant="tertiary"
-                    size="sm"
-                    aria-label={`Copy ${entry.name}`}
-                    onClick={()=>void store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,data:{...entry,date},delete:false})}
-                  >
-                    <Copy size={16}/>
-                  </Button>
-                  <Button
-                    variant="tertiary"
-                    size="sm"
-                    disabled={readOnly}
-                    aria-label={`Delete ${entry.name}`}
-                    onClick={()=>void store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,data:entry,delete:true})}
-                  >
-                    <Trash2 size={16}/>
-                  </Button>
-                </div>
+                <Button
+                  variant="tertiary"
+                  size="icon"
+                  disabled={readOnly}
+                  aria-label={`More actions for ${entry.name}`}
+                  title="More actions"
+                  onClick={event=>openActions(entry,event.currentTarget)}
+                ><MoreHorizontal size={19}/></Button>
               </div>
               {pending.length>0&&<small className="sync-label" role="status">{pending.find(op=>op.error)?.error??'Pending sync'}</small>}
             </article>;
@@ -156,11 +160,35 @@ export function FoodTimeline({
         </div>
       </li>)}
     </ol>
+    <ActionSheet
+      isOpen={Boolean(actionEntry)}
+      onClose={()=>setActionEntry(null)}
+      restoreFocus={restoreFocus}
+      title="Food actions"
+      subtitle={actionEntry?.name??'Choose an action'}
+      options={actionOptions}
+    />
+    {copyingEntry&&<CopyFoodDialog
+      open={Boolean(copyingEntry)}
+      entry={copyingEntry}
+      currentDate={currentDate}
+      onClose={()=>setCopyingEntry(null)}
+      onCopy={onCopy}
+      restoreFocus={restoreFocus}
+    />}
+    {deletingEntry&&<DeleteFoodDialog
+      open={Boolean(deletingEntry)}
+      entry={deletingEntry}
+      onClose={()=>setDeletingEntry(null)}
+      onDelete={onDelete}
+      restoreFocus={restoreFocus}
+    />}
     {movingEntries&&<MoveFoodDialog
       open={Boolean(movingEntries)}
       onClose={()=>setMovingEntries(null)}
       entries={movingEntries}
       groups={groups}
+      currentDate={currentDate}
       onMove={handleMove}
       restoreFocus={restoreFocus}
     />}

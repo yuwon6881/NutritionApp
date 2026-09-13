@@ -60,9 +60,9 @@ export function moveTargets(groups:{time:string;label:string;entries:Entry[]}[],
   }));
 }
 
-export function moveEntry(entry:Entry,time:string|null):Omit<Mutation,'id'>|undefined{
-  if((entry.time??null)===time)return undefined;
-  return {kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:false,data:{...entry,time}};
+export function moveEntry(entry:Entry,time:string|null,date=entry.date):Omit<Mutation,'id'>|undefined{
+  if((entry.time??null)===time&&entry.date===date)return undefined;
+  return {kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:false,data:{...entry,date,time}};
 }
 
 export function moveAnnouncement(count:number,time:string|null):string{

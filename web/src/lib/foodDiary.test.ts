@@ -105,8 +105,20 @@ it('moveEntry returns undefined for no-op and preserves all entry data for moves
   expect(moved?.delete).toBe(false);
   const data = moved?.data as Entry;
   expect(data.time).toBe('14:00');
+  expect(data.date).toBe(e.date);
   expect(data.name).toBe('Quick add');
   expect(data.calories).toBe(300);
+});
+
+it('moveEntry can move an entry to another editable date without dropping its snapshot', () => {
+  const e = entry('item-2', '08:00');
+  const moved = moveEntry(e, '09:30', '2026-09-08');
+  expect(moved).toBeDefined();
+  const data = moved?.data as Entry;
+  expect(data.date).toBe('2026-09-08');
+  expect(data.time).toBe('09:30');
+  expect(data.protein).toBeNull();
+  expect(data.source).toBe('Quick add');
 });
 
 it('formats move announcements for single and multiple entries', () => {

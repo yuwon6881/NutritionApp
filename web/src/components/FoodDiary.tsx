@@ -31,10 +31,12 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
   const act=async(action:()=>Promise<unknown>,rethrow=false)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);if(rethrow)throw ex;}};
   const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=current){setError('');setDate(value);}};
-  const move=async(moving:Entry[],time:string)=>{await act(async()=>{for(const entry of moving){const operation=moveEntry(entry,time);if(operation)await store.mutate(operation);}},true);};
+  const move=async(moving:Entry[],destinationDate:string,time:string|null)=>{await act(async()=>{for(const entry of moving){const operation=moveEntry(entry,time,destinationDate);if(operation)await store.mutate(operation);}},true);};
+  const copy=async(entry:Entry,destinationDate:string,time:string|null)=>{await act(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...entry,date:destinationDate,time}}),true);};
+  const remove=async(entry:Entry)=>{await act(()=>store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:true,data:entry}),true);};
   return <div className="food-log-page">
     <header className="page-heading">
-      <div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time and move them between hours.</p></div>
+      <div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time, copy or move them, and remove mistakes.</p></div>
       <div className="page-heading-actions">
         {entries.length>0&&!readOnly&&<Button variant="tertiary" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>Copy day</Button>}
         <Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button>
@@ -80,10 +82,13 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         <FoodTimeline
           store={store}
           date={date}
+          currentDate={current}
           entries={entries}
           readOnly={readOnly}
           onEdit={onEdit}
           onMove={move}
+          onCopy={copy}
+          onDelete={remove}
           showEmptySlots
           timelineView={timelineView}
           onAddAtTime={readOnly?undefined:onLog}

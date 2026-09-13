@@ -83,6 +83,8 @@ Food search has one ranking contract:
 
 Food logging rows expose the three primary macros as a compact `P`, `C`, and `F` summary in both batch review and the diary timeline. Unknown values remain `—`; a known fibre value may remain available as a secondary `Fi` value in the detailed timeline.
 
+Diary timeline entries expose one keyboard-accessible action surface for Edit, Copy, Move to, and Delete. Copy and Move to preserve the logged snapshot and allow an editable date through today plus an optional time; Delete is confirmed before the existing retained mutation is queued. Keep drag/drop, group move, and Copy day as complementary shortcuts rather than separate mutation contracts.
+
 For a past date, `No food logged` is an explicit open/incomplete choice. A configured fasting or not-logging default may resolve genuinely unreviewed dates, but must not immediately overwrite that explicit choice.
 
 Check-in cadence has one visible action contract:
