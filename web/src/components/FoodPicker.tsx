@@ -3,12 +3,9 @@ import {Camera, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api} from '../lib/api';
 import {number} from '../lib/format';
-import {outstanding,etaSeconds,waitMs} from '../lib/scanQueue';
-import type {FoodBasketHook} from '../useFoodBasket';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {Form} from './ui/Form';
-import {SegmentedControl} from './ui/SegmentedControl';
 import {BarcodeCamera} from './BarcodeCamera';
 import {displayEnergy,energyLabel} from '../lib/units';
 
@@ -18,7 +15,10 @@ function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit){
   const serving=result.portions?.[0];
   if(!serving)return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
   const calories=result.servingCalories??result.calories*serving.grams/100;
-  return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${serving.label} (${number(serving.grams,1)} g)`;
+  const label=/^\d+(?:[.,]\d+)?\s*g$/i.test(serving.label.trim())
+    ?`${number(serving.grams,1)} g`
+    :`${serving.label} (${number(serving.grams,1)} g)`;
+  return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${label}`;
 }
 
 export interface FoodPickerProps {
@@ -32,7 +32,6 @@ export interface FoodPickerProps {
   setError:(err:string)=>void;
   camera:boolean;
   setCamera:(v:boolean|((prev:boolean)=>boolean))=>void;
-  basket:FoodBasketHook;
   onChoose:(food:SearchResult)=>void;
   onSaveFood?:(food:SearchResult)=>void;
   isSaved?:(food:SearchResult)=>boolean;
@@ -54,7 +53,6 @@ export function FoodPicker({
   setError,
   camera,
   setCamera,
-  basket,
   onChoose,
   onSaveFood: _onSaveFood,
   isSaved,
@@ -66,9 +64,6 @@ export function FoodPicker({
 }:FoodPickerProps){
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
-  const [scanMode,setScanMode]=useState<'single'|'multiple'>('single');
-  const pendingCount=outstanding(basket.queue);
-  const eta=etaSeconds(pendingCount,waitMs(basket.queue,Date.now()));
   const lookup=(value:string)=>{
     const id=++requestId.current;
     void run(async()=>{try{const found=tab==='barcode'?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(value))]:await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value));if(id===requestId.current)setResults(found);}catch(error){if(id===requestId.current)throw error;}});
@@ -100,66 +95,24 @@ export function FoodPicker({
 
     {tab==='barcode'&&<>
       <div className="barcode-scan-options">
-        <div className="barcode-scan-mode-copy">
-          <strong>Scan mode</strong>
-          <small>Choose whether the scanner stops after one barcode or keeps adding items to the batch.</small>
-        </div>
-        <div className="barcode-scan-controls">
-          <SegmentedControl
-            className="barcode-scan-mode"
-            label="Barcode scan mode"
-            value={scanMode}
-            onChange={setScanMode}
-            options={[
-              {value:'single',label:'One barcode',ariaLabel:'Scan one barcode'},
-              {value:'multiple',label:'Multiple barcodes',ariaLabel:'Scan multiple barcodes'},
-            ]}
-          />
-          <Button variant="primary" onClick={()=>setCamera(value=>!value)}>
-            <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
-          </Button>
-        </div>
+        <Button variant="primary" onClick={()=>setCamera(value=>!value)}>
+          <Camera size={18}/>{camera?'Stop camera':'Scan barcode with camera'}
+        </Button>
       </div>
       {camera&&open&&step==='selection'&&<section className="barcode-scanner-step" aria-labelledby="barcode-scanner-title">
-        <div className="section-heading"><div><h3 id="barcode-scanner-title">Barcode scanner</h3><p>{scanMode==='multiple'?'Scan as many items as needed, then finish when the queue is ready.':'Scan one item and return to its lookup result.'}</p></div><Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button></div>
+        <div className="section-heading"><div><h3 id="barcode-scanner-title">Barcode scanner</h3><p>Scan one item and return to its lookup result.</p></div><Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button></div>
         <BarcodeCamera
-          continuous={scanMode==='multiple'}
           onDetected={code=>{
-            if(scanMode==='multiple'){
-              basket.enqueueCode(code);
-            }else{
-              setCamera(false);
-              setQuery(code);
-              lookup(code);
-            }
+            setCamera(false);
+            setQuery(code);
+            lookup(code);
           }}
           onError={message=>{
             setError(message);
             setCamera(false);
           }}
-        />
+          />
       </section>}
-      {basket.queue.items.length>0&&<div className="scan-queue" style={{margin:'14px 0'}}>
-        {pendingCount>0&&<p className="notice" role="status">
-          Resolving {pendingCount} {pendingCount===1?'barcode lookup':'barcode lookups'} (about {eta} s)…
-        </p>}
-        <div className="queue-list" style={{display:'grid',gap:6}}>
-          {basket.queue.items.map(item=><div
-            key={item.code}
-            className="queue-item"
-            style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'.8rem',padding:'6px 0',borderBottom:'1px solid var(--border)'}}
-          >
-            <span><strong>{item.code}</strong>{item.name?` · ${item.name}`:''}</span>
-            <small style={{color:item.status==='failed'||item.status==='not-found'||item.status==='no-calories'?'var(--destructive)':'var(--muted-foreground)'}}>
-              {item.status==='added'?'Added to batch':
-               item.status==='looking-up'?'Looking up…':
-               item.status==='rate-limited'?item.message??'Rate limited. Retrying…':
-               item.status==='queued'?'Queued':
-               item.message??item.status}
-            </small>
-          </div>)}
-        </div>
-      </div>}
     </>}
 
     {results.map((result,index)=>{

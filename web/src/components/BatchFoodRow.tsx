@@ -5,6 +5,7 @@ import type {EnergyUnit} from '../types';
 import {displayPortion} from '../lib/portions';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {Button} from './ui/Button';
+import {FoodMacroSummary} from './FoodMacroSummary';
 
 const reveal=166;
 export function BatchFoodRow({line,energyUnit,open,onOpen,onEdit,onRemove}:{line:BasketLine;energyUnit:EnergyUnit;open:boolean;onOpen:(open:boolean)=>void;onEdit:()=>void;onRemove:()=>void}){
@@ -29,7 +30,7 @@ export function BatchFoodRow({line,energyUnit,open,onOpen,onEdit,onRemove}:{line
       onPointerCancel={()=>{gesture.current=undefined;setOffset(null);suppressClick.current=false;}}
       onClickCapture={event=>{if(suppressClick.current){event.preventDefault();event.stopPropagation();suppressClick.current=false;}}}
     >
-      <div className="batch-food-description"><strong>{line.name}</strong><small>{displayPortion(line)}{line.source.startsWith('AI')?' · AI estimate':''}</small></div>
+      <div className="batch-food-description"><strong>{line.name}</strong><small>{displayPortion(line)}{line.source.startsWith('AI')?' · AI estimate':''}</small><FoodMacroSummary className="batch-food-macros" protein={line.protein} carbs={line.carbs} fat={line.fat}/></div>
       <span className="batch-food-energy">{displayEnergy(line.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></span>
       <Button className="batch-food-menu" type="button" variant="tertiary" data-batch-actions={line.key} aria-label={'Actions for '+line.name} aria-expanded={open} onClick={()=>onOpen(!open)}><ArrowLeft className="batch-swipe-cue" size={12}/><MoreHorizontal size={18}/></Button>
       <div className="batch-food-desktop-actions"><Button data-batch-actions={line.key} onClick={onEdit}>Edit</Button><Button variant="destructive" aria-label={'Remove '+line.name} onClick={onRemove}>Remove</Button></div>

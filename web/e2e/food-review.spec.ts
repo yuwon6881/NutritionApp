@@ -55,13 +55,14 @@ for(const theme of ['light','dark'])test(`${theme} large barcode controls stay a
   await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
   await openLog(page);await page.getByRole('button',{name:'Barcode',exact:true}).click();
   const options=page.locator('.barcode-scan-options');
-  const mode=options.locator('.barcode-scan-mode');
   const camera=options.getByRole('button',{name:'Scan barcode with camera',exact:true});
   await expect(camera).toBeVisible();
-  const modeBox=(await mode.boundingBox())!,cameraBox=(await camera.boundingBox())!;
-  expect(cameraBox.x).toBeGreaterThanOrEqual(modeBox.x+modeBox.width);
-  expect(cameraBox.y).toBeLessThan(modeBox.y+modeBox.height);
-  expect(cameraBox.y+cameraBox.height).toBeGreaterThan(modeBox.y);
+  await expect(options.getByText('Scan mode',{exact:true})).toHaveCount(0);
+  await expect(options.getByText('Multiple barcodes',{exact:true})).toHaveCount(0);
+  const cameraBox=(await camera.boundingBox())!;
+  expect(cameraBox.x).toBeGreaterThanOrEqual(0);
+  expect(cameraBox.x+cameraBox.width).toBeLessThanOrEqual(1440);
+  expect(cameraBox.height).toBeGreaterThanOrEqual(44);
   await page.screenshot({animations:'disabled',path:`artifacts/food-review/${theme}-1440-barcode.png`});
 });
 test('search results show declared serving calories and reuse them in review',async({page,context})=>{
@@ -91,6 +92,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${th
   await expect(page.locator('.live-calorie-value')).toContainText('60');
   await page.getByRole('button',{name:'Add to batch',exact:true}).click();
   const row=page.locator('.batch-food').first();
+  await expect(row.locator('.food-macro-summary')).toHaveAttribute('aria-label','Macros: Protein 12 g, Carbs — g, Fat 0.6 g');
   if(width<1024){
     const surface=row.locator('.batch-food-summary');
     await surface.dispatchEvent('pointerdown',{pointerId:5,isPrimary:true,pointerType:'touch',button:0,clientX:250,clientY:300});

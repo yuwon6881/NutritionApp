@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text.Json;
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
@@ -39,7 +41,9 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     public async Task<IReadOnlyList<FoodResult>> Search(string query,CancellationToken ct)
     {
         query=query.Trim(); Validation.Require(query.Length is >=2 and <=100,"Enter 2–100 characters.");
-        var key="search:"+query.ToLowerInvariant();
+        // Bump this when the provider-basis mapping changes so a process does not keep serving
+        // search rows cached under the old (possibly serving-labelled-as-100 g) basis.
+        var key="search:hydrated-v2:"+query.ToLowerInvariant();
         if(cache.TryGetValue<IReadOnlyList<FoodResult>>(key,out var saved)) return saved!;
         var claimed=DateTime.MinValue; var released=DateTime.MinValue; var wait=TimeSpan.Zero;
         await RateGate.WaitAsync(ct);
@@ -80,6 +84,24 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             await ReturnSearchSlot(claimed,released);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Applies account-specific food frequency after the provider response has been read. The
+    /// provider cache remains shared and unpersonalized; only the final ordering uses this account's
+    /// non-deleted diary entries.
+    /// </summary>
+    public async Task<IReadOnlyList<FoodResult>> Search(string query,AppDb db,CancellationToken ct)
+    {
+        var results=await Search(query,ct);
+        return await RankForUser(results,query,db,ct);
+    }
+
+    public async Task<IReadOnlyList<FoodResult>> RankForUser(IReadOnlyList<FoodResult> results,string query,AppDb db,CancellationToken ct)
+    {
+        if(results.Count==0)return results;
+        var frequency=await UsageCounts(results,db,ct);
+        return PrioritizeResults(results,query,frequency);
     }
 
     // Not cancellable: a cancelled or failed search still has to return the slot it claimed, and
@@ -156,17 +178,17 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             if(!response.IsSuccessStatusCode)return;
             using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
             if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)return;
-            var portionsByCode=new Dictionary<string,IReadOnlyList<FoodPortion>>(StringComparer.Ordinal);
+            var hydratedByCode=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
             foreach(var product in products.EnumerateArray())
             {
                 var code=Code(product);
-                if(code is not null)portionsByCode[code]=MapPortions(product);
+                if(code is {Length:>0}&&ReadProduct(product,code) is {} hydrated)hydratedByCode[code]=hydrated;
             }
             for(var index=0;index<results.Count;index++)
             {
                 var result=results[index];
-                if(result.Code is {Length:>0} code&&portionsByCode.TryGetValue(code,out var portions))
-                    results[index]=result with {Portions=portions,ServingCalories=ServingCalories(result.Calories,portions)};
+                if(result.Code is {Length:>0} code&&hydratedByCode.TryGetValue(code,out var hydrated))
+                    results[index]=ApplyHydratedProduct(result,hydrated);
             }
         }
         catch(OperationCanceledException){throw;}
@@ -177,11 +199,32 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     }
 
     /// <summary>
-    /// Keeps the provider's name relevance ahead of portion availability, then prefers a declared
-    /// gram serving when names are equivalent. The search index does not include serving fields,
-    /// so this ordering must run after the bulk product hydration step.
+    /// Search-a-licious can expose serving values in fields named *_100g. Once the product API has
+    /// returned the same code, its nutrient basis is authoritative for both the result row and the
+    /// editor; keep the search name and ordering while replacing the numeric data and portions.
     /// </summary>
-    public static IReadOnlyList<FoodResult> PrioritizeResults(IEnumerable<FoodResult> results,string query)
+    public static FoodResult ApplyHydratedProduct(FoodResult searchResult,FoodResult hydrated)
+        =>searchResult with
+        {
+            Calories=hydrated.Calories,
+            Protein=hydrated.Protein,
+            Fat=hydrated.Fat,
+            Carbs=hydrated.Carbs,
+            Fiber=hydrated.Fiber,
+            ServingGrams=hydrated.ServingGrams,
+            Portions=hydrated.Portions,
+            Code=hydrated.Code??searchResult.Code,
+            ServingCalories=hydrated.ServingCalories
+        };
+
+    /// <summary>
+    /// Keeps the provider's name relevance ahead of personal frequency, then prefers a declared gram
+    /// serving and provider order. Frequency is counted from logged diary entries and only breaks
+    /// equivalent name matches, so personalization cannot make a weakly related result outrank a
+    /// better match. The search index does not include serving fields, so this ordering must run
+    /// after the bulk product hydration step.
+    /// </summary>
+    public static IReadOnlyList<FoodResult> PrioritizeResults(IEnumerable<FoodResult> results,string query,IReadOnlyDictionary<string,int>? frequencies=null)
     {
         var needle=NormalizeSearchText(query);
         var queryTokens=SearchTokens(query);
@@ -191,13 +234,57 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
                 result,
                 index,
                 nameRank=SearchNameRank(result.Name,needle,queryTokens),
+                frequency=Frequency(result,frequencies),
                 hasServing=result.Portions?.Count>0,
             })
             .OrderBy(item=>item.nameRank)
+            .ThenByDescending(item=>item.frequency)
             .ThenByDescending(item=>item.hasServing)
             .ThenBy(item=>item.index)
             .Select(item=>item.result)
             .ToArray();
+    }
+
+    /// <summary>
+    /// A product with a code keeps its identity even when its display name is edited after logging.
+    /// Code-bearing Open Food Facts sources include that code; code-less results fall back to their
+    /// normalized source and name. This lets old diary rows contribute without a schema migration.
+    /// </summary>
+    public static string UsageKey(FoodResult result)
+        =>result.Code is {Length:>0}
+            ? "code:"+result.Source
+            : NameUsageKey(result.Source,result.Name);
+
+    private static int Frequency(FoodResult result,IReadOnlyDictionary<string,int>? frequencies)
+        =>frequencies is not null&&frequencies.TryGetValue(UsageKey(result),out var count)?count:0;
+
+    private static string NameUsageKey(string source,string name)
+        =>"name:"+source+"\u001f"+NormalizeSearchText(name);
+
+    private static async Task<IReadOnlyDictionary<string,int>> UsageCounts(IReadOnlyList<FoodResult> results,AppDb db,CancellationToken ct)
+    {
+        var sources=results.Select(result=>result.Source).Distinct(StringComparer.Ordinal).ToArray();
+        if(sources.Length==0)return new Dictionary<string,int>(StringComparer.Ordinal);
+
+        var entries=await db.Entries.AsNoTracking()
+            .Where(entry=>!entry.Deleted&&sources.Contains(entry.Source))
+            .Select(entry=>new {entry.Source,entry.Name})
+            .ToListAsync(ct);
+        var sourceCounts=entries
+            .GroupBy(entry=>entry.Source,StringComparer.Ordinal)
+            .ToDictionary(group=>group.Key,group=>group.Count(),StringComparer.Ordinal);
+        var nameCounts=entries
+            .GroupBy(entry=>NameUsageKey(entry.Source,entry.Name),StringComparer.Ordinal)
+            .ToDictionary(group=>group.Key,group=>group.Count(),StringComparer.Ordinal);
+        var resultCounts=new Dictionary<string,int>(StringComparer.Ordinal);
+        foreach(var result in results)
+        {
+            var count=result.Code is {Length:>0}
+                ? sourceCounts.GetValueOrDefault(result.Source)
+                : nameCounts.GetValueOrDefault(NameUsageKey(result.Source,result.Name));
+            resultCounts[UsageKey(result)]=count;
+        }
+        return resultCounts;
     }
 
     private static int SearchNameRank(string name,string needle,IReadOnlyList<string> queryTokens)

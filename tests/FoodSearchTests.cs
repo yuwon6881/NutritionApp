@@ -48,6 +48,28 @@ public sealed class FoodSearchTests
     }
 
     [Fact]
+    public void Bulk_hydration_replaces_serving_labelled_search_nutrients_with_product_basis()
+    {
+        var search=FoodSearchService.ReadProduct(Product("""
+            {"code":"0748927065725","product_name":"Optimum nutrition whey protein",
+             "nutriments":{"energy-kcal_100g":117,"proteins_100g":24,"fat_100g":1,"carbohydrates_100g":3}}
+            """),null)!;
+        var product=FoodSearchService.ReadProduct(Product("""
+            {"code":"0748927065725","product_name":"Optimum nutrition whey protein","serving_size":"30.4g",
+             "serving_quantity":30.4,"serving_quantity_unit":"g",
+             "nutriments":{"energy-kcal_100g":384.868421052632,"energy-kcal_serving":117,
+             "proteins_100g":78.9473684210526,"fat_100g":3.28947368421053,"carbohydrates_100g":9.86842105263158}}
+            """),"0748927065725")!;
+
+        var merged=FoodSearchService.ApplyHydratedProduct(search,product);
+
+        Assert.Equal(384.868421052632,merged.Calories,10);
+        Assert.Equal(78.9473684210526,merged.Protein.GetValueOrDefault(),10);
+        Assert.True(Math.Abs(merged.ServingCalories.GetValueOrDefault()-117)<1e-10);
+        Assert.Equal(30.4,Assert.Single(merged.Portions!).Grams);
+    }
+
+    [Fact]
     public void A_hit_named_only_in_english_is_kept_rather_than_dropped()
     {
         var hit=Product("""{"code":"1","product_name_en":"Fried rice","nutriments":{"energy-kcal_100g":150}}""");

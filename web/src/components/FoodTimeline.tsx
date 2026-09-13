@@ -2,12 +2,12 @@ import {useState,useRef,useEffect,useCallback} from 'react';
 import {Copy,Trash2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
-import {number} from '../lib/format';
 import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow,type TimelineView} from '../lib/foodDiary';
 import {Button} from './ui/Button';
 import {MoveFoodDialog} from './MoveFoodDialog';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {displayPortion} from '../lib/portions';
+import {FoodMacroSummary} from './FoodMacroSummary';
 
 export interface FoodTimelineProps {
   store:Nourish;
@@ -115,12 +115,7 @@ export function FoodTimeline({
                 <strong>{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
               </div>
               <p>{displayPortion(entry)}</p>
-              <dl className="food-card-nutrients">
-                {(['protein','carbs','fat','fiber'] as const).filter(key=>entry[key]!=null).map(key=><div key={key}>
-                  <dt>{key[0].toUpperCase()+key.slice(1)}</dt>
-                  <dd>{number(entry[key])} g</dd>
-                </div>)}
-              </dl>
+              <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat} fiber={entry.fiber} includeFiber/>
               <div className="food-card-footer">
                 <small className="source">{entry.source}</small>
                 <div className="actions" style={{display:'inline-flex',gap:6}}>

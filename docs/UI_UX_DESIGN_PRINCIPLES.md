@@ -75,11 +75,15 @@ Motion is bounded, purposeful, and optional.
 
 Food search has one ranking contract:
 
-1. Name relevance is primary. The API ranks normalized name matches while preserving the provider order for equivalent matches.
-2. A declared gram serving is the tie-breaker for equivalent names.
+1. Name relevance is primary. The API ranks normalized name matches before applying any personalization.
+2. Among equivalent name matches, a previously logged product may be preferred for that account; a declared gram serving and then provider order break remaining ties.
 3. The search index is hydrated through the bulk product lookup before the tie-breaker runs. If hydration is unavailable, the name-ranked results still display and no serving is invented.
 
 `FoodSearchService.PrioritizeResults` owns this ordering. `FoodPicker` owns the existing compact result row and displays a declared serving label/weight when available, otherwise the honest `/ 100 g` basis. Update the API regression test and the relevant browser coverage whenever this contract changes.
+
+Food logging rows expose the three primary macros as a compact `P`, `C`, and `F` summary in both batch review and the diary timeline. Unknown values remain `—`; a known fibre value may remain available as a secondary `Fi` value in the detailed timeline.
+
+For a past date, `No food logged` is an explicit open/incomplete choice. A configured fasting or not-logging default may resolve genuinely unreviewed dates, but must not immediately overwrite that explicit choice.
 
 ## Review standard
 

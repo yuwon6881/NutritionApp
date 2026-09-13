@@ -271,7 +271,6 @@ export function LogFood({
       setError={setError}
       camera={camera}
       setCamera={setCamera}
-      basket={basket}
       onChoose={food=>void chooseSearch(food)}
       isSaved={food=>store.state!.foods.some(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source&&f.favourite)}
       onToggleSave={food=>void run(async()=>{

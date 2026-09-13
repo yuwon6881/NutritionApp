@@ -70,6 +70,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       await expect(page.locator('[data-page-heading]')).toHaveText(name);
       await capture(page,`${theme}-${width}-${name.replaceAll(' ','-')}`);
       if(name==='Food Log'){
+        await expect(page.locator('[data-time-row="08:00"] .food-macro-summary')).toHaveAttribute('aria-label','Macros: Protein 28 g, Carbs 52 g, Fat 12 g, Fibre 7 g');
         const trigger=page.getByRole('button',{name:'Choose food date',exact:true});
         await trigger.click();
         const calendar=page.locator('.custom-calendar-popover');

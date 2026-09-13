@@ -36,6 +36,8 @@ For each new interaction, define and render the states that apply:
 - offline/retained/pending work;
 - retryable error and conflict;
 - conflict review taking precedence over secondary prompts that could enqueue another edit for the same protected record;
+- compact protein/carbohydrate/fat values in food batch and diary rows at every responsive width, with unknown nutrients still visible;
+- an explicit past-date `No food logged` choice that is not overwritten by an account-level missing-day default;
 - disabled or permission-limited action;
 - keyboard focus and reduced-motion behavior.
 

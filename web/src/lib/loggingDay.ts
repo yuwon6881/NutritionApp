@@ -1,4 +1,4 @@
-import type {AppState} from '../types';
+import type {AppState,MissingDayAction} from '../types';
 import {today} from './format';
 const shiftDate=(date:string,days:number)=>new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
 
@@ -18,4 +18,14 @@ export function missingDays(state:AppState,current=today(state.profile?.timeZone
     if(!food&&day?.status!=='fasting'&&day?.status!=='not_logged')result.push(date);
   }
   return result;
+}
+
+/**
+ * Return missing dates that a configured default may resolve automatically.
+ * An explicit incomplete day is the user's choice to leave the date open, so
+ * it must not be immediately changed back to the account default.
+ */
+export function automaticMissingDays(state:AppState,current=today(state.profile?.timeZone),action:MissingDayAction=state.settings?.missingDayAction??'ask'){
+  if(action==='ask')return [];
+  return missingDays(state,current).filter(date=>state.days.find(day=>!day.deleted&&day.date===date)?.status!=='incomplete');
 }

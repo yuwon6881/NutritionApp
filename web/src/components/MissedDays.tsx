@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import type {Nourish} from '../useNourish';
-import {missingDays} from '../lib/loggingDay';
+import {automaticMissingDays,missingDays} from '../lib/loggingDay';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
 import {Modal} from './ui/Modal';
@@ -13,13 +13,14 @@ export function MissedDays({store}:{store:Nourish}){
   const dates=missingDays(store.state!);
   const date=dates[0];
   const missingDayAction=store.state?.settings?.missingDayAction??'ask';
+  const automaticDates=automaticMissingDays(store.state!,undefined,missingDayAction);
   const hasConflict=store.local?.queue.some(operation=>Boolean(operation.error))??false;
 
   // Automatically apply default action when configured to fasting or not logging
   useEffect(()=>{
-    if(hasConflict||missingDayAction==='ask'||dates.length===0||busy)return;
+    if(hasConflict||missingDayAction==='ask'||automaticDates.length===0||busy)return;
     void run(async()=>{
-      for(const d of dates){
+      for(const d of automaticDates){
         const day=store.state!.days.find(item=>item.date===d);
         await store.mutate({
           kind:'day',
@@ -30,7 +31,7 @@ export function MissedDays({store}:{store:Nourish}){
         });
       }
     });
-  },[hasConflict,missingDayAction,dates,busy,run,store]);
+  },[hasConflict,missingDayAction,automaticDates,busy,run,store]);
 
   // Reset toggle when date changes
   useEffect(()=>{
