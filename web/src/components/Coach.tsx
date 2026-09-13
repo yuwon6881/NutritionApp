@@ -4,6 +4,7 @@ import {ArrowLeft,ArrowRight,Check,Sliders} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
+import {checkInSchedule} from '../lib/checkIn';
 import {normalizeProfileSex,profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
 import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
@@ -17,6 +18,7 @@ import {GoalSetup} from './GoalSetup';
 import {GoalSummary} from './GoalSummary';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {CheckInCard} from './CheckInCard';
+import {CheckInButton} from './CheckInButton';
 import {CheckInDialog} from './CheckInDialog';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
@@ -94,6 +96,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const accepted=plans[0];
   const acceptedPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const current=today(store.state!.profile?.timeZone);
+  const checkIn=checkInSchedule(store.state!,current);
   const settings=store.state!.settings??{checkInWeekday:1,revision:0};
   const units=unitsFor(settings);
   const derivedAge=ageOn(profile.dateOfBirth,current);
@@ -246,9 +249,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         <div><h2>Active targets</h2></div>
         <div className="actions">
           <Button variant="secondary" size="md" disabled={busy||!!acceptance.current} onClick={()=>openPlan()}><Sliders size={16}/>Edit plan</Button>
-          <Button variant="primary" size="md" disabled={busy||pending||!online||changed||!!acceptance.current} onClick={event=>{setCheckInRestore(event.currentTarget);setCheckInOpen(true);}}>
-            Check in
-          </Button>
+          <CheckInButton schedule={checkIn} label="Check in" disabled={busy||pending||!online||changed||!!acceptance.current}
+            onClick={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
         </div>
       </div>
       <TargetFigures result={acceptedPlan} units={units}/>
@@ -441,18 +443,24 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     </Form>
   </section>;
 
-  const historyTab=<section className="panel">
-    <h2>Accepted plans</h2>
-    {plans.length===0?<p>No accepted plans yet.</p>:<dl className="plan-list">
-      {plans.map(plan=>{
-        const result=JSON.parse(plan.resultJson) as CoachResult;
-        return <div key={plan.id}>
-          <dt>{plan.date}</dt>
-        <dd>{displayEnergy(result.calories,units.energy)} {energyLabel(units.energy)} · {number(result.protein)} / {number(result.carbs)} / {number(result.fat)} g</dd>
-        </div>;
-      })}
-    </dl>}
-  </section>;
+  const historyTab=<>
+    {goalProgress?.mode==='weight'&&<section className="panel goal-history-panel" aria-labelledby="goal-history-title">
+      <div className="section-heading"><div><h2 id="goal-history-title">Goal progress</h2><p>Your current trend compared with the phase starting and target weights.</p></div></div>
+      <GoalSummary progress={goalProgress} units={units}/>
+    </section>}
+    <section className="panel">
+      <h2>Accepted plans</h2>
+      {plans.length===0?<p>No accepted plans yet.</p>:<dl className="plan-list">
+        {plans.map(plan=>{
+          const result=JSON.parse(plan.resultJson) as CoachResult;
+          return <div key={plan.id}>
+            <dt>{plan.date}</dt>
+            <dd>{displayEnergy(result.calories,units.energy)} {energyLabel(units.energy)} · {number(result.protein)} / {number(result.carbs)} / {number(result.fat)} g</dd>
+          </div>;
+        })}
+      </dl>}
+    </section>
+  </>;
 
   return <>
     <header className="page-heading">

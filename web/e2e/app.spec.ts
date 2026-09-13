@@ -297,6 +297,11 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await markNotLogging(shift(latest.end,-3));await markNotLogging(shift(latest.end,-2));
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Coach',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Fat loss goal reached',exact:true})).toBeVisible();
+  await expect(page.locator('.goal-progress-path').first()).toContainText('Progressed from');
+  await page.getByRole('button',{name:'History',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Goal progress',exact:true})).toBeVisible();
+  await expect(page.locator('.goal-history-panel .goal-progress-path')).toContainText('Progressed from');
+  await page.getByRole('button',{name:'Targets',exact:true}).click();
   await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Wait for trend weight',exact:true}).click();
   await expect(page.getByText('Waiting for trend weight',{exact:false})).toBeVisible();

@@ -85,6 +85,14 @@ Food logging rows expose the three primary macros as a compact `P`, `C`, and `F`
 
 For a past date, `No food logged` is an explicit open/incomplete choice. A configured fasting or not-logging default may resolve genuinely unreviewed dates, but must not immediately overwrite that explicit choice.
 
+Check-in cadence has one visible action contract:
+
+1. The check-in control is always visible when a profile exists, with the next local check-in date and a day countdown shown before it is due.
+2. Before that date, the circular control is visibly muted and disabled; on the selected local day it becomes a colored, keyboard-accessible circular action with the progress ring complete.
+3. Countdown state is derived from the profile timezone, selected weekday, latest accepted plan, profile revision, cadence changes, and explicit declines. Do not make the control clickable early or hide the schedule behind the dialog.
+
+Weight-based goals expose the journey in both the active goal summary and Coach history: the recorded phase starting weight, current trend (or clearly labelled scale fallback), target weight, percentage, and remaining amount use the account weight unit. Missing trend data remains visible as unavailable rather than being inferred.
+
 ## Review standard
 
 Before considering a UI change complete, confirm:

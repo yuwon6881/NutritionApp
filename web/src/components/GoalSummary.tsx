@@ -10,12 +10,18 @@ const heading=(progress:GoalProgress)=>progress.complete?'Goal complete'
 export function GoalSummary({progress,units=defaultUnits}:{progress:GoalProgress;units?:UnitPreferences}){
   const weight=progress.mode==='weight';
   const unit=weightLabel(units.weight);
+  const currentWeight=progress.trendWeight??progress.scaleWeight;
+  const currentLabel=progress.trendWeight!=null?'trend weight':'scale weight';
+  const hasPath=progress.startWeight!=null&&currentWeight!=null&&progress.targetWeight!=null;
   return <div className={`goal-summary${progress.complete?' goal-reached':''}`}>
     <div className="goal-summary-head">
       <h3>{heading(progress)}</h3>
       {progress.percent!=null&&<strong className="goal-percent">{number(progress.percent,1)}%</strong>}
     </div>
     {progress.percent!=null&&<progress max="100" value={progress.percent} aria-label={progress.mode==='duration'?'Phase duration progress':'Weight goal progress'}/>}
+    {weight&&<p className="goal-progress-path">{hasPath
+      ?<>Progressed from <strong>{displayWeight(progress.startWeight,units.weight,1)} {unit}</strong> to <strong>{displayWeight(currentWeight,units.weight,1)} {unit}</strong> ({currentLabel}) toward <strong>{displayWeight(progress.targetWeight,units.weight,1)} {unit}</strong>.</>
+      :<>Current trend weight is not available yet. Your starting and target weights remain recorded below.</>}</p>}
     <dl className="goal-figures">
       {weight&&<>
         <div><dt>Start</dt><dd>{displayWeight(progress.startWeight,units.weight,1)} {unit}</dd></div>

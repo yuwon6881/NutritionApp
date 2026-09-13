@@ -103,6 +103,8 @@ async function transitionFrames(page:Page,name:string){
 
 test('directional navigation, interrupted exits, focus, layouts and reduced motion',async({page})=>{
   test.setTimeout(300000);
+  await expect(page.getByRole('button',{name:/^Check in available in \d+ day/})).toBeDisabled();
+  await expect(page.locator('.check-in-orb[data-check-in-state="waiting"]').first()).toBeVisible();
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});
@@ -167,8 +169,13 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   await page.emulateMedia({reducedMotion:'no-preference'});
 });
 
-test('weekly check-in opens immediately, waits in the modal, and retries',async({page})=>{
+test('weekly check-in opens immediately, waits in the modal, and retries',async({page,context})=>{
   test.setTimeout(90000);
+  const current=await (await context.request.get('/api/state')).json();
+  const update=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:current.id,kind:'profile',expectedRevision:current.profileRevision,delete:false,data:current.profile}});
+  expect(update.ok(),await update.text()).toBeTruthy();
+  await page.reload();await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await expect(page.locator('.check-in-orb[data-check-in-state="ready"]').first()).toBeVisible();
   let release!:()=>void;
   const gate=new Promise<void>(resolve=>{release=resolve;});
   let calls=0;
@@ -248,6 +255,7 @@ test('weekly check-in card and dialog settle across themes and responsive widths
   expect(edit.ok(),await edit.text()).toBeTruthy();
   await page.reload();await page.getByRole('button',{name:'Coach',exact:true}).click();
   await expect(page.getByRole('button',{name:'Review this week',exact:true})).toBeVisible();
+  await expect(page.locator('.check-in-orb[data-check-in-state="ready"]').first()).toBeVisible();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);await settled(page);
     await page.screenshot({path:`artifacts/check-in-${theme}-${width}-card.png`,fullPage:true});

@@ -38,6 +38,8 @@ For each new interaction, define and render the states that apply:
 - conflict review taking precedence over secondary prompts that could enqueue another edit for the same protected record;
 - compact protein/carbohydrate/fat values in food batch and diary rows at every responsive width, with unknown nutrients still visible;
 - an explicit past-date `No food logged` choice that is not overwritten by an account-level missing-day default;
+- a check-in countdown with a disabled muted circular control before the selected local day and an actionable colored circular control only when due;
+- weight-goal progress showing the recorded start, current trend or labelled scale fallback, target, percentage, and remaining amount in Goal and Coach history;
 - disabled or permission-limited action;
 - keyboard focus and reduced-motion behavior.
 
@@ -54,6 +56,7 @@ Use the narrowest test that protects the contract, then add browser coverage for
 | Screen layout or interaction | An isolated-API Playwright test in `web/e2e`, with light/dark and 390/768/1440 coverage when the screen is responsive |
 | Dialog, destructive action, or dirty draft | Browser assertions for focus trapping, Escape/backdrop behavior, confirmation, restoration, and retained draft/error state |
 | Search or serving contract | API test for ordering/basis plus browser assertion for the displayed name, serving label, weight, and fallback basis |
+| Check-in cadence or goal progress display | Date-state unit tests plus browser coverage for the circular due/countdown control and the start-to-target weight journey across the responsive/theme matrix |
 | Animation | Browser assertion with `reducedMotion: 'reduce'` and, if the motion itself matters, a bounded no-preference assertion; content must remain usable without motion |
 
 Prefer accessible locators (`getByRole`, `getByLabel`, `getByText`) over CSS implementation details. Use a CSS selector only for a structural invariant such as zero horizontal overflow or a known layout hook.
