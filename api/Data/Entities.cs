@@ -160,3 +160,25 @@ public class DailyExpenditureEstimate
     public string EffectiveGoal { get; set; } = "maintain";
     public double GoalRatePercent { get; set; }
 }
+
+public class GoogleHealthConnection
+{
+    public Guid UserId { get; set; }
+    public string GoogleIdHash { get; set; } = "";
+    public string EncryptedGoogleId { get; set; } = "";
+    public string EncryptedRefreshToken { get; set; } = "";
+    public string EncryptedStepHistoryJson { get; set; } = "[]";
+    public DateTime ConnectedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastSyncedAt { get; set; }
+    public string Status { get; set; } = "connected";
+    public long Revision { get; set; }
+}
+
+public class GoogleHealthOAuthState
+{
+    public string State { get; set; } = "";
+    public Guid UserId { get; set; }
+    public string SessionHash { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresAt { get; set; }
+}

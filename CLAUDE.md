@@ -1,4 +1,4 @@
-# Nutrition App application guidance
+﻿# Nutrition App application guidance
 
 This repository is independent of FinancialApp. These rules apply to NutritionApp and override FinancialApp-specific guidance from the parent directory. Keep AGENTS.md and CLAUDE.md identical when editing them.
 
@@ -21,6 +21,7 @@ This repository is independent of FinancialApp. These rules apply to NutritionAp
 - Server coaching remains authoritative. Accepted plans are immutable and revision checked. Do not change physiological equations or adaptation thresholds as a UI cleanup. Age is derived from the stored date of birth at calculation time; a stored macro split owns all three macros while an absent split keeps the coach default. Each proposal carries one acceptance identity so a repeated accept is idempotent.
 - Continuous expenditure snapshots are versioned, deterministic advisory data. They may update before a check-in, while Today reads only the latest accepted plan until acceptance atomically activates its seven dated targets.
 - Coaching cadence is independently revisioned from the profile. Monday is the default; a weekday change is retained without changing the active plan and becomes due on the next occurrence in the profile time zone.
+- Google Health step synchronization is read-only, visual-only, and cached in memory only. Steps must never affect calories, expenditure estimates, coaching proposals, or day-completion logic, and step data must never be persisted to IndexedDB or localStorage. Disconnect or external revocation clears stored credentials and step data.
 
 ## Working and verification
 
@@ -32,5 +33,5 @@ This repository is independent of FinancialApp. These rules apply to NutritionAp
 
 ## UI/UX extension rule
 
-- Treat `docs/UI_UX_DESIGN_PRINCIPLES.md` and `docs/UI_UX_EXTENSION_CHECKLIST.md` as living instructions. Before adding a screen or interaction, reuse the existing shared components and tokens they catalog; when a reusable pattern or contract changes, update both instruction files and the corresponding unit/browser tests in the same change.
-- Keep `AGENTS.md` and `CLAUDE.md` identical when editing this repository guidance.
+- Treat docs/UI_UX_DESIGN_PRINCIPLES.md and docs/UI_UX_EXTENSION_CHECKLIST.md as living instructions. Before adding a screen or interaction, reuse the existing shared components and tokens they catalog; when a reusable pattern or contract changes, update both instruction files and the corresponding unit/browser tests in the same change.
+- Keep AGENTS.md and CLAUDE.md identical when editing this repository guidance.

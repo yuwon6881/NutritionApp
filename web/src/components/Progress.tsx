@@ -13,6 +13,8 @@ import {MotionPanel} from './ui/Motion';
 import {SelectField} from './ui/Field';
 import {displayEnergy,displayWeight,energyLabel,unitsFor,weightLabel} from '../lib/units';
 import {progressPeriodOptions} from '../lib/progress';
+import {useGoogleHealth} from '../lib/googleHealth';
+import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
 
 type Tab='weight'|'energy'|'body';
 const progressKinds=new Set(['entry','weight','day','profile','settings']);
@@ -33,7 +35,7 @@ function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean)
   return {summary:cached,error,loading,retry:load};
 }
 
-export function Progress({store}:{store:Nourish}){
+export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}){
   const [tab,setTab]=useState<Tab>('weight');
   const [weightPeriod,setWeightPeriod]=useState<ProgressPeriod>('month');
   const [energyPeriod,setEnergyPeriod]=useState<ProgressPeriod>('month');
@@ -42,6 +44,7 @@ export function Progress({store}:{store:Nourish}){
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
   const weight=useProgressSummary(store,weightPeriod,tab==='weight');
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
+  const {state:ghState,loading:ghLoading}=useGoogleHealth();
   const state=store.state!;
   const units=unitsFor(state.settings);
   const tabs=[['weight','Weight'],['energy','Energy'],['body','Body']] as const;
@@ -75,6 +78,7 @@ export function Progress({store}:{store:Nourish}){
     {tab==='body'&&<PhysiquePhotos store={store}/>}
     </div>
     </MotionPanel>
+    <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} loading={ghLoading} onOpenSettings={onSettings}/>
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
   </>;
 }

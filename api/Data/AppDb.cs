@@ -21,6 +21,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<PhysiquePhoto> Photos => Set<PhysiquePhoto>();
     public DbSet<BodyRecord> BodyRecords => Set<BodyRecord>();
     public DbSet<DailyExpenditureEstimate> ExpenditureEstimates => Set<DailyExpenditureEstimate>();
+    public DbSet<GoogleHealthConnection> GoogleHealthConnections => Set<GoogleHealthConnection>();
+    public DbSet<GoogleHealthOAuthState> GoogleHealthOAuthStates => Set<GoogleHealthOAuthState>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
@@ -39,8 +41,16 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<AiUsage>().HasQueryFilter(x => x.UserId == CurrentUser);
         m.Entity<DailyExpenditureEstimate>().HasKey(x => new { x.UserId, x.Date });
         m.Entity<DailyExpenditureEstimate>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<GoogleHealthConnection>().HasKey(x => x.UserId);
+        m.Entity<GoogleHealthConnection>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<GoogleHealthConnection>().HasIndex(x => x.GoogleIdHash).IsUnique();
+        m.Entity<GoogleHealthConnection>().Property(x => x.Revision).IsConcurrencyToken();
+        m.Entity<GoogleHealthOAuthState>().HasKey(x => x.State);
+        m.Entity<GoogleHealthOAuthState>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<GoogleHealthOAuthState>().HasIndex(x => x.ExpiresAt);
         // Deleting an account must take its sessions, idempotency receipts, and usage counters with it.
         OwnedByUser<Session>(m); OwnedByUser<MutationReceipt>(m); OwnedByUser<AiUsage>(m); OwnedByUser<DailyExpenditureEstimate>(m);
+        OwnedByUser<GoogleHealthConnection>(m); OwnedByUser<GoogleHealthOAuthState>(m);
         Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m);
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m);
@@ -103,6 +113,10 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Usage ownership violation.");
         foreach(var entry in ChangeTracker.Entries<DailyExpenditureEstimate>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Trajectory ownership violation.");
+        foreach(var entry in ChangeTracker.Entries<GoogleHealthConnection>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Google Health connection ownership violation.");
+        foreach(var entry in ChangeTracker.Entries<GoogleHealthOAuthState>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("OAuth state ownership violation.");
         return base.SaveChangesAsync(cancellationToken);
     }
 }

@@ -26,6 +26,7 @@ Do not reimplement a button, field, form validator, select, date/time picker, mo
 - Food timeline cards use an ultra-compact two-line layout without source strings; entry actions use one accessible action sheet for Edit, Copy, Move to, and Delete; copy/move destination dialogs must preserve the entry snapshot, keep date/time validation explicit, and confirm destructive deletion before queueing the existing entry mutation.
 - New styling uses semantic Ayu tokens and the existing responsive breakpoints. Avoid inline colors, remote fonts, feature-only typography, and duplicate card/button systems.
 - The mobile shell uses the existing `Modal`/`ActionSheet` and semantic tokens for safe-area-aware app bars, bottom navigation, bottom-sheet grab handles, touch scrolling, and Android/browser Back dismissal. Preserve keyboard Escape, dirty-close confirmation, protected dialogs, focus restoration, and reduced-motion behavior when extending it.
+- External integrations (Google Health) reuse shared components (Card, Button, Modal), hold step data strictly in runtime memory (never IndexedDB/localStorage), provide pre-connect disclosure modals, expose connection status and reconnect prompts in Settings, render discrete missing-data gaps and known-day averages in Progress charts, and link to public policy pages with the Google API Limited Use statement.
 
 ## 3. Implement the contract, not just the happy path
 
@@ -43,6 +44,7 @@ For each new interaction, define and render the states that apply:
 - an explicit past-date `No food logged` choice that is not overwritten by an account-level missing-day default;
 - a check-in countdown with a disabled muted circular control before the selected local day and an actionable colored circular control only when due;
 - weight-goal progress showing the recorded start, current trend or labelled scale fallback, target, percentage, and remaining amount in Goal and Coach history;
+- Google Health step synchronization showing fresh/stale/unavailable badges, preserving unknown days as discrete gaps in charts without guessing zeros, and never feeding step metrics into caloric or coaching algorithms;
 - disabled or permission-limited action;
 - keyboard focus and reduced-motion behavior.
 
@@ -62,6 +64,7 @@ Use the narrowest test that protects the contract, then add browser coverage for
 | Search or serving contract | API test for ordering/basis discriminator plus browser assertion for the displayed name, serving label, weight, verified per-100 g, and basis-unavailable state |
 | Mobile shell, modal, or action sheet behavior | Browser coverage at 390/768/1440 px for safe-area-aware layout, zero horizontal overflow, bottom-sheet presentation, Back/Escape dismissal, focus restoration, and reduced motion |
 | Check-in cadence or goal progress display | Date-state unit tests plus browser coverage for the circular due/countdown control and the start-to-target weight journey across the responsive/theme matrix |
+| Google Health integration | Unit tests for in-memory sync manager, known-day averaging, and date lookups; API integration tests for OAuth token handling, KMS encryption, multi-tenant duplicate isolation, and export redaction |
 | Animation | Browser assertion with `reducedMotion: 'reduce'` and, if the motion itself matters, a bounded no-preference assertion; content must remain usable without motion |
 
 Prefer accessible locators (`getByRole`, `getByLabel`, `getByText`) over CSS implementation details. Use a CSS selector only for a structural invariant such as zero horizontal overflow or a known layout hook.

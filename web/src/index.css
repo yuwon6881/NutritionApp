@@ -1127,6 +1127,96 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .recipe-ingredient-actions .field{flex:1}
 }
 
+/* ==========================================================================
+   Google Health Integration Styles
+   ========================================================================== */
+
+/* Settings Panel */
+.google-health-panel{margin-bottom:24px}
+.title-with-icon{display:flex;align-items:center;gap:10px}
+.title-with-icon .panel-icon{color:var(--primary)}
+.integration-state{margin-top:12px}
+.integration-state .description{font-size:.85rem;line-height:1.6;margin-bottom:18px}
+.status-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;font-size:.78rem;font-weight:600}
+.status-badge.success{background:var(--primary-tint);color:var(--primary-ink)}
+.status-badge.warning{background:var(--muted);color:var(--destructive);border:1px solid var(--border)}
+.freshness-badge{font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:6px;border:1px solid var(--border);color:var(--muted-foreground)}
+.freshness-badge.stale{background:var(--muted);color:var(--carbs)}
+.metadata-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0;padding:14px;background:var(--muted);border-radius:12px;border:1px solid var(--border)}
+.metadata-item{display:flex;flex-direction:column;gap:3px}
+.metadata-item .label{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground)}
+.metadata-item .value{font-size:.86rem;font-weight:550;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.warning-text{color:var(--carbs)}
+.settings-banner-success{border-left:4px solid var(--success)}
+.settings-banner-error{border-left:4px solid var(--destructive)}
+.privacy-links{margin-top:16px;color:var(--muted-foreground);font-size:.76rem}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* Dashboard Steps Card */
+.steps-panel{background:var(--card);position:relative;overflow:hidden}
+.steps-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.steps-header h2{font-size:2rem;font-weight:600;margin:0;white-space:nowrap}
+.steps-icon-badge{width:42px;height:42px;border-radius:12px;background:var(--primary-tint);color:var(--primary-ink);display:grid;place-items:center;flex-shrink:0}
+.steps-provenance{font-size:.78rem}
+.steps-provenance .source{margin-bottom:0}
+.inline-link{display:inline-flex;align-items:center;gap:3px;background:transparent;border:0;padding:0;color:var(--primary-ink);font-weight:600;font-size:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.inline-link:hover{color:var(--foreground)}
+.tabular-num{font-variant-numeric:tabular-nums}
+
+/* Progress Step Chart Section */
+.google-health-progress-section{margin-top:24px}
+.google-health-stats{margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.active-day-preview{border-color:var(--primary)}
+.step-chart-container{padding-top:10px}
+.step-bar-chart{width:100%;height:auto;max-height:160px;overflow:visible}
+.chart-baseline{stroke:var(--border);stroke-dasharray:2 2}
+.bar-group{cursor:pointer}
+.bar-rect{fill:var(--primary);transition:fill var(--motion-control) ease,opacity var(--motion-control) ease}
+.bar-rect:hover,.bar-rect:focus-visible{fill:var(--primary-ink);outline:none}
+.bar-rect.zero-bar{fill:var(--muted-foreground);opacity:.4}
+.bar-gap-marker{fill:var(--border);outline:none}
+.bar-gap-marker:hover,.bar-gap-marker:focus-visible{fill:var(--muted-foreground)}
+.bar-group.selected .bar-rect{fill:var(--ink-strong)}
+.chart-date-axis{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums;margin-top:8px;padding-inline:2px}
+.chart-skeleton{padding:30px 10px;text-align:center;color:var(--muted-foreground);font-size:.82rem}
+
+/* Disclosure Dialog */
+.google-health-disclosure{display:flex;flex-direction:column;gap:18px}
+.disclosure-points{display:flex;flex-direction:column;gap:14px}
+.disclosure-item{background:var(--muted);padding:12px 14px;border-radius:10px;border:1px solid var(--border)}
+.disclosure-item strong{display:block;font-size:.84rem;margin-bottom:4px;color:var(--ink-strong)}
+.disclosure-item p{margin:0;font-size:.78rem;line-height:1.5;color:var(--foreground)}
+.disclosure-policy-notice{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:10px;background:var(--primary-tint);font-size:.76rem;line-height:1.5;color:var(--primary-ink)}
+.disclosure-policy-notice p{margin:0}
+.disclosure-policy-notice a{color:var(--primary-ink);font-weight:600;display:inline-flex;align-items:center;gap:2px}
+.policy-icon{flex-shrink:0;margin-top:2px}
+
+/* Public Policy Pages */
+.policy-page-layout{max-width:860px;margin:0 auto;padding:32px 24px 64px;min-height:100vh;display:flex;flex-direction:column}
+.policy-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px;gap:16px}
+.policy-brand{display:flex;align-items:center;gap:10px;font-size:1.3rem;font-weight:650;color:var(--ink-strong)}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:.84rem;font-weight:550;color:var(--muted-foreground);text-decoration:none;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card)}
+.back-link:hover{background:var(--muted);color:var(--foreground)}
+.policy-title-block{display:flex;align-items:center;gap:16px;margin-bottom:28px}
+.policy-icon-wrapper{width:52px;height:52px;border-radius:14px;background:var(--primary-tint);color:var(--primary-ink);display:grid;place-items:center;flex-shrink:0}
+.policy-title-block h1{margin-bottom:4px;font-size:2.2rem}
+.policy-subtitle{font-size:.85rem;color:var(--muted-foreground);margin:0}
+.policy-body{padding:36px;line-height:1.75;font-size:.9rem}
+.policy-body section{margin-bottom:32px}
+.policy-body section:last-child{margin-bottom:0}
+.policy-body h2{font-size:1.25rem;margin-bottom:12px;color:var(--ink-strong)}
+.policy-body ul,.policy-body ol{padding-left:22px;margin:12px 0 18px}
+.policy-body li{margin-bottom:8px}
+.policy-body code{background:var(--muted);padding:2px 6px;border-radius:4px;font-size:.85em}
+.highlighted-policy-section{background:var(--primary-tint);border:1px solid var(--primary);border-radius:12px;padding:20px;margin:24px 0}
+.policy-footer{margin-top:auto;padding-top:40px;border-top:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:10px;font-size:.76rem;color:var(--muted-foreground)}
+.policy-footer nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.policy-footer a{color:var(--muted-foreground);text-decoration:none}
+.policy-footer a:hover{color:var(--primary-ink);text-decoration:underline}
+
+/* Auth footer */
 /* Native mobile shell: keep the app bar and bottom navigation inside device safe areas. */
 html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:none}
 .modal-body{-webkit-overflow-scrolling:touch}
@@ -1164,4 +1254,15 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 @media(max-width:1023px){
   .food-time-card-title>.button{min-height:44px}
   .food-time-card-more,.food-slot-add{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
+}
+@media(max-width:639px){.food-date-navigation>.button:last-child{min-height:44px}}
+
+.auth-footer{display:flex;justify-content:center;gap:10px;font-size:.74rem;color:var(--muted-foreground);margin-top:24px}
+.auth-footer a{color:var(--muted-foreground);text-decoration:none}
+.auth-footer a:hover{color:var(--primary-ink);text-decoration:underline}
+
+@media(max-width:639px){
+  .metadata-grid{grid-template-columns:1fr}
+  .policy-body{padding:22px}
+  .policy-title-block{flex-direction:column;align-items:flex-start}
 }

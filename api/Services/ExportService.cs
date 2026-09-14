@@ -47,9 +47,12 @@ public sealed record NutritionExport(
     IReadOnlyList<PhaseDecision> PhaseDecisions,
     IReadOnlyList<DailyExpenditureEstimate> ExpenditureEstimates,
     IReadOnlyList<ExportPhoto> PhysiquePhotos,
-    IReadOnlyList<BodyRecordView> BodyRecords);
+    IReadOnlyList<BodyRecordView> BodyRecords,
+    IReadOnlyList<ExportStepDay> GoogleHealthSteps);
 
-public sealed class ExportService(AppDb db, RetentionService retention)
+public sealed record ExportStepDay(DateOnly Date, int? StepCount);
+
+public sealed class ExportService(AppDb db, RetentionService retention, IGoogleHealthKms? kms = null)
 {
     public async Task<NutritionExport> BuildJsonDocument(CancellationToken ct)
     {
@@ -81,7 +84,8 @@ public sealed class ExportService(AppDb db, RetentionService retention)
                 .OrderBy(item => item.Date).ThenBy(item => item.SetId).ThenBy(item => item.Angle).ThenBy(item => item.Id)
                 .Select(item => new ExportPhoto(item.Id, item.SetId, item.Date, item.Angle, item.Bytes, item.Status, item.Created, $"/api/photos/{item.Id}/content"))
                 .ToListAsync(ct),
-            BodyRecords: await BuildBodyRecords(ct));
+            BodyRecords: await BuildBodyRecords(ct),
+            GoogleHealthSteps: await BuildGoogleHealthSteps(ct));
     }
 
     public async Task WriteCsvBundle(Stream output, CancellationToken ct)
@@ -104,6 +108,7 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         counts["expenditure-estimates.csv"] = await WriteExpenditureEstimates(archive, ct);
         counts["physique-photos.csv"] = await WritePhotos(archive, ct);
         counts["body-records.csv"] = await WriteBodyRecords(archive, ct);
+        counts["google-health-steps.csv"] = await WriteGoogleHealthSteps(archive, ct);
         await WriteReadme(archive, counts, detailDays, detailCutoff, ct);
     }
 
@@ -261,7 +266,8 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         await writer.WriteAsync("weights.csv is always kilograms, regardless of the account display preference.\r\n");
         await writer.WriteAsync("body-records.csv uses canonical centimetres and kilograms. Body fat uses percent; blank measurements and snapshots are unknown. Photo set_id is the Body record id; photo_ids includes pending relationships. Frozen weight source dates, capture time, provenance and calculation version are exported unchanged.\r\n");
         await writer.WriteAsync($"Meal-level detail is retained for {detailDays} days from {detailCutoff:yyyy-MM-dd}; earlier dates export as daily totals only because detail was deleted on schedule.\r\n");
-        await writer.WriteAsync("Physique photo binaries are excluded. physique-photos.csv includes metadata and authenticated download paths.\r\n\r\n");
+        await writer.WriteAsync("Physique photo binaries are excluded. physique-photos.csv includes metadata and authenticated download paths.\r\n");
+        await writer.WriteAsync("google-health-steps.csv includes rolling daily step counts imported from Google Health without authentication tokens, ciphertext, or provider identifiers.\r\n\r\n");
         await writer.WriteAsync("Data rows per file:\r\n");
         foreach (var pair in counts) await writer.WriteAsync($"{pair.Key}: {pair.Value}\r\n");
         await writer.FlushAsync(ct);
@@ -277,6 +283,39 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         await writer.FlushAsync(ct);
         return count;
     }
+
+    private async Task<IReadOnlyList<ExportStepDay>> BuildGoogleHealthSteps(CancellationToken ct)
+    {
+        if (kms == null) return [];
+        var conn = await db.GoogleHealthConnections.AsNoTracking().SingleOrDefaultAsync(c => c.UserId == db.CurrentUser, ct);
+        if (conn == null || string.IsNullOrEmpty(conn.EncryptedStepHistoryJson) || conn.EncryptedStepHistoryJson == "[]")
+            return [];
+
+        try
+        {
+            var json = await kms.DecryptAsync(conn.EncryptedStepHistoryJson, ct);
+            if (string.IsNullOrEmpty(json) || json == "[]") return [];
+            var days = System.Text.Json.JsonSerializer.Deserialize<List<GoogleHealthDay>>(json);
+            if (days == null) return [];
+            return days.OrderBy(d => d.Date).Select(d => new ExportStepDay(d.Date, d.Count)).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private async Task<int> WriteGoogleHealthSteps(ZipArchive archive, CancellationToken ct)
+        => await WriteCsv(archive, "google-health-steps.csv", async writer =>
+        {
+            await writer.WriteAsync(Csv.Line("date", "step_count"));
+            var steps = await BuildGoogleHealthSteps(ct);
+            foreach (var item in steps)
+            {
+                await writer.WriteAsync(Csv.Line(Csv.Field(item.Date), Csv.Field(item.StepCount)));
+            }
+            return steps.Count;
+        }, ct);
 
     private async Task<IReadOnlyList<BodyRecordView>> BuildBodyRecords(CancellationToken ct)
     {

@@ -9,7 +9,10 @@ import {GoalSummary} from './GoalSummary';
 import {CheckInCard} from './CheckInCard';
 import {CheckInDialog} from './CheckInDialog';
 import {displayEnergy,displayWeight,weightLabel,energyLabel,unitsFor} from '../lib/units';
-export function Today({store,onCoach}:{store:Nourish;onCoach:()=>void}){
+import {useGoogleHealth} from '../lib/googleHealth';
+import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
+
+export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
   const latestWeight=trend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted&&w.date<=date)]).at(-1);
@@ -35,6 +38,7 @@ export function Today({store,onCoach}:{store:Nourish;onCoach:()=>void}){
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
   const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision,state.settings?.weightGoalMetric??'scale'),phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
+  const {state: ghState}=useGoogleHealth();
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
@@ -76,6 +80,7 @@ export function Today({store,onCoach}:{store:Nourish;onCoach:()=>void}){
         <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
       </section>}
       <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latestWeight?.kg,unitsFor(state.settings).weight,1)} <span className="unit">{weightLabel(unitsFor(state.settings).weight)}</span></h2><small>{latestWeight?`As of ${latestWeight.date}`:"No weigh-in yet"}</small></section>
+      <GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} onOpenSettings={onSettings}/>
     </>}
     <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>
   </>;

@@ -36,6 +36,8 @@ builder.Services.AddHttpClient<FoodSearchService>(c=>{
 });
 builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90));
+builder.Services.AddHttpClient<IGoogleHealthKms, GoogleCloudKmsService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient<GoogleHealthService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
 builder.Services.AddRateLimiter(o=>
 {
     o.RejectionStatusCode=429;
@@ -68,7 +70,7 @@ app.Use(async(http,next)=>
             var expected=builder.Configuration["Cleanup:Token"];
             Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(http.Request.Headers["X-Cleanup-Token"].ToString()),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
         }
-        else if(http.Request.Path.StartsWithSegments("/api")&&http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register" or "/api/auth/dev-reset"))
+        else if(http.Request.Path.StartsWithSegments("/api")&&http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register" or "/api/auth/dev-reset" or "/api/integrations/google-health/callback"))
         {
             var db=http.RequestServices.GetRequiredService<AppDb>();
             var token=http.Request.Cookies["nutrition-session"];
@@ -85,7 +87,7 @@ app.Use(async(http,next)=>
 });
 app.UseRateLimiter();
 app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> { if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache"; } });
-app.MapAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();
+app.MapAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>
 {

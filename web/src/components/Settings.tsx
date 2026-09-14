@@ -10,6 +10,7 @@ import {unitsFor} from '../lib/units';
 import type {CoachingSettings as CoachingSettingsType,MissingDayAction,UnitPreferences,WeightGoalMetric} from '../types';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {DataExport} from './DataExport';
+import {GoogleHealthSettings} from './GoogleHealthSettings';
 
 export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');
@@ -125,6 +126,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
             </div>
           </Form>
         </section>
+        <GoogleHealthSettings/>
         <DataExport store={store}/>
       </div>
     </div>

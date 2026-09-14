@@ -22,12 +22,14 @@ import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncConflictNotice} from './components/SyncConflictNotice';
 import {SyncStatus} from './components/ui/SyncStatus';
+import {PrivacyPage, TermsPage, GoogleHealthHelpPage} from './components/PublicPolicyPages';
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 
 function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   const store=useNourish(user);
-  const [page,setPage]=useState<Page>('today');
+  const initialPage=typeof window!=='undefined'&&window.location.search.includes('google_health')?'settings':'today';
+  const [page,setPage]=useState<Page>(initialPage);
   const [date,setDate]=useState(today());
   const [foodOpen,setFoodOpen]=useState(false);
   const [foodDate,setFoodDate]=useState(today());
@@ -114,7 +116,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
       {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:<MotionScene sceneKey={needsProfile?'coach':page}>
-        {!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
+        {!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
       </MotionScene>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
@@ -128,6 +130,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
 }
 
 export default function App(){
+  const [pathname]=useState(()=>typeof window!=='undefined'?window.location.pathname:'/');
   const [user,setUser]=useState<string|null>();
   useEffect(()=>{
     const stopWatchingTheme=watchTheme();
@@ -144,6 +147,11 @@ export default function App(){
     })();
     return()=>{active=false;stopWatchingTheme();};
   },[]);
+
+  if(pathname==='/privacy')return <PrivacyPage/>;
+  if(pathname==='/terms')return <TermsPage/>;
+  if(pathname==='/help/google-health')return <GoogleHealthHelpPage/>;
+
   const logout=async()=>{localStorage.setItem('nourish-signed-out','1');localStorage.removeItem('nourish-account');setUser(null);try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}};
   if(user===undefined)return <main className="startup"><Brand size={38}/></main>;
   return user?<Workspace key={user} user={user} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);}}/>;

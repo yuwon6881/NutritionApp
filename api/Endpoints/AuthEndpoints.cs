@@ -45,5 +45,5 @@ public static class AuthEndpoints
             http.Response.Cookies.Delete("nutrition-session",new CookieOptions { Path="/" }); return Results.NoContent();
         }).RequireRateLimiting("auth");
     }
-    private static void SetCookie(HttpContext http,string token) => http.Response.Cookies.Append("nutrition-session",token,new CookieOptions { HttpOnly=true,Secure=!http.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment()||http.Request.IsHttps,SameSite=SameSiteMode.Strict,Path="/",MaxAge=TimeSpan.FromDays(30),IsEssential=true });
+    private static void SetCookie(HttpContext http,string token) => http.Response.Cookies.Append("nutrition-session",token,new CookieOptions { HttpOnly=true,Secure=!http.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment()||http.Request.IsHttps,SameSite=SameSiteMode.Lax,Path="/",MaxAge=TimeSpan.FromDays(30),IsEssential=true });
 }
