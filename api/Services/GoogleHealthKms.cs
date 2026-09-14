@@ -18,7 +18,7 @@ public class GoogleCloudKmsService(HttpClient http, IConfiguration config, IHost
     private GoogleCredential? credential;
     private static readonly byte[] FallbackKey = SHA256.HashData(Encoding.UTF8.GetBytes("NutritionApp-Dev-GoogleHealth-Key-2026"));
 
-    public string? KeyName => (config["GoogleHealth:KmsKeyName"] ?? config["GoogleHealthKmsKeyName"])?.Trim();
+    public string? KeyName => (config["Integrations:KmsKeyName"] ?? config["GoogleHealth:KmsKeyName"] ?? config["GoogleHealthKmsKeyName"])?.Trim();
 
     public async Task<string> EncryptAsync(string plaintext, CancellationToken ct)
     {

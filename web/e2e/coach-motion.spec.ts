@@ -103,8 +103,10 @@ async function transitionFrames(page:Page,name:string){
 
 test('directional navigation, interrupted exits, focus, layouts and reduced motion',async({page})=>{
   test.setTimeout(300000);
-  await expect(page.getByRole('button',{name:/^Check in available in \d+ day/})).toBeDisabled();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await expect(page.getByRole('button',{name:/^Review this week available in \d+ day/})).toBeDisabled();
   await expect(page.locator('.check-in-orb[data-check-in-state="waiting"]').first()).toBeVisible();
+  await page.getByRole('button',{name:'Coach',exact:true}).click();
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});
@@ -174,7 +176,7 @@ test('weekly check-in opens immediately, waits in the modal, and retries',async(
   const current=await (await context.request.get('/api/state')).json();
   const update=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:current.id,kind:'profile',expectedRevision:current.profileRevision,delete:false,data:current.profile}});
   expect(update.ok(),await update.text()).toBeTruthy();
-  await page.reload();await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'Dashboard',exact:true}).click();
   await expect(page.locator('.check-in-orb[data-check-in-state="ready"]').first()).toBeVisible();
   let release!:()=>void;
   const gate=new Promise<void>(resolve=>{release=resolve;});
@@ -185,7 +187,7 @@ test('weekly check-in opens immediately, waits in the modal, and retries',async(
     if(calls===1)await gate;
     await route.fulfill({response});
   });
-  await page.getByRole('button',{name:'Check in',exact:true}).click();
+  await page.getByRole('button',{name:'Review this week',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Weekly check-in'});
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Preparing your check-in…',{exact:true})).toBeVisible();
@@ -199,7 +201,7 @@ test('weekly check-in opens immediately, waits in the modal, and retries',async(
 
   await page.unroute('**/api/coach/preview');
   await page.route('**/api/coach/preview',route=>route.fulfill({status:503,json:{message:'Preview temporarily unavailable.'}}));
-  await page.getByRole('button',{name:'Check in',exact:true}).click();
+  await page.getByRole('button',{name:'Review this week',exact:true}).click();
   const failed=page.getByRole('dialog',{name:'Weekly check-in'});
   await expect(failed.getByRole('alert')).toContainText('Could not prepare this check-in yet.');
   await expect(failed.getByRole('button',{name:'Retry',exact:true})).toBeVisible();
@@ -253,7 +255,7 @@ test('weekly check-in card and dialog settle across themes and responsive widths
   const state=await (await context.request.get('/api/state')).json();
   const edit=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:state.profile}});
   expect(edit.ok(),await edit.text()).toBeTruthy();
-  await page.reload();await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'Dashboard',exact:true}).click();
   await expect(page.getByRole('button',{name:'Review this week',exact:true})).toBeVisible();
   await expect(page.locator('.check-in-orb[data-check-in-state="ready"]').first()).toBeVisible();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){

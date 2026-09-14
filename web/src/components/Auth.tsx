@@ -25,6 +25,7 @@ export function Auth({onLogin}:{onLogin:(id:string)=>void}){
           <Field id="auth-password" name="password" label="Password" type="password" autoComplete={register?'new-password':'current-password'} minLength={register?12:undefined} maxLength={256} required value={password} onChange={e=>setPassword(e.target.value)}/>
           {error&&error!=='Username is unavailable.'&&<p className="error" role="alert">{error}</p>}
           <Button variant="primary" disabled={busy} type="submit">{busy?'Connecting…':register?'Create account':'Sign in'}<ArrowRight size={18}/></Button>
+          <Button variant="secondary" type="button" onClick={()=>{window.location.href='/api/auth/central/start';}}>Sign in with Fitness Account<ArrowRight size={18}/></Button>
         </Form>
         {open&&<Button variant="tertiary" onClick={()=>setRegister(!register)}>{register?'Already have an account? Sign in':'New here? Create an account'}</Button>}
         <footer className="auth-footer">

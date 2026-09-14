@@ -11,6 +11,7 @@ import type {CoachingSettings as CoachingSettingsType,MissingDayAction,UnitPrefe
 import {useAsyncAction} from './ui/useAsyncAction';
 import {DataExport} from './DataExport';
 import {GoogleHealthSettings} from './GoogleHealthSettings';
+import {ConnectedApps} from './ConnectedApps';
 
 export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');
@@ -127,6 +128,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
           </Form>
         </section>
         <GoogleHealthSettings/>
+        <ConnectedApps/>
         <DataExport store={store}/>
       </div>
     </div>

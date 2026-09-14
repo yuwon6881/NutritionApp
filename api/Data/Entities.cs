@@ -18,6 +18,8 @@ public class AppUser
     public string MissingDayAction { get; set; } = "ask";
     public string WeightGoalMetric { get; set; } = "scale";
     public string ProfileJson { get; set; } = "";
+    /// Central Fitness Account subject. Nullable during the additive identity cutover.
+    public string? IdentitySubject { get; set; }
 }
 public class Session
 {
@@ -181,4 +183,22 @@ public class GoogleHealthOAuthState
     public string SessionHash { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; set; }
+}
+
+public class IntegrationGrant : OwnedRecord
+{
+    public string Peer { get; set; } = "";
+    public string Status { get; set; } = "revoked";
+    public string ScopesJson { get; set; } = "[]";
+    public string EncryptedRefreshToken { get; set; } = "";
+    public DateTime? GrantedAt { get; set; }
+    public DateTime? RevokedAt { get; set; }
+}
+
+public class WorkoutSummaryCache : OwnedRecord
+{
+    public string SummaryJson { get; set; } = "[]";
+    public DateTime? LastSuccessAt { get; set; }
+    public DateTime? LastErrorAt { get; set; }
+    public string LastError { get; set; } = "";
 }

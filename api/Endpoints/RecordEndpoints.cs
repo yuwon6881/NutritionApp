@@ -10,7 +10,7 @@ public static class RecordEndpoints
 {
     public static void MapRecords(this WebApplication app)
     {
-        app.MapGet("/api/state",async(AppDb db,RetentionService retention,ExpenditureTrajectoryService trajectory,DateOnly? date,int? year,CancellationToken ct) =>
+        app.MapGet("/api/state",async(AppDb db,RetentionService retention,ExpenditureTrajectoryService trajectory,WorkoutSummaryService training,DateOnly? date,int? year,CancellationToken ct) =>
         {
             var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);
             var snapshots=await trajectory.EnsureThroughToday(ct);
@@ -28,6 +28,9 @@ public static class RecordEndpoints
                 var next=index+1<orderedPlans.Count?orderedPlans[index+1].Date.AddDays(-1):today;
                 return new { start=plan.Date,end=next,calories=result.Calories,weeklyCalories=result.WeeklyCalories,dailyCalories=result.DailyCalories };
             }).Where(interval=>interval.end>=interval.start).ToList();
+            // Nutrition displays scheduled training ahead of today, but the returned workout
+            // context remains informational and does not extend the nutrition target interval.
+            var trainingSummary = await training.Get(start, end.AddDays(14), ct);
             return Results.Ok(new {
                 user.Id,user.Username,user.Revision,user.ProfileRevision,
                 settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale" },
@@ -42,7 +45,8 @@ public static class RecordEndpoints
                 days=await db.Days.Where(d=>d.Date>=start&&d.Date<=end).ToListAsync(ct),
                 plans=await db.Plans.OrderByDescending(p=>p.Revision).Take(12).ToListAsync(ct),
                 checkIns=await db.CheckIns.OrderByDescending(c=>c.Revision).Take(12).ToListAsync(ct),
-                phaseDecisions=await db.PhaseDecisions.OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct)
+                phaseDecisions=await db.PhaseDecisions.OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct),
+                trainingSummaries=trainingSummary
             });
         });
         app.MapGet("/api/progress/summary",async(string? period,ProgressSummaryService progress,CancellationToken ct)

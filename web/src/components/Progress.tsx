@@ -15,6 +15,7 @@ import {displayEnergy,displayWeight,energyLabel,unitsFor,weightLabel} from '../l
 import {progressPeriodOptions} from '../lib/progress';
 import {useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
+import {TrainingSummaryCard} from './TrainingSummaryCard';
 
 type Tab='weight'|'energy'|'body';
 const progressKinds=new Set(['entry','weight','day','profile','settings']);
@@ -79,6 +80,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
     </div>
     </MotionPanel>
     <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} loading={ghLoading} onOpenSettings={onSettings}/>
+    <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone}/>
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
   </>;
 }

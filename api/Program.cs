@@ -5,6 +5,7 @@ using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Endpoints;
 using Nutrition.Api.Services;
+using OpenIddict.Validation.AspNetCore;
 
 var builder=WebApplication.CreateBuilder(args);
 if(int.TryParse(Environment.GetEnvironmentVariable("PORT"),out var cloudRunPort))builder.WebHost.UseUrls($"http://0.0.0.0:{cloudRunPort}");
@@ -26,6 +27,22 @@ builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSummaryService>();
 builder.Services.AddScoped<BodyRecordService>();
+builder.Services.AddScoped<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
+builder.Services.AddScoped<WorkoutSummaryService>();
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+});
+builder.Services.AddOpenIddict().AddValidation(options =>
+{
+    options.SetIssuer(new Uri(builder.Configuration["Identity:Issuer"] ?? "http://fitness-account"));
+    options.AddAudiences(
+        builder.Configuration["Identity:NutritionAudience"] ?? "nutrition-api",
+        builder.Configuration["Identity:WorkoutAudience"] ?? "workout-api");
+    options.UseSystemNetHttp();
+    options.UseAspNetCore();
+});
 builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45));
 builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
 // Open Food Facts asks every read to identify its caller or risk being served as a bot, and both
@@ -38,6 +55,8 @@ builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSe
 builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90));
 builder.Services.AddHttpClient<IGoogleHealthKms, GoogleCloudKmsService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<GoogleHealthService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(3));
+builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10));
 builder.Services.AddRateLimiter(o=>
 {
     o.RejectionStatusCode=429;
@@ -50,6 +69,7 @@ builder.Services.AddRateLimiter(o=>
 });
 var app=builder.Build();
 app.UseForwardedHeaders();
+app.UseAuthentication();
 app.Use(async(http,next)=>
 {
     http.Response.Headers.XContentTypeOptions="nosniff";
@@ -59,7 +79,7 @@ app.Use(async(http,next)=>
     if(http.Request.Path.StartsWithSegments("/api")) http.Response.Headers.CacheControl="no-store";
     try
     {
-        if(HttpMethods.IsPost(http.Request.Method)&&!http.Request.Path.StartsWithSegments("/internal"))
+        if((HttpMethods.IsPost(http.Request.Method)||HttpMethods.IsDelete(http.Request.Method))&&!http.Request.Path.StartsWithSegments("/internal"))
         {
             var origin=http.Request.Headers.Origin.ToString();
             var allowed=builder.Configuration["PublicOrigin"]??$"{http.Request.Scheme}://{http.Request.Host}";
@@ -67,10 +87,12 @@ app.Use(async(http,next)=>
         }
         if(http.Request.Path.StartsWithSegments("/internal"))
         {
-            var expected=builder.Configuration["Cleanup:Token"];
-            Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(http.Request.Headers["X-Cleanup-Token"].ToString()),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
+            var identityOperation=http.Request.Path.StartsWithSegments("/internal/identity");
+            var expected=builder.Configuration[identityOperation?"Identity:AttachToken":"Cleanup:Token"];
+            var supplied=http.Request.Headers[identityOperation?"X-Identity-Attach-Token":"X-Cleanup-Token"].ToString();
+            Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(supplied),System.Text.Encoding.UTF8.GetBytes(expected)),identityOperation?"Identity operations authentication required.":"Scheduler authentication required.",401);
         }
-        else if(http.Request.Path.StartsWithSegments("/api")&&http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register" or "/api/auth/dev-reset" or "/api/integrations/google-health/callback"))
+        else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register" or "/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback"))
         {
             var db=http.RequestServices.GetRequiredService<AppDb>();
             var token=http.Request.Cookies["nutrition-session"];
@@ -87,7 +109,7 @@ app.Use(async(http,next)=>
 });
 app.UseRateLimiter();
 app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> { if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache"; } });
-app.MapAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();
+app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapIdentityOperations();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>
 {

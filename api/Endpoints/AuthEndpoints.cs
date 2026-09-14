@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nutrition.Api.Data;
+using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
 
 namespace Nutrition.Api.Endpoints;
@@ -9,7 +10,7 @@ public static class AuthEndpoints
 {
     public static void MapAuth(this WebApplication app)
     {
-        app.MapGet("/api/auth/status",async (AppDb db,IConfiguration config,CancellationToken ct) => new { registrationOpen=await db.Users.CountAsync(ct)<config.GetValue("Auth:MaxUsers",2) });
+        app.MapGet("/api/auth/status",async (AppDb db,IConfiguration config,CancellationToken ct) => new { registrationOpen=config.GetValue("Auth:LegacyEnabled",true)&&await db.Users.CountAsync(ct)<config.GetValue("Auth:MaxUsers",2) });
         if(app.Environment.IsDevelopment())
         {
             app.MapPost("/api/auth/dev-reset",async(AppDb db,CancellationToken ct) =>
@@ -19,13 +20,15 @@ public static class AuthEndpoints
                 return Results.Ok(new { reset=true });
             });
         }
-        app.MapPost("/api/auth/register",async(Credentials input,AuthService auth,HttpContext http,CancellationToken ct) =>
+        app.MapPost("/api/auth/register",async(Credentials input,AuthService auth,IConfiguration config,HttpContext http,CancellationToken ct) =>
         {
+            Validation.Require(config.GetValue("Auth:LegacyEnabled",true),"Local registration is disabled; use the central Fitness Account.",410);
             var user=await auth.Register(input.Username,input.Password,ct);
             SetCookie(http,await auth.CreateSession(user.Id,ct)); return Results.Ok(new { user.Id,user.Username });
         }).RequireRateLimiting("auth");
-        app.MapPost("/api/auth/login",async(Credentials input,AuthService auth,HttpContext http,CancellationToken ct) =>
+        app.MapPost("/api/auth/login",async(Credentials input,AuthService auth,IConfiguration config,HttpContext http,CancellationToken ct) =>
         {
+            Validation.Require(config.GetValue("Auth:LegacyEnabled",true),"Local login is disabled; use the central Fitness Account.",410);
             var user=await auth.Login(input.Username,input.Password,ct);
             SetCookie(http,await auth.CreateSession(user.Id,ct)); return Results.Ok(new { user.Id,user.Username });
         }).RequireRateLimiting("auth");
@@ -39,8 +42,9 @@ public static class AuthEndpoints
             await db.Sessions.Where(s=>s.Hash==hash).ExecuteDeleteAsync(ct);
             http.Response.Cookies.Delete("nutrition-session",new CookieOptions { Path="/" }); return Results.NoContent();
         });
-        app.MapPost("/api/auth/password",async(PasswordChange input,AuthService auth,AppDb db,HttpContext http,CancellationToken ct) =>
+        app.MapPost("/api/auth/password",async(PasswordChange input,AuthService auth,AppDb db,IConfiguration config,HttpContext http,CancellationToken ct) =>
         {
+            Validation.Require(config.GetValue("Auth:LegacyEnabled",true),"Local password changes are disabled; use the central Fitness Account.",410);
             await auth.ChangePassword(db.CurrentUser!.Value,input.CurrentPassword,input.NewPassword,ct);
             http.Response.Cookies.Delete("nutrition-session",new CookieOptions { Path="/" }); return Results.NoContent();
         }).RequireRateLimiting("auth");

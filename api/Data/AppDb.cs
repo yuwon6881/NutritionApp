@@ -23,11 +23,14 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<DailyExpenditureEstimate> ExpenditureEstimates => Set<DailyExpenditureEstimate>();
     public DbSet<GoogleHealthConnection> GoogleHealthConnections => Set<GoogleHealthConnection>();
     public DbSet<GoogleHealthOAuthState> GoogleHealthOAuthStates => Set<GoogleHealthOAuthState>();
+    public DbSet<IntegrationGrant> IntegrationGrants => Set<IntegrationGrant>();
+    public DbSet<WorkoutSummaryCache> WorkoutSummaries => Set<WorkoutSummaryCache>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
         m.Entity<AppUser>().HasIndex(x => x.Username).IsUnique();
         m.Entity<AppUser>().HasIndex(x => x.Slot).IsUnique();
+        m.Entity<AppUser>().HasIndex(x => x.IdentitySubject).IsUnique().HasFilter("\"IdentitySubject\" IS NOT NULL");
         m.Entity<AppUser>().Property(x => x.Username).HasMaxLength(80);
         m.Entity<AppUser>().Property(x => x.CheckInWeekday).HasDefaultValue(1);
         m.Entity<AppUser>().Property(x => x.MissingDayAction).HasDefaultValue("ask");
@@ -51,6 +54,9 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         // Deleting an account must take its sessions, idempotency receipts, and usage counters with it.
         OwnedByUser<Session>(m); OwnedByUser<MutationReceipt>(m); OwnedByUser<AiUsage>(m); OwnedByUser<DailyExpenditureEstimate>(m);
         OwnedByUser<GoogleHealthConnection>(m); OwnedByUser<GoogleHealthOAuthState>(m);
+        Configure<IntegrationGrant>(m); Configure<WorkoutSummaryCache>(m);
+        m.Entity<IntegrationGrant>().HasIndex(x => new { x.UserId, x.Peer }).IsUnique();
+        m.Entity<WorkoutSummaryCache>().HasIndex(x => x.UserId).IsUnique();
         Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m);
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m);

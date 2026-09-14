@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node scripts/build.mjs",
     "test": "vitest run --maxWorkers=1",
     "test:visual": "playwright test",
     "typecheck": "tsc -b"

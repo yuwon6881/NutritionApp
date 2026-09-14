@@ -1,7 +1,66 @@
-# Supply an Artifact Registry image path. Deployment is a separate explicit step.
 steps:
   - name: gcr.io/cloud-builders/docker
-    args: ['build', '-t', '${_IMAGE}', '.']
-images: ['${_IMAGE}']
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        docker build -t "${_IMAGE}:$COMMIT_SHA" -t "${_IMAGE}:latest" .
+        docker push "${_IMAGE}:$COMMIT_SHA"
+        docker push "${_IMAGE}:latest"
+    id: BuildPush
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - nutrition-migrate
+      - --image=${_IMAGE}:$COMMIT_SHA
+      - --region=asia-southeast1
+      - --service-account=nutrition-api@$PROJECT_ID.iam.gserviceaccount.com
+      - --command=dotnet
+      - --args=Nutrition.Api.dll,--migrate-only
+      - --set-env-vars=PublicOrigin=${_PUBLIC_ORIGIN},Database__MigrateOnStartup=false,Identity__Authority=${_FITNESS_ACCOUNT_AUTHORITY},Identity__Issuer=${_FITNESS_ACCOUNT_ISSUER},Identity__NutritionAudience=nutrition-api,Identity__WorkoutAudience=workout-api,Integrations__KmsKeyName=${_INTEGRATION_KMS_KEY}
+      - --set-secrets=ConnectionStrings__Database=nutrition-neon-database:latest,Identity__ClientSecret=fitness-nutrition-client-secret:latest
+    id: Migrate
+    waitFor: [BuildPush]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args: [run, jobs, execute, nutrition-migrate, --region=asia-southeast1, --wait]
+    id: MigrateExecute
+    waitFor: [Migrate]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - nutrition-api
+      - --image=${_IMAGE}:$COMMIT_SHA
+      - --region=asia-southeast1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --min-instances=0
+      - --max-instances=1
+      - --memory=512Mi
+      - --cpu=1
+      - --timeout=180
+      - --concurrency=20
+      - --service-account=nutrition-api@$PROJECT_ID.iam.gserviceaccount.com
+      - --set-env-vars=PublicOrigin=${_PUBLIC_ORIGIN},Auth__MaxUsers=2,Auth__LegacyEnabled=false,Database__MigrateOnStartup=false,Identity__Authority=${_FITNESS_ACCOUNT_AUTHORITY},Identity__Issuer=${_FITNESS_ACCOUNT_ISSUER},Identity__ClientId=nutrition-api,Identity__RedirectUri=${_NUTRITION_REDIRECT_URI},Identity__ReturnUrl=/,Identity__ConnectReturnUrl=/settings,Identity__NutritionAudience=nutrition-api,Identity__WorkoutAudience=workout-api,Integrations__KmsKeyName=${_INTEGRATION_KMS_KEY},Integrations__WorkoutTrainingSummaryUrl=${_WORKOUT_SUMMARY_URL},OpenAi__Model=gpt-5.4-mini,Retention__MealDetailDays=90
+      - --set-secrets=ConnectionStrings__Database=nutrition-neon-database:latest,Identity__ClientSecret=fitness-nutrition-client-secret:latest,Identity__AttachToken=identity-attach-token:latest,OpenAi__ApiKey=financialapp-openai-api-key:latest,Cleanup__Token=nutrition-cleanup-token:latest
+    id: Deploy
+    waitFor: [MigrateExecute]
+
+images: ['${_IMAGE}:$COMMIT_SHA']
 substitutions:
-  _IMAGE: asia-southeast1-docker.pkg.dev/REPLACE_PROJECT/nutrition/nourish:latest
+  _IMAGE: asia-southeast1-docker.pkg.dev/REPLACE_PROJECT/nutrition/nourish
+  _PUBLIC_ORIGIN: 'https://example.invalid'
+  _FITNESS_ACCOUNT_AUTHORITY: 'https://fitness-account.example.invalid'
+  _FITNESS_ACCOUNT_ISSUER: 'https://fitness-account.example.invalid'
+  _NUTRITION_REDIRECT_URI: 'https://nutrition-api.example.invalid/api/auth/central/callback'
+  _WORKOUT_SUMMARY_URL: 'https://workout-api.example.invalid/api/integrations/v1/training-summary'
+  _INTEGRATION_KMS_KEY: 'projects/example/locations/asia-southeast1/keyRings/fitness/cryptoKeys/integration-tokens'
