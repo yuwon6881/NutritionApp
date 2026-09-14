@@ -97,7 +97,7 @@ export function FoodPicker({
   };
 
   return <>
-    <h3>{tab==='barcode'?'Packaged food':'Food search'}</h3>
+    <h3 className="food-search-heading">{tab==='barcode'?'Packaged food':'Food search'}</h3>
     <Form onSubmit={event=>{
       event.preventDefault();
       const id=++requestId.current;
