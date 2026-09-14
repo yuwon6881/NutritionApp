@@ -105,8 +105,8 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
               <option value="not_logged">Default to not logging</option>
             </SelectField>
             <SelectField id="settings-weight-goal-metric" name="weightGoalMetric" label="Weight goal basis" value={settings.weightGoalMetric??'scale'} onChange={v=>updateWeightGoalMetric(v as WeightGoalMetric)}>
-              <option value="scale">Scale weight (faster feedback)</option>
-              <option value="trend">Trend weight (smoothed progress)</option>
+              <option value="scale">Scale weight</option>
+              <option value="trend">Trend weight</option>
             </SelectField>
           </UnitPreferencesFields>
           <p className="source">Units apply across your diary, charts, and coach. Profile time zone: {state.profile?.timeZone??'Asia/Kuala_Lumpur'}.</p>

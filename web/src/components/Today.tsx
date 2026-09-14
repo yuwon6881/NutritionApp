@@ -5,6 +5,7 @@ import {number,today,trend} from '../lib/format';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
+import {GoalSummary} from './GoalSummary';
 import {CheckInCard} from './CheckInCard';
 import {CheckInDialog} from './CheckInDialog';
 import {displayEnergy,displayWeight,weightLabel,energyLabel,unitsFor} from '../lib/units';
@@ -71,6 +72,9 @@ export function Today({store,onCoach}:{store:Nourish;onCoach:()=>void}){
           })}
         </article>
       </section>
+      {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
+        <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
+      </section>}
       <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latestWeight?.kg,unitsFor(state.settings).weight,1)} <span className="unit">{weightLabel(unitsFor(state.settings).weight)}</span></h2><small>{latestWeight?`As of ${latestWeight.date}`:"No weigh-in yet"}</small></section>
     </>}
     <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>

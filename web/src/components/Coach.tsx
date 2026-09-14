@@ -4,21 +4,15 @@ import {ArrowLeft,ArrowRight,Check,Sliders} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
-import {checkInSchedule} from '../lib/checkIn';
 import {normalizeProfileSex,profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
 import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
 import {gramsFromSplit,macroKeys,macroLabels,macroPresets,type MacroSplit} from '../lib/macros';
-import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Field,SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
 import {GoalSetup} from './GoalSetup';
-import {GoalSummary} from './GoalSummary';
-import {GoalReachedBanner} from './GoalReachedBanner';
-import {CheckInCard} from './CheckInCard';
-import {CheckInDialog} from './CheckInDialog';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
@@ -67,9 +61,9 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
   return <div className="target-figures">
     <div><p>Daily energy</p><strong>{displayEnergy(result.calories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong></div>
     <div><p>Maintenance</p><strong>{displayEnergy(result.expenditure,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong></div>
-    <div><p>Protein</p><strong>{number(result.protein)} <span className="unit">g</span></strong></div>
-    <div><p>Carbohydrate</p><strong>{number(result.carbs)} <span className="unit">g</span></strong></div>
-    <div><p>Fat</p><strong>{number(result.fat)} <span className="unit">g</span></strong></div>
+    <div><p><span className="macro-dot protein" aria-hidden="true"/>Protein</p><strong>{number(result.protein)} <span className="unit">g</span></strong></div>
+    <div><p><span className="macro-dot carbs" aria-hidden="true"/>Carbohydrate</p><strong>{number(result.carbs)} <span className="unit">g</span></strong></div>
+    <div><p><span className="macro-dot fat" aria-hidden="true"/>Fat</p><strong>{number(result.fat)} <span className="unit">g</span></strong></div>
     {result.dailyCalories?.length===7&&<div className="target-weekly-summary"><p>Weekly budget</p><strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong><small>{result.dailyCalories.map((calories,index)=><span key={index}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]} {displayEnergy(calories,units.energy)} {energyLabel(units.energy)}</span>)}</small></div>}
   </div>;
 }
@@ -78,8 +72,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const [profile,setProfile]=useState<ProfileDraft>(()=>normalizeProfileSex(store.state!.profile??defaults));
   const [message,setMessage]=useState('');
   const {busy:saving,run:runSave}=useAsyncAction();
-  const [checkInOpen,setCheckInOpen]=useState(false);
-  const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
   const [mainTab,setMainTab]=useState<MainTab>('targets');
   const [review,setReview]=useState(false);
   const [weeklyDraft,setWeeklyDraft]=useState<number[]>();
@@ -95,7 +87,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const accepted=plans[0];
   const acceptedPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const current=today(store.state!.profile?.timeZone);
-  const checkIn=checkInSchedule(store.state!,current);
   const settings=store.state!.settings??{checkInWeekday:1,revision:0};
   const units=unitsFor(settings);
   const derivedAge=ageOn(profile.dateOfBirth,current);
@@ -152,9 +143,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     :live.dailyCalories);
   const weeklyValid=weeklyValues.length===7&&weeklyValues.every(value=>Number.isInteger(value)&&value>=0)&&Math.abs(weeklyValues.reduce((sum,value)=>sum+value,0)-Math.round(live.weeklyCalories))<=2;
   const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
-  const weighIns=[...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)];
-  const phaseDecision=store.state!.phaseDecisions?.find(decision=>decision.profileRevision===store.state!.profileRevision&&!decision.deleted);
-  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,current,phaseDecision,store.state!.settings?.weightGoalMetric??'scale'),phaseDecision);
   const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
   const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5&&(profile.maintenance==null||(profile.maintenance>=1000&&profile.maintenance<=7000)));
   const phaseInitial=profile.phaseStartWeightKg??profile.weightKg;
@@ -229,7 +217,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </Button>
     </div>
     <TargetFigures result={proposal.result} units={units}/>
-    {proposal.result.goalProgress&&<GoalSummary progress={proposal.result.goalProgress} units={units} weightGoalMetric={store.state!.settings?.weightGoalMetric??'scale'}/>}
     {proposal.holdReason&&<p className="notice">{proposal.holdReason}</p>}
     {!proposal.canAccept&&!proposal.holdReason&&<p className="notice">{proposal.result.explanation}</p>}
     </>:<h2>{message?'Active plan':'Review plan'}</h2>}
@@ -240,27 +227,29 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   </CoachLayout></section>:null;
 
   const targetsTab=<>
-    <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={()=>openPlan('goal')}
-      onComplete={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
-    <CheckInCard store={store} onReview={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
     {acceptedPlan&&<section className="panel">
       <div className="section-heading">
-        <div><h2>Active targets</h2></div>
+        <div>
+          <h2>Active targets</h2>
+          <p>Accepted daily nutrition plan and macronutrient distribution.</p>
+        </div>
         <div className="actions">
           <Button variant="secondary" size="md" disabled={busy||!!acceptance.current} onClick={()=>openPlan()}><Sliders size={16}/>Edit plan</Button>
         </div>
       </div>
       <TargetFigures result={acceptedPlan} units={units}/>
-      {goalProgress&&<GoalSummary progress={goalProgress} units={units} weightGoalMetric={store.state!.settings?.weightGoalMetric??'scale'}/>}
     </section>}
     <section className="panel">
       <div className="section-heading">
-        <div><h2>Strategy</h2></div>
+        <div>
+          <h2>Strategy</h2>
+          <p>Phase configuration and baseline profile parameters.</p>
+        </div>
       </div>
       <dl className="strategy-figures">
         <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
         <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${Math.abs(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15))}% bodyweight/week`}</dd></div>
-        <div><dt>Tracking</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${displayWeight(profile.targetWeightKg,units.weight,1)} ${weightLabel(units.weight)}`:'Ongoing'}</dd></div>
+        <div><dt>{profile.phaseMode==='duration'?'Duration':profile.phaseMode==='weight'?'Target':'Phase'}</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${displayWeight(profile.targetWeightKg,units.weight,1)} ${weightLabel(units.weight)}`:'Ongoing'}</dd></div>
         <div><dt>Macros</dt><dd>{presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')}</dd></div>
         <div><dt>Body</dt><dd>{displayWeight(profile.weightKg,units.weight,1)} {weightLabel(units.weight)} · {displayHeight(profile.heightCm,units.height)}</dd></div>
         <div><dt>Age</dt><dd>{derivedAge??profile.age}</dd></div>
@@ -441,12 +430,13 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   </section>;
 
   const historyTab=<>
-    {goalProgress?.mode==='weight'&&<section className="panel goal-history-panel" aria-labelledby="goal-history-title">
-      <div className="section-heading"><div><h2 id="goal-history-title">Goal progress</h2><p>Your current trend compared with the phase starting and target weights.</p></div></div>
-      <GoalSummary progress={goalProgress} units={units} weightGoalMetric={store.state!.settings?.weightGoalMetric??'scale'}/>
-    </section>}
     <section className="panel">
-      <h2>Accepted plans</h2>
+      <div className="section-heading">
+        <div>
+          <h2>Accepted plans</h2>
+          <p>History of previously accepted coaching targets and macronutrient distributions.</p>
+        </div>
+      </div>
       {plans.length===0?<p>No accepted plans yet.</p>:<dl className="plan-list">
         {plans.map(plan=>{
           const result=JSON.parse(plan.resultJson) as CoachResult;
@@ -476,6 +466,5 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     :mainTab==='targets'?targetsTab
       :mainTab==='plan'?(review?proposalPanel:planTab)
       :historyTab}</div>
-    <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>
   </>;
 }
