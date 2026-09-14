@@ -7,6 +7,7 @@ import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {Form} from './ui/Form';
 import {BarcodeCamera} from './BarcodeCamera';
+import {Modal} from './ui/Modal';
 import {displayEnergy,energyLabel} from '../lib/units';
 
 type SearchResult = import('../types').FoodSearchResult;
@@ -112,20 +113,22 @@ export function FoodPicker({
       </div>
     </Form>
 
-    {tab==='barcode'&&camera&&open&&step==='selection'&&<section className="barcode-scanner-step" aria-labelledby="barcode-scanner-title">
-      <div className="section-heading"><div><h3 id="barcode-scanner-title">Barcode scanner</h3><p>Scan one item and return to its lookup result.</p></div><Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button></div>
-      <BarcodeCamera
-        onDetected={code=>{
-          setCamera(false);
-          setQuery(code);
-          lookup(code);
-        }}
-        onError={message=>{
-          setError(message);
-          setCamera(false);
-        }}
-      />
-    </section>}
+    {tab==='barcode'&&camera&&open&&step==='selection'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode">
+      <div className="barcode-scanner-modal">
+        <p className="source">Point your camera at a food barcode to scan it automatically.</p>
+        <BarcodeCamera
+          onDetected={code=>{
+            setCamera(false);
+            setQuery(code);
+            lookup(code);
+          }}
+          onError={message=>{
+            setError(message);
+            setCamera(false);
+          }}
+        />
+      </div>
+    </Modal>}
 
     {results.map((result,index)=>{
       const starred=isSaved?isSaved(result):false;

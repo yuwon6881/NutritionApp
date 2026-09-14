@@ -61,7 +61,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
             previous?.Calories is {} calories && previous.Expenditure is {} expenditure
                 ? new PreviousPlan(calories, expenditure)
                 : null,
-            today, seed, adaptationDue, phaseDecision);
+            today, seed, adaptationDue, phaseDecision, user.WeightGoalMetric ?? "scale");
         var trajectoryPoint = trajectory == null ? null : await trajectory.LatestUnderLock(ct);
         if (trajectoryPoint?.Expenditure is {} learned)
         {
@@ -70,7 +70,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
             // must come from one calculation. The advisory snapshot contributes only its adaptation
             // state and hold reason: its own suggestion reads profile.Goal directly and would both
             // desynchronise the macros and reinstate a deficit on a completed phase.
-            var provisional = Coach.Calculate(profile, days, weights, null, today, learned, false, phaseDecision);
+            var provisional = Coach.Calculate(profile, days, weights, null, today, learned, false, phaseDecision, user.WeightGoalMetric ?? "scale");
             result = provisional with
             {
                 Adaptive = trajectoryPoint.SuggestedCalories != null,
@@ -197,7 +197,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
             .Select(w => new WeightPoint(w.Date, w.Kg)).ToListAsync(ct);
         var current = await db.PhaseDecisions
             .SingleOrDefaultAsync(d => d.ProfileRevision == user.ProfileRevision && !d.Deleted, ct);
-        var progress = GoalPolicy.Evaluate(profile, weights, today, current);
+        var progress = GoalPolicy.Evaluate(profile, weights, today, current, user.WeightGoalMetric ?? "scale");
         var reached = decision == "await-trend"
             ? progress.ScaleReached
             : progress.DurationReached || progress.ScaleReached || progress.TrendReached || progress.Complete;

@@ -73,4 +73,29 @@ public sealed class GoalPhaseTests
         var open=GoalPolicy.Evaluate(P(),Weights(),Today);
         Assert.Null(open.Percent);Assert.Null(open.TargetWeight);Assert.Null(open.Remaining);Assert.Equal(80,open.StartWeight);
     }
+    [Fact] public void Weight_goal_respects_metric_setting_and_computes_optimistic_finish()
+    {
+        var profile=P() with {PhaseMode="weight",TargetWeightKg=75,PhaseStartWeightKg=80,GoalRatePercent=0.5};
+        var plateau=Weights(78.5);
+        // Latest day scale weight is 77.0
+        plateau[^1]=plateau[^1] with {Kg=77.0};
+
+        var scaleProg=GoalPolicy.Evaluate(profile,plateau,Today,weightGoalMetric:"scale");
+        Assert.Equal(60,scaleProg.Percent!.Value,1);
+        Assert.Equal(2.0,scaleProg.Remaining!.Value,1);
+
+        var trendProg=GoalPolicy.Evaluate(profile,plateau,Today,weightGoalMetric:"trend");
+        Assert.True(trendProg.Percent < scaleProg.Percent);
+        Assert.True(trendProg.Remaining > scaleProg.Remaining);
+
+        // OptimisticFinish is populated from planned rate even when plateau makes EstimatedFinish null
+        Assert.Null(trendProg.EstimatedFinish);
+        Assert.NotNull(trendProg.OptimisticFinish);
+
+        // Empty weigh-ins still yields 0% percent and OptimisticFinish
+        var emptyProg=GoalPolicy.Evaluate(profile,[],Today);
+        Assert.Equal(0,emptyProg.Percent);
+        Assert.Equal(5,emptyProg.Remaining);
+        Assert.NotNull(emptyProg.OptimisticFinish);
+    }
 }

@@ -7,7 +7,7 @@ import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {CoachingSettings,UnitPreferencesFields} from './CoachingSettings';
 import {unitsFor} from '../lib/units';
-import type {CoachingSettings as CoachingSettingsType,MissingDayAction,UnitPreferences} from '../types';
+import type {CoachingSettings as CoachingSettingsType,MissingDayAction,UnitPreferences,WeightGoalMetric} from '../types';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {DataExport} from './DataExport';
 
@@ -29,13 +29,15 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
     weightUnit:savedSettings?.weightUnit??'kg',
     energyUnit:savedSettings?.energyUnit??'kcal',
     heightUnit:savedSettings?.heightUnit??'cm',
-    missingDayAction:savedSettings?.missingDayAction??'ask'
+    missingDayAction:savedSettings?.missingDayAction??'ask',
+    weightGoalMetric:savedSettings?.weightGoalMetric??'scale'
   } as const;
   const queuedData=queued?.data as Partial<CoachingSettingsType>|undefined;
   const changes=queued&&!queued.error?[
     queuedData?.checkInWeekday!==undefined&&queuedData.checkInWeekday!==saved.checkInWeekday?'check-in day':null,
     queuedData?.weightUnit!==undefined&&queuedData.weightUnit!==saved.weightUnit||queuedData?.energyUnit!==undefined&&queuedData.energyUnit!==saved.energyUnit||queuedData?.heightUnit!==undefined&&queuedData.heightUnit!==saved.heightUnit?'unit preferences':null,
-    queuedData?.missingDayAction!==undefined&&queuedData.missingDayAction!==saved.missingDayAction?'unlogged day preference':null
+    queuedData?.missingDayAction!==undefined&&queuedData.missingDayAction!==saved.missingDayAction?'unlogged day preference':null,
+    queuedData?.weightGoalMetric!==undefined&&queuedData.weightGoalMetric!==saved.weightGoalMetric?'weight goal basis':null
   ].filter((value):value is string=>value!==null):[];
   const savingLabel=changes.length===1?`Saving your ${changes[0]}...`:changes.length>1?`Saving your ${changes.join(' and ')}...`:'Saving your coaching settings...';
   const settingsSaving=Boolean(queued&&!queued.error);
@@ -46,7 +48,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       kind:'settings',
       recordId:state.id,
       expectedRevision:settings.revision,
-      data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height,missingDayAction:settings.missingDayAction??'ask'},
+      data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height,missingDayAction:settings.missingDayAction??'ask',weightGoalMetric:settings.weightGoalMetric??'scale'},
       delete:false
     });
   };
@@ -56,7 +58,17 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       kind:'settings',
       recordId:state.id,
       expectedRevision:settings.revision,
-      data:{checkInWeekday:settings.checkInWeekday,weightUnit:units.weight,energyUnit:units.energy,heightUnit:units.height,missingDayAction:value},
+      data:{checkInWeekday:settings.checkInWeekday,weightUnit:units.weight,energyUnit:units.energy,heightUnit:units.height,missingDayAction:value,weightGoalMetric:settings.weightGoalMetric??'scale'},
+      delete:false
+    });
+  };
+
+  const updateWeightGoalMetric=(value:WeightGoalMetric)=>{
+    void store.mutate({
+      kind:'settings',
+      recordId:state.id,
+      expectedRevision:settings.revision,
+      data:{checkInWeekday:settings.checkInWeekday,weightUnit:units.weight,energyUnit:units.energy,heightUnit:units.height,missingDayAction:settings.missingDayAction??'ask',weightGoalMetric:value},
       delete:false
     });
   };
@@ -91,6 +103,10 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
               <option value="ask">Ask each time</option>
               <option value="fasting">Default to fasting</option>
               <option value="not_logged">Default to not logging</option>
+            </SelectField>
+            <SelectField id="settings-weight-goal-metric" name="weightGoalMetric" label="Weight goal basis" value={settings.weightGoalMetric??'scale'} onChange={v=>updateWeightGoalMetric(v as WeightGoalMetric)}>
+              <option value="scale">Scale weight (faster feedback)</option>
+              <option value="trend">Trend weight (smoothed progress)</option>
             </SelectField>
           </UnitPreferencesFields>
           <p className="source">Units apply across your diary, charts, and coach. Profile time zone: {state.profile?.timeZone??'Asia/Kuala_Lumpur'}.</p>

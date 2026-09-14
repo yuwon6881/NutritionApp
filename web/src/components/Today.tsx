@@ -32,7 +32,7 @@ export function Today({store,onCoach}:{store:Nourish;onCoach:()=>void}){
   const targets=targetsForDate(plan,date);
   const ratio=targets.calories?Math.min(total/targets.calories,1):0;
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
-  const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision),phaseDecision);
+  const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision,state.settings?.weightGoalMetric??'scale'),phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>

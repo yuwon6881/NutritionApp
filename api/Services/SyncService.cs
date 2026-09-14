@@ -6,7 +6,7 @@ using Nutrition.Api.Domain;
 namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
-public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null);
+public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null, string? WeightGoalMetric = null);
 public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
@@ -62,14 +62,17 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 var energyUnit = settings.EnergyUnit ?? user.EnergyUnit;
                 var heightUnit = settings.HeightUnit ?? user.HeightUnit;
                 var missingDayAction = settings.MissingDayAction ?? user.MissingDayAction;
+                var weightGoalMetric = settings.WeightGoalMetric ?? user.WeightGoalMetric;
                 CheckInWeek.ValidateWeekday(weekday);
                 Validation.Units(weightUnit, energyUnit, heightUnit);
                 Validation.Require(missingDayAction is "ask" or "fasting" or "not_logged", "Choose a valid unlogged day setting.");
+                Validation.Require(weightGoalMetric is "scale" or "trend", "Choose a valid weight goal metric.");
                 user.CheckInWeekday = weekday;
                 user.WeightUnit = weightUnit;
                 user.EnergyUnit = energyUnit;
                 user.HeightUnit = heightUnit;
                 user.MissingDayAction = missingDayAction;
+                user.WeightGoalMetric = weightGoalMetric;
                 user.CoachingSettingsRevision = revision;
                 user.CoachingSettingsChangedDate = RetentionService.Today(user.ProfileJson);
                 break;

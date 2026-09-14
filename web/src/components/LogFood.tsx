@@ -49,6 +49,7 @@ export function LogFood({
   onClose,
   onSaved,
   initialAi=false,
+  initialTab,
   initialTime,
   restoreFocus,
 }:{
@@ -59,14 +60,16 @@ export function LogFood({
   onClose:()=>void;
   onSaved:()=>void;
   initialAi?:boolean;
+  initialTab?:'search'|'saved'|'barcode'|'ai';
   initialTime?:string;
   restoreFocus?:HTMLElement|null;
 }){
+  const defaultTab=initialTab??(initialAi?'ai':'search');
   const history=useHistoryWindow(store,date);
   const basket=useFoodBasket(open);
   const [step,setStep]=useState<FoodStep>(editing?'editor':'selection');
   const [stepDirty,setStepDirty]=useState(false);
-  const [tab,setTab]=useState(initialAi?'ai':'search');
+  const [tab,setTab]=useState(defaultTab);
   const [query,setQuery]=useState('');
   const [savedFilter,setSavedFilter]=useState<'all'|'favourites'|'recipes'|'recent'>('all');
   const selectionRequest=useRef(0);
@@ -91,7 +94,7 @@ export function LogFood({
     if(open&&!wasOpen.current){
       setStep(editing?'editor':'selection');
       setStepDirty(false);
-      setTab(initialAi?'ai':'search');
+      setTab(defaultTab);
       setQuery('');
       setSavedFilter('all');
       setResults([]);
@@ -106,7 +109,7 @@ export function LogFood({
       basket.clear();
     }
     wasOpen.current=open;
-  },[open,editing?.id,date,initialAi,basket]);
+  },[open,editing?.id,date,defaultTab,basket]);
 
   useEffect(()=>{if(!open||tab!=='barcode'||step!=='selection')setCamera(false);},[open,tab,step]);
 
@@ -125,7 +128,7 @@ export function LogFood({
 
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
   const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
-  const selectTab=(next:string)=>{
+  const selectTab=(next:'search'|'saved'|'barcode'|'ai')=>{
     setSavedFilter('all');
     setQuery('');setResults([]);setError('');setCamera(false);setTab(next);
     window.requestAnimationFrame(()=>selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'}));

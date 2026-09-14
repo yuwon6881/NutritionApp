@@ -1049,8 +1049,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Field input insideAction and embedded button */
 .field-input-wrapper{position:relative;display:flex;align-items:center;width:100%;min-width:0;flex:1}
 .field-input-wrapper>input{width:100%;padding-right:44px}
-.field-inside-action{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;z-index:2}
-.field-inside-action>.button{min-height:32px!important;height:32px!important;width:32px!important;min-width:32px!important;padding:0!important;border:none!important;background:transparent!important;color:var(--muted-foreground);border-radius:8px}
+.field-inside-action{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;z-index:2;margin:0!important}
+.field-inside-action>.button{min-height:32px!important;height:32px!important;width:32px!important;min-width:32px!important;padding:0!important;margin:0!important;border:none!important;background:transparent!important;color:var(--muted-foreground);border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
+.search-line .field-inside-action>.button{margin-top:0!important}
 .field-inside-action>.button:hover{background:var(--muted)!important;color:var(--primary-ink)}
 .field-inside-action>.button.active{color:var(--primary);background:var(--primary-tint)!important}
 .field-input-row>.field-input-wrapper{flex:1;min-width:0}
@@ -1058,6 +1059,8 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Barcode embedded camera button */
 .barcode-camera-btn{transition:color var(--motion-control) ease,background var(--motion-control) ease}
 .barcode-camera-btn.active{color:var(--primary)!important;background:var(--primary-tint)!important}
+.barcode-scanner-modal{display:flex;flex-direction:column;gap:14px}
+.barcode-scanner-modal .source{margin:0}
 
 /* Your Foods Tab UI Overhaul */
 .saved-foods-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap}

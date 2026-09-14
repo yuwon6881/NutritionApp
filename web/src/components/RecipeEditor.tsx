@@ -6,6 +6,7 @@ import {ArrowLeft,Camera,ScanBarcode,Search,Star} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
 import {BarcodeCamera} from './BarcodeCamera';
+import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {api} from '../lib/api';
 import {useAsyncAction} from './ui/useAsyncAction';
@@ -236,26 +237,22 @@ export function RecipeEditor({store,onClose,onDirtyChange}:{store:Nourish;onClos
             </Button>
           </div>
           {camera && (
-            <section className="barcode-scanner-step" aria-labelledby="recipe-barcode-scanner-title">
-              <div className="section-heading">
-                <div>
-                  <h3 id="recipe-barcode-scanner-title">Barcode scanner</h3>
-                  <p>Scan a packaged food barcode to add as ingredient.</p>
-                </div>
-                <Button variant="tertiary" onClick={()=>setCamera(false)}>Done scanning</Button>
+            <Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode">
+              <div className="barcode-scanner-modal">
+                <p className="source">Point your camera at a food barcode to scan it automatically.</p>
+                <BarcodeCamera
+                  onDetected={code => {
+                    setCamera(false);
+                    setQuery(code);
+                    void run(() => lookupBarcode(code));
+                  }}
+                  onError={message => {
+                    setError(message);
+                    setCamera(false);
+                  }}
+                />
               </div>
-              <BarcodeCamera
-                onDetected={code => {
-                  setCamera(false);
-                  setQuery(code);
-                  void run(() => lookupBarcode(code));
-                }}
-                onError={message => {
-                  setError(message);
-                  setCamera(false);
-                }}
-              />
-            </section>
+            </Modal>
           )}
         </>
       )}

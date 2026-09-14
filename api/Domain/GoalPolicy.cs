@@ -16,12 +16,13 @@ public record GoalProgress(string Mode, double? Percent, bool Complete, DateOnly
     public string? ReachedBy { get; init; }
     public DateOnly? ReachedOn { get; init; }
     public bool AwaitingTrend { get; init; }
+    public DateOnly? OptimisticFinish { get; init; }
 }
 
 public static class GoalPolicy
 {
     public static GoalProgress Evaluate(Profile p, IReadOnlyList<WeightPoint> weights, DateOnly today,
-        PhaseDecision? decision = null)
+        PhaseDecision? decision = null, string weightGoalMetric = "scale")
     {
         var points = weights.Where(w => w.Date <= today).OrderBy(w => w.Date).ToArray();
         var trend = Coach.Trend(points);
@@ -32,14 +33,18 @@ public static class GoalPolicy
         var complete = decision?.Decision == "completed";
         var awaitingTrend = decision?.Decision == "await-trend";
 
-        double? Remaining(bool reached) => goalWeight is not {} target || current is not {} value
+        var currentMetricWeight = weightGoalMetric == "trend"
+            ? (current ?? scale ?? startWeight)
+            : (scale ?? startWeight);
+
+        double? Remaining(bool reached) => goalWeight is not {} target
             ? null
-            : reached ? 0 : Math.Max(p.Goal == "lose" ? value - target : target - value, 0);
+            : reached ? 0 : Math.Max(p.Goal == "lose" ? currentMetricWeight - target : target - currentMetricWeight, 0);
 
         GoalProgress Progress(string mode, double? percent, bool reached, DateOnly? finish, DateOnly? end,
             double? weekly, string explanation, bool durationReached = false, bool scaleReached = false,
             bool trendReached = false, string? reachedBy = null, DateOnly? reachedOn = null,
-            double? scaleWeight = null)
+            double? scaleWeight = null, DateOnly? optimisticFinish = null)
             => new(mode, percent, complete, finish, end, current, weekly, explanation)
             {
                 Goal = p.Goal,
@@ -52,7 +57,8 @@ public static class GoalPolicy
                 TrendReached = trendReached,
                 ReachedBy = trendReached ? "trend" : reachedBy,
                 ReachedOn = trendReached ? points.LastOrDefault()?.Date : reachedOn,
-                AwaitingTrend = awaitingTrend
+                AwaitingTrend = awaitingTrend,
+                OptimisticFinish = optimisticFinish
             };
 
         if (p.PhaseMode == "duration" && p.PhaseStart is {} start && p.DurationWeeks is {} weeks)
@@ -73,16 +79,47 @@ public static class GoalPolicy
                 "Choose a duration or weight goal to track phase progress.");
 
         var initial = startWeight;
-        var percentDone = current is {} value && Math.Abs(target - initial) > .001
-            ? Math.Clamp(100 * (value - initial) / (target - initial), 0, 100)
-            : (double?)null;
+        var totalDelta = target - initial;
+        var progressDelta = currentMetricWeight - initial;
+        var percentDone = Math.Abs(totalDelta) > .001
+            ? Math.Clamp(100 * progressDelta / totalDelta, 0, 100)
+            : 100;
+
         var fresh = points.Length >= 3 && points[^1].Date >= today.AddDays(-3);
         var trendReached = fresh && points[^1].Date.DayNumber - points[^3].Date.DayNumber >= 2 &&
             trend.TakeLast(3).All(w => p.Goal == "lose" ? w.Kg <= target : w.Kg >= target);
         var scaleReached = fresh && (p.Goal == "lose" ? scale <= target : scale >= target);
-        var goalReached = scaleReached || trendReached;
+        var goalReached = weightGoalMetric == "trend" ? trendReached : (scaleReached || trendReached);
         var reachedBy = trendReached ? "trend" : scaleReached ? "scale" : decision?.ReachedBy;
         var reachedOn = trendReached ? points[^1].Date : scaleReached ? points[^1].Date : decision?.Date;
+
+        var remDistance = Remaining(goalReached || complete) ?? 0;
+
+        DateOnly? CalculateOptimisticFinish()
+        {
+            if (goalReached || complete || remDistance <= 0.001) return today;
+            if (p.Goal is not ("lose" or "gain")) return null;
+            var goalRatePercent = Math.Abs(p.GoalRatePercent ?? (p.Goal == "lose" ? 0.5 : 0.15));
+            if (goalRatePercent <= 0.0001) return null;
+            var plannedWeeklyKg = (goalRatePercent / 100.0) * currentMetricWeight;
+            var plannedDailyKg = plannedWeeklyKg / 7.0;
+
+            var recentWeighIns = points.Where(w => w.Date >= today.AddDays(-28)).ToArray();
+            double observedDailyKg = 0;
+            if (recentWeighIns.Length >= 2 && recentWeighIns[^1].Date.DayNumber - recentWeighIns[0].Date.DayNumber >= 3)
+            {
+                var s = Coach.Slope(recentWeighIns);
+                if ((p.Goal == "lose" && s < 0) || (p.Goal == "gain" && s > 0))
+                    observedDailyKg = Math.Abs(s);
+            }
+            var optimisticDailyKg = Math.Max(plannedDailyKg, observedDailyKg);
+            if (optimisticDailyKg <= 0.0001) return null;
+            var daysRemaining = (int)Math.Ceiling(remDistance / optimisticDailyKg);
+            return daysRemaining <= 730 ? today.AddDays(daysRemaining) : null;
+        }
+
+        var optFinish = CalculateOptimisticFinish();
+
         if (goalReached || complete)
         {
             var explanation = complete
@@ -94,7 +131,7 @@ public static class GoalPolicy
                         : "Your latest scale weight reached the target. Complete the goal now or wait for the trend weight to confirm it.";
             return Progress("weight", 100, goalReached || complete, null, null, null, explanation,
                 scaleReached: scaleReached, trendReached: trendReached, reachedBy: reachedBy,
-                reachedOn: reachedOn, scaleWeight: scale);
+                reachedOn: reachedOn, scaleWeight: scale, optimisticFinish: today);
         }
 
         var recent = points.Where(w => w.Date >= today.AddDays(-28)).ToArray();
@@ -102,21 +139,21 @@ public static class GoalPolicy
         if (!enough)
             return Progress("weight", percentDone, false, null, null, null,
                 "A finish estimate needs six weigh-ins spanning at least 14 days, including one within three days.",
-                scaleWeight: scale);
+                scaleWeight: scale, optimisticFinish: optFinish);
 
         var slope = Coach.Slope(recent);
-        var dailyRemaining = (target - current!.Value) / slope;
+        var dailyRemaining = current is {} cur ? (target - cur) / slope : double.NaN;
         if (!double.IsFinite(dailyRemaining) || dailyRemaining <= 0 || Math.Abs(slope) < .001)
             return Progress("weight", percentDone, false, null, null, slope * 7,
                 "Your observed trend is flat or moving away from this goal. No finish date can currently be estimated.",
-                scaleWeight: scale);
+                scaleWeight: scale, optimisticFinish: optFinish);
         if (dailyRemaining > 730)
             return Progress("weight", percentDone, false, null, null, slope * 7,
                 "At your recent pace the goal is more than two years away; a precise finish date would be misleading.",
-                scaleWeight: scale);
+                scaleWeight: scale, optimisticFinish: optFinish);
         return Progress("weight", percentDone, false, today.AddDays((int)Math.Ceiling(dailyRemaining)), null, slope * 7,
             "Conditional estimate from the robust rate of recent recorded weights. It changes with your data and assumes the recent pace continues; it is not a promise or a fixed calorie-per-kilogram prediction.",
-            scaleWeight: scale);
+            scaleWeight: scale, optimisticFinish: optFinish);
     }
 
     // Kept for callers compiled against the pre-decision domain API. The boolean represents an

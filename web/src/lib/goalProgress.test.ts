@@ -46,3 +46,24 @@ it('keeps completion explicit when merging a reached live phase',()=>{
   expect(merged?.complete).toBe(false);
   expect(mergeGoalProgress(accepted,reached,{id:'phase',revision:1,deleted:false,date:'2026-09-08',profileRevision:1,reachedBy:'trend',decision:'completed'})?.complete).toBe(true);
 });
+
+it('respects weightGoalMetric when computing percent and remaining distance',()=>{
+  const weights=[...flat(78.5).slice(0,-1),{date:'2026-09-08',kg:77}];
+  const scaleProg=liveGoalProgress(profile(),weights,'2026-09-08',undefined,'scale')!;
+  expect(scaleProg.percent).toBeCloseTo(60,1);
+  expect(scaleProg.remaining).toBeCloseTo(2.0,1);
+
+  const trendProg=liveGoalProgress(profile(),weights,'2026-09-08',undefined,'trend')!;
+  expect(trendProg.percent!).toBeLessThan(scaleProg.percent!);
+  expect(trendProg.remaining!).toBeGreaterThan(scaleProg.remaining!);
+});
+
+it('shows 0% starting progress and optimistic finish date before weigh-ins are recorded',()=>{
+  const emptyProg=liveGoalProgress(profile({phaseMode:'weight',targetWeightKg:75,phaseStartWeightKg:80,goalRatePercent:0.5}),[],'2026-09-08')!;
+  expect(emptyProg.percent).toBe(0);
+  expect(emptyProg.startWeight).toBe(80);
+  expect(emptyProg.targetWeight).toBe(75);
+  expect(emptyProg.remaining).toBe(5);
+  expect(emptyProg.optimisticFinish).not.toBeNull();
+  expect(emptyProg.estimatedFinish).toBe(emptyProg.optimisticFinish);
+});

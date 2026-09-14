@@ -33,7 +33,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   const [foodDate,setFoodDate]=useState(today());
   const [foodInitialTime,setFoodInitialTime]=useState<string>();
   const [foodEditing,setFoodEditing]=useState<Entry>();
-  const [foodInitialAi,setFoodInitialAi]=useState(false);
+  const [foodInitialTab,setFoodInitialTab]=useState<'search'|'saved'|'barcode'|'ai'>('search');
   const [foodReturnFocus,setFoodReturnFocus]=useState<HTMLElement|null>(null);
   const [foodOriginPage,setFoodOriginPage]=useState<Page>('today');
   const [weightOpen,setWeightOpen]=useState(false);
@@ -52,8 +52,9 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   useEffect(()=>{if(needsProfile)setPage('coach');},[needsProfile]);
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setDate(current);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
-  const openFood=(selectedDate:string,entry?:Entry,ai=false,restoreFocus?:HTMLElement|null,initialTime?:string)=>{
-    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialAi(ai);setFoodInitialTime(initialTime);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
+  const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string)=>{
+    const initialSection=typeof tab==='string'?tab:tab?'barcode':'search';
+    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialTime(initialTime);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
   };
   const openWeight=(selectedDate:string,entry?:Weight,restoreFocus?:HTMLElement|null)=>{
     setWeightDate(selectedDate);setWeightEditing(entry);setWeightReturnFocus(restoreFocus??null);setWeightOpen(true);
@@ -64,9 +65,9 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   const activeDate=store.state?.profile?today(store.state.profile.timeZone):date;
   const selectedEntryDate=page==='food'?foodDate:activeDate;
   const addOptions:ActionSheetOption[]=[
-    {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,false,addReturnFocus)},
+    {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
-    {id:'scan',label:'Scan food or label',description:'Use a meal photo or nutrition label.',icon:<Camera size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,true,addReturnFocus)},
+    {id:'scan',label:'Scan food or label',description:'Scan a packaged food barcode or nutrition label.',icon:<Camera size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'barcode',addReturnFocus)},
   ];
   const navigate=(next:Page)=>{if(next===page)return;if(next==='food')setFoodDate(date);setPage(next);window.scrollTo({top:0,behavior:'instant'});};
   const foodSavedPage=foodOriginPage==='food'?'food':'today';
@@ -117,7 +118,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
       </MotionScene>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        <LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialAi?'scan':'food'}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialAi={foodInitialAi} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>{setFoodOpen(false);setPage(foodOriginPage);}} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);setPage(foodSavedPage);}}/>
+        <LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>{setFoodOpen(false);setPage(foodOriginPage);}} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);setPage(foodSavedPage);}}/>
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}

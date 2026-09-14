@@ -1,4 +1,4 @@
-import type {GoalProgress,UnitPreferences} from '../types';
+import type {GoalProgress,UnitPreferences,WeightGoalMetric} from '../types';
 import {number} from '../lib/format';
 import {defaultUnits,displayWeight,weightLabel} from '../lib/units';
 
@@ -7,12 +7,17 @@ const heading=(progress:GoalProgress)=>progress.complete?'Goal complete'
   :progress.mode==='weight'?'Weight goal'
   :progress.mode==='duration'?'Phase timeline':'Ongoing phase';
 
-export function GoalSummary({progress,units=defaultUnits}:{progress:GoalProgress;units?:UnitPreferences}){
+export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale'}:{progress:GoalProgress;units?:UnitPreferences;weightGoalMetric?:WeightGoalMetric}){
   const weight=progress.mode==='weight';
   const unit=weightLabel(units.weight);
-  const currentWeight=progress.trendWeight??progress.scaleWeight;
-  const currentLabel=progress.trendWeight!=null?'trend weight':'scale weight';
+  const currentWeight=weightGoalMetric==='trend'
+    ?(progress.trendWeight??progress.scaleWeight??progress.startWeight)
+    :(progress.scaleWeight??progress.startWeight);
+  const currentLabel=weightGoalMetric==='trend'
+    ?(progress.trendWeight!=null?'trend weight':progress.scaleWeight!=null?'scale weight':'start weight')
+    :(progress.scaleWeight!=null?'scale weight':'start weight');
   const hasPath=progress.startWeight!=null&&currentWeight!=null&&progress.targetWeight!=null;
+
   return <div className={`goal-summary${progress.complete?' goal-reached':''}`}>
     <div className="goal-summary-head">
       <h3>{heading(progress)}</h3>
@@ -21,16 +26,16 @@ export function GoalSummary({progress,units=defaultUnits}:{progress:GoalProgress
     {progress.percent!=null&&<progress max="100" value={progress.percent} aria-label={progress.mode==='duration'?'Phase duration progress':'Weight goal progress'}/>}
     {weight&&<p className="goal-progress-path">{hasPath
       ?<>Progressed from <strong>{displayWeight(progress.startWeight,units.weight,1)} {unit}</strong> to <strong>{displayWeight(currentWeight,units.weight,1)} {unit}</strong> ({currentLabel}) toward <strong>{displayWeight(progress.targetWeight,units.weight,1)} {unit}</strong>.</>
-      :<>Current trend weight is not available yet. Your starting and target weights remain recorded below.</>}</p>}
+      :<>Starting and target weights remain recorded below. Your progress updates as you log weights.</>}</p>}
     <dl className="goal-figures">
       {weight&&<>
         <div><dt>Start</dt><dd>{displayWeight(progress.startWeight,units.weight,1)} {unit}</dd></div>
-        <div><dt>Now</dt><dd>{displayWeight(progress.trendWeight,units.weight,1)} {unit}</dd></div>
+        <div><dt>Now</dt><dd>{displayWeight(currentWeight,units.weight,1)} {unit}</dd></div>
         <div><dt>Target</dt><dd>{displayWeight(progress.targetWeight,units.weight,1)} {unit}</dd></div>
         <div><dt>Remaining</dt><dd>{displayWeight(progress.remaining,units.weight,1)} {unit}</dd></div>
       </>}
       {progress.phaseEnd&&<div><dt>Phase end</dt><dd>{progress.phaseEnd}</dd></div>}
-      {weight&&!progress.complete&&!(progress.scaleReached||progress.trendReached)&&<div><dt>Estimated finish</dt><dd>{progress.estimatedFinish??'Not yet estimable'}</dd></div>}
+      {weight&&!progress.complete&&!(progress.scaleReached||progress.trendReached)&&<div><dt>Estimated finish</dt><dd>{progress.optimisticFinish??progress.estimatedFinish??'Not yet estimable'}</dd></div>}
       {progress.weeklyChange!=null&&<div><dt>Weekly change</dt><dd>{displayWeight(progress.weeklyChange,units.weight,2)} {unit}</dd></div>}
     </dl>
   </div>;

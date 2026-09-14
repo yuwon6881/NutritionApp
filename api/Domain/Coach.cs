@@ -62,12 +62,12 @@ public static class Coach
 
     public static CoachResult Calculate(Profile p, IReadOnlyList<NutritionDay> days,
         IReadOnlyList<WeightPoint> weights, PreviousPlan? previous, DateOnly today, double? startingExpenditure = null,
-        bool allowAdaptation = true, PhaseDecision? phaseDecision = null)
+        bool allowAdaptation = true, PhaseDecision? phaseDecision = null, string weightGoalMetric = "scale")
     {
         p = p with { Age = AgeAt(p, today) };
         if (p.Age < 18 || p.PregnancyOrBreastfeeding || p.MedicalNutrition)
             return Blocked("Automated targets are unavailable for this profile. You can still keep a food and weight diary.");
-        var progress = GoalPolicy.Evaluate(p, weights, today, phaseDecision);
+        var progress = GoalPolicy.Evaluate(p, weights, today, phaseDecision, weightGoalMetric);
         var currentWeight = Trend(weights.Where(w => w.Date <= today).ToArray()).LastOrDefault()?.Kg ?? p.WeightKg;
         p = p with { WeightKg = currentWeight };
         var effectiveGoal = progress.Complete ? "maintain" : p.Goal;

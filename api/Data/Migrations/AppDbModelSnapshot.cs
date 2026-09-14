@@ -147,6 +147,12 @@ namespace Nutrition.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasDefaultValue("ask");
 
+                    b.Property<string>("WeightGoalMetric")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("scale");
+
                     b.Property<string>("WeightUnit")
                         .IsRequired()
                         .HasColumnType("text");

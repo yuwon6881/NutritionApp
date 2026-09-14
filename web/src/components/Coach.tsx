@@ -18,7 +18,6 @@ import {GoalSetup} from './GoalSetup';
 import {GoalSummary} from './GoalSummary';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {CheckInCard} from './CheckInCard';
-import {CheckInButton} from './CheckInButton';
 import {CheckInDialog} from './CheckInDialog';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
@@ -155,7 +154,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
   const weighIns=[...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)];
   const phaseDecision=store.state!.phaseDecisions?.find(decision=>decision.profileRevision===store.state!.profileRevision&&!decision.deleted);
-  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,current,phaseDecision),phaseDecision);
+  const goalProgress=mergeGoalProgress(acceptedPlan?.goalProgress,liveGoalProgress(store.state!.profile,weighIns,current,phaseDecision,store.state!.settings?.weightGoalMetric??'scale'),phaseDecision);
   const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
   const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5&&(profile.maintenance==null||(profile.maintenance>=1000&&profile.maintenance<=7000)));
   const phaseInitial=profile.phaseStartWeightKg??profile.weightKg;
@@ -230,7 +229,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </Button>
     </div>
     <TargetFigures result={proposal.result} units={units}/>
-    {proposal.result.goalProgress&&<GoalSummary progress={proposal.result.goalProgress} units={units}/>}
+    {proposal.result.goalProgress&&<GoalSummary progress={proposal.result.goalProgress} units={units} weightGoalMetric={store.state!.settings?.weightGoalMetric??'scale'}/>}
     {proposal.holdReason&&<p className="notice">{proposal.holdReason}</p>}
     {!proposal.canAccept&&!proposal.holdReason&&<p className="notice">{proposal.result.explanation}</p>}
     </>:<h2>{message?'Active plan':'Review plan'}</h2>}
@@ -249,12 +248,10 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         <div><h2>Active targets</h2></div>
         <div className="actions">
           <Button variant="secondary" size="md" disabled={busy||!!acceptance.current} onClick={()=>openPlan()}><Sliders size={16}/>Edit plan</Button>
-          <CheckInButton schedule={checkIn} label="Check in" disabled={busy||pending||!online||changed||!!acceptance.current}
-            onClick={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
         </div>
       </div>
       <TargetFigures result={acceptedPlan} units={units}/>
-      {goalProgress&&<GoalSummary progress={goalProgress} units={units}/>}
+      {goalProgress&&<GoalSummary progress={goalProgress} units={units} weightGoalMetric={store.state!.settings?.weightGoalMetric??'scale'}/>}
     </section>}
     <section className="panel">
       <div className="section-heading">
@@ -446,7 +443,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const historyTab=<>
     {goalProgress?.mode==='weight'&&<section className="panel goal-history-panel" aria-labelledby="goal-history-title">
       <div className="section-heading"><div><h2 id="goal-history-title">Goal progress</h2><p>Your current trend compared with the phase starting and target weights.</p></div></div>
-      <GoalSummary progress={goalProgress} units={units}/>
+      <GoalSummary progress={goalProgress} units={units} weightGoalMetric={store.state!.settings?.weightGoalMetric??'scale'}/>
     </section>}
     <section className="panel">
       <h2>Accepted plans</h2>
