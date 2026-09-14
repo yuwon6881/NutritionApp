@@ -146,7 +146,7 @@ export function FoodPicker({
       </div>
     </Form>
 
-    {tab==='barcode'&&camera&&open&&step==='selection'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode">
+    {tab==='barcode'&&camera&&open&&step==='selection'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode" closeLabel="Stop barcode camera">
       <div className="barcode-scanner-modal">
         <p className="source">Point your camera at a food barcode to scan it automatically.</p>
         <BarcodeCamera

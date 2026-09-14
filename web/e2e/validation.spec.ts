@@ -136,13 +136,13 @@ test('real decoding ignores barcodes outside the frame and stops every camera se
   expect(await page.evaluate(()=>(window as any).barcodeTest.streams.every((stream:MediaStream)=>stream.getTracks().every(track=>track.readyState==='ended')))).toBe(true);
   await page.evaluate(()=>{(window as any).barcodeTest.inside=false;});
   await page.getByRole('button',{name:'Scan barcode with camera'}).click();await expect(page.getByText('Place the barcode inside the frame.')).toBeVisible();
-  await page.getByRole('button',{name:'Search',exact:true}).first().click();
+  await page.getByRole('dialog',{name:'Scan barcode'}).getByRole('button',{name:'Stop barcode camera'}).click();
   await expect(page.locator('video')).toHaveCount(0);
   expect(await page.evaluate(()=>(window as any).barcodeTest.streams.every((stream:MediaStream)=>stream.getTracks().every(track=>track.readyState==='ended')))).toBe(true);
   await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await page.evaluate(()=>{(window as any).barcodeTest.delay=true;});await page.getByRole('button',{name:'Scan barcode with camera'}).click();
   await expect.poll(()=>page.evaluate(()=>!!(window as any).barcodeTest.release)).toBe(true);
-  await page.getByRole('button',{name:'Stop camera',exact:true}).click();await page.evaluate(()=>{(window as any).barcodeTest.release();});
+  await page.getByRole('dialog',{name:'Scan barcode'}).getByRole('button',{name:'Stop barcode camera'}).click();await page.evaluate(()=>{(window as any).barcodeTest.release();});
   await expect.poll(()=>page.evaluate(()=>(window as any).barcodeTest.streams.every((stream:MediaStream)=>stream.getTracks().every(track=>track.readyState==='ended')))).toBe(true);
   await page.evaluate(()=>{(window as any).barcodeTest.deny=true;});await page.getByRole('button',{name:'Scan barcode with camera'}).click();
   await expect(page.getByText('Allow camera access to scan, or enter the barcode digits.')).toBeVisible();

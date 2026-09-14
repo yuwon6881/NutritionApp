@@ -32,6 +32,8 @@ The shell has three intentional ranges:
 
 All new responsive UI must preserve zero horizontal overflow, readable labels, and usable controls at 390, 768, and 1440 px in both themes. A layout may change structure at a breakpoint, but the action order and accessible name must remain understandable.
 
+The mobile shell follows platform conventions without changing the web data model: the app bar and bottom navigation respect `safe-area-inset-*`, the app bar remains available while a long page scrolls, and compact dialogs present as bottom sheets with a visible grab handle. The shared `Modal` adds one history entry while open so Android/browser Back dismisses the active surface; dirty and protected dialogs keep their existing confirmation or dismissal rules. Keep these behaviors accessible from keyboard Escape and reduced-motion modes as well.
+
 ## Existing building blocks
 
 Reuse these components and hooks before writing local equivalents:

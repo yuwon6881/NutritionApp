@@ -61,12 +61,17 @@ export function Modal({
   const onCloseCompleteRef=useRef(onCloseComplete);
   const titleId=useId();
   const descriptionId=useId();
+  const historyToken=useId();
   const [present,setPresent]=useState(open);
   const [phase,setPhase]=useState<'opening'|'open'|'closing'|'closed'>(open?'open':'closed');
   const [confirming,setConfirming]=useState(false);
   const reduceMotion=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const onCloseRef=useRef(onClose);
+  const requestCloseRef=useRef<()=>void>(()=>{});
+  const historyEntry=useRef(false);
 
   useEffect(()=>{onCloseCompleteRef.current=onCloseComplete;},[onCloseComplete]);
+  useEffect(()=>{onCloseRef.current=onClose;},[onClose]);
 
   useEffect(()=>{
     if(open){
@@ -151,6 +156,43 @@ export function Modal({
     }
     onClose();
   },[dirty,onClose]);
+
+  requestCloseRef.current=requestClose;
+
+  // A standalone PWA still receives Android/browser back as a history event.
+  // Keep one in-app history entry per open modal so Back dismisses the active
+  // surface instead of navigating away from the diary. Dirty and protected
+  // dialogs immediately restore their entry and retain their existing close
+  // rules.
+  useEffect(()=>{
+    if(!open||typeof window==='undefined'||historyEntry.current)return;
+    const state=window.history.state&&typeof window.history.state==='object'&&!Array.isArray(window.history.state)
+      ?window.history.state as Record<string,unknown>
+      :{};
+    window.history.pushState({...state,__nourishModal:historyToken},'');
+    historyEntry.current=true;
+    const onPopState=()=>{
+      if(window.history.state?.__nourishModal===historyToken||!historyEntry.current)return;
+      if(preventDismiss||dirty){
+        const current=window.history.state&&typeof window.history.state==='object'&&!Array.isArray(window.history.state)
+          ?window.history.state as Record<string,unknown>
+          :{};
+        window.history.pushState({...current,__nourishModal:historyToken},'');
+        if(!preventDismiss)requestCloseRef.current();
+        return;
+      }
+      historyEntry.current=false;
+      onCloseRef.current();
+    };
+    window.addEventListener('popstate',onPopState);
+    return()=>window.removeEventListener('popstate',onPopState);
+  },[dirty,historyToken,open,preventDismiss]);
+
+  useEffect(()=>{
+    if(open||typeof window==='undefined'||!historyEntry.current)return;
+    historyEntry.current=false;
+    window.history.back();
+  },[open]);
 
   const onKeyDown=(event:React.KeyboardEvent<HTMLDialogElement>)=>{
     if(confirming&&event.key==='Escape'){

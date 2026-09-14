@@ -1127,3 +1127,41 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .recipe-ingredient-actions .field{flex:1}
 }
 
+/* Native mobile shell: keep the app bar and bottom navigation inside device safe areas. */
+html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:none}
+.modal-body{-webkit-overflow-scrolling:touch}
+.inline-link{min-height:44px;padding-block:10px;touch-action:manipulation}
+@media(max-width:639px){
+  .main-content{padding-inline:max(18px,env(safe-area-inset-left)) max(18px,env(safe-area-inset-right))}
+  .topbar{
+    position:sticky;
+    top:0;
+    z-index:50;
+    margin-top:calc(-1 * env(safe-area-inset-top));
+    margin-inline:calc(-1 * max(18px,env(safe-area-inset-left))) calc(-1 * max(18px,env(safe-area-inset-right)));
+    padding:env(safe-area-inset-top) max(18px,env(safe-area-inset-left)) 0 max(18px,env(safe-area-inset-right));
+    min-height:calc(64px + env(safe-area-inset-top));
+    background:color-mix(in srgb,var(--background) 88%,transparent);
+    -webkit-backdrop-filter:blur(16px);
+    backdrop-filter:blur(16px);
+  }
+  .sidebar{padding:8px max(10px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right))}
+  .modal-surface::before{content:'';position:absolute;z-index:2;top:8px;left:50%;width:36px;height:4px;border-radius:999px;background:var(--border);transform:translateX(-50%);pointer-events:none}
+  .modal-header{padding-top:28px}
+}
+@media(min-width:640px) and (max-width:1023px){
+  .topbar{
+    position:sticky;
+    top:0;
+    z-index:50;
+    margin-inline:-26px;
+    padding-inline:26px;
+    background:color-mix(in srgb,var(--background) 88%,transparent);
+    -webkit-backdrop-filter:blur(16px);
+    backdrop-filter:blur(16px);
+  }
+}
+@media(max-width:1023px){
+  .food-time-card-title>.button{min-height:44px}
+  .food-time-card-more,.food-slot-add{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
+}

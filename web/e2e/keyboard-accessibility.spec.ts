@@ -70,3 +70,25 @@ test('keyboard actions submit forms and activate only the focused control',async
   await expect(page.locator('.custom-time-popover')).toHaveCount(0);
   await expect(page.getByRole('dialog',{name:'Review food',exact:true})).toBeVisible();
 });
+
+test('mobile back dismisses the active sheet without leaving the diary',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  await page.setViewportSize({width:390,height:800});
+  await page.goto('/');
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+
+  const launcher=page.getByRole('button',{name:'Add entry',exact:true});
+  await launcher.click();
+  const sheet=page.getByRole('dialog',{name:'Add',exact:true});
+  await expect(sheet).toBeVisible();
+  expect(await page.locator('.topbar').evaluate(element=>getComputedStyle(element).position)).toBe('sticky');
+  expect(await page.locator('.sidebar').evaluate(element=>getComputedStyle(element).position)).toBe('fixed');
+  expect(await page.locator('.modal-surface').evaluate(element=>getComputedStyle(element,'::before').content)).toBe('""');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+
+  const currentUrl=page.url();
+  await page.evaluate(()=>window.history.back());
+  await expect(sheet).toHaveCount(0);
+  expect(page.url()).toBe(currentUrl);
+  await expect(launcher).toBeFocused();
+});

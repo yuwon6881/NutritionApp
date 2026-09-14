@@ -25,6 +25,7 @@ Do not reimplement a button, field, form validator, select, date/time picker, mo
 - Food search, portions, serving labels, batch review, swipe, and mobile menus extend `LogFood`, `FoodPicker`, `FoodBasket`, `BatchFoodRow`, and the API service. Search results explicitly distinguish authoritative product data (with declared servings or verified per-100 g) from unverified provider search hits that display a basis-unavailable state. Barcode input embeds the camera trigger inside the field adornment and checks account-private saved mappings before the provider. Missing or incomplete products expose link-existing, label-scan, and manual recovery. "Your foods" supports persistent search and category filtering with structured recent entries. Recipe ingredient search reuses the food search presentation, live calorie card, and portion synchronization; it is a selection-purpose state, not a second search implementation.
 - Food timeline cards use an ultra-compact two-line layout without source strings; entry actions use one accessible action sheet for Edit, Copy, Move to, and Delete; copy/move destination dialogs must preserve the entry snapshot, keep date/time validation explicit, and confirm destructive deletion before queueing the existing entry mutation.
 - New styling uses semantic Ayu tokens and the existing responsive breakpoints. Avoid inline colors, remote fonts, feature-only typography, and duplicate card/button systems.
+- The mobile shell uses the existing `Modal`/`ActionSheet` and semantic tokens for safe-area-aware app bars, bottom navigation, bottom-sheet grab handles, touch scrolling, and Android/browser Back dismissal. Preserve keyboard Escape, dirty-close confirmation, protected dialogs, focus restoration, and reduced-motion behavior when extending it.
 
 ## 3. Implement the contract, not just the happy path
 
@@ -59,6 +60,7 @@ Use the narrowest test that protects the contract, then add browser coverage for
 | Dialog, destructive action, or dirty draft | Browser assertions for focus trapping, Escape/backdrop behavior, confirmation, restoration, and retained draft/error state |
 | Food timeline entry actions | Browser assertions for the action sheet, date/time copy and move, delete confirmation, focus restoration, and retained mutation behavior |
 | Search or serving contract | API test for ordering/basis discriminator plus browser assertion for the displayed name, serving label, weight, verified per-100 g, and basis-unavailable state |
+| Mobile shell, modal, or action sheet behavior | Browser coverage at 390/768/1440 px for safe-area-aware layout, zero horizontal overflow, bottom-sheet presentation, Back/Escape dismissal, focus restoration, and reduced motion |
 | Check-in cadence or goal progress display | Date-state unit tests plus browser coverage for the circular due/countdown control and the start-to-target weight journey across the responsive/theme matrix |
 | Animation | Browser assertion with `reducedMotion: 'reduce'` and, if the motion itself matters, a bounded no-preference assertion; content must remain usable without motion |
 
