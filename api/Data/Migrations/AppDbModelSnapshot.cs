@@ -448,6 +448,9 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<double?>("CookedYieldGrams")
                         .HasColumnType("double precision");
 
+                    b.Property<string>("Barcode")
+                        .HasColumnType("text");
+
                     b.Property<bool>("Deleted")
                         .HasColumnType("boolean");
 
@@ -489,6 +492,8 @@ namespace Nutrition.Api.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("UserId", "Id");
+
+                    b.HasIndex("UserId", "Barcode", "Deleted");
 
                     b.ToTable("Foods");
                 });

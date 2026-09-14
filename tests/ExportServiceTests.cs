@@ -31,6 +31,7 @@ public sealed class ExportServiceTests : IAsyncLifetime
         await using (var seed = Open(alice.Id))
         {
             seed.Entries.Add(new DiaryEntry { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),Name="Rice",Quantity=1.5,Unit="serving",PortionLabel="bowl",PortionGrams=180,Calories=390,Source="manual" });
+            seed.Foods.Add(new Food { Id=Guid.NewGuid(),UserId=alice.Id,Name="Private tuna",Calories=180,Protein=25,ServingGrams=100,Barcode="9551234567890",Source="custom",PortionsJson="[{\"label\":\"can\",\"grams\":185}]" });
             seed.BodyRecords.Add(new BodyRecord { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),CreationOrder=1,Measurements=new BodyMeasurements { WaistCm=82 },WeightContextJson=Json.Write(new BodyWeightContext()),PendingPhotosJson="[]" });
             await seed.SaveChangesAsync();
         }
@@ -47,6 +48,8 @@ public sealed class ExportServiceTests : IAsyncLifetime
         Assert.Equal("Rice", entry.Name);
         Assert.Equal("bowl", entry.PortionLabel);
         Assert.Equal(180, entry.PortionGrams);
+        var food=Assert.Single(json.Foods);
+        Assert.Equal("9551234567890",food.Barcode);
         var body=Assert.Single(json.BodyRecords);
         Assert.Equal(82,body.Measurements.WaistCm);
 
@@ -58,6 +61,11 @@ public sealed class ExportServiceTests : IAsyncLifetime
         var entriesCsv = await Read(archive, "entries.csv");
         Assert.Contains(",bowl,180,", entriesCsv, StringComparison.Ordinal);
         Assert.DoesNotContain("Private", entriesCsv, StringComparison.Ordinal);
+        var foodsCsv=await Read(archive,"foods.csv");
+        Assert.Contains("barcode",foodsCsv,StringComparison.Ordinal);
+        Assert.Contains("9551234567890",foodsCsv,StringComparison.Ordinal);
+        var readme=await Read(archive,"README.txt");
+        Assert.Contains("csvSchemaVersion=4",readme,StringComparison.Ordinal);
         var bodyCsv=await Read(archive,"body-records.csv");
         Assert.Contains("waist_cm",bodyCsv,StringComparison.Ordinal);
         Assert.Contains("82",bodyCsv,StringComparison.Ordinal);

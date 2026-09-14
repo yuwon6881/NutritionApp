@@ -129,22 +129,84 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         _ => new DomainException("Food search is temporarily unavailable. Your diary is still available.",503),
     };
 
-    public async Task<FoodResult> Barcode(string code,CancellationToken ct)
+    public async Task<FoodResult> Barcode(string code,AppDb db,CancellationToken ct)
     {
         Validation.Require(code.Length is >=8 and <=14 && code.All(char.IsAsciiDigit),"Enter an 8–14 digit barcode.");
+        var local=await db.Foods.AsNoTracking().SingleOrDefaultAsync(food=>!food.Deleted&&food.Barcode==code,ct);
+        if(local is not null)
+        {
+            var portions=ParseStoredPortions(local.PortionsJson);
+            return new FoodResult(local.Name,local.Calories,local.Protein,local.Fat,local.Carbs,local.Fiber,local.Source,local.ServingGrams,portions,code,ServingCalories(local.Calories,portions),"per100g");
+        }
         if(cache.TryGetValue<FoodResult>("barcode:"+code,out var saved)) return saved!;
         await RateGate.WaitAsync(ct);
         // No slot is returned here on failure: the request reached a metered endpoint and counted
         // against its allowance whatever it answered.
         try { Validation.Require(DateTime.UtcNow>=nextBarcode,"Wait four seconds before another barcode lookup.",429); nextBarcode=DateTime.UtcNow.AddSeconds(BarcodeIntervalSeconds); }
         finally { RateGate.Release(); }
-        using var response=await http.GetAsync($"{ProductUrl}{code}?fields={ProductFields}",ct);
-        Validation.Require(response.IsSuccessStatusCode,"Barcode lookup unavailable. Scan the label or enter this food manually.",503);
-        using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        Validation.Require(json.RootElement.TryGetProperty("product",out var product),"Barcode not found. Scan the label or add a custom food.",404);
-        Validation.Require(Calories(product)!=null,"This product has no calorie data. Scan its label.",422);
-        var result=ReadProduct(product,code,"per100g")!;
-        cache.Set("barcode:"+code,result,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromDays(1) }); return result;
+        HttpResponseMessage response;
+        try
+        {
+            response=await http.GetAsync($"{ProductUrl}{code}?fields={ProductFields}",ct);
+        }
+        catch(HttpRequestException)
+        {
+            throw new DomainException("Barcode lookup unavailable at Open Food Facts. Retry when connected or use manual recovery.",503);
+        }
+        catch(TaskCanceledException) when(!ct.IsCancellationRequested)
+        {
+            throw new DomainException("Barcode lookup timed out at Open Food Facts. Retry or use manual recovery.",503);
+        }
+        using(response)
+        {
+            if(response.StatusCode==HttpStatusCode.NotFound)
+                throw new DomainException("Barcode not found. Scan the label or add a custom food.",404);
+            if(response.StatusCode==HttpStatusCode.TooManyRequests)
+                throw new DomainException("Barcode lookup is busy at Open Food Facts. Retry in a few seconds or use manual recovery.",429);
+            Validation.Require(response.IsSuccessStatusCode,"Barcode lookup unavailable. Scan the label or enter this food manually.",503);
+            JsonDocument json;
+            try
+            {
+                var payload=await response.Content.ReadAsStringAsync(ct);
+                json=JsonDocument.Parse(payload);
+            }
+            catch(TaskCanceledException) when(!ct.IsCancellationRequested)
+            {
+                throw new DomainException("Barcode lookup timed out at Open Food Facts. Retry or use manual recovery.",503);
+            }
+            catch(HttpRequestException)
+            {
+                throw new DomainException("Barcode lookup unavailable at Open Food Facts. Retry when connected or use manual recovery.",503);
+            }
+            catch(JsonException)
+            {
+                throw new DomainException("Barcode lookup returned invalid product data. Retry or use manual recovery.",503);
+            }
+            using(json)
+            {
+                Validation.Require(json.RootElement.TryGetProperty("product",out var product),"Barcode not found. Scan the label or add a custom food.",404);
+                Validation.Require(Calories(product)!=null,"This product has no calorie data. Scan its label.",422);
+                var result=ReadProduct(product,code,"per100g")!;
+                cache.Set("barcode:"+code,result,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromDays(1) }); return result;
+            }
+        }
+    }
+
+    private static IReadOnlyList<FoodPortion> ParseStoredPortions(string json)
+    {
+        try
+        {
+            using var document=JsonDocument.Parse(json);
+            if(document.RootElement.ValueKind!=JsonValueKind.Array)return [];
+            var portions=new List<FoodPortion>();
+            foreach(var item in document.RootElement.EnumerateArray())
+            {
+                if(item.ValueKind!=JsonValueKind.Object||!item.TryGetProperty("label",out var label)||label.ValueKind!=JsonValueKind.String||!item.TryGetProperty("grams",out var grams)||!TryNumber(grams,out var value))continue;
+                portions.Add(new FoodPortion(label.GetString()??"",value));
+            }
+            return LimitPortions(portions);
+        }
+        catch(JsonException){return [];}
     }
 
     /// <summary>

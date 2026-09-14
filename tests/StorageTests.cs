@@ -19,6 +19,7 @@ public sealed class StorageTests : IAsyncLifetime
     {
         await using var db = Open();
         Assert.Contains("20260910120000_FoodPortions", db.Database.GetMigrations());
+        Assert.Contains("20260914120000_FoodBarcodes", db.Database.GetMigrations());
     }
     [Fact] public async Task Concurrent_registrations_stop_at_two()
     {

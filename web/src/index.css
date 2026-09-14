@@ -329,6 +329,9 @@ summary{cursor:pointer}
 }
 [data-motion-scene]:has(.custom-calendar-popover),[data-motion-scene]:has(.custom-select-menu),[data-motion-scene]:has(.custom-time-popover){position:relative;z-index:101}
 [data-page-heading]{outline-offset:6px}
+[data-page-heading]:focus-visible{outline:2px solid var(--ring);outline-offset:6px}
+[data-page-heading][data-focus-origin="keyboard"]:focus{outline:2px solid var(--ring);outline-offset:6px}
+[data-page-heading][data-focus-origin="programmatic"]:focus{outline:none}
 .food-log-page .page-heading{margin-bottom:20px}
 .food-log-page .food-day-summary{margin-bottom:20px}
 .food-log-page .food-day-summary .section-heading{margin-bottom:16px}
@@ -806,10 +809,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Empty history should explain the state without reserving a large blank action row. */
 .recent-empty{padding:14px 0 8px;margin:0;text-align:left;color:var(--muted-foreground)}
 
-.barcode-scan-options{display:flex;justify-content:flex-end;margin:20px 0}
-.barcode-scan-options>.button{min-height:44px;white-space:nowrap}
-.barcode-scanner-step{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
-
 /* The macro editor is intentionally divided into preset, adjustment, distribution, and review steps. */
 .step-description{max-width:58ch;margin:-4px 0 20px;font-size:.82rem}
 .macro-selection-note{margin:14px 0 0}
@@ -828,7 +827,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .weekly-review-summary span small{font-size:.68rem}
 @media(min-width:640px) and (max-width:1023px){.guided-stepper{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:639px){
-  .barcode-scan-options>.button{width:100%;max-width:none}
   .macro-review-summary{padding:14px}
   .macro-review-grid{grid-template-columns:1fr}
   .macro-review-grid>div{grid-template-columns:auto minmax(0,1fr) auto}
@@ -1031,7 +1029,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .batch-food-energy{flex-shrink:0;font-variant-numeric:tabular-nums}
 .batch-food-energy small{display:inline}
 .batch-food-actions{display:flex;justify-content:flex-end;gap:8px;padding-bottom:10px}
-.recipe-search-results{display:grid;gap:6px;max-height:240px;overflow:auto}
 .batch-food{position:relative;overflow:hidden}
 .batch-food-summary{position:relative;z-index:1;background:var(--card);transition:transform 160ms ease}
 .batch-food.actions-open .batch-food-summary{transform:translateX(-166px)}
@@ -1061,6 +1058,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .field-input-row>.field-input-wrapper{flex:1;min-width:0}
 
 /* Barcode embedded camera button */
+.field-inside-action>.barcode-camera-btn{min-height:44px!important;height:44px!important;width:44px!important;min-width:44px!important;border-radius:10px}
 .barcode-camera-btn{transition:color var(--motion-control) ease,background var(--motion-control) ease}
 .barcode-camera-btn.active{color:var(--primary)!important;background:var(--primary-tint)!important}
 .barcode-scanner-modal{display:flex;flex-direction:column;gap:14px}
@@ -1071,7 +1069,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .saved-foods-header h3{margin:0 0 2px}
 .saved-foods-header p{margin:0;font-size:.8rem}
 .saved-foods-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.saved-foods-actions .button{font-size:.8rem;padding:8px 12px;min-height:38px}
+.saved-foods-actions .button{font-size:.8rem;padding:8px 12px;min-height:44px}
 .saved-foods-search{margin-bottom:12px}
 .saved-foods-search .field{margin-bottom:0}
 .saved-filter-segments{margin-bottom:16px}
@@ -1101,14 +1099,13 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .recent-foods-grid{grid-template-columns:1fr}
 }
 
-/* Recipe editor ingredient search and nutrition feedback */
-.recipe-ingredient-search-section{margin-bottom:18px}
-.recipe-ingredient-search-section .section-segments{margin-bottom:14px}
-.recipe-result-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 6px;border-bottom:1px solid var(--border)}
-.recipe-result-row:last-child{border-bottom:0}
-.recipe-result-row .food-description{flex:1;min-width:0}
-.recipe-result-choose-btn{font-size:.92rem;font-weight:600;color:var(--ink-strong);padding:0;min-height:36px;text-align:left;justify-content:flex-start}
-.recipe-result-choose-btn:hover{color:var(--primary)}
+/* Shared recipe selection and barcode recovery surfaces */
+.barcode-recovery h4{margin:0 0 6px;color:var(--ink-strong);font-size:.92rem}
+.barcode-recovery p{margin-bottom:12px}
+.barcode-link-notice{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.barcode-link-notice p{margin:0;flex:1;min-width:0}
+.recipe-ingredients-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.recipe-ingredients-heading p{margin:0;font-size:.8rem;color:var(--muted-foreground)}
 .recipe-ingredient-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
 .recipe-ingredient-info{flex:1;min-width:0}
 .recipe-ingredient-info strong{display:block;font-size:.88rem;color:var(--ink-strong);overflow-wrap:anywhere}

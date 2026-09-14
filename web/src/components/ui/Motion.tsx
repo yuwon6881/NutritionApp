@@ -1,6 +1,32 @@
 import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 
 const ease='cubic-bezier(.2,.8,.2,1)';
+type NavigationInput='keyboard'|'pointer';
+let lastNavigationInput:NavigationInput='pointer';
+let modalityReset:ReturnType<typeof setTimeout>|undefined;
+
+function useNavigationInput(){
+  useEffect(()=>{
+    if(typeof window==='undefined')return;
+    const mark=(origin:NavigationInput)=>{
+      lastNavigationInput=origin;
+      if(modalityReset!==undefined)window.clearTimeout(modalityReset);
+      // Keep the origin through the synchronous React navigation commit, then
+      // let an unrelated automatic state update use the neutral pointer mode.
+      modalityReset=window.setTimeout(()=>{lastNavigationInput='pointer';modalityReset=undefined;},0);
+    };
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key==='Tab'||event.key==='Enter'||event.key===' '||event.key.startsWith('Arrow')||event.key==='Home'||event.key==='End')mark('keyboard');
+    };
+    const onPointerDown=()=>mark('pointer');
+    window.addEventListener('keydown',onKeyDown,true);
+    window.addEventListener('pointerdown',onPointerDown,true);
+    return()=>{
+      window.removeEventListener('keydown',onKeyDown,true);
+      window.removeEventListener('pointerdown',onPointerDown,true);
+    };
+  },[]);
+}
 
 /** A single reactive reduced-motion preference shared by CSS and JS motion. */
 export function useReducedMotion(){
@@ -25,17 +51,35 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
   const scene=useRef<HTMLDivElement>(null);
   const reduced=useReducedMotion();
   const first=useRef(true);
+  const previousSceneKey=useRef(sceneKey);
+  useNavigationInput();
 
   useLayoutEffect(()=>{
     const node=scene.current;
     if(!node)return;
     const heading=node.querySelector<HTMLElement>('[data-page-heading]');
-    heading?.focus({preventScroll:true});
     if(first.current){
       first.current=false;
+      previousSceneKey.current=sceneKey;
       return;
     }
-    if(reduced)return;
+    const transitioned=previousSceneKey.current!==sceneKey;
+    previousSceneKey.current=sceneKey;
+    if(!transitioned)return;
+    let clearOrigin:()=>void=()=>{};
+    if(heading){
+      const origin=lastNavigationInput==='keyboard'?'keyboard':'programmatic';
+      heading.dataset.focusOrigin=origin;
+      clearOrigin=()=>{
+        if(heading.dataset.focusOrigin===origin)delete heading.dataset.focusOrigin;
+      };
+      heading.addEventListener('blur',clearOrigin,{once:true});
+      heading.focus({preventScroll:true});
+    }
+    if(reduced)return()=>{
+      clearOrigin();
+      heading?.removeEventListener('blur',clearOrigin);
+    };
     const animation=node.animate(
       [{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'translateY(0)'}],
       {duration:240,easing:ease,fill:'both'}
@@ -48,6 +92,8 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
       node.style.removeProperty('transform');
     };
     return()=>{
+      clearOrigin();
+      heading?.removeEventListener('blur',clearOrigin);
       animation.cancel();
       node.style.removeProperty('opacity');
       node.style.removeProperty('transform');

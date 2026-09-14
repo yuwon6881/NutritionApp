@@ -89,6 +89,12 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 await Upsert<Food>(op, revision, f =>
                 {
                     Validation.Nutrients(f); Validation.Number(f.ServingGrams, .1, 100000, "Serving weight");
+                    Validation.Barcode(f.Barcode);
+                    if (!string.IsNullOrWhiteSpace(f.Barcode))
+                    {
+                        var duplicate = db.Foods.Any(existing => !existing.Deleted && existing.Barcode == f.Barcode && existing.Id != op.RecordId);
+                        Validation.Require(!duplicate, "That barcode is already linked to another saved food.", 409);
+                    }
                     Validation.Require(f.IngredientsJson.Length <= 12000, "Recipe is too large.");
                     Validation.Portions(f.PortionsJson);
                     if (f.CookedYieldGrams is {} yield) Validation.Number(yield, 1, 100000, "Cooked yield");
@@ -156,6 +162,10 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         }
         if(next is Food food&&existing is Food savedFood&&!op.Data.TryGetProperty("portionsJson",out _))
             food.PortionsJson=savedFood.PortionsJson;
+        if(next is Food barcodeFood&&existing is Food savedBarcodeFood&&!op.Data.TryGetProperty("barcode",out _))
+            barcodeFood.Barcode=savedBarcodeFood.Barcode;
+        if(next is Food normalizedBarcodeFood)
+            normalizedBarcodeFood.Barcode=string.IsNullOrWhiteSpace(normalizedBarcodeFood.Barcode)?null:normalizedBarcodeFood.Barcode.Trim();
         validate(next); next.Id = op.RecordId; next.UserId = db.CurrentUser!.Value; next.Revision = revision; next.Deleted = false;
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);

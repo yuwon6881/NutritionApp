@@ -60,8 +60,8 @@ for(const theme of ['light','dark'])test(`${theme} large barcode controls stay a
   await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
   await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
   await openLog(page);await page.getByRole('button',{name:'Barcode',exact:true}).click();
-  const options=page.locator('.barcode-scan-options');
-  const camera=options.getByRole('button',{name:'Scan barcode with camera',exact:true});
+  const options=page.locator('.food-selection');
+  const camera=page.getByRole('button',{name:'Scan barcode with camera',exact:true});
   await expect(camera).toBeVisible();
   await expect(options.getByText('Scan mode',{exact:true})).toHaveCount(0);
   await expect(options.getByText('Multiple barcodes',{exact:true})).toHaveCount(0);
@@ -275,4 +275,56 @@ test('direct barcode result without declared serving displays / 100 g',async({pa
   await page.getByLabel('Barcode digits').fill('0123456789012');await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
   const row=page.locator('.food-row').first();
   await expect(row.locator('.food-description small')).toContainText('370 kcal / 100 g');
+});
+
+test('barcode misses can link a private food and repeat offline from the local mapping',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  let providerCalls=0;
+  await page.route('**/api/foods/barcode/*',route=>{
+    providerCalls++;
+    return route.fulfill({status:404,json:{message:'Barcode not found. Scan the label or add a custom food.'}});
+  });
+  await openLog(page);
+  await page.getByRole('button',{name:'Barcode',exact:true}).click();
+  await page.getByLabel('Barcode digits').fill('9559876543210');
+  await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Barcode not found in Open Food Facts',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Link an existing food',exact:true}).click();
+  await expect(page.getByText(/Choose one saved non-recipe food/)).toBeVisible();
+  await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
+  await expect(page.getByRole('heading',{name:'Greek Yogurt 0%',exact:true})).toBeVisible();
+  await page.locator('.food-modal').getByRole('button',{name:'Back',exact:true}).first().click();
+  await page.getByRole('button',{name:'Barcode',exact:true}).click();
+  await page.getByLabel('Barcode digits').fill('9559876543210');
+  await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  await expect(page.locator('.food-row').filter({hasText:'Greek Yogurt 0%'})).toBeVisible();
+  expect(providerCalls).toBe(1);
+});
+
+test('barcode label recovery normalizes a declared serving before explicit save',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  await page.route('**/api/foods/barcode/*',route=>route.fulfill({status:404,json:{message:'Barcode not found. Scan the label or add a custom food.'}}));
+  await page.route('**/api/scans',async route=>{
+    const input=route.request().postDataJSON();
+    expect(input.mode).toBe('label');
+    await route.fulfill({json:{id:input.id,status:'complete',resultJson:JSON.stringify({foods:[{
+      name:'Ayam tuna can',quantity:1,unit:'serving',calories:333,protein:null,carbs:0,fat:4,fiber:null,
+      portionLabel:'can',portionGrams:185,notes:'Read from the label; verify the can size.'
+    }],questions:[],explanation:'One product'})}});
+  });
+  await openLog(page);
+  await page.getByRole('button',{name:'Barcode',exact:true}).click();
+  await page.getByLabel('Barcode digits').fill('9551234567890');
+  await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  await page.getByRole('button',{name:'Scan nutrition label',exact:true}).click();
+  const onePixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
+  await page.getByLabel('Photograph the nutrition label',{exact:true}).setInputFiles({name:'label.png',mimeType:'image/png',buffer:onePixel});
+  await expect(page.getByText('Location metadata removed · deleted after processing.',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Read nutrition label',exact:true}).click();
+  await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('180');
+  await expect(page.getByLabel('Protein (g)',{exact:true})).toHaveValue('');
+  await expect(page.locator('#food-portion-definition-0-label')).toHaveValue('can');
+  await expect(page.locator('#food-portion-definition-0-grams')).toHaveValue('185');
+  await page.getByRole('button',{name:'Save custom food',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Ayam tuna can',exact:true})).toBeVisible();
 });

@@ -26,6 +26,12 @@ public static class Validation
         Require(n.Source.Length <= 240, "Source is too long.");
     }
 
+    public static void Barcode(string? barcode)
+    {
+        if (string.IsNullOrWhiteSpace(barcode)) return;
+        Require(barcode.Length is >= 8 and <= 14 && barcode.All(char.IsAsciiDigit), "Enter an 8–14 digit barcode.");
+    }
+
     public static void EntryPortion(DiaryEntry entry)
     {
         var hasLabel = entry.PortionLabel is not null;

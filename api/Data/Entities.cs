@@ -55,6 +55,7 @@ public class Food : NutrientRecord
 {
     public double ServingGrams { get; set; } = 100;
     public bool Favourite { get; set; }
+    public string? Barcode { get; set; }
     public string IngredientsJson { get; set; } = "[]";
     public string PortionsJson { get; set; } = "[]";
     public double? CookedYieldGrams { get; set; }

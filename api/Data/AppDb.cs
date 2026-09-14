@@ -60,6 +60,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.SetId });
         m.Entity<MutationReceipt>().HasIndex(x=>x.Created);
         m.Entity<DiaryEntry>().HasIndex(x => new { x.UserId, x.Date });
+        m.Entity<Food>().HasIndex(x => new { x.UserId, x.Barcode, x.Deleted });
         m.Entity<Weight>().HasIndex(x => new { x.UserId, x.Date }).IsUnique();
         m.Entity<DayStatus>().HasIndex(x => new { x.UserId, x.Date }).IsUnique();
         m.Entity<AcceptedPlan>().HasIndex(x => new { x.UserId, x.Date });

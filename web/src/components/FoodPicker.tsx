@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {Camera, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
-import {api} from '../lib/api';
+import {api,ApiError} from '../lib/api';
 import {number} from '../lib/format';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
@@ -39,6 +39,12 @@ export interface FoodPickerProps {
   camera:boolean;
   setCamera:(v:boolean|((prev:boolean)=>boolean))=>void;
   onChoose:(food:SearchResult)=>void;
+  /** Optional account-aware lookup used for offline saved barcode mappings. */
+  lookup?:(tab:'search'|'barcode',value:string)=>Promise<SearchResult|SearchResult[]>;
+  /** The search field label can name the selection purpose without duplicating the panel. */
+  searchLabel?:string;
+  /** Lets the owner expose recovery actions for a barcode miss/outage. */
+  onBarcodeError?:(code:string,error:ApiError)=>void;
   onSaveFood?:(food:SearchResult)=>void;
   isSaved?:(food:SearchResult)=>boolean;
   onToggleSave?:(food:SearchResult)=>void;
@@ -60,6 +66,9 @@ export function FoodPicker({
   camera,
   setCamera,
   onChoose,
+  lookup:customLookup,
+  searchLabel='Search term',
+  onBarcodeError,
   onSaveFood: _onSaveFood,
   isSaved,
   onToggleSave,
@@ -70,9 +79,21 @@ export function FoodPicker({
 }:FoodPickerProps){
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
+  const resolve=async(value:string)=>{
+    if(customLookup)return customLookup(tab,value);
+    return tab==='barcode'
+      ?await api<SearchResult>('/foods/barcode/'+encodeURIComponent(value))
+      :await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value));
+  };
   const lookup=(value:string)=>{
     const id=++requestId.current;
-    void run(async()=>{try{const found=tab==='barcode'?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(value))]:await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value));if(id===requestId.current)setResults(found);}catch(error){if(id===requestId.current)throw error;}});
+    void run(async()=>{try{const valueResult=await resolve(value);const found=Array.isArray(valueResult)?valueResult:[valueResult];if(id===requestId.current)setResults(found);}catch(error){
+      if(id===requestId.current&&tab==='barcode'){
+        const problem=error instanceof ApiError?error:new ApiError('Barcode lookup unavailable. Scan the label or enter this food manually.',503);
+        if([404,422,429,503].includes(problem.status)&&onBarcodeError){onBarcodeError(value,problem);return;}
+      }
+      if(id===requestId.current)throw error;
+    }});
   };
 
   return <>
@@ -80,7 +101,19 @@ export function FoodPicker({
     <Form onSubmit={event=>{
       event.preventDefault();
       const id=++requestId.current;
-      void run(async()=>{try{const found=tab==='barcode'?[await api<SearchResult>('/foods/barcode/'+encodeURIComponent(query))]:await api<SearchResult[]>('/foods/search?q='+encodeURIComponent(query));if(id===requestId.current)setResults(found);}catch(error){if(id===requestId.current)throw error;}});
+      void run(async()=>{
+        try{
+          const valueResult=await resolve(query);
+          const found=Array.isArray(valueResult)?valueResult:[valueResult];
+          if(id===requestId.current)setResults(found);
+        }catch(error){
+          if(id===requestId.current&&tab==='barcode'){
+            const problem=error instanceof ApiError?error:new ApiError('Barcode lookup unavailable. Scan the label or enter this food manually.',503);
+            if([404,422,429,503].includes(problem.status)&&onBarcodeError){onBarcodeError(query,problem);return;}
+          }
+          if(id===requestId.current)throw error;
+        }
+      });
     }}>
       <div className="search-line">
         <Field
@@ -90,7 +123,7 @@ export function FoodPicker({
           validate={()=>tab==='barcode'&&!/^[0-9]{8,14}$/.test(query)?'Enter an 8–14 digit barcode.':tab==='search'&&(query.trim().length<2||query.trim().length>100)?'Enter 2–100 characters.':undefined}
           inputMode={tab==='barcode'?'numeric':undefined}
           data-modal-autofocus
-          label={tab==='barcode'?'Barcode digits':'Search term'}
+          label={tab==='barcode'?'Barcode digits':searchLabel}
           hint={tab==='barcode'?'Enter 8–14 digits or tap the camera icon to scan.':undefined}
           required
           value={query}
@@ -136,6 +169,7 @@ export function FoodPicker({
         className="food-row interactive"
         key={`${result.source}|${result.name}|${index}`}
         role="button"
+        aria-label={result.name}
         tabIndex={0}
         onClick={()=>onChoose(result)}
         onKeyDown={event=>{

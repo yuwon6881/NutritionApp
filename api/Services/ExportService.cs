@@ -60,7 +60,7 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         var detailCutoff = RetentionService.Cutoff(today, detailDays);
 
         return new NutritionExport(
-            SchemaVersion: 3,
+            SchemaVersion: 4,
             ExportedAt: DateTime.UtcNow,
             Profile: profile,
             Settings: new ExportSettings(user.CheckInWeekday, user.CoachingSettingsRevision, user.CoachingSettingsChangedDate, user.WeightUnit, user.EnergyUnit, user.HeightUnit, user.MissingDayAction ?? "ask", user.WeightGoalMetric ?? "scale"),
@@ -172,11 +172,11 @@ public sealed class ExportService(AppDb db, RetentionService retention)
     private async Task<int> WriteFoods(ZipArchive archive, CancellationToken ct)
         => await WriteCsv(archive, "foods.csv", async writer =>
         {
-            await writer.WriteAsync(Csv.Line("id", "name", "calories", "protein_g", "fat_g", "carbs_g", "fiber_g", "serving_grams", "portions_json", "ingredients_json", "cooked_yield_grams", "favourite", "source", "revision"));
+            await writer.WriteAsync(Csv.Line("id", "name", "calories", "protein_g", "fat_g", "carbs_g", "fiber_g", "serving_grams", "portions_json", "ingredients_json", "cooked_yield_grams", "favourite", "barcode", "source", "revision"));
             var count = 0;
             await foreach (var item in db.Foods.AsNoTracking().Where(food => !food.Deleted).OrderBy(food => food.Name).ThenBy(food => food.Id).AsAsyncEnumerable().WithCancellation(ct))
             {
-                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Name), Csv.Field(item.Calories), Csv.Field(item.Protein), Csv.Field(item.Fat), Csv.Field(item.Carbs), Csv.Field(item.Fiber), Csv.Field(item.ServingGrams), Csv.Field(item.PortionsJson), Csv.Field(item.IngredientsJson), Csv.Field(item.CookedYieldGrams), Csv.Field(item.Favourite), Csv.Field(item.Source), Csv.Field(item.Revision)));
+                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Name), Csv.Field(item.Calories), Csv.Field(item.Protein), Csv.Field(item.Fat), Csv.Field(item.Carbs), Csv.Field(item.Fiber), Csv.Field(item.ServingGrams), Csv.Field(item.PortionsJson), Csv.Field(item.IngredientsJson), Csv.Field(item.CookedYieldGrams), Csv.Field(item.Favourite), Csv.Field(item.Barcode), Csv.Field(item.Source), Csv.Field(item.Revision)));
                 count++;
             }
             return count;
@@ -254,7 +254,7 @@ public sealed class ExportService(AppDb db, RetentionService retention)
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, leaveOpen: false);
         await writer.WriteAsync("NutritionApp CSV export\r\n");
-        await writer.WriteAsync("csvSchemaVersion=3\r\n\r\n");
+        await writer.WriteAsync("csvSchemaVersion=4\r\n\r\n");
         await writer.WriteAsync("Files use RFC 4180 commas and CRLF line endings. CSV files are UTF-8 with a BOM for spreadsheet compatibility.\r\n");
         await writer.WriteAsync("Null values are empty cells. Text beginning with =, +, -, @, tab, or carriage return is prefixed with an apostrophe.\r\n");
         await writer.WriteAsync("Dates use yyyy-MM-dd; timestamps use yyyy-MM-ddTHH:mm:ssZ; numeric values are invariant round-trip values.\r\n");

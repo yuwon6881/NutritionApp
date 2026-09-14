@@ -19,6 +19,7 @@ export type FoodDraft=Nutrients&{
   portionLabel:string|null;
   portionGrams:number|null;
   portionsJson:string;
+  barcode?:string|null;
 };
 
 type FoodEditorInitial=Partial<Entry&Food>&{portionsJson?:string;portions?:{label:string;grams:number}[]};
@@ -40,6 +41,7 @@ function makeDraft(initial?:FoodEditorInitial):FoodDraft{
     portionLabel:initial?.portionLabel??null,
     portionGrams:initial?.portionGrams??null,
     portionsJson:serializePortions(portions),
+    barcode:initial?.barcode??null,
   };
 }
 
@@ -49,6 +51,7 @@ export function FoodEditor({
   onClose,
   title='Review your food',
   onDirtyChange,
+  labelNote,
   energyUnit='kcal',
 }:{
   initial?:FoodEditorInitial;
@@ -56,6 +59,7 @@ export function FoodEditor({
   onClose:()=>void;
   title?:string;
   onDirtyChange?:(dirty:boolean)=>void;
+  labelNote?:string;
   energyUnit?:EnergyUnit;
 }){
   const [draft,setDraft]=useState<FoodDraft>(()=>makeDraft(initial));
@@ -184,10 +188,22 @@ export function FoodEditor({
           </div>
         </>
       )}
+      {labelNote&&<p className="notice" role="status">{labelNote}</p>}
       {!isProviderFood && draft.unit==='serving'&&<div className="form-grid">
         <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
         <Field id="food-portion-grams" name="portionGrams" label="Portion weight (g)" type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
       </div>}
+      {title.startsWith('Save food')&&<Field
+        id="food-barcode"
+        name="barcode"
+        label="Barcode (optional)"
+        inputMode="numeric"
+        maxLength={14}
+        value={draft.barcode??''}
+        validate={()=>draft.barcode&&!/^\d{8,14}$/.test(draft.barcode)?'Enter an 8–14 digit barcode or leave it blank.':undefined}
+        onChange={event=>set('barcode',event.target.value.replace(/\D/g,''))}
+        hint="Link this saved food to a packaged product for faster scans."
+      />}
       {isProviderFood&&portions.length===0&&<fieldset className="portion-definitions">
         <legend>Serving weight</legend>
         <div className="form-grid">

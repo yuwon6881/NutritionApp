@@ -101,9 +101,10 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
   await page.getByRole('button',{name:'New recipe',exact:true}).click();
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[{name:'API oats',source:'Test provider',calories:380,protein:12,carbs:60,fat:7,fiber:null,servingGrams:100}]}));
+  await page.getByRole('button',{name:'Add ingredient',exact:true}).click();
   await page.getByLabel('Search ingredients').fill('oats');
-  await page.getByRole('button',{name:'Search',exact:true}).click();
-  await page.getByRole('button',{name:'API oats',exact:true}).click();
+  await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  await page.locator('.food-row.interactive').filter({hasText:'API oats'}).click();
   await expect(page.getByRole('heading',{name:'Set ingredient quantity',exact:true})).toBeVisible();
   await expect(page.getByText('API oats',{exact:true})).toBeVisible();
   await page.getByLabel('Ingredient grams').fill('150');
@@ -113,4 +114,28 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await expect(page.getByRole('heading',{name:'Your foods',exact:true})).toBeVisible();
   await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();const recipe=state.foods.find((food:{name:string})=>food.name==='Oats recipe '+theme+width);return recipe?{calories:Math.round(recipe.calories*1e6)/1e6,fiber:recipe.fiber,count:JSON.parse(recipe.ingredientsJson).length}:null;}).toEqual({calories:114,fiber:null,count:1});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
+
+test('page heading focus follows navigation modality without stealing first-render focus',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/');
+  const dashboard=page.locator('[data-page-heading]');
+  await expect(dashboard).toHaveText('Dashboard');
+  await expect.poll(()=>page.evaluate(()=>document.activeElement?.matches('[data-page-heading]')??false)).toBeFalsy();
+
+  await page.getByRole('button',{name:'Progress',exact:true}).click();
+  const progress=page.locator('[data-page-heading]');
+  await expect(progress).toHaveText('Progress');
+  await expect(progress).toBeFocused();
+  await expect(progress).toHaveAttribute('data-focus-origin','programmatic');
+  await expect.poll(()=>progress.evaluate(element=>getComputedStyle(element).outlineStyle)).toBe('none');
+
+  const dashboardNav=page.getByRole('button',{name:'Dashboard',exact:true}).last();
+  await dashboardNav.focus();
+  await page.keyboard.press('Enter');
+  await expect(dashboard).toHaveText('Dashboard');
+  await expect(dashboard).toBeFocused();
+  await expect(dashboard).toHaveAttribute('data-focus-origin','keyboard');
+  await expect.poll(()=>dashboard.evaluate(element=>getComputedStyle(element).outlineWidth)).toBe('2px');
 });
