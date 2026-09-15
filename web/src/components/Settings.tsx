@@ -1,10 +1,8 @@
-import {Form} from './ui/Form';
 import {useState} from 'react';
 import type {Nourish} from '../useNourish';
-import {api} from '../lib/api';
 import {chooseTheme,storedTheme,type Theme} from '../lib/theme';
 import {Button} from './ui/Button';
-import {Field,SelectField} from './ui/Field';
+import {SelectField} from './ui/Field';
 import {CoachingSettings,UnitPreferencesFields} from './CoachingSettings';
 import {unitsFor} from '../lib/units';
 import type {CoachingSettings as CoachingSettingsType,MissingDayAction,UnitPreferences,WeightGoalMetric} from '../types';
@@ -15,8 +13,6 @@ import {ConnectedApps} from './ConnectedApps';
 
 export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');
-  const [current,setCurrent]=useState('');
-  const [password,setPassword]=useState('');
   const [theme,setTheme]=useState<Theme>(storedTheme()??'light');
   const {busy,run}=useAsyncAction();
 
@@ -117,15 +113,9 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       </div>
 
       <div className="settings-column">
-        <section className="panel" aria-labelledby="password-title">
-          <h2 id="password-title">Change your password</h2>
-          <Form onSubmit={e=>{e.preventDefault();void action(async()=>{await api('/auth/password',{currentPassword:current,newPassword:password});await onLogout();});}}>
-            <Field id="settings-current-password" name="currentPassword" validate={()=>error==='Current password is incorrect.'?error:undefined} label="Current password" type="password" autoComplete="current-password" required value={current} onChange={e=>{setCurrent(e.target.value);setError('');}}/>
-            <Field id="settings-new-password" name="newPassword" label="New password" type="password" autoComplete="new-password" required minLength={12} maxLength={256} value={password} onChange={e=>setPassword(e.target.value)}/>
-            <div className="actions">
-              <Button disabled={busy} type="submit">Change password and sign out all devices</Button>
-            </div>
-          </Form>
+        <section className="panel" aria-labelledby="account-title">
+          <h2 id="account-title">Fitness Account</h2>
+          <p className="source">Your sign-in credentials and security are managed centrally by Fitness Account.</p>
         </section>
         <GoogleHealthSettings/>
         <ConnectedApps/>
@@ -133,6 +123,6 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       </div>
     </div>
 
-    {error&&error!=='Current password is incorrect.'&&<p className="error" role="alert">{error}</p>}
+    {error&&<p className="error" role="alert">{error}</p>}
   </>;
 }

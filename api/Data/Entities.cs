@@ -3,9 +3,7 @@ namespace Nutrition.Api.Data;
 public class AppUser
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Username { get; set; } = "";
-    public string PasswordHash { get; set; } = "";
-    public int Slot { get; set; }
+    public string DisplayName { get; set; } = "";
     public long Revision { get; set; }
     public long ProfileRevision { get; set; }
     public long CoachingSettingsRevision { get; set; }
@@ -18,8 +16,8 @@ public class AppUser
     public string MissingDayAction { get; set; } = "ask";
     public string WeightGoalMetric { get; set; } = "scale";
     public string ProfileJson { get; set; } = "";
-    /// Central Fitness Account subject. Nullable during the additive identity cutover.
-    public string? IdentitySubject { get; set; }
+    /// Central Fitness Account subject.
+    public string IdentitySubject { get; set; } = "";
 }
 public class Session
 {

@@ -62,9 +62,9 @@ builder.Services.AddRateLimiter(o=>
     o.RejectionStatusCode=429;
     o.AddPolicy("auth",http=>RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new FixedWindowRateLimiterOptions { PermitLimit=10,Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
     o.AddPolicy("export",http=>RateLimitPartition.GetFixedWindowLimiter(
-        string.IsNullOrEmpty(http.Request.Cookies["nutrition-session"])
+        string.IsNullOrEmpty(http.Request.Cookies[AuthService.Cookie])
             ? "unauthenticated"
-            : AuthService.Hash(http.Request.Cookies["nutrition-session"]!),
+            : AuthService.Hash(http.Request.Cookies[AuthService.Cookie]!),
         _=>new FixedWindowRateLimiterOptions { PermitLimit=5,Window=TimeSpan.FromMinutes(5),QueueLimit=0 }));
 });
 var app=builder.Build();
@@ -87,15 +87,14 @@ app.Use(async(http,next)=>
         }
         if(http.Request.Path.StartsWithSegments("/internal"))
         {
-            var identityOperation=http.Request.Path.StartsWithSegments("/internal/identity");
-            var expected=builder.Configuration[identityOperation?"Identity:AttachToken":"Cleanup:Token"];
-            var supplied=http.Request.Headers[identityOperation?"X-Identity-Attach-Token":"X-Cleanup-Token"].ToString();
-            Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(supplied),System.Text.Encoding.UTF8.GetBytes(expected)),identityOperation?"Identity operations authentication required.":"Scheduler authentication required.",401);
+            var expected=builder.Configuration["Cleanup:Token"];
+            var supplied=http.Request.Headers["X-Cleanup-Token"].ToString();
+            Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(supplied),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
         }
         else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/status" or "/api/auth/login" or "/api/auth/register" or "/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback"))
         {
             var db=http.RequestServices.GetRequiredService<AppDb>();
-            var token=http.Request.Cookies["nutrition-session"];
+            var token=http.Request.Cookies[AuthService.Cookie];
             Validation.Require(!string.IsNullOrEmpty(token),"Sign in to sync your diary.",401);
             var hash=AuthService.Hash(token!);
             var session=await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s=>s.Hash==hash&&s.Expires>DateTime.UtcNow,http.RequestAborted);
@@ -109,7 +108,7 @@ app.Use(async(http,next)=>
 });
 app.UseRateLimiter();
 app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> { if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache"; } });
-app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapIdentityOperations();
+app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>
 {

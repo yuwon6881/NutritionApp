@@ -141,7 +141,7 @@ export default function App(){
       try{cached=!!previous&&!!await readLocal(previous);}catch{/* Try the server if local storage is unavailable. */}
       if(active&&cached)setUser(previous);
       try{
-        const account=await api<{id:string}>('/auth/me');
+        const account=await api<{id:string;displayName?:string}>('/auth/me');
         if(active&&localStorage.getItem('nourish-signed-out')!=='1'){localStorage.setItem('nourish-account',account.id);setUser(account.id);}
       }catch(ex){if(active&&(!cached||(ex instanceof ApiError&&ex.status===401)))setUser(null);}
     })();

@@ -15,10 +15,10 @@
     },
     {
       "src": "/api/(.*)",
-      "dest": "https://nourish-api-i47taxhzba-as.a.run.app/api/$1",
+      "dest": "https://nutrition-api-396431756440.asia-southeast1.run.app/api/$1",
       "headers": { "Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "no-store" }
     },
-    { "src": "/health", "dest": "https://nourish-api-i47taxhzba-as.a.run.app/health", "headers": { "Cache-Control": "no-store" } },
+    { "src": "/health", "dest": "https://nutrition-api-396431756440.asia-southeast1.run.app/health", "headers": { "Cache-Control": "no-store" } },
     { "src": "/(?:sw\\.js|index\\.html|manifest\\.webmanifest|)", "headers": { "Cache-Control": "no-cache" }, "continue": true },
     { "handle": "filesystem" },
     { "src": "/", "dest": "/index.html" },
