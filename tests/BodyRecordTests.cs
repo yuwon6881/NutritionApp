@@ -16,7 +16,7 @@ public sealed class BodyRecordTests
         var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
         var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>()).Build();
-        var user=await new AuthService(db,config).Register("body-user","a sufficiently long password",default);
+        var user=await TestUsers.CreateAsync(db, "body-user");
         db.CurrentUser=user.Id;
         var store=new GcsPhotoStore(new HttpClient(new Handler()),config,_=>Task.FromResult("token"));
         return (db,new BodyRecordService(db,store,config),user);

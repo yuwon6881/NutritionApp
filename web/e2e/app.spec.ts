@@ -1,12 +1,18 @@
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-const password='nutrition test password 2026';
+import {signIn as signInPage} from './signIn';
 const headers={'Origin':(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088'),'X-Nutrition-Request':'1'};
 async function signIn(request:APIRequestContext,username='test-alice'){
-  let response=await request.post('/api/auth/login',{headers,data:{username,password}});
-  for(let attempt=0;response.status()===429&&attempt<12;attempt++){await new Promise(resolve=>setTimeout(resolve,5000));response=await request.post('/api/auth/login',{headers,data:{username,password}});}
-  if(response.status()===401)response=await request.post('/api/auth/register',{headers,data:{username,password}});
-  expect(response.ok(),await response.text()).toBeTruthy();return response.json();
+  const start=await request.get('/api/auth/central/start',{maxRedirects:0});
+  const authUrl=start.headers()['location'];
+  if(!authUrl)return start;
+  const parsed=new URL(authUrl);
+  parsed.searchParams.set('auto','true');
+  parsed.searchParams.set('username',username);
+  const idp=await request.get(parsed.toString(),{maxRedirects:0});
+  const callbackUrl=idp.headers()['location'];
+  if(!callbackUrl)return idp;
+  return await request.get(callbackUrl,{maxRedirects:0});
 }
 async function resolveMissingDays(page:import('@playwright/test').Page){
   await page.getByRole('dialog',{name:/^No food logged for /}).getByRole('button',{name:'Not logging',exact:true}).click({timeout:5000}).catch(()=>{});
@@ -17,9 +23,7 @@ test.beforeAll(async({request})=>{
 });
 test('private app: create profile, accept targets, log food and weight, retain offline work',async({page,context})=>{
   await page.setViewportSize({width:390,height:900});
-  await page.goto('/');await page.getByRole('button',{name:'New here? Create an account'}).click();
-  await page.getByLabel('Username',{exact:true}).fill('test-alice');await page.getByLabel('Password',{exact:true}).fill(password);
-  await page.getByRole('button',{name:'Create account',exact:true}).click();
+  await signInPage(page, 'test-alice');
   await expect(page.getByRole('heading',{name:"Set up profile"})).toBeVisible();
   await expect(page.getByLabel('Date of birth',{exact:true})).toHaveValue('');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
@@ -74,7 +78,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Offline banana');}).toBeTruthy();
   const secondContext=await context.browser()!.newContext({baseURL:(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088')});const second=secondContext.request;await signIn(second,'test-bob');
   const other=await (await second.get('/api/state')).json();expect(other.entries).toHaveLength(0);expect(other.id).not.toBe(user.id);
-  const third=await second.post('/api/auth/register',{headers,data:{username:'third-user',password}});expect(third.status()).toBe(409);
+  const third=await signIn(second,'third-user');expect(third.status()).toBe(403);
   const csrf=await context.request.post('/api/sync',{data:{}});expect(csrf.status()).toBe(403);
   await secondContext.close();
 });
@@ -246,7 +250,6 @@ test('weekly check-in is a reduced-motion-safe bottom sheet with focus restorati
   expect(profileResponse.ok(),await profileResponse.text()).toBeTruthy();
   await page.setViewportSize({width:390,height:900});await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
   const launcher=page.getByRole('button',{name:'Review this week',exact:true});await expect(launcher).toBeVisible();
-  await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByRole('button',{name:'Review this week',exact:true})).toBeVisible();
   await launcher.click();
   const dialog=page.getByRole('dialog',{name:'Weekly check-in'});await expect(dialog).toBeVisible();
   const box=await dialog.boundingBox();expect(box).not.toBeNull();expect(Math.abs((box!.y+box!.height)-900)).toBeLessThanOrEqual(2);
@@ -295,18 +298,20 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   };
   await saveWeight(shift(latest.end,-3),80.8);await saveWeight(shift(latest.end,-2),80.8);await saveWeight(latest.end,74.8);
   await markNotLogging(shift(latest.end,-3));await markNotLogging(shift(latest.end,-2));
-  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Dashboard',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Fat loss goal reached',exact:true})).toBeVisible();
   await expect(page.locator('.goal-reached-banner')).toBeVisible();
+  await page.getByRole('button',{name:'Coach',exact:true}).click();
   await page.getByRole('button',{name:'History',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Accepted plans',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Targets',exact:true}).click();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
   await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Wait for trend weight',exact:true}).click();
   await expect(page.getByText('Waiting for trend weight',{exact:false})).toBeVisible();
   latest=await (await context.request.get('/api/state')).json();
   await saveWeight(shift(latest.end,-3),74.8);await saveWeight(shift(latest.end,-2),74.8);await saveWeight(latest.end,74.8);
-  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Dashboard',exact:true}).click();
   await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Complete goal',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Weekly check-in'})).toBeVisible({timeout:25000});
@@ -343,8 +348,10 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await expect(page.locator('#coaching-check-in-weekday')).toHaveValue('5');await expect(page.locator('#settings-weight-unit')).toHaveValue('lb');await expect(page.locator('#settings-energy-unit')).toHaveValue('kj');await expect(page.locator('#settings-height-unit')).toHaveValue('ft-in');await expect(page.getByText(/Saving your check-in day and unit preferences/)).toBeVisible();
   await context.setOffline(false);await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday===5&&latest.settings?.weightUnit==='lb'&&latest.settings?.energyUnit==='kj'&&latest.settings?.heightUnit==='ft-in';}).toBeTruthy();
   const afterSettings=await (await context.request.get('/api/state')).json();expect(afterSettings.profileRevision).toBe(state.profileRevision);expect(afterSettings.plans[0].id).toBe(state.plans[0].id);
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('#coaching-check-in-weekday').selectOption('1');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday;}).toBe(1);
   await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByText('kJ',{exact:true}).first()).toBeVisible();await expect(page.getByText(/lb/).first()).toBeVisible();await page.getByRole('button',{name:'Plan',exact:true}).click();await expect(page.getByLabel('Height (feet)',{exact:true})).toBeVisible();await expect(page.getByLabel('Starting weight (lb)',{exact:true})).toHaveValue('178.6');
+  await page.reload();await resolveMissingDays(page);
   await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('#settings-weight-unit').selectOption('kg');await page.locator('#settings-energy-unit').selectOption('kcal');await page.locator('#settings-height-unit').selectOption('cm');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.weightUnit==='kg'&&latest.settings?.energyUnit==='kcal'&&latest.settings?.heightUnit==='cm';}).toBeTruthy();
 });
 
@@ -422,6 +429,8 @@ test('mobile scan shortcut supports food photos and label autofill before review
   await page.setViewportSize({width:390,height:900});await page.goto('/');
   await page.getByRole('button',{name:'Add entry',exact:true}).click();
   await page.getByRole('button',{name:'Scan food or label',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Log food',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'AI logging',exact:true}).click();
   await expect(page.getByRole('heading',{name:'AI logging',exact:true})).toBeVisible();
   const modes:string[]=[];
   await page.route('**/api/scans',async route=>{

@@ -31,8 +31,8 @@ public sealed class FoodSearchPersonalizationTests
         await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
-        var alice=new AppUser {Username="alice",PasswordHash="hash-a",Slot=1};
-        var bob=new AppUser {Username="bob",PasswordHash="hash-b",Slot=2};
+        var alice=new AppUser {DisplayName="alice",IdentitySubject="sub_alice"};
+        var bob=new AppUser {DisplayName="bob",IdentitySubject="sub_bob"};
         db.Users.AddRange(alice,bob);
         db.MaintenanceAccess=true;
         var entries=Enumerable.Range(0,3).Select(_=>new DiaryEntry {Id=Guid.NewGuid(),UserId=alice.Id,Name="Banana · Gamma",Source="Open Food Facts / ODbL",Calories=91})

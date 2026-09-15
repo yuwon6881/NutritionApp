@@ -6,7 +6,7 @@ A separate two-user, mobile-first nutrition PWA. React/TypeScript/Vite frontend,
 
 Requirements: Node 24 and .NET 10. run `npm.cmd install` and `npm.cmd run build` inside `web`, then copy `web/dist/` into `api/wwwroot/` or run `scripts/build.ps1`. Start `scripts/run-local.ps1` and open http://127.0.0.1:5088. Development defaults to an isolated local SQLite database. Production requires a PostgreSQL connection string and applied migrations.
 
-For Vite hot reload, run the API on port 5088 with `PublicOrigin=http://127.0.0.1:5178`, then run `npm.cmd run dev` inside `web`. Use the Vite URL. Registration supports two accounts; use a password of at least 12 characters.
+For Vite hot reload, run the API on port 5088 with `PublicOrigin=http://127.0.0.1:5178`, then run `npm.cmd run dev` inside `web`. Use the Vite URL. Accounts are provisioned via central Fitness Account OIDC (`openid`, `profile`), capped at two users; no credentials or passwords are stored in NutritionApp.
 
 Optional development configuration goes in ignored `api/appsettings.Local.json` or environment variables. See [deployment configuration](deploy/README.md). The UI remains fully useful without food-provider or OpenAI credentials: manual food/recipe logging, weight tracking, and deterministic coaching need no external AI.
 
@@ -29,7 +29,7 @@ The browser suite targets a dedicated local test API at `http://127.0.0.1:5088`.
 - Server-owned coaching is versioned. Preview/accept verifies the input revision and weekly cadence; accepted history is immutable.
 - Coach setup uses directional step transitions and selectable goal cards. Local estimates update immediately; calculation, retained synchronization, acceptance, and view-refresh feedback follow actual operations. Reduced motion disables movement and looping indicators. Stale previews are ignored, and an uncertain acceptance retries its original identity and input revision.
 - Today stays open in the profile time zone; past days with food complete automatically. Missing days prompt for fasting or not logging. Not logging preserves weight-based trends and coaching estimates without inventing calorie intake. Nutrients are immutable entry snapshots, with absent values remaining absent.
-- Auth uses hashed database sessions in HttpOnly same-site cookies. Unsafe endpoints require an exact Origin and custom request header; API responses are never cached by the service worker.
+- Auth uses central Fitness Account OIDC (`openid`, `profile`) with hashed database sessions in HttpOnly same-site cookies (`nutrition-session`). Unsafe endpoints require an exact Origin and custom request header; API responses are never cached by the service worker.
 - Offline diary edits are account-scoped IndexedDB records, persisted before dispatch. Requests are idempotent; conflicts stop the queue for review. Sign-out retains unsynced work.
 - AI requests are processed as temporary server jobs; successful best-effort estimates go directly into the editable batch. Uploaded scan images are re-encoded without EXIF, private, and deleted after processing, with scheduler cleanup for interrupted jobs.
 - PostgreSQL tenancy filters fail closed and writes validate ownership. Registration slots and advisory transactions serialize competing writes.
@@ -47,7 +47,7 @@ The UI contract and extension checklist live in [UI/UX design principles](docs/U
 
 ## First-login setup
 
-Registration and login are built in. Accounts without a saved profile open the setup form automatically, including when they return after leaving setup unfinished. Age, height, weight, equation sex parameter, activity and goal start blank and require explicit answers. Resistance training and coaching population boundaries are reviewed in the same form. After the profile syncs, the backend automatically returns a starting proposal; the user must accept it. A known maintenance estimate can replace the equation-based starting expenditure. Saved profiles remain editable in Coach.
+Authentication delegates to central Fitness Account. Accounts without a saved profile open the setup form automatically, including when they return after leaving setup unfinished. Age, height, weight, equation sex parameter, activity and goal start blank and require explicit answers. Resistance training and coaching population boundaries are reviewed in the same form. After the profile syncs, the backend automatically returns a starting proposal; the user must accept it. A known maintenance estimate can replace the equation-based starting expenditure. Saved profiles remain editable in Coach.
 
 ## Adaptive phases and user-selected pace
 

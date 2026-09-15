@@ -26,8 +26,8 @@ public sealed class PhotoPersistenceTests
         try
         {
             await using var db=new AppDb(options);await db.Database.EnsureCreatedAsync();
-            var alice=await new AuthService(db,config).Register("alice","a sufficiently long password",default);
-            var bob=await new AuthService(db,config).Register("bob","a sufficiently long password",default);
+            var alice=await TestUsers.CreateAsync(db, "alice");
+            var bob=await TestUsers.CreateAsync(db, "bob");
             db.CurrentUser=alice.Id;var handler=new Handler();var http=new HttpClient(handler);
             using var cache=new MemoryCache(new MemoryCacheOptions());
             var service=new PhotoService(db,new GcsPhotoStore(http,config,_=>Task.FromResult("fake-token")),config,new StorageService(db,cache,new TemporaryImageStore(http,config)));

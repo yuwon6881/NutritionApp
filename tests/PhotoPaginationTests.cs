@@ -25,7 +25,7 @@ public sealed class PhotoPaginationTests
         await db.Database.EnsureCreatedAsync();
         var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
         { ["Physique:Bucket"]="test", ["Physique:MaxBytesPerUser"]="1000" }).Build();
-        var user=await new AuthService(db,config).Register("photo-page-user","a sufficiently long password",default);
+        var user=await TestUsers.CreateAsync(db, "photo-page-user");
         db.CurrentUser=user.Id;
         using var cache=new MemoryCache(new MemoryCacheOptions());
         using var http=new HttpClient(new Handler());

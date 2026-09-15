@@ -17,7 +17,7 @@ public class FoodDiaryTests
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
         var config=new ConfigurationBuilder().Build();
-        var user=await new AuthService(db,config).Register("alice","a long test password",default);
+        var user=await TestUsers.CreateAsync(db, "alice");
         db.CurrentUser=user.Id;
         await action(db,user,config);
     }

@@ -17,7 +17,7 @@ public class PlanSexPersistenceTests
         await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
-        var user=await new AuthService(db,new ConfigurationBuilder().Build()).Register("sex-contract","a long test password",default);
+        var user=await TestUsers.CreateAsync(db, "sex-contract");
         db.CurrentUser=user.Id;
         var profile=new Profile { Age=30,Sex="female",HeightCm=170,WeightKg=70,Activity=1.4,Goal="maintain",PregnancyOrBreastfeeding=true };
         var sync=new SyncService(db);

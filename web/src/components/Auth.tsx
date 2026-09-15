@@ -2,6 +2,7 @@ import {useEffect,useState} from 'react';
 import {ArrowRight} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Brand} from './ui/Brand';
+import {centralAuthError} from '../lib/centralAuthError';
 
 export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
   const [error,setError]=useState('');
@@ -9,7 +10,7 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search);
     const centralError=params.get('central_error');
-    if(centralError)setError(centralError);
+    if(centralError)setError(centralAuthError(centralError));
   },[]);
 
   return (

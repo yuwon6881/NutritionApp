@@ -11,7 +11,7 @@ public static class GoogleHealthEndpoints
     {
         app.MapPost("/api/integrations/google-health/connect", async (GoogleHealthService service, AppDb db, HttpContext http, CancellationToken ct) =>
         {
-            var token = http.Request.Cookies["nutrition-session"];
+            var token = http.Request.Cookies[AuthService.Cookie];
             var sessionHash = AuthService.Hash(token ?? "");
             var origin = http.Request.Headers.Origin.ToString();
             if (string.IsNullOrEmpty(origin))
@@ -30,7 +30,7 @@ public static class GoogleHealthEndpoints
             HttpContext http,
             CancellationToken ct) =>
         {
-            var token = http.Request.Cookies["nutrition-session"];
+            var token = http.Request.Cookies[AuthService.Cookie];
             if (string.IsNullOrEmpty(token))
                 return Results.Redirect("/settings?google_health=error&code=session_expired");
 

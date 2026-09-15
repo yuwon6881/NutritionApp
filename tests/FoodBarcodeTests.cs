@@ -33,7 +33,7 @@ public sealed class FoodBarcodeTests : IAsyncLifetime
         var user=Guid.NewGuid();
         await using(var seed=Open())
         {
-            seed.Users.Add(new AppUser{Id=user,Username="barcode-local",Slot=1});
+            seed.Users.Add(new AppUser{Id=user,DisplayName="barcode-local",IdentitySubject="sub_local"});
             await seed.SaveChangesAsync();
         }
         await using(var seed=Open(user))
@@ -59,7 +59,7 @@ public sealed class FoodBarcodeTests : IAsyncLifetime
         var user=Guid.NewGuid();
         await using(var seed=Open())
         {
-            seed.Users.Add(new AppUser{Id=user,Username="barcode-sync",Slot=1});
+            seed.Users.Add(new AppUser{Id=user,DisplayName="barcode-sync",IdentitySubject="sub_sync"});
             await seed.SaveChangesAsync();
         }
         async Task<long> Apply(Guid id,long revision,object data)

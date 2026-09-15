@@ -1,17 +1,13 @@
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
+import {signInApi} from './signIn';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
 let session:Awaited<ReturnType<APIRequestContext['storageState']>>;
 test.beforeAll(async({request})=>{
   expect((await request.post('/api/auth/dev-reset',{headers})).ok()).toBeTruthy();
-  const data={username:'test-validation',password:'validation test password 2026'};
-  let response=await request.post('/api/auth/login',{headers,data});
-  for(let attempt=0;response.status()===429&&attempt<12;attempt++){
-    await new Promise(resolve=>setTimeout(resolve,5000));response=await request.post('/api/auth/login',{headers,data});
-  }
-  if(response.status()===401)response=await request.post('/api/auth/register',{headers,data});
+  const response=await signInApi(request,'test-validation');
   expect(response.ok(),await response.text()).toBeTruthy();
   const state=await (await request.get('/api/state')).json();
   const saved=await request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,delete:false,data:{
@@ -25,26 +21,25 @@ async function food(page:Page){
   await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log food',exact:true}).click();
 }
 
-test('application errors replace native bubbles on blur and submit in both themes',async({page})=>{
-  let writes=0;
-  await page.route('**/api/auth/login',route=>{writes++;return route.fulfill({status:400,json:{message:'Invalid username or password.'}});});
+test('application errors replace native bubbles on blur and submit in both themes',async({page,context})=>{
+  await context.addCookies(session.cookies);
   await page.goto('/');
+  await food(page);
+  await page.getByRole('button',{name:'Manual entry',exact:true}).click();
   await expect(page.locator('.field-error')).toHaveCount(0);
-  await page.getByLabel('Username',{exact:true}).focus();await page.getByLabel('Password',{exact:true}).focus();
-  await expect(page.getByText('Enter username.',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page.getByLabel('Username',{exact:true})).toBeFocused();
-  expect(writes).toBe(0);expect(await page.locator('form').evaluate((form:HTMLFormElement)=>form.noValidate)).toBe(true);
+  await page.getByLabel('Food name',{exact:true}).focus();
+  await page.getByLabel('Calories (kcal)',{exact:true}).focus();
+  await expect(page.getByText('Enter food name.',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();
+  await expect(page.getByLabel('Food name',{exact:true})).toBeFocused();
+  expect(await page.locator('form').evaluate((form:HTMLFormElement)=>form.noValidate)).toBe(true);
   for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.screenshot({path:`artifacts/validation-${width}-${theme}.png`,fullPage:true});
   }
-  await page.getByLabel('Username',{exact:true}).fill('valid-user');
-  await expect(page.getByLabel('Username',{exact:true})).not.toHaveAttribute('aria-invalid','true');
-  await page.getByRole('button',{name:'New here? Create an account'}).click();
-  await page.getByLabel('Password',{exact:true}).fill('short');await page.getByRole('button',{name:'Create account',exact:true}).click();
-  await expect(page.getByText('Use at least 12 characters.')).toBeVisible();expect(writes).toBe(0);
+  await page.getByLabel('Food name',{exact:true}).fill('Apple');
+  await expect(page.getByLabel('Food name',{exact:true})).not.toHaveAttribute('aria-invalid','true');
 });
 
 test('food, recipe and image actions explain invalid drafts without queuing writes',async({page,context})=>{

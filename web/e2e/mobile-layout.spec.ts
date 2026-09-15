@@ -1,5 +1,6 @@
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
+import {signInApi} from './signIn';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
@@ -7,12 +8,7 @@ let session:Awaited<ReturnType<APIRequestContext['storageState']>>;
 
 test.beforeAll(async({request})=>{
   await request.post('/api/auth/dev-reset',{headers});
-  const credentials={username:'mobile-layout-user',password:'nutrition test 2026'};
-  let res=await request.post('/api/auth/register',{headers,data:credentials});
-  for(let attempt=0;res.status()===429&&attempt<12;attempt++){
-    await new Promise(resolve=>setTimeout(resolve,5000));
-    res=await request.post('/api/auth/register',{headers,data:credentials});
-  }
+  const res=await signInApi(request,'mobile-layout-user');
   expect(res.ok()).toBeTruthy();
   const state=await (await request.get('/api/state')).json();
   const save=async(kind:string,data:unknown,recordId=randomUUID())=>{

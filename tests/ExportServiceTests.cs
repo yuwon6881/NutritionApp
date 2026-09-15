@@ -21,8 +21,8 @@ public sealed class ExportServiceTests : IAsyncLifetime
     [Fact]
     public async Task Json_and_csv_exports_preserve_portions_and_isolate_the_current_account()
     {
-        var alice = new AppUser { Username = "alice", Slot=1,ProfileJson = Json.Write(new Profile { Age=30,HeightCm=170,WeightKg=70,Sex="female",Activity=1.4,Goal="maintain" }) };
-        var bob = new AppUser { Username = "bob",Slot=2 };
+        var alice = new AppUser { DisplayName = "alice", IdentitySubject = "sub_alice", ProfileJson = Json.Write(new Profile { Age=30,HeightCm=170,WeightKg=70,Sex="female",Activity=1.4,Goal="maintain" }) };
+        var bob = new AppUser { DisplayName = "bob", IdentitySubject = "sub_bob" };
         await using (var seed = Open())
         {
             seed.Users.AddRange(alice, bob);

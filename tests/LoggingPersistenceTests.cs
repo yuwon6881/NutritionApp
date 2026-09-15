@@ -14,7 +14,7 @@ public class LoggingPersistenceTests
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
         var config=new ConfigurationBuilder().Build();
-        var user=await new AuthService(db,config).Register("alice","a long test password",default);db.CurrentUser=user.Id;
+        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
         var date=RetentionService.Today("").AddDays(-20);
         var day=new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Archived=true,Calories=1234,EntryCount=2,Protein=null,Status="complete"};
         db.Days.Add(day);await db.SaveChangesAsync();
@@ -28,7 +28,7 @@ public class LoggingPersistenceTests
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var user=await new AuthService(db,new ConfigurationBuilder().Build()).Register("alice","a long test password",default);db.CurrentUser=user.Id;
+        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
         user.ProfileJson=Json.Write(new Profile{Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500});
         var today=RetentionService.Today(user.ProfileJson);
         for(var i=1;i<=28;i++){

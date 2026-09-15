@@ -43,6 +43,8 @@ The experiment uses a disposable SQLite database. It excludes personal food libr
 
 ## Deployed verification status (2026-09-10)
 
+This is a historical snapshot from before the central Fitness Account cutover, not current production evidence. The live cutover and infrastructure state remain unverified until the credentialed Stage G operations are completed.
+
 - **Cloud Run API**: Deployed to `https://nourish-api-i47taxhzba-as.a.run.app` (`asia-southeast1`). Runtime service account `nourish-api` scoped to Secret Manager and GCS buckets. `PublicOrigin` set to `https://nutrition-diary-app.vercel.app`.
 - **Vercel PWA**: Deployed to `https://nutrition-diary-app.vercel.app`. Serves PWA assets, manifest, deduplicated service worker (`sw.js`), and proxies `/api/*` and `/health` to Cloud Run with `Cache-Control: no-store`. Missing assets return 404 text responses without SPA fallback.
 - **Neon PostgreSQL**: Applied all migrations on `neondb` in `ap-southeast-1` (`ep-noisy-bar-b3gvfj2z`). Direct and pooled connections verified with SSL and channel binding. Both registration slots (1 and 2) remain open and available for user registration (`registrationOpen: true`).

@@ -33,8 +33,7 @@ public sealed class ProgressSummaryTests
         await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
-        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>()).Build();
-        var user=await new AuthService(db,config).Register("progress-user","a sufficiently long password",default);
+        var user=await TestUsers.CreateAsync(db, "progress-user");
         var profile=new Profile{Age=30,DateOfBirth=new DateOnly(1996,1,1),HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2400,TimeZone="Asia/Kuala_Lumpur"};
         user.ProfileJson=Json.Write(profile);user.Revision=1;db.CurrentUser=user.Id;
         var current=RetentionService.Today(user.ProfileJson);

@@ -1,13 +1,13 @@
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
+import {signInApi} from './signIn';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
 
 test('tab switching preserves consistent button locations and modal coordinates',async({page,request})=>{
   await request.post('/api/auth/dev-reset',{headers});
-  const credentials={username:'tab-consistency-user',password:'nutrition test 2026'};
-  const res=await request.post('/api/auth/register',{headers,data:credentials});
+  const res=await signInApi(request,'tab-consistency-user');
   expect(res.ok()).toBeTruthy();
   const state=await (await request.get('/api/state')).json();
   const save=async(kind:string,data:unknown,recordId=randomUUID())=>{

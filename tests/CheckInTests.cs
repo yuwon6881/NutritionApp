@@ -174,8 +174,7 @@ public sealed class CheckInTests
 
     private static async Task<AppUser> NewUser(AppDb db)
     {
-        var user = await new AuthService(db, new ConfigurationBuilder().Build())
-            .Register("checkin-user", "a long test password", default);
+        var user = await TestUsers.CreateAsync(db, "checkin-user");
         db.CurrentUser = user.Id;
         user.ProfileJson = Json.Write(new Profile
         {

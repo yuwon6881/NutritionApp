@@ -20,8 +20,8 @@ public static class PostgresVerification
             var scoped=new NpgsqlConnectionStringBuilder(connectionString){SearchPath=schema};
             AppDb Open(Guid? user=null)=>new(new DbContextOptionsBuilder<AppDb>().UseNpgsql(scoped.ConnectionString).AddInterceptors(new SchemaScope(schema)).Options){CurrentUser=user};
             await using(var create=Open())await create.Database.ExecuteSqlRawAsync(create.Database.GenerateCreateScript());
-            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();
-            var registration=await Task.WhenAll(Enumerable.Range(0,8).Select(async i=>{await using var db=Open();try{return await new AuthService(db,config).Register("verify"+i,"verification-only long password",default);}catch(DomainException){return null;}}));
+            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7",["Auth:MaxUsers"]="2" }).Build();
+            var registration=await Task.WhenAll(Enumerable.Range(0,8).Select(async i=>{await using var db=Open();try{var count=await db.Users.IgnoreQueryFilters().CountAsync();if(count>=config.GetValue("Auth:MaxUsers",2))throw new DomainException("Registration is closed.",403);var u=new AppUser{IdentitySubject="verify-subject-"+i,DisplayName="verify"+i};db.Users.Add(u);await db.SaveChangesAsync();return u;}catch(DomainException){return null;}}));
             var users=registration.Where(u=>u!=null).Cast<AppUser>().ToArray();Check(users.Length==2,"Concurrent registration exceeded two users.");
             await using(var db=Open(users[0].Id))
             {

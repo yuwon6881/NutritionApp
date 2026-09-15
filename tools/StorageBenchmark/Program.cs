@@ -9,7 +9,7 @@ var path=Path.Combine(directory,"benchmark.db");
 await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite("Data Source="+path).Options);
 await db.Database.EnsureCreatedAsync();
 var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Retention:MealDetailDays","7"}}).Build();
-var users=new[]{new AppUser { Username="synthetic-one",Slot=1,PasswordHash="disabled" },new AppUser { Username="synthetic-two",Slot=2,PasswordHash="disabled" }};
+var users=new[]{new AppUser { IdentitySubject="synthetic-one",DisplayName="Synthetic One" },new AppUser { IdentitySubject="synthetic-two",DisplayName="Synthetic Two" }};
 db.Users.AddRange(users);await db.SaveChangesAsync();
 // One transaction, 20 entries/day/user, ten years. All data is synthetic and disposable.
 await db.Database.ExecuteSqlRawAsync("""

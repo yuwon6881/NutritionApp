@@ -10,9 +10,9 @@ public class UserDeletionTests
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var config=new ConfigurationBuilder().Build();var auth=new AuthService(db,config);
-        var user=await auth.Register("alice","a long enough password",default);
-        var other=await auth.Register("bob","another long password",default);
+        var auth=new AuthService(db);
+        var user=await TestUsers.CreateAsync(db, "alice");
+        var other=await TestUsers.CreateAsync(db, "bob");
         db.CurrentUser=user.Id;
         await auth.CreateSession(user.Id,default);
         var date=new DateOnly(2026,9,7);

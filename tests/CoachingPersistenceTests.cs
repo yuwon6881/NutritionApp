@@ -16,9 +16,8 @@ public class CoachingPersistenceTests
         var options = new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options;
         await using var setup = new AppDb(options);
         await setup.Database.EnsureCreatedAsync();
-        var auth = new AuthService(setup, new ConfigurationBuilder().Build());
-        var alice = await auth.Register("trajectory-alice", "a very long test password", default);
-        var bob = await auth.Register("trajectory-bob", "a very long test password", default);
+        var alice = await TestUsers.CreateAsync(setup, "trajectory-alice");
+        var bob = await TestUsers.CreateAsync(setup, "trajectory-bob");
         var profile = new Profile
         {
             Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
@@ -54,8 +53,7 @@ public class CoachingPersistenceTests
         var options = new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options;
         await using var db = new AppDb(options);
         await db.Database.EnsureCreatedAsync();
-        var user = await new AuthService(db, new ConfigurationBuilder().Build())
-            .Register("trajectory-mutations", "a very long test password", default);
+        var user = await TestUsers.CreateAsync(db, "trajectory-mutations");
         db.CurrentUser = user.Id;
         var profile = new Profile
         {
@@ -80,7 +78,7 @@ public class CoachingPersistenceTests
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var user=await new AuthService(db,new ConfigurationBuilder().Build()).Register("alice","a very long test password",default);db.CurrentUser=user.Id;
+        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
         var sync=new SyncService(db);var coach=new CoachingService(db);
         var profile=new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500 };
         await sync.Apply(new(Guid.NewGuid(),"profile",user.Id,0,JsonSerializer.SerializeToElement(profile,Json.Options)),default);
@@ -98,7 +96,7 @@ public class CoachingPersistenceTests
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var user=await new AuthService(db,new ConfigurationBuilder().Build()).Register("alice","a very long test password",default);db.CurrentUser=user.Id;
+        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
         user.ProfileJson=Json.Write(new Profile { Age=30,HeightCm=175,WeightKg=78,Sex="male",Activity=1.4,Goal="lose",
             Maintenance=2500,PhaseMode="weight",TargetWeightKg=79,PhaseStartWeightKg=82,GoalRatePercent=-.5,TimeZone="UTC" });
         user.ProfileRevision=++user.Revision;
@@ -124,7 +122,7 @@ public class CoachingPersistenceTests
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var user=await new AuthService(db,new ConfigurationBuilder().Build()).Register("alice","a very long test password",default);db.CurrentUser=user.Id;
+        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
         var trajectory=new ExpenditureTrajectoryService(db);var sync=new SyncService(db,trajectory:trajectory);
         await sync.Apply(new(Guid.NewGuid(),"profile",user.Id,0,JsonSerializer.SerializeToElement(
             new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500,TimeZone="UTC" },Json.Options)),default);

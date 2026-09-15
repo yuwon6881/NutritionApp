@@ -101,7 +101,7 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
     </aside>
     <main id="main-content" className="main-content" tabIndex={-1}>
       <div className="topbar">
-        <span className="account-name">{store.state?.username}</span>
+        <span className="account-name">{store.state?.displayName}</span>
         <div className="topbar-activity" role="status" aria-label="Activity indicator" aria-live="polite">
           {store.isActivityActive && (
             <span className="topbar-activity-indicator" aria-label="Working…">

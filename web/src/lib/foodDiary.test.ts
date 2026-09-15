@@ -4,7 +4,7 @@ import {mealReadOnly,mealTime,timelineGroups,timelineSlots,normalizeTime,moveTar
 import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
 
-const state:AppState={id:'a',username:'a',revision:1,profileRevision:0,profile:null,start:'2026-06-12',end:'2026-09-09',entries:[],foods:[],weights:[],days:[],plans:[],detailDays:90};
+const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-06-12',end:'2026-09-09',entries:[],foods:[],weights:[],days:[],plans:[],detailDays:90};
 const entry=(id:string,time?:string|null):Entry=>({id,time,date:'2026-09-09',name:'Quick add',quantity:1,unit:'serving',calories:300,protein:null,carbs:null,fat:null,fiber:null,source:'Quick add',revision:0,deleted:false});
 afterEach(()=>vi.useRealTimers());
 

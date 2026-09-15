@@ -32,7 +32,7 @@ public static class RecordEndpoints
             // context remains informational and does not extend the nutrition target interval.
             var trainingSummary = await training.Get(start, end.AddDays(14), ct);
             return Results.Ok(new {
-                user.Id,user.Username,user.Revision,user.ProfileRevision,
+                user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
                 settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale" },
                 profile=user.ProfileJson.Length==0?null:Json.Read<Profile>(user.ProfileJson), start,end,
                 detailCutoff=RetentionService.Cutoff(RetentionService.Today(user.ProfileJson),retention.DetailDays),detailDays=retention.DetailDays,

@@ -1,20 +1,16 @@
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
+import {signIn as signInPage} from './signIn';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
-const credentials={username:'sync-feedback',password:'nutrition sync feedback 2026'};
 
 test.beforeAll(async({request})=>{
   expect((await request.post('/api/auth/dev-reset',{headers})).ok()).toBeTruthy();
 });
 
 test('fast saves keep server feedback readable through completion',async({page,context})=>{
-  await page.goto('/');
-  await page.getByRole('button',{name:'New here? Create an account',exact:true}).click();
-  await page.getByLabel('Username',{exact:true}).fill(credentials.username);
-  await page.getByLabel('Password',{exact:true}).fill(credentials.password);
-  await page.getByRole('button',{name:'Create account',exact:true}).click();
+  await signInPage(page, 'test-alice');
   await expect(page.getByRole('heading',{name:'Set up profile',exact:true})).toBeVisible();
 
   const state=await (await context.request.get('/api/state')).json();
@@ -85,4 +81,3 @@ test('fast saves keep server feedback readable through completion',async({page,c
   await expect(weightModal).toHaveCount(0);
   await expect(weighInBtn).toBeFocused();
 });
-

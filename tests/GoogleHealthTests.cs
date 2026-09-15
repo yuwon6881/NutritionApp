@@ -55,7 +55,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
 
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "user1", Slot = 1 });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "user1", IdentitySubject = "sub_user1" });
             await db.SaveChangesAsync();
         }
 
@@ -109,8 +109,8 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         await using (var db = Open())
         {
             db.Users.AddRange(
-                new AppUser { Id = userA, Username = "usera", Slot = 1 },
-                new AppUser { Id = userB, Username = "userb", Slot = 2 }
+                new AppUser { Id = userA, DisplayName = "usera", IdentitySubject = "sub_usera" },
+                new AppUser { Id = userB, DisplayName = "userb", IdentitySubject = "sub_userb" }
             );
             await db.SaveChangesAsync();
         }
@@ -154,7 +154,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var userId = Guid.NewGuid();
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "encrypt_test", Slot = 1 });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "encrypt_test", IdentitySubject = "sub_encrypt_test" });
             await db.SaveChangesAsync();
         }
 
@@ -214,7 +214,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
 
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "sync_user", Slot = 1, ProfileJson = Json.Write(profile) });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "sync_user", IdentitySubject = "sub_sync_user", ProfileJson = Json.Write(profile) });
             await db.SaveChangesAsync();
         }
 
@@ -283,7 +283,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var userId = Guid.NewGuid();
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "stale_user", Slot = 1 });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "stale_user", IdentitySubject = "sub_stale_user" });
             await db.SaveChangesAsync();
         }
 
@@ -343,7 +343,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var userId = Guid.NewGuid();
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "revoke_user", Slot = 1 });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "revoke_user", IdentitySubject = "sub_revoke_user" });
             await db.SaveChangesAsync();
         }
 
@@ -402,7 +402,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var userId = Guid.NewGuid();
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "disc_user", Slot = 1 });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "disc_user", IdentitySubject = "sub_disc_user" });
             await db.SaveChangesAsync();
         }
 
@@ -442,7 +442,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
 
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "signout_user", Slot = 1 });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "signout_user", IdentitySubject = "sub_signout_user" });
             db.Sessions.Add(new Session { Hash = sessionHash, UserId = userId, Expires = DateTime.UtcNow.AddDays(7) });
             await db.SaveChangesAsync();
         }
@@ -476,7 +476,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var userId = Guid.NewGuid();
         await using (var db = Open(userId))
         {
-            db.Users.Add(new AppUser { Id = userId, Username = "export_user", Slot = 1 });
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "export_user", IdentitySubject = "sub_export_user" });
             await db.SaveChangesAsync();
         }
 

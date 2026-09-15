@@ -70,7 +70,7 @@ export function PrivacyPage() {
           When you use NutritionApp, we store the information necessary to provide your nutrition diary and progress tracking:
         </p>
         <ul>
-          <li><strong>Account Information:</strong> Your chosen username and salted, hashed password.</li>
+          <li><strong>Account Information:</strong> Your central Fitness Account display name and identifier.</li>
           <li><strong>Diary Entries & Foods:</strong> Foods, portion sizes, macronutrient details, recipes, and timestamps you log.</li>
           <li><strong>Body Measurements & Weigh-Ins:</strong> Scale weights, trend calculations, optional body circumference measurements, and optional private physique photos.</li>
           <li><strong>Google Health Steps Data:</strong> If you connect Google Health, we read daily aggregated step counts for today and the preceding 30 calendar days.</li>

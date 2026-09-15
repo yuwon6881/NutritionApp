@@ -80,7 +80,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
     <header className="page-heading">
       <div>
         <h1 data-page-heading tabIndex={-1}>Settings</h1>
-        <p>{state.username}</p>
+        <p>{state.displayName}</p>
       </div>
       <Button variant="secondary" onClick={()=>void action(onLogout)}>Sign out</Button>
     </header>

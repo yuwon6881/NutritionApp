@@ -12,7 +12,7 @@ public class RetentionTests
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
         var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();
-        var user=await new AuthService(db,config).Register("alice","a long enough password",default);db.CurrentUser=user.Id;
+        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
         var today=new DateOnly(2026,9,7);var old=today.AddDays(-10);
         db.Entries.AddRange(new DiaryEntry { Id=Guid.NewGuid(),UserId=user.Id,Date=old,Name="Rice",Calories=200,Protein=null,Carbs=40,Fat=2 },new DiaryEntry { Id=Guid.NewGuid(),UserId=user.Id,Date=old,Name="Egg",Calories=100,Protein=6,Carbs=1,Fat=7 });
         db.Days.Add(new DayStatus { Id=Guid.NewGuid(),UserId=user.Id,Date=old,Status="complete" });
@@ -29,7 +29,7 @@ public class RetentionTests
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();var user=await new AuthService(db,config).Register("alice","a sufficiently long password",default);db.CurrentUser=user.Id;
+        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
         var today=new DateOnly(2026,9,7);var weights=new List<WeightPoint>();
         for(var i=1;i<=28;i++){var date=today.AddDays(-i);weights.Add(new(date,80));db.Entries.Add(new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Name="Daily total",Calories=2500});db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Status="complete"});}
         await db.SaveChangesAsync();

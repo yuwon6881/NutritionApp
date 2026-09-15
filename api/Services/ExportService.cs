@@ -118,7 +118,8 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
             await writer.WriteAsync(Csv.Line(Csv.Field("key"), Csv.Field("value")));
             var rows = new (string Key, string? Value)[] {
                 ("id", user.Id.ToString("D")),
-                ("username", user.Username),
+                ("display_name", user.DisplayName),
+                ("username", user.DisplayName),
                 ("revision", user.Revision.ToString(CultureInfo.InvariantCulture)),
                 ("profile_revision", user.ProfileRevision.ToString(CultureInfo.InvariantCulture)),
                 ("coaching_settings_revision", user.CoachingSettingsRevision.ToString(CultureInfo.InvariantCulture)),

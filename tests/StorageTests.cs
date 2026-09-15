@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
+using Nutrition.Api.Endpoints;
 using System.Text.Json;
 using Xunit;
 
@@ -14,7 +15,7 @@ public sealed class StorageTests : IAsyncLifetime
     public async Task InitializeAsync() { await using var db = Open(); await db.Database.EnsureCreatedAsync(); }
     public Task DisposeAsync() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(path); return Task.CompletedTask; }
     private static IConfiguration Config => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Auth:MaxUsers"] = "2" }).Build();
-    private async Task<AppUser> User(string name) { await using var db = Open(); return await new AuthService(db,Config).Register(name,"a sufficiently long password",default); }
+    private async Task<AppUser> User(string name) { await using var db = Open(); return await CentralAuthEndpoints.ProvisionOrGetUser(db, Config, $"sub_{name}", name, default); }
     [Fact] public async Task Food_portion_migration_is_discoverable()
     {
         await using var db = Open();

@@ -17,3 +17,4 @@ appsettings.Local.json
 *.tsbuildinfo
 *.local.json
 *.local.txt
+web/e2e/.auth/

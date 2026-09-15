@@ -1,5 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
+import {signInApi} from './signIn';
 
 const headers={Origin:process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088','X-Nutrition-Request':'1'};
 const profile={dateOfBirth:'1996-03-14',age:30,heightCm:170,weightKg:81,sex:'female',activity:1.4,goal:'maintain',maintenance:2500,timeZone:'Asia/Kuala_Lumpur',phaseMode:'open',goalRatePercent:0,distributionShares:null,energyAdjustmentPercent:0};
@@ -9,12 +10,7 @@ test.describe.configure({mode:'serial'});
 test.beforeEach(async({page,context})=>{
   await page.emulateMedia({reducedMotion:'no-preference'});
   expect((await context.request.post('/api/auth/dev-reset',{headers})).ok()).toBeTruthy();
-  const credentials={username:'coach-motion',password:'nutrition test password 2026'};
-  let registered=await context.request.post('/api/auth/register',{headers,data:credentials});
-  for(let i=0;registered.status()===429&&i<12;i++){
-    await new Promise(resolve=>setTimeout(resolve,5000));
-    registered=await context.request.post('/api/auth/register',{headers,data:credentials});
-  }
+  const registered=await signInApi(context.request,'coach-motion');
   expect(registered.ok()).toBeTruthy();
   const state=await (await context.request.get('/api/state')).json();
   expect((await context.request.post('/api/sync',{headers,data:{id:randomUUID(),kind:'profile',recordId:state.id,expectedRevision:0,data:profile}})).ok()).toBeTruthy();
