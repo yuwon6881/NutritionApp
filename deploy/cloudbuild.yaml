@@ -75,3 +75,7 @@ substitutions:
   # nourish-api one, which left photo upload and AI scanning returning 503 on the live service.
   _PHYSIQUE_BUCKET: 'financialapp-vault-396431756440'
   _SCAN_BUCKET: 'nourish-scans-396431756440'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
