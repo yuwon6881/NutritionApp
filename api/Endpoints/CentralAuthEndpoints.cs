@@ -95,7 +95,7 @@ public static class CentralAuthEndpoints
 
             var session = await auth.CreateSession(user.Id, ct);
             response.Cookies.Append(AuthService.Cookie, session, new CookieOptions { HttpOnly = true, Secure = !environment.IsDevelopment(), SameSite = SameSiteMode.Lax, Path = "/", MaxAge = TimeSpan.FromDays(30), IsEssential = true });
-            return Results.Redirect(state.ReturnUrl);
+            return Results.Redirect(AppendQuery(state.ReturnUrl, "auth=1"));
         });
     }
 
@@ -213,7 +213,9 @@ public static class CentralAuthEndpoints
 
     private static string RandomString(int bytes) => Convert.ToBase64String(RandomNumberGenerator.GetBytes(bytes)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
     private static string AppendError(string returnUrl, string error)
-        => $"{returnUrl}{(returnUrl.Contains('?') ? '&' : '?')}central_error={Uri.EscapeDataString(error)}";
+        => AppendQuery(returnUrl, $"central_error={Uri.EscapeDataString(error)}");
+    private static string AppendQuery(string url, string query)
+        => $"{url}{(url.Contains('?') ? '&' : '?')}{query}";
     private static CookieOptions CookieOptions(IHostEnvironment environment, TimeSpan lifetime)
         => new() { HttpOnly = true, Secure = !environment.IsDevelopment(), SameSite = environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None, Path = "/", MaxAge = lifetime };
 

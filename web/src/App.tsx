@@ -136,6 +136,12 @@ export default function App(){
     const stopWatchingTheme=watchTheme();
     let active=true;
     void (async()=>{
+      const params=typeof window!=='undefined'?new URLSearchParams(window.location.search):null;
+      if(params?.has('auth')){
+        try{localStorage.removeItem('nourish-signed-out');}catch{}
+        const cleanUrl=window.location.pathname+(window.location.hash||'');
+        window.history.replaceState(null,'',cleanUrl);
+      }
       if(localStorage.getItem('nourish-signed-out')==='1'){setUser(null);return;}
       const previous=localStorage.getItem('nourish-account');let cached=false;
       try{cached=!!previous&&!!await readLocal(previous);}catch{/* Try the server if local storage is unavailable. */}

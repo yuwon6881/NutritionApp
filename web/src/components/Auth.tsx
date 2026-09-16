@@ -23,7 +23,10 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
         <h2>Sign in</h2>
         <p className="source">Sign in with your Fitness Account to access your diary.</p>
         {error&&<p className="error" role="alert">{error}</p>}
-        <Button variant="primary" type="button" onClick={()=>{window.location.href='/api/auth/central/start';}}>
+        <Button variant="primary" type="button" onClick={()=>{
+          try{localStorage.removeItem('nourish-signed-out');}catch{}
+          window.location.href='/api/auth/central/start';
+        }}>
           Sign in with Fitness Account<ArrowRight size={18}/>
         </Button>
         <footer className="auth-footer">
