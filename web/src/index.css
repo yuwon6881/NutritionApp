@@ -369,7 +369,7 @@ summary{cursor:pointer}
 }
 
 /* Range inputs are drawn from theme tokens so the unfilled track is never a browser default. */
-input[type=range]{appearance:none;-webkit-appearance:none;background:transparent;border:none;padding:0;width:100%;height:44px;min-height:44px;cursor:pointer;--range-fill:50%;--range-color:var(--primary)}
+input[type=range]{appearance:none;-webkit-appearance:none;background:transparent;border:none;padding:0;width:100%;height:44px;min-height:44px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;--range-fill:50%;--range-color:var(--primary)}
 input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:8px;background:linear-gradient(to right,var(--range-color) 0 var(--range-fill),var(--track) var(--range-fill) 100%)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-6px;border-radius:50%;background:var(--range-color);border:3px solid var(--card);box-shadow:0 0 0 1px var(--border)}
 input[type=range]::-moz-range-track{height:8px;border-radius:8px;background:var(--track)}
@@ -379,6 +379,18 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .macro-range.carbs{--range-color:var(--carbs)}
 .macro-range.fat{--range-color:var(--fat)}
 @media(min-width:1024px){input[type=range]{height:36px;min-height:36px}}
+
+/* Custom accessible pointer-captured Slider component */
+.slider-value-display{display:flex;align-items:center}
+.slider-current-badge{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--muted);border:1px solid var(--border);font-size:.75rem;font-weight:600;color:var(--primary-ink);font-variant-numeric:tabular-nums}
+.custom-slider{position:relative;display:flex;align-items:center;width:100%;height:44px;min-height:44px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
+.custom-slider:focus-visible{outline:none}
+.custom-slider:focus-visible .custom-slider-thumb{outline:2px solid var(--ring);outline-offset:2px}
+.custom-slider-track{position:relative;width:100%;height:8px;border-radius:999px;background:var(--track);overflow:hidden}
+.custom-slider-fill{height:100%;background:var(--primary);border-radius:inherit;transition:width 60ms linear}
+.custom-slider-thumb{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--primary);border:3px solid var(--card);box-shadow:0 0 0 1px var(--border),0 2px 4px rgba(0,0,0,.15);transform:translate(-50%,-50%);transition:transform 120ms ease,box-shadow 120ms ease;pointer-events:none}
+.custom-slider:hover .custom-slider-thumb{transform:translate(-50%,-50%) scale(1.1)}
+.custom-slider:active .custom-slider-thumb{transform:translate(-50%,-50%) scale(1.15)}
 
 /* Coach motion: semantic colors, one live form, no clipped popovers. */
 :root{--coach-ease:cubic-bezier(.2,.8,.2,1);--coach-short:160ms;--coach-layout:220ms}
@@ -836,26 +848,76 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* The macro editor is intentionally divided into preset, adjustment, distribution, and review steps. */
 .step-description{max-width:58ch;margin:-4px 0 20px;font-size:.82rem}
 .macro-selection-note{margin:14px 0 0}
-.macro-review-summary{padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--muted)}
-.macro-review-summary .section-heading{margin-bottom:16px}
-.macro-review-summary .section-heading h3{margin:0 0 4px}
-.macro-review-summary .section-heading p{margin:0;font-size:.78rem}
-.macro-review-summary .strategy-figures{margin-bottom:18px}
-.macro-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding-top:16px;border-top:1px solid var(--border)}
-.macro-review-grid>div{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:5px 8px;font-size:.8rem}
-.macro-review-grid>div>strong{grid-column:2;font-size:.92rem}
-.macro-review-grid>div>strong small{margin-left:4px;font-size:.72rem;font-weight:400}
-.weekly-review-summary{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);font-size:.8rem}
-.weekly-review-summary>div{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:10px}
-.weekly-review-summary span{display:grid;gap:3px;font-variant-numeric:tabular-nums}
-.weekly-review-summary span small{font-size:.68rem}
-@media(min-width:640px) and (max-width:1023px){.guided-stepper{grid-template-columns:repeat(4,minmax(0,1fr))}}
+/* Step 4: Starting Macro Pattern Grid */
+.macro-preset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 24px}
+.macro-preset-card{appearance:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:left;cursor:pointer;transition:all var(--motion-control) var(--motion-ease);display:flex;flex-direction:column;gap:10px;width:100%;color:var(--foreground)}
+.macro-preset-card:hover:not(.selected){border-color:var(--ring);background:var(--muted)}
+.macro-preset-card.selected{border-color:var(--primary);background:var(--primary-tint);box-shadow:0 0 0 1px var(--primary)}
+.macro-preset-card:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.macro-preset-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.macro-preset-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.macro-preset-name{font-size:.9rem;font-weight:600;color:var(--ink-strong)}
+.macro-preset-badge{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:999px;background:var(--card);color:var(--primary-ink);border:1px solid var(--border)}
+.macro-preset-radio{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border);display:grid;place-items:center;flex-shrink:0;transition:border-color .15s ease}
+.macro-preset-card.selected .macro-preset-radio{border-color:var(--primary);background:var(--primary)}
+.macro-preset-radio-inner{width:6px;height:6px;border-radius:50%;background:#fff}
+.macro-preset-desc{margin:0;font-size:.78rem;color:var(--muted-foreground);line-height:1.45;flex:1}
+.macro-preset-bar{height:6px;border-radius:999px;overflow:hidden;display:flex;width:100%;background:var(--track)}
+.macro-bar-segment{height:100%;transition:width var(--motion-panel) var(--motion-ease)}
+.macro-bar-segment.protein{background:var(--protein)}
+.macro-bar-segment.carbs{background:var(--carbs)}
+.macro-bar-segment.fat{background:var(--fat)}
+.macro-preset-stats{display:flex;gap:12px;flex-wrap:wrap;font-size:.74rem;color:var(--muted-foreground);padding-top:4px}
+.macro-stat{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.macro-stat strong{color:var(--ink-strong);font-weight:600}
+.macro-stat small{color:var(--muted-foreground)}
+
+/* Step 7: Review Summary Enhancements */
+.macro-review-summary{padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--muted);display:flex;flex-direction:column;gap:20px}
+.macro-review-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.macro-review-header h3{margin:0 0 4px;font-size:1.1rem;color:var(--ink-strong)}
+.macro-review-subtitle{margin:0;font-size:.78rem;color:var(--muted-foreground)}
+.macro-review-pattern-pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:.74rem;font-weight:600;color:var(--primary-ink)}
+
+.summary-metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.summary-metric-tile{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.summary-metric-label{font-size:.66rem;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground)}
+.summary-metric-val{font-size:1.15rem;font-weight:650;color:var(--ink-strong);line-height:1.2;font-variant-numeric:tabular-nums}
+.summary-metric-val.highlight{color:var(--primary-ink)}
+.summary-metric-sub{font-size:.72rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+
+.macro-summary-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.macro-summary-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.macro-summary-title{font-size:.8rem;font-weight:650;color:var(--ink-strong)}
+.macro-summary-total{font-size:.72rem;color:var(--muted-foreground)}
+.macro-summary-bar{height:8px;border-radius:999px;overflow:hidden;display:flex;width:100%;background:var(--track)}
+
+.macro-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.macro-review-chip{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--muted);display:flex;flex-direction:column;gap:3px}
+.macro-chip-head{display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--muted-foreground)}
+.macro-chip-pct{font-size:1.1rem;font-weight:650;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.macro-chip-meta{font-size:.72rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+
+.weekly-review-summary{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.weekly-summary-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.weekly-summary-head strong{font-size:.8rem;font-weight:650;color:var(--ink-strong)}
+.weekly-summary-sub{font-size:.72rem;color:var(--muted-foreground)}
+.weekly-chips-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.weekly-day-chip{background:var(--muted);border:1px solid var(--border);border-radius:9px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
+.weekly-day-chip.variable{border-color:var(--primary);background:var(--primary-tint)}
+.weekly-day-name{font-size:.66rem;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em}
+.weekly-day-val{font-size:.86rem;font-weight:650;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+
+@media(min-width:640px) and (max-width:1023px){
+  .guided-stepper{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .summary-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media(max-width:639px){
-  .macro-review-summary{padding:14px}
+  .macro-preset-grid{grid-template-columns:1fr}
+  .macro-review-summary{padding:14px;gap:14px}
+  .summary-metrics-grid{grid-template-columns:1fr}
   .macro-review-grid{grid-template-columns:1fr}
-  .macro-review-grid>div{grid-template-columns:auto minmax(0,1fr) auto}
-  .macro-review-grid>div>strong{grid-column:3;grid-row:1}
-  .weekly-review-summary>div{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .weekly-chips-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 
 .unit-preferences{margin:20px 0 0;padding:16px;border-radius:13px}

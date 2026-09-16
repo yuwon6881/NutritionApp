@@ -36,7 +36,7 @@ const defaults:ProfileDraft={
   pregnancyOrBreastfeeding:false,
   medicalNutrition:false,
   timeZone:'Asia/Kuala_Lumpur',
-  phaseMode:'open',
+  phaseMode:'weight',
   durationWeeks:8,
   phaseStart:null,
   targetWeightKg:null,
@@ -115,7 +115,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       ...(key==='goal'?{
         goalRatePercent:value==='lose'?-0.5:value==='gain'?0.15:0,
         energyAdjustmentPercent:value==='lose'?15:value==='gain'?5:0,
-        ...(value==='maintain'?{phaseMode:'open' as const}:{})
+        ...(value==='maintain'?{phaseMode:'open' as const}:{phaseMode:'weight' as const})
       }:{})
     }));
     setProposal(undefined);
@@ -137,7 +137,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
   const retryRefresh=async()=>{await refreshTargets();if(proposalFlow.operation!=='refresh-error')setReview(false);};
 
-  const live=calculateLivePace(profile,undefined,acceptedPlan?.expenditure,current);
+  const latestExpenditure=store.state!.energyEstimates?.filter(point=>point.expenditure!=null).sort((left,right)=>left.date.localeCompare(right.date)).at(-1)?.expenditure;
+  const live=calculateLivePace(profile,undefined,latestExpenditure??acceptedPlan?.expenditure,current);
   const weeklyValues=weeklyDraft??(profile.distributionShares?.length===7
     ?allocateWeeklyCalories(live.weeklyCalories,profile.distributionShares)
     :live.dailyCalories);
@@ -445,24 +446,97 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       {step==='review'&&<div className="step-content">
         <p className="step-description">Review your choices before saving this profile and calculating targets.</p>
         <section className="macro-review-summary" aria-labelledby="macro-review-title">
-          <div className="section-heading">
-            <div><h3 id="macro-review-title">Plan summary</h3><p>{presetLabel(selectedPresetId)} macro pattern</p></div>
+          <div className="macro-review-header">
+            <div>
+              <h3 id="macro-review-title">Plan summary</h3>
+              <p className="macro-review-subtitle">Review your baseline setup before generating your coached program.</p>
+            </div>
+            <span className="macro-review-pattern-pill">{presetLabel(selectedPresetId)} macro pattern</span>
           </div>
-          <dl className="strategy-figures">
-            <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
-            <div><dt>Daily target</dt><dd>{displayEnergy(live.target,units.energy)} {energyLabel(units.energy)}</dd></div>
-            <div><dt>Weekly budget</dt><dd>{displayEnergy(live.weeklyCalories,units.energy)} {energyLabel(units.energy)}</dd></div>
-          </dl>
-          <div className="macro-review-grid">
-            {macroKeys.map(key=><div key={key}>
-              <span className={`macro-swatch ${key}`} aria-hidden="true"/>
-              <span>{macroLabels[key]}</span>
-              <strong>{split[key]}% <small>{reviewGrams[key]} g</small></strong>
-            </div>)}
+
+          <div className="summary-metrics-grid">
+            <div className="summary-metric-tile">
+              <span className="summary-metric-label">Goal</span>
+              <strong className="summary-metric-val">{goalLabel(profile.goal||'maintain')}</strong>
+              {profile.goalRatePercent && profile.goal !== 'maintain' ? (
+                <span className="summary-metric-sub">{profile.goalRatePercent > 0 ? '+' : ''}{profile.goalRatePercent}% / week</span>
+              ) : null}
+            </div>
+            <div className="summary-metric-tile">
+              <span className="summary-metric-label">{profile.phaseMode === 'duration' ? 'Phase duration' : 'Target weight'}</span>
+              <strong className="summary-metric-val">
+                {profile.phaseMode === 'duration'
+                  ? `${profile.durationWeeks ?? 8} weeks`
+                  : profile.targetWeightKg != null
+                    ? `${displayWeight(profile.targetWeightKg, units.weight, 1)} ${weightLabel(units.weight)}`
+                    : 'Ongoing'}
+              </strong>
+              {profile.phaseMode === 'weight' && profile.targetWeightKg != null && (profile.phaseStartWeightKg ?? profile.weightKg) ? (
+                <span className="summary-metric-sub">
+                  From {displayWeight(profile.phaseStartWeightKg ?? profile.weightKg, units.weight, 1)} {weightLabel(units.weight)}
+                </span>
+              ) : null}
+            </div>
+            <div className="summary-metric-tile">
+              <span className="summary-metric-label">Daily target</span>
+              <strong className="summary-metric-val highlight">{displayEnergy(live.target, units.energy)}</strong>
+              <span className="summary-metric-sub">{energyLabel(units.energy)} / day</span>
+            </div>
+            <div className="summary-metric-tile">
+              <span className="summary-metric-label">Weekly budget</span>
+              <strong className="summary-metric-val">{displayEnergy(live.weeklyCalories, units.energy)}</strong>
+              <span className="summary-metric-sub">{energyLabel(units.energy)} / week</span>
+            </div>
           </div>
+
+          <div className="macro-summary-section">
+            <div className="macro-summary-section-head">
+              <span className="macro-summary-title">Macro distribution</span>
+              <span className="macro-summary-total">100% split</span>
+            </div>
+            <div className="macro-summary-bar" aria-hidden="true">
+              <div className="macro-bar-segment protein" style={{width: `${split.protein}%`}} />
+              <div className="macro-bar-segment carbs" style={{width: `${split.carbs}%`}} />
+              <div className="macro-bar-segment fat" style={{width: `${split.fat}%`}} />
+            </div>
+            <div className="macro-review-grid">
+              {macroKeys.map(key => {
+                const kcal = Math.round(reviewGrams[key] * (key === 'fat' ? 9 : 4));
+                return (
+                  <div key={key} className={`macro-review-chip ${key}`}>
+                    <div className="macro-chip-head">
+                      <span className={`macro-swatch ${key}`} aria-hidden="true" />
+                      <span className="macro-chip-name">{macroLabels[key]}</span>
+                    </div>
+                    <strong className="macro-chip-pct">{split[key]}%</strong>
+                    <span className="macro-chip-meta">{reviewGrams[key]} g <small>({displayEnergy(kcal, units.energy)} {energyLabel(units.energy)})</small></span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="weekly-review-summary">
-            <strong>Daily calories</strong>
-            <div>{weeklyValues.map((value,index)=><span key={index}><small>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]}</small>{displayEnergy(value,units.energy)}</span>)}</div>
+            <div className="weekly-summary-head">
+              <strong>Daily calorie schedule</strong>
+              <span className="weekly-summary-sub">
+                {profile.distributionShares && !profile.distributionShares.every((v, _, a) => Math.abs(v - a[0]) < 0.01)
+                  ? 'Custom schedule'
+                  : 'Balanced daily targets'}
+              </span>
+            </div>
+            <div className="weekly-chips-grid">
+              {weeklyValues.map((value, index) => {
+                const dayName = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index];
+                const isDiff = Math.abs(value - live.target) > 5;
+                return (
+                  <div key={index} className={`weekly-day-chip ${isDiff ? 'variable' : ''}`}>
+                    <span className="weekly-day-name">{dayName}</span>
+                    <strong className="weekly-day-val">{displayEnergy(value, units.energy)}</strong>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
         <div className="step-actions">

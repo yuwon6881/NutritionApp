@@ -4,6 +4,17 @@ import type {MacroKey,MacroSplit} from '../lib/macros';
 import {adjustSplit,gramsFromSplit,macroEnergy,macroKeys,macroLabels,macroLimits,macroPresetId,macroPresets} from '../lib/macros';
 import {SegmentedControl} from './ui/SegmentedControl';
 
+const presetDescriptions:Record<string,string>={
+  auto:'Calculated optimal protein intake based on your body weight and training, with balanced carbs and fats.',
+  balanced:'Equal emphasis on macronutrients for dietary flexibility and varied whole foods.',
+  'high-protein':'Elevated protein to maximize muscle preservation, satiety, and recovery.',
+  'lower-carb':'Reduced carbohydrate intake with higher healthy fats and satisfying protein.',
+  keto:'Very low carbohydrate ketogenic protocol focused on healthy dietary fats.',
+  mediterranean:'Heart-healthy fat profile paired with unrefined carbohydrates and moderate protein.',
+  'high-carb':'Carbohydrate-focused fueling suited for high-volume endurance and athletic performance.',
+  custom:'Custom macronutrient distribution fine-tuned to your preferences.'
+};
+
 /**
  * Dragging sliders moves energy between macronutrients.
  * Presets re-align the shares in one touch.
@@ -32,9 +43,59 @@ export function MacroSetup({
     ?[...macroPresets,{id:'custom',label:'Custom',split}]
     :macroPresets;
   return <div className="macro-setup">
-    {mode!=='adjustments'&&<SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm" layout="wrap"
-      options={presetOptions.map(preset=>({value:preset.id,label:preset.label}))}
-      onChange={id=>{const preset=presetOptions.find(item=>item.id===id);if(preset)onPreset(preset.id,preset.split);}}/>}
+    {mode==='presets'?(
+      <div className="macro-preset-grid" role="radiogroup" aria-label="Macro presets">
+        {presetOptions.map(preset=>{
+          const isSelected=active===preset.id;
+          const targetSplit=preset.split??split;
+          const targetGrams=gramsFromSplit(calories,targetSplit);
+          return (
+            <button
+              type="button"
+              key={preset.id}
+              className={`macro-preset-card ${isSelected?'selected':''}`}
+              onClick={()=>onPreset(preset.id,preset.split)}
+              role="radio"
+              aria-checked={isSelected}
+            >
+              <div className="macro-preset-card-header">
+                <div className="macro-preset-title-row">
+                  <span className="macro-preset-name">{preset.label}</span>
+                  {preset.id==='auto'&&<span className="macro-preset-badge">Recommended</span>}
+                </div>
+                <div className="macro-preset-radio" aria-hidden="true">
+                  {isSelected&&<div className="macro-preset-radio-inner"/>}
+                </div>
+              </div>
+              <p className="macro-preset-desc">{presetDescriptions[preset.id]??''}</p>
+              <div className="macro-preset-bar" aria-hidden="true">
+                <div className="macro-bar-segment protein" style={{width:`${targetSplit.protein}%`}}/>
+                <div className="macro-bar-segment carbs" style={{width:`${targetSplit.carbs}%`}}/>
+                <div className="macro-bar-segment fat" style={{width:`${targetSplit.fat}%`}}/>
+              </div>
+              <div className="macro-preset-stats">
+                <span className="macro-stat protein">
+                  <span className="macro-swatch protein" aria-hidden="true"/>
+                  <span>Protein</span> <strong>{targetSplit.protein}%</strong> <small>{targetGrams.protein}g</small>
+                </span>
+                <span className="macro-stat carbs">
+                  <span className="macro-swatch carbs" aria-hidden="true"/>
+                  <span>Carbs</span> <strong>{targetSplit.carbs}%</strong> <small>{targetGrams.carbs}g</small>
+                </span>
+                <span className="macro-stat fat">
+                  <span className="macro-swatch fat" aria-hidden="true"/>
+                  <span>Fat</span> <strong>{targetSplit.fat}%</strong> <small>{targetGrams.fat}g</small>
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    ):mode!=='adjustments'?(
+      <SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm" layout="wrap"
+        options={presetOptions.map(preset=>({value:preset.id,label:preset.label}))}
+        onChange={id=>{const preset=presetOptions.find(item=>item.id===id);if(preset)onPreset(preset.id,preset.split);}}/>
+    ):null}
     {mode!=='presets'&&<div className="macro-rows">
       {macroKeys.map(key=><div className="macro-row" key={key}>
         <label className="macro-row-head" htmlFor={`macro-${key}`}>

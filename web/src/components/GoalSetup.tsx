@@ -1,8 +1,8 @@
-import type {CSSProperties} from 'react';
 import type {ProfileDraft,UnitPreferences} from '../types';
 import {today} from '../lib/format';
-import {calculateLivePace} from '../lib/coachCalc';
+import {calculateLivePace,profileAge} from '../lib/coachCalc';
 import {Field,SelectField} from './ui/Field';
+import {Slider} from './ui/Slider';
 import {DatePicker} from './ui/DatePicker';
 import {CoachLayout,CoachNumber} from './ui/CoachMotion';
 import {displayEnergy,energyLabel,inputWeight,parseWeight,weightLabel} from '../lib/units';
@@ -21,12 +21,18 @@ export function GoalSetup({
   const loss=profile.goal==='lose';
   const paced=profile.goal&&profile.goal!=='maintain';
   const rate=profile.goalRatePercent??(loss?-0.5:profile.goal==='gain'?0.15:0);
-  const mode=profile.phaseMode??'open';
+  const mode=profile.phaseMode??(profile.goal==='maintain'?'open':'weight');
   const current=today(profile.timeZone);
   const live=calculateLivePace(profile,undefined,acceptedExpenditure,current);
+  const bmi=profile.heightCm>0?profile.weightKg/Math.pow(profile.heightCm/100,2):null;
+  const blockedReason=profileAge(profile,current)<18||profile.pregnancyOrBreastfeeding||profile.medicalNutrition
+    ?'Automated targets are unavailable for this profile. You can still keep a food and weight diary.'
+    :loss&&bmi!=null&&bmi<18.5?'Weight-loss coaching is unavailable at an underweight BMI.':null;
 
   return <CoachLayout className="goal-setup">
-    <div className="live-calorie-card">
+    {blockedReason?<div className="live-calorie-card">
+      <p className="source">{blockedReason}</p>
+    </div>:<div className="live-calorie-card">
       <div className="live-calorie-header">
         <span className="live-calorie-tag">ESTIMATED TARGET</span>
         <div className="live-calorie-value">
@@ -37,35 +43,36 @@ export function GoalSetup({
         <span>Maintenance ~{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</span>
         {paced&&<span className="live-delta">{live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate)}% bodyweight/week</span>}
       </div>
-    </div>
+    </div>}
 
-    {paced&&<Field
+    {paced&&<Slider
       id="goal-rate"
       name="goalRatePercent"
       label="Rate (% bodyweight per week)"
-      type="range"
-      min={loss?'-1.5':'0.05'}
-      max={loss?'-0.1':'0.5'}
-      step="0.05"
+      min={loss?-1.5:0.05}
+      max={loss?-0.1:0.5}
+      step={0.05}
       value={rate}
-      style={{'--range-fill':`${Math.round((loss?(rate+1.5)/1.4:(rate-.05)/.45)*100)}%`} as CSSProperties}
-      aria-label="Rate (% bodyweight per week)"
-      aria-valuetext={`${rate}% bodyweight per week`}
-      onChange={e=>set('goalRatePercent',Number(e.target.value))}
+      formatValue={v => `${v > 0 ? '+' : ''}${v.toFixed(2)}% / week`}
+      ariaLabel="Rate (% bodyweight per week)"
+      onChange={v=>set('goalRatePercent',v)}
       hint={loss?'Allowed: 0.1–1.5% loss per week. A sustainable range is 0.5–1.0%.':'Allowed: 0.05–0.5% gain per week. A sustainable range is 0.1–0.25%.'}
     />}
     {!paced&&<p className="source">Maintenance uses a fixed 0% bodyweight change rate.</p>}
 
-    <SelectField id="goal-phase-mode" name="phaseMode" label="Track my goal by" value={mode} onChange={v=>{
-      set('phaseMode',v);
-      if(v==='duration'&&!profile.durationWeeks)set('durationWeeks',8);
-      set('phaseStart',current);
-      set('phaseStartWeightKg',profile.weightKg>0?profile.weightKg:null);
-    }}>
-      <option value="open">Ongoing phase</option>
-      <option value="duration">Duration</option>
-      <option value="weight" disabled={!profile.goal||profile.goal==='maintain'}>Target weight</option>
-    </SelectField>
+    {paced?(
+      <SelectField id="goal-phase-mode" name="phaseMode" label="Track my goal by" value={mode} onChange={v=>{
+        set('phaseMode',v);
+        if(v==='duration'&&!profile.durationWeeks)set('durationWeeks',8);
+        set('phaseStart',current);
+        set('phaseStartWeightKg',profile.weightKg>0?profile.weightKg:null);
+      }}>
+        <option value="weight">Target weight</option>
+        <option value="duration">Duration</option>
+      </SelectField>
+    ):(
+      <p className="source">Maintenance is tracked as an ongoing phase.</p>
+    )}
 
     {mode==='duration'&&<div className="form-grid coach-disclosure">
       <Field id="goal-duration-weeks" name="durationWeeks" label="Phase length (weeks)" required type="number" min="1" max="104" value={profile.durationWeeks??8} onChange={e=>set('durationWeeks',Number(e.target.value))}/>
