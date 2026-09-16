@@ -58,7 +58,7 @@ public static class ExpenditureTrajectory
                 _ => 0
             };
         var rounded = Math.Round((expenditure + change) / 25, MidpointRounding.AwayFromZero) * 25;
-        var floor = Math.Ceiling(Math.Max(1500, expenditure * .75) / 25) * 25;
+        var floor = profile.GoalRatePercent is not null ? 1000 : Math.Ceiling(Math.Max(1500, expenditure * .75) / 25) * 25;
         return (int)Math.Max(rounded, floor);
     }
 }

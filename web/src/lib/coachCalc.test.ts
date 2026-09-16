@@ -55,21 +55,29 @@ describe('coachCalc', ()=>{
     expect(pace.split).toEqual({protein:25,carbs:5,fat:70});
   });
 
-  it('identifies when calorie safety floor moderates target and updates change accordingly', ()=>{
-    const floored=calculateLivePace({...base,weightKg:65,maintenance:2263,goal:'lose',goalRatePercent:-1.0});
-    expect(floored.expenditure).toBe(2263);
-    expect(floored.target).toBe(1700);
+  it('calculates explicit slider pace directly without 25% hard clamp', ()=>{
+    const pace=calculateLivePace({...base,weightKg:65,maintenance:2263,goal:'lose',goalRatePercent:-0.95});
+    expect(pace.expenditure).toBe(2263);
+    expect(pace.target).toBe(1575);
+    expect(pace.isFloored).toBe(false);
+    expect(pace.rawChange).toBe(-679);
+
+    const steeper=calculateLivePace({...base,weightKg:65,maintenance:2263,goal:'lose',goalRatePercent:-1.0});
+    expect(steeper.target).toBe(1550);
+  });
+
+  it('preserves conservative safety floors when no explicit pace rate is set', ()=>{
+    const floored=calculateLivePace({...base,maintenance:2000,goal:'lose',goalRatePercent:null,energyAdjustmentPercent:30});
+    expect(floored.expenditure).toBe(2000);
+    expect(floored.target).toBe(1500);
     expect(floored.isFloored).toBe(true);
-    expect(floored.rawChange).toBe(-715);
-    expect(floored.change).toBe(-563);
-    expect(floored.expenditure + floored.change).toBe(floored.target);
+    expect(floored.change).toBe(-500);
   });
 
   it('determines pace status and contextual feedback for loss and gain', ()=>{
-    expect(getPaceStatus('lose', -0.3, false).tone).toBe('gentle');
-    expect(getPaceStatus('lose', -0.75, false).tone).toBe('recommended');
-    expect(getPaceStatus('lose', -1.2, false).tone).toBe('aggressive');
-    expect(getPaceStatus('lose', -1.0, true).tone).toBe('floored');
+    expect(getPaceStatus('lose', -0.3, false, 'kcal', 2263, 2050).tone).toBe('gentle');
+    expect(getPaceStatus('lose', -0.75, false, 'kcal', 2263, 1725).tone).toBe('recommended');
+    expect(getPaceStatus('lose', -1.2, false, 'kcal', 2263, 1400).tone).toBe('aggressive');
 
     expect(getPaceStatus('gain', 0.05, false).tone).toBe('gentle');
     expect(getPaceStatus('gain', 0.15, false).tone).toBe('recommended');

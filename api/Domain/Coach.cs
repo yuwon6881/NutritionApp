@@ -105,9 +105,21 @@ public static class Coach
             else target = Math.Clamp(target, previous.Calories - 100, previous.Calories + 100);
         }
         // Safety boundaries take precedence over the ordinary weekly step limit.
-        target = Math.Max(target, Math.Ceiling(Math.Max(1500, expenditure * .75) / 25) * 25);
+        if (p.GoalRatePercent is null)
+        {
+            target = Math.Max(target, Math.Ceiling(Math.Max(1500, expenditure * .75) / 25) * 25);
+        }
+        else
+        {
+            target = Math.Max(target, 1000);
+        }
         if (progress.Complete) reason += " Phase complete: review a maintenance target before accepting the transition.";
-        if (p.GoalRatePercent is {} selectedRate && effectiveGoal != "maintain") reason += $" Selected {Math.Abs(selectedRate):0.##}% bodyweight per week; weekly limits and the calorie floor may moderate this target.";
+        if (p.GoalRatePercent is {} selectedRate && effectiveGoal != "maintain")
+        {
+            var deficitRatio = expenditure > 0 ? (expenditure - target) / expenditure : 0;
+            if (deficitRatio > 0.25) reason += $" Selected {Math.Abs(selectedRate):0.##}% bodyweight per week. This is an aggressive pace ({Math.Round(deficitRatio * 100)}% deficit); monitor recovery.";
+            else reason += $" Selected {Math.Abs(selectedRate):0.##}% bodyweight per week.";
+        }
         else if (p.EnergyAdjustmentPercent is {} percent && effectiveGoal != "maintain") reason += $" Selected {percent}% {(effectiveGoal == "lose" ? "deficit" : "surplus")}; weekly limits and the calorie floor may moderate this target.";
         double protein, fat, carbs;
         bool proteinFixed;

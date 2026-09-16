@@ -12,7 +12,7 @@ import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Field,SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
-import {GoalSetup} from './GoalSetup';
+import {GoalPhaseSetup,GoalPaceSetup} from './GoalSetup';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
@@ -50,11 +50,11 @@ const defaults:ProfileDraft={
   macroPreset:null
 };
 
-type StepKey='body'|'activity'|'goal'|'macros'|'macro-adjustments'|'distribution'|'review';
+type StepKey='body'|'activity'|'goal'|'pace'|'macros'|'macro-adjustments'|'distribution'|'review';
 type MainTab='targets'|'plan'|'history';
-const stepOrder=['body','activity','goal','macros','macro-adjustments','distribution','review'] as const;
+const stepOrder=['body','activity','goal','pace','macros','macro-adjustments','distribution','review'] as const;
 
-const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
+export const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
 
 function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}){
@@ -151,6 +151,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const canAdvanceGoal=Boolean(profile.goal
     &&(profile.phaseMode!=='duration'||(profile.durationWeeks!=null&&profile.durationWeeks>=1&&profile.durationWeeks<=104&&Number.isInteger(profile.durationWeeks)&&!!profile.phaseStart&&profile.phaseStart>='2000-01-01'&&profile.phaseStart<=current))
     &&(profile.phaseMode!=='weight'||(target!=null&&target>=20&&target<=400&&phaseInitial>=20&&phaseInitial<=400&&(profile.goal==='lose'?target<phaseInitial&&target/Math.pow(profile.heightCm/100,2)>=18.5:profile.goal==='gain'&&target>phaseInitial))));
+  const canAdvancePace=Boolean(profile.goal==='maintain'||profile.goalRatePercent!=null);
 
   const openPlan=(target:StepKey='body')=>{if(locked.current||acceptance.current)return;invalidate();setReview(false);setError('');setMessage('');setMainTab('plan');setStep(target);};
 
@@ -159,6 +160,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}
     if(!canAdvanceActivity){setStep('activity');setError('Choose your usual activity.');return;}
     if(!canAdvanceGoal){setStep('goal');setError('Review your goal and phase details.');return;}
+    if(!canAdvancePace){setStep('pace');setError('Review your pace.');return;}
     if(!weeklyValid){setError(`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`);return;}
     locked.current=true;setError('');
     try{
@@ -183,12 +185,15 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {id:'body',label:'Body'},
     {id:'activity',label:'Activity'},
     {id:'goal',label:'Goal'},
+    ...(profile.goal==='maintain'?[]:[{id:'pace',label:'Pace'}]),
     {id:'macros',label:'Macros'},
     {id:'macro-adjustments',label:'Adjust'},
     {id:'distribution',label:'Distribution'},
     {id:'review',label:'Review'}
   ] as const;
-  const stepIndex=stepOrder.indexOf(step);
+  const currentStepDef=steps.find(s=>s.id===step)??steps[0];
+  const stepIndex=steps.findIndex(s=>s.id===step);
+  const activeStepIndex=stepIndex>=0?stepIndex:0;
 
   const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const reviewGrams=gramsFromSplit(live.target,split);
@@ -266,12 +271,16 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </Button>}
     </div>
 
-    <Form onSubmit={e=>{e.preventDefault();if(step==='review')void submitProfile();else {const nextStep=stepOrder[stepOrder.indexOf(step)+1];if(nextStep&&canNavigateTo(nextStep))setStep(nextStep);}}}>
+    <Form onSubmit={e=>{e.preventDefault();if(step==='review')void submitProfile();else {
+      let nextStep:StepKey|undefined=stepOrder[stepOrder.indexOf(step)+1];
+      if(step==='goal'&&profile.goal==='maintain')nextStep='macros';
+      if(nextStep&&canNavigateTo(nextStep))setStep(nextStep);
+    }}}>
       <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
-      <div className="coach-step-progress" aria-label={`Plan progress: step ${stepIndex+1} of ${steps.length}, ${steps[stepIndex].label}`}>
-        <div className="coach-step-progress-label"><span>Step {stepIndex+1} of {steps.length}</span><h3 tabIndex={-1} data-step-heading className="coach-step-heading">{steps[stepIndex].label}</h3></div>
-        <div className="coach-step-progress-track" role="progressbar" aria-label="Plan completion" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={stepIndex+1}>
-          <span style={{width:`${((stepIndex+1)/steps.length)*100}%`}}/>
+      <div className="coach-step-progress" aria-label={`Plan progress: step ${activeStepIndex+1} of ${steps.length}, ${currentStepDef.label}`}>
+        <div className="coach-step-progress-label"><span>Step {activeStepIndex+1} of {steps.length}</span><h3 tabIndex={-1} data-step-heading className="coach-step-heading">{currentStepDef.label}</h3></div>
+        <div className="coach-step-progress-track" role="progressbar" aria-label="Plan completion" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={activeStepIndex+1}>
+          <span style={{width:`${((activeStepIndex+1)/steps.length)*100}%`}}/>
         </div>
       </div>
       {step==='body'&&<div className="step-content">
@@ -371,15 +380,25 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </div>}
 
       {step==='goal'&&<div className="step-content">
-        <FieldFrame label="Your goal"><fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
-          {(['lose','maintain','gain'] as const).map(goal=><label key={goal} htmlFor={`coach-goal-${goal}`} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
-            <input id={`coach-goal-${goal}`} required type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
-            <span>{goalLabel(goal)}</span><Check size={16} aria-hidden="true"/>
-          </label>)}
-        </div></fieldset></FieldFrame>
-        <GoalSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure} units={units}/>
+        <GoalPhaseSetup profile={profile} set={set} units={units}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}><ArrowLeft size={16}/> Back</Button>
+          {profile.goal==='maintain'?(
+            <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('macros');}}>
+              Next: Macros <ArrowRight size={16}/>
+            </Button>
+          ):(
+            <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('pace');}}>
+              Next: Pace <ArrowRight size={16}/>
+            </Button>
+          )}
+        </div>
+      </div>}
+
+      {step==='pace'&&<div className="step-content">
+        <GoalPaceSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure} units={units}/>
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('macros');}}>
             Next: Macros <ArrowRight size={16}/>
           </Button>
@@ -397,7 +416,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
         <div className="step-actions">
-          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep(profile.goal==='maintain'?'goal':'pace')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>setStep('macro-adjustments')}>
             Next: Adjust <ArrowRight size={16}/>
           </Button>

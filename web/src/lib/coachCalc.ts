@@ -54,22 +54,21 @@ export function getPaceStatus(
   rate: number,
   isFloored: boolean,
   energyUnit: 'kcal' | 'kj' = 'kcal',
-  safetyFloorDisplay?: string
+  expenditure?: number,
+  target?: number
 ): PaceStatus {
   const absRate = Math.abs(rate);
   if (goal === 'lose') {
-    if (isFloored) {
-      return {
-        label: 'Calorie floor active',
-        tone: 'floored',
-        hint: `Calorie safety floor reached: Target is capped at a maximum 25% deficit${safetyFloorDisplay ? ` (${safetyFloorDisplay} ${energyUnit}/day minimum)` : ''}. Faster rates will not reduce calories further.`,
-      };
-    }
-    if (absRate > 1.0) {
+    const deficitRatio = expenditure && target && expenditure > 0
+      ? (expenditure - target) / expenditure
+      : (absRate * 7700 * 70) / (7 * 100 * (expenditure || 2000));
+    const isAggressiveDeficit = deficitRatio > 0.25;
+
+    if (absRate > 1.0 || isAggressiveDeficit) {
       return {
         label: 'Aggressive',
         tone: 'aggressive',
-        hint: 'Aggressive pace (>1.0% / week): Faster fat loss, but elevated fatigue, hunger, and muscle loss risk. Recommended for short cutting phases.',
+        hint: `Aggressive pace (${absRate > 1.0 ? `${absRate.toFixed(2)}% / week` : `${Math.round(deficitRatio * 100)}% deficit`}): Higher risk of muscle loss, fatigue, and metabolic slowdown. Recommended for short cutting phases.`,
       };
     }
     if (absRate < 0.5) {
@@ -137,7 +136,11 @@ export function calculateLivePace(
 
   const unconstrainedTarget=expenditure>0?Math.round((expenditure+rawChange)/25)*25:2000;
   const safetyFloor=expenditure>0?Math.ceil(Math.max(1500,expenditure*0.75)/25)*25:1500;
-  const target=Math.max(unconstrainedTarget,safetyFloor);
+  // Explicit slider pace sets the target directly with a 1000 kcal baseline floor.
+  // Profiles without an explicit pace rate retain the conservative 25% safety floor.
+  const target=p.goalRatePercent!=null
+    ?Math.max(unconstrainedTarget,1000)
+    :Math.max(unconstrainedTarget,safetyFloor);
   const isFloored=expenditure>0&&target>unconstrainedTarget;
   const change=isFloored?target-Math.round(expenditure):Math.round(rawChange);
 
