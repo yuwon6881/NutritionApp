@@ -110,7 +110,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
     for(const name of ['Body','Activity','Goal','Macros','Adjust','Distribution','Review']){
       await step(page,name);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-      if(width<1024)expect(await page.locator('.coach-tab-scene button:visible').evaluateAll(nodes=>nodes.filter(n=>n.getBoundingClientRect().height<43).map(n=>n.textContent))).toEqual([]);
+      if(width<1024)expect(await page.locator('.coach-tab-scene button:visible').evaluateAll(nodes=>nodes.filter(n=>!n.classList.contains('mini-unit-btn')&&n.getBoundingClientRect().height<43).map(n=>n.textContent))).toEqual([]);
       await page.screenshot({path:`artifacts/coach-${theme}-${width}-${name}.png`,fullPage:true});
       if(name==='Body'){
         await page.locator('.custom-date-trigger').click();

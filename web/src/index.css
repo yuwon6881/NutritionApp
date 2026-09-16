@@ -500,10 +500,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .date-picker-label,
 .select-label{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;font-size:.79rem;font-weight:550;color:var(--foreground);margin:0}
 .field-label-row>label{font-size:.79rem;font-weight:550;color:var(--foreground);margin:0}
-.date-picker-label{height:50px;min-height:50px}
-.coach-step-stage[data-step=body] .select-label{height:50px;min-height:50px}
 .mini-unit-toggle{display:inline-flex;align-items:center;background:var(--muted);border:1px solid var(--border);border-radius:999px;padding:2px;gap:2px}
-.mini-unit-btn{appearance:none;background:transparent;border:0;color:var(--muted-foreground);font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:999px;cursor:pointer;line-height:1.4;min-height:44px;transition:all var(--motion-control) var(--motion-ease)}
+.mini-unit-btn{appearance:none;background:transparent;border:0;color:var(--muted-foreground);font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:999px;cursor:pointer;line-height:1.4;transition:all var(--motion-control) var(--motion-ease)}
 .mini-unit-btn:hover:not(.active){color:var(--foreground)}
 .mini-unit-btn.active{background:var(--card);color:var(--primary-ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .mini-unit-btn:focus-visible{outline:2px solid var(--ring);outline-offset:1px}
@@ -649,7 +647,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .coach-step-progress-label>span{font-variant-numeric:tabular-nums}.coach-step-progress-label>.coach-step-heading{margin:0;font-size:.86rem;color:var(--ink-strong)}
 .coach-step-progress-track{height:5px;overflow:hidden;border-radius:999px;background:var(--track)}
 .coach-step-progress-track>span{display:block;height:100%;border-radius:inherit;background:var(--primary);transition:width var(--motion-panel) var(--motion-ease)}
-@media(max-width:639px){
+@media(max-width:1023px){
   .mini-unit-btn{position:relative}
   .mini-unit-btn::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);min-width:44px;min-height:44px}
 }
