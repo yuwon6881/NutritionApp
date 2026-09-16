@@ -105,6 +105,7 @@ test('mobile view (360px & 390px): eliminates horizontal scroll and fixes button
       await expect(page.locator('.coach-step-progress').getByRole('button')).toHaveCount(0);
       await page.getByRole('button',{name:/^Next: Activity/}).click();
       await page.getByRole('button',{name:/^Next: Goal/}).click();
+      await page.getByRole('button',{name:/^Next: Details/}).click();
       await page.getByRole('button',{name:/^Next: Macros/}).click();
 
       // Check Macro presets: zero horizontal scroll and selectable buttons

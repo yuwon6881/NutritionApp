@@ -104,21 +104,22 @@ test.describe('Coach unit selection', () => {
 
     // Step 3: Goal
     await page.getByRole('radio', {name: 'Fat loss', exact: true}).check();
+    await page.getByRole('button', {name: /^Next: Details/}).click();
 
-    // Verify Slider is present and supports mouse hold-and-drag
-    const slider = page.getByRole('slider', {name: 'Rate (% bodyweight per week)'});
+    // Verify the circular target-weight slider is present and supports mouse hold-and-drag
+    const slider = page.getByRole('slider', {name: 'Target weight (kg)' });
     await expect(slider).toBeVisible();
     const initialRate = await slider.getAttribute('aria-valuenow');
     const box = await slider.boundingBox();
     expect(box).toBeTruthy();
 
-    // Drag from 70% of slider to 30% of slider
-    await page.mouse.move(box!.x + box!.width * 0.7, box!.y + box!.height / 2);
+    // Drag from the current-weight endpoint toward the top of the arc.
+    await page.mouse.move(box!.x + box!.width * 0.27, box!.y + box!.height * 0.96);
     await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width * 0.3, box!.y + box!.height / 2, {steps: 5});
+    await page.mouse.move(box!.x + box!.width * 0.5, box!.y + box!.height * 0.18, {steps: 5});
     await page.mouse.up();
-    const draggedRate = await slider.getAttribute('aria-valuenow');
-    expect(draggedRate).not.toBe(initialRate);
+    const draggedWeight = await slider.getAttribute('aria-valuenow');
+    expect(draggedWeight).not.toBe(initialRate);
 
     // Verify goal tracking defaults to 'weight' and does NOT have 'open' / 'Ongoing phase'
     const phaseModeSelect = page.getByLabel('Track my goal by', {exact: true});
@@ -128,14 +129,20 @@ test.describe('Coach unit selection', () => {
     expect(options).toContain('Duration');
     expect(options).not.toContain('Ongoing phase');
 
-    // Fill Target weight
-    await page.getByLabel('Target weight (kg)').fill('72');
+    // Move the dial to approximately 72 kg; the current 80 kg is the default.
+    await page.mouse.click(box!.x + box!.width * 0.829, box!.y + box!.height * 0.716);
+    const selectedWeight=Number(await slider.getAttribute('aria-valuenow'));
+    expect(selectedWeight).toBeGreaterThan(70);
+    expect(selectedWeight).toBeLessThan(73);
 
     // Capture Step 3 screenshot
     await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
     await page.screenshot({path: 'artifacts/coach-step3-goal-dark.png', fullPage: false});
 
-    // Advance to Step 4: Macros
+    // Advance through pace to Step 5: Macros
+    await page.getByRole('button', {name: /^Next: Pace/}).click();
+    const paceSlider=page.getByRole('slider', {name: 'Rate (% bodyweight per week)' });
+    await expect(paceSlider).toBeVisible();
     await page.getByRole('button', {name: /^Next: Macros/}).click();
 
     // Verify macro preset card grid
@@ -166,7 +173,7 @@ test.describe('Coach unit selection', () => {
     const metricTiles = reviewSummary.locator('.summary-metric-tile');
     await expect(metricTiles).toHaveCount(4);
     await expect(metricTiles.nth(0)).toContainText('Fat loss');
-    await expect(metricTiles.nth(1)).toContainText('72 kg');
+    await expect(metricTiles.nth(1)).toContainText(`${selectedWeight} kg`);
 
     // Macro breakdown bar and chips
     await expect(reviewSummary.locator('.macro-summary-bar')).toBeVisible();

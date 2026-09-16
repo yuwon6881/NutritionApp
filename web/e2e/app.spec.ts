@@ -38,9 +38,11 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByLabel('Known maintenance calories (optional)').fill('2500');
   await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
-  await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
   await page.getByRole('radio',{name:'Maintenance',exact:true}).check();
-  await page.getByLabel('Track my goal by',{exact:true}).selectOption('duration');await page.getByLabel('Phase length (weeks)').fill('4');
+  await page.getByRole('button',{name:/^Next: Details/}).click();
+  const maintenanceDuration=page.getByRole('slider',{name:'How long should this phase run?'});
+  await maintenanceDuration.press('Home');
+  await maintenanceDuration.press('ArrowRight',{ presses:3 });
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'Keto',exact:true}).click();
   await page.getByRole('button',{name:'Coach default',exact:true}).click();
@@ -262,9 +264,12 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   await page.getByRole('button',{name:/^Next: Activity/}).click();
   await page.getByRole('button',{name:/^Next: Goal/}).click();
-  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
+  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
+  await page.getByRole('button',{name:/^Next: Details/}).click();
+  await page.getByRole('slider',{name:'Target weight (kg)'}).press('ArrowLeft');
+  await page.getByRole('button',{name:/^Next: Pace/}).click();
+  await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
   for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowLeft');
-  await page.getByLabel('Track my goal by',{exact:true}).selectOption('weight');await page.getByLabel('Phase starting weight (kg)').fill('80.8');await page.getByLabel('Target weight (kg)').fill('75');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'High protein',exact:true}).click();
   await page.getByRole('button',{name:/^Next: Adjust/}).click();

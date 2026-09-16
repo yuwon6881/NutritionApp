@@ -22,7 +22,7 @@ async function settled(page:Page){
   await page.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
 }
 async function step(page:Page,name:string){
-  const order=['Body','Activity','Goal','Macros','Adjust','Distribution','Review'];
+  const order=['Body','Activity','Goal','Goal details','Pace','Macros','Adjust','Distribution','Review'];
   const heading=page.locator('[data-step-heading]');
   let current=(await heading.textContent())?.trim()??'';
   while(order.indexOf(current)<order.indexOf(name)){
@@ -53,6 +53,8 @@ async function savePlan(page:Page){
 async function changeGoal(page:Page){
   await page.getByRole('button',{name:'Plan',exact:true}).click();await step(page,'Goal');
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
+  await step(page,'Goal details');
+  await page.getByRole('slider',{name:'Target weight (kg)'}).press('ArrowLeft');
   await savePlan(page);
 }
 
@@ -107,7 +109,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
-    for(const name of ['Body','Activity','Goal','Macros','Adjust','Distribution','Review']){
+    for(const name of ['Body','Activity','Goal','Goal details','Pace','Macros','Adjust','Distribution','Review']){
       await step(page,name);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
       if(width<1024)expect(await page.locator('.coach-tab-scene button:visible').evaluateAll(nodes=>nodes.filter(n=>!n.classList.contains('mini-unit-btn')&&n.getBoundingClientRect().height<43).map(n=>n.textContent))).toEqual([]);
@@ -125,13 +127,14 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
       }
       if(name==='Goal'){
         await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
+      }
+      if(name==='Goal details'){
         await page.getByLabel('Track my goal by',{exact:true}).selectOption('duration');await settled(page);
-        await expect(page.getByLabel('Phase length (weeks)')).toBeVisible();
+        await expect(page.getByRole('slider',{name:'How long should this phase run?'})).toBeVisible();
         await page.getByLabel('Track my goal by',{exact:true}).selectOption('weight');await settled(page);
-        await page.getByLabel('Target weight (kg)',{exact:true}).fill('75');
+        await page.getByRole('slider',{name:'Target weight (kg)'}).press('ArrowLeft');
         expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
         await page.screenshot({path:`artifacts/coach-${theme}-${width}-weight-goal.png`,fullPage:true});
-        await page.getByRole('radio',{name:'Maintenance',exact:true}).check();
       }
     }
   }
@@ -159,6 +162,10 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   await page.keyboard.press('ArrowRight');await expect(page.getByRole('radio',{name:'Maintenance',exact:true})).toBeChecked();
   expect(await page.evaluate(()=>document.getAnimations().filter(a=>a.playState==='running').length)).toBe(0);
   await page.emulateMedia({reducedMotion:'no-preference'});
+  await step(page,'Goal');
+  await page.getByRole('radio',{name:'Fat loss',exact:true}).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio',{name:'Maintenance',exact:true})).toBeChecked();
   await step(page,'Macros');
   await page.emulateMedia({reducedMotion:'reduce'});
   await expect(page.locator('[data-step-heading]')).toHaveText('Macros');
@@ -229,7 +236,8 @@ test('lost acceptance response replays the exact identity and revision',async({p
 
 test('offline profile retention and acceptance refresh failure recover without duplicate acceptance',async({page,context})=>{
   await page.getByRole('button',{name:'Plan',exact:true}).click();await step(page,'Goal');
-  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await reviewMacros(page);
+  await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await step(page,'Goal details');
+  await page.getByRole('slider',{name:'Target weight (kg)'}).press('ArrowLeft');await reviewMacros(page);
   await context.setOffline(true);await page.getByRole('button',{name:'Save profile',exact:true}).click();
   await expect(page.getByText('Profile retained on this device. Waiting for a connection.')).toBeVisible();
   await expect(page.locator('.coach-wait-arc')).toHaveCount(0);

@@ -244,8 +244,8 @@ export function WeeklyProgramSetup({
                   </div>
 
                   <div className="weekly-row-controls">
-                    <button
-                      type="button"
+                    <Button
+                      presentation="plain"
                       className={`weekly-lock-btn ${isLocked ? 'active' : ''}`}
                       disabled={cannotLock}
                       aria-pressed={isLocked}
@@ -260,7 +260,7 @@ export function WeeklyProgramSetup({
                       onClick={() => toggleLock(index)}
                     >
                       {isLocked ? <Lock size={15} aria-hidden="true" /> : <Unlock size={15} aria-hidden="true" />}
-                    </button>
+                    </Button>
 
                     <input
                       id={`weekly-range-${index}`}

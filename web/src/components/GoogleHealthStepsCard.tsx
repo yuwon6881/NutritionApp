@@ -1,6 +1,7 @@
 import {Footprints, ArrowUpRight} from 'lucide-react';
 import {number} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, getTodayStepCount} from '../lib/googleHealth';
+import {Button} from './ui/Button';
 
 interface GoogleHealthStepsCardProps {
   status: GoogleHealthStatus;
@@ -58,9 +59,9 @@ export function GoogleHealthStepsCard({
           <p className="source">
             Not connected.{' '}
             {onOpenSettings && (
-              <button type="button" className="inline-link" onClick={onOpenSettings}>
+              <Button presentation="plain" className="inline-link" onClick={onOpenSettings}>
                 Connect in Settings <ArrowUpRight size={13} aria-hidden="true" />
-              </button>
+              </Button>
             )}
           </p>
         )}

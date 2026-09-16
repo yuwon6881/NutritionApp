@@ -7,7 +7,7 @@ import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {api,ApiError} from '../lib/api';
 import {lineFromPer100,lineKey} from '../lib/foodBasket';
-import {serializePortions,parsePortions,displayPortion} from '../lib/portions';
+import {serializePortions,parsePortions} from '../lib/portions';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {Button} from './ui/Button';
 import {Field,SelectField,TextArea} from './ui/Field';
@@ -25,6 +25,7 @@ import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {RecentFoodCard} from './RecentFoodCard';
 
 type SearchResult=import('../types').FoodSearchResult;
 type FoodStep='selection'|'quick'|'editor'|'recipe'|'batch';
@@ -491,18 +492,12 @@ export function LogFood({
       {selectionPurpose==='log'&&!pendingLinkBarcode&&savedFilter==='recent'?(
         recentEntries.length>0?(
           <div className="recent-foods-grid">
-            {recentEntries.map(entry=><button
-              type="button"
+            {recentEntries.map(entry=><RecentFoodCard
               key={entry.id}
-              className="recent-food-card"
-              onClick={()=>{setSaveFood(false);setDraft({...entry,id:undefined});go('editor');}}
-            >
-              <div className="recent-food-info">
-                <strong className="recent-food-name">{entry.name}</strong>
-                <span className="recent-food-portion">{displayPortion(entry)}</span>
-              </div>
-              <strong className="recent-food-energy">{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
-            </button>)}
+              entry={entry}
+              energyUnit={energyUnit}
+              onSelect={selected=>{setSaveFood(false);setDraft({...selected,id:undefined});go('editor');}}
+            />)}
           </div>
         ):<p className="empty recent-empty">No recent diary items yet.</p>
       ):(
@@ -512,18 +507,12 @@ export function LogFood({
               <h4 id="recent-section-heading">Recent items</h4>
             </div>
             <div className="recent-foods-grid">
-              {recentEntries.slice(0,4).map(entry=><button
-                type="button"
+              {recentEntries.slice(0,4).map(entry=><RecentFoodCard
                 key={entry.id}
-                className="recent-food-card"
-                onClick={()=>{setSaveFood(false);setDraft({...entry,id:undefined});go('editor');}}
-              >
-                <div className="recent-food-info">
-                  <strong className="recent-food-name">{entry.name}</strong>
-                  <span className="recent-food-portion">{displayPortion(entry)}</span>
-                </div>
-                <strong className="recent-food-energy">{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
-              </button>)}
+                entry={entry}
+                energyUnit={energyUnit}
+                onSelect={selected=>{setSaveFood(false);setDraft({...selected,id:undefined});go('editor');}}
+              />)}
             </div>
           </section>}
           {foods.length===0?(

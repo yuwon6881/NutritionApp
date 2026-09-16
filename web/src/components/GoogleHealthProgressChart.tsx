@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {number} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, calculateKnownDayAverage} from '../lib/googleHealth';
 import {Footprints, ArrowUpRight} from 'lucide-react';
+import {Button} from './ui/Button';
 
 interface GoogleHealthProgressChartProps {
   days: GoogleHealthDay[];
@@ -33,9 +34,9 @@ export function GoogleHealthProgressChart({
           Track your daily step history alongside your nutrition progress.
         </p>
         {onOpenSettings && (
-          <button type="button" className="inline-link" onClick={onOpenSettings}>
+          <Button presentation="plain" className="inline-link" onClick={onOpenSettings}>
             Connect Google Health in Settings <ArrowUpRight size={13} aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </section>
     );

@@ -12,7 +12,7 @@ import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Field,SelectField} from './ui/Field';
 import {DatePicker} from './ui/DatePicker';
-import {GoalPhaseSetup,GoalPaceSetup} from './GoalSetup';
+import {GoalPaceSetup,GoalPhaseSetup,GoalSelection} from './GoalSetup';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
@@ -21,6 +21,7 @@ import {useCoachProposal} from '../useCoachProposal';
 import {MiniUnitToggle} from './ui/MiniUnitToggle';
 import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {resolveGoalStartWeight} from '../lib/goalPhase';
 
 const defaults:ProfileDraft={
   age:0,
@@ -50,9 +51,9 @@ const defaults:ProfileDraft={
   macroPreset:null
 };
 
-type StepKey='body'|'activity'|'goal'|'pace'|'macros'|'macro-adjustments'|'distribution'|'review';
+type StepKey='body'|'activity'|'goal'|'goal-details'|'pace'|'macros'|'macro-adjustments'|'distribution'|'review';
 type MainTab='targets'|'plan'|'history';
-const stepOrder=['body','activity','goal','pace','macros','macro-adjustments','distribution','review'] as const;
+const stepOrder=['body','activity','goal','goal-details','pace','macros','macro-adjustments','distribution','review'] as const;
 
 export const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
@@ -89,6 +90,13 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const current=today(store.state!.profile?.timeZone);
   const settings=store.state!.settings??{checkInWeekday:1,revision:0};
   const units=unitsFor(settings);
+  const currentGoalWeight=resolveGoalStartWeight({
+    fallbackKg:profile.weightKg,
+    weights:store.state!.weights,
+    trendSeed:store.state!.weightTrendSeed??[],
+    metric:settings.weightGoalMetric??'scale',
+    current
+  });
   const derivedAge=ageOn(profile.dateOfBirth,current);
   const pending=store.local!.queue.length>0;
   const changed=!profilesEqual(profile,store.state!.profile);
@@ -115,7 +123,11 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       ...(key==='goal'?{
         goalRatePercent:value==='lose'?-0.5:value==='gain'?0.15:0,
         energyAdjustmentPercent:value==='lose'?15:value==='gain'?5:0,
-        ...(value==='maintain'?{phaseMode:'open' as const}:{phaseMode:isInitialSetup?'weight' as const:p.phaseMode})
+        phaseMode:value==='maintain'?'duration' as const:'weight' as const,
+        phaseStart:current,
+        phaseStartWeightKg:currentGoalWeight,
+        targetWeightKg:value==='maintain'?null:currentGoalWeight,
+        durationWeeks:p.durationWeeks??8
       }:{})
     }));
     setProposal(undefined);
@@ -146,11 +158,14 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
   const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
   const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5&&(profile.maintenance==null||(profile.maintenance>=1000&&profile.maintenance<=7000)));
-  const phaseInitial=profile.phaseStartWeightKg??profile.weightKg;
-  const target=profile.targetWeightKg;
-  const canAdvanceGoal=Boolean(profile.goal
-    &&(profile.phaseMode!=='duration'||(profile.durationWeeks!=null&&profile.durationWeeks>=1&&profile.durationWeeks<=104&&Number.isInteger(profile.durationWeeks)&&!!profile.phaseStart&&profile.phaseStart>='2000-01-01'&&profile.phaseStart<=current))
-    &&(profile.phaseMode!=='weight'||(target!=null&&target>=20&&target<=400&&phaseInitial>=20&&phaseInitial<=400&&(profile.goal==='lose'?target<phaseInitial&&target/Math.pow(profile.heightCm/100,2)>=18.5:profile.goal==='gain'&&target>phaseInitial))));
+  const phaseInitial=currentGoalWeight;
+  const target=profile.targetWeightKg??phaseInitial;
+  const canAdvanceGoal=Boolean(profile.goal);
+  const canAdvanceGoalDetails=Boolean(profile.goal&&(
+    profile.phaseMode==='open'&&profile.goal==='maintain'
+    ||profile.phaseMode==='duration'&&profile.durationWeeks!=null&&profile.durationWeeks>=1&&profile.durationWeeks<=104&&Number.isInteger(profile.durationWeeks)
+    ||profile.phaseMode==='weight'&&profile.goal!=='maintain'&&target>=20&&target<=400&&phaseInitial>=20&&phaseInitial<=400&&(profile.goal==='lose'?target<phaseInitial&&target/Math.pow(profile.heightCm/100,2)>=18.5:target>phaseInitial)
+  ));
   const canAdvancePace=Boolean(profile.goal==='maintain'||profile.goalRatePercent!=null);
 
   const openPlan=(target:StepKey='body')=>{if(locked.current||acceptance.current)return;invalidate();setReview(false);setError('');setMessage('');setMainTab('plan');setStep(target);};
@@ -159,7 +174,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     if(locked.current||step!=='review')return;
     if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}
     if(!canAdvanceActivity){setStep('activity');setError('Choose your usual activity.');return;}
-    if(!canAdvanceGoal){setStep('goal');setError('Review your goal and phase details.');return;}
+    if(!canAdvanceGoal){setStep('goal');setError('Choose a goal.');return;}
+    if(!canAdvanceGoalDetails){setStep('goal-details');setError('Review your phase details.');return;}
     if(!canAdvancePace){setStep('pace');setError('Review your pace.');return;}
     if(!weeklyValid){setError(`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`);return;}
     locked.current=true;setError('');
@@ -168,7 +184,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         kind:'profile',
         recordId:store.state!.id,
         expectedRevision:store.state!.profileRevision,
-        data:profile,
+        data:{...profile,phaseStart:current,phaseStartWeightKg:currentGoalWeight,targetWeightKg:profile.goal==='maintain'?null:profile.targetWeightKg},
         delete:false
       }));
     setProposal(undefined);
@@ -185,6 +201,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {id:'body',label:'Body'},
     {id:'activity',label:'Activity'},
     {id:'goal',label:'Goal'},
+    {id:'goal-details',label:'Goal details'},
     ...(profile.goal==='maintain'?[]:[{id:'pace',label:'Pace'}]),
     {id:'macros',label:'Macros'},
     {id:'macro-adjustments',label:'Adjust'},
@@ -273,7 +290,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
     <Form onSubmit={e=>{e.preventDefault();if(step==='review')void submitProfile();else {
       let nextStep:StepKey|undefined=stepOrder[stepOrder.indexOf(step)+1];
-      if(step==='goal'&&profile.goal==='maintain')nextStep='macros';
       if(nextStep&&canNavigateTo(nextStep))setStep(nextStep);
     }}}>
       <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
@@ -380,15 +396,33 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </div>}
 
       {step==='goal'&&<div className="step-content">
-        <GoalPhaseSetup profile={profile} set={set} units={units}/>
+        <GoalSelection profile={profile} set={set}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current)&&canAdvanceGoal)setStep('goal-details');}}>
+            Next: Details <ArrowRight size={16}/>
+          </Button>
+        </div>
+      </div>}
+
+      {step==='goal-details'&&<div className="step-content">
+        <GoalPhaseSetup
+          profile={profile}
+          set={set}
+          units={units}
+          weights={store.state!.weights}
+          trendSeed={store.state!.weightTrendSeed??[]}
+          weightGoalMetric={settings.weightGoalMetric??'scale'}
+          currentWeightKg={currentGoalWeight}
+        />
+        <div className="step-actions">
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
           {profile.goal==='maintain'?(
-            <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('macros');}}>
+            <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current)&&canAdvanceGoalDetails)setStep('macros');}}>
               Next: Macros <ArrowRight size={16}/>
             </Button>
           ):(
-            <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('pace');}}>
+            <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current)&&canAdvanceGoalDetails)setStep('pace');}}>
               Next: Pace <ArrowRight size={16}/>
             </Button>
           )}
@@ -398,7 +432,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       {step==='pace'&&<div className="step-content">
         <GoalPaceSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure} units={units}/>
         <div className="step-actions">
-          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal-details')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('macros');}}>
             Next: Macros <ArrowRight size={16}/>
           </Button>
@@ -416,7 +450,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
         <div className="step-actions">
-          <Button type="button" size="md" variant="secondary" onClick={()=>setStep(profile.goal==='maintain'?'goal':'pace')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep(profile.goal==='maintain'?'goal-details':'pace')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>setStep('macro-adjustments')}>
             Next: Adjust <ArrowRight size={16}/>
           </Button>

@@ -7,24 +7,27 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;
+  presentation?: 'control' | 'plain';
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   variant = 'secondary',
   size = 'md',
   fullWidth = false,
+  presentation = 'control',
   type = 'button',
   className = '',
   children,
   ...props
 }, ref) {
-  const sizeClass = size ? `size-${size}` : '';
-  const widthClass = fullWidth ? 'btn-full' : '';
+  const sizeClass = presentation === 'control' && size ? `size-${size}` : '';
+  const widthClass = presentation === 'control' && fullWidth ? 'btn-full' : '';
+  const controlClass = presentation === 'control' ? `button ${variant}` : '';
   return (
     <button
       ref={ref}
       type={type}
-      className={`button ${variant} ${sizeClass} ${widthClass} ${className}`.trim()}
+      className={`${controlClass} ${sizeClass} ${widthClass} ${className}`.trim()}
       {...props}
     >
       {children}

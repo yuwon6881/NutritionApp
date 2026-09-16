@@ -1,63 +1,121 @@
 import {Check} from 'lucide-react';
-import type {ProfileDraft,UnitPreferences} from '../types';
+import type {ProfileDraft,UnitPreferences,Weight,WeightGoalMetric} from '../types';
 import {today} from '../lib/format';
 import {calculateLivePace,getPaceStatus,profileAge} from '../lib/coachCalc';
 import {Field,SelectField} from './ui/Field';
 import {FieldFrame} from './ui/Form';
-import {Slider} from './ui/Slider';
-import {DatePicker} from './ui/DatePicker';
+import {CircularSlider,Slider} from './ui/Slider';
 import {CoachLayout,CoachNumber} from './ui/CoachMotion';
-import {displayEnergy,energyLabel,inputWeight,parseWeight,weightLabel} from '../lib/units';
+import {displayEnergy,displayWeight,energyLabel,weightLabel} from '../lib/units';
 import {goalLabel} from './Coach';
+import {goalWeightBounds,phaseEndDate,resolveGoalStartWeight} from '../lib/goalPhase';
+
+export function GoalSelection({
+  profile,
+  set
+}:{
+  profile:ProfileDraft;
+  set:(key:keyof ProfileDraft,value:unknown)=>void;
+}){
+  return <FieldFrame label="Your goal"><fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
+    {(['lose','maintain','gain'] as const).map(goal=><label key={goal} htmlFor={`coach-goal-${goal}`} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
+      <input id={`coach-goal-${goal}`} required type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
+      <span>{goalLabel(goal)}</span><Check size={16} aria-hidden="true"/>
+    </label>)}
+  </div></fieldset></FieldFrame>;
+}
 
 export function GoalPhaseSetup({
   profile,
   set,
-  units
+  units,
+  weights=[],
+  trendSeed=[],
+  weightGoalMetric='scale',
+  currentWeightKg
 }:{
   profile:ProfileDraft;
   set:(key:keyof ProfileDraft,value:unknown)=>void;
   units:UnitPreferences;
+  weights?:readonly Weight[];
+  trendSeed?:readonly Weight[];
+  weightGoalMetric?:WeightGoalMetric;
+  currentWeightKg?:number;
 }){
   const loss=profile.goal==='lose';
-  const paced=profile.goal&&profile.goal!=='maintain';
-  const mode=profile.phaseMode??(profile.goal==='maintain'?'open':'weight');
+  const paced=profile.goal==='lose'||profile.goal==='gain';
   const current=today(profile.timeZone);
+  const startWeight=resolveGoalStartWeight({fallbackKg:currentWeightKg??profile.weightKg,weights,trendSeed,metric:weightGoalMetric,current});
+  const mode=profile.phaseMode??(profile.goal==='maintain'?'duration':'weight');
+  const durationWeeks=profile.durationWeeks??8;
+  const bounds=goalWeightBounds(profile.goal,startWeight);
+  const requestedTarget=profile.targetWeightKg??startWeight;
+  const targetWeight=Math.min(Math.max(requestedTarget,bounds.min),bounds.max);
   const bmi=profile.heightCm>0?profile.weightKg/Math.pow(profile.heightCm/100,2):null;
   const blockedReason=profileAge(profile,current)<18||profile.pregnancyOrBreastfeeding||profile.medicalNutrition
     ?'Automated targets are unavailable for this profile. You can still keep a food and weight diary.'
     :loss&&bmi!=null&&bmi<18.5?'Weight-loss coaching is unavailable at an underweight BMI.':null;
+  const targetError=()=>{
+    if(!paced)return undefined;
+    if(requestedTarget<bounds.min||requestedTarget>bounds.max)return `Choose a target between ${displayWeight(bounds.min,units.weight,1)} and ${displayWeight(bounds.max,units.weight,1)} ${weightLabel(units.weight)}.`;
+    if(profile.goal==='lose'&&targetWeight>=startWeight)return 'Choose a target below your current weight.';
+    if(profile.goal==='gain'&&targetWeight<=startWeight)return 'Choose a target above your current weight.';
+    if(profile.goal==='lose'&&profile.heightCm>0&&targetWeight/Math.pow(profile.heightCm/100,2)<18.5)return 'Choose a target with a BMI of at least 18.5.';
+    return undefined;
+  };
+  const weightValueDisplay=(value:number)=><div className="slider-value-group">
+    <span className="slider-current-badge"><CoachNumber>{displayWeight(value,units.weight,1)}</CoachNumber> {weightLabel(units.weight)}</span>
+    <span className="slider-equivalent">{value<startWeight?`${displayWeight(startWeight-value,units.weight,1)} to lose`:value>startWeight?`${displayWeight(value-startWeight,units.weight,1)} to gain`:'Start at current weight'}</span>
+  </div>;
+  const durationValueDisplay=(value:number)=><div className="slider-value-group">
+    <span className="slider-current-badge"><CoachNumber>{value}</CoachNumber> weeks</span>
+    <span className="slider-equivalent">Ends {phaseEndDate(current,value)}</span>
+  </div>;
 
   return <div className="goal-phase-setup">
-    <FieldFrame label="Your goal"><fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
-      {(['lose','maintain','gain'] as const).map(goal=><label key={goal} htmlFor={`coach-goal-${goal}`} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
-        <input id={`coach-goal-${goal}`} required type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
-        <span>{goalLabel(goal)}</span><Check size={16} aria-hidden="true"/>
-      </label>)}
-    </div></fieldset></FieldFrame>
-
     {blockedReason?<div className="notice"><p className="source">{blockedReason}</p></div>:(
       <>
         <SelectField id="goal-phase-mode" name="phaseMode" label="Track my goal by" value={mode} onChange={v=>{
           set('phaseMode',v);
           if(v==='duration'&&!profile.durationWeeks)set('durationWeeks',8);
           set('phaseStart',current);
-          set('phaseStartWeightKg',profile.weightKg>0?profile.weightKg:null);
+          set('phaseStartWeightKg',startWeight);
+          if(v==='weight'&&profile.targetWeightKg==null)set('targetWeightKg',startWeight);
         }}>
           {paced&&<option value="weight">Target weight</option>}
           <option value="duration">Duration</option>
-          <option value="open">No end date</option>
+          {profile.goal==='maintain'&&<option value="open">No end date</option>}
         </SelectField>
 
-        {mode==='duration'&&<div className="form-grid coach-disclosure">
-          <Field id="goal-duration-weeks" name="durationWeeks" label="Phase length (weeks)" required type="number" min="1" max="104" value={profile.durationWeeks??8} onChange={e=>set('durationWeeks',Number(e.target.value))}/>
-          <DatePicker id="goal-phase-start" name="phaseStart" label="Phase start date" min="2000-01-01" required max={current} value={profile.phaseStart??current} onChange={v=>set('phaseStart',v)}/>
-        </div>}
+        {mode==='duration'&&<CircularSlider
+          id="goal-duration-weeks"
+          name="durationWeeks"
+          label="How long should this phase run?"
+          min={1}
+          max={104}
+          step={1}
+          value={Math.min(Math.max(durationWeeks,1),104)}
+          formatValue={value=>`${value} weeks`}
+          valueDisplay={durationValueDisplay(Math.min(Math.max(durationWeeks,1),104))}
+          onChange={value=>set('durationWeeks',value)}
+          hint="The phase starts today. Use the arrow keys for one-week changes."
+        />}
 
-        {mode==='weight'&&paced&&<div className="form-grid coach-disclosure">
-          <Field id="goal-phase-start-weight" name="phaseStartWeightKg" label={`Phase starting weight (${weightLabel(units.weight)})`} required type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={inputWeight(profile.phaseStartWeightKg??profile.weightKg,units.weight,1)} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('phaseStartWeightKg',Number.isFinite(next)?next:0);}}/>
-          <Field id="goal-target-weight" name="targetWeightKg" validate={()=>{const target=profile.targetWeightKg;const initial=profile.phaseStartWeightKg??profile.weightKg;if(target==null)return undefined;if(profile.goal==='lose'&&target>=initial)return 'Choose a target below your phase starting weight.';if(profile.goal==='gain'&&target<=initial)return 'Choose a target above your phase starting weight.';if(profile.goal==='lose'&&target/Math.pow(profile.heightCm/100,2)<18.5)return 'Choose a target with a BMI of at least 18.5.';return undefined;}} label={`Target weight (${weightLabel(units.weight)})`} required type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.targetWeightKg==null?'':inputWeight(profile.targetWeightKg,units.weight,1)} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('targetWeightKg',e.target.value===''?null:Number.isFinite(next)?next:null);}}/>
-        </div>}
+        {mode==='weight'&&paced&&<CircularSlider
+          id="goal-target-weight"
+          name="targetWeightKg"
+          label={`Target weight (${weightLabel(units.weight)})`}
+          min={bounds.min}
+          max={bounds.max}
+          step={0.1}
+          value={targetWeight}
+          formatValue={value=>`${displayWeight(value,units.weight,1)} ${weightLabel(units.weight)}`}
+          valueDisplay={weightValueDisplay(targetWeight)}
+          validate={targetError}
+          onChange={value=>set('targetWeightKg',value)}
+          hint={`Current ${displayWeight(startWeight,units.weight,1)} ${weightLabel(units.weight)} · the target starts here until you move the dial.`}
+        />}
+        {mode==='open'&&<p className="source">Maintenance continues without a scheduled end date. You can choose a new goal whenever you are ready.</p>}
       </>
     )}
   </div>;

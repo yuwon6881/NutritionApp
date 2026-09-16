@@ -1,6 +1,17 @@
 import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 
-const ease='cubic-bezier(.2,.8,.2,1)';
+const fallbackEase='cubic-bezier(.2,.8,.2,1)';
+
+function motionTiming(variable:string,fallback:number){
+  const styles=getComputedStyle(document.documentElement);
+  const value=styles.getPropertyValue(variable).trim();
+  const duration=value.endsWith('ms')?Number.parseFloat(value):value.endsWith('s')?Number.parseFloat(value)*1000:NaN;
+  return {
+    duration:Number.isFinite(duration)?duration:fallback,
+    easing:styles.getPropertyValue('--motion-ease').trim()||fallbackEase,
+    fill:'both' as const
+  };
+}
 type NavigationInput='keyboard'|'pointer';
 let lastNavigationInput:NavigationInput='pointer';
 let modalityReset:ReturnType<typeof setTimeout>|undefined;
@@ -82,7 +93,7 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
     };
     const animation=node.animate(
       [{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'translateY(0)'}],
-      {duration:240,easing:ease,fill:'both'}
+      motionTiming('--motion-panel',240)
     );
     animation.onfinish=()=>{
       // Do not leave a transform on the scene after the entrance settles. A
@@ -115,7 +126,7 @@ export function MotionPanel({motionKey,direction=1,children,className=''}:{motio
     if(reduced)return;
     const animation=node.animate(
       [{opacity:0,transform:`translateX(${direction*20}px)`},{opacity:1,transform:'translateX(0)'}],
-      {duration:180,easing:ease,fill:'both'}
+      motionTiming('--motion-exit',180)
     );
     animation.onfinish=()=>{
       node.style.removeProperty('opacity');

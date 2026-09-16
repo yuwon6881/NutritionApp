@@ -1,5 +1,6 @@
 import {useRef,useCallback,type KeyboardEvent,type PointerEvent,type ReactNode} from 'react';
 import {FieldFrame} from './Form';
+import {circularSliderPoint,circularSliderValue,defaultCircularSliderGeometry} from '../../lib/circularSlider';
 
 export interface SliderProps {
   id: string;
@@ -185,4 +186,128 @@ export function Slider({
       {hint && <small id={`${id}-hint`}>{hint}</small>}
     </FieldFrame>
   );
+}
+
+export interface CircularSliderProps {
+  id:string;
+  name:string;
+  label:string;
+  value:number;
+  min:number;
+  max:number;
+  step?:number;
+  hint?:ReactNode;
+  ariaLabel?:string;
+  valueDisplay?:ReactNode;
+  formatValue?:(value:number)=>string;
+  validate?:()=>string|undefined;
+  onChange:(value:number)=>void;
+  className?:string;
+}
+
+function circularArcPath(startAngle:number,endAngle:number){
+  const start=circularSliderPoint(startAngle);
+  const end=circularSliderPoint(endAngle);
+  const largeArc=endAngle-startAngle>180?1:0;
+  return `M ${start.x} ${start.y} A ${defaultCircularSliderGeometry.radius} ${defaultCircularSliderGeometry.radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+}
+
+export function CircularSlider({
+  id,
+  name,
+  label,
+  value,
+  min,
+  max,
+  step=1,
+  hint,
+  ariaLabel,
+  valueDisplay,
+  formatValue,
+  validate,
+  onChange,
+  className=''
+}:CircularSliderProps){
+  const sliderRef=useRef<SVGSVGElement>(null);
+  const dragging=useRef(false);
+  const geometry=defaultCircularSliderGeometry;
+  const clampAndSnap=(raw:number)=>{
+    const clamped=Math.min(Math.max(raw,min),max);
+    const snapped=min+Math.round((clamped-min)/step)*step;
+    return Number(Math.min(Math.max(snapped,min),max).toFixed(6));
+  };
+  const updateFromPointer=useCallback((clientX:number,clientY:number)=>{
+    const node=sliderRef.current;
+    if(!node)return;
+    const rect=node.getBoundingClientRect();
+    const next=circularSliderValue({x:clientX,y:clientY},rect,min,max,step,geometry);
+    if(next!==value)onChange(next);
+  },[geometry,max,min,onChange,step,value]);
+  const handlePointerDown=(event:PointerEvent<SVGSVGElement>)=>{
+    if(event.button!==0)return;
+    dragging.current=true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateFromPointer(event.clientX,event.clientY);
+  };
+  const handlePointerMove=(event:PointerEvent<SVGSVGElement>)=>{
+    if(dragging.current)updateFromPointer(event.clientX,event.clientY);
+  };
+  const handlePointerUp=(event:PointerEvent<SVGSVGElement>)=>{
+    dragging.current=false;
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const handleKeyDown=(event:KeyboardEvent<SVGSVGElement>)=>{
+    let next=value;
+    switch(event.key){
+      case 'ArrowRight':
+      case 'ArrowUp': next=clampAndSnap(value+step);break;
+      case 'ArrowLeft':
+      case 'ArrowDown': next=clampAndSnap(value-step);break;
+      case 'PageUp': next=clampAndSnap(value+step*5);break;
+      case 'PageDown': next=clampAndSnap(value-step*5);break;
+      case 'Home': next=min;break;
+      case 'End': next=max;break;
+      default:return;
+    }
+    event.preventDefault();
+    if(next!==value)onChange(next);
+  };
+  const percent=max===min?0:Math.min(Math.max((value-min)/(max-min),0),1);
+  const thumb=circularSliderPoint(geometry.startAngle+geometry.sweep*percent);
+  const path=circularArcPath(geometry.startAngle,geometry.startAngle+geometry.sweep);
+  const formatted=formatValue?formatValue(value):`${value}`;
+
+  return <FieldFrame label={label} validate={validate} className={`field circular-slider-field ${className}`.trim()}>
+    <div className="field-label-row">
+      <label htmlFor={id}>{label}</label>
+      <div className="slider-value-display">{valueDisplay??<span className="slider-current-badge">{formatted}</span>}</div>
+    </div>
+    <svg
+      id={id}
+      ref={sliderRef}
+      className="circular-slider"
+      viewBox={`0 0 ${geometry.width} ${geometry.height}`}
+      role="slider"
+      tabIndex={0}
+      aria-label={ariaLabel??label}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      aria-valuetext={formatted}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onKeyDown={handleKeyDown}
+    >
+      <path className="circular-slider-track" d={path} pathLength="100"/>
+      <path className="circular-slider-fill" d={path} pathLength="100" strokeDasharray={`${percent*100} 100`}/>
+      <circle className="circular-slider-thumb" cx={thumb.x} cy={thumb.y} r="10"/>
+      <circle className="circular-slider-endpoint" cx={circularSliderPoint(geometry.startAngle).x} cy={circularSliderPoint(geometry.startAngle).y} r="3" aria-hidden="true"/>
+      <circle className="circular-slider-endpoint" cx={circularSliderPoint(geometry.startAngle+geometry.sweep).x} cy={circularSliderPoint(geometry.startAngle+geometry.sweep).y} r="3" aria-hidden="true"/>
+    </svg>
+    <div className="circular-slider-range" aria-hidden="true"><span>{formatValue?formatValue(min):min}</span><span>{formatValue?formatValue(max):max}</span></div>
+    <input type="hidden" name={name} value={value}/>
+    {hint&&<small id={`${id}-hint`}>{hint}</small>}
+  </FieldFrame>;
 }

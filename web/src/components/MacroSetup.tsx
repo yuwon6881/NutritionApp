@@ -3,6 +3,7 @@ import type {CSSProperties} from 'react';
 import type {MacroKey,MacroSplit} from '../lib/macros';
 import {adjustSplit,gramsFromSplit,macroEnergy,macroKeys,macroLabels,macroLimits,macroPresetId,macroPresets} from '../lib/macros';
 import {SegmentedControl} from './ui/SegmentedControl';
+import {Button} from './ui/Button';
 
 const presetDescriptions:Record<string,string>={
   auto:'Calculated optimal protein intake based on your body weight and training, with balanced carbs and fats.',
@@ -50,9 +51,9 @@ export function MacroSetup({
           const targetSplit=preset.split??split;
           const targetGrams=gramsFromSplit(calories,targetSplit);
           return (
-            <button
-              type="button"
+            <Button
               key={preset.id}
+              presentation="plain"
               className={`macro-preset-card ${isSelected?'selected':''}`}
               aria-label={preset.label}
               onClick={()=>onPreset(preset.id,preset.split)}
@@ -88,7 +89,7 @@ export function MacroSetup({
                   <span>Fat</span> <strong>{targetSplit.fat}%</strong> <small>{targetGrams.fat}g</small>
                 </span>
               </div>
-            </button>
+            </Button>
           );
         })}
       </div>

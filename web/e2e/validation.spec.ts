@@ -88,7 +88,7 @@ test('coaching validates the active step and retains an empty macro draft',async
   await page.getByLabel('Height (cm)',{exact:true}).fill('79');await page.getByRole('button',{name:/Next: Activity/}).click();
   await expect(page.getByText('Enter 80 or more.')).toBeVisible();await expect(page.getByLabel('Height (cm)',{exact:true})).toBeFocused();
   await page.getByLabel('Height (cm)',{exact:true}).fill('170');await page.getByRole('button',{name:/Next: Activity/}).click();
-  await page.getByRole('button',{name:/Next: Goal/}).click();await page.getByRole('button',{name:/Next: Macros/}).click();
+  await page.getByRole('button',{name:/Next: Goal/}).click();await page.getByRole('button',{name:/Next: Details/}).click();await page.getByRole('button',{name:/Next: Macros/}).click();
   await page.getByRole('button',{name:/Next: Adjust/}).click();
   await page.getByLabel('Protein grams',{exact:true}).fill('');
   await page.getByRole('button',{name:/Next: Distribution/}).click();

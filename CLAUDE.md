@@ -1,37 +1,53 @@
-﻿# Nutrition App application guidance
+# NutritionApp guidance
 
-This repository is independent of FinancialApp. These rules apply to NutritionApp and override FinancialApp-specific guidance from the parent directory. Keep AGENTS.md and CLAUDE.md identical when editing them.
+Applies only to this independent repository; app-specific rules override the parent's FinancialApp rules. `CLAUDE.md` is canonical; keep `AGENTS.md` byte-identical. After editing, run `node scripts/sync-docs.mjs`, then verify with `node scripts/sync-docs.mjs --check`.
 
-## Product and interface
+## Keep this guidance concise
 
-- Keep the interface clean, restrained, premium, and data driven. Remove slogans, motivational copy, redundant introductions, and decorative descriptions. Labels, units, dates, data provenance, uncertainty, errors, and actionable instructions belong in the UI.
-- Use bundled Inter Variable throughout, including forms and chart labels. Use tabular numerals for numerical comparisons. Keep typography in web/src/index.css; no feature-specific font families or remote font requests.
-- Preserve the established Ayu light and dark semantic color tokens. Reuse components in web/src/components/ui for buttons, fields, dates, selects, and panels. Do not create parallel color or component systems.
-- Maintain keyboard focus, accessible labels, reduced-motion support, and 44 px touch controls on compact and medium screens. Verify layout at 390, 768, and 1440 px in both themes.
-- Open a returning account from its local cache before waiting for session validation or a server wake-up. Keep food and weight entry available during network delays, bound requests with timeouts, and retry retained edits on reconnect/foreground wake. Ignore stale refresh responses. First use still requires online sign-in.
-- Ordinary saves happen automatically. Show retained pending work or actionable errors, without a routine sync button or idle refresh animation.
+- Update the implemented-feature index in the same change as a feature addition, removal, or material behavior change. Edit an existing bullet before adding one; group related capabilities and link to details instead of keeping a changelog here.
+- Record implemented behavior only; label incomplete work in a plan. Keep this file near 100 lines or fewer. Put enhancement findings in `ENHANCEMENT_PLAN.md`, product details in `README.md`, and UI detail in the two design documents below.
 
-## Data contracts
+## Implemented feature index
 
-- Today remains open in the profile time zone. Past dates with food automatically count as complete. Missing intake requires a fasting/not-logging decision; never infer fasting or zero from absent calories.
-- Not logging preserves weights, trend calculations, and provisional/accepted coaching estimates. Missing calories cannot identify expenditure from weight change alone, so hold adaptive intake-based recalibration until its evidence requirements are met.
-- Keep day resolution consistent across coaching, charts, offline projection, and retained summaries. Day decisions may change on archived dates; archived nutrient totals must survive such changes. Old meal details remain read-only.
-- AI supports descriptions, meal photos, and nutrition-label photos. Returned fields remain editable drafts. Preserve unknown nutrients and quantity basis; never auto-submit scans or claim verified accuracy.
-- Persist account-scoped mutations and image drafts before dispatch. Preserve idempotency, conflict review, tenancy, and private image cleanup. Never reset or discard unsynced work to hide failures.
-- Server coaching remains authoritative. Accepted plans are immutable and revision checked. Do not change physiological equations or adaptation thresholds as a UI cleanup. Age is derived from the stored date of birth at calculation time; a stored macro split owns all three macros while an absent split keeps the coach default. Each proposal carries one acceptance identity so a repeated accept is idempotent.
-- Continuous expenditure snapshots are versioned, deterministic advisory data. They may update before a check-in, while Today reads only the latest accepted plan until acceptance atomically activates its seven dated targets.
-- Coaching cadence is independently revisioned from the profile. Monday is the default; a weekday change is retained without changing the active plan and becomes due on the next occurrence in the profile time zone.
-- Google Health step synchronization is read-only, visual-only, and cached in memory only. Steps must never affect calories, expenditure estimates, coaching proposals, or day-completion logic, and step data must never be persisted to IndexedDB or localStorage. Disconnect or external revocation clears stored credentials and step data.
+- FitnessAccount central sign-in and account profile/settings; consumer sessions and account-scoped data.
+- Food diary, explicit logging-day decisions, batch entry, copy/move, shared food search, saved/custom foods, recipes, barcode lookup/private mappings, and editable AI text/photo/label estimates.
+- Offline retained edits and image drafts, automatic synchronization, retry and conflict review.
+- Weight and body records/photos, goal phases, macro/weekly targets, server coaching/check-ins, expenditure estimates, and progress/energy-history charts.
+- Google Health steps and Workout summaries; integration settings and account exports. These integrations do not automatically change calorie or macro targets.
 
-## Working and verification
+## UI standardization
 
-- Inspect git status and preserve concurrent edits. Do not commit, push, or deploy unless requested.
-- Frontend: web/ (React, TypeScript, Vite); API: api/ (.NET); regressions: tests/ and web/e2e/.
-- Run dotnet test tests/Nutrition.Tests.csproj, then in web run npm.cmd run typecheck, npm.cmd test, npm.cmd run build. For UI changes also run npm.cmd run test:visual against an isolated local API.
-- Browser tests reset local test accounts. Never run them against production or a personal diary database. Use an isolated Data Source with the development API.
-- Document any unavailable live-provider or deployment checks honestly. Keep documentation aligned with the implemented contracts.
+- Read `docs/UI_UX_DESIGN_PRINCIPLES.md` and `docs/UI_UX_EXTENSION_CHECKLIST.md` before UI work. Update both only when their reusable patterns or contracts change.
+- Reuse `web/src/components/ui/` and existing feature flows. Actions use `Button`; forms use `Form`/`Field`/`FileInput`; selectors, dates, dialogs, panels, and sync feedback use their existing primitives. Raw buttons belong inside shared primitives, not new feature code. Extend a primitive before creating a parallel implementation.
+- Food search, recipe selection, barcode recovery, servings, and batch review extend `FoodPicker`, `LogFood`, `FoodBasket`, and their shared helpers. Never create a second search/ranking or portion-conversion contract.
+- Preserve Ayu light/dark semantic tokens, bundled Inter Variable, tabular numerals, spacing, typography, and focus rules in `web/src/index.css`. No feature-specific fonts, hard-coded colors, or parallel token systems.
+- Reuse `MotionScene`, `MotionPanel`, `SelectionIndicator`, and `CoachMotion`; preserve shared durations/easing and reduced-motion behavior. Content, errors, focus, and saves never wait for animation. No idle attention-seeking motion.
+- Keep copy factual: labels, units, dates, sources, uncertainty, errors, and next actions; avoid slogans and redundant introductions.
+- Preserve the <640 / 640-1023 / >=1024 px layout tiers. Verify 390/768/1440 px in both themes, 44 px compact/medium controls, no horizontal overflow, keyboard operation, visible focus, dialog focus restoration, Back/Escape dismissal, and accessible names.
+- Include loading, empty, unknown, error, disabled, offline, and conflict states; update matching skeletons when layout changes. Ordinary saves are automatic; use existing retained-work feedback, not a routine sync button.
 
-## UI/UX extension rule
+## Code standardization
 
-- Treat docs/UI_UX_DESIGN_PRINCIPLES.md and docs/UI_UX_EXTENSION_CHECKLIST.md as living instructions. Before adding a screen or interaction, reuse the existing shared components and tokens they catalog; when a reusable pattern or contract changes, update both instruction files and the corresponding unit/browser tests in the same change.
-- Keep AGENTS.md and CLAUDE.md identical when editing this repository guidance.
+- Inspect Git status first; preserve unrelated/concurrent edits. Search shared components, hooks, `web/src/lib/`, DTOs, and API services before adding code. Do not commit, push, or deploy unless requested.
+- Keep React components and endpoints thin; separate view coordination into focused hooks and pure calculations into `web/src/lib/` or API services. Reuse validation, formatting, units, request/error handling, and domain rules.
+- Prefer explicit types, clear names, small functions, and readable formatting. Avoid `any`, compressed one-line logic, dead code, swallowed errors, and speculative abstractions. Comments explain constraints and reasons.
+- Aim for <=300 lines per new source file; split before 500 along responsibility boundaries. Do not grow oversized coordinators; extract the touched responsibility. Generated migrations are exempt. Do not compress code to meet the limit.
+- Keep server validation authoritative and mirror it through shared client rules. Preserve cancellation/timeouts, tenancy, idempotency, optimistic ordering, revision checks, and unknown values. Add regression coverage before changing auth, sync, or coaching calculations; never rewrite applied migrations.
+
+## Data boundaries
+
+- FitnessAccount alone stores credentials. Use immutable `IdentitySubject`; display name is mutable metadata. Do not introduce consumer passwords or local registration.
+- Open returning accounts from account-scoped cache while validating sessions. Keep food/weight entry available through network delays, persist mutations/image drafts before dispatch, retry on reconnect/foreground, and ignore stale responses. First sign-in requires online access. Never discard unsynced work to hide errors.
+- Today stays open in the profile time zone; past food dates automatically count as complete. Missing intake needs an explicit fasting/not-logging decision; never infer zero or overwrite an explicit incomplete/not-logging choice. Keep day resolution consistent across coaching, charts, offline projection, and archived nutrient summaries; archived meal details remain read-only.
+- Not logging preserves weights/trends and provisional/accepted estimates but cannot justify intake-based recalibration without sufficient evidence. AI results remain editable drafts until explicit logging. Never invent nutrients, serving weights, quantity basis, or volume-to-mass conversions.
+- Server coaching is authoritative: preserve equations, thresholds, immutable accepted plans, revision checks, idempotent acceptance, date-derived age, and all three stored macro targets. Versioned expenditure snapshots are advisory; Today changes only when acceptance atomically activates seven dated targets.
+- Coaching cadence is independently revisioned; Monday is default, and weekday edits become due on the next local occurrence without changing the active plan.
+- Google Health steps are read-only and display-only, held in browser runtime memory rather than IndexedDB/localStorage. Disconnect/revocation clears credentials and step data. Steps never feed expenditure, coaching, targets, or day completion.
+- Nutrition owns scale/trend weight and goals; Workout owns sessions/progression/PRs. Cross-app summaries are informational and never automatically change calories/macros. Preserve account isolation, private-image cleanup, and integration credential protection.
+
+## Verification
+
+- Frontend: `web/`; API: `api/`; API regressions: `tests/`; browser tests: `web/e2e/`. Use Node 24 and the repository's .NET SDK requirements.
+- From repository root: `dotnet test tests/Nutrition.Tests.csproj`. From `web/`: `npm.cmd run check:docs`, `npm.cmd run check:standards`, `npm.cmd run typecheck`, `npm.cmd test`, `npm.cmd run build`; UI/shared-surface changes also require `npm.cmd run test:visual`.
+- Browser tests reset accounts: use an isolated development API/database, never production or a personal diary. Serialize shared build/browser output when other work is running.
+- Verify documentation equality and `git diff --check`. Report commands and distinguish source/test evidence from live-provider, browser, or deployment evidence; skipped checks remain unverified.

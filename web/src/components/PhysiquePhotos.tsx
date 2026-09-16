@@ -230,12 +230,12 @@ function BodyHistoryRow({record,onOpen,onEdit}:{record:BodyRecord;onOpen:()=>voi
   const count=measurementCount(record);
   const summary=allMeasurementKeys.filter(key=>record.measurements[key]!=null).slice(0,2).map(key=>measurementLabel(key)+' '+number(record.measurements[key],1)+(key==='bodyFatPercent'?'%':' cm')).join(' · ');
   return <article className="body-history-row">
-    <button className="body-history-main" type="button" onClick={onOpen}>
+    <Button presentation="plain" className="body-history-main" onClick={onOpen}>
       <span className="body-history-date">{record.date}</span>
       <span className="body-history-meta">{count} measurement{count===1?'':'s'}{record.photos.length?' · '+record.photos.length+' photo'+(record.photos.length===1?'':'s'):''}</span>
       {summary&&<span className="body-history-meta">{summary}</span>}
       {record.weightContext.provenance!=='legacy-unavailable'&&<span className="body-history-meta">Weight snapshot {record.weightContext.scaleKg==null&&record.weightContext.trendKg==null?'unavailable':'attached'}</span>}
-    </button>
+    </Button>
     {preview?<img className="body-history-thumb" src={'/api/photos/'+preview.id+'/content'} alt={'Body record '+record.date}/>:<div className="body-history-thumb body-history-thumb-empty" aria-hidden="true">No photo</div>}
     <Button variant="tertiary" size="md" onClick={event=>onEdit(event.currentTarget)}>Edit</Button>
   </article>;

@@ -405,6 +405,18 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .slider-range-ticks .tick-mark{position:absolute;top:0;width:2px;height:4px;background:var(--muted-foreground);opacity:.45;transform:translateX(-50%)}
 .slider-range-ticks .tick-label-container{position:absolute;top:2px;transform:translateX(-50%);white-space:nowrap}
 .slider-range-ticks .tick-label{font-size:.68rem;letter-spacing:.02em;color:var(--muted-foreground);font-weight:500}
+.circular-slider-field{min-width:0}
+.circular-slider{display:block;width:100%;max-width:380px;height:auto;min-height:174px;margin:4px auto 0;overflow:visible;cursor:pointer;touch-action:none;outline:none}
+.circular-slider:focus-visible{outline:2px solid var(--ring);outline-offset:5px;border-radius:14px}
+.circular-slider-track,.circular-slider-fill{fill:none;stroke-linecap:round;stroke-width:12}
+.circular-slider-track{stroke:var(--track)}
+.circular-slider-fill{stroke:var(--primary);transition:stroke-dasharray var(--coach-short) var(--coach-ease)}
+.circular-slider-thumb{fill:var(--card);stroke:var(--primary);stroke-width:5;filter:drop-shadow(0 2px 3px color-mix(in srgb,var(--ink) 18%,transparent));transition:cx var(--coach-short) var(--coach-ease),cy var(--coach-short) var(--coach-ease),r var(--coach-short) var(--coach-ease)}
+.circular-slider:hover .circular-slider-thumb,.circular-slider:focus-visible .circular-slider-thumb{r:12}
+.circular-slider-endpoint{fill:var(--muted-foreground);opacity:.65}
+.circular-slider-range{display:flex;justify-content:space-between;max-width:380px;margin:-8px auto 0;color:var(--muted-foreground);font-size:.72rem;font-variant-numeric:tabular-nums}
+.slider-equivalent{color:var(--muted-foreground);font-size:.75rem;font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){.circular-slider-fill,.circular-slider-thumb{transition:none}}
 
 /* Coach motion: semantic colors, one live form, no clipped popovers. */
 :root{--coach-ease:cubic-bezier(.2,.8,.2,1);--coach-short:160ms;--coach-layout:220ms}
@@ -1158,7 +1170,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .field-input-row>.field-input-wrapper{flex:1;min-width:0}
 
 /* Barcode embedded camera button */
-.field-inside-action>.barcode-camera-btn{min-height:44px!important;height:44px!important;width:44px!important;min-width:44px!important;border-radius:10px}
+.field-inside-action>.barcode-camera-btn{min-height:44.5px!important;height:44.5px!important;width:44.5px!important;min-width:44.5px!important;border-radius:10px}
 .barcode-camera-btn{transition:color var(--motion-control) ease,background var(--motion-control) ease}
 .barcode-camera-btn.active{color:var(--primary)!important;background:var(--primary-tint)!important}
 .barcode-scanner-modal{display:flex;flex-direction:column;gap:14px}
