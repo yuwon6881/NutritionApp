@@ -44,7 +44,7 @@ export function MacroSetup({
     :macroPresets;
   return <div className="macro-setup">
     {mode==='presets'?(
-      <div className="macro-preset-grid" role="radiogroup" aria-label="Macro presets">
+      <div className="macro-preset-grid macro-presets" role="group" aria-label="Macro presets">
         {presetOptions.map(preset=>{
           const isSelected=active===preset.id;
           const targetSplit=preset.split??split;
@@ -54,8 +54,9 @@ export function MacroSetup({
               type="button"
               key={preset.id}
               className={`macro-preset-card ${isSelected?'selected':''}`}
+              aria-label={preset.label}
               onClick={()=>onPreset(preset.id,preset.split)}
-              role="radio"
+              aria-pressed={isSelected}
               aria-checked={isSelected}
             >
               <div className="macro-preset-card-header">

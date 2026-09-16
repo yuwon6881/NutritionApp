@@ -32,7 +32,11 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
   const intervals=state.acceptedTargetIntervals??[];
   const historicalInterval=intervals.find(i=>i.start<=date&&i.end>=date);
   const plan:CoachResult|undefined=historicalInterval
-    ?{version:latestPlan?.version??'2.0.0',eligible:true,adaptive:false,calories:historicalInterval.calories,expenditure:null,protein:latestPlan?.protein??null,fat:latestPlan?.fat??null,carbs:latestPlan?.carbs??null,explanation:'',weeklyCalories:historicalInterval.weeklyCalories,dailyCalories:historicalInterval.dailyCalories,proteinFixed:latestPlan?.proteinFixed}
+    ?{version:latestPlan?.version??'2.0.0',eligible:true,adaptive:false,calories:historicalInterval.calories,expenditure:null,
+      protein:historicalInterval.protein!==undefined?historicalInterval.protein:latestPlan?.protein??null,
+      fat:historicalInterval.fat!==undefined?historicalInterval.fat:latestPlan?.fat??null,
+      carbs:historicalInterval.carbs!==undefined?historicalInterval.carbs:latestPlan?.carbs??null,explanation:'',weeklyCalories:historicalInterval.weeklyCalories,dailyCalories:historicalInterval.dailyCalories,
+      proteinFixed:historicalInterval.proteinFixed!==undefined?historicalInterval.proteinFixed:latestPlan?.proteinFixed}
     :latestPlan;
   const targets=targetsForDate(plan,date);
   const ratio=targets.calories?Math.min(total/targets.calories,1):0;
@@ -72,7 +76,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
             return <div className={'macro '+key} key={key}>
               <span>{key==='carbs'?'Carbohydrate':key[0].toUpperCase()+key.slice(1)}</span>
               <strong>{savedDay?.archived&&savedDay[key]==null?'—':entries.length&&!known.length?'—':number(sum)}<small> / {number(targets[key])} g{incomplete?' · partial':''}</small></strong>
-              <progress aria-label={`${key} logged`} value={sum} max={Math.max(targets[key]??sum,1)}/>
+              <progress aria-label={`${key} logged`} value={targets[key]==null?0:sum} max={targets[key]==null?1:Math.max(targets[key],1)}/>
             </div>;
           })}
         </article>

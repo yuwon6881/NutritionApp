@@ -49,7 +49,7 @@ public sealed class CheckInTests
         db.ChangeTracker.Clear();
         db.CurrentUser = user.Id;
 
-        var coach = new CoachingService(db);
+        var coach = new CoachingService(db, new ExpenditureTrajectoryService(db));
         var preview = await coach.Preview(default);
 
         Assert.Equal(CheckInWeek.WeekStart(today), preview.WeekStart);
@@ -80,7 +80,7 @@ public sealed class CheckInTests
         db.Plans.Add(AddPlan(user, today.AddDays(-7)));
         await db.SaveChangesAsync();
         db.CurrentUser = user.Id;
-        var coach = new CoachingService(db);
+        var coach = new CoachingService(db, new ExpenditureTrajectoryService(db));
         var first = await coach.Preview(default);
         await coach.Decline(Guid.NewGuid(), first.Revision, default);
 
@@ -123,7 +123,7 @@ public sealed class CheckInTests
         await Assert.ThrowsAsync<DomainException>(() => sync.Apply(new(Guid.NewGuid(), "settings", user.Id, savedSettings.CoachingSettingsRevision,
             JsonSerializer.SerializeToElement(new { missingDayAction = "invalid_choice" }, Json.Options)), default));
 
-        var preview = await new CoachingService(db).Preview(default);
+        var preview = await new CoachingService(db, new ExpenditureTrajectoryService(db)).Preview(default);
         Assert.False(preview.CanAccept);
         Assert.Equal(CheckInWeek.NextOccurrenceAfter(today, 5), preview.NextCheckIn);
         Assert.Contains("check-in day changed", preview.HoldReason);
@@ -152,7 +152,7 @@ public sealed class CheckInTests
             new Weight { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-1), Kg = 74.8 });
         await db.SaveChangesAsync();
 
-        var coach = new CoachingService(db);
+        var coach = new CoachingService(db, new ExpenditureTrajectoryService(db));
         var waitId = Guid.NewGuid();
         var waitRevision = user.Revision;
         var waiting = await coach.CompleteGoal(waitId, waitRevision, "await-trend", default);

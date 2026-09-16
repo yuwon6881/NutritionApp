@@ -35,7 +35,7 @@ public class LoggingPersistenceTests
             db.Entries.Add(new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Name="Meals",Calories=2500});
             db.Weights.Add(new Weight{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Kg=80});
         }
-        await db.SaveChangesAsync();var coach=new CoachingService(db);
+        await db.SaveChangesAsync();var coach=new CoachingService(db,new ExpenditureTrajectoryService(db));
         Assert.True((await coach.Preview(default)).Result.Adaptive);
         db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-1),Status="not_logged"});await db.SaveChangesAsync();
         var result=(await coach.Preview(default)).Result;

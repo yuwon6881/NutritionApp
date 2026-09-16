@@ -9,12 +9,14 @@ export interface SliderProps {
   min: number;
   max: number;
   step?: number;
-  hint?: string;
+  hint?: ReactNode;
   ariaLabel?: string;
   valueDisplay?: ReactNode;
   formatValue?: (val: number) => string;
   onChange: (value: number) => void;
   className?: string;
+  recommendedRange?: [number, number];
+  recommendedLabel?: string;
 }
 
 export function Slider({
@@ -30,7 +32,9 @@ export function Slider({
   valueDisplay,
   formatValue,
   onChange,
-  className = ''
+  className = '',
+  recommendedRange,
+  recommendedLabel
 }: SliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -112,6 +116,17 @@ export function Slider({
   const percent = Math.min(Math.max(((value - min) / (max - min)) * 100, 0), 100);
   const formattedText = formatValue ? formatValue(value) : `${value}`;
 
+  const hasRec = recommendedRange && recommendedRange.length === 2;
+  const recMinVal = hasRec ? Math.min(recommendedRange[0], recommendedRange[1]) : 0;
+  const recMaxVal = hasRec ? Math.max(recommendedRange[0], recommendedRange[1]) : 0;
+  const recMinPercent = hasRec
+    ? Math.min(Math.max(((recMinVal - min) / (max - min)) * 100, 0), 100)
+    : 0;
+  const recMaxPercent = hasRec
+    ? Math.min(Math.max(((recMaxVal - min) / (max - min)) * 100, 0), 100)
+    : 0;
+  const recWidth = recMaxPercent - recMinPercent;
+
   return (
     <FieldFrame label={label} className={`field slider-field ${className}`.trim()}>
       <div className="field-label-row">
@@ -139,6 +154,14 @@ export function Slider({
         onKeyDown={handleKeyDown}
       >
         <div className="custom-slider-track">
+          {hasRec && (
+            <div
+              className="custom-slider-zone recommended"
+              style={{left: `${recMinPercent}%`, width: `${recWidth}%`}}
+              aria-hidden="true"
+              title={recommendedLabel ?? 'Recommended range'}
+            />
+          )}
           <div className="custom-slider-fill" style={{width: `${percent}%`}} />
         </div>
         <div
@@ -148,6 +171,16 @@ export function Slider({
         />
         <input type="hidden" name={name} value={value} />
       </div>
+
+      {hasRec && (
+        <div className="slider-range-ticks" aria-hidden="true">
+          <span style={{left: `${recMinPercent}%`}} className="tick-mark" />
+          <span style={{left: `${recMaxPercent}%`}} className="tick-mark" />
+          <div className="tick-label-container" style={{left: `${recMinPercent + recWidth / 2}%`}}>
+            <span className="tick-label">{recommendedLabel ? `Recommended: ${recommendedLabel}` : 'Recommended'}</span>
+          </div>
+        </div>
+      )}
 
       {hint && <small id={`${id}-hint`}>{hint}</small>}
     </FieldFrame>

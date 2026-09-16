@@ -115,7 +115,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       ...(key==='goal'?{
         goalRatePercent:value==='lose'?-0.5:value==='gain'?0.15:0,
         energyAdjustmentPercent:value==='lose'?15:value==='gain'?5:0,
-        ...(value==='maintain'?{phaseMode:'open' as const}:{phaseMode:'weight' as const})
+        ...(value==='maintain'?{phaseMode:'open' as const}:{phaseMode:isInitialSetup?'weight' as const:p.phaseMode})
       }:{})
     }));
     setProposal(undefined);

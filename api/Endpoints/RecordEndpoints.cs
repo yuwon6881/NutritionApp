@@ -6,8 +6,17 @@ using Nutrition.Api.Services;
 namespace Nutrition.Api.Endpoints;
 public record AcceptInput(Guid Id,long Revision);
 public record GoalDecisionInput(Guid Id,long Revision,string Decision);
+internal sealed record AcceptedTargetInterval(DateOnly Start,DateOnly End,double? Calories,double? WeeklyCalories,IReadOnlyList<int>? DailyCalories,double? Protein,double? Carbs,double? Fat,bool? ProteinFixed);
 public static class RecordEndpoints
 {
+    internal static IReadOnlyList<AcceptedTargetInterval> BuildAcceptedTargetIntervals(IReadOnlyList<AcceptedPlan> plans,DateOnly today)
+        => plans.Select((plan,index)=>
+        {
+            var result=Json.Read<CoachResult>(plan.ResultJson);
+            var next=index+1<plans.Count?plans[index+1].Date.AddDays(-1):today;
+            return new AcceptedTargetInterval(plan.Date,next,result.Calories,result.WeeklyCalories,result.DailyCalories,result.Protein,result.Carbs,result.Fat,result.ProteinFixed);
+        }).Where(interval=>interval.End>=interval.Start).ToList();
+
     public static void MapRecords(this WebApplication app)
     {
         app.MapGet("/api/state",async(AppDb db,RetentionService retention,ExpenditureTrajectoryService trajectory,WorkoutSummaryService training,DateOnly? date,int? year,CancellationToken ct) =>
@@ -22,12 +31,7 @@ public static class RecordEndpoints
             var precedingSnapshot=snapshots.Where(snapshot=>snapshot.Date<start).OrderByDescending(snapshot=>snapshot.Date).FirstOrDefault();
             if(precedingSnapshot!=null)energySnapshots.Insert(0,precedingSnapshot);
             var orderedPlans=await db.Plans.OrderBy(plan=>plan.Date).ThenBy(plan=>plan.Revision).ToListAsync(ct);
-            var acceptedTargetIntervals=orderedPlans.Select((plan,index)=>
-            {
-                var result=Json.Read<CoachResult>(plan.ResultJson);
-                var next=index+1<orderedPlans.Count?orderedPlans[index+1].Date.AddDays(-1):today;
-                return new { start=plan.Date,end=next,calories=result.Calories,weeklyCalories=result.WeeklyCalories,dailyCalories=result.DailyCalories };
-            }).Where(interval=>interval.end>=interval.start).ToList();
+            var acceptedTargetIntervals=BuildAcceptedTargetIntervals(orderedPlans,today);
             // Nutrition displays scheduled training ahead of today, but the returned workout
             // context remains informational and does not extend the nutrition target interval.
             var trainingSummary = await training.Get(start, end.AddDays(14), ct);

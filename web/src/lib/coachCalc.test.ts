@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {calculateResting,calculateLivePace} from './coachCalc';
+import {calculateResting,calculateLivePace,getPaceStatus} from './coachCalc';
 
 const base={
   age:30,
@@ -53,5 +53,26 @@ describe('coachCalc', ()=>{
     expect(pace.carbs).toBe(25);
     expect(pace.fat).toBe(155.6);
     expect(pace.split).toEqual({protein:25,carbs:5,fat:70});
+  });
+
+  it('identifies when calorie safety floor moderates target and updates change accordingly', ()=>{
+    const floored=calculateLivePace({...base,weightKg:65,maintenance:2263,goal:'lose',goalRatePercent:-1.0});
+    expect(floored.expenditure).toBe(2263);
+    expect(floored.target).toBe(1700);
+    expect(floored.isFloored).toBe(true);
+    expect(floored.rawChange).toBe(-715);
+    expect(floored.change).toBe(-563);
+    expect(floored.expenditure + floored.change).toBe(floored.target);
+  });
+
+  it('determines pace status and contextual feedback for loss and gain', ()=>{
+    expect(getPaceStatus('lose', -0.3, false).tone).toBe('gentle');
+    expect(getPaceStatus('lose', -0.75, false).tone).toBe('recommended');
+    expect(getPaceStatus('lose', -1.2, false).tone).toBe('aggressive');
+    expect(getPaceStatus('lose', -1.0, true).tone).toBe('floored');
+
+    expect(getPaceStatus('gain', 0.05, false).tone).toBe('gentle');
+    expect(getPaceStatus('gain', 0.15, false).tone).toBe('recommended');
+    expect(getPaceStatus('gain', 0.4, false).tone).toBe('aggressive');
   });
 });

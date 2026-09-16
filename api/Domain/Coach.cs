@@ -62,7 +62,8 @@ public static class Coach
 
     public static CoachResult Calculate(Profile p, IReadOnlyList<NutritionDay> days,
         IReadOnlyList<WeightPoint> weights, PreviousPlan? previous, DateOnly today, double? startingExpenditure = null,
-        bool allowAdaptation = true, PhaseDecision? phaseDecision = null, string weightGoalMetric = "scale")
+        bool allowAdaptation = true, PhaseDecision? phaseDecision = null, string weightGoalMetric = "scale",
+        bool? adaptiveOverride = null)
     {
         p = p with { Age = AgeAt(p, today) };
         if (p.Age < 18 || p.PregnancyOrBreastfeeding || p.MedicalNutrition)
@@ -73,9 +74,9 @@ public static class Coach
         var effectiveGoal = progress.Complete ? "maintain" : p.Goal;
         if (effectiveGoal == "lose" && p.WeightKg / Math.Pow(p.HeightCm / 100, 2) < 18.5)
             return Blocked("Weight-loss coaching is unavailable at an underweight BMI.");
-        var expenditure = previous?.Expenditure ?? startingExpenditure ?? p.Maintenance ?? Resting(p) * p.Activity;
+        var expenditure = startingExpenditure ?? previous?.Expenditure ?? p.Maintenance ?? Resting(p) * p.Activity;
         var estimate = Expenditure.Estimate(days, weights, expenditure, today, allowAdaptation);
-        var adaptive = estimate.Adaptive;
+        var adaptive = adaptiveOverride ?? estimate.Adaptive;
         var reason = p.Maintenance is not null
             ? "Starting from your supplied maintenance estimate. Log complete days and weigh regularly to calibrate it."
             : $"Estimated resting energy: {Math.Round(Resting(p))} kcal/day using Mifflin–St Jeor. Your approximate activity multiplier is {p.Activity}. This is a starting estimate, not a metabolic measurement. Log complete days and weigh regularly to calibrate it.";

@@ -43,6 +43,7 @@ Reuse these components and hooks before writing local equivalents:
 | Buttons and actions | `web/src/components/ui/Button.tsx` | Use its `primary`, `secondary`, `tertiary`, and `destructive` variants. Keep meaningful accessible names and 44 px touch targets on compact layouts. |
 | Labels, inputs, errors, and submit behavior | `Field.tsx`, `Form.tsx`, `FileInput.tsx` | Use the shared validation and first-invalid-focus behavior. Do not rely on native validation bubbles or build a feature-only field wrapper. |
 | Selects and segmented choices | `Select.tsx`, `SegmentedControl.tsx` | Use the existing keyboard, focus, selection, and responsive patterns. Use `data-layout="equal"` or `data-layout="scroll"` when appropriate. |
+| Continuous and range inputs | `Slider.tsx` | Use for continuous rate, percentage, or scalar inputs with pointer capture, keyboard step navigation, optional `recommendedRange` track indicators, and contextual pace badge feedback. |
 | Dates and times | `DatePicker.tsx`, `TimePicker.tsx` | Reuse their dialog/popover boundaries, keyboard behavior, date formatting, and focus restoration. |
 | Dialogs and destructive/dirty-close flows | `Modal.tsx`, `ActionSheet.tsx` | Preserve focus trapping, Escape handling, backdrop intent, inert editor content, dirty confirmation, and focus restoration. |
 | Panels and cards | `Card.tsx` plus the `.panel` and semantic classes in `index.css` | Prefer a semantic panel and existing spacing over a new card class. A new repeated surface belongs in the shared layer. |

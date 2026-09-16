@@ -37,6 +37,7 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
             await RebuildFromUnderLock(start, sourceRevision, ct);
             await db.SaveChangesAsync(ct);
         }
+        await db.ExpenditureEstimates.Where(item => item.Date < start).ExecuteDeleteAsync(ct);
         return await db.ExpenditureEstimates.AsNoTracking().OrderBy(item => item.Date).ToListAsync(ct);
     }
 
@@ -48,7 +49,7 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         await gate.Commit(ct);
     }
 
-    internal async Task RebuildFromUnderLock(DateOnly from, long sourceRevision, CancellationToken ct)
+    internal async Task RebuildFromUnderLock(DateOnly from, long sourceRevision, CancellationToken ct, bool profileChanged = false)
     {
         var user = await db.Users.SingleAsync(item => item.Id == db.CurrentUser, ct);
         if (string.IsNullOrWhiteSpace(user.ProfileJson)) return;
@@ -58,11 +59,11 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         // window rather than replaying every year since that date.
         var floor = today.AddDays(-(BackfillDays - 1));
         var start = from > today ? today : from < floor ? floor : from;
-        var seed = await db.ExpenditureEstimates.AsNoTracking()
+        var seed = profileChanged ? null : await db.ExpenditureEstimates.AsNoTracking()
             .Where(item => item.Date < start && item.AlgorithmVersion == ExpenditureTrajectory.AlgorithmVersion)
             .OrderByDescending(item => item.Date)
             .FirstOrDefaultAsync(ct);
-        var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, ct);
+        var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, ct, profileChanged);
         var days = await LoadDays(start.AddDays(-28), today, today, ct);
         var weights = await db.Weights
             .Where(weight => !weight.Deleted && weight.Date >= start.AddDays(-56) && weight.Date <= today)
@@ -110,14 +111,17 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         return await db.ExpenditureEstimates.AsNoTracking().OrderByDescending(item => item.Date).FirstOrDefaultAsync(ct);
     }
 
-    private async Task<double> StartingExpenditure(Profile profile, DateOnly before, CancellationToken ct)
+    private async Task<double> StartingExpenditure(Profile profile, DateOnly before, CancellationToken ct, bool profileChanged = false)
     {
-        var plan = await db.Plans.Where(item => item.Date < before)
+        var query = db.Plans.AsQueryable();
+        if (!profileChanged) query = query.Where(item => item.Date < before);
+        var plan = await query
             .OrderByDescending(item => item.Date).ThenByDescending(item => item.Revision).FirstOrDefaultAsync(ct);
         if (plan != null)
         {
             var result = Json.Read<CoachResult>(plan.ResultJson);
-            if (result.Expenditure is {} expenditure && double.IsFinite(expenditure)) return expenditure;
+            var carried = GoalPolicy.CarryExpenditure(Json.Read<Profile>(plan.ProfileJson), profile, result.Expenditure);
+            if (carried is {} expenditure && double.IsFinite(expenditure)) return expenditure;
         }
         return profile.Maintenance ?? Coach.Resting(profile) * profile.Activity;
     }

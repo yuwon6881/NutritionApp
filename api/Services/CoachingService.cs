@@ -63,14 +63,19 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
                 : null,
             today, seed, adaptationDue, phaseDecision, user.WeightGoalMetric ?? "scale");
         var trajectoryPoint = trajectory == null ? null : await trajectory.LatestUnderLock(ct);
-        if (trajectoryPoint?.Expenditure is {} learned)
+        if (trajectoryPoint != null)
         {
             // The learned expenditure replaces the accepted seed, but the calorie target and
             // everything derived from it — macros, the weekly budget, and the seven dated targets —
             // must come from one calculation. The advisory snapshot contributes only its adaptation
             // state and hold reason: its own suggestion reads profile.Goal directly and would both
             // desynchronise the macros and reinstate a deficit on a completed phase.
-            var provisional = Coach.Calculate(profile, days, weights, null, today, learned, false, phaseDecision, user.WeightGoalMetric ?? "scale");
+            var provisional = Coach.Calculate(profile, days, weights,
+                previous?.Calories is {} previousCalories && previous.Expenditure is {} previousExpenditure
+                    ? new PreviousPlan(previousCalories, previousExpenditure)
+                    : null,
+                today, trajectoryPoint.Expenditure, false, phaseDecision, user.WeightGoalMetric ?? "scale",
+                trajectoryPoint.SuggestedCalories != null);
             result = provisional with
             {
                 Adaptive = trajectoryPoint.SuggestedCalories != null,

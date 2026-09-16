@@ -1,6 +1,6 @@
 import type {ProfileDraft,UnitPreferences} from '../types';
 import {today} from '../lib/format';
-import {calculateLivePace,profileAge} from '../lib/coachCalc';
+import {calculateLivePace,getPaceStatus,profileAge} from '../lib/coachCalc';
 import {Field,SelectField} from './ui/Field';
 import {Slider} from './ui/Slider';
 import {DatePicker} from './ui/DatePicker';
@@ -29,6 +29,16 @@ export function GoalSetup({
     ?'Automated targets are unavailable for this profile. You can still keep a food and weight diary.'
     :loss&&bmi!=null&&bmi<18.5?'Weight-loss coaching is unavailable at an underweight BMI.':null;
 
+  const paceStatus=paced
+    ?getPaceStatus(
+        profile.goal??'lose',
+        rate,
+        live.isFloored,
+        units.energy,
+        displayEnergy(live.safetyFloor,units.energy)
+      )
+    :undefined;
+
   return <CoachLayout className="goal-setup">
     {blockedReason?<div className="live-calorie-card">
       <p className="source">{blockedReason}</p>
@@ -41,8 +51,16 @@ export function GoalSetup({
       </div>
       <div className="live-calorie-meta">
         <span>Maintenance ~{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</span>
-        {paced&&<span className="live-delta">{live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate)}% bodyweight/week</span>}
+        {paced&&<span className="live-delta">
+          {live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)}
+          {live.isFloored
+            ?' · calorie floor applied'
+            :` · ${Math.abs(rate)}% bodyweight/week`}
+        </span>}
       </div>
+      {paced&&live.isFloored&&<small style={{display:'block',marginTop:8,color:'var(--muted-foreground)'}}>
+        The selected {Math.abs(rate)}% bodyweight/week pace is moderated by the calorie safety floor (maximum 25% deficit / {displayEnergy(live.safetyFloor,units.energy)} {energyLabel(units.energy)} minimum).
+      </small>}
     </div>}
 
     {paced&&<Slider
@@ -56,30 +74,35 @@ export function GoalSetup({
       formatValue={v => `${v > 0 ? '+' : ''}${v.toFixed(2)}% / week`}
       ariaLabel="Rate (% bodyweight per week)"
       onChange={v=>set('goalRatePercent',v)}
-      hint={loss?'Allowed: 0.1–1.5% loss per week. A sustainable range is 0.5–1.0%.':'Allowed: 0.05–0.5% gain per week. A sustainable range is 0.1–0.25%.'}
+      recommendedRange={loss?[-1.0,-0.5]:[0.1,0.25]}
+      recommendedLabel={loss?'0.5–1.0% / week':'0.10–0.25% / week'}
+      valueDisplay={paceStatus&&(
+        <div className="slider-value-group">
+          <span className={`slider-pace-badge ${paceStatus.tone}`}>{paceStatus.label}</span>
+          <span className="slider-current-badge">{rate>0?'+':''}{rate.toFixed(2)}% / week</span>
+        </div>
+      )}
+      hint={paceStatus?.hint}
     />}
     {!paced&&<p className="source">Maintenance uses a fixed 0% bodyweight change rate.</p>}
 
-    {paced?(
-      <SelectField id="goal-phase-mode" name="phaseMode" label="Track my goal by" value={mode} onChange={v=>{
+    <SelectField id="goal-phase-mode" name="phaseMode" label="Track my goal by" value={mode} onChange={v=>{
         set('phaseMode',v);
         if(v==='duration'&&!profile.durationWeeks)set('durationWeeks',8);
         set('phaseStart',current);
         set('phaseStartWeightKg',profile.weightKg>0?profile.weightKg:null);
       }}>
-        <option value="weight">Target weight</option>
+        {paced&&<option value="weight">Target weight</option>}
         <option value="duration">Duration</option>
+        <option value="open">No end date</option>
       </SelectField>
-    ):(
-      <p className="source">Maintenance is tracked as an ongoing phase.</p>
-    )}
 
     {mode==='duration'&&<div className="form-grid coach-disclosure">
       <Field id="goal-duration-weeks" name="durationWeeks" label="Phase length (weeks)" required type="number" min="1" max="104" value={profile.durationWeeks??8} onChange={e=>set('durationWeeks',Number(e.target.value))}/>
       <DatePicker id="goal-phase-start" name="phaseStart" label="Phase start date" min="2000-01-01" required max={current} value={profile.phaseStart??current} onChange={v=>set('phaseStart',v)}/>
     </div>}
 
-    {mode==='weight'&&<div className="form-grid coach-disclosure">
+    {mode==='weight'&&paced&&<div className="form-grid coach-disclosure">
       <Field id="goal-phase-start-weight" name="phaseStartWeightKg" label={`Phase starting weight (${weightLabel(units.weight)})`} required type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={inputWeight(profile.phaseStartWeightKg??profile.weightKg,units.weight,1)} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('phaseStartWeightKg',Number.isFinite(next)?next:0);}}/>
       <Field id="goal-target-weight" name="targetWeightKg" validate={()=>{const target=profile.targetWeightKg;const initial=profile.phaseStartWeightKg??profile.weightKg;if(target==null)return undefined;if(profile.goal==='lose'&&target>=initial)return 'Choose a target below your phase starting weight.';if(profile.goal==='gain'&&target<=initial)return 'Choose a target above your phase starting weight.';if(profile.goal==='lose'&&target/Math.pow(profile.heightCm/100,2)<18.5)return 'Choose a target with a BMI of at least 18.5.';return undefined;}} label={`Target weight (${weightLabel(units.weight)})`} required type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.targetWeightKg==null?'':inputWeight(profile.targetWeightKg,units.weight,1)} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('targetWeightKg',e.target.value===''?null:Number.isFinite(next)?next:null);}}/>
     </div>}

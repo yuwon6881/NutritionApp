@@ -32,6 +32,8 @@ export interface LivePaceResult{
   change:number;
   target:number;
   safetyFloor:number;
+  isFloored:boolean;
+  rawChange:number;
   protein:number;
   fat:number;
   carbs:number;
@@ -39,6 +41,78 @@ export interface LivePaceResult{
   goalRatePercent:number;
   weeklyCalories:number;
   dailyCalories:number[];
+}
+
+export interface PaceStatus {
+  label: string;
+  tone: 'gentle' | 'recommended' | 'aggressive' | 'floored';
+  hint: string;
+}
+
+export function getPaceStatus(
+  goal: string,
+  rate: number,
+  isFloored: boolean,
+  energyUnit: 'kcal' | 'kj' = 'kcal',
+  safetyFloorDisplay?: string
+): PaceStatus {
+  const absRate = Math.abs(rate);
+  if (goal === 'lose') {
+    if (isFloored) {
+      return {
+        label: 'Calorie floor active',
+        tone: 'floored',
+        hint: `Calorie safety floor reached: Target is capped at a maximum 25% deficit${safetyFloorDisplay ? ` (${safetyFloorDisplay} ${energyUnit}/day minimum)` : ''}. Faster rates will not reduce calories further.`,
+      };
+    }
+    if (absRate > 1.0) {
+      return {
+        label: 'Aggressive',
+        tone: 'aggressive',
+        hint: 'Aggressive pace (>1.0% / week): Faster fat loss, but elevated fatigue, hunger, and muscle loss risk. Recommended for short cutting phases.',
+      };
+    }
+    if (absRate < 0.5) {
+      return {
+        label: 'Gentle',
+        tone: 'gentle',
+        hint: 'Gentle pace (<0.5% / week): Slower fat loss, but easiest adherence, minimal hunger, and highest training energy retention.',
+      };
+    }
+    return {
+      label: 'Recommended',
+      tone: 'recommended',
+      hint: 'Recommended sustainable pace (0.5–1.0% / week): Optimal balance of steady fat loss and lean muscle mass preservation.',
+    };
+  }
+
+  if (goal === 'gain') {
+    if (absRate > 0.25) {
+      return {
+        label: 'Aggressive',
+        tone: 'aggressive',
+        hint: 'Aggressive surplus (>0.25% / week): Maximizes recovery and weight gain, but carries higher risk of excess fat accumulation.',
+      };
+    }
+    if (absRate < 0.10) {
+      return {
+        label: 'Minimal',
+        tone: 'gentle',
+        hint: 'Minimal surplus (<0.10% / week): Extremely lean progression, but muscle hypertrophy rate may be very slow.',
+      };
+    }
+    return {
+      label: 'Recommended',
+      tone: 'recommended',
+      hint: 'Recommended lean bulk pace (0.10–0.25% / week): Promotes muscle protein synthesis while keeping unwanted fat gain minimal.',
+    };
+  }
+
+  return {
+    label: 'Maintenance',
+    tone: 'recommended',
+    hint: 'Maintenance uses a fixed 0% bodyweight change rate.',
+  };
 }
 
 export function calculateLivePace(
@@ -53,7 +127,7 @@ export function calculateLivePace(
   const goal=p.goal||'maintain';
   const legacyPercent=percentOverride??p.energyAdjustmentPercent;
   const goalRate=p.goalRatePercent??(goal==='lose'?-0.5:goal==='gain'?0.15:0);
-  const change=p.goalRatePercent!=null
+  const rawChange=p.goalRatePercent!=null
     ?p.weightKg*goalRate/100*7700/7
     :goal==='lose'
       ?-expenditure*(legacyPercent??15)/100
@@ -61,9 +135,11 @@ export function calculateLivePace(
         ?expenditure*(legacyPercent??5)/100
         :0;
 
-  let target=expenditure>0?Math.round((expenditure+change)/25)*25:2000;
+  const unconstrainedTarget=expenditure>0?Math.round((expenditure+rawChange)/25)*25:2000;
   const safetyFloor=expenditure>0?Math.ceil(Math.max(1500,expenditure*0.75)/25)*25:1500;
-  target=Math.max(target,safetyFloor);
+  const target=Math.max(unconstrainedTarget,safetyFloor);
+  const isFloored=expenditure>0&&target>unconstrainedTarget;
+  const change=isFloored?target-Math.round(expenditure):Math.round(rawChange);
 
   const chosen=storedSplit(p);
   let protein:number;let fat:number;let carbs:number;
@@ -80,9 +156,11 @@ export function calculateLivePace(
   return {
     resting:Math.round(resting),
     expenditure:Math.round(expenditure),
-    change:Math.round(change),
+    change,
     target,
     safetyFloor,
+    isFloored,
+    rawChange:Math.round(rawChange),
     protein,
     fat,
     carbs,

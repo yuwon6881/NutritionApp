@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {allocateWeeklyCalories,adjustWeeklyCalories,dailyCalories,mondayIndex,normaliseDistribution,scaledMacros,weeklyCalories,weekendDistribution} from './dailyTargets';
+import {allocateWeeklyCalories,adjustWeeklyCalories,dailyCalories,mondayIndex,normaliseDistribution,scaledMacros,targetsForDate,weeklyCalories,weekendDistribution} from './dailyTargets';
 
 describe('daily targets',()=>{
   it('conserves the weekly budget and allocates remainders by stable index',()=>{
@@ -38,6 +38,13 @@ describe('daily targets',()=>{
   it('scales one shared macro split with each accepted day',()=>{
     expect(scaledMacros({calories:2000,protein:150,carbs:200,fat:70},1900)).toEqual({protein:142.5,carbs:190,fat:66.5});
     expect(dailyCalories({calories:2000,weeklyCalories:null,dailyCalories:null},'2026-09-07')).toBe(2000);
+  });
+
+  it('uses the macros carried by a historical accepted plan',()=>{
+    const historical={eligible:true,adaptive:false,expenditure:null,explanation:'',version:'2.0.0',calories:2100,weeklyCalories:14700,dailyCalories:null,protein:180,carbs:190,fat:70,proteinFixed:false};
+    const current={eligible:true,adaptive:false,expenditure:null,explanation:'',version:'2.0.0',calories:2400,weeklyCalories:16800,dailyCalories:null,protein:120,carbs:300,fat:80,proteinFixed:false};
+    expect(targetsForDate(historical,'2026-09-10')).toEqual({calories:2100,protein:180,carbs:190,fat:70});
+    expect(targetsForDate(current,'2026-09-10')).not.toEqual(targetsForDate(historical,'2026-09-10'));
   });
 
   it('holds protein fixed when proteinFixed is true and adjusts carbs/fat',()=>{

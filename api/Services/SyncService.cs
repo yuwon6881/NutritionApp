@@ -141,7 +141,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if (op.Kind is "profile" or "entry" or "weight" or "day")
         {
             user.TrajectoryRevision = revision;
-            if (trajectory != null) await trajectory.RebuildFromUnderLock(trajectoryFrom ?? RetentionService.Today(user.ProfileJson), revision, ct);
+            if (trajectory != null) await trajectory.RebuildFromUnderLock(trajectoryFrom ?? RetentionService.Today(user.ProfileJson), revision, ct, op.Kind == "profile");
         }
         db.Receipts.Add(new MutationReceipt { Id = op.Id, UserId = uid, Hash = hash, Revision = revision });
         await db.SaveChangesAsync(ct); await gate.Commit(ct); return revision;
