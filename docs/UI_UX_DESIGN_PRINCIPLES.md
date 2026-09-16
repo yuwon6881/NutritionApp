@@ -50,7 +50,7 @@ Reuse these components and hooks before writing local equivalents:
 | Coach step motion | `CoachMotion.tsx` | Use `useCoachSteps`, `CoachLayout`, `CoachWait`, and `CoachNumber` for coach interactions rather than inventing another step animation. |
 | Async and sync feedback | `useAsyncAction.ts`, `SyncStatus.tsx` | Keep pending, retained, retryable, and conflict states explicit. Do not hide failed work behind a spinner or reset. Conflict review takes priority over secondary blocking prompts such as missed-day decisions, so a second edit cannot be queued for the same protected record. |
 | Food logging | `LogFood.tsx`, `FoodPicker.tsx`, `FoodBasket.tsx`, `BatchFoodRow.tsx`, and `useFoodBasket.ts` | Extend the existing selection, review, batch, swipe/menu, serving, and AI-draft flows. Search results are hydrated and ranked by `FoodSearchService`; do not add a second client-side ranking contract. |
-| Units and display formatting | `web/src/lib/units.ts`, `format.ts`, and `types.ts` | Use the account's energy, weight, and height preferences and the shared display/input helpers. |
+| Units and display formatting | `web/src/lib/units.ts`, `format.ts`, `types.ts`, `MiniUnitToggle.tsx` | Use the account's energy, weight, and height preferences and the shared display/input helpers. Onboarding and measurement inputs prefer compact system presets (`Metric` / `Imperial`) and contextual in-situ `MiniUnitToggle` switches in field headers rather than heavy multi-select fieldsets. |
 
 Before adding a component, search `web/src/components/ui`, `web/src/index.css`, and the nearest feature component for the behavior. If a pattern is likely to be used twice, extend the shared component and update this inventory instead of copying it.
 

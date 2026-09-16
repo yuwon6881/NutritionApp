@@ -10,8 +10,9 @@ export function Field({
   validate,
   action,
   insideAction,
+  labelAction,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & {label: string; hint?: string; validate?:()=>string|undefined; action?: ReactNode; insideAction?: ReactNode}) {
+}: InputHTMLAttributes<HTMLInputElement> & {label: string; hint?: string; validate?:()=>string|undefined; action?: ReactNode; insideAction?: ReactNode; labelAction?: ReactNode}) {
   const generated=useId();
   const id=props.id??generated;
   const name=props.name??props.id??id;
@@ -29,7 +30,14 @@ export function Field({
   ) : inputEl;
   return (
     <FieldFrame label={label} validate={validate} className={`field ${className}`.trim()}>
-      <label htmlFor={id}>{label}</label>
+      {labelAction ? (
+        <div className="field-label-row">
+          <label htmlFor={id}>{label}</label>
+          {labelAction}
+        </div>
+      ) : (
+        <label htmlFor={id}>{label}</label>
+      )}
       {action ? <div className="field-input-row">{fieldInput}{action}</div> : fieldInput}
       {hint && <small id={`${id}-hint`}>{hint}</small>}
     </FieldFrame>

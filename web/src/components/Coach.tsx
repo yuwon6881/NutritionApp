@@ -18,7 +18,7 @@ import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
-import {UnitPreferencesFields} from './CoachingSettings';
+import {MiniUnitToggle} from './ui/MiniUnitToggle';
 import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
 
@@ -102,6 +102,17 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const updateUnits=(patch:Partial<UnitPreferences>)=>{
     const next={...units,...patch};
     void store.mutate({kind:'settings',recordId:store.state!.id,expectedRevision:settings.revision,data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height,missingDayAction:settings.missingDayAction??'ask'},delete:false});
+  };
+
+  const isMetric=units.weight==='kg'&&units.height==='cm';
+  const isImperial=units.weight==='lb'&&units.height==='ft-in';
+  const unitSystem=isMetric?'metric':isImperial?'imperial':'custom';
+  const handleUnitSystemChange=(system:'metric'|'imperial'|'custom')=>{
+    if(system==='imperial'){
+      updateUnits({weight:'lb',height:'ft-in',energy:'kcal'});
+    }else if(system==='metric'){
+      updateUnits({weight:'kg',height:'cm',energy:'kcal'});
+    }
   };
 
   const set=(key:keyof Profile,value:unknown)=>{
@@ -274,14 +285,28 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         </div>
       </div>
       {step==='body'&&<div className="step-content">
-        {isInitialSetup&&<UnitPreferencesFields value={units} onChange={updateUnits}/>}
+        {isInitialSetup&&<div className="coach-unit-bar">
+          <span className="coach-unit-bar-label">Units</span>
+          <SegmentedControl<'metric'|'imperial'|'custom'>
+            id="coach-unit-system"
+            size="sm"
+            label="Unit system"
+            value={unitSystem}
+            onChange={handleUnitSystemChange}
+            options={[
+              {value:'metric' as const,label:'Metric (kg, cm)'},
+              {value:'imperial' as const,label:'Imperial (lb, ft)'},
+              ...(unitSystem==='custom'?[{value:'custom' as const,label:'Custom'}]:[])
+            ]}
+          />
+        </div>}
         <div className="form-grid">
           <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<13||derivedAge>120)?'Enter a date of birth for an age from 13 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`Age ${derivedAge}`:undefined}/>
-          {units.height==='cm'?<Field id="coach-height" name="heightCm" label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value)||0)}/>:<>
-            <Field id="coach-height-feet" name="heightFeet" label="Height (feet)" type="number" required min="2" max="8" step="1" value={profile.heightCm?heightPartsFromCm(profile.heightCm).feet:''} onChange={e=>{const parts=heightPartsFromCm(profile.heightCm||0);const next=cmFromHeightParts(e.target.value,String(parts.inches));set('heightCm',Number.isFinite(next)?next:0);}}/>
+          {units.height==='cm'?<Field id="coach-height" name="heightCm" label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value)||0)} labelAction={<MiniUnitToggle<'cm'|'ft-in'> label="Height unit" value={units.height} onChange={v=>updateUnits({height:v})} options={[{value:'cm',label:'cm'},{value:'ft-in',label:'ft'}]}/>}/>:<>
+            <Field id="coach-height-feet" name="heightFeet" label="Height (feet)" type="number" required min="2" max="8" step="1" value={profile.heightCm?heightPartsFromCm(profile.heightCm).feet:''} onChange={e=>{const parts=heightPartsFromCm(profile.heightCm||0);const next=cmFromHeightParts(e.target.value,String(parts.inches));set('heightCm',Number.isFinite(next)?next:0);}} labelAction={<MiniUnitToggle<'cm'|'ft-in'> label="Height unit" value={units.height} onChange={v=>updateUnits({height:v})} options={[{value:'cm',label:'cm'},{value:'ft-in',label:'ft'}]}/>}/>
             <Field id="coach-height-inches" name="heightInches" label="Height (inches)" type="number" required min="0" max="11.9" step="0.1" value={profile.heightCm?heightPartsFromCm(profile.heightCm).inches:''} onChange={e=>{const parts=heightPartsFromCm(profile.heightCm||0);const next=cmFromHeightParts(String(parts.feet),e.target.value);set('heightCm',Number.isFinite(next)?next:0);}}/>
           </>}
-          <Field id="coach-weight" name="weightKg" label={`Starting weight (${weightLabel(units.weight)})`} type="number" required min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.weightKg?inputWeight(profile.weightKg,units.weight,1):''} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('weightKg',Number.isFinite(next)?next:0);}}/>
+          <Field id="coach-weight" name="weightKg" label={`Starting weight (${weightLabel(units.weight)})`} type="number" required min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.weightKg?inputWeight(profile.weightKg,units.weight,1):''} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('weightKg',Number.isFinite(next)?next:0);}} labelAction={<MiniUnitToggle<'kg'|'lb'> label="Weight unit" value={units.weight} onChange={v=>updateUnits({weight:v})} options={[{value:'kg',label:'kg'},{value:'lb',label:'lb'}]}/>}/>
           <SelectField id="coach-sex" name="sex" required label="Sex parameter for equation" value={profile.sex} onChange={v=>set('sex',v)}>
             <option value="" disabled>Choose an equation parameter</option>
             <option value="female">Female equation</option>
@@ -304,7 +329,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           <option value="1.8">Active most days · 1.8</option>
           <option value="2.0">Very active · 2.0</option>
         </SelectField>
-        <Field id="coach-maintenance" name="maintenance" label={`Known maintenance calories${units.energy==='kcal'?'':` (${energyLabel(units.energy)})`} (optional)`} type="number" min={units.energy==='kj'?4184:1000} max={units.energy==='kj'?29288:7000} value={profile.maintenance==null?'':inputEnergy(profile.maintenance,units.energy,0)} placeholder="Use the equation" onChange={e=>{const next=parseEnergy(e.target.value,units.energy);set('maintenance',e.target.value===''?null:Number.isFinite(next)?next:null);}}/>
+        <Field id="coach-maintenance" name="maintenance" label={`Known maintenance calories${units.energy==='kcal'?'':` (${energyLabel(units.energy)})`} (optional)`} type="number" min={units.energy==='kj'?4184:1000} max={units.energy==='kj'?29288:7000} value={profile.maintenance==null?'':inputEnergy(profile.maintenance,units.energy,0)} placeholder="Use the equation" onChange={e=>{const next=parseEnergy(e.target.value,units.energy);set('maintenance',e.target.value===''?null:Number.isFinite(next)?next:null);}} labelAction={<MiniUnitToggle<'kcal'|'kj'> label="Energy unit" value={units.energy} onChange={v=>updateUnits({energy:v})} options={[{value:'kcal',label:'kcal'},{value:'kj',label:'kJ'}]}/>}/>
         <div className="checks">
           <label htmlFor="coach-resistance-training">
             <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" role="switch" aria-checked={profile.resistanceTraining} checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
