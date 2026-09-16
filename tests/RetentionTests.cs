@@ -40,4 +40,95 @@ public class RetentionTests
         var after=Coach.Calculate(profile,statuses.Select(d=>new NutritionDay(d.Date,d.Status,d.Archived?d.Calories:entries.Where(e=>e.Date==d.Date).Sum(e=>e.Calories))).ToList(),weights,new(2500,2500),today);
         Assert.Equal(before,after);Assert.True(after.Adaptive);
     }
+
+    [Fact]
+    public async Task GoogleHealthOAuthStates_expired_are_deleted_by_storage_cleanup()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        var now = DateTime.UtcNow;
+        db.GoogleHealthOAuthStates.AddRange(
+            new GoogleHealthOAuthState { State = "expired_state", UserId = user.Id, ExpiresAt = now.AddMinutes(-5) },
+            new GoogleHealthOAuthState { State = "valid_state", UserId = user.Id, ExpiresAt = now.AddMinutes(5) }
+        );
+        await db.SaveChangesAsync();
+
+        var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+        var images = new TemporaryImageStore(new HttpClient(), new ConfigurationBuilder().Build());
+        var storage = new StorageService(db, cache, images);
+
+        await storage.Cleanup(default);
+
+        var remaining = await db.GoogleHealthOAuthStates.IgnoreQueryFilters().ToListAsync();
+        Assert.Single(remaining);
+        Assert.Equal("valid_state", remaining[0].State);
+    }
+
+    [Fact]
+    public async Task AiUsage_is_pruned_according_to_configured_retention_window()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        db.Usage.AddRange(
+            new AiUsage { UserId = user.Id, Date = today.AddDays(-45), Requests = 5 },
+            new AiUsage { UserId = user.Id, Date = today.AddDays(-10), Requests = 3 }
+        );
+        await db.SaveChangesAsync();
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Retention:AiUsageMonths"] = "1"
+        }).Build();
+        var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+        var images = new TemporaryImageStore(new HttpClient(), config);
+        var storage = new StorageService(db, cache, images, config);
+
+        await storage.Cleanup(default);
+
+        var remaining = await db.Usage.IgnoreQueryFilters().ToListAsync();
+        Assert.Single(remaining);
+        Assert.Equal(today.AddDays(-10), remaining[0].Date);
+    }
+
+    [Fact]
+    public async Task Receipts_are_pruned_according_to_configured_retention_window()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        var now = DateTime.UtcNow;
+        db.Receipts.AddRange(
+            new MutationReceipt { UserId = user.Id, Id = Guid.NewGuid(), Created = now.AddDays(-40) },
+            new MutationReceipt { UserId = user.Id, Id = Guid.NewGuid(), Created = now.AddDays(-5) }
+        );
+        await db.SaveChangesAsync();
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Retention:MealDetailDays"] = "90",
+            ["Retention:ReceiptDays"] = "30"
+        }).Build();
+        var retention = new RetentionService(db, config);
+
+        await retention.CompactUser(user.Id, DateOnly.FromDateTime(now), default);
+
+        var remaining = await db.Receipts.Where(r => r.UserId == user.Id).ToListAsync();
+        Assert.Single(remaining);
+        Assert.True(remaining[0].Created > now.AddDays(-10));
+    }
 }

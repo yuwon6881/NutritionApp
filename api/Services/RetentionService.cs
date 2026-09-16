@@ -6,6 +6,7 @@ namespace Nutrition.Api.Services;
 public sealed class RetentionService(AppDb db,IConfiguration config)
 {
     public int DetailDays => Math.Clamp(config.GetValue("Retention:MealDetailDays",90),3,90);
+    public int ReceiptDays => Math.Max(1, config.GetValue("Retention:ReceiptDays", 90));
     public static DateOnly Cutoff(DateOnly today,int days) => today.AddDays(1-days);
     public static DateOnly Today(string? profileJson)
     {
@@ -39,7 +40,7 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
         }
         // Old receipts are safe to drop: expired detail writes fail before they can recreate rows.
         // Existing persistent entities still reject replay through their revision checks.
-        await db.Receipts.Where(r=>r.Created<DateTime.UtcNow.AddDays(-90)).ExecuteDeleteAsync(ct);
+        await db.Receipts.Where(r=>r.Created<DateTime.UtcNow.AddDays(-ReceiptDays)).ExecuteDeleteAsync(ct);
         await gate.Commit(ct);return removed;
     }
     public async Task<int> CompactAll(CancellationToken ct)

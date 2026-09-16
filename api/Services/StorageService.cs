@@ -3,9 +3,11 @@ using Microsoft.Extensions.Caching.Memory;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 
+using Microsoft.Extensions.Configuration;
+
 namespace Nutrition.Api.Services;
 public record StorageInfo(long DatabaseBytes,long PendingImageBytes,bool Warning,bool OptionalWritesBlocked);
-public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageStore images)
+public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageStore images,IConfiguration? config=null)
 {
     public async Task<StorageInfo> Overview(CancellationToken ct)
     {
@@ -45,9 +47,11 @@ public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageSto
             catch(DomainException) { /* Keep the durable path so the next scheduler call retries. */ }
         }
         await db.SaveChangesAsync(ct);
+        var aiUsageMonths = Math.Max(1, config?.GetValue("Retention:AiUsageMonths", 2) ?? 2);
         await db.Scans.IgnoreQueryFilters().Where(s=>s.Created<now.AddDays(-7)&&s.ObjectPath==null).ExecuteDeleteAsync(ct);
         await db.Sessions.Where(s=>s.Expires<now).ExecuteDeleteAsync(ct);
-        await db.Usage.IgnoreQueryFilters().Where(u=>u.Date<DateOnly.FromDateTime(now.AddMonths(-2))).ExecuteDeleteAsync(ct);
+        await db.Usage.IgnoreQueryFilters().Where(u=>u.Date<DateOnly.FromDateTime(now.AddMonths(-aiUsageMonths))).ExecuteDeleteAsync(ct);
+        await db.GoogleHealthOAuthStates.IgnoreQueryFilters().Where(s=>s.ExpiresAt<now).ExecuteDeleteAsync(ct);
         return count;
     }
 }
