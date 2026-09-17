@@ -13,7 +13,7 @@ Applies only to this independent repository; app-specific rules override the par
 - Food diary, explicit logging-day decisions, batch entry, copy/move, shared food search, saved/custom foods, recipes, barcode lookup/private mappings, and editable AI text/photo/label estimates.
 - Offline retained edits and image drafts, automatic synchronization, retry and conflict review.
 - Weight and body records/photos, goal phases, macro/weekly targets, server coaching/check-ins, expenditure estimates, and progress/energy-history charts.
-- Google Health steps and Workout summaries; integration settings and account exports. The Dashboard steps panel appears only after Google Health status resolves to connected or reconnect-required. These integrations do not automatically change calorie or macro targets.
+- Google Health steps and Workout summaries with temporary sync warnings; integration settings and account exports. The Dashboard steps panel appears only after Google Health status resolves to connected or reconnect-required. These integrations do not automatically change calorie or macro targets.
 
 ## UI standardization
 
