@@ -7,6 +7,7 @@ import {
   getTodayStepCount,
   initialGoogleHealthState,
   resetGoogleHealthState,
+  shouldShowDashboardSteps,
   syncGoogleHealth,
   GoogleHealthSyncState,
 } from './googleHealth';
@@ -181,5 +182,14 @@ describe('googleHealth sync manager', () => {
     expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/disconnect', {});
     expect(state.status).toBe('disconnected');
     expect(state.freshness).toBe('unavailable');
+  });
+});
+
+describe('dashboard step visibility', () => {
+  it('hides disconnected and unresolved status, while keeping known connections visible during refresh', () => {
+    expect(shouldShowDashboardSteps({status: 'disconnected', connectedAt: null}, false)).toBe(false);
+    expect(shouldShowDashboardSteps({status: 'connected', connectedAt: null}, true)).toBe(false);
+    expect(shouldShowDashboardSteps({status: 'connected', connectedAt: '2026-09-18T00:00:00Z'}, true)).toBe(true);
+    expect(shouldShowDashboardSteps({status: 'reconnect_required', connectedAt: '2026-09-18T00:00:00Z'}, false)).toBe(true);
   });
 });

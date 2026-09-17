@@ -43,6 +43,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   }
 
   await page.goto('/');
+  await expect(page.locator('.steps-panel')).toHaveCount(0);
   // The SPA keeps navigation client-side, so use the real Settings control.
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();
@@ -69,6 +70,8 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
       lastSyncedAt:null,
       freshness:'unavailable',
       days:[],
+      warningCode:'provider_resource_not_found',
+      warningMessage:'Daily step history is unavailable right now.',
     })});
   });
   await page.getByRole('button',{name:'Progress',exact:true}).click();
@@ -78,4 +81,9 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   const accessibleSummary=page.locator('.google-health-progress-section .sr-only');
   await expect(accessibleSummary).toHaveCSS('position','absolute');
   await expect(accessibleSummary).toHaveCSS('width','1px');
+
+  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await expect(page.locator('.steps-panel')).toBeVisible();
+  await expect(page.locator('.steps-panel').getByText('—')).toBeVisible();
+  await expect(page.locator('.steps-panel').getByText('Daily step history is unavailable right now.',{exact:true})).toBeVisible();
 });

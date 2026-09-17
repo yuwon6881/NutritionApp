@@ -27,7 +27,7 @@ builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSummaryService>();
 builder.Services.AddScoped<BodyRecordService>();
-builder.Services.AddScoped<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
+builder.Services.AddScoped<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<ISharedAccessTokenValidator>(sp=>sp.GetRequiredService<OpenIddictAccessTokenService>());builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
 builder.Services.AddScoped<WorkoutSummaryService>();
 builder.Services.AddAuthentication(options =>
 {

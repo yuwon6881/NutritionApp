@@ -46,7 +46,7 @@ For each new interaction, define and render the states that apply:
 - an explicit past-date `No food logged` choice that is not overwritten by an account-level missing-day default;
 - a check-in countdown with a disabled muted circular control before the selected local day and an actionable colored circular control only when due;
 - weight-goal progress showing the recorded start, current trend or labelled scale fallback, target, percentage, and remaining amount in Goal and Coach history;
-- Google Health step synchronization showing fresh/stale/unavailable badges, preserving unknown days as discrete gaps in charts without guessing zeros, and never feeding step metrics into caloric or coaching algorithms;
+- Google Health step synchronization showing fresh/stale/unavailable badges, hiding the Dashboard steps panel while disconnected or unresolved, preserving unknown days as discrete gaps in charts without guessing zeros, and never feeding step metrics into caloric or coaching algorithms;
 - disabled or permission-limited action;
 - keyboard focus and reduced-motion behavior.
 

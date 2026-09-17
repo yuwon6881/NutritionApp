@@ -10,6 +10,7 @@ interface GoogleHealthStepsCardProps {
   lastSyncedAt: string | null;
   days: GoogleHealthDay[];
   todayDate: string;
+  warningMessage?: string | null;
   onOpenSettings?: () => void;
 }
 
@@ -19,6 +20,7 @@ export function GoogleHealthStepsCard({
   lastSyncedAt,
   days,
   todayDate,
+  warningMessage,
   onOpenSettings,
 }: GoogleHealthStepsCardProps) {
   const count = getTodayStepCount(days, todayDate);
@@ -77,9 +79,7 @@ export function GoogleHealthStepsCard({
         )}
 
         {status === 'connected' && count === null && (
-          <p className="source">
-            No step activity recorded for today yet.
-          </p>
+          warningMessage ? null : <p className="source">No step activity recorded for today yet.</p>
         )}
 
         {status === 'connected' && count !== null && (
@@ -90,6 +90,15 @@ export function GoogleHealthStepsCard({
           </p>
         )}
       </div>
+
+      {status === 'connected' && warningMessage && (
+        <CardFeedback
+          tone="warning"
+          title="Step sync needs attention"
+          message={warningMessage}
+          action={onOpenSettings ? {label: 'Open Settings', onClick: onOpenSettings} : undefined}
+        />
+      )}
     </article>
   );
 }

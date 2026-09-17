@@ -123,6 +123,10 @@ export function getTodayStepCount(days: GoogleHealthDay[], todayDate: string): n
   return item?.count ?? null;
 }
 
+export function shouldShowDashboardSteps(state: Pick<GoogleHealthSyncState, 'status' | 'connectedAt'>, loading: boolean): boolean {
+  return state.status !== 'disconnected' && (!loading || state.connectedAt !== null);
+}
+
 export function useGoogleHealth(enabled = true) {
   const state = useSyncExternalStore(subscribe, getSnapshot, () => initialGoogleHealthState);
   const [loading, setLoading] = useState(false);

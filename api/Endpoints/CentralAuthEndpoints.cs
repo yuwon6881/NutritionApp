@@ -44,7 +44,7 @@ public static class CentralAuthEndpoints
         });
 
         app.MapGet("/api/auth/central/callback", async (HttpRequest request, HttpResponse response, [FromServices] IDataProtectionProvider protection,
-            IHttpClientFactory clients, SharedAccessTokenService tokens, OpenIddictAccessTokenService accessTokens,
+            IHttpClientFactory clients, SharedAccessTokenService tokens, ISharedAccessTokenValidator accessTokens,
             IntegrationTokenService peerTokens, AuthService auth, AppDb db,
             IConfiguration config, IHostEnvironment environment, CancellationToken ct) =>
         {

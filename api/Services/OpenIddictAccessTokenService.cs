@@ -6,9 +6,14 @@ namespace Nutrition.Api.Services;
 
 public sealed record ValidatedAccessToken(string Subject, string Issuer, IReadOnlySet<string> Scopes, DateTime ExpiresAt);
 
+public interface ISharedAccessTokenValidator
+{
+    Task<ValidatedAccessToken> RequireAccessToken(string accessToken, string requiredScope, CancellationToken ct);
+}
+
 /// Uses OpenIddict's discovery/JWKS validation handler for resource requests. No application
 /// code parses JWTs or loads a long-lived signing key.
-public sealed class OpenIddictAccessTokenService(OpenIddictValidationService validation)
+public sealed class OpenIddictAccessTokenService(OpenIddictValidationService validation) : ISharedAccessTokenValidator
 {
     public async Task<ValidatedAccessToken> Require(HttpContext context, string requiredScope, CancellationToken ct)
     {
