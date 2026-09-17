@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
@@ -13,6 +14,11 @@ public static class AuthEndpoints
         {
             app.MapPost("/api/auth/dev-reset", async (AppDb db, CancellationToken ct) =>
             {
+                if (db.Database.IsSqlite())
+                {
+                    await db.Database.CloseConnectionAsync();
+                    SqliteConnection.ClearAllPools();
+                }
                 await db.Database.EnsureDeletedAsync(ct);
                 await db.Database.EnsureCreatedAsync(ct);
                 return Results.Ok(new { reset = true });

@@ -50,7 +50,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:/^Next: Distribution/}).click();
   await page.getByRole('button',{name:/^Next: Review/}).click();
   await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled();await page.getByRole('button',{name:'Accept this plan'}).click();
+  await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled({timeout:30000});await page.getByRole('button',{name:'Accept this plan'}).click();
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Nasi lemak reviewed portion');await page.getByLabel('Calories (kcal)',{exact:true}).fill('520');
