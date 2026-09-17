@@ -39,8 +39,11 @@ export function ConnectedApps({store}: {store?: Nourish}) {
   useEffect(() => {
     void load();
     const url = new URL(window.location.href);
-    if (url.searchParams.get('error') === 'access_denied') {
+    const canceled = url.searchParams.get('central_error') === 'access_denied'
+      || url.searchParams.get('error') === 'access_denied';
+    if (canceled) {
       setBannerNotice({type: 'error', message: 'Workout connection was canceled.'});
+      url.searchParams.delete('central_error');
       url.searchParams.delete('error');
       window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
     }

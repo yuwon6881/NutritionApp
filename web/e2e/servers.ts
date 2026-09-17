@@ -25,7 +25,8 @@ export const testServers = [
       Identity__ClientId: 'nutrition-api',
       Identity__ClientSecret: 'nutrition-secret',
       Identity__RedirectUri: 'http://127.0.0.1:5088/api/auth/central/callback',
-      Identity__ReturnUrl: '/'
+      Identity__ReturnUrl: '/',
+      Identity__ConnectReturnUrl: '/settings'
     }
   },
   { command: 'npm run preview', url: 'http://127.0.0.1:5088', reuseExistingServer: true, timeout: 120000 }

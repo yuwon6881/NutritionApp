@@ -14,7 +14,14 @@ self.addEventListener('install',event=>{
   event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll(precacheUrls)));
 });
 self.addEventListener('activate',event=>{
-  event.waitUntil((async()=>{for(const name of await caches.keys())if((name.startsWith('nutrition-app-assets-')||name.startsWith(legacyCachePrefix))&&name!==cacheName)await caches.delete(name);await self.clients.claim();})());
+  event.waitUntil((async()=>{
+    // This worker already owns navigation responses, so a preload request has no
+    // useful response path. Disable it for new workers; fetch handlers below still
+    // settle any preload that was started while an older worker was active.
+    if(self.registration.navigationPreload)await self.registration.navigationPreload.disable();
+    for(const name of await caches.keys())if((name.startsWith('nutrition-app-assets-')||name.startsWith(legacyCachePrefix))&&name!==cacheName)await caches.delete(name);
+    await self.clients.claim();
+  })());
 });
 self.addEventListener('fetch',event=>{
   const request=event.request;const url=new URL(request.url);
@@ -23,6 +30,9 @@ self.addEventListener('fetch',event=>{
     event.respondWith((async()=>{const cache=await caches.open(cacheName);return await cache.match(url.pathname)||fetch(request);})());return;
   }
   if(request.mode==='navigate'&&!/\.[^/]+$/.test(url.pathname)){
+    // A previous worker may have enabled navigation preload. Keep that promise
+    // attached to the event even when the cached shell wins the race.
+    event.waitUntil(event.preloadResponse.catch(()=>undefined));
     event.respondWith((async()=>{const cache=await caches.open(cacheName);const cached=await cache.match('/index.html')??await cache.match('/');return cached??fetch(request);})());
     return;
   }

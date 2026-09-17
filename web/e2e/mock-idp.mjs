@@ -87,6 +87,7 @@ const server = createServer((req, res) => {
       const scope = reqUrl.searchParams.get('scope') || '';
       const codeChallenge = reqUrl.searchParams.get('code_challenge') || '';
       const codeChallengeMethod = reqUrl.searchParams.get('code_challenge_method') || '';
+      const prompt = reqUrl.searchParams.get('prompt') || '';
 
       if (reqUrl.searchParams.get('auto') === 'true') {
         const code = 'mock_code_' + crypto.randomBytes(16).toString('hex');
@@ -94,6 +95,30 @@ const server = createServer((req, res) => {
         codes.set(code, { clientId, redirectUri, nonce, scope, username, codeChallenge, codeChallengeMethod });
         res.writeHead(302, { Location: `${redirectUri}?code=${code}&state=${encodeURIComponent(state)}` });
         res.end();
+        return;
+      }
+
+      if (prompt === 'consent') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`<!doctype html>
+<html>
+<head><title>Mock Fitness Account consent</title></head>
+<body style="font-family:system-ui;padding:2rem;">
+  <h1>Fitness Account consent</h1>
+  <p>Nutrition App is requesting access to your Workout account.</p>
+  <form method="POST" action="/connect/authorize">
+    <input type="hidden" name="redirect_uri" value="${redirectUri || ''}" />
+    <input type="hidden" name="state" value="${state}" />
+    <input type="hidden" name="nonce" value="${nonce}" />
+    <input type="hidden" name="client_id" value="${clientId}" />
+    <input type="hidden" name="scope" value="${scope}" />
+    <input type="hidden" name="code_challenge" value="${codeChallenge}" />
+    <input type="hidden" name="code_challenge_method" value="${codeChallengeMethod}" />
+    <button type="submit" name="approve" value="true" id="mock-allow" style="padding:10px 16px;font-size:16px;">Allow access</button>
+    <button type="submit" name="approve" value="false" id="mock-cancel" style="padding:10px 16px;font-size:16px;">Cancel</button>
+  </form>
+</body>
+</html>`);
         return;
       }
 
@@ -133,6 +158,12 @@ const server = createServer((req, res) => {
         const codeChallenge = params.get('code_challenge') || '';
         const codeChallengeMethod = params.get('code_challenge_method') || '';
         const username = (params.get('username') || 'test-alice').trim();
+
+        if (params.get('approve') === 'false') {
+          res.writeHead(302, { Location: `${redirectUri}?error=access_denied&state=${encodeURIComponent(state)}` });
+          res.end();
+          return;
+        }
 
         const code = 'mock_code_' + crypto.randomBytes(16).toString('hex');
         codes.set(code, { clientId, redirectUri, nonce, scope, username, codeChallenge, codeChallengeMethod });

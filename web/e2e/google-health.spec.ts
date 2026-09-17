@@ -47,6 +47,12 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();
 
+  // Fitness Account returns a canceled connection through the central callback.
+  // The Connected Apps surface owns that notice and removes the one-shot query.
+  await page.goto('/settings?central_error=access_denied');
+  await expect(page.getByText('Workout connection was canceled.',{exact:true})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>!new URL(window.location.href).searchParams.has('central_error'))).toBeTruthy();
+
   const connect=page.getByRole('button',{name:'Connect Google Health',exact:true});
   await connect.click();
   const disclosure=page.getByRole('dialog',{name:'Connect Google Health',exact:true});

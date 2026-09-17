@@ -233,8 +233,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var mockHttp = new MockHttpHandler
         {
             TokenResponse = new { access_token = "at-fresh", refresh_token = "rt-fresh", expires_in = 3600 },
-            TokenInfoResponse = new { sub = "gid-sync" },
-            HealthIdentityResponse = new { healthUserId = "health-user-sync" }
+            TokenInfoResponse = new { sub = "gid-sync" }
         };
 
         // Prepare rollup response from Google:
@@ -271,8 +270,8 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             Assert.Equal("connected", syncResult.Status);
             Assert.Equal("fresh", syncResult.Freshness);
             Assert.Equal(31, syncResult.Days.Count);
-            Assert.Equal("Bearer at-fresh", mockHttp.LastHealthIdentityAuthorization);
-            Assert.Equal("https://health.googleapis.com/v4/users/health-user-sync/dataTypes/steps/dataPoints:dailyRollUp", mockHttp.LastDailyRollupUrl);
+            Assert.Equal(0, mockHttp.HealthIdentityRequestCount);
+            Assert.Equal("https://health.googleapis.com/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp", mockHttp.LastDailyRollupUrl);
             Assert.Contains("\"windowSizeDays\":1", mockHttp.LastDailyRollupPayload);
             Assert.Contains("\"dataSourceFamily\":\"users/me/dataSourceFamilies/google-sources\"", mockHttp.LastDailyRollupPayload);
 
@@ -304,7 +303,6 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         {
             TokenResponse = new { access_token = "at-provider-404", refresh_token = "rt-provider-404" },
             TokenInfoResponse = new { sub = "gid-provider-404" },
-            HealthIdentityResponse = new { healthUserId = "health-user-provider-404" },
             DailyRollupStatusCode = HttpStatusCode.NotFound
         };
 
@@ -321,6 +319,89 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             Assert.Equal("unavailable", result.Freshness);
             Assert.Equal("provider_resource_not_found", result.WarningCode);
             Assert.Contains("could not find this account", result.WarningMessage, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task Sync_AccountNotLinked_Returns_Fitbit_Link_Instructions()
+    {
+        var userId = Guid.NewGuid();
+        await using (var db = Open(userId))
+        {
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "unlinked_user", IdentitySubject = "sub_unlinked_user" });
+            await db.SaveChangesAsync();
+        }
+
+        var mockHttp = new MockHttpHandler
+        {
+            TokenResponse = new { access_token = "at-unlinked", refresh_token = "rt-unlinked" },
+            TokenInfoResponse = new { sub = "gid-unlinked" },
+            DailyRollupStatusCode = HttpStatusCode.BadRequest,
+            DailyRollupErrorResponse = new
+            {
+                error = new
+                {
+                    code = 400,
+                    status = "FAILED_PRECONDITION",
+                    details = new[] { new { reason = "ACCOUNT_NOT_LINKED" } }
+                }
+            }
+        };
+
+        await using (var db = Open(userId))
+        {
+            var service = new GoogleHealthService(new HttpClient(mockHttp), db, kms, Config);
+            var connect = await service.GenerateConnectUrlAsync(userId, "sess", "https://nutrition.example.com", default);
+            var state = System.Web.HttpUtility.ParseQueryString(new Uri(connect.AuthUrl).Query)["state"];
+            await service.HandleCallbackAsync("code", state, null, userId, "sess", "https://nutrition.example.com", default);
+
+            var result = await service.SyncAsync(userId, default);
+
+            Assert.Equal("account_not_linked", result.WarningCode);
+            Assert.Contains("linked to this Google account", result.WarningMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Continue with Google", result.WarningMessage, StringComparison.Ordinal);
+            Assert.Equal(0, mockHttp.HealthIdentityRequestCount);
+        }
+    }
+
+    [Fact]
+    public async Task Sync_OtherBadRequest_Returns_Configuration_Warning()
+    {
+        var userId = Guid.NewGuid();
+        await using (var db = Open(userId))
+        {
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "bad_request_user", IdentitySubject = "sub_bad_request_user" });
+            await db.SaveChangesAsync();
+        }
+
+        var mockHttp = new MockHttpHandler
+        {
+            TokenResponse = new { access_token = "at-bad-request", refresh_token = "rt-bad-request" },
+            TokenInfoResponse = new { sub = "gid-bad-request" },
+            DailyRollupStatusCode = HttpStatusCode.BadRequest,
+            DailyRollupErrorResponse = new
+            {
+                error = new
+                {
+                    code = 400,
+                    status = "INVALID_ARGUMENT",
+                    details = new[] { new { reason = "INVALID_TIME_RANGE" } }
+                }
+            }
+        };
+
+        await using (var db = Open(userId))
+        {
+            var service = new GoogleHealthService(new HttpClient(mockHttp), db, kms, Config);
+            var connect = await service.GenerateConnectUrlAsync(userId, "sess", "https://nutrition.example.com", default);
+            var state = System.Web.HttpUtility.ParseQueryString(new Uri(connect.AuthUrl).Query)["state"];
+            await service.HandleCallbackAsync("code", state, null, userId, "sess", "https://nutrition.example.com", default);
+
+            var result = await service.SyncAsync(userId, default);
+
+            Assert.Equal("provider_request_rejected", result.WarningCode);
+            Assert.Contains("Google Health API", result.WarningMessage, StringComparison.Ordinal);
+            Assert.DoesNotContain("ACCOUNT_NOT_LINKED", result.WarningMessage, StringComparison.Ordinal);
         }
     }
 
@@ -603,18 +684,17 @@ public sealed class GoogleHealthTests : IAsyncLifetime
     {
         public object? TokenResponse { get; set; }
         public object? TokenInfoResponse { get; set; }
-        public object? HealthIdentityResponse { get; set; } = new { healthUserId = "health-user-default" };
         public object? DailyRollupResponse { get; set; }
         public bool Simulate503OnRollup { get; set; }
         public bool SimulateInvalidGrantOnRefresh { get; set; }
         public bool RevokeCalled { get; private set; }
         public string? LastUserInfoAuthorization { get; private set; }
-        public string? LastHealthIdentityAuthorization { get; private set; }
+        public int HealthIdentityRequestCount { get; private set; }
         public string? LastDailyRollupUrl { get; private set; }
         public string LastDailyRollupPayload { get; private set; } = "";
         public HttpStatusCode UserInfoStatusCode { get; set; } = HttpStatusCode.OK;
-        public HttpStatusCode HealthIdentityStatusCode { get; set; } = HttpStatusCode.OK;
         public HttpStatusCode DailyRollupStatusCode { get; set; } = HttpStatusCode.OK;
+        public object? DailyRollupErrorResponse { get; set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -622,11 +702,10 @@ public sealed class GoogleHealthTests : IAsyncLifetime
 
             if (url.Contains("health.googleapis.com/v4/users/me/identity"))
             {
-                LastHealthIdentityAuthorization = request.Headers.Authorization?.ToString();
-                var json = JsonSerializer.Serialize(HealthIdentityResponse ?? new { healthUserId = "health-user-default" });
-                return Task.FromResult(new HttpResponseMessage(HealthIdentityStatusCode)
+                HealthIdentityRequestCount++;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
                 {
-                    Content = new StringContent(json, Encoding.UTF8, "application/json")
+                    Content = new StringContent("{\"error\":{\"status\":\"ACCOUNT_NOT_LINKED\"}}", Encoding.UTF8, "application/json")
                 });
             }
 
@@ -668,7 +747,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
                         Content = new StringContent("Service Unavailable", Encoding.UTF8, "text/plain")
                     });
                 }
-                var json = JsonSerializer.Serialize(DailyRollupResponse ?? new { dataPoints = Array.Empty<object>() });
+                var json = JsonSerializer.Serialize(DailyRollupErrorResponse ?? DailyRollupResponse ?? new { dataPoints = Array.Empty<object>() });
                 return Task.FromResult(new HttpResponseMessage(DailyRollupStatusCode)
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
