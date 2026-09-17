@@ -243,17 +243,17 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         // dayBeforeYesterday is missing from Google response
         mockHttp.DailyRollupResponse = new
         {
-            dataPoints = new object[]
+            rollupDataPoints = new object[]
             {
                 new
                 {
                     civilStartTime = new { date = new { year = today.Year, month = today.Month, day = today.Day } },
-                    stepsRollupValue = new { countSum = "8450" }
+                    steps = new { countSum = "8450" }
                 },
                 new
                 {
                     civilStartTime = new { date = new { year = yesterday.Year, month = yesterday.Month, day = yesterday.Day } },
-                    stepsRollupValue = new { countSum = "0" }
+                    steps = new { countSum = "0" }
                 }
             }
         };
@@ -274,7 +274,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             Assert.Equal("Bearer at-fresh", mockHttp.LastHealthIdentityAuthorization);
             Assert.Equal("https://health.googleapis.com/v4/users/health-user-sync/dataTypes/steps/dataPoints:dailyRollUp", mockHttp.LastDailyRollupUrl);
             Assert.Contains("\"windowSizeDays\":1", mockHttp.LastDailyRollupPayload);
-            Assert.Contains("users/health-user-sync/dataSourceFamilies/google-sources", mockHttp.LastDailyRollupPayload);
+            Assert.Contains("\"dataSourceFamily\":\"users/me/dataSourceFamilies/google-sources\"", mockHttp.LastDailyRollupPayload);
 
             // Today should be 8450
             var todayItem = syncResult.Days.Single(d => d.Date == today);

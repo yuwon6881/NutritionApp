@@ -44,6 +44,7 @@ export function GoogleHealthProgressChart({
 
   const average = calculateKnownDayAverage(days);
   const knownCount = days.filter(d => d.count !== null && d.count !== undefined).length;
+  const hasRenderableHistory = knownCount > 0;
 
   // Compute SVG chart dimensions
   const chartHeight = 120;
@@ -131,6 +132,12 @@ export function GoogleHealthProgressChart({
       {loading && days.length === 0 ? (
         <div className="chart-skeleton" aria-busy="true">
           Loading step history…
+        </div>
+      ) : !hasRenderableHistory ? (
+        <div className="chart-empty-state" role="status">
+          {freshness === 'unavailable'
+            ? 'Daily step history is unavailable right now.'
+            : 'No daily step totals are available for this period.'}
         </div>
       ) : (
         <div className="step-chart-container">

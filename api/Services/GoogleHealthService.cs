@@ -27,6 +27,8 @@ public sealed record GoogleHealthConnectResult(string AuthUrl);
 
 public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms, IConfiguration config, ILogger<GoogleHealthService>? logger = null)
 {
+    private const string GoogleSourcesDataSourceFamily = "users/me/dataSourceFamilies/google-sources";
+
     private sealed class GoogleHealthRequestException(string stage, HttpStatusCode statusCode) : Exception
     {
         public string Stage { get; } = stage;
@@ -585,7 +587,10 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 }
             },
             windowSizeDays = 1,
-            dataSourceFamily = $"users/{Uri.EscapeDataString(healthUserId)}/dataSourceFamilies/google-sources"
+            // Google Health resolves the data-source family through the access token.
+            // The API only accepts the documented users/me family form here, even when
+            // the parent data type path uses the resolved health user id.
+            dataSourceFamily = GoogleSourcesDataSourceFamily
         };
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url)
