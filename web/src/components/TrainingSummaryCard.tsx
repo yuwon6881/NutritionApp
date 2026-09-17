@@ -8,14 +8,17 @@ export function TrainingSummaryCard({
   summaries,
   settings,
   timeZone,
+  workoutConnected,
   onOpenSettings,
 }: {
   summaries?: TrainingSummary[];
   settings?: CoachingSettings;
   timeZone?: string | null;
+  workoutConnected?: boolean;
   onOpenSettings?: () => void;
 }) {
   const todayDate=today(timeZone??undefined);
+  const isConnected = workoutConnected ?? Boolean(summaries && summaries.length > 0);
   const visible=(summaries??[])
     .filter(item=>item.localDate>=shift(todayDate,-7))
     .sort((left,right)=>{
@@ -43,11 +46,15 @@ export function TrainingSummaryCard({
           <Dumbbell size={22} />
         </div>
         <div className="training-empty-content">
-          <p className="training-empty-title">No connected workout schedule</p>
-          <p className="training-empty-description">
-            Workout training summaries provide training context alongside your diary. Nutrition targets remain unchanged.
+          <p className="training-empty-title">
+            {isConnected ? 'No workouts scheduled' : 'No connected workout schedule'}
           </p>
-          {onOpenSettings && (
+          <p className="training-empty-description">
+            {isConnected
+              ? 'No workouts scheduled or recorded in the past 7 days. Nutrition targets remain unchanged.'
+              : 'Workout training summaries provide training context alongside your diary. Nutrition targets remain unchanged.'}
+          </p>
+          {!isConnected && onOpenSettings && (
             <p className="source">
               <Button presentation="plain" className="inline-link" onClick={onOpenSettings}>
                 Connect Workout in Settings <ArrowUpRight size={13} aria-hidden="true" />

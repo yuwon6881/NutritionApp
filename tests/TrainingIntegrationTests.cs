@@ -1,3 +1,7 @@
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
 using Xunit;
@@ -64,5 +68,33 @@ public sealed class TrainingIntegrationTests
         var result = Assert.Single(merged);
         Assert.Equal("Original", result.WorkoutName);
         Assert.Equal(4, result.WorkingSetCount);
+    }
+
+    [Fact]
+    public async Task IsConnected_reflects_active_workout_grant()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var service = new WorkoutSummaryService(db, null!, new ConfigurationBuilder().Build());
+        Assert.False(await service.IsConnected(default));
+
+        var user = new AppUser { IdentitySubject = "test-subject", DisplayName = "User" };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.CurrentUser = user.Id;
+
+        var grant = new IntegrationGrant { UserId = user.Id, Peer = "workout", Status = "active" };
+        db.IntegrationGrants.Add(grant);
+        await db.SaveChangesAsync();
+
+        Assert.True(await service.IsConnected(default));
+
+        grant.Status = "revoked";
+        await db.SaveChangesAsync();
+
+        Assert.False(await service.IsConnected(default));
     }
 }

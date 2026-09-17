@@ -1293,7 +1293,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
    ========================================================================== */
 
 /* Settings Panel */
-.google-health-panel{margin-bottom:24px}
+.google-health-panel,.connected-apps-panel{margin-bottom:24px}
 .title-with-icon{display:flex;align-items:center;gap:10px}
 .title-with-icon .panel-icon{color:var(--primary)}
 .integration-state{margin-top:12px}
@@ -1311,7 +1311,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .warning-text{color:var(--carbs)}
 .settings-banner-success{border-left:4px solid var(--success)}
 .settings-banner-error{border-left:4px solid var(--destructive)}
-.google-health-retention-note{margin-top:16px;color:var(--muted-foreground);font-size:.76rem}
+.google-health-retention-note,.connected-apps-retention-note{margin-top:16px;color:var(--muted-foreground);font-size:.76rem}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 

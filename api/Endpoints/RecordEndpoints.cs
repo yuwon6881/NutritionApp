@@ -35,6 +35,7 @@ public static class RecordEndpoints
             // Nutrition displays scheduled training ahead of today, but the returned workout
             // context remains informational and does not extend the nutrition target interval.
             var trainingSummary = await training.Get(start, end.AddDays(14), ct);
+            var workoutConnected = await training.IsConnected(ct);
             return Results.Ok(new {
                 user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
                 settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale" },
@@ -50,7 +51,8 @@ public static class RecordEndpoints
                 plans=await db.Plans.OrderByDescending(p=>p.Revision).Take(12).ToListAsync(ct),
                 checkIns=await db.CheckIns.OrderByDescending(c=>c.Revision).Take(12).ToListAsync(ct),
                 phaseDecisions=await db.PhaseDecisions.OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct),
-                trainingSummaries=trainingSummary
+                trainingSummaries=trainingSummary,
+                workoutConnected
             });
         });
         app.MapGet("/api/progress/summary",async(string? period,ProgressSummaryService progress,CancellationToken ct)

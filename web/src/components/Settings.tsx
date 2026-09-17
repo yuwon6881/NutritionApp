@@ -119,7 +119,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
           <p className="source">Your sign-in credentials and security are managed centrally by Fitness Account.</p>
         </section>
         <GoogleHealthSettings/>
-        <ConnectedApps/>
+        <ConnectedApps store={store}/>
         <DataExport store={store}/>
       </div>
     </div>

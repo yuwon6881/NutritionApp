@@ -23,11 +23,14 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
 
+    public async Task<bool> IsConnected(CancellationToken ct)
+        => await db.IntegrationGrants.AsNoTracking().AnyAsync(x => x.Peer == "workout" && x.Status == "active", ct);
+
     public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, CancellationToken ct)
     {
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
         var url = config["Integrations:WorkoutTrainingSummaryUrl"];
-        var connected = await db.IntegrationGrants.AsNoTracking().AnyAsync(x => x.Peer == "workout" && x.Status == "active", ct);
+        var connected = await IsConnected(ct);
         if (connected && !string.IsNullOrWhiteSpace(url))
         {
             try
