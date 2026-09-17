@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 
@@ -24,7 +25,7 @@ public sealed record GoogleHealthSyncResult(
 
 public sealed record GoogleHealthConnectResult(string AuthUrl);
 
-public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms, IConfiguration config)
+public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms, IConfiguration config, ILogger<GoogleHealthService>? logger = null)
 {
     private static readonly ConcurrentDictionary<Guid, Task<GoogleHealthSyncResult>> InFlightSyncs = new();
     private static readonly ConcurrentDictionary<Guid, (DateTime SyncedAt, GoogleHealthSyncResult Result)> MemoryCache = new();
@@ -68,7 +69,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             ["client_id"] = ClientId,
             ["redirect_uri"] = callbackUrl,
             ["response_type"] = "code",
-            ["scope"] = Scope,
+            ["scope"] = $"openid {Scope}",
             ["access_type"] = "offline",
             ["prompt"] = "consent",
             ["state"] = stateNonce
@@ -82,11 +83,23 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
     public async Task<string> HandleCallbackAsync(string? code, string? state, string? error, Guid userId, string sessionHash, string? requestOrigin, CancellationToken ct)
     {
+        var correlationId = Guid.NewGuid().ToString("N")[..12];
+        string Failure(string failureCode, string stage)
+        {
+            logger?.LogWarning("Google Health OAuth failed at {Stage}; code {Code}; correlation {CorrelationId}.", stage, failureCode, correlationId);
+            return $"/settings?google_health=error&code={Uri.EscapeDataString(failureCode)}";
+        }
+
         if (!string.IsNullOrEmpty(error))
-            return $"/settings?google_health=error&code={Uri.EscapeDataString(error)}";
+        {
+            var providerCode = error.Length <= 64 && error.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-')
+                ? error
+                : "provider_error";
+            return Failure(providerCode, "provider");
+        }
 
         if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state))
-            return "/settings?google_health=error&code=missing_parameters";
+            return Failure("missing_parameters", "callback_parameters");
 
         // Validate state nonce
         var oauthState = await db.GoogleHealthOAuthStates.IgnoreQueryFilters().SingleOrDefaultAsync(s => s.State == state, ct);
@@ -97,14 +110,14 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 db.GoogleHealthOAuthStates.Remove(oauthState);
                 await db.SaveChangesAsync(ct);
             }
-            return "/settings?google_health=error&code=invalid_state";
+            return Failure("invalid_state", "state_lookup");
         }
 
         if (oauthState.UserId != userId || oauthState.SessionHash != sessionHash)
         {
             db.GoogleHealthOAuthStates.Remove(oauthState);
             await db.SaveChangesAsync(ct);
-            return "/settings?google_health=error&code=session_mismatch";
+            return Failure("session_mismatch", "state_binding");
         }
 
         // Single-use: remove state immediately
@@ -127,24 +140,42 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             Content = new FormUrlEncodedContent(tokenBody)
         };
 
-        using var tokenRes = await http.SendAsync(tokenReq, ct);
+        HttpResponseMessage tokenRes;
+        try
+        {
+            tokenRes = await http.SendAsync(tokenReq, ct);
+        }
+        catch
+        {
+            return Failure("token_exchange_failed", "token_exchange");
+        }
         if (!tokenRes.IsSuccessStatusCode)
-            return "/settings?google_health=error&code=token_exchange_failed";
+            return Failure("token_exchange_failed", "token_exchange");
 
         var tokenJson = await tokenRes.Content.ReadAsStringAsync(ct);
-        using var tokenDoc = JsonDocument.Parse(tokenJson);
+        JsonDocument tokenDoc;
+        try
+        {
+            tokenDoc = JsonDocument.Parse(tokenJson);
+        }
+        catch
+        {
+            return Failure("token_exchange_failed", "token_response");
+        }
+        using (tokenDoc)
+        {
         var root = tokenDoc.RootElement;
 
         var accessToken = root.TryGetProperty("access_token", out var atProp) ? atProp.GetString() : null;
         var refreshToken = root.TryGetProperty("refresh_token", out var rtProp) ? rtProp.GetString() : null;
 
         if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
-            return "/settings?google_health=error&code=missing_tokens";
+            return Failure("missing_tokens", "token_exchange");
 
         // Resolve Google Identity (sub)
         var googleId = await ResolveGoogleIdentityAsync(accessToken, ct);
         if (string.IsNullOrEmpty(googleId))
-            return "/settings?google_health=error&code=identity_resolution_failed";
+            return Failure("identity_resolution_failed", "identity_lookup");
 
         var googleIdHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(googleId))).ToLowerInvariant();
 
@@ -152,12 +183,22 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         var duplicate = await db.GoogleHealthConnections.IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.GoogleIdHash == googleIdHash && c.UserId != userId, ct);
         if (duplicate != null)
-            return "/settings?google_health=error&code=duplicate_account";
+            return Failure("duplicate_account", "account_binding");
 
         // Encrypt with KMS
-        var encryptedGoogleId = await kms.EncryptAsync(googleId, ct);
-        var encryptedRefreshToken = await kms.EncryptAsync(refreshToken, ct);
-        var emptyHistory = await kms.EncryptAsync("[]", ct);
+        string encryptedGoogleId;
+        string encryptedRefreshToken;
+        string emptyHistory;
+        try
+        {
+            encryptedGoogleId = await kms.EncryptAsync(googleId, ct);
+            encryptedRefreshToken = await kms.EncryptAsync(refreshToken, ct);
+            emptyHistory = await kms.EncryptAsync("[]", ct);
+        }
+        catch
+        {
+            return Failure("encryption_failed", "kms_encryption");
+        }
 
         var existingConn = await db.GoogleHealthConnections.SingleOrDefaultAsync(c => c.UserId == userId, ct);
         if (existingConn != null)
@@ -191,6 +232,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         MemoryCache.TryRemove(userId, out _);
 
         return "/settings?google_health=connected";
+        }
     }
 
     public async Task<GoogleHealthSyncResult> DisconnectAsync(Guid userId, CancellationToken ct)
@@ -387,16 +429,22 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
     private async Task<string?> ResolveGoogleIdentityAsync(string accessToken, CancellationToken ct)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Get, $"https://oauth2.googleapis.com/tokeninfo?access_token={Uri.EscapeDataString(accessToken)}");
-        using var res = await http.SendAsync(req, ct);
-        if (!res.IsSuccessStatusCode) return null;
+        using var req = new HttpRequestMessage(HttpMethod.Get, "https://openidconnect.googleapis.com/v1/userinfo");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        try
+        {
+            using var res = await http.SendAsync(req, ct);
+            if (!res.IsSuccessStatusCode) return null;
 
-        var json = await res.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(json);
-        if (doc.RootElement.TryGetProperty("sub", out var subProp))
-            return subProp.GetString();
-        if (doc.RootElement.TryGetProperty("user_id", out var uidProp))
-            return uidProp.GetString();
+            var json = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("sub", out var subProp))
+                return subProp.GetString();
+        }
+        catch
+        {
+            return null;
+        }
 
         return null;
     }

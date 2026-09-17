@@ -131,4 +131,99 @@ public class RetentionTests
         Assert.Single(remaining);
         Assert.True(remaining[0].Created > now.AddDays(-10));
     }
+
+    [Fact]
+    public async Task Food_tombstones_are_hard_deleted_by_cleanup()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        db.Foods.AddRange(
+            new Food { Id = Guid.NewGuid(), UserId = user.Id, Name = "Deleted food", Deleted = true, Revision = 1 },
+            new Food { Id = Guid.NewGuid(), UserId = user.Id, Name = "Active food", Deleted = false, Revision = 2 }
+        );
+        await db.SaveChangesAsync();
+
+        var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+        var images = new TemporaryImageStore(new HttpClient(), new ConfigurationBuilder().Build());
+        var storage = new StorageService(db, cache, images);
+
+        await storage.Cleanup(default);
+
+        var remaining = await db.Foods.IgnoreQueryFilters().ToListAsync();
+        Assert.Single(remaining);
+        Assert.Equal("Active food", remaining[0].Name);
+    }
+
+    [Fact]
+    public async Task Photo_tombstones_older_than_retention_window_are_hard_deleted()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        var now = DateTime.UtcNow;
+        db.Photos.AddRange(
+            new PhysiquePhoto { Id = Guid.NewGuid(), UserId = user.Id, SetId = Guid.NewGuid(), Date = DateOnly.FromDateTime(now.AddDays(-120)), Deleted = true, Status = "deleted", Created = now.AddDays(-120), Revision = 1 },
+            new PhysiquePhoto { Id = Guid.NewGuid(), UserId = user.Id, SetId = Guid.NewGuid(), Date = DateOnly.FromDateTime(now.AddDays(-5)), Deleted = true, Status = "deleted", Created = now.AddDays(-5), Revision = 2 },
+            new PhysiquePhoto { Id = Guid.NewGuid(), UserId = user.Id, SetId = Guid.NewGuid(), Date = DateOnly.FromDateTime(now), Deleted = false, Status = "complete", Created = now, Revision = 3 }
+        );
+        await db.SaveChangesAsync();
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Retention:TombstoneDays"] = "90"
+        }).Build();
+        var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+        var images = new TemporaryImageStore(new HttpClient(), config);
+        var storage = new StorageService(db, cache, images, config);
+
+        await storage.Cleanup(default);
+
+        var remaining = await db.Photos.IgnoreQueryFilters().ToListAsync();
+        // Old tombstone (120 days) deleted, recent tombstone (5 days) and active photo preserved
+        Assert.Equal(2, remaining.Count);
+        Assert.DoesNotContain(remaining, p => p.Created < now.AddDays(-100));
+    }
+
+    [Fact]
+    public async Task BodyRecord_tombstones_older_than_retention_window_are_hard_deleted()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        var now = DateTime.UtcNow;
+        db.BodyRecords.AddRange(
+            new BodyRecord { Id = Guid.NewGuid(), UserId = user.Id, Date = DateOnly.FromDateTime(now.AddDays(-120)), CreationOrder = 1, Created = now.AddDays(-120), Updated = now.AddDays(-120), Deleted = true, Revision = 1 },
+            new BodyRecord { Id = Guid.NewGuid(), UserId = user.Id, Date = DateOnly.FromDateTime(now.AddDays(-5)), CreationOrder = 2, Created = now.AddDays(-5), Updated = now.AddDays(-5), Deleted = true, Revision = 2 },
+            new BodyRecord { Id = Guid.NewGuid(), UserId = user.Id, Date = DateOnly.FromDateTime(now), CreationOrder = 3, Created = now, Updated = now, Deleted = false, Revision = 3 }
+        );
+        await db.SaveChangesAsync();
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Retention:TombstoneDays"] = "90"
+        }).Build();
+        var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+        var images = new TemporaryImageStore(new HttpClient(), config);
+        var storage = new StorageService(db, cache, images, config);
+
+        await storage.Cleanup(default);
+
+        var remaining = await db.BodyRecords.IgnoreQueryFilters().ToListAsync();
+        // Old tombstone (120 days) deleted, recent tombstone (5 days) and active record preserved
+        Assert.Equal(2, remaining.Count);
+        Assert.DoesNotContain(remaining, b => b.Created < now.AddDays(-100));
+    }
 }

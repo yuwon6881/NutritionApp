@@ -183,7 +183,7 @@ test('custom macro slider supports a held mouse drag',async({page})=>{
   await page.getByRole('button',{name:'Custom',exact:true}).click();
   await page.getByRole('button',{name:/^Next: Adjust/}).click();
   const slider=page.getByRole('slider',{name:'Protein share of daily energy'});
-  const before=Number(await slider.inputValue());
+  const before=Number(await slider.getAttribute('aria-valuenow'));
   const box=await slider.boundingBox();
   expect(box).not.toBeNull();
   const startX=box!.x+box!.width*(before-10)/50;
@@ -192,7 +192,7 @@ test('custom macro slider supports a held mouse drag',async({page})=>{
   await page.mouse.down();
   await page.mouse.move(box!.x+box!.width*.85,y,{steps:8});
   await page.mouse.up();
-  await expect.poll(async()=>Number(await slider.inputValue())).toBeGreaterThan(before);
+  await expect.poll(async()=>Number(await slider.getAttribute('aria-valuenow'))).toBeGreaterThan(before);
   expect(Number(await page.locator('.macro-row-percent').first().textContent()?.replace('%',''))).toBeGreaterThan(before);
 });
 

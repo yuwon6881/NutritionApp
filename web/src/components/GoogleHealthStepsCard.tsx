@@ -2,6 +2,7 @@ import {Footprints, ArrowUpRight} from 'lucide-react';
 import {number} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, getTodayStepCount} from '../lib/googleHealth';
 import {Button} from './ui/Button';
+import {CardFeedback} from './ui/CardFeedback';
 
 interface GoogleHealthStepsCardProps {
   status: GoogleHealthStatus;
@@ -67,9 +68,12 @@ export function GoogleHealthStepsCard({
         )}
 
         {status === 'reconnect_required' && (
-          <p className="source warning-text">
-            Reconnect required in Settings.
-          </p>
+          <CardFeedback
+            tone="warning"
+            title="Google Health needs reconnecting"
+            message="Authorization has expired or was revoked, so new step totals are unavailable."
+            action={onOpenSettings ? {label:'Open Settings',onClick:onOpenSettings} : undefined}
+          />
         )}
 
         {status === 'connected' && count === null && (

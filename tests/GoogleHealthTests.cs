@@ -67,6 +67,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var connectResult = await service.GenerateConnectUrlAsync(userId, sessionHash, "https://nutrition.example.com", default);
         Assert.Contains("accounts.google.com/o/oauth2/v2/auth", connectResult.AuthUrl);
         Assert.Contains("client_id=test-client-id.apps.googleusercontent.com", connectResult.AuthUrl);
+        Assert.Contains("scope=openid%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgooglehealth.activity_and_fitness.readonly", connectResult.AuthUrl);
 
         var stateQuery = System.Web.HttpUtility.ParseQueryString(new Uri(connectResult.AuthUrl).Query)["state"];
         Assert.NotNull(stateQuery);
@@ -90,6 +91,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
 
         var callbackResult = await service.HandleCallbackAsync("code123", validState, null, userId, sessionHash, "https://nutrition.example.com", default);
         Assert.Equal("/settings?google_health=connected", callbackResult);
+        Assert.Equal("Bearer at-1", mockHttp.LastUserInfoAuthorization);
 
         // State must be deleted after use (single-use)
         var usedState = await dbUser.GoogleHealthOAuthStates.SingleOrDefaultAsync(s => s.State == validState);
@@ -560,13 +562,16 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         public bool Simulate503OnRollup { get; set; }
         public bool SimulateInvalidGrantOnRefresh { get; set; }
         public bool RevokeCalled { get; private set; }
+        public string? LastUserInfoAuthorization { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri?.ToString() ?? "";
 
-            if (url.Contains("oauth2.googleapis.com/tokeninfo"))
+            if (url.Contains("openidconnect.googleapis.com/v1/userinfo") || url.Contains("oauth2.googleapis.com/tokeninfo"))
             {
+                if (url.Contains("openidconnect.googleapis.com/v1/userinfo"))
+                    LastUserInfoAuthorization = request.Headers.Authorization?.ToString();
                 var json = JsonSerializer.Serialize(TokenInfoResponse ?? new { sub = "default-sub" });
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {

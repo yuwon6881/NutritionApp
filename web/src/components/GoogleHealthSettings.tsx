@@ -4,6 +4,7 @@ import {Modal} from './ui/Modal';
 import {useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
 import {Activity, CheckCircle2, AlertTriangle, RefreshCw, Unlink} from 'lucide-react';
+import {CardFeedback} from './ui/CardFeedback';
 
 export function GoogleHealthSettings() {
   const {state, loading, error: syncError, refresh, connect, disconnect} = useGoogleHealth();
@@ -25,11 +26,12 @@ export function GoogleHealthSettings() {
         type: 'success',
         message: 'Google Health connected successfully. Step synchronization is active.',
       });
+      setActionError('');
       void refresh(true);
       const url = new URL(window.location.href);
       url.searchParams.delete('google_health');
       url.searchParams.delete('code');
-      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+      window.history.replaceState(window.history.state, '', url.pathname + (url.search ? url.search : '') + url.hash);
     } else if (ghResult === 'error') {
       let msg = 'Google Health connection was not completed.';
       if (code === 'duplicate_account') {
@@ -40,12 +42,22 @@ export function GoogleHealthSettings() {
         msg = 'Access was denied in Google permissions.';
       } else if (code === 'invalid_state') {
         msg = 'Connection session expired. Please start the connection again.';
+      } else if (code === 'identity_resolution_failed') {
+        msg = 'Google granted access, but its account identity could not be confirmed. Try again, and contact support if it continues.';
+      } else if (code === 'token_exchange_failed') {
+        msg = 'Google could not finish the authorization exchange. Check the configured redirect URI and try again.';
+      } else if (code === 'missing_tokens') {
+        msg = 'Google did not return the required authorization tokens. Remove this app from your Google account and reconnect.';
+      } else if (code === 'encryption_failed') {
+        msg = 'NutritionApp could not securely store the Google connection. Try again later.';
+      } else if (code === 'missing_parameters') {
+        msg = 'Google returned an incomplete authorization response. Please start the connection again.';
       }
       setBannerNotice({type: 'error', message: msg});
       const url = new URL(window.location.href);
       url.searchParams.delete('google_health');
       url.searchParams.delete('code');
-      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+      window.history.replaceState(window.history.state, '', url.pathname + (url.search ? url.search : '') + url.hash);
     }
   }, [refresh]);
 
@@ -100,26 +112,24 @@ export function GoogleHealthSettings() {
         </div>
       </div>
 
-      {bannerNotice && (
-        <div
-          className={bannerNotice.type === 'success' ? 'notice settings-banner-success' : 'error settings-banner-error'}
-          role={bannerNotice.type === 'success' ? 'status' : 'alert'}
-        >
-          {bannerNotice.message}
-        </div>
-      )}
+      {bannerNotice && <CardFeedback
+        tone={bannerNotice.type}
+        title={bannerNotice.type === 'success' ? 'Google Health connected' : 'Google Health connection failed'}
+        message={bannerNotice.message}
+        action={bannerNotice.type === 'error' ? {label: 'Try again', onClick: () => {setBannerNotice(null);setDisclosureOpen(true);}} : undefined}
+      />}
 
-      {actionError && (
-        <p className="error" role="alert">
-          {actionError}
-        </p>
-      )}
+      {actionError && !disclosureOpen && <CardFeedback
+        title="Google Health action failed"
+        message={actionError}
+        action={{label: 'Try again', onClick: () => {setActionError('');setDisclosureOpen(true);}}}
+      />}
 
-      {syncError && (
-        <p className="notice" role="status">
-          {syncError}
-        </p>
-      )}
+      {syncError && <CardFeedback
+        title="Step sync unavailable"
+        message={syncError}
+        action={{label: 'Retry sync', onClick: () => void refresh(true), disabled: loading}}
+      />}
 
       {state.status === 'disconnected' && (
         <div className="integration-state disconnected">
@@ -179,11 +189,12 @@ export function GoogleHealthSettings() {
             </div>
           </div>
 
-          {state.warningMessage && (
-            <p className="source warning-text" role="status">
-              {state.warningMessage}
-            </p>
-          )}
+          {state.warningMessage && <CardFeedback
+            tone="warning"
+            title="Step sync needs attention"
+            message={state.warningMessage}
+            action={{label: 'Retry sync', onClick: () => void refresh(true), disabled: loading}}
+          />}
 
           <div className="actions">
             <Button variant="tertiary" onClick={() => void refresh(true)} disabled={loading}>

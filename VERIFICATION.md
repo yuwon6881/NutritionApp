@@ -2,6 +2,21 @@
 
 Local implementation verified on 2026-09-10. This is not a production release certificate.
 
+## Current infrastructure consolidation (2026-09-17)
+
+- Production Cloud Run ownership was checked without printing credentials: `nutrition-api` uses
+  `nutrition-neon-database` → `nutrition`; the active Nutrition project is `NutritionApp`
+  (`weathered-base-36414862`).
+- The legacy `neondb` database was backed up and compared read-only before a controlled,
+  transactional merge. Six days, one diary entry, two accepted plans, and six profile/default
+  fields were imported to the active user. A second comparison reported zero pending inserts or
+  profile updates, proving the merge is idempotent.
+- Sessions, receipts, scans, usage counters, daily expenditure estimates, caches, and photo rows
+  were deliberately not copied. The legacy `neondb` database and the old project-local
+  `fitness_account` database were removed after the merge; encrypted backups remain outside Neon.
+- `tools/DatabaseAdmin/legacy-compare` is the read-only preflight; `legacy-merge` requires both
+  `--map-single-user` and `--apply`. Credentials and old local-login columns are never imported.
+
 ## Automated checks
 
 - `dotnet test tests/Nutrition.Tests.csproj --no-restore --nologo`: 91 tests passed. Includes coaching directions and eligibility, persistence, registration concurrency, tenancy, revisions, retention equivalence, unknown nutrients, Neon connection normalization, GCS generation-specific deletion, separate scan storage, and photo quota and retry/ownership behavior.

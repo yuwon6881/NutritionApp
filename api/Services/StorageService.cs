@@ -52,6 +52,16 @@ public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageSto
         await db.Sessions.Where(s=>s.Expires<now).ExecuteDeleteAsync(ct);
         await db.Usage.IgnoreQueryFilters().Where(u=>u.Date<DateOnly.FromDateTime(now.AddMonths(-aiUsageMonths))).ExecuteDeleteAsync(ct);
         await db.GoogleHealthOAuthStates.IgnoreQueryFilters().Where(s=>s.ExpiresAt<now).ExecuteDeleteAsync(ct);
+        // Tombstone purge: hard-delete soft-deleted records that no client can need.
+        // Foods: the sync protocol always returns the full active set (!Deleted), so tombstones
+        // serve no diff purpose and are safe to remove unconditionally.
+        await db.Foods.IgnoreQueryFilters().Where(f=>f.Deleted).ExecuteDeleteAsync(ct);
+        // Photos and BodyRecords: purge tombstones older than the retention window so that
+        // clients offline longer than this period do a full re-pull on reconnect.
+        var tombstoneDays = Math.Max(1, config?.GetValue("Retention:TombstoneDays", 90) ?? 90);
+        var tombstoneCutoff = now.AddDays(-tombstoneDays);
+        await db.Photos.IgnoreQueryFilters().Where(p=>p.Deleted&&p.Created<tombstoneCutoff).ExecuteDeleteAsync(ct);
+        await db.BodyRecords.IgnoreQueryFilters().Where(b=>b.Deleted&&b.Created<tombstoneCutoff).ExecuteDeleteAsync(ct);
         return count;
     }
 }

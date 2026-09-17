@@ -19,6 +19,8 @@ export interface SliderProps {
   className?: string;
   recommendedRange?: [number, number];
   recommendedLabel?: string;
+  showLabel?: boolean;
+  disabled?: boolean;
 }
 
 export function Slider({
@@ -36,10 +38,13 @@ export function Slider({
   onChange,
   className = '',
   recommendedRange,
-  recommendedLabel
+  recommendedLabel,
+  showLabel = true,
+  disabled = false
 }: SliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const activePointerId = useRef<number | null>(null);
 
   const clampAndSnap = useCallback((raw: number) => {
     const clamped = Math.min(Math.max(raw, min), max);
@@ -61,20 +66,22 @@ export function Slider({
   }, [min, max, clampAndSnap, value, onChange]);
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return; // Primary click only
+    if (disabled || e.button !== 0) return; // Primary click only
     isDragging.current = true;
+    activePointerId.current = e.pointerId;
     e.currentTarget.setPointerCapture(e.pointerId);
     updateFromPointer(e.clientX);
   };
 
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (!isDragging.current) return;
+    if (!isDragging.current || activePointerId.current !== e.pointerId) return;
     updateFromPointer(e.clientX);
   };
 
   const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
-    if (isDragging.current) {
+    if (isDragging.current && activePointerId.current === e.pointerId) {
       isDragging.current = false;
+      activePointerId.current = null;
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
@@ -83,7 +90,13 @@ export function Slider({
     }
   };
 
+  const handleLostPointerCapture = () => {
+    isDragging.current = false;
+    activePointerId.current = null;
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
     let next = value;
     switch (e.key) {
       case 'ArrowRight':
@@ -131,17 +144,17 @@ export function Slider({
 
   return (
     <FieldFrame label={label} className={`field slider-field ${className}`.trim()}>
-      <div className="field-label-row">
+      {showLabel && <div className="field-label-row">
         <label htmlFor={id}>{label}</label>
         <div className="slider-value-display">
           {valueDisplay ?? <span className="slider-current-badge">{formattedText}</span>}
         </div>
-      </div>
+      </div>}
 
       <div
         id={id}
         ref={trackRef}
-        className="custom-slider"
+        className={`custom-slider${disabled ? ' is-disabled' : ''}`}
         role="slider"
         tabIndex={0}
         aria-label={ariaLabel ?? label}
@@ -153,7 +166,9 @@ export function Slider({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onLostPointerCapture={handleLostPointerCapture}
         onKeyDown={handleKeyDown}
+        aria-disabled={disabled || undefined}
       >
         <div className="custom-slider-track">
           {hasRec && (
@@ -171,7 +186,7 @@ export function Slider({
           style={{left: `${percent}%`}}
           aria-hidden="true"
         />
-        <input type="hidden" name={name} value={value} />
+        <input type="hidden" name={name} value={value} disabled={disabled} />
       </div>
 
       {hasRec && (
@@ -239,6 +254,7 @@ export function CircularSlider({
 }:CircularSliderProps){
   const sliderRef=useRef<SVGSVGElement>(null);
   const dragging=useRef(false);
+  const activePointerId=useRef<number|null>(null);
   const [isDragging,setIsDragging]=useState(false);
   const geometry=defaultCircularSliderGeometry;
   const clampAndSnap=useCallback((raw:number)=>{
@@ -268,15 +284,17 @@ export function CircularSlider({
   const handlePointerDown=(event:PointerEvent<SVGSVGElement>)=>{
     if(event.button!==0)return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    activePointerId.current=event.pointerId;
     dragging.current=true;
     setIsDragging(true);
     updateFromPointer(event.clientX,event.clientY,true);
   };
   const handlePointerMove=(event:PointerEvent<SVGSVGElement>)=>{
-    if(dragging.current)updateFromPointer(event.clientX,event.clientY,false);
+    if(dragging.current&&activePointerId.current===event.pointerId)updateFromPointer(event.clientX,event.clientY,false);
   };
   const handlePointerUp=(event:PointerEvent<SVGSVGElement>)=>{
     dragging.current=false;
+    activePointerId.current=null;
     setIsDragging(false);
     if(event.currentTarget.hasPointerCapture(event.pointerId)){
       try{
@@ -286,6 +304,7 @@ export function CircularSlider({
       }
     }
   };
+  const handleLostPointerCapture=()=>{dragging.current=false;activePointerId.current=null;setIsDragging(false);};
 
   const stepBy=(multiplier:number)=>{
     const next=clampAndSnap(value+multiplier*step);
@@ -339,6 +358,7 @@ export function CircularSlider({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onLostPointerCapture={handleLostPointerCapture}
       onKeyDown={handleKeyDown}
     >
       <path className="circular-slider-track" d={path} pathLength="100"/>

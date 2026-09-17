@@ -1,9 +1,9 @@
 import {Field} from './ui/Field';
-import type {CSSProperties} from 'react';
 import type {MacroKey,MacroSplit} from '../lib/macros';
 import {adjustSplit,gramsFromSplit,macroEnergy,macroKeys,macroLabels,macroLimits,macroPresetId,macroPresets} from '../lib/macros';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Button} from './ui/Button';
+import {Slider} from './ui/Slider';
 
 const presetDescriptions:Record<string,string>={
   auto:'Calculated optimal protein intake based on your body weight and training, with balanced carbs and fats.',
@@ -27,6 +27,8 @@ export function MacroSetup({
   onPreset,
   mode='all',
   presetId,
+  coachDefault,
+  customSplit,
 }:{
   calories:number;
   split:MacroSplit;
@@ -34,13 +36,17 @@ export function MacroSetup({
   onPreset:(id:string,split:MacroSplit|null)=>void;
   mode?:'all'|'presets'|'adjustments';
   presetId?:string;
+  coachDefault?:MacroSplit;
+  customSplit?:MacroSplit;
 }){
   const grams=gramsFromSplit(calories,split);
-  const fill=(key:typeof macroKeys[number])=>Math.round(100*(split[key]-macroLimits[key].min)/(macroLimits[key].max-macroLimits[key].min));
   const minGrams=(key:MacroKey)=>calories>0?Math.round(calories*macroLimits[key].min/100/macroEnergy[key]):0;
   const maxGrams=(key:MacroKey)=>calories>0?Math.round(calories*macroLimits[key].max/100/macroEnergy[key]):1000;
   const active=presetId??macroPresetId(split);
-  const presetOptions=[...macroPresets,{id:'custom',label:'Custom',split}];
+  const presetOptions=macroPresets.map(preset=>({
+    ...preset,
+    split:preset.id==='auto'?(coachDefault??split):preset.split
+  })).concat([{id:'custom',label:'Custom',split:customSplit??split}]);
   return <div className="macro-setup">
     {mode==='presets'?(
       <div className="macro-preset-grid macro-presets" role="group" aria-label="Macro presets">
@@ -104,19 +110,19 @@ export function MacroSetup({
           <strong className="macro-row-percent">{split[key]}%</strong>
         </label>
         <div className="macro-row-controls">
-          <input
+          <Slider
             id={`macro-${key}`}
             name={`macro-${key}-share`}
-            type="range"
-            className={`macro-range ${key}`}
+            label={macroLabels[key]}
+            showLabel={false}
+            className={`macro-slider ${key}`}
             min={macroLimits[key].min}
             max={macroLimits[key].max}
-            step="1"
+            step={1}
             value={split[key]}
-            style={{'--range-fill':`${fill(key)}%`} as CSSProperties}
-            aria-label={`${macroLabels[key]} share of daily energy`}
-            aria-valuetext={`${split[key]}% · ${grams[key]} g`}
-            onChange={event=>onChange(adjustSplit(split,key,Number(event.target.value)))}
+            formatValue={value=>`${value}% · ${grams[key]} g`}
+            ariaLabel={`${macroLabels[key]} share of daily energy`}
+            onChange={value=>onChange(adjustSplit(split,key,value))}
           />
           <div className="macro-number">
             <Field

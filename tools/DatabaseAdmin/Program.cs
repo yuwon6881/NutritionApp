@@ -3,7 +3,21 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Nutrition.Api.Data;
 
-if(args.Length!=2||args[0] is not ("inspect" or "inspect-pooled" or "migrate" or "verify"))throw new ArgumentException("Usage: DatabaseAdmin inspect|inspect-pooled|migrate|verify <private-config-path>");
+if(args.Length < 2 || args[0] is not ("inspect" or "inspect-pooled" or "migrate" or "verify" or "legacy-compare" or "legacy-merge"))
+    throw new ArgumentException("Usage: DatabaseAdmin inspect|inspect-pooled|migrate|verify <private-config-path> or legacy-compare|legacy-merge <destination-config> <legacy-config> [--map-single-user] [--apply]");
+if(args[0] is "legacy-compare" or "legacy-merge")
+{
+    if(args.Length < 3) throw new ArgumentException("Legacy merge requires destination and legacy config paths.");
+    var destinationConfig=JsonDocument.Parse(await File.ReadAllTextAsync(args[1]));
+    var legacyConfig=JsonDocument.Parse(await File.ReadAllTextAsync(args[2]));
+    var apply=args[0]=="legacy-merge" && args.Contains("--apply",StringComparer.Ordinal);
+    var mapSingleUser=args.Contains("--map-single-user",StringComparer.Ordinal);
+    var destinationUrl=destinationConfig.RootElement.GetProperty("Url").GetString()!;
+    var legacyUrl=legacyConfig.RootElement.GetProperty("Url").GetString()!;
+    await LegacyMerge.Run(ConnectionSettings.Direct(destinationUrl),ConnectionSettings.Direct(legacyUrl),apply,mapSingleUser);
+    return;
+}
+if(args.Length != 2) throw new ArgumentException("This command requires exactly one private config path.");
 using var config=JsonDocument.Parse(await File.ReadAllTextAsync(args[1]));
 var url=config.RootElement.GetProperty("Url").GetString()!;
 try

@@ -21,13 +21,13 @@ Do not reimplement a button, field, form validator, select, date/time picker, mo
 - Inputs use `Field`/`Form`/`FileInput`; custom controls use the existing `Select`, `DatePicker`, `TimePicker`, or `SegmentedControl`.
 - Dialogs use `Modal` or `ActionSheet`, including dirty-close confirmation and focus restoration.
 - Page and panel changes use `MotionScene`/`MotionPanel`; coach step changes use `CoachMotion`. `MotionScene` does not steal focus on its first render. After a committed page change it focuses the destination heading, tagging keyboard navigation for the shared ring and pointer/automatic navigation for a temporary outline-suppressed semantic focus; blur clears that temporary origin.
-- Async work uses `useAsyncAction` and the existing sync/status language.
+- Async work uses `useAsyncAction` and the existing sync/status language. Card or panel failures use `CardFeedback` with a semantic tone, accessible announcement, and optional recovery action.
 - Food search, portions, serving labels, batch review, swipe, and mobile menus extend `LogFood`, `FoodPicker`, `FoodBasket`, `BatchFoodRow`, and the API service. Search results explicitly distinguish authoritative product data (with declared servings or verified per-100 g) from unverified provider search hits that display a basis-unavailable state. Barcode input embeds the camera trigger inside the field adornment and checks account-private saved mappings before the provider. Missing or incomplete products expose link-existing, label-scan, and manual recovery. "Your foods" supports persistent search and category filtering with structured recent entries. Recipe ingredient search reuses the food search presentation, live calorie card, and portion synchronization; it is a selection-purpose state, not a second search implementation.
 - Food timeline cards use an ultra-compact two-line layout without source strings; entry actions use one accessible action sheet for Edit, Copy, Move to, and Delete; copy/move destination dialogs must preserve the entry snapshot, keep date/time validation explicit, and confirm destructive deletion before queueing the existing entry mutation.
 - New styling uses semantic Ayu tokens and the existing responsive breakpoints. Avoid inline colors, remote fonts, feature-only typography, and duplicate card/button systems. Reusable circular range controls belong in the shared slider primitive and must keep equivalent values visible, keyboard support, and reduced-motion behavior.
 - Measurement units use compact system presets (Metric / Imperial) and contextual in-situ `MiniUnitToggle` switches in field headers rather than heavy multi-select fieldsets; full multi-unit configuration remains in Settings.
 - The mobile shell uses the existing `Modal`/`ActionSheet` and semantic tokens for safe-area-aware app bars, bottom navigation, bottom-sheet grab handles, touch scrolling, and Android/browser Back dismissal. Preserve keyboard Escape, dirty-close confirmation, protected dialogs, focus restoration, and reduced-motion behavior when extending it.
-- External integrations (Google Health) reuse shared components (Card, Button, Modal), hold step data strictly in runtime memory (never IndexedDB/localStorage), provide pre-connect disclosure modals with the Google API Limited Use statement, expose connection status and reconnect prompts in Settings, and render discrete missing-data gaps and known-day averages in Progress charts.
+- External integrations (Google Health) reuse shared components (Card, Button, Modal, CardFeedback), hold step data strictly in runtime memory (never IndexedDB/localStorage), provide pre-connect disclosure modals with the Google API Limited Use statement, expose connection status and reconnect prompts in Settings, and render discrete missing-data gaps and known-day averages in Progress charts.
 
 ## 3. Implement the contract, not just the happy path
 
@@ -39,6 +39,7 @@ For each new interaction, define and render the states that apply:
 - partial or unknown data;
 - offline/retained/pending work;
 - retryable error and conflict;
+- card-level errors and warnings use `CardFeedback` with a clear recovery action when one is available;
 - conflict review taking precedence over secondary prompts that could enqueue another edit for the same protected record;
 - compact protein/carbohydrate/fat values in food batch and diary rows at every responsive width, with unknown nutrients still visible;
 - recipe ingredient selection displaying live calorie/macro contribution cards, portion selection synchronized with grams, and live recipe-level nutrition preview cards;

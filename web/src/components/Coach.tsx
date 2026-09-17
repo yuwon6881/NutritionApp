@@ -7,7 +7,7 @@ import {number,today} from '../lib/format';
 import {normalizeProfileSex,profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
 import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
-import {gramsFromSplit,macroKeys,macroLabels,macroPresets,type MacroSplit} from '../lib/macros';
+import {gramsFromSplit,macroKeys,macroLabels,macroPresets,normalise,type MacroSplit} from '../lib/macros';
 import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Field,SelectField} from './ui/Field';
@@ -22,6 +22,7 @@ import {MiniUnitToggle} from './ui/MiniUnitToggle';
 import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {resolveGoalStartWeight} from '../lib/goalPhase';
+import {CardFeedback} from './ui/CardFeedback';
 
 const defaults:ProfileDraft={
   age:0,
@@ -76,6 +77,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const [mainTab,setMainTab]=useState<MainTab>('targets');
   const [review,setReview]=useState(false);
   const [weeklyDraft,setWeeklyDraft]=useState<number[]>();
+  const [customSplit,setCustomSplit]=useState<MacroSplit>(()=>storedSplit(profile)??normalise({protein:30,carbs:40,fat:30}));
   const {step,go:setStep,stage}=useCoachSteps<StepKey>('body',stepOrder,`${mainTab}-${review}`);
   const reviewPanel=useRef<HTMLElement>(null);
   useEffect(()=>{if(review)reviewPanel.current?.focus({preventScroll:true});},[review]);
@@ -135,6 +137,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
   const setSplit=(next:MacroSplit|null,preset:string|null)=>{
     invalidate();
+    if(next&&preset==='custom')setCustomSplit(next);
     setProfile(p=>({...p,
       proteinPercent:next?.protein??null,
       carbsPercent:next?.carbs??null,
@@ -155,7 +158,21 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     ?allocateWeeklyCalories(live.weeklyCalories,profile.distributionShares)
     :live.dailyCalories);
   const weeklyValid=weeklyValues.length===7&&weeklyValues.every(value=>Number.isInteger(value)&&value>=0)&&Math.abs(weeklyValues.reduce((sum,value)=>sum+value,0)-Math.round(live.weeklyCalories))<=2;
-  const split=storedSplit(profile)??effectiveSplit(profile,acceptedPlan?.expenditure,current);
+  const coachDefaultSplit=effectiveSplit({
+    ...profile,
+    proteinPercent:null,
+    carbsPercent:null,
+    fatPercent:null,
+    macroPreset:null,
+    proteinGrams:null
+  },acceptedPlan?.expenditure,current);
+  const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
+  const selectedPreset=macroPresets.find(preset=>preset.id===selectedPresetId);
+  const split=selectedPresetId==='auto'
+    ?coachDefaultSplit
+    :selectedPresetId==='custom'
+      ?customSplit
+      :(selectedPreset?.split??coachDefaultSplit);
   const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
   const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5&&(profile.maintenance==null||(profile.maintenance>=1000&&profile.maintenance<=7000)));
   const phaseInitial=currentGoalWeight;
@@ -197,7 +214,6 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     finally{locked.current=false;}
   };
 
-  const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const steps=[
     {id:'body',label:'Body'},
     {id:'activity',label:'Activity'},
@@ -245,8 +261,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {!proposal.canAccept&&!proposal.holdReason&&<p className="notice">{proposal.result.explanation}</p>}
     </>:<h2>{message?'Active plan':'Review plan'}</h2>}
     {(busy||operation==='waiting')&&<CoachWait label={operationLabel} active={operation!=='waiting'||(online&&!queueError&&!store.error)}/>}
-    {operation==='error'&&!proposal&&<Button onClick={()=>void loadProposal()} disabled={!online||pending||changed}>Retry calculation</Button>}
-    {operation==='refresh-error'&&<Button onClick={()=>void retryRefresh()}>Retry loading targets</Button>}
+    {operation==='error'&&!proposal&&<CardFeedback title="Target calculation failed" message={error??'Targets could not be calculated.'} action={{label:'Retry calculation',onClick:()=>void loadProposal(),disabled:!online||pending||changed}}/>}
+    {operation==='refresh-error'&&<CardFeedback title="Active targets unavailable" message={error??'The active targets could not be loaded.'} action={{label:'Retry loading targets',onClick:()=>void retryRefresh()}}/>}
     <div className="coach-review-actions"><Button variant="tertiary" disabled={!!acceptance.current||operation==='saving'||operation==='accepting'||operation==='updating'||operation==='refreshing'} onClick={()=>openPlan('macros')}><ArrowLeft size={16}/>Back to edit</Button></div>
   </CoachLayout></section>:null;
 
@@ -447,6 +463,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           split={split}
           mode="presets"
           presetId={selectedPresetId}
+          coachDefault={coachDefaultSplit}
+          customSplit={customSplit}
           onChange={next=>setSplit(next,'custom')}
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
@@ -465,6 +483,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           split={split}
           mode="adjustments"
           presetId={selectedPresetId}
+          coachDefault={coachDefaultSplit}
+          customSplit={customSplit}
           onChange={next=>setSplit(next,'custom')}
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
@@ -634,7 +654,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       onChange={value=>{if(value==='plan')openPlan(step);else {setMessage('');setMainTab(value);}}}/>}
 
     {message&&<p className="status-banner coach-success" role="status"><Check size={18} aria-hidden="true"/>{message}</p>}
-    {error&&<p className="error" role="alert">{error}</p>}
+    {error&&operation!=='error'&&operation!=='refresh-error'&&<CardFeedback title="Coach update needs attention" message={error}/>}
 
     <div key={isInitialSetup?(review?'review':'setup'):mainTab} className="coach-tab-scene">
     {isInitialSetup?<>{review?proposalPanel:planTab}</>

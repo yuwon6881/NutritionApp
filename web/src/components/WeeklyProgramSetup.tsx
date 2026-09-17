@@ -1,4 +1,4 @@
-import {useState, useMemo, type CSSProperties} from 'react';
+import {useState, useMemo} from 'react';
 import {allocateWeeklyCalories, adjustWeeklyCalories, equalDistribution, weekendDistribution, normaliseDistribution} from '../lib/dailyTargets';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
@@ -6,6 +6,7 @@ import {SegmentedControl} from './ui/SegmentedControl';
 import {Lock, Unlock, Check} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {displayEnergy, energyLabel, inputEnergy, parseEnergy} from '../lib/units';
+import {Slider} from './ui/Slider';
 
 const labels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 type DistributionMode = 'even' | 'weekend' | 'custom';
@@ -113,11 +114,6 @@ export function WeeklyProgramSetup({
   // preventing any slider thumb/fill fluctuation when locked days remain untouched.
   const averageDaily = target / 7;
   const maxSlider = Math.min(target, Math.round(Math.max(3500, averageDaily * 2.5)));
-
-  const fill = (index: number) => {
-    const val = values[index] ?? 0;
-    return maxSlider > 0 ? Math.min(100, Math.max(0, Math.round((val / maxSlider) * 100))) : 0;
-  };
 
   return (
     <section className="weekly-program" aria-labelledby="weekly-program-title">
@@ -262,21 +258,21 @@ export function WeeklyProgramSetup({
                       {isLocked ? <Lock size={15} aria-hidden="true" /> : <Unlock size={15} aria-hidden="true" />}
                     </Button>
 
-                    <input
+                    <Slider
                       id={`weekly-range-${index}`}
                       name={`weeklyRange${index}`}
-                      type="range"
+                      label={`${label} daily energy`}
+                      showLabel={false}
                       className={`weekly-range ${isLocked ? 'locked' : ''}`}
                       min={0}
                       max={maxSlider}
                       step={5}
                       value={val}
                       disabled={isLocked}
-                      style={{'--range-fill': `${fill(index)}%`} as CSSProperties}
-                      aria-label={`${label} daily energy slider`}
-                      aria-valuetext={`${displayEnergy(val, energyUnit)} ${energyLabel(energyUnit)}`}
-                      onChange={event => {
-                        const next = adjustWeeklyCalories(values, target, index, Number(event.target.value), locked);
+                      ariaLabel={`${label} daily energy slider`}
+                      formatValue={value => `${displayEnergy(value, energyUnit)} ${energyLabel(energyUnit)}`}
+                      onChange={value => {
+                        const next = adjustWeeklyCalories(values, target, index, value, locked);
                         onChange(next, true);
                       }}
                     />
