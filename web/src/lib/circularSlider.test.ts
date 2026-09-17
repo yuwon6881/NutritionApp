@@ -16,4 +16,11 @@ describe('circular slider geometry',()=>{
     expect(circularSliderValue(point(geometry.startAngle-20),rect,0,100,1,geometry)).toBe(0);
     expect(circularSliderValue(point(geometry.startAngle+geometry.sweep+20),rect,0,100,1,geometry)).toBe(100);
   });
+
+  it('snaps accurately to fractional steps for weight adjustments',()=>{
+    expect(circularSliderValue(point(geometry.startAngle),rect,55,65,0.1,geometry)).toBe(55);
+    expect(circularSliderValue(point(geometry.startAngle+geometry.sweep),rect,55,65,0.1,geometry)).toBe(65);
+    const mid=circularSliderValue(point(geometry.startAngle+geometry.sweep/2),rect,55,65,0.1,geometry);
+    expect(mid).toBe(60);
+  });
 });

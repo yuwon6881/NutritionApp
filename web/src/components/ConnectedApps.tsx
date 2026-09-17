@@ -37,7 +37,18 @@ export function ConnectedApps(){
     <h2 id="connected-apps-title">Connected Apps</h2>
     <p>Nutrition reads Workout’s scheduled, in-progress, and completed training summaries. Workout never changes Nutrition targets. To enable the reverse direction, connect Nutrition from Workout.</p>
     <ul className="source-list"><li><code>workout.training_summary.read</code> · Workout → Nutrition</li></ul>
-    {grant?.status==='active'?<div className="settings-actions"><span className="notice">Workout access is granted. Nutrition targets are never changed by training data.</span><Button variant="destructive" disabled={busy} onClick={()=>void revoke()}>Revoke access</Button></div>:<Button variant="secondary" disabled={busy} onClick={connect}>{busy?'Opening Fitness Account…':'Connect Workout'}</Button>}
+    {grant?.status==='active'?(
+      <div className="connected-app-active">
+        <p className="notice">Workout access is granted. Nutrition targets are never changed by training data.</p>
+        <div className="actions">
+          <Button variant="destructive" disabled={busy} onClick={()=>void revoke()}>Revoke access</Button>
+        </div>
+      </div>
+    ):(
+      <div className="actions">
+        <Button variant="secondary" disabled={busy} onClick={connect}>{busy?'Opening Fitness Account…':'Connect Workout'}</Button>
+      </div>
+    )}
     {error&&<p className="error" role="alert">{error}</p>}
     {notice&&<p className="source" role="status">{notice}</p>}
   </section>;

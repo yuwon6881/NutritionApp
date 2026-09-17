@@ -66,7 +66,7 @@ export function GoalPhaseSetup({
   const weightValueDisplay=(value:number)=><div className="target-weight-value">
     <strong><CoachNumber>{displayWeight(value,units.weight,1)}</CoachNumber></strong>
     <span>{weightLabel(units.weight)}</span>
-    <small>{value<startWeight?`${displayWeight(startWeight-value,units.weight,1)} ${weightLabel(units.weight)} to lose`:value>startWeight?`${displayWeight(value-startWeight,units.weight,1)} ${weightLabel(units.weight)} to gain`:'Current weight'}</small>
+    <small className="target-delta-badge">{value<startWeight?`${displayWeight(startWeight-value,units.weight,1)} ${weightLabel(units.weight)} to lose`:value>startWeight?`${displayWeight(value-startWeight,units.weight,1)} ${weightLabel(units.weight)} to gain`:'Current weight'}</small>
   </div>;
   const durationValueDisplay=(value:number)=><div className="slider-value-group">
     <span className="slider-current-badge"><CoachNumber>{value}</CoachNumber> weeks</span>
@@ -96,10 +96,17 @@ export function GoalPhaseSetup({
           max={104}
           step={1}
           value={Math.min(Math.max(durationWeeks,1),104)}
-          formatValue={value=>`${value} weeks`}
+          formatValue={value=>`${value} ${value===1?'week':'weeks'}`}
           valueDisplay={durationValueDisplay(Math.min(Math.max(durationWeeks,1),104))}
+          centerValue={<div className="target-weight-value">
+            <strong><CoachNumber>{Math.min(Math.max(durationWeeks,1),104)}</CoachNumber></strong>
+            <span>{Math.min(Math.max(durationWeeks,1),104)===1?'week':'weeks'}</span>
+            <small className="target-delta-badge">Ends {phaseEndDate(current,Math.min(Math.max(durationWeeks,1),104))}</small>
+          </div>}
+          minLabel="Min"
+          maxLabel="Max"
           onChange={value=>set('durationWeeks',value)}
-          hint="The phase starts today. Use the arrow keys for one-week changes."
+          hint="The phase starts today. Use the slider, buttons, or arrow keys for one-week changes."
         />}
 
         {mode==='weight'&&paced&&<CircularSlider
@@ -112,9 +119,11 @@ export function GoalPhaseSetup({
           value={targetWeight}
           formatValue={value=>`${displayWeight(value,units.weight,1)} ${weightLabel(units.weight)}`}
           centerValue={weightValueDisplay(targetWeight)}
+          minLabel={loss?(bounds.min>startWeight*0.801?'Floor':'Min'):'Start'}
+          maxLabel={loss?'Start':'Max'}
           validate={targetError}
           onChange={value=>set('targetWeightKg',value)}
-          hint={`From ${displayWeight(startWeight,units.weight,1)} ${weightLabel(units.weight)}. Choose a target within 20% of your starting weight${loss?' and above the BMI 18.5 floor':''}. Use arrow keys for 0.1 kg changes.`}
+          hint={`From ${displayWeight(startWeight,units.weight,1)} ${weightLabel(units.weight)}. Choose a target within 20% of your starting weight${loss?' and above the BMI 18.5 floor':''}. Use the slider, buttons, or arrow keys for 0.1 kg changes.`}
         />}
         {mode==='open'&&<p className="source">Maintenance continues without a scheduled end date. You can choose a new goal whenever you are ready.</p>}
       </>
