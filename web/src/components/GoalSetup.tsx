@@ -48,7 +48,7 @@ export function GoalPhaseSetup({
   const startWeight=resolveGoalStartWeight({fallbackKg:currentWeightKg??profile.weightKg,weights,trendSeed,metric:weightGoalMetric,current});
   const mode=profile.phaseMode??(profile.goal==='maintain'?'duration':'weight');
   const durationWeeks=profile.durationWeeks??8;
-  const bounds=goalWeightBounds(profile.goal,startWeight);
+  const bounds=goalWeightBounds(profile.goal,startWeight,profile.heightCm);
   const requestedTarget=profile.targetWeightKg??startWeight;
   const targetWeight=Math.min(Math.max(requestedTarget,bounds.min),bounds.max);
   const bmi=profile.heightCm>0?profile.weightKg/Math.pow(profile.heightCm/100,2):null;
@@ -63,9 +63,10 @@ export function GoalPhaseSetup({
     if(profile.goal==='lose'&&profile.heightCm>0&&targetWeight/Math.pow(profile.heightCm/100,2)<18.5)return 'Choose a target with a BMI of at least 18.5.';
     return undefined;
   };
-  const weightValueDisplay=(value:number)=><div className="slider-value-group">
-    <span className="slider-current-badge"><CoachNumber>{displayWeight(value,units.weight,1)}</CoachNumber> {weightLabel(units.weight)}</span>
-    <span className="slider-equivalent">{value<startWeight?`${displayWeight(startWeight-value,units.weight,1)} to lose`:value>startWeight?`${displayWeight(value-startWeight,units.weight,1)} to gain`:'Start at current weight'}</span>
+  const weightValueDisplay=(value:number)=><div className="target-weight-value">
+    <strong><CoachNumber>{displayWeight(value,units.weight,1)}</CoachNumber></strong>
+    <span>{weightLabel(units.weight)}</span>
+    <small>{value<startWeight?`${displayWeight(startWeight-value,units.weight,1)} ${weightLabel(units.weight)} to lose`:value>startWeight?`${displayWeight(value-startWeight,units.weight,1)} ${weightLabel(units.weight)} to gain`:'Current weight'}</small>
   </div>;
   const durationValueDisplay=(value:number)=><div className="slider-value-group">
     <span className="slider-current-badge"><CoachNumber>{value}</CoachNumber> weeks</span>
@@ -110,10 +111,10 @@ export function GoalPhaseSetup({
           step={0.1}
           value={targetWeight}
           formatValue={value=>`${displayWeight(value,units.weight,1)} ${weightLabel(units.weight)}`}
-          valueDisplay={weightValueDisplay(targetWeight)}
+          centerValue={weightValueDisplay(targetWeight)}
           validate={targetError}
           onChange={value=>set('targetWeightKg',value)}
-          hint={`Current ${displayWeight(startWeight,units.weight,1)} ${weightLabel(units.weight)} · the target starts here until you move the dial.`}
+          hint={`From ${displayWeight(startWeight,units.weight,1)} ${weightLabel(units.weight)}. Choose a target within 20% of your starting weight${loss?' and above the BMI 18.5 floor':''}. Use arrow keys for 0.1 kg changes.`}
         />}
         {mode==='open'&&<p className="source">Maintenance continues without a scheduled end date. You can choose a new goal whenever you are ready.</p>}
       </>

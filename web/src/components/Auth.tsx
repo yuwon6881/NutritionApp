@@ -29,13 +29,6 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
         }}>
           Sign in with Fitness Account<ArrowRight size={18}/>
         </Button>
-        <footer className="auth-footer">
-          <a href="/privacy">Privacy</a>
-          <span aria-hidden="true">·</span>
-          <a href="/terms">Terms</a>
-          <span aria-hidden="true">·</span>
-          <a href="/help/google-health">Google Health help</a>
-        </footer>
       </section>
     </main>
   );

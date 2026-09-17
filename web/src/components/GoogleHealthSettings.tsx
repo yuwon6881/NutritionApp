@@ -198,12 +198,8 @@ export function GoogleHealthSettings() {
         </div>
       )}
 
-      <p className="source privacy-links">
-        Data is encrypted with Google Cloud KMS and retained for a rolling 31-day window. Learn more in our{' '}
-        <a href="/help/google-health" target="_blank" rel="noopener noreferrer">
-          Google Health help and deletion policy
-        </a>
-        .
+      <p className="source google-health-retention-note">
+        Data is encrypted with Google Cloud KMS and retained for a rolling 31-day window. Disconnecting here revokes access and deletes imported step totals.
       </p>
 
       {/* Pre-connection disclosure modal */}

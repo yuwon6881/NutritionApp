@@ -7,11 +7,20 @@ export function ConnectedApps(){
   const [grant,setGrant]=useState<Grant>();
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
   const load=async()=>{
     try{const rows=await api<Grant[]>('/integrations/connected');setGrant(rows.find(row=>row.peer==='workout'));}
     catch(ex){setError(ex instanceof ApiError?ex.message:'Connected app status is unavailable.');}
   };
-  useEffect(()=>{void load();},[]);
+  useEffect(()=>{
+    void load();
+    const url=new URL(window.location.href);
+    if(url.searchParams.get('error')==='access_denied'){
+      setNotice('Workout connection was canceled.');
+      url.searchParams.delete('error');
+      window.history.replaceState(window.history.state,'',url.pathname+url.search+url.hash);
+    }
+  },[]);
   const connect=()=>{
     setBusy(true);setError('');
     // The backend performs the authorization-code exchange and stores only the encrypted
@@ -30,5 +39,6 @@ export function ConnectedApps(){
     <ul className="source-list"><li><code>workout.training_summary.read</code> · Workout → Nutrition</li></ul>
     {grant?.status==='active'?<div className="settings-actions"><span className="notice">Workout access is granted. Nutrition targets are never changed by training data.</span><Button variant="destructive" disabled={busy} onClick={()=>void revoke()}>Revoke access</Button></div>:<Button variant="secondary" disabled={busy} onClick={connect}>{busy?'Opening Fitness Account…':'Connect Workout'}</Button>}
     {error&&<p className="error" role="alert">{error}</p>}
+    {notice&&<p className="source" role="status">{notice}</p>}
   </section>;
 }

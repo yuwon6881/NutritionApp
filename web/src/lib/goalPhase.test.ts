@@ -20,9 +20,10 @@ describe('goal phase helpers',()=>{
     expect(trend).toBeGreaterThan(79);
   });
 
-  it('keeps the current weight as the default endpoint while allowing directional targets',()=>{
-    expect(goalWeightBounds('lose',80)).toEqual({min:20,max:80});
-    expect(goalWeightBounds('gain',80)).toEqual({min:80,max:160});
+  it('uses a realistic one-decimal phase range and respects the underweight floor',()=>{
+    expect(goalWeightBounds('lose',80)).toEqual({min:64,max:80});
+    expect(goalWeightBounds('gain',80)).toEqual({min:80,max:96});
+    expect(goalWeightBounds('lose',65,170)).toEqual({min:53.5,max:65});
   });
 
   it('calculates the phase end from today and duration weeks',()=>{

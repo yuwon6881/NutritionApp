@@ -77,6 +77,7 @@ describe('coachCalc', ()=>{
   it('determines pace status and contextual feedback for loss and gain', ()=>{
     expect(getPaceStatus('lose', -0.3, false, 'kcal', 2263, 2050).tone).toBe('gentle');
     expect(getPaceStatus('lose', -0.75, false, 'kcal', 2263, 1725).tone).toBe('recommended');
+    expect(getPaceStatus('lose', -0.95, false, 'kcal', 2263, 1575).tone).toBe('recommended');
     expect(getPaceStatus('lose', -1.2, false, 'kcal', 2263, 1400).tone).toBe('aggressive');
 
     expect(getPaceStatus('gain', 0.05, false).tone).toBe('gentle');

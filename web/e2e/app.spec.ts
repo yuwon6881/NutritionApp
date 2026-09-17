@@ -46,7 +46,6 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'Keto',exact:true}).click();
   await page.getByRole('button',{name:'Coach default',exact:true}).click();
-  await page.getByRole('button',{name:/^Next: Adjust/}).click();
   await page.getByRole('button',{name:/^Next: Distribution/}).click();
   await page.getByRole('button',{name:/^Next: Review/}).click();
   await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
@@ -272,7 +271,6 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowLeft');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'High protein',exact:true}).click();
-  await page.getByRole('button',{name:/^Next: Adjust/}).click();
   await page.getByRole('button',{name:/^Next: Distribution/}).click();
   await page.getByRole('button',{name:/^Next: Review/}).click();
   await page.getByRole('button',{name:'Save profile',exact:true}).click();

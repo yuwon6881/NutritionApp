@@ -110,11 +110,11 @@ External health integrations connect third-party activity data without polluting
 
 - **Strictly visual and informative**: Google Health step counts are purely visual. They must never affect calories, expenditure estimates, coaching proposals, macro targets, or day-completion logic.
 - **Runtime-only storage**: To protect privacy and adhere to data segregation guidelines, Google Health step data and sync states are held in runtime memory only. Step data must never be written to `localStorage` or `IndexedDB`.
-- **Pre-connect disclosure**: Before initiating the Google OAuth flow, users are presented with a focused disclosure modal outlining data requested (`steps`), storage principles (memory only, encrypted at rest on server), that steps will not modify nutrition goals or calories, and links to public privacy policies.
+- **Pre-connect disclosure**: Before initiating the Google OAuth flow, users are presented with a focused disclosure modal outlining data requested (`steps`), storage principles (memory only, encrypted at rest on server), that steps will not modify nutrition goals or calories, and the applicable Google API Services User Data Policy.
 - **Connection management**: The Settings integration panel surfaces connection state (`Connected`, `Reconnect required`, or `Disconnected`), last sync time, a Reconnect action when grants are revoked or expired, and a destructive confirmation dialog for disconnects.
 - **Freshness and honest unavailability**: The Today steps card displays the step count with an explicit freshness indicator (`Fresh`, `Stale`, or unavailable warning). When step data is missing for a given day, it displays an honest `—` or empty state rather than inferring zero.
 - **Discrete 30-day activity trend**: The Progress tab features a compact 30-day step chart with a fixed 0–12k+ vertical baseline. Missing days render as discrete gaps rather than connecting false zero data points. A calculated known-day average explicitly excludes missing dates.
-- **Public policy pages**: Unauthenticated routes (`/privacy`, `/terms`, `/help/google-health`) are accessible from the authentication screen and disclosure modal, containing the mandatory Google API Limited Use disclosure and data revocation instructions.
+- **Google Health data controls**: The authenticated Settings integration shows the Google API Limited Use disclosure, rolling retention, and the disconnect action that revokes access and deletes imported step totals. The app does not expose public privacy or terms routes.
 
 ## Review standard
 

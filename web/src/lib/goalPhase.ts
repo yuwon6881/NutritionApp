@@ -24,10 +24,11 @@ export function resolveGoalStartWeight({
   return points.at(-1)!.kg;
 }
 
-export function goalWeightBounds(goal:string,startKg:number){
+export function goalWeightBounds(goal:string,startKg:number,heightCm?:number){
   const start=Math.min(Math.max(startKg,20),400);
-  if(goal==='lose')return {min:20,max:start};
-  if(goal==='gain')return {min:start,max:Math.min(400,start+80)};
+  const bmiFloor=heightCm&&heightCm>0?18.5*Math.pow(heightCm/100,2):20;
+  if(goal==='lose')return {min:Math.min(start,Math.ceil(Math.max(20,start*0.8,bmiFloor)*10)/10),max:start};
+  if(goal==='gain')return {min:start,max:Math.max(start,Math.floor(Math.min(400,start*1.2)*10)/10)};
   return {min:20,max:400};
 }
 

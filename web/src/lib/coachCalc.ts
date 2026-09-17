@@ -59,16 +59,11 @@ export function getPaceStatus(
 ): PaceStatus {
   const absRate = Math.abs(rate);
   if (goal === 'lose') {
-    const deficitRatio = expenditure && target && expenditure > 0
-      ? (expenditure - target) / expenditure
-      : (absRate * 7700 * 70) / (7 * 100 * (expenditure || 2000));
-    const isAggressiveDeficit = deficitRatio > 0.25;
-
-    if (absRate > 1.0 || isAggressiveDeficit) {
+    if (absRate > 1.0) {
       return {
         label: 'Aggressive',
         tone: 'aggressive',
-        hint: `Aggressive pace (${absRate > 1.0 ? `${absRate.toFixed(2)}% / week` : `${Math.round(deficitRatio * 100)}% deficit`}): Higher risk of muscle loss, fatigue, and metabolic slowdown. Recommended for short cutting phases.`,
+        hint: `Aggressive pace (${absRate.toFixed(2)}% / week): Higher risk of muscle loss and fatigue.`,
       };
     }
     if (absRate < 0.5) {

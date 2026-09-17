@@ -22,13 +22,12 @@ import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncConflictNotice} from './components/SyncConflictNotice';
 import {SyncStatus} from './components/ui/SyncStatus';
-import {PrivacyPage, TermsPage, GoogleHealthHelpPage} from './components/PublicPolicyPages';
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 
 function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   const store=useNourish(user);
-  const initialPage=typeof window!=='undefined'&&window.location.search.includes('google_health')?'settings':'today';
+  const initialPage=typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
   const [date,setDate]=useState(today());
   const [foodOpen,setFoodOpen]=useState(false);
@@ -153,10 +152,6 @@ export default function App(){
     })();
     return()=>{active=false;stopWatchingTheme();};
   },[]);
-
-  if(pathname==='/privacy')return <PrivacyPage/>;
-  if(pathname==='/terms')return <TermsPage/>;
-  if(pathname==='/help/google-health')return <GoogleHealthHelpPage/>;
 
   const logout=async()=>{localStorage.setItem('nourish-signed-out','1');localStorage.removeItem('nourish-account');setUser(null);try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}};
   if(user===undefined)return <main className="startup"><Brand size={38}/></main>;

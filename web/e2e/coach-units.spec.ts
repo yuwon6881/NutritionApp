@@ -161,7 +161,6 @@ test.describe('Coach unit selection', () => {
     await page.screenshot({path: 'artifacts/coach-step4-macros-dark.png', fullPage: false});
 
     // Advance through Step 5 (Adjust) and Step 6 (Distribution)
-    await page.getByRole('button', {name: /^Next: Adjust/}).click();
     await page.getByRole('button', {name: /^Next: Distribution/}).click();
     await page.getByRole('button', {name: /^Next: Review/}).click();
 
@@ -190,4 +189,3 @@ test.describe('Coach unit selection', () => {
     await page.screenshot({path: 'artifacts/coach-step7-review-light.png', fullPage: false});
   });
 });
-

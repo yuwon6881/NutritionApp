@@ -43,6 +43,7 @@ async function step(page:Page,name:string){
 }
 async function reviewMacros(page:Page){
   await step(page,'Macros');
+  await page.getByRole('button',{name:'Custom',exact:true}).click();
   await page.getByRole('button',{name:/^Next: Adjust/}).click();
   await page.getByRole('button',{name:/^Next: Distribution/}).click();
   await page.getByRole('button',{name:/^Next: Review/}).click();
@@ -110,6 +111,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
     await page.setViewportSize({width,height:900});
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     for(const name of ['Body','Activity','Goal','Goal details','Pace','Macros','Adjust','Distribution','Review']){
+      if(name==='Adjust')await page.getByRole('button',{name:'Custom',exact:true}).click();
       await step(page,name);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
       if(width<1024)expect(await page.locator('.coach-tab-scene button:visible').evaluateAll(nodes=>nodes.filter(n=>!n.classList.contains('mini-unit-btn')&&n.getBoundingClientRect().height<43).map(n=>n.textContent))).toEqual([]);
@@ -172,6 +174,26 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   await expect(page.locator('[data-step-heading]')).toBeFocused();
   await expect(page.locator('.coach-step-stage')).toHaveCSS('opacity','1');
   await page.emulateMedia({reducedMotion:'no-preference'});
+});
+
+test('custom macro slider supports a held mouse drag',async({page})=>{
+  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await step(page,'Macros');
+  await expect(page.locator('.macro-range')).toHaveCount(0);
+  await page.getByRole('button',{name:'Custom',exact:true}).click();
+  await page.getByRole('button',{name:/^Next: Adjust/}).click();
+  const slider=page.getByRole('slider',{name:'Protein share of daily energy'});
+  const before=Number(await slider.inputValue());
+  const box=await slider.boundingBox();
+  expect(box).not.toBeNull();
+  const startX=box!.x+box!.width*(before-10)/50;
+  const y=box!.y+box!.height/2;
+  await page.mouse.move(startX,y);
+  await page.mouse.down();
+  await page.mouse.move(box!.x+box!.width*.85,y,{steps:8});
+  await page.mouse.up();
+  await expect.poll(async()=>Number(await slider.inputValue())).toBeGreaterThan(before);
+  expect(Number(await page.locator('.macro-row-percent').first().textContent()?.replace('%',''))).toBeGreaterThan(before);
 });
 
 test('weekly check-in opens immediately, waits in the modal, and retries',async({page,context})=>{

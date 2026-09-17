@@ -197,6 +197,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     finally{locked.current=false;}
   };
 
+  const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const steps=[
     {id:'body',label:'Body'},
     {id:'activity',label:'Activity'},
@@ -204,7 +205,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {id:'goal-details',label:'Goal details'},
     ...(profile.goal==='maintain'?[]:[{id:'pace',label:'Pace'}]),
     {id:'macros',label:'Macros'},
-    {id:'macro-adjustments',label:'Adjust'},
+    ...(selectedPresetId==='custom'?[{id:'macro-adjustments',label:'Adjust'}]:[]),
     {id:'distribution',label:'Distribution'},
     {id:'review',label:'Review'}
   ] as const;
@@ -212,11 +213,11 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const stepIndex=steps.findIndex(s=>s.id===step);
   const activeStepIndex=stepIndex>=0?stepIndex:0;
 
-  const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const reviewGrams=gramsFromSplit(live.target,split);
   const weeklyError=`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`;
   const canNavigateTo=(targetStep:StepKey)=>{
-    if(stepOrder.indexOf(targetStep)<stepOrder.indexOf(step))return true;
+    const targetIndex=steps.findIndex(item=>item.id===targetStep);
+    if(targetIndex>=0&&targetIndex<activeStepIndex)return true;
     if(!validateFields(stage.current))return false;
     if(targetStep==='review'&&!weeklyValid){setError(weeklyError);return false;}
     return true;
@@ -289,7 +290,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     </div>
 
     <Form onSubmit={e=>{e.preventDefault();if(step==='review')void submitProfile();else {
-      let nextStep:StepKey|undefined=stepOrder[stepOrder.indexOf(step)+1];
+      let nextStep=steps[activeStepIndex+1]?.id as StepKey|undefined;
       if(nextStep&&canNavigateTo(nextStep))setStep(nextStep);
     }}}>
       <CoachLayout><div ref={stage} className="coach-step-stage" data-step={step}>
@@ -440,7 +441,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </div>}
 
       {step==='macros'&&<div className="step-content">
-        <p className="step-description">Choose a starting macro pattern. You can fine-tune its percentages on the next step.</p>
+        <p className="step-description">Choose a macro pattern. Select Custom to set your own percentages.</p>
         <MacroSetup
           calories={live.target}
           split={split}
@@ -451,8 +452,8 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         />
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep(profile.goal==='maintain'?'goal-details':'pace')}><ArrowLeft size={16}/> Back</Button>
-          <Button type="button" size="md" variant="primary" onClick={()=>setStep('macro-adjustments')}>
-            Next: Adjust <ArrowRight size={16}/>
+          <Button type="button" size="md" variant="primary" onClick={()=>setStep(selectedPresetId==='custom'?'macro-adjustments':'distribution')}>
+            Next: {selectedPresetId==='custom'?'Adjust':'Distribution'} <ArrowRight size={16}/>
           </Button>
         </div>
       </div>}
@@ -489,7 +490,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           }}
         />
         <div className="step-actions">
-          <Button type="button" size="md" variant="secondary" onClick={()=>setStep('macro-adjustments')}><ArrowLeft size={16}/> Back</Button>
+          <Button type="button" size="md" variant="secondary" onClick={()=>setStep(selectedPresetId==='custom'?'macro-adjustments':'macros')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(weeklyValid)setStep('review');else setError(weeklyError);}}>
             Next: Review <ArrowRight size={16}/>
           </Button>

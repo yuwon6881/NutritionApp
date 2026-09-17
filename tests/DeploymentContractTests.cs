@@ -8,9 +8,20 @@ public sealed class DeploymentContractTests
     public void Database_secret_is_dedicated_to_nutrition()
     {
         var build = File.ReadAllText(Path.Combine(RepositoryRoot(), "deploy", "cloudbuild.yaml"));
-        Assert.Contains("ConnectionStrings__Database=nutrition-neon-database:latest", build);
+        Assert.Contains("ConnectionStrings__Database=nutrition-neon-database:${_NUTRITION_DATABASE_SECRET_VERSION}", build);
+        Assert.Contains("_NUTRITION_DATABASE_SECRET_VERSION: '1'", build);
         Assert.DoesNotContain("fitness-account-neon-database", build);
         Assert.DoesNotContain("workout-neon-database", build);
+    }
+
+    [Fact]
+    public void Google_health_credentials_are_runtime_only()
+    {
+        var build = File.ReadAllText(Path.Combine(RepositoryRoot(), "deploy", "cloudbuild.yaml"));
+        Assert.Contains("GoogleHealth__ClientId=${_GOOGLE_HEALTH_CLIENT_ID}", build);
+        Assert.Contains("GoogleHealth__ClientSecret=google-health-client-secret:latest", build);
+        Assert.Contains("_GOOGLE_HEALTH_CLIENT_ID:", build);
+        Assert.Contains("/api/integrations/google-health/callback", File.ReadAllText(Path.Combine(RepositoryRoot(), "deploy", "README.md")));
     }
 
     [Fact]

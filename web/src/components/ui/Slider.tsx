@@ -199,6 +199,7 @@ export interface CircularSliderProps {
   hint?:ReactNode;
   ariaLabel?:string;
   valueDisplay?:ReactNode;
+  centerValue?:ReactNode;
   formatValue?:(value:number)=>string;
   validate?:()=>string|undefined;
   onChange:(value:number)=>void;
@@ -223,6 +224,7 @@ export function CircularSlider({
   hint,
   ariaLabel,
   valueDisplay,
+  centerValue,
   formatValue,
   validate,
   onChange,
@@ -282,7 +284,7 @@ export function CircularSlider({
       <label htmlFor={id}>{label}</label>
       <div className="slider-value-display">{valueDisplay??<span className="slider-current-badge">{formatted}</span>}</div>
     </div>
-    <svg
+    <div className="circular-slider-wrap"><svg
       id={id}
       ref={sliderRef}
       className="circular-slider"
@@ -305,7 +307,7 @@ export function CircularSlider({
       <circle className="circular-slider-thumb" cx={thumb.x} cy={thumb.y} r="10"/>
       <circle className="circular-slider-endpoint" cx={circularSliderPoint(geometry.startAngle).x} cy={circularSliderPoint(geometry.startAngle).y} r="3" aria-hidden="true"/>
       <circle className="circular-slider-endpoint" cx={circularSliderPoint(geometry.startAngle+geometry.sweep).x} cy={circularSliderPoint(geometry.startAngle+geometry.sweep).y} r="3" aria-hidden="true"/>
-    </svg>
+    </svg>{centerValue&&<div className="circular-slider-center" aria-hidden="true">{centerValue}</div>}</div>
     <div className="circular-slider-range" aria-hidden="true"><span>{formatValue?formatValue(min):min}</span><span>{formatValue?formatValue(max):max}</span></div>
     <input type="hidden" name={name} value={value}/>
     {hint&&<small id={`${id}-hint`}>{hint}</small>}

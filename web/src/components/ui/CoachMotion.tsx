@@ -67,27 +67,7 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
 
 /** Animate the wrapper, never clip the live controls or their popovers. */
 export function CoachLayout({children,className=''}:{children:ReactNode;className?:string}){
-  const reduced=useReducedMotion();
-  const outer=useRef<HTMLDivElement>(null);
-  const inner=useRef<HTMLDivElement>(null);
-  useLayoutEffect(()=>{
-    const node=outer.current,content=inner.current;
-    if(!node||!content)return;
-    let height=content.getBoundingClientRect().height;
-    let animation:Animation|undefined;
-    const observer=new ResizeObserver(()=>{
-      const next=content.getBoundingClientRect().height;
-      if(Math.abs(next-height)<1)return;
-      const from=animation?.playState==='running'?node.getBoundingClientRect().height:height;
-      animation?.cancel();
-      if(!reduced)animation=node.animate([{height:`${from}px`},{height:`${next}px`}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});
-      height=next;
-    });
-    if(reduced)animation?.cancel();
-    observer.observe(content);
-    return()=>{observer.disconnect();animation?.cancel();};
-  },[reduced]);
-  return <div ref={outer} className={className}><div ref={inner} className="coach-layout-content">{children}</div></div>;
+  return <div className={className}><div className="coach-layout-content">{children}</div></div>;
 }
 
 export function CoachWait({label,active=true}:{label:string;active?:boolean}){
@@ -108,16 +88,5 @@ export function CoachWait({label,active=true}:{label:string;active?:boolean}){
 
 /** Values are exact immediately; emphasize only once a burst of input settles. */
 export function CoachNumber({children}:{children:ReactNode}){
-  const reduced=useReducedMotion();
-  const node=useRef<HTMLSpanElement>(null);
-  const first=useRef(true);
-  useEffect(()=>{
-    if(first.current){first.current=false;return;}
-    let animation:Animation|undefined;
-    const timer=setTimeout(()=>{
-      if(node.current&&!reduced)animation=node.current.animate([{opacity:.55,transform:'translateY(2px)'},{opacity:1,transform:'translateY(0)'}],{duration:160,easing:'ease-out'});
-    },120);
-    return()=>{clearTimeout(timer);animation?.cancel();};
-  },[children,reduced]);
-  return <span ref={node} className="coach-number">{children}</span>;
+  return <span className="coach-number">{children}</span>;
 }

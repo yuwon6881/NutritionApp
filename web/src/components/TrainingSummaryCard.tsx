@@ -16,7 +16,7 @@ export function TrainingSummaryCard({summaries, settings, timeZone}:{summaries?:
     .slice(0,8);
   const unit=unitsFor(settings).weight;
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
-    <div className="section-heading"><div><p className="eyebrow">TRAINING CONTEXT</p><h2 id="training-summary-title">Recent and upcoming workouts</h2></div><span className="tiny-label">INFORMATION ONLY</span></div>
+    <div className="section-heading"><div><p className="eyebrow">TRAINING CONTEXT</p><h2 id="training-summary-title">Recent and upcoming workouts</h2></div></div>
     {!visible.length?<p className="empty">No connected workout schedule is available. Nutrition targets are unchanged.</p>:<div className="training-summary-list">{visible.map((item,index)=>{
       const completed=item.status==='completed' || Boolean(item.finishedAt);
       const scheduled=item.status==='scheduled' || !item.startedAt;

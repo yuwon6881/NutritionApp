@@ -40,9 +40,7 @@ export function MacroSetup({
   const minGrams=(key:MacroKey)=>calories>0?Math.round(calories*macroLimits[key].min/100/macroEnergy[key]):0;
   const maxGrams=(key:MacroKey)=>calories>0?Math.round(calories*macroLimits[key].max/100/macroEnergy[key]):1000;
   const active=presetId??macroPresetId(split);
-  const presetOptions=active==='custom'&& !macroPresets.some(preset=>preset.id==='custom')
-    ?[...macroPresets,{id:'custom',label:'Custom',split}]
-    :macroPresets;
+  const presetOptions=[...macroPresets,{id:'custom',label:'Custom',split}];
   return <div className="macro-setup">
     {mode==='presets'?(
       <div className="macro-preset-grid macro-presets" role="group" aria-label="Macro presets">

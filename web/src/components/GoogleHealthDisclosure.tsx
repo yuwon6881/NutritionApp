@@ -52,22 +52,14 @@ export function GoogleHealthDisclosure({
           </div>
         </div>
 
-        <div className="disclosure-policy-notice">
+        <div className="disclosure-data-notice">
           <ShieldCheck size={18} aria-hidden="true" className="policy-icon" />
           <p>
-            NutritionApp adheres to the Google API Services User Data Policy, including the Limited Use requirements. Read our{' '}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer">
-              Privacy Policy <ArrowUpRight size={13} aria-hidden="true" />
+            NutritionApp follows the{' '}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
+              Google API Services User Data Policy <ArrowUpRight size={13} aria-hidden="true" />
             </a>
-            ,{' '}
-            <a href="/terms" target="_blank" rel="noopener noreferrer">
-              Terms <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-            , and{' '}
-            <a href="/help/google-health" target="_blank" rel="noopener noreferrer">
-              Google Health help <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-            .
+            , including Limited Use requirements. Disconnecting in Settings revokes access and deletes imported step totals.
           </p>
         </div>
 
