@@ -60,7 +60,7 @@ export function MacroSetup({
               presentation="plain"
               className={`macro-preset-card ${isSelected?'selected':''}`}
               aria-label={preset.label}
-              onClick={()=>onPreset(preset.id,preset.split)}
+              onClick={()=>onPreset(preset.id,preset.id==='auto'?null:preset.split)}
               aria-pressed={isSelected}
               aria-checked={isSelected}
             >
@@ -100,7 +100,7 @@ export function MacroSetup({
     ):mode!=='adjustments'?(
       <SegmentedControl className="macro-presets" label="Macro presets" value={active} size="sm" layout="wrap"
         options={presetOptions.map(preset=>({value:preset.id,label:preset.label}))}
-        onChange={id=>{const preset=presetOptions.find(item=>item.id===id);if(preset)onPreset(preset.id,preset.split);}}/>
+        onChange={id=>{const preset=presetOptions.find(item=>item.id===id);if(preset)onPreset(preset.id,preset.id==='auto'?null:preset.split);}}/>
     ):null}
     {mode!=='presets'&&<div className="macro-rows">
       {macroKeys.map(key=><div className="macro-row" key={key}>

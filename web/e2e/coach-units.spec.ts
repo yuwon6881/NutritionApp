@@ -151,11 +151,17 @@ test.describe('Coach unit selection', () => {
     const cards = presetGrid.locator('.macro-preset-card');
     expect(await cards.count()).toBeGreaterThanOrEqual(7);
 
+    const customCard = cards.filter({hasText: /^Custom/});
+    const customPreviewBefore = await customCard.locator('.macro-preset-stats').innerText();
+    const defaultPreview = await cards.filter({hasText: /^Coach default/}).locator('.macro-preset-stats').innerText();
+    expect(customPreviewBefore).not.toBe(defaultPreview);
+
     // Select "High protein" preset card
     const highProteinCard = cards.filter({hasText: 'High protein'});
     await highProteinCard.click();
     await expect(highProteinCard).toHaveClass(/selected/);
     await expect(highProteinCard).toHaveAttribute('aria-checked', 'true');
+    await expect(customCard.locator('.macro-preset-stats')).toHaveText(customPreviewBefore);
 
     // Capture Step 4 screenshot
     await page.screenshot({path: 'artifacts/coach-step4-macros-dark.png', fullPage: false});

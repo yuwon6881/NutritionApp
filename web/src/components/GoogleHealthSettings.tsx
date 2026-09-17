@@ -24,7 +24,7 @@ export function GoogleHealthSettings() {
     if (ghResult === 'connected') {
       setBannerNotice({
         type: 'success',
-        message: 'Google Health connected successfully. Step synchronization is active.',
+        message: 'Google Health connected successfully. Initial step synchronization is starting separately.',
       });
       setActionError('');
       void refresh(true);
@@ -52,6 +52,10 @@ export function GoogleHealthSettings() {
         msg = 'NutritionApp could not securely store the Google connection. Try again later.';
       } else if (code === 'missing_parameters') {
         msg = 'Google returned an incomplete authorization response. Please start the connection again.';
+      } else if (code === 'invalid_scope') {
+        msg = 'The Google Health permission is not enabled for this app. The app administrator must enable the requested scope before reconnecting.';
+      } else if (code === 'provider_error') {
+        msg = 'Google returned an unexpected authorization error. Please try again.';
       }
       setBannerNotice({type: 'error', message: msg});
       const url = new URL(window.location.href);
@@ -131,7 +135,7 @@ export function GoogleHealthSettings() {
         action={{label: 'Retry sync', onClick: () => void refresh(true), disabled: loading}}
       />}
 
-      {state.status === 'disconnected' && (
+      {state.status === 'disconnected' && !loading && !syncError && (
         <div className="integration-state disconnected">
           <p className="description">
             Sync daily step totals automatically from Google Health. Step counts are read-only and never affect your calories, expenditure, or coaching targets.

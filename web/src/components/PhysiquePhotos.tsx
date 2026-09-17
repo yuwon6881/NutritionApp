@@ -16,6 +16,7 @@ import {Field} from './ui/Field';
 import {FileInput} from './ui/FileInput';
 import {prepareImage} from '../lib/image';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
+import {CardFeedback} from './ui/CardFeedback';
 
 const angles:PhysiqueAngle[]=['front','side','back'];
 const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
@@ -159,7 +160,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
 
   if(page==='gallery')return <>
     <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeGallery}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Gallery</h2></div><Button variant="primary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button></header>
-    {error&&<p className="notice" role="status">{error} <Button onClick={()=>void loadPage(!sets.length)}>Retry gallery</Button></p>}
+    {error&&<CardFeedback title="Photo gallery unavailable" message={error} action={{label:'Retry gallery',onClick:()=>void loadPage(!sets.length),disabled:busy}}/>}
     <section className="panel physique-gallery-panel">
       <div className="section-heading"><div><h2>Compare</h2><p>Newest sets appear first. Missing views stay missing.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}>Compare</Button></div>
       {!sets.length&&!error&&<p className="empty">{loaded?'No photo sets yet.':'Loading gallery…'}</p>}

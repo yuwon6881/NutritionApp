@@ -3,12 +3,15 @@ import type {Nourish} from '../useNourish';
 import {downloadApi} from '../lib/download';
 import {Button} from './ui/Button';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {CardFeedback} from './ui/CardFeedback';
 
 export function DataExport({store}:{store:Nourish}){
   const [error,setError]=useState('');
+  const [lastExport,setLastExport]=useState<{path:string;filename:string}>();
   const {busy,run}=useAsyncAction();
   const detailDays=store.state?.detailDays??90;
   const download=async(path:string,filename:string)=>{
+    setLastExport({path,filename});
     setError('');
     try{await run(()=>downloadApi(path,filename));}
     catch(ex){setError((ex as Error).message);}
@@ -21,6 +24,6 @@ export function DataExport({store}:{store:Nourish}){
       <Button type="button" disabled={busy} onClick={()=>void download('/export','nutrition-export.json')}>{busy?'Preparing…':'Download JSON'}</Button>
       <Button type="button" variant="secondary" disabled={busy} onClick={()=>void download('/export/csv','nutrition-export-csv.zip')}>{busy?'Preparing…':'Download CSV ZIP'}</Button>
     </div>
-    {error&&<p className="error" role="alert">{error}</p>}
+    {error&&<CardFeedback title="Export unavailable" message={error} action={lastExport?{label:'Try again',onClick:()=>void download(lastExport.path,lastExport.filename),disabled:busy}:undefined}/>}
   </section>;
 }

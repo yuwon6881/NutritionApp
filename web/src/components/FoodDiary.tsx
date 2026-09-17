@@ -13,6 +13,7 @@ import {SelectField} from './ui/Field';
 import {FoodTimeline} from './FoodTimeline';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {CardFeedback} from './ui/CardFeedback';
 
 export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nourish;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void}){
   const history=useHistoryWindow(store,date);
@@ -55,12 +56,16 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         </SelectField>
       </div>}
     </div>
-    {history.error&&<div className="notice" role="status">{state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} {history.error} <Button onClick={history.retry}>Retry history</Button></div>}
+    {history.error&&<CardFeedback
+      title={state?'Diary history needs attention':'Diary history unavailable'}
+      message={`${state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} ${history.error}`}
+      action={{label:'Retry history',onClick:history.retry}}
+    />}
     {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
     {!state&&!history.error&&<section className="panel food-day-summary skeleton" aria-busy="true">
       <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>Loading diary date…</p></div></div>
     </section>}
-    {error&&<p className="error" role="alert">{error}</p>}
+    {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>
       <section className="panel food-day-summary">
         <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':'No food logged'}</p></div>

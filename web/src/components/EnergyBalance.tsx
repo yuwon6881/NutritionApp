@@ -5,6 +5,7 @@ import {Button} from './ui/Button';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {useChartLayout} from './ui/useChartLayout';
 import {progressPeriodOptions} from '../lib/progress';
+import {CardFeedback} from './ui/CardFeedback';
 
 export function EnergyBalance({store,period,summary,error,onPeriodChange}:{store:Nourish;period:ProgressPeriod;summary?:ProgressSummary;error?:string;onPeriodChange:(period:ProgressPeriod)=>void}){
   const chart=useChartLayout();
@@ -26,7 +27,11 @@ export function EnergyBalance({store,period,summary,error,onPeriodChange}:{store
   return <section className="panel energy-history"><div className="section-heading"><div><h2>Energy balance</h2><p>{summary?`${summary.start} to ${summary.end}`:'Loading the selected period…'}</p></div><SelectField label="Energy history period" value={period} onChange={value=>onPeriodChange(value as ProgressPeriod)}>
     {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
   </SelectField></div>
-    {error&&<p className="notice" role="status">{summary?'Saved summary shown.':'This summary is not available on this device.'} {error} <Button onClick={()=>void store.refreshProgress(period)}>Retry summary</Button></p>}
+    {error&&<CardFeedback
+      title={summary?'Energy summary needs attention':'Energy summary unavailable'}
+      message={`${summary?'Saved summary shown.':'This summary is not available on this device.'} ${error}`}
+      action={{label:'Retry summary',onClick:()=>void store.refreshProgress(period)}}
+    />}
     {!summary&&!error&&<div className="skeleton" aria-busy="true" style={{minHeight:320}}/>}
     {summary&&<>
       {summary.awaitingSynchronization&&<p className="notice" role="status">Recent edits are retained locally and this summary will refresh after synchronization.</p>}

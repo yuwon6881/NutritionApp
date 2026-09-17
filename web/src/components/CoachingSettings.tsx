@@ -5,6 +5,7 @@ import {today} from '../lib/format';
 import {SelectField} from './ui/Field';
 import type {CoachingSettings,EnergyUnit,HeightUnit,UnitPreferences,WeightUnit} from '../types';
 import {defaultUnits,unitsFor} from '../lib/units';
+import {CardFeedback} from './ui/CardFeedback';
 
 const days=[
   ['1','Monday'],['2','Tuesday'],['3','Wednesday'],['4','Thursday'],['5','Friday'],['6','Saturday'],['0','Sunday']
@@ -51,7 +52,7 @@ export function CoachingSettings({store,hideUnits=false,hideSaveStatus=false}:{s
     <p className="source">The active plan stays in place. Your next check-in is {next}.</p>
     {!hideUnits&&<UnitPreferencesFields value={units} onChange={updateUnits}/>}
     {!hideSaveStatus&&settingsSaving&&<p className="notice settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
-    {!hideSaveStatus&&queued?.error&&<p className="error settings-error" role="alert">This settings change is waiting for review in the saved edit notice above.</p>}
+    {!hideSaveStatus&&queued?.error&&<CardFeedback tone="warning" title="Coaching settings need review" message="This settings change is waiting for review in the saved edit notice above."/>}
   </section>;
 }
 

@@ -144,7 +144,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       fatPercent:next?.fat??null,
       macroPreset:preset,
       // A chosen split owns every macro, so a stale gram override cannot silently win.
-      proteinGrams:next?null:p.proteinGrams}));
+      proteinGrams:preset===null||next?null:p.proteinGrams}));
     setProposal(undefined);
   };
 

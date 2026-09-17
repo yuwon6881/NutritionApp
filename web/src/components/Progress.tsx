@@ -16,6 +16,7 @@ import {progressPeriodOptions} from '../lib/progress';
 import {useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
+import {CardFeedback} from './ui/CardFeedback';
 
 type Tab='weight'|'energy'|'body';
 const progressKinds=new Set(['entry','weight','day','profile','settings']);
@@ -67,7 +68,11 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
       <div className="history-filter"><SelectField label="Weight history period" value={weightPeriod} onChange={value=>setWeightPeriod(value as ProgressPeriod)}>
         {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
       </SelectField></div>
-      {error&&<p className="notice" role="status">{summary?'Saved summary shown.':'This summary is not available on this device.'} {error} <Button onClick={()=>void retry()}>Retry summary</Button></p>}
+      {error&&<CardFeedback
+        title={summary?'Progress summary needs attention':'Progress summary unavailable'}
+        message={`${summary?'Saved summary shown.':'This summary is not available on this device.'} ${error}`}
+        action={{label:'Retry summary',onClick:()=>void retry(),disabled:loading}}
+      />}
       {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2><p>Loading history…</p></section></div>}
       {summary&&<WeightSummary summary={summary} units={units} pending={pending} onEdit={editWeight} onDelete={weight=>void store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}/>}
     </>}

@@ -10,6 +10,7 @@ import {useAsyncAction} from './ui/useAsyncAction';
 import {DataExport} from './DataExport';
 import {GoogleHealthSettings} from './GoogleHealthSettings';
 import {ConnectedApps} from './ConnectedApps';
+import {CardFeedback} from './ui/CardFeedback';
 
 export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');
@@ -86,7 +87,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
     </header>
 
     {settingsSaving&&<p className="notice settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
-    {queued?.error&&<p className="error settings-error" role="alert">This settings change is waiting for review in the saved edit notice above.</p>}
+    {queued?.error&&<CardFeedback tone="warning" title="Settings need review" message="This settings change is waiting for review in the saved edit notice above."/>}
 
     <div className="settings-grid">
       <div className="settings-column">
@@ -123,6 +124,6 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       </div>
     </div>
 
-    {error&&<p className="error" role="alert">{error}</p>}
+    {error&&<CardFeedback title="Settings action failed" message={error}/>}
   </>;
 }

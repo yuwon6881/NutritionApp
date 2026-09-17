@@ -93,6 +93,12 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         Assert.Equal("/settings?google_health=connected", callbackResult);
         Assert.Equal("Bearer at-1", mockHttp.LastUserInfoAuthorization);
 
+        var failedConnect = await service.GenerateConnectUrlAsync(userId, sessionHash, "https://nutrition.example.com", default);
+        var failedState = System.Web.HttpUtility.ParseQueryString(new Uri(failedConnect.AuthUrl).Query)["state"];
+        mockHttp.UserInfoStatusCode = HttpStatusCode.BadGateway;
+        var identityFailure = await service.HandleCallbackAsync("code123", failedState, null, userId, sessionHash, "https://nutrition.example.com", default);
+        Assert.Equal("/settings?google_health=error&code=identity_resolution_failed", identityFailure);
+
         // State must be deleted after use (single-use)
         var usedState = await dbUser.GoogleHealthOAuthStates.SingleOrDefaultAsync(s => s.State == validState);
         Assert.Null(usedState);
@@ -563,6 +569,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         public bool SimulateInvalidGrantOnRefresh { get; set; }
         public bool RevokeCalled { get; private set; }
         public string? LastUserInfoAuthorization { get; private set; }
+        public HttpStatusCode UserInfoStatusCode { get; set; } = HttpStatusCode.OK;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -573,7 +580,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
                 if (url.Contains("openidconnect.googleapis.com/v1/userinfo"))
                     LastUserInfoAuthorization = request.Headers.Authorization?.ToString();
                 var json = JsonSerializer.Serialize(TokenInfoResponse ?? new { sub = "default-sub" });
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                return Task.FromResult(new HttpResponseMessage(url.Contains("openidconnect.googleapis.com/v1/userinfo") ? UserInfoStatusCode : HttpStatusCode.OK)
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
                 });
