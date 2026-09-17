@@ -60,7 +60,14 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       expect(sidebar!.x).toBe(0);
       expect(sidebar!.height).toBe(900);
       expect(sidebar!.width).toBe(width<1024?88:228);
+      await page.evaluate(()=>window.scrollTo(0,400));
+      const scrolledSidebar=await page.locator('.sidebar').boundingBox();
+      expect(scrolledSidebar!.y).toBe(0);
+      expect(scrolledSidebar!.height).toBe(900);
+      await page.evaluate(()=>window.scrollTo(0,0));
     }
+    await expect(page.getByRole('heading',{name:'Recent and upcoming workouts',exact:true})).toBeVisible();
+    await expect(page.getByText('No connected workout schedule')).toBeVisible();
     for(const name of ['Dashboard','Food Log','Progress','Coach','Settings']){
       await page.getByRole('button',{name,exact:true}).click();
       await expect(page.locator('[data-page-heading]')).toHaveText(name);

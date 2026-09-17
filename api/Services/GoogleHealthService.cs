@@ -27,6 +27,12 @@ public sealed record GoogleHealthConnectResult(string AuthUrl);
 
 public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms, IConfiguration config, ILogger<GoogleHealthService>? logger = null)
 {
+    private sealed class GoogleHealthRequestException(string stage, HttpStatusCode statusCode) : Exception
+    {
+        public string Stage { get; } = stage;
+        public HttpStatusCode StatusCode { get; } = statusCode;
+    }
+
     private static readonly ConcurrentDictionary<Guid, Task<GoogleHealthSyncResult>> InFlightSyncs = new();
     private static readonly ConcurrentDictionary<Guid, (DateTime SyncedAt, GoogleHealthSyncResult Result)> MemoryCache = new();
 
@@ -368,6 +374,16 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             return await ReturnStaleOrUnavailable(conn, "refresh_error", refreshError ?? "Failed to refresh Google Health access token.", ct);
         }
 
+        string healthUserId;
+        try
+        {
+            healthUserId = await ResolveHealthUserIdAsync(accessToken, ct) ?? throw new GoogleHealthRequestException("identity", HttpStatusCode.NotFound);
+        }
+        catch (GoogleHealthRequestException ex)
+        {
+            return await ReturnGoogleHealthFailure(conn, ex, ct);
+        }
+
         // Query Google Health steps dailyRollUp for today + preceding 30 calendar days (31 days)
         var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == userId, ct);
         var today = RetentionService.Today(user.ProfileJson);
@@ -376,7 +392,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
         try
         {
-            var dayMap = await FetchDailyRollupStepsAsync(accessToken, start, endPlusOne, ct);
+            var dayMap = await FetchDailyRollupStepsAsync(accessToken, healthUserId, start, endPlusOne, ct);
 
             // Construct 31 calendar days in ascending order
             var days = new List<GoogleHealthDay>(31);
@@ -394,10 +410,30 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
             return new GoogleHealthSyncResult("connected", conn.ConnectedAt, conn.LastSyncedAt, "fresh", days);
         }
+        catch (GoogleHealthRequestException ex)
+        {
+            return await ReturnGoogleHealthFailure(conn, ex, ct);
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return await ReturnStaleOrUnavailable(conn, "sync_network_error", "Could not refresh steps from Google Health.", ct);
         }
+    }
+
+    private async Task<GoogleHealthSyncResult> ReturnGoogleHealthFailure(GoogleHealthConnection conn, GoogleHealthRequestException failure, CancellationToken ct)
+    {
+        var (warningCode, warningMessage) = failure.StatusCode switch
+        {
+            HttpStatusCode.NotFound => ("provider_resource_not_found", "Google Health could not find this account's health data. Open Google Health or Fitbit, sync a device, then try again."),
+            HttpStatusCode.BadRequest => ("provider_request_rejected", "Google Health rejected the step request. Reconnect Google Health and try again."),
+            HttpStatusCode.Unauthorized => ("credentials_revoked", "Google Health rejected the saved authorization. Reconnect Google Health to continue."),
+            HttpStatusCode.Forbidden => ("permissions_missing", "Google Health did not grant permission to read steps. Reconnect and allow the activity permission."),
+            HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout => ("provider_unavailable", "Google Health is temporarily unavailable. Try syncing again in a moment."),
+            _ => ("sync_network_error", "Could not refresh steps from Google Health. Try syncing again.")
+        };
+        var correlationId = Guid.NewGuid().ToString("N")[..12];
+        logger?.LogWarning("Google Health sync failed at {Stage}; status {StatusCode}; code {Code}; correlation {CorrelationId}.", failure.Stage, (int)failure.StatusCode, warningCode, correlationId);
+        return await ReturnStaleOrUnavailable(conn, warningCode, warningMessage, ct);
     }
 
     private async Task<GoogleHealthSyncResult> ReturnStaleOrUnavailable(GoogleHealthConnection conn, string warningCode, string warningMessage, CancellationToken ct)
@@ -449,6 +485,47 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         return null;
     }
 
+    private async Task<string?> ResolveHealthUserIdAsync(string accessToken, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, "https://health.googleapis.com/v4/users/me/identity");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        HttpResponseMessage res;
+        try
+        {
+            res = await http.SendAsync(req, ct);
+        }
+        catch (HttpRequestException)
+        {
+            throw new GoogleHealthRequestException("identity", HttpStatusCode.ServiceUnavailable);
+        }
+
+        using (res)
+        {
+            if (!res.IsSuccessStatusCode)
+                throw new GoogleHealthRequestException("identity", res.StatusCode);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+                var root = doc.RootElement;
+                var healthUserId = root.TryGetProperty("healthUserId", out var camel) ? camel.GetString()
+                    : root.TryGetProperty("health_user_id", out var snake) ? snake.GetString()
+                    : null;
+                return IsSafeHealthUserId(healthUserId) ? healthUserId : null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+    }
+
+    private static bool IsSafeHealthUserId(string? value) => !string.IsNullOrWhiteSpace(value)
+        && value.Length <= 63
+        && value.All(ch => char.IsLetterOrDigit(ch) || ch == '-');
+
     private async Task<(string? AccessToken, bool IsRevoked, string? Error)> RefreshAccessTokenAsync(string refreshToken, CancellationToken ct)
     {
         var body = new Dictionary<string, string>
@@ -489,9 +566,9 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         return (accessToken, false, null);
     }
 
-    private async Task<Dictionary<DateOnly, int?>> FetchDailyRollupStepsAsync(string accessToken, DateOnly start, DateOnly endPlusOne, CancellationToken ct)
+    private async Task<Dictionary<DateOnly, int?>> FetchDailyRollupStepsAsync(string accessToken, string healthUserId, DateOnly start, DateOnly endPlusOne, CancellationToken ct)
     {
-        var url = "https://health.googleapis.com/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp";
+        var url = $"https://health.googleapis.com/v4/users/{Uri.EscapeDataString(healthUserId)}/dataTypes/steps/dataPoints:dailyRollUp";
         var requestPayload = new
         {
             range = new
@@ -506,7 +583,9 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                     date = new { year = endPlusOne.Year, month = endPlusOne.Month, day = endPlusOne.Day },
                     time = new { hours = 0, minutes = 0, seconds = 0, nanos = 0 }
                 }
-            }
+            },
+            windowSizeDays = 1,
+            dataSourceFamily = $"users/{Uri.EscapeDataString(healthUserId)}/dataSourceFamilies/google-sources"
         };
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url)
@@ -514,10 +593,11 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             Content = new StringContent(JsonSerializer.Serialize(requestPayload), Encoding.UTF8, "application/json")
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         using var res = await http.SendAsync(req, ct);
         if (!res.IsSuccessStatusCode)
-            throw new DomainException($"Google Health dailyRollUp returned {res.StatusCode}.", (int)res.StatusCode);
+            throw new GoogleHealthRequestException("daily_rollup", res.StatusCode);
 
         var json = await res.Content.ReadAsStringAsync(ct);
         return ParseDailyRollupResponse(json);
