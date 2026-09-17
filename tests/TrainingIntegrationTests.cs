@@ -97,4 +97,54 @@ public sealed class TrainingIntegrationTests
 
         Assert.False(await service.IsConnected(default));
     }
+
+    [Fact]
+    public async Task Last_error_is_reported_as_a_generic_temporary_warning()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = new AppUser { IdentitySubject = "test-subject", DisplayName = "User" };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.CurrentUser = user.Id;
+        db.WorkoutSummaries.Add(new WorkoutSummaryCache
+        {
+            UserId = user.Id,
+            LastError = "provider token details",
+            LastErrorAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var service = new WorkoutSummaryService(db, null!, new ConfigurationBuilder().Build());
+
+        Assert.Equal("Workout training summaries are temporarily unavailable. Try again later.", await service.GetLastError(default));
+    }
+
+    [Fact]
+    public async Task Purge_ephemeral_clears_a_previous_sync_error_even_without_summary_rows()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = new AppUser { IdentitySubject = "test-subject", DisplayName = "User" };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.CurrentUser = user.Id;
+        db.WorkoutSummaries.Add(new WorkoutSummaryCache
+        {
+            UserId = user.Id,
+            SummaryJson = "[]",
+            LastError = "temporary provider error",
+            LastErrorAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var service = new WorkoutSummaryService(db, null!, new ConfigurationBuilder().Build());
+        await service.PurgeEphemeral(default);
+
+        Assert.Null(await service.GetLastError(default));
+    }
 }

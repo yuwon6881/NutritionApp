@@ -26,6 +26,17 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     public async Task<bool> IsConnected(CancellationToken ct)
         => await db.IntegrationGrants.AsNoTracking().AnyAsync(x => x.Peer == "workout" && x.Status == "active", ct);
 
+    public async Task<string?> GetLastError(CancellationToken ct)
+    {
+        var error = await db.WorkoutSummaries.AsNoTracking()
+            .Where(x => x.LastErrorAt != null && x.LastError != "")
+            .Select(x => x.LastError)
+            .SingleOrDefaultAsync(ct);
+        return string.IsNullOrWhiteSpace(error)
+            ? null
+            : "Workout training summaries are temporarily unavailable. Try again later.";
+    }
+
     public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, CancellationToken ct)
     {
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
@@ -104,10 +115,15 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     public async Task PurgeEphemeral(CancellationToken ct)
     {
         var row = await db.WorkoutSummaries.SingleOrDefaultAsync(ct);
-        if (row is null || string.IsNullOrWhiteSpace(row.SummaryJson)) return;
-        var retained = Json.Read<List<TrainingSummaryItem>>(row.SummaryJson).Select(Canonical)
-            .Where(item => item.Status == "completed").ToList();
-        row.SummaryJson = Json.Write(retained);
+        if (row is null) return;
+        if (!string.IsNullOrWhiteSpace(row.SummaryJson))
+        {
+            var retained = Json.Read<List<TrainingSummaryItem>>(row.SummaryJson).Select(Canonical)
+                .Where(item => item.Status == "completed").ToList();
+            row.SummaryJson = Json.Write(retained);
+        }
+        row.LastError = "";
+        row.LastErrorAt = null;
         row.Revision++;
         await db.SaveChangesAsync(ct);
     }

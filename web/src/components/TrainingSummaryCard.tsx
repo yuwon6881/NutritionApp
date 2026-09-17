@@ -3,18 +3,21 @@ import type {TrainingSummary, CoachingSettings} from '../types';
 import {today} from '../lib/format';
 import {displayWeight, unitsFor, weightLabel} from '../lib/units';
 import {Button} from './ui/Button';
+import {CardFeedback} from './ui/CardFeedback';
 
 export function TrainingSummaryCard({
   summaries,
   settings,
   timeZone,
   workoutConnected,
+  warning,
   onOpenSettings,
 }: {
   summaries?: TrainingSummary[];
   settings?: CoachingSettings;
   timeZone?: string | null;
   workoutConnected?: boolean;
+  warning?: string | null;
   onOpenSettings?: () => void;
 }) {
   const todayDate=today(timeZone??undefined);
@@ -40,6 +43,7 @@ export function TrainingSummaryCard({
         <Dumbbell size={22} />
       </div>
     </div>
+    {warning && <CardFeedback tone="warning" title="Workout sync needs attention" message={warning} />}
     {!visible.length ? (
       <div className="training-empty-state">
         <div className="training-empty-icon" aria-hidden="true">

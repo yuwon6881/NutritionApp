@@ -36,6 +36,7 @@ public static class RecordEndpoints
             // context remains informational and does not extend the nutrition target interval.
             var trainingSummary = await training.Get(start, end.AddDays(14), ct);
             var workoutConnected = await training.IsConnected(ct);
+            var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
             return Results.Ok(new {
                 user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
                 settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale" },
@@ -52,7 +53,8 @@ public static class RecordEndpoints
                 checkIns=await db.CheckIns.OrderByDescending(c=>c.Revision).Take(12).ToListAsync(ct),
                 phaseDecisions=await db.PhaseDecisions.OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct),
                 trainingSummaries=trainingSummary,
-                workoutConnected
+                workoutConnected,
+                workoutWarning
             });
         });
         app.MapGet("/api/progress/summary",async(string? period,ProgressSummaryService progress,CancellationToken ct)
