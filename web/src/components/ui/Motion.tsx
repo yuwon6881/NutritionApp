@@ -115,7 +115,7 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
 }
 
 /** A bounded tab/panel transition. The content is committed immediately; only its entrance moves. */
-export function MotionPanel({motionKey,direction=1,children,className=''}:{motionKey:string;direction?:1|-1;children:ReactNode;className?:string}){
+export function MotionPanel({motionKey,direction=1,axis='horizontal',children,className=''}:{motionKey:string;direction?:1|-1;axis?:'horizontal'|'fade';children:ReactNode;className?:string}){
   const panel=useRef<HTMLDivElement>(null);
   const reduced=useReducedMotion();
   const first=useRef(true);
@@ -124,10 +124,10 @@ export function MotionPanel({motionKey,direction=1,children,className=''}:{motio
     if(!node)return;
     if(first.current){first.current=false;return;}
     if(reduced)return;
-    const animation=node.animate(
-      [{opacity:0,transform:`translateX(${direction*20}px)`},{opacity:1,transform:'translateX(0)'}],
-      motionTiming('--motion-exit',180)
-    );
+    const keyframes=axis==='horizontal'
+      ?[{opacity:0,transform:'translateX('+direction*20+'px)'},{opacity:1,transform:'translateX(0)'}]
+      :[{opacity:0},{opacity:1}];
+    const animation=node.animate(keyframes,motionTiming('--motion-exit',180));
     animation.onfinish=()=>{
       node.style.removeProperty('opacity');
       node.style.removeProperty('transform');
@@ -137,7 +137,7 @@ export function MotionPanel({motionKey,direction=1,children,className=''}:{motio
       node.style.removeProperty('opacity');
       node.style.removeProperty('transform');
     };
-  },[motionKey,direction,reduced]);
+  },[motionKey,direction,axis,reduced]);
   return <div ref={panel} className={`motion-panel ${className}`.trim()} data-motion-panel={motionKey}>{children}</div>;
 }
 

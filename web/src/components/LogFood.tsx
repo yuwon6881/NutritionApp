@@ -664,7 +664,7 @@ export function LogFood({
   const previousStep=useRef(step);
   const stepDirection:1|-1=steps.indexOf(step)>=steps.indexOf(previousStep.current)?1:-1;
   useEffect(()=>{previousStep.current=step;},[step]);
-  const animatedChild=<MotionPanel motionKey={step} direction={stepDirection}>{child}</MotionPanel>;
+  const animatedChild=<MotionPanel motionKey={step} direction={stepDirection} axis="fade">{child}</MotionPanel>;
 
   const content=!history.state?<div className="dialog-step"><p role="status" aria-busy="true">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
   return <>

@@ -110,6 +110,13 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
 
   await page.getByRole('button',{name:'Dashboard',exact:true}).click();
   await expect(page.locator('.steps-panel')).toBeVisible();
+  await expect(page.locator('.steps-panel')).toHaveClass(/steps-panel-compact/);
+  const dashboardGrid=await page.locator('.daily-grid').boundingBox();
+  const stepsPanel=await page.locator('.steps-panel').boundingBox();
+  const trainingSummary=await page.locator('.training-summary').boundingBox();
+  expect(dashboardGrid && stepsPanel && trainingSummary).toBeTruthy();
+  expect(stepsPanel!.y).toBeGreaterThanOrEqual(dashboardGrid!.y+dashboardGrid!.height-1);
+  expect(stepsPanel!.y).toBeLessThan(trainingSummary!.y);
   await expect(page.locator('.steps-panel').getByText('—')).toBeVisible();
   await expect(page.locator('.steps-panel').getByText('Daily step history is unavailable right now.',{exact:true})).toBeVisible();
 });

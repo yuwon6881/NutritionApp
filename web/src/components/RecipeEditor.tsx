@@ -214,7 +214,7 @@ export function RecipeEditor({
     </div>
 
     <Form onSubmit={()=>void save()}>
-      <Field id="recipe-name" name="name" data-modal-autofocus label="Recipe name" required maxLength={160} value={draft.name} onChange={event=>onDraftChange({...draft,name:event.target.value})}/>
+      <Field id="recipe-name" name="name" autoComplete="off" data-modal-autofocus label="Recipe name" required maxLength={160} value={draft.name} onChange={event=>onDraftChange({...draft,name:event.target.value})}/>
       <FieldFrame label="Ingredients" validate={()=>!draft.items.length?'Add at least one ingredient.':JSON.stringify(draft.items).length>12000?'This recipe has too many ingredients. Remove an ingredient before saving.':undefined}>
         <div className="recipe-ingredients-heading">
           <p data-validation-focus tabIndex={-1}>Ingredients · {draft.items.length}</p>

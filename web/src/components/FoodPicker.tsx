@@ -123,6 +123,7 @@ export function FoodPicker({
           validate={()=>tab==='barcode'&&!/^[0-9]{8,14}$/.test(query)?'Enter an 8–14 digit barcode.':tab==='search'&&(query.trim().length<2||query.trim().length>100)?'Enter 2–100 characters.':undefined}
           inputMode={tab==='barcode'?'numeric':undefined}
           data-modal-autofocus
+          autoComplete="off"
           label={tab==='barcode'?'Barcode digits':searchLabel}
           hint={tab==='barcode'?'Enter 8–14 digits or tap the camera icon to scan.':undefined}
           required

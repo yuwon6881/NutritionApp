@@ -160,7 +160,7 @@ export function getTodayStepCount(days: GoogleHealthDay[], todayDate: string): n
 }
 
 export function shouldShowDashboardSteps(state: Pick<GoogleHealthSyncState, 'status' | 'connectedAt'>, loading: boolean): boolean {
-  return state.status !== 'disconnected' && (!loading || state.connectedAt !== null);
+  return state.status === 'connected' && (!loading || state.connectedAt !== null);
 }
 
 export function useGoogleHealth(enabled = true) {

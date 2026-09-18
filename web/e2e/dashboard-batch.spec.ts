@@ -99,7 +99,14 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[{name:'API oats',source:'Test provider',calories:380,protein:12,carbs:60,fat:7,fiber:null,servingGrams:100}]}));
   await page.getByRole('button',{name:'Add ingredient',exact:true}).click();
   await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
-  await page.getByLabel('Search ingredients').fill('oats');
+  const ingredientSearch=page.getByLabel('Search ingredients');
+  await expect(ingredientSearch).toHaveAttribute('autocomplete','off');
+  await expect(page.locator('.food-modal .motion-panel')).toHaveCSS('overflow-x','visible');
+  await ingredientSearch.focus();
+  await expect(ingredientSearch).toHaveCSS('outline-offset','3px');
+  const horizontalMotion=await page.locator('.food-modal .motion-panel').evaluate(element=>element.getAnimations().some(animation=>animation.effect?.getKeyframes().some(frame=>String(frame.transform??'').includes('translateX(')&&frame.transform!=='translateX(0)')));
+  expect(horizontalMotion).toBe(false);
+  await ingredientSearch.fill('oats');
   await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
   await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
   await page.locator('.food-row.interactive').filter({hasText:'API oats'}).click();
@@ -107,7 +114,9 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await expect(page.getByText('API oats',{exact:true})).toBeVisible();
   await page.getByLabel('Ingredient grams').fill('150');
   await page.getByRole('button',{name:'Add ingredient',exact:true}).click();
-  await page.getByLabel('Recipe name').fill('Oats recipe '+theme+width);
+  const recipeName=page.getByLabel('Recipe name');
+  await expect(recipeName).toHaveAttribute('autocomplete','off');
+  await recipeName.fill('Oats recipe '+theme+width);
   await page.getByRole('button',{name:'Save recipe',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Your foods',exact:true})).toBeVisible();
   await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();const recipe=state.foods.find((food:{name:string})=>food.name==='Oats recipe '+theme+width);return recipe?{calories:Math.round(recipe.calories*1e6)/1e6,fiber:recipe.fiber,count:JSON.parse(recipe.ingredientsJson).length}:null;}).toEqual({calories:114,fiber:null,count:1});

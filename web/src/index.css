@@ -1321,11 +1321,18 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 
 /* Dashboard Steps Card */
 .steps-panel{background:var(--card);position:relative;overflow:hidden}
+.steps-panel-compact{padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:16px;align-items:center}
 .steps-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.steps-panel-compact .steps-header{grid-column:1/-1;align-items:center;margin-bottom:0}
+.steps-panel-compact .steps-header .eyebrow{margin-bottom:5px!important}
 .steps-header h2{font-size:2rem;font-weight:600;margin:0;white-space:nowrap}
+.steps-panel-compact .steps-header h2{font-size:1.55rem;line-height:1.2}
 .steps-icon-badge{width:42px;height:42px;border-radius:12px;background:var(--primary-tint);color:var(--primary-ink);display:grid;place-items:center;flex-shrink:0}
+.steps-panel-compact .steps-icon-badge{width:38px;height:38px;border-radius:10px}
 .steps-provenance{font-size:.78rem}
+.steps-panel-compact .steps-provenance{grid-column:1/-1;margin-top:4px}
 .steps-provenance .source{margin-bottom:0}
+.steps-panel-compact>.card-feedback{grid-column:1/-1;margin-top:8px}
 .inline-link{display:inline-flex;align-items:center;gap:3px;background:transparent;border:0;padding:0;color:var(--primary-ink);font-weight:600;font-size:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .inline-link:hover{color:var(--foreground)}
 .tabular-num{font-variant-numeric:tabular-nums}
@@ -1380,7 +1387,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Native mobile shell: keep the app bar and bottom navigation inside device safe areas. */
 html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:none}
 .modal-body{-webkit-overflow-scrolling:touch}
-.food-modal .modal-body,.food-modal .motion-panel{overflow-x:clip}
+.food-modal .modal-body{overflow-x:clip}
 .inline-link{min-height:44px;padding-block:10px;touch-action:manipulation}
 @media(max-width:639px){
   .main-content{padding-inline:max(18px,env(safe-area-inset-left)) max(18px,env(safe-area-inset-right))}

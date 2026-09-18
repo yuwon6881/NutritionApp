@@ -36,7 +36,7 @@ export function GoogleHealthStepsCard({
   };
 
   return (
-    <article className="panel steps-panel" aria-labelledby="today-steps-title">
+    <article className="panel steps-panel steps-panel-compact" aria-labelledby="today-steps-title">
       <div className="steps-header">
         <div>
           <p className="eyebrow" id="today-steps-title">GOOGLE HEALTH STEPS</p>

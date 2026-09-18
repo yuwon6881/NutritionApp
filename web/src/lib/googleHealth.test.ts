@@ -190,10 +190,10 @@ describe('googleHealth sync manager', () => {
 });
 
 describe('dashboard step visibility', () => {
-  it('hides disconnected and unresolved status, while keeping known connections visible during refresh', () => {
+  it('shows only connected Google Health accounts, while keeping known connections visible during refresh', () => {
     expect(shouldShowDashboardSteps({status: 'disconnected', connectedAt: null}, false)).toBe(false);
     expect(shouldShowDashboardSteps({status: 'connected', connectedAt: null}, true)).toBe(false);
     expect(shouldShowDashboardSteps({status: 'connected', connectedAt: '2026-09-18T00:00:00Z'}, true)).toBe(true);
-    expect(shouldShowDashboardSteps({status: 'reconnect_required', connectedAt: '2026-09-18T00:00:00Z'}, false)).toBe(true);
+    expect(shouldShowDashboardSteps({status: 'reconnect_required', connectedAt: '2026-09-18T00:00:00Z'}, false)).toBe(false);
   });
 });
