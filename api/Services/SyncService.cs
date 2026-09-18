@@ -7,7 +7,7 @@ namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
 public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null, string? WeightGoalMetric = null);
-public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null)
+public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
     {
@@ -26,14 +26,18 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         // A dated record is read before the write replaces it: a move or a delete has to rebuild the
         // trajectory from the earliest date it touches, which the incoming payload alone cannot name.
         DateOnly? storedDate=null,mutatedDate=null;
+        Weight? previousWeight=null;
         if(op.Kind is "entry" or "weight" or "day")
         {
-            storedDate=op.Kind switch
+            if(op.Kind=="weight")
             {
-                "entry" => await db.Entries.Where(e=>e.Id==op.RecordId).Select(e=>(DateOnly?)e.Date).SingleOrDefaultAsync(ct),
-                "weight" => await db.Weights.Where(w=>w.Id==op.RecordId).Select(w=>(DateOnly?)w.Date).SingleOrDefaultAsync(ct),
-                _ => await db.Days.Where(d=>d.Id==op.RecordId).Select(d=>(DateOnly?)d.Date).SingleOrDefaultAsync(ct)
-            };
+                previousWeight=await db.Weights.SingleOrDefaultAsync(w=>w.Id==op.RecordId,ct);
+                storedDate=previousWeight?.Date;
+            }
+            else
+                storedDate=op.Kind=="entry"
+                    ? await db.Entries.Where(e=>e.Id==op.RecordId).Select(e=>(DateOnly?)e.Date).SingleOrDefaultAsync(ct)
+                    : await db.Days.Where(d=>d.Id==op.RecordId).Select(d=>(DateOnly?)d.Date).SingleOrDefaultAsync(ct);
             if(op.Data.ValueKind==JsonValueKind.Object&&op.Data.TryGetProperty("date",out var dateValue)&&dateValue.ValueKind==JsonValueKind.String)
                 mutatedDate=dateValue.Deserialize<DateOnly>();
         }
@@ -138,6 +142,8 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             if (day.Status == "fasting") Validation.Require(day.Calories == 0 && !await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
         }
         user.Revision = revision;
+        if(op.Kind=="weight"&&weightSync!=null)
+            await weightSync.QueueMutationAsync(previousWeight,op,revision,ct);
         if (op.Kind is "profile" or "entry" or "weight" or "day")
         {
             user.TrajectoryRevision = revision;

@@ -13,7 +13,7 @@ Applies only to this independent repository; app-specific rules override the par
 - Food diary, explicit logging-day decisions, batch entry, copy/move, shared food search, saved/custom foods, recipes, barcode lookup/private mappings, and editable AI text/photo/label estimates.
 - Offline retained edits and image drafts, automatic synchronization, retry and conflict review.
 - Weight and body records/photos, goal phases, macro/weekly targets, server coaching/check-ins, expenditure estimates, and progress/energy-history charts.
-- Google Health steps and Workout summaries with temporary sync warnings; integration settings and account exports. The Dashboard steps panel appears only after Google Health status resolves to connected or reconnect-required. These integrations do not automatically change calorie or macro targets.
+- Google Health steps and Workout summaries with temporary sync warnings; optional, disabled-by-default one-way scale-weight uploads with consent, durable background retries, mapped edit/delete handling, and explicit unknown-upload recovery; integration settings and account exports. The Dashboard steps panel appears only after Google Health status resolves to connected or reconnect-required. These integrations do not automatically change calorie or macro targets; NutritionApp remains authoritative for local weights, trends, and coaching.
 
 ## UI standardization
 
@@ -43,6 +43,7 @@ Applies only to this independent repository; app-specific rules override the par
 - Server coaching is authoritative: preserve equations, thresholds, immutable accepted plans, revision checks, idempotent acceptance, date-derived age, and all three stored macro targets. Versioned expenditure snapshots are advisory; Today changes only when acceptance atomically activates seven dated targets.
 - Coaching cadence is independently revisioned; Monday is default, and weekday edits become due on the next local occurrence without changing the active plan.
 - Google Health steps are read-only and display-only, held in browser runtime memory rather than IndexedDB/localStorage. Disconnect/revocation clears credentials and step data. Steps never feed expenditure, coaching, targets, or day completion.
+- Google Health weight sync is a separate optional outbound stream. It is disabled by default, requests the health-metrics write scope only after explicit consent, uploads only newly accepted recorded scale weights, stores server-side leases and mappings for background processing, mirrors mapped edits/deletions, and preserves already-uploaded Google copies when disabled or disconnected. Unknown create outcomes never retry automatically; recovery is explicit because a duplicate may exist. Local weights, trends, and coaching remain authoritative.
 - Nutrition owns scale/trend weight and goals; Workout owns sessions/progression/PRs. Cross-app summaries are informational and never automatically change calories/macros. Preserve account isolation, private-image cleanup, and integration credential protection.
 
 ## Verification

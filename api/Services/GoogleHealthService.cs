@@ -20,7 +20,8 @@ public sealed record GoogleHealthSyncResult(
     string Freshness,
     IReadOnlyList<GoogleHealthDay> Days,
     string? WarningCode = null,
-    string? WarningMessage = null
+    string? WarningMessage = null,
+    GoogleHealthWeightSyncStatus? WeightSync = null
 );
 
 public sealed record GoogleHealthConnectResult(string AuthUrl);
@@ -57,7 +58,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         return $"{origin}/api/integrations/google-health/callback";
     }
 
-    public async Task<GoogleHealthConnectResult> GenerateConnectUrlAsync(Guid userId, string sessionHash, string? requestOrigin, CancellationToken ct)
+    public async Task<GoogleHealthConnectResult> GenerateConnectUrlAsync(Guid userId, string sessionHash, string? requestOrigin, CancellationToken ct, bool requestWeightSync = false)
     {
         Validation.Require(!string.IsNullOrEmpty(ClientId), "Google Health integration is not configured.", 503);
 
@@ -69,6 +70,8 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             State = stateNonce,
             UserId = userId,
             SessionHash = sessionHash,
+            RequestedOperationsJson = JsonSerializer.Serialize(requestWeightSync ? new[] { "weight_write" } : Array.Empty<string>()),
+            RequestedScopesJson = JsonSerializer.Serialize(requestWeightSync ? new[] { Scope, GoogleHealthWeightSyncService.WeightScope } : new[] { Scope }),
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10)
         };
@@ -81,7 +84,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             ["client_id"] = ClientId,
             ["redirect_uri"] = callbackUrl,
             ["response_type"] = "code",
-            ["scope"] = $"openid {Scope}",
+            ["scope"] = requestWeightSync ? $"openid {Scope} {GoogleHealthWeightSyncService.WeightScope}" : $"openid {Scope}",
             ["access_type"] = "offline",
             ["prompt"] = "consent",
             ["state"] = stateNonce
@@ -180,6 +183,9 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
         var accessToken = root.TryGetProperty("access_token", out var atProp) ? atProp.GetString() : null;
         var refreshToken = root.TryGetProperty("refresh_token", out var rtProp) ? rtProp.GetString() : null;
+        var returnedScopes = root.TryGetProperty("scope", out var scopeProp) && scopeProp.ValueKind == JsonValueKind.String
+            ? scopeProp.GetString()?.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.Ordinal).ToArray()
+            : null;
 
         if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
             return Failure("missing_tokens", "token_exchange");
@@ -213,12 +219,32 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         }
 
         var existingConn = await db.GoogleHealthConnections.SingleOrDefaultAsync(c => c.UserId == userId, ct);
+        if (existingConn != null && existingConn.GoogleIdHash != googleIdHash)
+            return Failure("identity_change_requires_disconnect", "account_binding");
+        string[]? requestedScopes = null;
+        try { requestedScopes = JsonSerializer.Deserialize<string[]>(oauthState.RequestedScopesJson, Json.Options); }
+        catch (JsonException) { requestedScopes = null; }
+        string[]? storedScopes = null;
+        if (existingConn != null && !string.IsNullOrWhiteSpace(existingConn.GrantedScopesJson))
+        {
+            try { storedScopes = JsonSerializer.Deserialize<string[]>(existingConn.GrantedScopesJson, Json.Options); }
+            catch (JsonException) { storedScopes = null; }
+        }
+        var grantedScopes = returnedScopes
+            ?? (requestedScopes is { Length: > 0 }
+                ? requestedScopes
+                : storedScopes is { Length: > 0 } ? storedScopes : new[] { Scope });
+        var requestedWeight = oauthState.RequestedOperationsJson.Contains("weight_write", StringComparison.Ordinal);
+        var weightGranted = grantedScopes.Contains(GoogleHealthWeightSyncService.WeightScope, StringComparer.Ordinal);
+        var weightEnabled = existingConn?.WeightSyncEnabled == true && !requestedWeight || weightGranted && requestedWeight;
         if (existingConn != null)
         {
             existingConn.GoogleIdHash = googleIdHash;
             existingConn.EncryptedGoogleId = encryptedGoogleId;
             existingConn.EncryptedRefreshToken = encryptedRefreshToken;
             existingConn.EncryptedStepHistoryJson = emptyHistory;
+            existingConn.GrantedScopesJson = JsonSerializer.Serialize(grantedScopes);
+            existingConn.WeightSyncEnabled = weightEnabled;
             existingConn.ConnectedAt = DateTime.UtcNow;
             existingConn.LastSyncedAt = null;
             existingConn.Status = "connected";
@@ -233,6 +259,8 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 EncryptedGoogleId = encryptedGoogleId,
                 EncryptedRefreshToken = encryptedRefreshToken,
                 EncryptedStepHistoryJson = emptyHistory,
+                GrantedScopesJson = JsonSerializer.Serialize(grantedScopes),
+                WeightSyncEnabled = weightGranted && requestedWeight,
                 ConnectedAt = DateTime.UtcNow,
                 LastSyncedAt = null,
                 Status = "connected",
@@ -244,6 +272,55 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         MemoryCache.TryRemove(userId, out _);
 
         return "/settings?google_health=connected";
+        }
+    }
+
+    public async Task<string?> GetAccessTokenAsync(Guid userId, string requiredScope, CancellationToken ct)
+    {
+        var conn = await db.GoogleHealthConnections.SingleOrDefaultAsync(c => c.UserId == userId, ct);
+        if (conn is null || conn.Status == "reconnect_required" || !HasGrantedScope(conn, requiredScope)) return null;
+        string refreshToken;
+        try
+        {
+            refreshToken = await kms.DecryptAsync(conn.EncryptedRefreshToken, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+
+        var (accessToken, revoked, _) = await RefreshAccessTokenAsync(refreshToken, ct);
+        if (!revoked) return accessToken;
+        conn.Status = "reconnect_required";
+        conn.EncryptedRefreshToken = "";
+        conn.Revision++;
+        await db.SaveChangesAsync(ct);
+        MemoryCache.TryRemove(userId, out _);
+        return null;
+    }
+
+    public async Task MarkReconnectRequiredAsync(Guid userId, CancellationToken ct)
+    {
+        db.CurrentUser = userId;
+        var connection = await db.GoogleHealthConnections.SingleOrDefaultAsync(ct);
+        if (connection is null || connection.Status == "reconnect_required") return;
+        connection.Status = "reconnect_required";
+        connection.EncryptedRefreshToken = "";
+        connection.Revision++;
+        await db.SaveChangesAsync(ct);
+        MemoryCache.TryRemove(userId, out _);
+    }
+
+    private static bool HasGrantedScope(GoogleHealthConnection connection, string requiredScope)
+    {
+        try
+        {
+            var scopes = JsonSerializer.Deserialize<string[]>(connection.GrantedScopesJson, Json.Options) ?? [];
+            return scopes.Contains(requiredScope, StringComparer.Ordinal);
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 
@@ -271,6 +348,9 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             // Revocation is best-effort before local deletion
         }
 
+        await db.GoogleHealthWeightSyncWork
+            .Where(x => x.UserId == userId)
+            .ExecuteDeleteAsync(ct);
         db.GoogleHealthConnections.Remove(conn);
         await db.SaveChangesAsync(ct);
         MemoryCache.TryRemove(userId, out _);
@@ -283,7 +363,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         // Check 2-minute memory cache
         if (MemoryCache.TryGetValue(userId, out var cached) && (DateTime.UtcNow - cached.SyncedAt) < TimeSpan.FromMinutes(2))
         {
-            return cached.Result;
+            return await AttachWeightStatusAsync(userId, cached.Result, ct);
         }
 
         // Coalesce concurrent calls for the same user
@@ -293,7 +373,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             {
                 try
                 {
-                    return await existingTask;
+                    return await AttachWeightStatusAsync(userId, await existingTask, ct);
                 }
                 catch
                 {
@@ -312,7 +392,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                         MemoryCache[userId] = (DateTime.UtcNow, result);
                     }
                     tcs.SetResult(result);
-                    return result;
+                    return await AttachWeightStatusAsync(userId, result, ct);
                 }
                 catch (Exception ex)
                 {
@@ -325,6 +405,33 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 }
             }
         }
+    }
+
+    private async Task<GoogleHealthSyncResult> AttachWeightStatusAsync(Guid userId, GoogleHealthSyncResult result, CancellationToken ct)
+    {
+        var connection = await db.GoogleHealthConnections.SingleOrDefaultAsync(c => c.UserId == userId, ct);
+        if (connection is null) return result with { WeightSync = new(false, false, "disabled", 0, null, 0) };
+        string[] granted;
+        try { granted = JsonSerializer.Deserialize<string[]>(connection.GrantedScopesJson, Json.Options) ?? []; }
+        catch (JsonException) { granted = []; }
+        var work = await db.GoogleHealthWeightSyncWork.ToListAsync(ct);
+        var pending = work.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
+        var problem = work.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
+        var state = !connection.WeightSyncEnabled ? "disabled"
+            : connection.Status == "reconnect_required" ? "reconnect_required"
+            : problem?.ProcessingState ?? (pending > 0 ? "pending" : "idle");
+        return result with
+        {
+            WeightSync = new(
+                connection.WeightSyncEnabled,
+                granted.Contains(GoogleHealthWeightSyncService.WeightScope, StringComparer.Ordinal),
+                state,
+                pending,
+                connection.WeightLastSuccessfulSyncAt,
+                connection.WeightSyncRevision,
+                problem?.LastErrorCategory,
+                problem?.LastErrorMessage)
+        };
     }
 
     private async Task<GoogleHealthSyncResult> PerformSyncAsync(Guid userId, CancellationToken ct)

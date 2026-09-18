@@ -109,6 +109,65 @@ public sealed class GoogleHealthTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task WeightConsent_IsIndependent_AndRequiresGrantedScope()
+    {
+        var userId = Guid.NewGuid();
+        await using (var db = Open(userId))
+        {
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "weight-consent", IdentitySubject = "sub-weight-consent" });
+            await db.SaveChangesAsync();
+        }
+
+        var mockHttp = new MockHttpHandler
+        {
+            TokenResponse = new { access_token = "at-consent", refresh_token = "rt-consent", scope = GoogleHealthService.Scope },
+            TokenInfoResponse = new { sub = "gid-weight-consent" }
+        };
+        await using var dbUser = Open(userId);
+        var service = new GoogleHealthService(new HttpClient(mockHttp), dbUser, kms, Config);
+        var connect = await service.GenerateConnectUrlAsync(userId, "session-consent", "https://nutrition.example.com", default, true);
+        Assert.Contains(Uri.EscapeDataString(GoogleHealthWeightSyncService.WeightScope), connect.AuthUrl);
+        var state = System.Web.HttpUtility.ParseQueryString(new Uri(connect.AuthUrl).Query)["state"];
+        await service.HandleCallbackAsync("code", state, null, userId, "session-consent", "https://nutrition.example.com", default);
+
+        var connection = await dbUser.GoogleHealthConnections.SingleAsync(c => c.UserId == userId);
+        Assert.False(connection.WeightSyncEnabled);
+        Assert.Contains(GoogleHealthService.Scope, connection.GrantedScopesJson);
+        Assert.DoesNotContain(GoogleHealthWeightSyncService.WeightScope, connection.GrantedScopesJson);
+        Assert.Equal("connected", connection.Status);
+    }
+
+    [Fact]
+    public async Task ReconnectWithDifferentGoogleIdentityRequiresDisconnect()
+    {
+        var userId = Guid.NewGuid();
+        await using (var db = Open(userId))
+        {
+            db.Users.Add(new AppUser { Id = userId, DisplayName = "identity-change", IdentitySubject = "sub-identity-change" });
+            await db.SaveChangesAsync();
+        }
+
+        var mockHttp = new MockHttpHandler
+        {
+            TokenResponse = new { access_token = "at-one", refresh_token = "rt-one" },
+            TokenInfoResponse = new { sub = "gid-one" }
+        };
+        await using var dbUser = Open(userId);
+        var service = new GoogleHealthService(new HttpClient(mockHttp), dbUser, kms, Config);
+        var first = await service.GenerateConnectUrlAsync(userId, "session-identity", "https://nutrition.example.com", default);
+        var firstState = System.Web.HttpUtility.ParseQueryString(new Uri(first.AuthUrl).Query)["state"];
+        await service.HandleCallbackAsync("code", firstState, null, userId, "session-identity", "https://nutrition.example.com", default);
+
+        mockHttp.TokenInfoResponse = new { sub = "gid-two" };
+        var second = await service.GenerateConnectUrlAsync(userId, "session-identity", "https://nutrition.example.com", default);
+        var secondState = System.Web.HttpUtility.ParseQueryString(new Uri(second.AuthUrl).Query)["state"];
+        var result = await service.HandleCallbackAsync("code", secondState, null, userId, "session-identity", "https://nutrition.example.com", default);
+
+        Assert.Contains("identity_change_requires_disconnect", result);
+        Assert.Equal(1, await dbUser.GoogleHealthConnections.CountAsync(c => c.UserId == userId));
+    }
+
+    [Fact]
     public async Task Duplicate_Google_Identity_Rejection()
     {
         var userA = Guid.NewGuid();

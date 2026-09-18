@@ -13,6 +13,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
       lastSyncedAt:null,
       freshness:'unavailable',
       days:[],
+      weightSync:{enabled:false,permissionGranted:false,state:'disabled',pendingCount:0,lastSuccessfulSyncAt:null,revision:0},
     })});
   });
   await signIn(page,'test-alice');
@@ -58,6 +59,10 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   await connect.click();
   const disclosure=page.getByRole('dialog',{name:'Connect Google Health',exact:true});
   await expect(disclosure).toBeVisible();
+  const weightSwitch=disclosure.getByRole('switch',{name:'Sync weight to Google Health'});
+  await expect(weightSwitch).not.toBeChecked();
+  await weightSwitch.check();
+  await expect(weightSwitch).toBeChecked();
   await disclosure.getByRole('button',{name:'Cancel',exact:true}).click();
   await expect(disclosure).toHaveCount(0);
   await expect(connect).toBeFocused();
@@ -70,6 +75,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
       lastSyncedAt:null,
       freshness:'unavailable',
       days:[],
+      weightSync:{enabled:false,permissionGranted:false,state:'disabled',pendingCount:0,lastSuccessfulSyncAt:null,revision:0},
       warningCode:'provider_resource_not_found',
       warningMessage:'Daily step history is unavailable right now.',
     })});

@@ -23,6 +23,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<DailyExpenditureEstimate> ExpenditureEstimates => Set<DailyExpenditureEstimate>();
     public DbSet<GoogleHealthConnection> GoogleHealthConnections => Set<GoogleHealthConnection>();
     public DbSet<GoogleHealthOAuthState> GoogleHealthOAuthStates => Set<GoogleHealthOAuthState>();
+    public DbSet<GoogleHealthWeightSyncWork> GoogleHealthWeightSyncWork => Set<GoogleHealthWeightSyncWork>();
     public DbSet<IntegrationGrant> IntegrationGrants => Set<IntegrationGrant>();
     public DbSet<WorkoutSummaryCache> WorkoutSummaries => Set<WorkoutSummaryCache>();
 
@@ -49,13 +50,16 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<GoogleHealthOAuthState>().HasKey(x => x.State);
         m.Entity<GoogleHealthOAuthState>().HasQueryFilter(x => x.UserId == CurrentUser);
         m.Entity<GoogleHealthOAuthState>().HasIndex(x => x.ExpiresAt);
+        m.Entity<GoogleHealthWeightSyncWork>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<GoogleHealthWeightSyncWork>().HasIndex(x => new { x.UserId, x.WeightId }).IsUnique();
+        m.Entity<GoogleHealthWeightSyncWork>().HasIndex(x => new { x.ProcessingState, x.NextAttemptAt });
         // Deleting an account must take its sessions, idempotency receipts, and usage counters with it.
         OwnedByUser<Session>(m); OwnedByUser<MutationReceipt>(m); OwnedByUser<AiUsage>(m); OwnedByUser<DailyExpenditureEstimate>(m);
-        OwnedByUser<GoogleHealthConnection>(m); OwnedByUser<GoogleHealthOAuthState>(m);
+        OwnedByUser<GoogleHealthConnection>(m); OwnedByUser<GoogleHealthOAuthState>(m); OwnedByUser<GoogleHealthWeightSyncWork>(m);
         Configure<IntegrationGrant>(m); Configure<WorkoutSummaryCache>(m);
         m.Entity<IntegrationGrant>().HasIndex(x => new { x.UserId, x.Peer }).IsUnique();
         m.Entity<WorkoutSummaryCache>().HasIndex(x => x.UserId).IsUnique();
-        Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m);
+        Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m); Configure<GoogleHealthWeightSyncWork>(m);
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m);
         Configure<BodyRecord>(m);
@@ -121,6 +125,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Google Health connection ownership violation.");
         foreach(var entry in ChangeTracker.Entries<GoogleHealthOAuthState>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("OAuth state ownership violation.");
+        foreach(var entry in ChangeTracker.Entries<GoogleHealthWeightSyncWork>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Google Health weight work ownership violation.");
         return base.SaveChangesAsync(cancellationToken);
     }
 }

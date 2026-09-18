@@ -1,10 +1,11 @@
 import {useEffect, useState} from 'react';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
-import {useGoogleHealth} from '../lib/googleHealth';
+import {recoverGoogleHealthWeightSync, setGoogleHealthWeightSync, useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
 import {Activity, CheckCircle2, AlertTriangle, RefreshCw, Unlink} from 'lucide-react';
 import {CardFeedback} from './ui/CardFeedback';
+import {Checkbox} from './ui/Checkbox';
 
 export function GoogleHealthSettings() {
   const {state, loading, error: syncError, refresh, connect, disconnect} = useGoogleHealth();
@@ -14,6 +15,13 @@ export function GoogleHealthSettings() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [bannerNotice, setBannerNotice] = useState<{type: 'success' | 'error'; message: string} | null>(null);
+  const [requestWeightSync, setRequestWeightSync] = useState(false);
+  const [weightActionLoading, setWeightActionLoading] = useState(false);
+
+  const openDisclosure = (requestWeight = requestWeightSync || state.weightSync.enabled) => {
+    setRequestWeightSync(requestWeight);
+    setDisclosureOpen(true);
+  };
 
   // Check URL parameters for OAuth redirect results
   useEffect(() => {
@@ -36,6 +44,8 @@ export function GoogleHealthSettings() {
       let msg = 'Google Health connection was not completed.';
       if (code === 'duplicate_account') {
         msg = 'This Google account is already linked to another NutritionApp account. Each Google account can only connect once.';
+      } else if (code === 'identity_change_requires_disconnect') {
+        msg = 'This NutritionApp account is already linked to a different Google account. Disconnect it before connecting another account.';
       } else if (code === 'session_mismatch' || code === 'session_expired') {
         msg = 'Your NutritionApp session changed during connection. Please sign in and try again.';
       } else if (code === 'access_denied') {
@@ -69,11 +79,39 @@ export function GoogleHealthSettings() {
     setConnecting(true);
     setActionError('');
     try {
-      const {authUrl} = await connect();
+      const {authUrl} = await connect(requestWeightSync);
       window.location.href = authUrl;
     } catch (ex) {
       setActionError((ex as Error).message || 'Failed to start Google Health connection');
       setConnecting(false);
+    }
+  };
+
+  const handleWeightSyncChange = async (enabled: boolean) => {
+    if (!state.weightSync.permissionGranted) {
+      openDisclosure(true);
+      return;
+    }
+    setWeightActionLoading(true);
+    setActionError('');
+    try {
+      await setGoogleHealthWeightSync(enabled, state.weightSync.revision);
+    } catch (ex) {
+      setActionError((ex as Error).message || 'Could not update weight synchronization');
+    } finally {
+      setWeightActionLoading(false);
+    }
+  };
+
+  const handleWeightRecovery = async () => {
+    setWeightActionLoading(true);
+    setActionError('');
+    try {
+      await recoverGoogleHealthWeightSync();
+    } catch (ex) {
+      setActionError((ex as Error).message || 'Could not recover weight synchronization');
+    } finally {
+      setWeightActionLoading(false);
     }
   };
 
@@ -120,13 +158,13 @@ export function GoogleHealthSettings() {
         tone={bannerNotice.type}
         title={bannerNotice.type === 'success' ? 'Google Health connected' : 'Google Health connection failed'}
         message={bannerNotice.message}
-        action={bannerNotice.type === 'error' ? {label: 'Try again', onClick: () => {setBannerNotice(null);setDisclosureOpen(true);}} : undefined}
+        action={bannerNotice.type === 'error' ? {label: 'Try again', onClick: () => {setBannerNotice(null);openDisclosure();}} : undefined}
       />}
 
       {actionError && !disclosureOpen && <CardFeedback
         title="Google Health action failed"
         message={actionError}
-        action={{label: 'Try again', onClick: () => {setActionError('');setDisclosureOpen(true);}}}
+        action={{label: 'Try again', onClick: () => {setActionError('');openDisclosure();}}}
       />}
 
       {syncError && <CardFeedback
@@ -141,7 +179,7 @@ export function GoogleHealthSettings() {
             Sync daily step totals automatically from Google Health. Step counts are read-only and never affect your calories, expenditure, or coaching targets.
           </p>
           <div className="actions">
-            <Button variant="primary" onClick={() => setDisclosureOpen(true)}>
+            <Button variant="primary" onClick={() => openDisclosure()}>
               Connect Google Health
             </Button>
           </div>
@@ -158,7 +196,7 @@ export function GoogleHealthSettings() {
             Google Health authorization has expired or was revoked. Reconnect to resume step synchronization.
           </p>
           <div className="actions">
-            <Button variant="primary" onClick={() => setDisclosureOpen(true)}>
+            <Button variant="primary" onClick={() => openDisclosure()}>
               Reconnect Google Health
             </Button>
             <Button variant="tertiary" onClick={() => setDisconnectOpen(true)}>
@@ -200,6 +238,27 @@ export function GoogleHealthSettings() {
             action={{label: 'Retry sync', onClick: () => void refresh(true), disabled: loading}}
           />}
 
+          <div className="google-health-weight-sync">
+            <Checkbox
+              id="google-health-weight-sync-setting"
+              role="switch"
+              checked={state.weightSync.enabled}
+              disabled={weightActionLoading}
+              onChange={checked => void handleWeightSyncChange(checked)}
+            >
+              <span><strong>Sync weight to Google Health</strong><small>{state.weightSync.permissionGranted ? 'Newly accepted scale entries, edits, and deletions are processed automatically.' : 'Reconnect and grant the health metrics write permission to enable this.'}</small></span>
+            </Checkbox>
+            <p className="source">Existing entries are not uploaded. Uploads use recorded scale weight only, at noon in the profile time zone; Google copies remain after this setting is disabled.</p>
+            {state.weightSync.pendingCount > 0 && <p className="source">{state.weightSync.pendingCount} weight {state.weightSync.pendingCount === 1 ? 'upload is' : 'uploads are'} pending.</p>}
+            {state.weightSync.lastSuccessfulSyncAt && <p className="source">Last successful weight sync: {formatTimestamp(state.weightSync.lastSuccessfulSyncAt)}.</p>}
+            {(state.weightSync.state === 'failed' || state.weightSync.state === 'unknown') && <CardFeedback
+              tone={state.weightSync.state === 'unknown' ? 'warning' : 'error'}
+              title={state.weightSync.state === 'unknown' ? 'Upload status unknown' : 'Weight sync needs attention'}
+              message={state.weightSync.failureMessage ?? 'Google Health rejected a weight upload.'}
+              action={{label: state.weightSync.state === 'unknown' ? 'Check Google copy and retry' : 'Retry weight sync', onClick: () => void handleWeightRecovery(), disabled: weightActionLoading}}
+            />}
+          </div>
+
           <div className="actions">
             <Button variant="tertiary" onClick={() => void refresh(true)} disabled={loading}>
               <RefreshCw size={15} className={loading ? 'spin' : ''} aria-hidden="true" />
@@ -214,7 +273,7 @@ export function GoogleHealthSettings() {
       )}
 
       <p className="source google-health-retention-note">
-        Data is encrypted with Google Cloud KMS and retained for a rolling 31-day window. Disconnecting here revokes access and deletes imported step totals.
+        Step data is encrypted with Google Cloud KMS and retained for a rolling 31-day window. Disconnecting revokes access and deletes imported steps, queue records, and mappings; already-uploaded Google weight copies remain.
       </p>
 
       {/* Pre-connection disclosure modal */}
@@ -222,6 +281,8 @@ export function GoogleHealthSettings() {
         open={disclosureOpen}
         onClose={() => setDisclosureOpen(false)}
         onConfirm={handleStartConnect}
+        syncWeight={requestWeightSync}
+        onSyncWeightChange={setRequestWeightSync}
         loading={connecting}
         error={actionError}
       />
@@ -236,14 +297,14 @@ export function GoogleHealthSettings() {
       >
         <div className="disconnect-dialog">
           <p>
-            Disconnecting will revoke NutritionApp&apos;s access and immediately delete all 31 days of imported step data from your account.
+            Disconnecting will revoke NutritionApp&apos;s access, delete all 31 days of imported step data, and remove local weight-sync mappings. Weight copies already uploaded to Google Health are not deleted.
           </p>
           <div className="actions">
             <Button variant="tertiary" onClick={() => setDisconnectOpen(false)} disabled={disconnecting}>
               Keep connected
             </Button>
             <Button variant="destructive" onClick={() => void handleConfirmDisconnect()} disabled={disconnecting}>
-              {disconnecting ? 'Disconnecting…' : 'Disconnect and delete steps'}
+              {disconnecting ? 'Disconnecting…' : 'Disconnect and delete local data'}
             </Button>
           </div>
         </div>

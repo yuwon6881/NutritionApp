@@ -55,6 +55,7 @@ builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSe
 builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90));
 builder.Services.AddHttpClient<IGoogleHealthKms, GoogleCloudKmsService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<GoogleHealthService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient<GoogleHealthWeightSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20));
 builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(3));
 builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10));
 builder.Services.AddRateLimiter(o=>

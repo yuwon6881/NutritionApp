@@ -3,6 +3,18 @@ import {api} from './api';
 
 export type GoogleHealthStatus = 'disconnected' | 'connected' | 'reconnect_required';
 export type GoogleHealthFreshness = 'fresh' | 'stale' | 'unavailable';
+export type GoogleHealthWeightSyncState = 'disabled' | 'idle' | 'pending' | 'failed' | 'unknown' | 'reconnect_required';
+
+export interface GoogleHealthWeightSyncStatus {
+  enabled: boolean;
+  permissionGranted: boolean;
+  state: GoogleHealthWeightSyncState;
+  pendingCount: number;
+  lastSuccessfulSyncAt: string | null;
+  revision: number;
+  failureCode?: string | null;
+  failureMessage?: string | null;
+}
 
 export interface GoogleHealthDay {
   date: string;
@@ -17,6 +29,7 @@ export interface GoogleHealthSyncState {
   days: GoogleHealthDay[];
   warningCode?: string | null;
   warningMessage?: string | null;
+  weightSync: GoogleHealthWeightSyncStatus;
 }
 
 export const initialGoogleHealthState: GoogleHealthSyncState = {
@@ -25,6 +38,14 @@ export const initialGoogleHealthState: GoogleHealthSyncState = {
   lastSyncedAt: null,
   freshness: 'unavailable',
   days: [],
+  weightSync: {
+    enabled: false,
+    permissionGranted: false,
+    state: 'disabled',
+    pendingCount: 0,
+    lastSuccessfulSyncAt: null,
+    revision: 0,
+  },
 };
 
 // Google-derived data remains in runtime memory ONLY. Never persist to IndexedDB/localStorage.
@@ -50,16 +71,31 @@ function getSnapshot(): GoogleHealthSyncState {
   return memoryState;
 }
 
-export async function connectGoogleHealth(): Promise<{ authUrl: string }> {
-  return await api<{ authUrl: string }>('/integrations/google-health/connect', {});
+export async function connectGoogleHealth(syncWeight = false): Promise<{ authUrl: string }> {
+  return await api<{ authUrl: string }>('/integrations/google-health/connect', syncWeight ? {syncWeight: true} : {});
+}
+
+export async function setGoogleHealthWeightSync(enabled: boolean, revision: number): Promise<GoogleHealthWeightSyncStatus> {
+  const result = await api<GoogleHealthWeightSyncStatus>('/integrations/google-health/weight-sync/preference', {enabled, revision});
+  memoryState = {...memoryState, weightSync: result};
+  notify();
+  return result;
+}
+
+export async function recoverGoogleHealthWeightSync(weightId?: string): Promise<GoogleHealthWeightSyncStatus> {
+  const result = await api<GoogleHealthWeightSyncStatus>('/integrations/google-health/weight-sync/recover', {weightId: weightId ?? null});
+  memoryState = {...memoryState, weightSync: result};
+  notify();
+  return result;
 }
 
 export async function disconnectGoogleHealth(): Promise<GoogleHealthSyncState> {
   const result = await api<GoogleHealthSyncState>('/integrations/google-health/disconnect', {});
-  memoryState = result;
+  const nextState = {...result, weightSync: result.weightSync ?? initialGoogleHealthState.weightSync};
+  memoryState = nextState;
   lastFetchTime = Date.now();
   notify();
-  return result;
+  return nextState;
 }
 
 export async function syncGoogleHealth(force = false): Promise<GoogleHealthSyncState> {
@@ -75,7 +111,7 @@ export async function syncGoogleHealth(force = false): Promise<GoogleHealthSyncS
   inFlightPromise = (async () => {
     try {
       const result = await api<GoogleHealthSyncState>('/integrations/google-health/sync', {});
-      memoryState = result;
+      memoryState = {...result, weightSync: result.weightSync ?? initialGoogleHealthState.weightSync};
       lastFetchTime = Date.now();
       notify();
       return result;

@@ -97,6 +97,7 @@ describe('googleHealth sync manager', () => {
       days: [
         { date: '2026-09-14', count: 7500 },
       ],
+      weightSync: initialGoogleHealthState.weightSync,
     };
     apiSpy.mockResolvedValueOnce(mockSync);
 
@@ -115,6 +116,7 @@ describe('googleHealth sync manager', () => {
       lastSyncedAt: '2026-09-14T08:00:00Z',
       freshness: 'fresh',
       days: [],
+      weightSync: initialGoogleHealthState.weightSync,
     };
     let resolveApi: (value: GoogleHealthSyncState) => void;
     const slowPromise = new Promise<GoogleHealthSyncState>((res) => {
@@ -139,6 +141,7 @@ describe('googleHealth sync manager', () => {
       lastSyncedAt: '2026-09-14T08:00:00Z',
       freshness: 'fresh',
       days: [{ date: '2026-09-14', count: 5000 }],
+      weightSync: initialGoogleHealthState.weightSync,
     };
     apiSpy.mockResolvedValue(mockSync);
 
@@ -162,6 +165,7 @@ describe('googleHealth sync manager', () => {
       lastSyncedAt: '2026-09-14T08:00:00Z',
       freshness: 'fresh',
       days: [{ date: '2026-09-14', count: 3000 }],
+      weightSync: initialGoogleHealthState.weightSync,
     };
     apiSpy.mockResolvedValueOnce(connectedState);
     await syncGoogleHealth();

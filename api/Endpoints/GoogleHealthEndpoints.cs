@@ -7,9 +7,12 @@ namespace Nutrition.Api.Endpoints;
 
 public static class GoogleHealthEndpoints
 {
+    public sealed record ConnectInput(bool SyncWeight = false);
+    public sealed record WeightSyncPreferenceInput(bool Enabled, long Revision);
+
     public static void MapGoogleHealth(this WebApplication app)
     {
-        app.MapPost("/api/integrations/google-health/connect", async (GoogleHealthService service, AppDb db, HttpContext http, CancellationToken ct) =>
+        app.MapPost("/api/integrations/google-health/connect", async (ConnectInput? input, GoogleHealthService service, AppDb db, HttpContext http, CancellationToken ct) =>
         {
             var token = http.Request.Cookies[AuthService.Cookie];
             var sessionHash = AuthService.Hash(token ?? "");
@@ -17,7 +20,7 @@ public static class GoogleHealthEndpoints
             if (string.IsNullOrEmpty(origin))
                 origin = $"{http.Request.Scheme}://{http.Request.Host}";
 
-            var result = await service.GenerateConnectUrlAsync(db.CurrentUser!.Value, sessionHash, origin, ct);
+            var result = await service.GenerateConnectUrlAsync(db.CurrentUser!.Value, sessionHash, origin, ct, input?.SyncWeight == true);
             return Results.Ok(result);
         });
 
@@ -56,5 +59,14 @@ public static class GoogleHealthEndpoints
             var result = await service.DisconnectAsync(db.CurrentUser!.Value, ct);
             return Results.Ok(result);
         });
+
+        app.MapPost("/api/integrations/google-health/weight-sync/preference", async (WeightSyncPreferenceInput input, GoogleHealthWeightSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.SetPreferenceAsync(input.Enabled, input.Revision, ct)));
+
+        app.MapPost("/api/integrations/google-health/weight-sync/recover", async (GoogleHealthWeightSyncRecoveryInput input, GoogleHealthWeightSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.RecoverAsync(input.WeightId, ct)));
+
+        app.MapPost("/internal/google-health-weight-sync", async (GoogleHealthWeightSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.ProcessDueAsync(ct)));
     }
 }

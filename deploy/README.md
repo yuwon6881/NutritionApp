@@ -30,6 +30,8 @@ Google Health uses the production OAuth web client configured in the Cloud proje
 
 Configure an hourly Cloud Scheduler POST directly to the API `/internal/cleanup`, supplying its protected `X-Cleanup-Token`. Scheduler wakes Cloud Run independently of the PWA. Alert on failures. The endpoint runs scan cleanup, atomic diary compaction and pending physique deletion retries.
 
+Optional Google Health weight uploads use a separate minute-level Cloud Scheduler POST to `/internal/google-health-weight-sync`, authenticated with the same protected header. Run `deploy/setup-google-health-weight-sync.ps1` with `-ApiOrigin` and a token supplied from Secret Manager or `NUTRITION_CLEANUP_TOKEN`; the script creates or updates the dedicated job idempotently. Each invocation processes at most 25 due records or 45 seconds, so durable leases leave remaining work for the next minute. The OAuth web client must have the health-metrics write scope approved before live testing.
+
 ## Vercel
 
 Deploy the `web` directory as a Vite project. The Vercel routing configuration proxies `/api/*` to the new Cloud Run service, keeping requests and HttpOnly cookies on the PWA origin. This avoids reliance on third-party cookies on iPhone. Never enable CDN caching for authenticated API responses. `/internal/*` is not a frontend route. Unknown asset URLs must return 404 rather than the SPA document.
