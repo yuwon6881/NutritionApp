@@ -592,6 +592,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .food-row.interactive{cursor:pointer;border-radius:12px;padding:12px 14px;border:1px solid transparent;transition:background var(--motion-control) ease,border-color var(--motion-control) ease,transform 100ms ease}
 .food-row.interactive:hover{background:var(--muted);border-color:var(--border)}
 .food-row.interactive:active{transform:scale(0.995);background:color-mix(in srgb,var(--muted) 80%,var(--card))}
+.food-search-results{display:grid;gap:8px;margin-top:10px}
 .food-row.interactive:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .food-row-star{width:40px;height:40px;min-height:40px!important;padding:0!important;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:var(--muted-foreground);transition:color var(--motion-control) ease,transform 120ms ease;flex-shrink:0}
 .food-row-star:hover{color:var(--primary-ink);transform:scale(1.1)}
@@ -1206,7 +1207,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .food-basket .modal-actions{border-top:1px solid var(--border);padding-top:12px}
 
 /* Batch review keeps energy and controls in stable columns. */
-.modal-header-actions{flex-shrink:0}.modal-header:has(.modal-header-actions){justify-content:flex-start;gap:12px}.modal-header:has(.modal-header-actions)>[data-modal-dismiss]{margin-left:auto}.modal-header:has(.modal-header-actions) .modal-heading{flex:0 1 auto;min-width:0}.batch-header-button{min-height:44px;white-space:nowrap;padding-inline:12px;font-size:.8rem}
+.modal-header-actions{display:flex;align-items:center;flex-shrink:0}.modal-header:has(.modal-header-actions){align-items:center;justify-content:flex-start;gap:12px}.modal-header:has(.modal-header-actions)>[data-modal-dismiss]{margin-left:auto}.modal-header:has(.modal-header-actions) .modal-heading{flex:0 1 auto;min-width:0}.batch-header-button{min-height:44px;white-space:nowrap;padding:9px 13px;font-size:.8rem;gap:7px;border-color:var(--border);background:var(--muted);color:var(--ink-strong);font-variant-numeric:tabular-nums}.batch-header-button:hover{background:var(--primary-tint);border-color:var(--primary);color:var(--primary-ink)}.batch-header-separator{color:var(--muted-foreground)}.batch-header-count{min-width:1.1em;text-align:center;color:var(--primary-ink);font-weight:700}
 .batch-food-summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;transform:translateX(var(--batch-offset,0px));gap:12px}
 .batch-food.actions-open .batch-food-summary{transform:translateX(var(--batch-offset,-166px))}
 .batch-food.dragging .batch-food-summary{transition:none}
@@ -1352,11 +1353,12 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .active-day-preview{border-color:var(--primary)}
 .step-chart-container{padding-top:10px}
 .chart-empty-state{display:grid;place-items:center;min-height:120px;padding:24px 16px;border:1px dashed var(--border);border-radius:12px;background:var(--muted);color:var(--muted-foreground);font-size:.82rem;text-align:center}
-.step-bar-chart{width:100%;height:auto;max-height:160px;overflow:visible}
+.step-bar-chart{display:block;width:100%;height:clamp(120px,20vw,160px);max-height:none;overflow:visible}
 .chart-baseline{stroke:var(--border);stroke-dasharray:2 2}
-.bar-group{cursor:pointer}
+.bar-group,.bar-rect,.bar-gap-marker{cursor:pointer}
 .bar-rect{fill:var(--primary);transition:fill var(--motion-control) ease,opacity var(--motion-control) ease}
 .bar-rect:hover,.bar-rect:focus-visible{fill:var(--primary-ink);outline:none}
+.bar-rect:focus-visible,.bar-gap-marker:focus-visible{stroke:var(--ring);stroke-width:2}
 .bar-rect.zero-bar{fill:var(--muted-foreground);opacity:.4}
 .bar-gap-marker{fill:var(--border);outline:none}
 .bar-gap-marker:hover,.bar-gap-marker:focus-visible{fill:var(--muted-foreground)}
@@ -1378,6 +1380,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Native mobile shell: keep the app bar and bottom navigation inside device safe areas. */
 html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:none}
 .modal-body{-webkit-overflow-scrolling:touch}
+.food-modal .modal-body,.food-modal .motion-panel{overflow-x:clip}
 .inline-link{min-height:44px;padding-block:10px;touch-action:manipulation}
 @media(max-width:639px){
   .main-content{padding-inline:max(18px,env(safe-area-inset-left)) max(18px,env(safe-area-inset-right))}

@@ -110,7 +110,7 @@ export async function syncGoogleHealth(force = false): Promise<GoogleHealthSyncS
 
   inFlightPromise = (async () => {
     try {
-      const result = await api<GoogleHealthSyncState>('/integrations/google-health/sync', {});
+      const result = await api<GoogleHealthSyncState>('/integrations/google-health/sync', {force});
       memoryState = {...result, weightSync: result.weightSync ?? initialGoogleHealthState.weightSync};
       lastFetchTime = Date.now();
       notify();

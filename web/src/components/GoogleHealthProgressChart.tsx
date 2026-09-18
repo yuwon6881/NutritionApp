@@ -144,6 +144,7 @@ export function GoogleHealthProgressChart({
           <svg
             className="step-bar-chart"
             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            preserveAspectRatio="none"
             role="img"
             aria-label={`Daily step counts over the last 30 days. Average is ${average !== null ? number(average) : 'unavailable'} steps per day.`}
           >
@@ -178,10 +179,17 @@ export function GoogleHealthProgressChart({
                       rx={1}
                       className="bar-gap-marker"
                       tabIndex={0}
-                      role="graphics-symbol"
+                      role="button"
                       aria-label={`${day.date}: No step data`}
                       onFocus={() => setActiveDay(day)}
                       onMouseEnter={() => setActiveDay(day)}
+                      onClick={() => setActiveDay(day)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setActiveDay(day);
+                        }
+                      }}
                     />
                   </g>
                 );
@@ -197,10 +205,17 @@ export function GoogleHealthProgressChart({
                     rx={2}
                     className={`bar-rect ${count === 0 ? 'zero-bar' : ''}`}
                     tabIndex={0}
-                    role="graphics-symbol"
+                    role="button"
                     aria-label={`${day.date}: ${number(count)} steps`}
                     onFocus={() => setActiveDay(day)}
                     onMouseEnter={() => setActiveDay(day)}
+                    onClick={() => setActiveDay(day)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setActiveDay(day);
+                      }
+                    }}
                   />
                 </g>
               );

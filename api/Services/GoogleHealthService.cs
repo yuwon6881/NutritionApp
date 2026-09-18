@@ -358,10 +358,10 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         return new GoogleHealthSyncResult("disconnected", null, null, "unavailable", []);
     }
 
-    public async Task<GoogleHealthSyncResult> SyncAsync(Guid userId, CancellationToken ct)
+    public async Task<GoogleHealthSyncResult> SyncAsync(Guid userId, CancellationToken ct, bool force = false)
     {
         // Check 2-minute memory cache
-        if (MemoryCache.TryGetValue(userId, out var cached) && (DateTime.UtcNow - cached.SyncedAt) < TimeSpan.FromMinutes(2))
+        if (!force && MemoryCache.TryGetValue(userId, out var cached) && (DateTime.UtcNow - cached.SyncedAt) < TimeSpan.FromMinutes(2))
         {
             return await AttachWeightStatusAsync(userId, cached.Result, ct);
         }
@@ -386,7 +386,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             {
                 try
                 {
-                    var result = await PerformSyncAsync(userId, ct);
+                    var result = await PerformSyncAsync(userId, ct, force);
                     if (result.Status == "connected" && result.Freshness == "fresh")
                     {
                         MemoryCache[userId] = (DateTime.UtcNow, result);
@@ -434,7 +434,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         };
     }
 
-    private async Task<GoogleHealthSyncResult> PerformSyncAsync(Guid userId, CancellationToken ct)
+    private async Task<GoogleHealthSyncResult> PerformSyncAsync(Guid userId, CancellationToken ct, bool force)
     {
         var conn = await db.GoogleHealthConnections.SingleOrDefaultAsync(c => c.UserId == userId, ct);
         if (conn == null)
@@ -444,7 +444,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             return new GoogleHealthSyncResult("reconnect_required", conn.ConnectedAt, conn.LastSyncedAt, "unavailable", [], "credentials_revoked", "Google Health authorization was revoked. Please reconnect.");
 
         // Check if DB record has recent sync within 2 minutes
-        if (conn.LastSyncedAt.HasValue && (DateTime.UtcNow - conn.LastSyncedAt.Value) < TimeSpan.FromMinutes(2))
+        if (!force && conn.LastSyncedAt.HasValue && (DateTime.UtcNow - conn.LastSyncedAt.Value) < TimeSpan.FromMinutes(2))
         {
             try
             {

@@ -66,6 +66,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
 
   // Add more food to return to selection
   await page.getByRole('button',{name:'Add more food'}).click();
+  await expect(page.getByLabel('Search term',{exact:true})).toHaveValue('');
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
 
   // Click Blueberries Fresh row to review and add to batch

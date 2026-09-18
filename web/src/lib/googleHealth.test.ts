@@ -102,7 +102,7 @@ describe('googleHealth sync manager', () => {
     apiSpy.mockResolvedValueOnce(mockSync);
 
     const state = await syncGoogleHealth();
-    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/sync', {});
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/sync', {force: false});
     expect(state.status).toBe('connected');
     expect(state.freshness).toBe('fresh');
     expect(state.days).toHaveLength(1);

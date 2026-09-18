@@ -64,7 +64,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   expect(Math.abs(card!.y+card!.height/2-value!.y-value!.height/2)).toBeLessThan(3);
   await page.getByLabel('Meal time',{exact:true}).fill('13:45');
   await page.getByRole('button',{name:'Add more food'}).click();
-  await expect(page.getByLabel('Find your food')).toHaveValue('');
+  await expect(page.getByLabel('Search term',{exact:true})).toHaveValue('');
   await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await expect(page.getByLabel('Barcode digits')).toHaveValue('');
   await page.getByLabel('Barcode digits').fill('12345678');
@@ -92,12 +92,15 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   else await expect(textRow.getByRole('button',{name:'Edit',exact:true})).toBeFocused();
   await page.getByRole('button',{name:'Remove Text meal',exact:true}).click();
   await page.getByRole('button',{name:'Add more food'}).click();
+  await page.getByRole('button',{name:'AI logging',exact:true}).click();
   await expect(page.getByLabel('Meal description and portions')).toHaveValue('');
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
   await page.getByRole('button',{name:'New recipe',exact:true}).click();
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[{name:'API oats',source:'Test provider',calories:380,protein:12,carbs:60,fat:7,fiber:null,servingGrams:100}]}));
   await page.getByRole('button',{name:'Add ingredient',exact:true}).click();
+  await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
   await page.getByLabel('Search ingredients').fill('oats');
+  await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
   await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
   await page.locator('.food-row.interactive').filter({hasText:'API oats'}).click();
   await expect(page.getByRole('heading',{name:'Set ingredient quantity',exact:true})).toBeVisible();

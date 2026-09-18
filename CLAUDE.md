@@ -13,7 +13,7 @@ Applies only to this independent repository; app-specific rules override the par
 - Food diary, explicit logging-day decisions, batch entry, copy/move, shared food search, saved/custom foods, recipes, barcode lookup/private mappings, and editable AI text/photo/label estimates.
 - Offline retained edits and image drafts, automatic synchronization, retry and conflict review.
 - Weight and body records/photos, goal phases, macro/weekly targets, server coaching/check-ins, expenditure estimates, and progress/energy-history charts.
-- Google Health steps and Workout summaries with temporary sync warnings; optional, disabled-by-default one-way scale-weight uploads with consent, durable background retries, mapped edit/delete handling, and explicit unknown-upload recovery; integration settings and account exports. The Dashboard steps panel appears only after Google Health status resolves to connected or reconnect-required. These integrations do not automatically change calorie or macro targets; NutritionApp remains authoritative for local weights, trends, and coaching.
+- Google Health steps and Workout summaries with temporary sync warnings; optional, disabled-by-default one-way scale-weight uploads with consent, durable background retries, mapped edit/delete handling, and explicit unknown-upload recovery; integration settings and account exports. The Dashboard steps panel appears only after Google Health status resolves to connected or reconnect-required, and Settings Sync now explicitly bypasses the short server cache for a provider refresh. These integrations do not automatically change calorie or macro targets; NutritionApp remains authoritative for local weights, trends, and coaching.
 
 ## UI standardization
 

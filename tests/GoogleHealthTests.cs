@@ -345,6 +345,14 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             // Missing date must be null, not 0
             var missingItem = syncResult.Days.Single(d => d.Date == dayBeforeYesterday);
             Assert.Null(missingItem.Count);
+
+            // Automatic refreshes may use the short server cache, but an explicit
+            // manual refresh must reach Google even when the last sync was recent.
+            GoogleHealthService.InvalidateMemoryCache(userId);
+            await service.SyncAsync(userId, default);
+            Assert.Equal(1, mockHttp.DailyRollupRequestCount);
+            await service.SyncAsync(userId, default, force: true);
+            Assert.Equal(2, mockHttp.DailyRollupRequestCount);
         }
     }
 
@@ -749,6 +757,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         public bool RevokeCalled { get; private set; }
         public string? LastUserInfoAuthorization { get; private set; }
         public int HealthIdentityRequestCount { get; private set; }
+        public int DailyRollupRequestCount { get; private set; }
         public string? LastDailyRollupUrl { get; private set; }
         public string LastDailyRollupPayload { get; private set; } = "";
         public HttpStatusCode UserInfoStatusCode { get; set; } = HttpStatusCode.OK;
@@ -797,6 +806,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
 
             if (url.Contains("dataPoints:dailyRollUp"))
             {
+                DailyRollupRequestCount++;
                 LastDailyRollupUrl = url;
                 LastDailyRollupPayload = request.Content is null ? "" : request.Content.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
                 if (Simulate503OnRollup)

@@ -8,6 +8,7 @@ namespace Nutrition.Api.Endpoints;
 public static class GoogleHealthEndpoints
 {
     public sealed record ConnectInput(bool SyncWeight = false);
+    public sealed record SyncInput(bool Force = false);
     public sealed record WeightSyncPreferenceInput(bool Enabled, long Revision);
 
     public static void MapGoogleHealth(this WebApplication app)
@@ -48,9 +49,9 @@ public static class GoogleHealthEndpoints
             return Results.Redirect(redirectUrl);
         });
 
-        app.MapPost("/api/integrations/google-health/sync", async (GoogleHealthService service, AppDb db, CancellationToken ct) =>
+        app.MapPost("/api/integrations/google-health/sync", async (SyncInput? input, GoogleHealthService service, AppDb db, CancellationToken ct) =>
         {
-            var result = await service.SyncAsync(db.CurrentUser!.Value, ct);
+            var result = await service.SyncAsync(db.CurrentUser!.Value, ct, input?.Force == true);
             return Results.Ok(result);
         });
 

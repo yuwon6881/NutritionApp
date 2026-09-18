@@ -1,6 +1,6 @@
 import {Form} from './ui/Form';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
-import {Search,ScanBarcode,Sparkles,Plus,Star,ArrowLeft} from 'lucide-react';
+import {Search,ScanBarcode,Sparkles,Plus,Star,ArrowLeft,ListChecks} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {AiEstimate,Entry,Food} from '../types';
 import {blankNutrients} from '../types';
@@ -639,7 +639,7 @@ export function LogFood({
   </div>;
 
   const child=step==='batch'
-    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>go('selection')} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
+    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{selectTab('search');go('selection');}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setLabelNote('');go('selection');}else if(editing){onClose();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor
@@ -668,7 +668,7 @@ export function LogFood({
 
   const content=!history.state?<div className="dialog-step"><p role="status" aria-busy="true">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
   return <>
-    <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}>Batch · {basket.lines.length}</Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{content}</Modal>
+    <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{content}</Modal>
   </>;
 }
 
