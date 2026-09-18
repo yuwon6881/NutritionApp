@@ -80,6 +80,19 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
       warningMessage:'Daily step history is unavailable right now.',
     })});
   });
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();
+
+  const weightSyncRow=page.locator('.google-health-weight-sync .check-row');
+  const weightSyncTitle=weightSyncRow.locator('strong');
+  const weightSyncDescription=weightSyncRow.locator('small');
+  await expect(weightSyncRow).toBeVisible();
+  await expect(weightSyncDescription).toHaveCSS('display','block');
+  const titleBox=await weightSyncTitle.boundingBox();
+  const descriptionBox=await weightSyncDescription.boundingBox();
+  expect(titleBox && descriptionBox).toBeTruthy();
+  expect(descriptionBox!.y).toBeGreaterThanOrEqual(titleBox!.y+titleBox!.height-1);
+
   await page.getByRole('button',{name:'Progress',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Google Health steps · Last 30 days',exact:true})).toBeVisible();
   await expect(page.getByText('Daily step history is unavailable right now.',{exact:true})).toBeVisible();

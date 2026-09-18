@@ -1311,6 +1311,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .warning-text{color:var(--carbs)}
 .settings-banner-success{border-left:4px solid var(--success)}
 .settings-banner-error{border-left:4px solid var(--destructive)}
+.google-health-weight-sync .check-row{align-items:flex-start}
+.google-health-weight-sync .check-row>span{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.google-health-weight-sync .check-row>span small{display:block;line-height:1.5}
 .google-health-retention-note,.connected-apps-retention-note{margin-top:16px;color:var(--muted-foreground);font-size:.76rem}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
