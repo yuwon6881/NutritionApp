@@ -1,5 +1,5 @@
 import {useState,useRef,useEffect,useCallback} from 'react';
-import {Copy,MoreHorizontal,MoveRight,Pencil,Trash2} from 'lucide-react';
+import {ClipboardPaste,Copy,MoveRight,Pencil,Trash2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
 import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow,type TimelineView} from '../lib/foodDiary';
@@ -8,9 +8,8 @@ import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
 import {CopyFoodDialog} from './CopyFoodDialog';
 import {DeleteFoodDialog} from './DeleteFoodDialog';
 import {MoveFoodDialog} from './MoveFoodDialog';
-import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
-import {displayPortion} from '../lib/portions';
-import {FoodMacroSummary} from './FoodMacroSummary';
+import {unitsFor} from '../lib/units';
+import {FoodTimeCard} from './FoodTimeCard';
 
 export interface FoodTimelineProps {
   store:Nourish;
@@ -19,12 +18,18 @@ export interface FoodTimelineProps {
   entries:Entry[];
   readOnly:boolean;
   onEdit:(entry:Entry)=>void;
-  onMove:(moving:Entry[],date:string,time:string|null)=>Promise<void>|void;
+  onMove:(moving:Entry[],date:string,time:string|null|undefined)=>Promise<void>|void;
   onCopy:(entry:Entry,date:string,time:string|null)=>Promise<void>|void;
   onDelete:(entry:Entry)=>Promise<void>|void;
   showEmptySlots?:boolean;
   timelineView?:TimelineView;
   onAddAtTime?:(time:string)=>void;
+  isSelecting?:boolean;
+  selectedIds?:Set<string>;
+  onToggleSelect?:(id:string)=>void;
+  onLongPressSelect?:(id:string)=>void;
+  clipboardCount?:number;
+  onPasteAtTime?:(time:string)=>void;
 }
 
 export function FoodTimeline({
@@ -40,6 +45,12 @@ export function FoodTimeline({
   showEmptySlots=false,
   timelineView='full',
   onAddAtTime,
+  isSelecting=false,
+  selectedIds,
+  onToggleSelect,
+  onLongPressSelect,
+  clipboardCount=0,
+  onPasteAtTime,
 }:FoodTimelineProps){
   const [movingEntries,setMovingEntries]=useState<Entry[]|null>(null);
   const [copyingEntry,setCopyingEntry]=useState<Entry|null>(null);
@@ -65,9 +76,9 @@ export function FoodTimeline({
     return()=>window.clearTimeout(timer);
   },[entries]);
 
-  const handleMove=async(moving:Entry[],destinationDate:string,time:string|null)=>{
+  const handleMove=async(moving:Entry[],destinationDate:string,time:string|null|undefined)=>{
     await onMove(moving,destinationDate,time);
-    setAnnouncement(moveAnnouncement(moving.length,time));
+    setAnnouncement(moveAnnouncement(moving.length,time??null));
   };
 
   const openActions=(entry:Entry,trigger:HTMLElement)=>{
@@ -86,7 +97,7 @@ export function FoodTimeline({
   }]:[];
 
   const {draggingEntry,dropOverTime,bindDrag}=useTimelineDrag({
-    enabled:!readOnly,
+    enabled:!readOnly&&!isSelecting,
     onDrop:(entry,targetTime)=>void handleMove([entry],date,targetTime),
   });
 
@@ -102,14 +113,24 @@ export function FoodTimeline({
       >
         <div className="food-time-label">
           <span className="food-time-label-main">{group.time?<time dateTime={`${date}T${group.time}`}>{group.label}</time>:group.label}</span>
-          {group.entries.length>0&&group.time&&onAddAtTime&&<Button
-            variant="tertiary"
-            size="icon"
-            className="food-slot-add"
-            aria-label={`Add food at ${group.label}`}
-            onClick={()=>onAddAtTime(group.time)}
-          >+</Button>}
-          {group.entries.length>1&&!readOnly&&<div style={{marginTop:4}}>
+          <div className="food-slot-actions">
+            {group.entries.length>0&&group.time&&onAddAtTime&&<Button
+              variant="tertiary"
+              size="icon"
+              className="food-slot-add"
+              aria-label={`Add food at ${group.label}`}
+              onClick={()=>onAddAtTime(group.time)}
+            >+</Button>}
+            {group.time&&clipboardCount>0&&onPasteAtTime&&<Button
+              variant="tertiary"
+              size="icon"
+              className="food-slot-paste"
+              aria-label={`Paste ${clipboardCount} foods at ${group.label}`}
+              title={`Paste ${clipboardCount} foods at ${group.label}`}
+              onClick={()=>onPasteAtTime(group.time)}
+            ><ClipboardPaste size={16}/></Button>}
+          </div>
+          {group.entries.length>1&&!readOnly&&!isSelecting&&<div style={{marginTop:4}}>
             <Button
               variant="tertiary"
               size="sm"
@@ -124,41 +145,35 @@ export function FoodTimeline({
           </div>}
         </div>
         <div className={`food-time-cards ${group.entries.length===0?'food-time-cards-empty':''}`}>
-          {group.entries.length===0&&onAddAtTime&&<Button variant="tertiary" className="food-empty-slot-action" onClick={()=>onAddAtTime(group.time)}>
-            Add food at {group.label}
-          </Button>}
+          {group.entries.length===0&&(
+            <div className="food-empty-slot-actions">
+              {onAddAtTime&&<Button variant="tertiary" className="food-empty-slot-action" onClick={()=>onAddAtTime(group.time)}>
+                Add food at {group.label}
+              </Button>}
+              {clipboardCount>0&&onPasteAtTime&&<Button variant="tertiary" className="food-empty-slot-paste" onClick={()=>onPasteAtTime(group.time)}>
+                Paste {clipboardCount} {clipboardCount===1?'food':'foods'} at {group.label}
+              </Button>}
+            </div>
+          )}
           {group.entries.map(entry=>{
             const pending=store.local?.queue.filter(op=>op.kind==='entry'&&op.recordId===entry.id)??[];
             const dragProps=bindDrag(entry);
-            return <article
-              className={`panel food-time-card ${movedIds.has(entry.id)?'food-time-card-moved':''}`.trim()}
+            return <FoodTimeCard
               key={entry.id}
-              {...dragProps}
-            >
-              <div className="food-time-card-header">
-                <h3 className="food-time-card-title">
-                  <Button variant="tertiary" disabled={readOnly} onClick={()=>onEdit(entry)}>{entry.name}</Button>
-                </h3>
-                <div className="food-time-card-aside">
-                  <strong className="food-time-card-energy">{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small></strong>
-                  <Button
-                    variant="tertiary"
-                    size="icon"
-                    className="food-time-card-more"
-                    disabled={readOnly}
-                    aria-label={`More actions for ${entry.name}`}
-                    title="More actions"
-                    onClick={event=>openActions(entry,event.currentTarget)}
-                  ><MoreHorizontal size={19}/></Button>
-                </div>
-              </div>
-              <div className="food-time-card-details">
-                <span className="food-time-card-portion">{displayPortion(entry)}</span>
-                <span className="food-time-card-dot" aria-hidden="true">·</span>
-                <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat} fiber={entry.fiber} includeFiber/>
-              </div>
-              {pending.length>0&&<small className="sync-label" role="status">{pending.find(op=>op.error)?.error??'Pending sync'}</small>}
-            </article>;
+              entry={entry}
+              energyUnit={energyUnit}
+              readOnly={readOnly}
+              isSelecting={isSelecting}
+              isSelected={Boolean(selectedIds?.has(entry.id))}
+              isMoved={movedIds.has(entry.id)}
+              pendingError={pending.find(op=>op.error)?.error}
+              isPendingSync={pending.length>0}
+              onEdit={onEdit}
+              onOpenActions={openActions}
+              onToggleSelect={id=>onToggleSelect?.(id)}
+              onLongPressSelect={id=>onLongPressSelect?.(id)}
+              dragProps={dragProps}
+            />;
           })}
         </div>
       </li>)}
@@ -207,8 +222,6 @@ function useTimelineDrag({
 }){
   const [draggingEntry,setDraggingEntry]=useState<Entry|null>(null);
   const [dropOverTime,setDropOverTime]=useState<string|null>(null);
-  // Reduced motion settles visual feedback; it must not remove the drag
-  // affordance or the keyboard-friendly Move action.
   const isEnabled=enabled;
 
   const activeRef=useRef<{
@@ -283,7 +296,7 @@ function useTimelineDrag({
   const onPointerDown=(entry:Entry,event:React.PointerEvent<HTMLElement>)=>{
     if(!isEnabled)return;
     const target=event.target as HTMLElement;
-    if(target.closest('button,a,input,select,textarea,summary'))return;
+    if(target.closest('button,a,input,select,textarea,summary,.food-card-select-checkbox'))return;
 
     const el=event.currentTarget;
     const pointerId=event.pointerId;

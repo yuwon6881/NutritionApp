@@ -1,4 +1,5 @@
 import type {CoachingSettings,EnergyUnit,HeightUnit,UnitPreferences,WeightUnit} from '../types';
+export type {EnergyUnit,HeightUnit,UnitPreferences,WeightUnit};
 import {number} from './format';
 
 export const defaultUnits:UnitPreferences={weight:'kg',energy:'kcal',height:'cm'};

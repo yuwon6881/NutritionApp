@@ -3,6 +3,7 @@ import type {AppState,Entry,LocalData,Mutation} from '../types';
 import {mealReadOnly,mealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget} from './foodDiary';
 import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
+import {createPasteMutations} from './useFoodClipboard';
 
 const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-06-12',end:'2026-09-09',entries:[],foods:[],weights:[],days:[],plans:[],detailDays:90};
 const entry=(id:string,time?:string|null):Entry=>({id,time,date:'2026-09-09',name:'Quick add',quantity:1,unit:'serving',calories:300,protein:null,carbs:null,fat:null,fiber:null,source:'Quick add',revision:0,deleted:false});
@@ -161,4 +162,39 @@ it('projects moved entry into newly created timeline row', () => {
   expect(row1530).toBeDefined();
   expect(row1530?.entries[0].id).toBe('item-1');
   expect(groups.find(g => g.time === '08:00')).toBeUndefined();
+});
+
+it('creates paste mutations with target time slot', () => {
+  const items = [entry('item-1', '08:00'), entry('item-2', '12:00')];
+  const mutations = createPasteMutations(items, '2026-09-19', '18:30');
+  expect(mutations).toHaveLength(2);
+  expect(mutations[0].data.date).toBe('2026-09-19');
+  expect(mutations[0].data.time).toBe('18:30');
+  expect(mutations[1].data.date).toBe('2026-09-19');
+  expect(mutations[1].data.time).toBe('18:30');
+  expect(mutations[0].recordId).not.toBe('item-1');
+  expect(mutations[1].recordId).not.toBe('item-2');
+  expect(mutations[0].recordId).not.toBe(mutations[1].recordId);
+});
+
+it('creates paste mutations preserving original times when target time is undefined', () => {
+  const items = [entry('item-1', '08:00'), entry('item-2', '12:00'), entry('item-3', null)];
+  const mutations = createPasteMutations(items, '2026-09-19');
+  expect(mutations).toHaveLength(3);
+  expect(mutations[0].data.date).toBe('2026-09-19');
+  expect(mutations[0].data.time).toBe('08:00');
+  expect(mutations[1].data.date).toBe('2026-09-19');
+  expect(mutations[1].data.time).toBe('12:00');
+  expect(mutations[2].data.date).toBe('2026-09-19');
+  expect(mutations[2].data.time).toBeNull();
+});
+
+it('timelineSlots returns 0 rows for empty entries in data view and 24 rows in full view', () => {
+  const empty: Entry[] = [];
+  const dataSlots = timelineSlots(empty, 0, 23, 'data');
+  expect(dataSlots).toHaveLength(0);
+  const fullSlots = timelineSlots(empty, 0, 23, 'full');
+  expect(fullSlots).toHaveLength(24);
+  expect(fullSlots[0].time).toBe('00:00');
+  expect(fullSlots[23].time).toBe('23:00');
 });

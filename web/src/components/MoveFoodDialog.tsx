@@ -14,7 +14,7 @@ export interface MoveFoodDialogProps {
   entries:Entry[];
   groups:{time:string;label:string;entries:Entry[]}[];
   currentDate:string;
-  onMove:(entries:Entry[],date:string,time:string|null)=>Promise<void>|void;
+  onMove:(entries:Entry[],date:string,time:string|null|undefined)=>Promise<void>|void;
   restoreFocus?:HTMLElement|null;
 }
 
@@ -29,8 +29,10 @@ export function MoveFoodDialog({
 }:MoveFoodDialogProps){
   const sourceDate=entries[0]?.date??currentDate;
   const sourceTime=entries[0]?.time??'';
+  const hasMultipleTimes=new Set(entries.map(e=>e.time??'')).size>1;
   const [destinationDate,setDestinationDate]=useState(sourceDate);
   const [destinationTime,setDestinationTime]=useState(sourceTime);
+  const [keepOriginalTimes,setKeepOriginalTimes]=useState(hasMultipleTimes);
   const [error,setError]=useState('');
   const {busy,run,reset}=useAsyncAction();
   const initial=useRef({date:sourceDate,time:sourceTime});
@@ -40,16 +42,17 @@ export function MoveFoodDialog({
     const next={date:entries[0]?.date??currentDate,time:entries[0]?.time??''};
     setDestinationDate(next.date);
     setDestinationTime(next.time);
+    setKeepOriginalTimes(hasMultipleTimes);
     setError('');
     initial.current=next;
     reset();
-  },[open,entries,currentDate,reset]);
+  },[open,entries,currentDate,hasMultipleTimes,reset]);
 
   const validDate=destinationDate>='2000-01-01'&&destinationDate<=currentDate;
   const targets=destinationDate===sourceDate?moveTargets(groups,sourceTime):[];
   const title=entries.length>1?`Move ${entries.length} entries`:entries.length===1?`Move ${entries[0].name}`:'Move entries';
 
-  const submitDestination=async(date:string,time:string|null)=>{
+  const submitDestination=async(date:string,time:string|null|undefined)=>{
     if(date<'2000-01-01'||date>currentDate){setError('Choose a date from 2000 through today.');return;}
     setError('');
     try{
@@ -60,13 +63,21 @@ export function MoveFoodDialog({
 
   const submitForm=async(event:FormEvent)=>{
     event.preventDefault();
-    const time=normalizeTime(destinationTime);
     if(!validDate){setError('Choose a date from 2000 through today.');return;}
+    if(keepOriginalTimes&&destinationDate!==sourceDate){
+      await submitDestination(destinationDate,undefined);
+      return;
+    }
+    const time=normalizeTime(destinationTime);
     if(time===undefined){setError('Choose a valid meal time (HH:mm), or leave it blank.');return;}
     await submitDestination(destinationDate,time);
   };
 
   const moveToToday=async()=>{
+    if(hasMultipleTimes){
+      await submitDestination(currentDate,undefined);
+      return;
+    }
     const time=normalizeTime(sourceTime);
     if(time===undefined){setError('The original meal time is invalid. Choose another time.');return;}
     await submitDestination(currentDate,time);
@@ -88,7 +99,7 @@ export function MoveFoodDialog({
         <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void moveToToday()} disabled={busy}>
           <span className="action-sheet-item-text">
             <strong>Move to today</strong>
-            <small>{sourceTime?`Keep ${timeLabel(sourceTime)}`:'Keep time not recorded'}</small>
+            <small>{hasMultipleTimes?'Keep original times for each entry':sourceTime?`Keep ${timeLabel(sourceTime)}`:'Keep time not recorded'}</small>
           </span>
         </Button>
       </div>}
@@ -120,7 +131,17 @@ export function MoveFoodDialog({
           validate={()=>validDate?undefined:'Choose a date from 2000 through today.'}
           onChange={value=>{setDestinationDate(value);setError('');}}
         />
-        <Field
+        {entries.length>1&&destinationDate!==sourceDate&&<div className="checks" style={{marginBottom:14}}>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={keepOriginalTimes}
+              onChange={e=>setKeepOriginalTimes(e.target.checked)}
+            />
+            <span>Keep original time for each entry</span>
+          </label>
+        </div>}
+        {(!keepOriginalTimes||destinationDate===sourceDate)&&<Field
           id="move-food-time"
           name="destinationTime"
           type="time"
@@ -129,7 +150,7 @@ export function MoveFoodDialog({
           value={destinationTime}
           onChange={event=>{setDestinationTime(event.target.value);setError('');}}
           validate={()=>destinationTime&&!normalizeTime(destinationTime)?'Choose a valid meal time (HH:mm).':undefined}
-        />
+        />}
         {error&&<p className="error" role="alert">{error}</p>}
         <div className="modal-actions">
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
