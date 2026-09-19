@@ -50,5 +50,5 @@ Applies only to this independent repository; app-specific rules override the par
 
 - Frontend: `web/`; API: `api/`; API regressions: `tests/`; browser tests: `web/e2e/`. Use Node 24 and the repository's .NET SDK requirements.
 - From repository root: `dotnet test tests/Nutrition.Tests.csproj`. From `web/`: `npm.cmd run check:docs`, `npm.cmd run check:standards`, `npm.cmd run typecheck`, `npm.cmd test`, `npm.cmd run build`; UI/shared-surface changes also require `npm.cmd run test:visual`.
-- Browser tests reset accounts: use an isolated development API/database, never production or a personal diary. Serialize shared build/browser output when other work is running.
+- Browser tests reset accounts: use an isolated development API/database, never production or a personal diary. Browser tests run against the production preview bundle in `web/dist/`; `npm.cmd run test:visual` compiles fresh assets before testing (`npm run build && playwright test`). Always ensure `npm.cmd run build` has run when invoking browser tests so tests never execute against a missing or stale bundle. Serialize shared build/browser output when other work is running.
 - Verify documentation equality and `git diff --check`. Report commands and distinguish source/test evidence from live-provider, browser, or deployment evidence; skipped checks remain unverified.

@@ -11,7 +11,7 @@
     "build": "tsc -b && node scripts/build.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 5088 --strictPort",
     "test": "vitest run --maxWorkers=1",
-    "test:visual": "playwright test",
+    "test:visual": "npm run build && playwright test",
     "typecheck": "tsc -b",
     "check:standards": "node ../scripts/check-standards.mjs",
     "check:docs": "node ../scripts/sync-docs.mjs --check"
