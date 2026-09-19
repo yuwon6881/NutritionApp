@@ -130,7 +130,7 @@ test.describe('Coach unit selection', () => {
     expect(options).not.toContain('Ongoing phase');
 
     // Move the dial to approximately 72 kg; the current 80 kg is the default.
-    await page.mouse.click(box!.x + box!.width * 0.829, box!.y + box!.height * 0.716);
+    await page.mouse.click(box!.x + box!.width * 0.5, box!.y + box!.height * 0.18);
     const selectedWeight=Number(await slider.getAttribute('aria-valuenow'));
     expect(selectedWeight).toBeGreaterThan(70);
     expect(selectedWeight).toBeLessThan(73);
@@ -161,7 +161,7 @@ test.describe('Coach unit selection', () => {
     await highProteinCard.click();
     await expect(highProteinCard).toHaveClass(/selected/);
     await expect(highProteinCard).toHaveAttribute('aria-checked', 'true');
-    await expect(customCard.locator('.macro-preset-stats')).toHaveText(customPreviewBefore);
+    expect(await customCard.locator('.macro-preset-stats').innerText()).toBe(customPreviewBefore);
 
     // Capture Step 4 screenshot
     await page.screenshot({path: 'artifacts/coach-step4-macros-dark.png', fullPage: false});

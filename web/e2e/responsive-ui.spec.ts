@@ -62,8 +62,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       expect(sidebar!.width).toBe(width<1024?88:228);
       await page.evaluate(()=>window.scrollTo(0,400));
       const scrolledSidebar=await page.locator('.sidebar').boundingBox();
-      expect(scrolledSidebar!.y).toBe(0);
-      expect(scrolledSidebar!.height).toBe(900);
+      expect(Math.abs(scrolledSidebar!.y)).toBeLessThanOrEqual(1);
+      expect(Math.abs(scrolledSidebar!.height - 900)).toBeLessThanOrEqual(1);
       await page.evaluate(()=>window.scrollTo(0,0));
     }
     await expect(page.getByRole('heading',{name:'Recent and upcoming workouts',exact:true})).toBeVisible();

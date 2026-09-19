@@ -10,8 +10,8 @@ Applies only to this independent repository; app-specific rules override the par
 ## Implemented feature index
 
 - FitnessAccount central sign-in and account profile/settings; consumer sessions and account-scoped data.
-- Food diary, explicit logging-day decisions, batch entry, bulk selection (touch hold / toolbar select), bulk deletion, bulk move (same-day or date targets), clipboard copy-and-paste across days and timeline slots, shared food search, saved/custom foods, recipes, barcode lookup/private mappings, and editable AI text/photo/label estimates.
-- Offline retained edits and image drafts, automatic synchronization, retry and conflict review.
+- Food diary with instant dated cached rendering, quiet background revalidation with conditional 304, explicit logging-day decisions, batch entry, bulk selection (touch hold / toolbar select), bulk deletion, bulk move (same-day or date targets) with immediate coordinator projection, clipboard copy-and-paste across days and timeline slots, shared food search, saved/custom foods, recipes, barcode lookup/private mappings, and editable AI text/photo/label estimates.
+- Offline retained edits and image drafts, partitioned IndexedDB storage, bounded diary date-range queries, separate bootstrap and foods endpoints, automatic synchronization, retry and conflict review.
 - Weight and body records/photos, goal phases, macro/weekly targets, server coaching/check-ins, expenditure estimates, and progress/energy-history charts.
 - Google Health steps and Workout summaries with temporary sync warnings; optional, disabled-by-default one-way scale-weight uploads with consent, durable background retries, mapped edit/delete handling, and explicit unknown-upload recovery; integration settings and account exports. The compact Dashboard steps insight appears only for a connected Google Health account, directly below calories and macros; Settings Sync now explicitly bypasses the short server cache for a provider refresh. These integrations do not automatically change calorie or macro targets; NutritionApp remains authoritative for local weights, trends, and coaching.
 

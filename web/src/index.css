@@ -480,7 +480,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .circular-slider-bound .bound-value{font-size:.82rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}
 
 .circular-slider-steppers{display:flex;align-items:center;gap:8px}
-.slider-stepper-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;min-width:40px;min-height:40px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--foreground);cursor:pointer;transition:background var(--coach-short),border-color var(--coach-short),transform 100ms ease,color var(--coach-short);padding:0;outline:none;touch-action:manipulation}
+.slider-stepper-btn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--foreground);cursor:pointer;transition:background var(--coach-short),border-color var(--coach-short),transform 100ms ease,color var(--coach-short);padding:0;outline:none;touch-action:manipulation}
 .slider-stepper-btn:hover:not(:disabled){background:var(--primary-tint);border-color:var(--primary);color:var(--primary-ink)}
 .slider-stepper-btn:active:not(:disabled){transform:scale(.92)}
 .slider-stepper-btn:focus-visible{outline:2px solid var(--ring);outline-offset:2px}

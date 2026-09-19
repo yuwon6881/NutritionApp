@@ -19,6 +19,131 @@ public static class RecordEndpoints
 
     public static void MapRecords(this WebApplication app)
     {
+        app.MapGet("/api/bootstrap", async (HttpContext http, AppDb db, RetentionService retention, ExpenditureTrajectoryService trajectory, WorkoutSummaryService training, CancellationToken ct) =>
+        {
+            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+            var etag = $"\"{user.Revision}\"";
+            if (http.Request.Headers.IfNoneMatch == etag)
+            {
+                http.Response.Headers.ETag = etag;
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+            var snapshots = await trajectory.EnsureThroughToday(ct);
+            var today = RetentionService.Today(user.ProfileJson);
+            var end = today;
+            var start = end.AddDays(-89);
+            var energySnapshots = snapshots.Where(snapshot => snapshot.Date >= start && snapshot.Date <= end).ToList();
+            var precedingSnapshot = snapshots.Where(snapshot => snapshot.Date < start).OrderByDescending(snapshot => snapshot.Date).FirstOrDefault();
+            if (precedingSnapshot != null) energySnapshots.Insert(0, precedingSnapshot);
+            var orderedPlans = await db.Plans.OrderBy(plan => plan.Date).ThenBy(plan => plan.Revision).ToListAsync(ct);
+            var acceptedTargetIntervals = BuildAcceptedTargetIntervals(orderedPlans, today);
+            var workoutConnected = await training.IsConnected(ct);
+            var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
+            http.Response.Headers.ETag = etag;
+            return Results.Ok(new {
+                user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
+                settings = new { checkInWeekday = user.CheckInWeekday, revision = user.CoachingSettingsRevision, changedDate = user.CoachingSettingsChangedDate, weightUnit = user.WeightUnit, energyUnit = user.EnergyUnit, heightUnit = user.HeightUnit, missingDayAction = user.MissingDayAction ?? "ask", weightGoalMetric = user.WeightGoalMetric ?? "scale" },
+                profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson),
+                start, end,
+                detailCutoff = RetentionService.Cutoff(today, retention.DetailDays),
+                detailDays = retention.DetailDays,
+                energyEstimates = energySnapshots.Select(snapshot => new { date = snapshot.Date, revision = snapshot.SourceRevision, expenditure = snapshot.Expenditure, suggestedCalories = snapshot.SuggestedCalories, confidence = snapshot.Confidence, holdReason = snapshot.HoldReason, algorithmVersion = snapshot.AlgorithmVersion, trendWeightKg = snapshot.TrendWeightKg }),
+                acceptedTargetIntervals,
+                entries = await db.Entries.Where(e => e.Date >= start && e.Date <= end).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct),
+                weights = await db.Weights.Where(w => w.Date >= start && w.Date <= end).OrderBy(w => w.Date).ToListAsync(ct),
+                weightTrendSeed = await db.Weights.Where(w => w.Date >= start.AddDays(-56) && w.Date < start && !w.Deleted).OrderBy(w => w.Date).ToListAsync(ct),
+                days = await db.Days.Where(d => d.Date >= start && d.Date <= end).ToListAsync(ct),
+                plans = await db.Plans.OrderByDescending(p => p.Revision).Take(12).ToListAsync(ct),
+                checkIns = await db.CheckIns.OrderByDescending(c => c.Revision).Take(12).ToListAsync(ct),
+                phaseDecisions = await db.PhaseDecisions.OrderByDescending(d => d.Revision).Take(12).ToListAsync(ct),
+                workoutConnected,
+                workoutWarning
+            });
+        });
+
+        app.MapGet("/api/diary", async (HttpContext http, AppDb db, RetentionService retention, DateOnly? from, DateOnly? to, CancellationToken ct) =>
+        {
+            Validation.Require(from is not null && to is not null, "Specify both 'from' and 'to' dates.");
+            var startDate = from!.Value;
+            var endDate = to!.Value;
+            Validation.Require(startDate <= endDate, "The start date must be before or equal to the end date.");
+            Validation.Require(endDate.DayNumber - startDate.DayNumber + 1 <= 31, "Diary range cannot exceed 31 days.");
+            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+            var today = RetentionService.Today(user.ProfileJson);
+            Validation.Require(startDate >= new DateOnly(2000, 1, 1) && endDate <= today, "Choose a supported diary date.");
+
+            var etag = $"\"{user.Revision}:{startDate:yyyy-MM-dd}:{endDate:yyyy-MM-dd}\"";
+            if (http.Request.Headers.IfNoneMatch == etag)
+            {
+                http.Response.Headers.ETag = etag;
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+
+            var entries = await db.Entries.Where(e => e.Date >= startDate && e.Date <= endDate).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct);
+            var days = await db.Days.Where(d => d.Date >= startDate && d.Date <= endDate).OrderBy(d => d.Date).ToListAsync(ct);
+            var cutoff = RetentionService.Cutoff(today, retention.DetailDays);
+
+            http.Response.Headers.ETag = etag;
+            return Results.Ok(new {
+                from = startDate,
+                to = endDate,
+                revision = user.Revision,
+                detailCutoff = cutoff,
+                detailDays = retention.DetailDays,
+                entries,
+                days
+            });
+        });
+
+        app.MapGet("/api/foods", async (HttpContext http, AppDb db, CancellationToken ct) =>
+        {
+            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+            var etag = $"\"{user.Revision}\"";
+            if (http.Request.Headers.IfNoneMatch == etag)
+            {
+                http.Response.Headers.ETag = etag;
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+            var foods = await db.Foods.Where(f => !f.Deleted).OrderBy(f => f.Name).Take(1000).ToListAsync(ct);
+            http.Response.Headers.ETag = etag;
+            return Results.Ok(new {
+                foods,
+                revision = user.Revision
+            });
+        });
+
+        app.MapGet("/api/training/summary", async (AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
+        {
+            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+            var today = RetentionService.Today(user.ProfileJson);
+            var start = from ?? today.AddDays(-89);
+            var end = to ?? today.AddDays(14);
+            var trainingSummary = await training.Get(start, end, ct);
+            var workoutConnected = await training.IsConnected(ct);
+            var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
+            return Results.Ok(new {
+                summaries = trainingSummary,
+                workoutConnected,
+                workoutWarning
+            });
+        });
+
+        app.MapGet("/api/training", async (AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
+        {
+            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+            var today = RetentionService.Today(user.ProfileJson);
+            var start = from ?? today.AddDays(-89);
+            var end = to ?? today.AddDays(14);
+            var trainingSummary = await training.Get(start, end, ct);
+            var workoutConnected = await training.IsConnected(ct);
+            var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
+            return Results.Ok(new {
+                summaries = trainingSummary,
+                workoutConnected,
+                workoutWarning
+            });
+        });
+
         app.MapGet("/api/state",async(AppDb db,RetentionService retention,ExpenditureTrajectoryService trajectory,WorkoutSummaryService training,DateOnly? date,int? year,CancellationToken ct) =>
         {
             var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);

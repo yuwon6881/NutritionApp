@@ -67,7 +67,8 @@ export function LogFood({
   restoreFocus?:HTMLElement|null;
 }){
   const defaultTab=initialTab??(initialAi?'ai':'search');
-  const history=useHistoryWindow(store,date);
+  const history=useHistoryWindow(store,date,open);
+  useEffect(()=>{if(open)void store.loadSavedFoods?.();},[open,store]);
   const basket=useFoodBasket(open);
   const [step,setStep]=useState<FoodStep>(editing?'editor':'selection');
   const [selectionPurpose,setSelectionPurpose]=useState<'log'|'recipe'>('log');
@@ -639,7 +640,7 @@ export function LogFood({
   </div>;
 
   const child=step==='batch'
-    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{selectTab('search');go('selection');}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
+    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{if(tab==='ai'){go('selection');}else{selectTab('search');go('selection');}}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setLabelNote('');go('selection');}else if(editing){onClose();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor

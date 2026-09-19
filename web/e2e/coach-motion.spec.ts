@@ -193,7 +193,7 @@ test('custom macro slider supports a held mouse drag',async({page})=>{
   await page.mouse.move(box!.x+box!.width*.85,y,{steps:8});
   await page.mouse.up();
   await expect.poll(async()=>Number(await slider.getAttribute('aria-valuenow'))).toBeGreaterThan(before);
-  expect(Number(await page.locator('.macro-row-percent').first().textContent()?.replace('%',''))).toBeGreaterThan(before);
+  expect(Number((await page.locator('.macro-row-percent').first().textContent())?.replace('%',''))).toBeGreaterThan(before);
 });
 
 test('weekly check-in opens immediately, waits in the modal, and retries',async({page,context})=>{
@@ -249,7 +249,7 @@ test('lost acceptance response replays the exact identity and revision',async({p
   await expect(page.getByRole('alert')).toContainText('Activation could not be confirmed');
   await expect(page.getByRole('button',{name:'Back to edit',exact:true})).toBeDisabled();
   // Reconcile state between attempts: retry must still use the original input revision.
-  const refreshed=page.waitForResponse('**/api/state');
+  const refreshed=page.waitForResponse(/\/api\/(state|bootstrap)/);
   await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await refreshed;
   await page.getByRole('button',{name:'Accept this plan',exact:true}).click();
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
@@ -268,7 +268,7 @@ test('offline profile retention and acceptance refresh failure recover without d
   await page.route('**/api/coach/accept',async route=>{
     accepts++;const response=await route.fetch();failRefresh=true;await route.fulfill({response});
   });
-  await page.route('**/api/state',route=>failRefresh?route.fulfill({status:503,json:{message:'Unavailable'}}):route.continue());
+  await page.route(/\/api\/(state|bootstrap)/,route=>failRefresh?route.fulfill({status:503,json:{message:'Unavailable'}}):route.continue());
   await page.getByRole('button',{name:'Accept this plan',exact:true}).click();
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Retry loading targets',exact:true})).toBeVisible();

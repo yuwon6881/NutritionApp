@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult} from '../types';
 import {number,today,trend} from '../lib/format';
@@ -48,6 +48,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
   // Once a connection is known, keep the card visible during background refresh so
   // a temporary loading state does not make the dashboard jump.
   const showGoogleHealthSteps = shouldShowDashboardSteps(ghState,ghLoading);
+  useEffect(()=>{void store.loadTrainingSummaries?.();},[store]);
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"

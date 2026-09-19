@@ -49,12 +49,32 @@ export function FoodTimeCard({
     }
   };
 
+  const pointerProps = isSelecting ? {} : {
+    ...dragProps,
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+      (dragProps.onPointerDown as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
+      handlers.onPointerDown(e);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
+      (dragProps.onPointerMove as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
+      handlers.onPointerMove(e);
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLElement>) => {
+      (dragProps.onPointerUp as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
+      handlers.onPointerUp();
+    },
+    onPointerCancel: (e: React.PointerEvent<HTMLElement>) => {
+      (dragProps.onPointerCancel as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
+      handlers.onPointerCancel();
+    },
+  };
+
   return (
     <article
       className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isSelected?'food-time-card-selected':''}`.trim()}
       data-selected={isSelected?true:undefined}
       onClick={isSelecting?handleCardClick:undefined}
-      {...(isSelecting?{}:{...dragProps,...handlers})}
+      {...pointerProps}
     >
       <div className="food-time-card-header">
         {isSelecting&&<div

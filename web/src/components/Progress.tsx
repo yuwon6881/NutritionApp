@@ -23,14 +23,15 @@ const progressKinds=new Set(['entry','weight','day','profile','settings']);
 
 function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean){
   const [error,setError]=useState('');
-  const [loading,setLoading]=useState(enabled);
   const cached=store.local?.progress?.[period];
+  const [loading,setLoading]=useState(!cached&&enabled);
   const load=useCallback(async()=>{
     if(!enabled)return;
-    setLoading(true);setError('');
+    if(!cached)setLoading(true);
+    setError('');
     try{await store.refreshProgress(period);}catch(ex){setError((ex as Error).message);}
     finally{setLoading(false);}
-  },[enabled,period,store.refreshProgress]);
+  },[cached,enabled,period,store.refreshProgress]);
   const revision=store.local?.state.revision;
   const queueKey=store.local?.queue.filter(item=>progressKinds.has(item.kind)).map(item=>item.id+item.error).join('|')??'';
   useEffect(()=>{void load();},[load,revision,queueKey,store.calendarDate]);
@@ -48,6 +49,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
   const {state:ghState,loading:ghLoading}=useGoogleHealth();
   const state=store.state!;
+  useEffect(()=>{void store.loadTrainingSummaries?.();},[store]);
   const units=unitsFor(state.settings);
   const tabs=[['weight','Weight'],['energy','Energy'],['body','Body']] as const;
   const tabDirection:1|-1=tab==='body'?-1:1;
