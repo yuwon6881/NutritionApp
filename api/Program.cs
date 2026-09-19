@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -14,8 +16,16 @@ if(!builder.Environment.IsDevelopment()&&(!Uri.TryCreate(builder.Configuration["
     throw new InvalidOperationException("PublicOrigin must be the exact public HTTPS origin in production.");
 builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=2_200_000);
 builder.Services.Configure<ForwardedHeadersOptions>(o=> { o.ForwardedHeaders=ForwardedHeaders.XForwardedProto; });
-builder.Services.AddDbContext<AppDb>(o=>
+builder.Services.AddResponseCompression(o=>
 {
+    o.EnableForHttps=true;
+    o.MimeTypes=["application/json","text/plain","text/css","application/javascript"];
+});
+builder.Services.AddSingleton<DatabaseMetricsInterceptor>();
+builder.Services.AddTransient<ExternalCallMetricsHandler>();
+builder.Services.AddDbContext<AppDb>((services,o)=>
+{
+    o.AddInterceptors(services.GetRequiredService<DatabaseMetricsInterceptor>());
     var connection=builder.Configuration.GetConnectionString("Database");
     if(!string.IsNullOrWhiteSpace(connection)) o.UseNpgsql(ConnectionSettings.Normalize(connection));
     else if(builder.Environment.IsDevelopment()) o.UseSqlite("Data Source="+(builder.Configuration["Database:SqlitePath"]??"nutrition.db"));
@@ -43,21 +53,21 @@ builder.Services.AddOpenIddict().AddValidation(options =>
     options.UseSystemNetHttp();
     options.UseAspNetCore();
 });
-builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45));
+builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
 // Open Food Facts asks every read to identify its caller or risk being served as a bot, and both
 // food search and barcode lookup now go there, so the identity belongs on the shared client.
 builder.Services.AddHttpClient<FoodSearchService>(c=>{
   c.Timeout=TimeSpan.FromSeconds(20);
   c.DefaultRequestHeaders.UserAgent.ParseAdd("NutritionCoach/1.0 (two-user personal nutrition tracker)");
-});
-builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSeconds(30));
-builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90));
-builder.Services.AddHttpClient<IGoogleHealthKms, GoogleCloudKmsService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
-builder.Services.AddHttpClient<GoogleHealthService>(c=>c.Timeout=TimeSpan.FromSeconds(30));
-builder.Services.AddHttpClient<GoogleHealthWeightSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20));
-builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(3));
-builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10));
+}).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSeconds(30)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<IGoogleHealthKms, GoogleCloudKmsService>(c=>c.Timeout=TimeSpan.FromSeconds(30)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<GoogleHealthService>(c=>c.Timeout=TimeSpan.FromSeconds(30)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<GoogleHealthWeightSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(3)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddRateLimiter(o=>
 {
     o.RejectionStatusCode=429;
@@ -68,8 +78,25 @@ builder.Services.AddRateLimiter(o=>
         _=>new FixedWindowRateLimiterOptions { PermitLimit=5,Window=TimeSpan.FromMinutes(5),QueueLimit=0 }));
 });
 var app=builder.Build();
+var requestMeter=new Meter("Fitness.Nutrition.Api","1.0");
+var requestCount=requestMeter.CreateCounter<long>("http.server.request.count");
+var requestDuration=requestMeter.CreateHistogram<double>("http.server.request.duration", "ms");
+var responseBytes=requestMeter.CreateHistogram<long>("http.server.response.bytes", "bytes");
 app.UseForwardedHeaders();
 app.UseAuthentication();
+app.UseResponseCompression();
+app.Use(async(http,next)=>
+{
+    var started=Stopwatch.GetTimestamp();
+    try { await next(); }
+    finally
+    {
+        var route=http.GetEndpoint()?.DisplayName ?? "unmatched";
+        requestCount.Add(1, new KeyValuePair<string,object?>("route",route), new KeyValuePair<string,object?>("method",http.Request.Method), new KeyValuePair<string,object?>("status",http.Response.StatusCode));
+        requestDuration.Record(Stopwatch.GetElapsedTime(started).TotalMilliseconds, new KeyValuePair<string,object?>("route",route), new KeyValuePair<string,object?>("method",http.Request.Method));
+        if(http.Response.ContentLength is { } length) responseBytes.Record(length, new KeyValuePair<string,object?>("route",route));
+    }
+});
 app.Use(async(http,next)=>
 {
     http.Response.Headers.XContentTypeOptions="nosniff";

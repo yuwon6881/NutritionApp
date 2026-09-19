@@ -142,6 +142,8 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             if (day.Status == "fasting") Validation.Require(day.Calories == 0 && !await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
         }
         user.Revision = revision;
+        if (op.Kind == "food") user.FoodRevision = revision;
+        if (op.Kind is "entry" or "day") user.DiaryRevision = revision;
         if(op.Kind=="weight"&&weightSync!=null)
             await weightSync.QueueMutationAsync(previousWeight,op,revision,ct);
         if (op.Kind is "profile" or "entry" or "weight" or "day")
@@ -158,7 +160,12 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         var existing = await db.Set<T>().SingleOrDefaultAsync(x => x.Id == op.RecordId, ct);
         Validation.Require((existing?.Revision ?? 0) == op.ExpectedRevision, "This record changed on another device. Review the conflict.", 409);
         Validation.Require(!op.Delete || existing != null, "Record no longer exists.", 409);
-        if (op.Delete) { existing!.Deleted = true; existing.Revision = revision; return; }
+        if (op.Delete)
+        {
+            existing!.Deleted = true; existing.Revision = revision;
+            if (existing is Food deletedFood) deletedFood.DeletedAt = DateTime.UtcNow;
+            return;
+        }
         var next = op.Data.Deserialize<T>(Json.Options) ?? throw new DomainException("Record is required.");
         if(next is DiaryEntry entry&&existing is DiaryEntry savedEntry&&!op.Data.TryGetProperty("time",out _))entry.Time=savedEntry.Time;
         if(next is DiaryEntry portionEntry&&existing is DiaryEntry savedPortionEntry)
@@ -173,6 +180,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if(next is Food normalizedBarcodeFood)
             normalizedBarcodeFood.Barcode=string.IsNullOrWhiteSpace(normalizedBarcodeFood.Barcode)?null:normalizedBarcodeFood.Barcode.Trim();
         validate(next); next.Id = op.RecordId; next.UserId = db.CurrentUser!.Value; next.Revision = revision; next.Deleted = false;
+        if (next is Food restoredFood) restoredFood.DeletedAt = null;
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);
     }

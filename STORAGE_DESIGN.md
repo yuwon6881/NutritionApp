@@ -12,7 +12,7 @@ Recent edits remain recoverable through the existing queue. If a device stays of
 
 Twenty detailed entries per user per day become one summary row: a 95% reduction in that historical row count, before accounting for much shorter summaries and removed indexes/text. At two users, retained detail is bounded near 280 live entries at the assumed 20/day rate, rather than 146,000 entries after ten years. Daily summaries and weights add only hundreds of short rows per year per user. The food library is bounded at 1,000 records per user.
 
-Operational scan rows expire after seven days, images after processing or 24 hours, and idempotency receipts after 90 days. External food lookup caches are bounded in memory and do not occupy PostgreSQL. Physique images never occupy database rows.
+Operational scan rows expire after seven days, images after processing or 24 hours, and idempotency receipts after 90 days. Open Food Facts results are shared only as compact, account-independent product rows with one-day freshness and bounded maintenance cleanup; saved foods remain account-scoped. Physique images never occupy database rows.
 
 Deletion frees reusable PostgreSQL page space; it does not necessarily shrink the allocated database file immediately. Keep autovacuum enabled. Do not run automatic `VACUUM FULL`: it rewrites tables and takes disruptive locks, and needs operational planning. [PostgreSQL VACUUM](https://www.postgresql.org/docs/current/sql-vacuum.html).
 
@@ -26,7 +26,7 @@ If sharing an existing FinancialApp bucket, use a separate nutrition runtime ide
 
 Live read-only inspection on 2026-09-07 confirmed the existing bucket `financialapp-vault-396431756440` is in `ASIA-SOUTHEAST1`, with public-access prevention enforced, uniform bucket-level access, versioning enabled, and 30-day soft delete. Photo deletion therefore reads and deletes the exact object generation, avoiding indefinite noncurrent-version retention. The bucket's 30-day soft-delete billing still applies. Local ADC is not configured on this machine; real uploads require runtime ADC or an explicitly configured local development identity.
 
-GCS image storage, operations and egress are separately billed. Object versioning and soft delete can retain additional billable bytes, so evaluate the actual bucket configuration rather than assuming that deleting a photo immediately removes all storage charges. [GCS pricing](https://cloud.google.com/storage/pricing), [soft delete](https://docs.cloud.google.com/storage/docs/soft-delete).
+GCS image storage, operations and egress are separately billed. Object versioning and soft delete can retain additional billable bytes, so evaluate the actual bucket configuration rather than assuming that deleting a photo immediately removes all storage charges. The database records the uploaded generation and retains a bounded exact-generation deletion queue for replacements; tombstones are purged only after external deletion succeeds. [GCS pricing](https://cloud.google.com/storage/pricing), [soft delete](https://docs.cloud.google.com/storage/docs/soft-delete).
 
 ## Measurement
 

@@ -10,10 +10,34 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
 
     public async Task<IReadOnlyList<DailyExpenditureEstimate>> EnsureThroughToday(CancellationToken ct)
     {
+        // The common path is a read of the already complete 90-day window. Avoid
+        // taking the account mutation lock (and its connection) for that case;
+        // only a missing/stale window needs a serialized rebuild.
+        var complete = await TryReadComplete(ct);
+        if (complete is not null) return complete;
         await using var gate = await MutationLock.Acquire(db, db.CurrentUser, ct);
         var snapshots = await EnsureThroughTodayUnderLock(ct);
         await gate.Commit(ct);
         return snapshots;
+    }
+
+    private async Task<IReadOnlyList<DailyExpenditureEstimate>?> TryReadComplete(CancellationToken ct)
+    {
+        var user = await db.Users.AsNoTracking().SingleAsync(item => item.Id == db.CurrentUser, ct);
+        if (string.IsNullOrWhiteSpace(user.ProfileJson)) return [];
+        var profile = Json.Read<Profile>(user.ProfileJson);
+        var today = Today(profile);
+        var start = today.AddDays(-(BackfillDays - 1));
+        var sourceRevision = SourceRevision(user);
+        var existing = await db.ExpenditureEstimates.AsNoTracking().OrderBy(item => item.Date).ToListAsync(ct);
+        var expected = Enumerable.Range(0, BackfillDays).Select(offset => start.AddDays(offset)).ToArray();
+        var complete = existing.Count >= BackfillDays
+            && existing.First().Date <= start
+            && existing.Last().Date >= today
+            && expected.All(date => existing.Any(item => item.Date == date))
+            && existing.Where(item => item.Date >= start && item.Date <= today)
+                .All(item => item.SourceRevision == sourceRevision && item.AlgorithmVersion == ExpenditureTrajectory.AlgorithmVersion);
+        return complete ? Retained(existing, start) : null;
     }
 
     internal async Task<IReadOnlyList<DailyExpenditureEstimate>> EnsureThroughTodayUnderLock(CancellationToken ct)
@@ -37,8 +61,12 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
             await RebuildFromUnderLock(start, sourceRevision, ct);
             await db.SaveChangesAsync(ct);
         }
-        await db.ExpenditureEstimates.Where(item => item.Date < start).ExecuteDeleteAsync(ct);
-        return await db.ExpenditureEstimates.AsNoTracking().OrderBy(item => item.Date).ToListAsync(ct);
+        var retained = await db.ExpenditureEstimates.AsNoTracking().Where(item => item.Date >= start)
+            .OrderBy(item => item.Date).ToListAsync(ct);
+        var preceding = await db.ExpenditureEstimates.AsNoTracking().Where(item => item.Date < start)
+            .OrderByDescending(item => item.Date).FirstOrDefaultAsync(ct);
+        if (preceding is not null) retained.Insert(0, preceding);
+        return retained;
     }
 
     public async Task RebuildFrom(DateOnly from, long sourceRevision, CancellationToken ct)
@@ -146,6 +174,14 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
 
     private static long SourceRevision(AppUser user)
         => user.TrajectoryRevision != 0 ? user.TrajectoryRevision : user.ProfileRevision;
+
+    private static List<DailyExpenditureEstimate> Retained(IReadOnlyList<DailyExpenditureEstimate> rows, DateOnly start)
+    {
+        var result = rows.Where(row => row.Date >= start).OrderBy(row => row.Date).ToList();
+        var preceding = rows.Where(row => row.Date < start).OrderByDescending(row => row.Date).FirstOrDefault();
+        if (preceding is not null) result.Insert(0, preceding);
+        return result;
+    }
 
     private static DateOnly Today(Profile profile)
         => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,

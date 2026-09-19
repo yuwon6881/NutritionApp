@@ -19,6 +19,35 @@ public static class RecordEndpoints
 
     public static void MapRecords(this WebApplication app)
     {
+        app.MapGet("/api/revisions", async (HttpContext http, AppDb db, RetentionService retention, CancellationToken ct) =>
+        {
+            var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == db.CurrentUser, ct);
+            var training = await db.WorkoutSummaries.AsNoTracking().Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
+            var google = await db.GoogleHealthConnections.AsNoTracking().Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
+            var localDay = RetentionService.Today(user.ProfileJson);
+            var etag = $"\"revisions:{user.Id:N}:{user.Revision}:{user.ProfileRevision}:{user.CoachingSettingsRevision}:{user.TrajectoryRevision}:{user.FoodRevision}:{user.DiaryRevision}:{user.BodyRevision}:{training}:{google}:{localDay:yyyy-MM-dd}:{retention.DetailDays}\"";
+            if (http.Request.Headers.IfNoneMatch == etag)
+            {
+                http.Response.Headers.ETag = etag;
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+            http.Response.Headers.ETag = etag;
+            return Results.Ok(new
+            {
+                account = user.Revision,
+                profile = user.ProfileRevision,
+                settings = user.CoachingSettingsRevision,
+                trajectory = user.TrajectoryRevision,
+                foods = user.FoodRevision,
+                diary = user.DiaryRevision,
+                body = user.BodyRevision,
+                training,
+                google,
+                localDay,
+                detailDays = retention.DetailDays
+            });
+        });
+
         app.MapGet("/api/bootstrap", async (HttpContext http, AppDb db, RetentionService retention, ExpenditureTrajectoryService trajectory, WorkoutSummaryService training, CancellationToken ct) =>
         {
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
@@ -42,6 +71,7 @@ public static class RecordEndpoints
             http.Response.Headers.ETag = etag;
             return Results.Ok(new {
                 user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
+                diaryRevision = user.DiaryRevision, trajectoryRevision = user.TrajectoryRevision, bodyRevision = user.BodyRevision, foodRevision = user.FoodRevision,
                 settings = new { checkInWeekday = user.CheckInWeekday, revision = user.CoachingSettingsRevision, changedDate = user.CoachingSettingsChangedDate, weightUnit = user.WeightUnit, energyUnit = user.EnergyUnit, heightUnit = user.HeightUnit, missingDayAction = user.MissingDayAction ?? "ask", weightGoalMetric = user.WeightGoalMetric ?? "scale" },
                 profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson),
                 start, end,
@@ -72,7 +102,9 @@ public static class RecordEndpoints
             var today = RetentionService.Today(user.ProfileJson);
             Validation.Require(startDate >= new DateOnly(2000, 1, 1) && endDate <= today, "Choose a supported diary date.");
 
-            var etag = $"\"{user.Revision}:{startDate:yyyy-MM-dd}:{endDate:yyyy-MM-dd}\"";
+            // Diary reads depend on diary mutations and the local-day retention boundary. Profile,
+            // food, or training changes do not invalidate an unchanged historical range.
+            var etag = $"\"diary:{user.Id:N}:{user.DiaryRevision}:{startDate:yyyy-MM-dd}:{endDate:yyyy-MM-dd}:{today:yyyy-MM-dd}:{retention.DetailDays}\"";
             if (http.Request.Headers.IfNoneMatch == etag)
             {
                 http.Response.Headers.ETag = etag;
@@ -98,7 +130,7 @@ public static class RecordEndpoints
         app.MapGet("/api/foods", async (HttpContext http, AppDb db, CancellationToken ct) =>
         {
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
-            var etag = $"\"{user.Revision}\"";
+            var etag = $"\"foods:{user.Id:N}:{user.FoodRevision}\"";
             if (http.Request.Headers.IfNoneMatch == etag)
             {
                 http.Response.Headers.ETag = etag;
@@ -108,19 +140,34 @@ public static class RecordEndpoints
             http.Response.Headers.ETag = etag;
             return Results.Ok(new {
                 foods,
-                revision = user.Revision
+                revision = user.Revision,
+                foodRevision = user.FoodRevision
             });
         });
 
-        app.MapGet("/api/training/summary", async (AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
+        app.MapGet("/api/training/summary", async (HttpContext http, AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
         {
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
             var today = RetentionService.Today(user.ProfileJson);
             var start = from ?? today.AddDays(-89);
             var end = to ?? today.AddDays(14);
+            var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
+            var grantRevision = await db.IntegrationGrants.AsNoTracking()
+                .Where(x => x.Peer == "workout" && x.Status == "active")
+                .Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
+            var etag = $"\"training:{user.Id:N}:{cached?.Revision ?? 0}:{grantRevision}:{start:yyyy-MM-dd}:{end:yyyy-MM-dd}\"";
+            // Peer context is informational and is revalidated at the existing two-minute
+            // cadence. A fresh cache can answer an unchanged browser read with no provider call;
+            // an older cache still falls through to WorkoutSummaryService for revalidation.
+            if (http.Request.Headers.IfNoneMatch == etag && cached?.LastSuccessAt >= DateTime.UtcNow.AddMinutes(-2))
+            {
+                http.Response.Headers.ETag = etag;
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
             var trainingSummary = await training.Get(start, end, ct);
             var workoutConnected = await training.IsConnected(ct);
             var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
+            http.Response.Headers.ETag = etag;
             return Results.Ok(new {
                 summaries = trainingSummary,
                 workoutConnected,
@@ -128,15 +175,26 @@ public static class RecordEndpoints
             });
         });
 
-        app.MapGet("/api/training", async (AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
+        app.MapGet("/api/training", async (HttpContext http, AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
         {
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
             var today = RetentionService.Today(user.ProfileJson);
             var start = from ?? today.AddDays(-89);
             var end = to ?? today.AddDays(14);
+            var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
+            var grantRevision = await db.IntegrationGrants.AsNoTracking()
+                .Where(x => x.Peer == "workout" && x.Status == "active")
+                .Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
+            var etag = $"\"training:{user.Id:N}:{cached?.Revision ?? 0}:{grantRevision}:{start:yyyy-MM-dd}:{end:yyyy-MM-dd}\"";
+            if (http.Request.Headers.IfNoneMatch == etag && cached?.LastSuccessAt >= DateTime.UtcNow.AddMinutes(-2))
+            {
+                http.Response.Headers.ETag = etag;
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
             var trainingSummary = await training.Get(start, end, ct);
             var workoutConnected = await training.IsConnected(ct);
             var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
+            http.Response.Headers.ETag = etag;
             return Results.Ok(new {
                 summaries = trainingSummary,
                 workoutConnected,
@@ -164,6 +222,7 @@ public static class RecordEndpoints
             var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
             return Results.Ok(new {
                 user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
+                diaryRevision = user.DiaryRevision, trajectoryRevision = user.TrajectoryRevision, bodyRevision = user.BodyRevision, foodRevision = user.FoodRevision,
                 settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale" },
                 profile=user.ProfileJson.Length==0?null:Json.Read<Profile>(user.ProfileJson), start,end,
                 detailCutoff=RetentionService.Cutoff(RetentionService.Today(user.ProfileJson),retention.DetailDays),detailDays=retention.DetailDays,

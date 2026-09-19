@@ -35,6 +35,7 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
             day.Status=LoggingDay.Status(date,today,day.Deleted?null:day.Status,entries.Count>0);
             day.EntryCount=entries.Count;day.Archived=true;day.Revision=++user.Revision;
             day.Deleted=false;
+            user.DiaryRevision=user.Revision;
             await db.SaveChangesAsync(ct);
             removed+=await db.Entries.Where(e=>e.Date==date).ExecuteDeleteAsync(ct);
         }
@@ -45,8 +46,18 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
     }
     public async Task<int> CompactAll(CancellationToken ct)
     {
-        var users=await db.Users.AsNoTracking().Select(u=>new {u.Id,u.ProfileJson}).ToListAsync(ct);var total=0;
-        foreach(var user in users){total+=await CompactUser(user.Id,Today(user.ProfileJson),ct);db.ChangeTracker.Clear();}
+        // Keyset through users so an hourly sweep has bounded memory and can make
+        // progress even when the account count grows beyond one page.
+        var total=0; Guid? after=null;
+        while (true)
+        {
+            var query=db.Users.AsNoTracking().OrderBy(u=>u.Id).AsQueryable();
+            if(after is { } cursor) query=query.Where(u=>u.Id>cursor);
+            var users=await query.Select(u=>new {u.Id,u.ProfileJson}).Take(100).ToListAsync(ct);
+            if(users.Count==0) break;
+            foreach(var user in users){total+=await CompactUser(user.Id,Today(user.ProfileJson),ct);db.ChangeTracker.Clear();}
+            after=users[^1].Id;
+        }
         return total;
     }
 }

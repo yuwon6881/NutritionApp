@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
@@ -41,10 +42,12 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
     }
 
     private static readonly ConcurrentDictionary<Guid, Task<GoogleHealthSyncResult>> InFlightSyncs = new();
-    private static readonly ConcurrentDictionary<Guid, (DateTime SyncedAt, GoogleHealthSyncResult Result)> MemoryCache = new();
+    private static readonly MemoryCache SyncCache = new(new MemoryCacheOptions { SizeLimit = 512 });
 
-    public static void InvalidateMemoryCache(Guid userId) => MemoryCache.TryRemove(userId, out _);
-    public static void ClearMemoryCache() => MemoryCache.Clear();
+    private sealed record CachedSync(DateTime SyncedAt, GoogleHealthSyncResult Result, long ConnectionGeneration, DateOnly LocalDate, string TimeZone);
+
+    public static void InvalidateMemoryCache(Guid userId) => SyncCache.Remove(userId);
+    public static void ClearMemoryCache() => SyncCache.Compact(1);
 
     public const string Scope = "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly";
 
@@ -269,7 +272,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         }
 
         await db.SaveChangesAsync(ct);
-        MemoryCache.TryRemove(userId, out _);
+        SyncCache.Remove(userId);
 
         return "/settings?google_health=connected";
         }
@@ -295,7 +298,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         conn.EncryptedRefreshToken = "";
         conn.Revision++;
         await db.SaveChangesAsync(ct);
-        MemoryCache.TryRemove(userId, out _);
+            SyncCache.Remove(userId);
         return null;
     }
 
@@ -308,7 +311,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         connection.EncryptedRefreshToken = "";
         connection.Revision++;
         await db.SaveChangesAsync(ct);
-        MemoryCache.TryRemove(userId, out _);
+            SyncCache.Remove(userId);
     }
 
     private static bool HasGrantedScope(GoogleHealthConnection connection, string requiredScope)
@@ -353,15 +356,27 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             .ExecuteDeleteAsync(ct);
         db.GoogleHealthConnections.Remove(conn);
         await db.SaveChangesAsync(ct);
-        MemoryCache.TryRemove(userId, out _);
+        SyncCache.Remove(userId);
 
         return new GoogleHealthSyncResult("disconnected", null, null, "unavailable", []);
     }
 
     public async Task<GoogleHealthSyncResult> SyncAsync(Guid userId, CancellationToken ct, bool force = false)
     {
+        var cacheContext = await db.GoogleHealthConnections.AsNoTracking()
+            .Where(connection => connection.UserId == userId)
+            .Select(connection => new { connection.ConnectionGeneration, connection.Status })
+            .SingleOrDefaultAsync(ct);
+        var profileJson = await db.Users.AsNoTracking().Where(user => user.Id == userId).Select(user => user.ProfileJson).SingleAsync(ct);
+        var localDate = RetentionService.Today(profileJson);
+        var timeZone = string.IsNullOrWhiteSpace(profileJson) ? "Asia/Kuala_Lumpur" : Json.Read<Profile>(profileJson).TimeZone;
         // Check 2-minute memory cache
-        if (!force && MemoryCache.TryGetValue(userId, out var cached) && (DateTime.UtcNow - cached.SyncedAt) < TimeSpan.FromMinutes(2))
+        if (!force && cacheContext is not null && cacheContext.Status == "connected"
+            && SyncCache.TryGetValue<CachedSync>(userId, out var cached)
+            && cached is not null
+            && cached.ConnectionGeneration == cacheContext.ConnectionGeneration
+            && cached.LocalDate == localDate && cached.TimeZone == timeZone
+            && (DateTime.UtcNow - cached.SyncedAt) < TimeSpan.FromMinutes(2))
         {
             return await AttachWeightStatusAsync(userId, cached.Result, ct);
         }
@@ -389,7 +404,12 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                     var result = await PerformSyncAsync(userId, ct, force);
                     if (result.Status == "connected" && result.Freshness == "fresh")
                     {
-                        MemoryCache[userId] = (DateTime.UtcNow, result);
+                        SyncCache.Set(userId, new CachedSync(DateTime.UtcNow, result,
+                            cacheContext?.ConnectionGeneration ?? 0, localDate, timeZone), new MemoryCacheEntryOptions
+                        {
+                            Size = 1,
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2)
+                        });
                     }
                     tcs.SetResult(result);
                     return await AttachWeightStatusAsync(userId, result, ct);
@@ -478,7 +498,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             conn.EncryptedStepHistoryJson = await kms.EncryptAsync("[]", ct);
             conn.Revision++;
             await db.SaveChangesAsync(ct);
-            MemoryCache.TryRemove(userId, out _);
+            SyncCache.Remove(userId);
             return new GoogleHealthSyncResult("reconnect_required", conn.ConnectedAt, conn.LastSyncedAt, "unavailable", [], "credentials_revoked", "Google Health authorization was revoked. Please reconnect.");
         }
 

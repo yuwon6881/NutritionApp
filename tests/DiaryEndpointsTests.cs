@@ -231,6 +231,20 @@ public class DiaryEndpointsTests
             fReqNotMod.Headers.TryAddWithoutValidation("If-None-Match", fEtag);
             var fResNotMod = await client.SendAsync(fReqNotMod);
             Assert.Equal(HttpStatusCode.NotModified, fResNotMod.StatusCode);
+
+            // 4. Lightweight domain revisions used by the foreground coordinator
+            var revisionRes = await client.GetAsync("/api/revisions");
+            Assert.Equal(HttpStatusCode.OK, revisionRes.StatusCode);
+            var revisionEtag = revisionRes.Headers.ETag?.ToString();
+            Assert.NotNull(revisionEtag);
+            var revisions = await revisionRes.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.True(revisions.TryGetProperty("diary", out _));
+            Assert.True(revisions.TryGetProperty("localDay", out _));
+
+            var revisionReq = new HttpRequestMessage(HttpMethod.Get, "/api/revisions");
+            revisionReq.Headers.TryAddWithoutValidation("If-None-Match", revisionEtag);
+            var revisionNotMod = await client.SendAsync(revisionReq);
+            Assert.Equal(HttpStatusCode.NotModified, revisionNotMod.StatusCode);
         });
     }
 

@@ -209,7 +209,7 @@ export async function migrateV1ToV2(db: IDBDatabase, user: string): Promise<bool
 
     // 3. Separate foods if present
     if (raw.state?.foods && raw.state.foods.length > 0) {
-      await idbPut(db, 'saved_foods', { foods: raw.state.foods, revision: raw.state.revision ?? 0, fetchedAt: Date.now() }, user);
+      await idbPut(db, 'saved_foods', { foods: raw.state.foods, revision: raw.state.foodRevision ?? raw.state.revision ?? 0, fetchedAt: Date.now() }, user);
     }
 
     // 4. Extract dated diary records from state and historical snapshots
@@ -313,13 +313,30 @@ export async function readLocal(user: string): Promise<LocalData | undefined> {
 
 export async function saveLocal(user: string, data: LocalData): Promise<void> {
   const db = await database();
-  // Save separate stores in parallel
-  await Promise.all([
-    idbPut(db, 'accounts', { state: data.state, queue: data.queue, progress: data.progress }, user),
-    saveMutations(user, data.queue ?? []),
-    saveDrafts(user, { photoDrafts: data.photoDrafts, bodyDrafts: data.bodyDrafts }),
-    data.state?.foods?.length ? saveSavedFoods(user, data.state.foods, data.state.revision ?? 0) : Promise.resolve()
-  ]);
+  // Keep the canonical account, queue, drafts, and saved-food snapshot in one
+  // transaction. The old implementation opened four transactions for every
+  // optimistic update and could leave the stores at different revisions after
+  // an interruption. Empty collections are written deliberately: an empty
+  // server response is an authoritative deletion, not a reason to retain stale
+  // local rows.
+  const stores = ['accounts', 'mutations', 'drafts'];
+  if (Array.isArray(data.state?.foods)) stores.push('saved_foods');
+  await new Promise<void>((resolve, reject) => {
+    try {
+      const tx = db.transaction(stores, 'readwrite');
+      tx.objectStore('accounts').put({ state: data.state, progress: data.progress }, user);
+      tx.objectStore('mutations').put({ queue: data.queue ?? [] }, user);
+      tx.objectStore('drafts').put({ photoDrafts: data.photoDrafts, bodyDrafts: data.bodyDrafts }, user);
+      if (stores.includes('saved_foods')) {
+        tx.objectStore('saved_foods').put({ foods: data.state.foods, revision: data.state.foodRevision ?? data.state.revision ?? 0, fetchedAt: Date.now() }, user);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error('Local data transaction aborted'));
+    } catch (ex) {
+      reject(ex);
+    }
+  });
 }
 
 /** Remove the retired client-side AI scan records when an older cache is reopened. */

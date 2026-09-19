@@ -34,4 +34,6 @@ public sealed class BodyRecord : OwnedRecord
     public BodyMeasurements Measurements { get; set; } = new();
     public string WeightContextJson { get; set; } = "{}";
     public string PendingPhotosJson { get; set; } = "[]";
+    /// Tombstone retention starts when the user deletes the record, not when it was created.
+    public DateTime? DeletedAt { get; set; }
 }

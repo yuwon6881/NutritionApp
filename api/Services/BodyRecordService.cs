@@ -92,9 +92,9 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
             var body=record!;
             if(op.Action=="delete")
             {
-                body.Deleted=true;body.PendingPhotosJson="[]";
+                body.Deleted=true;body.DeletedAt=DateTime.UtcNow;body.PendingPhotosJson="[]";
                 foreach(var photo in await db.Photos.Where(p=>p.SetId==recordId&&!p.Deleted).ToListAsync(ct))
-                {photo.Deleted=true;photo.Status="deleting";}
+                {photo.Deleted=true;photo.Status="deleting";photo.DeletedAt=DateTime.UtcNow;}
             }
             else if(op.Action=="photo-delete")
             {
@@ -102,7 +102,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
                 var photo=await db.Photos.SingleOrDefaultAsync(p=>p.SetId==recordId&&p.Id==op.PhotoId,ct);
                 var pending=Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson);
                 Validation.Require(photo!=null||pending.Any(p=>p.Id==op.PhotoId),"Photo not found.",404);
-                if(photo!=null){photo.Deleted=true;photo.Status="deleting";}
+                if(photo!=null){photo.Deleted=true;photo.Status="deleting";photo.DeletedAt=DateTime.UtcNow;}
                 body.PendingPhotosJson=Json.Write(pending.Where(p=>p.Id!=op.PhotoId).ToList());
             }
             else
@@ -132,6 +132,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
                     var context=patch.WeightContext??await Capture(body.Date,ct);
                     ValidateContext(context,body.Date);
                     body.WeightContextJson=Json.Write(Omit(context,patch));
+                    body.DeletedAt=null;
                     db.BodyRecords.Add(body);
                 }
                 else
@@ -142,7 +143,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
                 }
                 foreach(var photo in await db.Photos.Where(p=>p.SetId==recordId&&!p.Deleted).ToListAsync(ct))photo.Date=body.Date;
             }
-            body.Revision=++user.Revision;body.Updated=DateTime.UtcNow;
+            body.Revision=++user.Revision;user.BodyRevision=user.Revision;body.Updated=DateTime.UtcNow;
             db.Receipts.Add(new MutationReceipt {Id=op.Id,UserId=uid,Hash=hash,Revision=body.Revision});
             await db.SaveChangesAsync(ct);await gate.Commit(ct);
         }
@@ -153,9 +154,9 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
 
     public async Task CleanupRecordPhotos(Guid recordId,CancellationToken ct)
     {
-        foreach(var photo in await db.Photos.Where(p=>p.SetId==recordId&&p.Status=="deleting").ToListAsync(ct))
+        foreach(var photo in await db.Photos.IgnoreQueryFilters().Where(p=>p.UserId==db.CurrentUser&&p.SetId==recordId&&p.Status=="deleting").ToListAsync(ct))
         {
-            try{await store.Delete(photo.ObjectPath,ct);photo.Status="deleted";await db.SaveChangesAsync(ct);}
+            try{await store.Delete(photo.ObjectPath,ct,photo.ObjectGeneration);photo.Status="deleted";photo.DeletedAt??=DateTime.UtcNow;await db.SaveChangesAsync(ct);}
             catch(DomainException){/* The retained deletion marker is the retry queue. */}
             catch(HttpRequestException){/* Retry on scheduled cleanup. */}
         }
@@ -166,8 +167,9 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
         var existing=await db.BodyRecords.IgnoreQueryFilters().SingleOrDefaultAsync(b=>b.Id==setId&&b.UserId==db.CurrentUser,ct);
         if(existing!=null){Validation.Require(!existing.Deleted,"Body record was deleted.",409);return existing;}
         var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);
-        var body=new BodyRecord {Id=setId,UserId=user.Id,Date=date,CreationOrder=await NextOrder(db,ct),
-            Created=DateTime.UtcNow,Updated=DateTime.UtcNow,Revision=++user.Revision,
+        user.BodyRevision=++user.Revision;
+        var body=new BodyRecord {Id=setId,UserId=user.Id,Date=date,CreationOrder=await NextOrder(db,ct),DeletedAt=null,
+            Created=DateTime.UtcNow,Updated=DateTime.UtcNow,Revision=user.BodyRevision,
             WeightContextJson=Json.Write(new BodyWeightContext())};
         db.BodyRecords.Add(body);return body;
     }

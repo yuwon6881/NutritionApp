@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Collections.Concurrent;
 using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
@@ -20,7 +22,8 @@ public sealed class IntegrationTokenService(
     IGoogleHealthKms kms,
     ILogger<IntegrationTokenService>? logger = null)
 {
-    private static readonly SemaphoreSlim RotationGate = new(1, 1);
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> RotationGates = new(StringComparer.Ordinal);
+    private static readonly MemoryCache AccessTokens = new(new MemoryCacheOptions { SizeLimit = 512 });
     private const int MaxRefreshAttempts = 3;
 
     public Task<string> Protect(string value, CancellationToken ct = default) => kms.EncryptAsync(value, ct);
@@ -40,7 +43,19 @@ public sealed class IntegrationTokenService(
 
     public async Task<string?> AccessToken(string peer, string requiredScope, CancellationToken ct)
     {
-        await RotationGate.WaitAsync(ct);
+        var userId = db.CurrentUser;
+        if (userId is null) return null;
+        var key = $"{userId.Value:N}:{peer}:{requiredScope}";
+        var grantSnapshot = await db.IntegrationGrants.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Peer == peer && x.Status == "active", ct);
+        if (grantSnapshot is null) { AccessTokens.Remove(key); return null; }
+        if (AccessTokens.TryGetValue(key, out var cachedValue) && cachedValue is CachedAccessToken cached
+            && cached.GrantRevision == grantSnapshot.Revision
+            && cached.ExpiresAt > DateTime.UtcNow.AddSeconds(60))
+            return cached.Value;
+
+        var gate = RotationGates.GetOrAdd(key, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
         try
         {
             for (var attempt = 0; attempt < MaxRefreshAttempts; attempt++)
@@ -51,7 +66,11 @@ public sealed class IntegrationTokenService(
                 var grant = await db.IntegrationGrants.AsNoTracking()
                     .SingleOrDefaultAsync(x => x.Peer == peer && x.Status == "active", ct);
                 var refresh = grant is null ? null : await Unprotect(grant.EncryptedRefreshToken, ct);
-                if (grant is null || string.IsNullOrWhiteSpace(refresh)) return null;
+                if (grant is null || string.IsNullOrWhiteSpace(refresh)) { AccessTokens.Remove(key); return null; }
+                if (AccessTokens.TryGetValue(key, out cachedValue) && cachedValue is CachedAccessToken cachedAfterGate
+                    && cachedAfterGate.GrantRevision == grant.Revision
+                    && cachedAfterGate.ExpiresAt > DateTime.UtcNow.AddSeconds(60))
+                    return cachedAfterGate.Value;
 
                 var identitySubject = await db.Users.Where(x => x.Id == db.CurrentUser)
                     .Select(x => x.IdentitySubject).SingleOrDefaultAsync(ct);
@@ -107,6 +126,10 @@ public sealed class IntegrationTokenService(
                 if (string.IsNullOrWhiteSpace(access)) return null;
                 var validated = await tokens.RequireAccessToken(access, requiredScope, ct);
                 Validation.Require(string.Equals(validated.Subject, identitySubject, StringComparison.Ordinal), "The peer token belongs to a different account.", 403);
+                // A rotated refresh token increments the grant revision. Cache the
+                // access token against the revision that is actually durable so the
+                // next request does not immediately perform another KMS/provider call.
+                var cacheRevision = grant.Revision;
                 if (document.RootElement.TryGetProperty("refresh_token", out var nextRefresh) && !string.IsNullOrWhiteSpace(nextRefresh.GetString()))
                 {
                     var encryptedNextRefresh = await Protect(nextRefresh.GetString()!, ct);
@@ -128,7 +151,18 @@ public sealed class IntegrationTokenService(
                             // written by the competing revision and do not overwrite it.
                             db.ChangeTracker.Clear();
                         }
+                        cacheRevision = latest.Revision;
                     }
+                }
+                if (document.RootElement.TryGetProperty("expires_in", out var expiresElement)
+                    && expiresElement.TryGetInt32(out var expiresIn) && expiresIn > 60)
+                {
+                    AccessTokens.Set(key, new CachedAccessToken(access, cacheRevision,
+                        DateTime.UtcNow.AddSeconds(expiresIn)), new MemoryCacheEntryOptions
+                    {
+                        Size = 1,
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Math.Max(60, expiresIn - 60))
+                    });
                 }
                 return access;
             }
@@ -137,7 +171,7 @@ public sealed class IntegrationTokenService(
         catch (DomainException) { return null; }
         catch (HttpRequestException) { return null; }
         catch (JsonException) { return null; }
-        finally { RotationGate.Release(); }
+        finally { gate.Release(); }
     }
 
     private static bool IsInvalidGrant(HttpStatusCode status, string responseBody)
@@ -175,6 +209,12 @@ public sealed class IntegrationTokenService(
         }
         db.IntegrationGrants.Remove(grant);
         await db.SaveChangesAsync(ct);
+        if (db.CurrentUser is { } userId)
+        {
+            // The next access checks the grant revision (or the missing grant) before
+            // using a cached token, so revocation cannot reuse this entry.
+            _ = userId;
+        }
     }
 
     private CentralClientSettings GetCentralClientSettings()
@@ -187,4 +227,5 @@ public sealed class IntegrationTokenService(
     }
 
     private sealed record CentralClientSettings(string Authority, string ClientId, string ClientSecret);
+    private sealed record CachedAccessToken(string Value, long GrantRevision, DateTime ExpiresAt);
 }

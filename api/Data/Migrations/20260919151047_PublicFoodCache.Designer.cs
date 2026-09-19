@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Nutrition.Api.Data;
@@ -11,9 +12,11 @@ using Nutrition.Api.Data;
 namespace Nutrition.Api.Data.Migrations
 {
     [DbContext(typeof(AppDb))]
-    partial class AppDbModelSnapshot : ModelSnapshot
+    [Migration("20260919151047_PublicFoodCache")]
+    partial class PublicFoodCache
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -100,9 +103,6 @@ namespace Nutrition.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<long>("BodyRevision")
-                        .HasColumnType("bigint");
-
                     b.Property<int>("CheckInWeekday")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -114,9 +114,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<long>("CoachingSettingsRevision")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("DiaryRevision")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -125,9 +122,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<string>("EnergyUnit")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<long>("FoodRevision")
-                        .HasColumnType("bigint");
 
                     b.Property<string>("HeightUnit")
                         .IsRequired()

@@ -27,7 +27,11 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     private const double MaxSearchWaitSeconds=3;
     private const double BusyBackoffSeconds=10;
     private const double BarcodeIntervalSeconds=4.1;
-    private const double BatchProductIntervalSeconds=1;
+    // Open Food Facts' /api/v2/search allowance is ten reads per minute per IP.
+    // The old one-second slot could exceed that limit as soon as two instances
+    // shared the egress address. Keep hydration best-effort and pace it below the
+    // published limit; the search result itself remains immediately usable.
+    private const double BatchProductIntervalSeconds=6.1;
     // Search-a-licious does not index the serving fields. The bulk product request fills them for
     // the list without making one metered barcode request per result.
     private const string SearchFields="code,product_name,product_name_en,brands,nutriments";
@@ -38,7 +42,10 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     private static DateTime nextSearch=DateTime.MinValue;
     private static DateTime nextBatchProduct=DateTime.MinValue;
 
-    public async Task<IReadOnlyList<FoodResult>> Search(string query,CancellationToken ct)
+    public Task<IReadOnlyList<FoodResult>> Search(string query,CancellationToken ct)
+        => SearchCore(query,null,ct);
+
+    private async Task<IReadOnlyList<FoodResult>> SearchCore(string query,AppDb? db,CancellationToken ct)
     {
         query=query.Trim(); Validation.Require(query.Length is >=2 and <=100,"Enter 2–100 characters.");
         // Bump this when the provider-basis mapping changes so a process does not keep serving
@@ -66,7 +73,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             if(json.RootElement.TryGetProperty("hits",out var hits)&&hits.ValueKind==JsonValueKind.Array)
                 foreach(var hit in hits.EnumerateArray())
                     if(ReadProduct(hit,null,"unverified") is {} result) results.Add(result);
-            await EnrichSearchResults(results,ct);
+            await EnrichSearchResults(results,db,ct);
             var prioritized=PrioritizeResults(results,query);
             cache.Set(key,prioritized,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromHours(6) }); return prioritized;
         }
@@ -93,7 +100,7 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
     /// </summary>
     public async Task<IReadOnlyList<FoodResult>> Search(string query,AppDb db,CancellationToken ct)
     {
-        var results=await Search(query,ct);
+        var results=await SearchCore(query,db,ct);
         return await RankForUser(results,query,db,ct);
     }
 
@@ -139,6 +146,13 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             return new FoodResult(local.Name,local.Calories,local.Protein,local.Fat,local.Carbs,local.Fiber,local.Source,local.ServingGrams,portions,code,ServingCalories(local.Calories,portions),"per100g");
         }
         if(cache.TryGetValue<FoodResult>("barcode:"+code,out var saved)) return saved!;
+        var durable=await db.PublicFoodProducts.AsNoTracking()
+            .SingleOrDefaultAsync(product=>product.Code==code&&product.ExpiresAt>DateTime.UtcNow,ct);
+        if(durable is not null&&TryReadCached(durable.ResultJson) is { } durableResult)
+        {
+            cache.Set("barcode:"+code,durableResult,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromDays(1) });
+            return durableResult;
+        }
         await RateGate.WaitAsync(ct);
         // No slot is returned here on failure: the request reached a metered endpoint and counted
         // against its allowance whatever it answered.
@@ -187,7 +201,9 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
                 Validation.Require(json.RootElement.TryGetProperty("product",out var product),"Barcode not found. Scan the label or add a custom food.",404);
                 Validation.Require(Calories(product)!=null,"This product has no calorie data. Scan its label.",422);
                 var result=ReadProduct(product,code,"per100g")!;
-                cache.Set("barcode:"+code,result,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromDays(1) }); return result;
+                cache.Set("barcode:"+code,result,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=TimeSpan.FromDays(1) });
+                await StorePublicProducts(db,[result],DateTime.UtcNow.AddDays(1),ct);
+                return result;
             }
         }
     }
@@ -230,15 +246,30 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             basis??(scanned is not null?"per100g":"unverified"));
     }
 
-    private async Task EnrichSearchResults(List<FoodResult> results,CancellationToken ct)
+    private async Task EnrichSearchResults(List<FoodResult> results,AppDb? db,CancellationToken ct)
     {
         var codes=results.Select(result=>result.Code).OfType<string>().Where(code=>code.Length>0).Distinct(StringComparer.Ordinal).ToArray();
         if(codes.Length==0)return;
+        var missing=codes.ToHashSet(StringComparer.Ordinal);
+        if(db is not null)
+        {
+            var now=DateTime.UtcNow;
+            var cached=await db.PublicFoodProducts.AsNoTracking()
+                .Where(product=>codes.Contains(product.Code)&&product.ExpiresAt>now).ToListAsync(ct);
+            foreach(var row in cached)
+            {
+                if(TryReadCached(row.ResultJson) is not { } hydrated)continue;
+                missing.Remove(row.Code);
+                for(var index=0;index<results.Count;index++)
+                    if(results[index].Code==row.Code)results[index]=ApplyHydratedProduct(results[index],hydrated);
+            }
+        }
+        if(missing.Count==0)return;
         try
         {
             var wait=await ReserveBatchProductSlot(ct);
             if(wait>TimeSpan.Zero)await Task.Delay(wait,ct);
-            using var response=await http.GetAsync($"{BatchProductUrl}?code={Uri.EscapeDataString(string.Join(',',codes))}&fields={Uri.EscapeDataString(ProductFields)}&page_size={codes.Length}",ct);
+            using var response=await http.GetAsync($"{BatchProductUrl}?code={Uri.EscapeDataString(string.Join(',',missing))}&fields={Uri.EscapeDataString(ProductFields)}&page_size={missing.Count}",ct);
             if(!response.IsSuccessStatusCode)return;
             using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
             if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)return;
@@ -254,11 +285,48 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
                 if(result.Code is {Length:>0} code&&hydratedByCode.TryGetValue(code,out var hydrated))
                     results[index]=ApplyHydratedProduct(result,hydrated);
             }
+            if(db is not null&&hydratedByCode.Count>0)
+                await StorePublicProducts(db,hydratedByCode.Values,DateTime.UtcNow.AddDays(1),ct);
         }
         catch(OperationCanceledException){throw;}
         catch
         {
             // Serving hydration improves the search list but must not make free-text search fail.
+        }
+    }
+
+    private static FoodResult? TryReadCached(string json)
+    {
+        try { return Json.Read<FoodResult>(json); }
+        catch (JsonException) { return null; }
+        catch (DomainException) { return null; }
+    }
+
+    private static async Task StorePublicProducts(AppDb db,IEnumerable<FoodResult> results,DateTime expiresAt,CancellationToken ct)
+    {
+        var rows=results.Where(result=>result.Code is {Length:>0}).ToList();
+        if(rows.Count==0)return;
+        try
+        {
+            var codes=rows.Select(result=>result.Code!).Distinct(StringComparer.Ordinal).ToArray();
+            var existing=await db.PublicFoodProducts.Where(product=>codes.Contains(product.Code)).ToDictionaryAsync(product=>product.Code,StringComparer.Ordinal,ct);
+            foreach(var result in rows)
+            {
+                var code=result.Code!;
+                if(!existing.TryGetValue(code,out var row))
+                {
+                    row=new PublicFoodProduct { Code=code };
+                    db.PublicFoodProducts.Add(row); existing[code]=row;
+                }
+                row.ResultJson=Json.Write(result); row.ExpiresAt=expiresAt; row.UpdatedAt=DateTime.UtcNow;
+            }
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Two instances can hydrate the same public product. The unique code is the
+            // coordination boundary; a losing cache write must never make search fail.
+            foreach(var entry in db.ChangeTracker.Entries<PublicFoodProduct>()) entry.State=EntityState.Detached;
         }
     }
 
@@ -331,16 +399,24 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         var sources=results.Select(result=>result.Source).Distinct(StringComparer.Ordinal).ToArray();
         if(sources.Length==0)return new Dictionary<string,int>(StringComparer.Ordinal);
 
-        var entries=await db.Entries.AsNoTracking()
+        var sourceCounts=await db.Entries.AsNoTracking()
             .Where(entry=>!entry.Deleted&&sources.Contains(entry.Source))
-            .Select(entry=>new {entry.Source,entry.Name})
+            .GroupBy(entry=>entry.Source)
+            .Select(group=>new {Source=group.Key,Count=group.Count()})
+            .ToDictionaryAsync(row=>row.Source,row=>row.Count,StringComparer.Ordinal,ct);
+        // Group in SQL first, then normalize the relatively small set of distinct
+        // names. This avoids materializing every historical diary row for ranking.
+        var distinctNames=await db.Entries.AsNoTracking()
+            .Where(entry=>!entry.Deleted&&sources.Contains(entry.Source))
+            .GroupBy(entry=>new {entry.Source,entry.Name})
+            .Select(group=>new {group.Key.Source,group.Key.Name,Count=group.Count()})
             .ToListAsync(ct);
-        var sourceCounts=entries
-            .GroupBy(entry=>entry.Source,StringComparer.Ordinal)
-            .ToDictionary(group=>group.Key,group=>group.Count(),StringComparer.Ordinal);
-        var nameCounts=entries
-            .GroupBy(entry=>NameUsageKey(entry.Source,entry.Name),StringComparer.Ordinal)
-            .ToDictionary(group=>group.Key,group=>group.Count(),StringComparer.Ordinal);
+        var nameCounts=new Dictionary<string,int>(StringComparer.Ordinal);
+        foreach(var entry in distinctNames)
+        {
+            var key=NameUsageKey(entry.Source,entry.Name);
+            nameCounts[key]=nameCounts.GetValueOrDefault(key)+entry.Count;
+        }
         var resultCounts=new Dictionary<string,int>(StringComparer.Ordinal);
         foreach(var result in results)
         {

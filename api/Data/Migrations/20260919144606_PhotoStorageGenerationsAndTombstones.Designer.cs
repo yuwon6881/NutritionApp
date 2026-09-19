@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Nutrition.Api.Data;
@@ -11,9 +12,11 @@ using Nutrition.Api.Data;
 namespace Nutrition.Api.Data.Migrations
 {
     [DbContext(typeof(AppDb))]
-    partial class AppDbModelSnapshot : ModelSnapshot
+    [Migration("20260919144606_PhotoStorageGenerationsAndTombstones")]
+    partial class PhotoStorageGenerationsAndTombstones
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -77,9 +80,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
-                    b.Property<long>("CachedInputTokens")
-                        .HasColumnType("bigint");
-
                     b.Property<long>("InputTokens")
                         .HasColumnType("bigint");
 
@@ -100,9 +100,6 @@ namespace Nutrition.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<long>("BodyRevision")
-                        .HasColumnType("bigint");
-
                     b.Property<int>("CheckInWeekday")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -114,9 +111,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<long>("CoachingSettingsRevision")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("DiaryRevision")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -125,9 +119,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<string>("EnergyUnit")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<long>("FoodRevision")
-                        .HasColumnType("bigint");
 
                     b.Property<string>("HeightUnit")
                         .IsRequired()
@@ -194,9 +185,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<bool>("Deleted")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("PendingPhotosJson")
                         .IsRequired()
                         .HasColumnType("text");
@@ -218,8 +206,6 @@ namespace Nutrition.Api.Data.Migrations
                         .IsUnique();
 
                     b.HasIndex("UserId", "Deleted", "Date", "CreationOrder");
-
-                    b.HasIndex("UserId", "Deleted", "DeletedAt", "Id");
 
                     b.ToTable("BodyRecords");
                 });
@@ -465,9 +451,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<bool>("Deleted")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<double?>("Fat")
                         .HasColumnType("double precision");
 
@@ -508,8 +491,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.HasKey("UserId", "Id");
 
                     b.HasIndex("UserId", "Barcode", "Deleted");
-
-                    b.HasIndex("UserId", "Deleted", "DeletedAt", "Id");
 
                     b.ToTable("Foods");
                 });
@@ -804,56 +785,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.ToTable("PhaseDecisions");
                 });
 
-            modelBuilder.Entity("Nutrition.Api.Data.PhotoObjectDeletion", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Attempts")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("LastError")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("NextAttemptAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ObjectGeneration")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ObjectPath")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("Revision")
-                        .IsConcurrencyToken()
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("UserId", "Id");
-
-                    b.HasIndex("Status", "NextAttemptAt", "Id");
-
-                    b.ToTable("PhotoObjectDeletions");
-                });
-
             modelBuilder.Entity("Nutrition.Api.Data.PhysiquePhoto", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -910,28 +841,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.HasIndex("UserId", "SetId");
 
                     b.ToTable("Photos");
-                });
-
-            modelBuilder.Entity("Nutrition.Api.Data.PublicFoodProduct", b =>
-                {
-                    b.Property<string>("Code")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ResultJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Code");
-
-                    b.HasIndex("ExpiresAt");
-
-                    b.ToTable("PublicFoodProducts");
                 });
 
             modelBuilder.Entity("Nutrition.Api.Data.ScanJob", b =>
@@ -1269,15 +1178,6 @@ namespace Nutrition.Api.Data.Migrations
                 });
 
             modelBuilder.Entity("Nutrition.Api.Data.PhaseDecision", b =>
-                {
-                    b.HasOne("Nutrition.Api.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Nutrition.Api.Data.PhotoObjectDeletion", b =>
                 {
                     b.HasOne("Nutrition.Api.Data.AppUser", null)
                         .WithMany()

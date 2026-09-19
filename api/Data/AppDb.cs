@@ -10,6 +10,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<DiaryEntry> Entries => Set<DiaryEntry>();
     public DbSet<Food> Foods => Set<Food>();
+    public DbSet<PublicFoodProduct> PublicFoodProducts => Set<PublicFoodProduct>();
     public DbSet<Weight> Weights => Set<Weight>();
     public DbSet<DayStatus> Days => Set<DayStatus>();
     public DbSet<AcceptedPlan> Plans => Set<AcceptedPlan>();
@@ -19,6 +20,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<ScanJob> Scans => Set<ScanJob>();
     public DbSet<AiUsage> Usage => Set<AiUsage>();
     public DbSet<PhysiquePhoto> Photos => Set<PhysiquePhoto>();
+    public DbSet<PhotoObjectDeletion> PhotoObjectDeletions => Set<PhotoObjectDeletion>();
     public DbSet<BodyRecord> BodyRecords => Set<BodyRecord>();
     public DbSet<DailyExpenditureEstimate> ExpenditureEstimates => Set<DailyExpenditureEstimate>();
     public DbSet<GoogleHealthConnection> GoogleHealthConnections => Set<GoogleHealthConnection>();
@@ -35,6 +37,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<AppUser>().Property(x => x.MissingDayAction).HasDefaultValue("ask");
         m.Entity<AppUser>().Property(x => x.WeightGoalMetric).HasDefaultValue("scale");
         m.Entity<Food>().Property(x => x.PortionsJson).HasDefaultValue("[]");
+        m.Entity<PublicFoodProduct>().HasKey(x => x.Code);
+        m.Entity<PublicFoodProduct>().HasIndex(x => x.ExpiresAt);
         m.Entity<Session>().HasKey(x => x.Hash);
         m.Entity<Session>().HasIndex(x => x.Expires);
         m.Entity<MutationReceipt>().HasKey(x => new { x.UserId, x.Id });
@@ -61,9 +65,11 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<WorkoutSummaryCache>().HasIndex(x => x.UserId).IsUnique();
         Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m); Configure<GoogleHealthWeightSyncWork>(m);
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
-        Configure<PhysiquePhoto>(m);
+        Configure<PhysiquePhoto>(m); Configure<PhotoObjectDeletion>(m);
+        m.Entity<PhotoObjectDeletion>().HasIndex(x => new { x.Status, x.NextAttemptAt, x.Id });
         Configure<BodyRecord>(m);
         m.Entity<BodyRecord>().HasIndex(x=>new {x.UserId,x.Deleted,x.Date,x.CreationOrder});
+        m.Entity<BodyRecord>().HasIndex(x=>new {x.UserId,x.Deleted,x.DeletedAt,x.Id});
         m.Entity<BodyRecord>().HasIndex(x=>new {x.UserId,x.CreationOrder}).IsUnique();
         m.Entity<BodyRecord>().OwnsOne(x=>x.Measurements, owned=>
         {
@@ -79,6 +85,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<MutationReceipt>().HasIndex(x=>x.Created);
         m.Entity<DiaryEntry>().HasIndex(x => new { x.UserId, x.Date });
         m.Entity<Food>().HasIndex(x => new { x.UserId, x.Barcode, x.Deleted });
+        m.Entity<Food>().HasIndex(x => new { x.UserId, x.Deleted, x.DeletedAt, x.Id });
         m.Entity<Weight>().HasIndex(x => new { x.UserId, x.Date }).IsUnique();
         m.Entity<DayStatus>().HasIndex(x => new { x.UserId, x.Date }).IsUnique();
         m.Entity<AcceptedPlan>().HasIndex(x => new { x.UserId, x.Date });

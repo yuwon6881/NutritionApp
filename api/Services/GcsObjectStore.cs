@@ -14,7 +14,8 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
     {
         Validation.Require(Configured,"Physique photo storage is not configured yet.",503);
         var bucket=Uri.EscapeDataString(bucketName!);var name=Uri.EscapeDataString(path);
-        var url=method==HttpMethod.Post?$"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name={name}{(replace?string.Empty:"&ifGenerationMatch=0")}":$"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}"+(method==HttpMethod.Get?(metadata?"?fields=generation":"?alt=media"):generation==null?"":"?generation="+Uri.EscapeDataString(generation));
+        var uploadCondition=generation is not null?"&ifGenerationMatch="+Uri.EscapeDataString(generation):(replace?string.Empty:"&ifGenerationMatch=0");
+        var url=method==HttpMethod.Post?$"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name={name}&fields=generation{uploadCondition}":$"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}"+(method==HttpMethod.Get?(metadata?"?fields=generation":"?alt=media"):generation==null?"":"?generation="+Uri.EscapeDataString(generation));
         using var request=new HttpRequestMessage(method,url);
         try
         {
@@ -27,11 +28,21 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         if(bytes!=null){request.Content=new ByteArrayContent(bytes);request.Content.Headers.ContentType=new("image/jpeg");}
         return await http.SendAsync(request,ct);
     }
-    public async Task Put(string path,byte[] bytes,CancellationToken ct,bool replace=false)
+    public async Task<string?> Put(string path,byte[] bytes,CancellationToken ct,bool replace=false,string? expectedGeneration=null)
     {
-        using var response=await Send(HttpMethod.Post,path,bytes,ct,replace:replace);
+        using var response=await Send(HttpMethod.Post,path,bytes,ct,generation:expectedGeneration,replace:replace);
         // The immutable path and stored payload hash make an upload retry safe after lost acknowledgement.
-        Validation.Require(response.IsSuccessStatusCode||response.StatusCode==HttpStatusCode.PreconditionFailed,"Google Cloud could not save this photo. Your local draft is retained.",503);
+        // A failed generation precondition means another request replaced this path. Treat it as
+        // a conflict so the caller keeps the durable draft and never marks the old generation as
+        // the newly uploaded photo.
+        Validation.Require(response.IsSuccessStatusCode,"Google Cloud could not save this photo. Your local draft is retained.",response.StatusCode==HttpStatusCode.PreconditionFailed?409:503);
+        try
+        {
+            using var document=System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            return document.RootElement.TryGetProperty("generation",out var generation)&&generation.ValueKind==System.Text.Json.JsonValueKind.String
+                ? generation.GetString() : null;
+        }
+        catch(System.Text.Json.JsonException) { return null; }
     }
     public async Task<byte[]> Get(string path,CancellationToken ct)
     {
@@ -39,16 +50,19 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         Validation.Require(response.IsSuccessStatusCode,"Photo is unavailable.",response.StatusCode==HttpStatusCode.NotFound?404:503);
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
-    public async Task Delete(string path,CancellationToken ct)
+    public async Task Delete(string path,CancellationToken ct,string? generation=null)
     {
         // Shared FinancialApp bucket has versioning. Deleting without a generation would
         // leave a billable noncurrent object forever; exact-generation delete enters soft delete.
-        using var metadata=await Send(HttpMethod.Get,path,null,ct,metadata:true);
-        if(metadata.StatusCode==HttpStatusCode.NotFound)return;
-        Validation.Require(metadata.IsSuccessStatusCode,"Could not inspect the photo generation for deletion.",503);
-        using var document=System.Text.Json.JsonDocument.Parse(await metadata.Content.ReadAsStringAsync(ct));
-        var generation=document.RootElement.GetProperty("generation").GetString();
-        Validation.Require(!string.IsNullOrEmpty(generation)&&generation.All(char.IsAsciiDigit),"Invalid photo generation.",503);
+        if (generation is null)
+        {
+            using var metadata=await Send(HttpMethod.Get,path,null,ct,metadata:true);
+            if(metadata.StatusCode==HttpStatusCode.NotFound)return;
+            Validation.Require(metadata.IsSuccessStatusCode,"Could not inspect the photo generation for deletion.",503);
+            using var document=System.Text.Json.JsonDocument.Parse(await metadata.Content.ReadAsStringAsync(ct));
+            generation=document.RootElement.GetProperty("generation").GetString();
+            Validation.Require(!string.IsNullOrEmpty(generation)&&generation.All(char.IsAsciiDigit),"Invalid photo generation.",503);
+        }
         using var response=await Send(HttpMethod.Delete,path,null,ct,generation:generation);
         Validation.Require(response.IsSuccessStatusCode||response.StatusCode==HttpStatusCode.NotFound,"Photo deletion needs a retry.",503);
     }

@@ -144,6 +144,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
 
                 var hashMatches=existing!=null&&!existing.Deleted&&existing.RequestHash==preparedPhoto.Hash;
                 if(hashMatches&&existing!.Status=="complete")continue;
+                var expectedGeneration=existing?.ObjectGeneration;
                 var oldBytes=existing is {Deleted:false}?existing.Bytes:0;
                 total-=oldBytes;
                 total+=preparedPhoto.Bytes.Length;
@@ -160,15 +161,15 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                 }
                 else
                 {
-                    existing.Date=input.Date;existing.Bytes=preparedPhoto.Bytes.Length;existing.RequestHash=preparedPhoto.Hash;existing.Status="uploading";existing.Deleted=false;
+                    existing.Date=input.Date;existing.Bytes=preparedPhoto.Bytes.Length;existing.RequestHash=preparedPhoto.Hash;existing.Status="uploading";existing.Deleted=false;existing.DeletedAt=null;
                 }
-                uploads.Add(new PendingUpload(existing,preparedPhoto.Bytes,preparedPhoto.Hash,photoById!=null));
+                uploads.Add(new PendingUpload(existing,preparedPhoto.Bytes,preparedPhoto.Hash,photoById!=null,expectedGeneration));
             }
 
             foreach(var photo in set.Where(photo=>!photo.Deleted))photo.Date=body.Date;
             if(receipt==null&&(uploads.Count>0||dateChanged||input.MutationId!=null))
             {
-                body.Revision=++user.Revision;body.Updated=DateTime.UtcNow;
+                body.Revision=++user.Revision;user.BodyRevision=user.Revision;body.Updated=DateTime.UtcNow;
                 if(input.MutationId is {} id)db.Receipts.Add(new MutationReceipt {Id=id,UserId=uid,Hash=requestHash,Revision=body.Revision});
             }
             await db.SaveChangesAsync(ct);
@@ -176,16 +177,46 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         }
 
         if(uploads.Count==0)return await SetViews(input.Id,ct);
-        await using var uploadGate=await MutationLock.Acquire(db,uid,ct);
         foreach(var pending in uploads)
         {
             await db.Entry(pending.Photo).ReloadAsync(ct);
             Validation.Require(!pending.Photo.Deleted,"Photo draft expired or was deleted. Create a new draft.",409);
             Validation.Require(pending.Photo.RequestHash==pending.Hash,"This photo was replaced on another device. Review before retrying.",409);
             if(pending.Photo.Status=="complete"&&pending.Photo.RequestHash==pending.Hash)continue;
-            await store.Put(pending.Photo.ObjectPath,pending.Bytes,ct,pending.Replace);
-            pending.Photo.Status="complete";
+            // GCS I/O is deliberately outside the account lock. The finalize transaction below
+            // only commits the generation pointer and a durable old-generation delete work item.
+            var generation=await store.Put(pending.Photo.ObjectPath,pending.Bytes,ct,pending.Replace,pending.ExpectedGeneration);
+            Validation.Require(!string.IsNullOrWhiteSpace(generation),"Google Cloud did not return a photo generation. Your local draft is retained; retry when storage is available.",503);
+            var uploadedGeneration=generation!;
+            await using (var finalize=await MutationLock.Acquire(db,uid,ct))
+            {
+                await db.Entry(pending.Photo).ReloadAsync(ct);
+                if(pending.Photo.Status=="complete")
+                {
+                    // Another request won the finalize race. The generation returned by this
+                    // request is still a real billable object; queue it unless the winner stored
+                    // this exact generation so a retry cannot leave an orphan behind.
+                    if(!string.Equals(pending.Photo.ObjectGeneration,uploadedGeneration,StringComparison.Ordinal))
+                        db.PhotoObjectDeletions.Add(new PhotoObjectDeletion { UserId=uid, ObjectPath=pending.Photo.ObjectPath, ObjectGeneration=uploadedGeneration });
+                    await db.SaveChangesAsync(CancellationToken.None);await finalize.Commit(CancellationToken.None);continue;
+                }
+                if(pending.Photo.Deleted||pending.Photo.RequestHash!=pending.Hash)
+                {
+                    // The upload completed after a newer edit or delete won. Keep the exact
+                    // generation in the durable deletion queue before reporting the conflict.
+                    db.PhotoObjectDeletions.Add(new PhotoObjectDeletion { UserId=uid, ObjectPath=pending.Photo.ObjectPath, ObjectGeneration=uploadedGeneration });
+                    await db.SaveChangesAsync(CancellationToken.None);await finalize.Commit(CancellationToken.None);
+                    throw new DomainException("This photo was replaced on another device. Review before retrying.",409);
+                }
+                if(pending.ExpectedGeneration is not null && uploadedGeneration!=pending.ExpectedGeneration)
+                    db.PhotoObjectDeletions.Add(new PhotoObjectDeletion { UserId=uid, ObjectPath=pending.Photo.ObjectPath, ObjectGeneration=pending.ExpectedGeneration });
+                pending.Photo.ObjectGeneration=uploadedGeneration;
+                pending.Photo.Status="complete";
+                await db.SaveChangesAsync(ct);
+                await finalize.Commit(ct);
+            }
         }
+        await using var uploadGate=await MutationLock.Acquire(db,uid,ct);
         var uploadedBody=await db.BodyRecords.SingleAsync(b=>b.Id==input.Id,ct);
         var completedIds=uploads.Select(p=>p.Photo.Id).ToHashSet();
         uploadedBody.PendingPhotosJson=Json.Write(Json.Read<List<BodyPhotoIntent>>(uploadedBody.PendingPhotosJson).Where(p=>!completedIds.Contains(p.Id)).ToList());
@@ -199,8 +230,14 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
 
     public async Task<byte[]> Content(Guid id,CancellationToken ct)
     {
+        var content=await ContentWithMetadata(id,ct);
+        return content.Bytes;
+    }
+
+    public async Task<(byte[] Bytes,string? Generation)> ContentWithMetadata(Guid id,CancellationToken ct)
+    {
         var photo=await db.Photos.SingleOrDefaultAsync(p=>p.Id==id&&!p.Deleted&&p.Status=="complete",ct)??throw new DomainException("Photo not found.",404);
-        return await store.Get(photo.ObjectPath,ct);
+        return (await store.Get(photo.ObjectPath,ct),photo.ObjectGeneration);
     }
 
     public async Task Delete(Guid id,CancellationToken ct)
@@ -211,31 +248,55 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         if(body!=null)
         {
             var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);
-            body.Revision=++user.Revision;body.Updated=DateTime.UtcNow;
+            body.Revision=++user.Revision;user.BodyRevision=user.Revision;body.Updated=DateTime.UtcNow;
             body.PendingPhotosJson=Json.Write(Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson).Where(p=>p.Id!=id).ToList());
         }
-        photo.Deleted=true;photo.Status="deleting";await db.SaveChangesAsync(ct);await gate.Commit(ct);
+        photo.Deleted=true;photo.Status="deleting";photo.DeletedAt=DateTime.UtcNow;await db.SaveChangesAsync(ct);await gate.Commit(ct);
         // Keep a deletion marker until GCS confirms deletion; scheduled cleanup retries failures.
-        await store.Delete(photo.ObjectPath,ct);photo.Status="deleted";await db.SaveChangesAsync(ct);
+        await store.Delete(photo.ObjectPath,ct,photo.ObjectGeneration);photo.Status="deleted";await db.SaveChangesAsync(ct);
     }
 
     public async Task<int> Cleanup(CancellationToken ct)
     {
         db.MaintenanceAccess=true;var now=DateTime.UtcNow;
-        var photos=await db.Photos.IgnoreQueryFilters().Where(p=>p.Status=="deleting"||(p.Status=="uploading"&&p.Created<now.AddDays(-1))).Take(100).ToListAsync(ct);
+        var photos=await db.Photos.IgnoreQueryFilters()
+            .Where(p=>p.Status=="deleting"||(p.Status=="uploading"&&p.ObjectGeneration==null&&p.Created<now.AddDays(-1)))
+            .OrderBy(p=>p.Created).ThenBy(p=>p.Id).Take(100).ToListAsync(ct);
         var count=0;foreach(var photo in photos)
         {
             await using var gate=await MutationLock.Acquire(db,photo.UserId,ct);
             await db.Entry(photo).ReloadAsync(ct);
             if(photo.Status is "complete" or "deleted")continue;
-            try{await store.Delete(photo.ObjectPath,ct);photo.Deleted=true;photo.Status="deleted";await db.SaveChangesAsync(ct);await gate.Commit(ct);count++;}catch(DomainException){/* Retry at next scheduled wake. */}
+            try{await store.Delete(photo.ObjectPath,ct,photo.ObjectGeneration);photo.Deleted=true;photo.Status="deleted";photo.DeletedAt??=DateTime.UtcNow;await db.SaveChangesAsync(ct);await gate.Commit(ct);count++;}catch(DomainException){/* Retry at next scheduled wake. */}catch(HttpRequestException){/* Retry at next scheduled wake. */}
         }
+        var work=await db.PhotoObjectDeletions.IgnoreQueryFilters()
+            .Where(item=>item.Status=="pending"&&item.NextAttemptAt<=now)
+            .OrderBy(item=>item.NextAttemptAt).ThenBy(item=>item.Id).Take(100).ToListAsync(ct);
+        foreach(var item in work)
+        {
+            try
+            {
+                await store.Delete(item.ObjectPath,ct,item.ObjectGeneration);
+                item.Status="completed";item.CompletedAt=DateTime.UtcNow;item.LastError="";count++;
+            }
+            catch(DomainException ex)
+            {
+                item.Attempts++;item.LastError=ex.Message;
+                item.NextAttemptAt=DateTime.UtcNow.AddMinutes(Math.Min(60,Math.Pow(2,Math.Min(item.Attempts,6))));
+            }
+            catch(HttpRequestException ex)
+            {
+                item.Attempts++;item.LastError=ex.Message;
+                item.NextAttemptAt=DateTime.UtcNow.AddMinutes(Math.Min(60,Math.Pow(2,Math.Min(item.Attempts,6))));
+            }
+        }
+        await db.PhotoObjectDeletions.IgnoreQueryFilters().Where(item=>item.Status=="completed"&&item.CompletedAt<DateTime.UtcNow.AddDays(-7)).ExecuteDeleteAsync(ct);
         await db.SaveChangesAsync(ct);return count;
     }
 
     public static PhotoView View(PhysiquePhoto photo)=>new(photo.Id,photo.SetId,photo.Date,photo.Angle,photo.Bytes,photo.Status);
 
     private sealed record PreparedPhoto(PhotoPart Part,byte[] Bytes,string Hash);
-    private sealed record PendingUpload(PhysiquePhoto Photo,byte[] Bytes,string Hash,bool Replace);
+    private sealed record PendingUpload(PhysiquePhoto Photo,byte[] Bytes,string Hash,bool Replace,string? ExpectedGeneration);
     private sealed record CursorValue(DateOnly Date,Guid SetId);
 }

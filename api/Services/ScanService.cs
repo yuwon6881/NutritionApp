@@ -66,7 +66,10 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
             var bytes=scan.ObjectPath==null?null:await images.Get(scan.ObjectPath,ct);
             var result=await ai.Analyze(scan.Mode,scan.Description,bytes,ct);
             scan.ResultJson=Json.Write(result.Estimate);scan.Status="complete";scan.Error=null;
-            await db.Usage.Where(u=>u.Date==usage.Date).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.InputTokens,u=>u.InputTokens+result.InputTokens).SetProperty(u=>u.OutputTokens,u=>u.OutputTokens+result.OutputTokens),CancellationToken.None);
+            await db.Usage.Where(u=>u.Date==usage.Date).ExecuteUpdateAsync(s=>s
+                .SetProperty(u=>u.InputTokens,u=>u.InputTokens+result.InputTokens)
+                .SetProperty(u=>u.CachedInputTokens,u=>u.CachedInputTokens+result.CachedInputTokens)
+                .SetProperty(u=>u.OutputTokens,u=>u.OutputTokens+result.OutputTokens),CancellationToken.None);
         }
         catch(Exception ex) when(ex is DomainException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or FormatException or InvalidOperationException or KeyNotFoundException)
         { scan.Status="failed";scan.Error=ex is DomainException?ex.Message:"AI processing was interrupted. Try again."; }

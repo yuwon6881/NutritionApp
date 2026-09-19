@@ -8,6 +8,9 @@ public class AppUser
     public long ProfileRevision { get; set; }
     public long CoachingSettingsRevision { get; set; }
     public long TrajectoryRevision { get; set; }
+    public long FoodRevision { get; set; }
+    public long DiaryRevision { get; set; }
+    public long BodyRevision { get; set; }
     public int CheckInWeekday { get; set; } = 1;
     public DateOnly? CoachingSettingsChangedDate { get; set; }
     public string WeightUnit { get; set; } = "kg";
@@ -59,6 +62,18 @@ public class Food : NutrientRecord
     public string IngredientsJson { get; set; } = "[]";
     public string PortionsJson { get; set; } = "[]";
     public double? CookedYieldGrams { get; set; }
+    /// Deletion time used by the sync tombstone retention window. New records leave this null;
+    /// legacy rows without a timestamp are handled conservatively by maintenance.
+    public DateTime? DeletedAt { get; set; }
+}
+/// Compact, account-independent Open Food Facts product data. It contains only the fields needed
+/// for barcode and serving hydration and can be rebuilt from the provider when it expires.
+public class PublicFoodProduct
+{
+    public string Code { get; set; } = "";
+    public string ResultJson { get; set; } = "";
+    public DateTime ExpiresAt { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 public class Weight : OwnedRecord
 {
@@ -117,10 +132,30 @@ public class PhysiquePhoto : OwnedRecord
     public Guid SetId { get; set; }
     public string Angle { get; set; } = "front";
     public string ObjectPath { get; set; } = "";
+    /// GCS object generation returned by the upload. Keeping it avoids a metadata
+    /// read before deletion and prevents a retry from deleting a newer replacement.
+    public string? ObjectGeneration { get; set; }
     public int Bytes { get; set; }
     public string RequestHash { get; set; } = "";
     public string Status { get; set; } = "uploading";
+    /// Set when deletion is requested; retention must begin at the deletion event rather than
+    /// the original photo creation date.
+    public DateTime? DeletedAt { get; set; }
     public DateTime Created { get; set; } = DateTime.UtcNow;
+}
+/// Durable queue for noncurrent GCS generations left behind by a photo replacement. The current
+/// photo row points at the new generation; this work can be retried independently without ever
+/// deleting a newer replacement at the same path.
+public class PhotoObjectDeletion : OwnedRecord
+{
+    public string ObjectPath { get; set; } = "";
+    public string ObjectGeneration { get; set; } = "";
+    public string Status { get; set; } = "pending";
+    public int Attempts { get; set; }
+    public DateTime NextAttemptAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CompletedAt { get; set; }
+    public string LastError { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 public class ScanJob : OwnedRecord
 {
@@ -141,6 +176,7 @@ public class AiUsage
     public DateOnly Date { get; set; }
     public int Requests { get; set; }
     public long InputTokens { get; set; }
+    public long CachedInputTokens { get; set; }
     public long OutputTokens { get; set; }
 }
 
