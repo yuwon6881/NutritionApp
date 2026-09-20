@@ -1,3 +1,4 @@
+import {useState} from 'react';
 import {Field} from './ui/Field';
 import type {MacroKey,MacroSplit} from '../lib/macros';
 import {adjustSplit,gramsFromSplit,macroEnergy,macroKeys,macroLabels,macroLimits,macroPresetId,macroPresets} from '../lib/macros';
@@ -39,6 +40,7 @@ export function MacroSetup({
   coachDefault?:MacroSplit;
   customSplit?:MacroSplit;
 }){
+  const [gramDrafts,setGramDrafts]=useState<Partial<Record<MacroKey,string>>>({});
   const grams=gramsFromSplit(calories,split);
   const minGrams=(key:MacroKey)=>calories>0?Math.round(calories*macroLimits[key].min/100/macroEnergy[key]):0;
   const maxGrams=(key:MacroKey)=>calories>0?Math.round(calories*macroLimits[key].max/100/macroEnergy[key]):1000;
@@ -135,23 +137,33 @@ export function MacroSetup({
               min={minGrams(key)}
               max={maxGrams(key)}
               step="1"
-              value={grams[key]}
+              value={gramDrafts[key]??grams[key]}
               aria-label={`${macroLabels[key]} grams`}
               onChange={event=>{
-                const value=Number(event.target.value);
-                if(event.target.value&&event.target.validity.valid&&calories>0){
-                  const targetPercent=(value*macroEnergy[key]/calories)*100;
-                  onChange(adjustSplit(split,key,targetPercent));
+                const value=event.target.value;
+                if(!value||!event.target.validity.valid||calories<=0){
+                  setGramDrafts(current=>({...current,[key]:value}));
+                  return;
                 }
+                const targetPercent=(Number(value)*macroEnergy[key]/calories)*100;
+                setGramDrafts(current=>{
+                  const next={...current};
+                  delete next[key];
+                  return next;
+                });
+                onChange(adjustSplit(split,key,targetPercent));
               }}
               onBlur={event=>{
                 const value=Number(event.target.value);
                 if(event.target.value&&!isNaN(value)&&calories>0){
                   const clamped=Math.min(Math.max(value,minGrams(key)),maxGrams(key));
                   const targetPercent=(clamped*macroEnergy[key]/calories)*100;
+                  setGramDrafts(current=>{
+                    const next={...current};
+                    delete next[key];
+                    return next;
+                  });
                   onChange(adjustSplit(split,key,targetPercent));
-                }else{
-                  onChange({...split});
                 }
               }}
             />

@@ -8,6 +8,13 @@ export type NutritionRevisions = {
   training: number; google: number; localDay: string; detailDays: number;
 };
 
+export function bootstrapNeedsRefresh(state: LocalData['state'], revision: NutritionRevisions): boolean {
+  return revision.account !== state.revision || state.diaryRevision == null || state.trajectoryRevision == null || state.bodyRevision == null ||
+    revision.profile !== state.profileRevision || revision.settings !== (state.settings?.revision ?? 0) ||
+    revision.diary !== state.diaryRevision || revision.trajectory !== state.trajectoryRevision ||
+    revision.localDay !== today(state.profile?.timeZone);
+}
+
 export async function pollNutritionRevisions(
   user: string,
   local: Ref<LocalData | undefined>,
@@ -23,11 +30,7 @@ export async function pollNutritionRevisions(
   if (response.data) {
     const current = local.current.state;
     const revision = response.data;
-    const bootstrapChanged = current.diaryRevision == null || current.trajectoryRevision == null || current.bodyRevision == null ||
-      revision.profile !== current.profileRevision || revision.settings !== (current.settings?.revision ?? 0) ||
-      revision.diary !== current.diaryRevision || revision.trajectory !== current.trajectoryRevision ||
-      revision.localDay !== today(current.profile?.timeZone);
-    if (bootstrapChanged) await refresh();
+    if (bootstrapNeedsRefresh(current, revision)) await refresh();
     if (revision.foods !== (current.foodRevision ?? current.revision)) await loadSavedFoods();
   }
   // Peer data has its own provider freshness contract, independent of local revision equality.

@@ -1,5 +1,15 @@
-import type { AppState, CoachingSettings, Mutation, Profile } from '../types';
+import type { AppState, CoachingSettings, LocalData, Mutation, Profile } from '../types';
 const collection={entry:'entries',food:'foods',weight:'weights',day:'days'} as const;
+export function enqueueMutation(current:LocalData,op:Mutation):LocalData{
+  if(op.kind==='settings'){
+    const queued=current.queue.find(item=>item.kind==='settings'&&!item.error);
+    if(queued)return {...current,queue:current.queue.map(item=>item.id===queued.id?{...item,data:{...(item.data as object),...(op.data as object)}}:item)};
+    // A control can change again before React receives the preceding acknowledgement.
+    const expectedRevision=current.state.settings?.revision??op.expectedRevision;
+    return {...current,queue:[...current.queue,{...op,expectedRevision}]};
+  }
+  return {...current,queue:[...current.queue,op]};
+}
 export function project(state:AppState,queue:Mutation[]):AppState{
   const result=structuredClone(state);
   for(const op of queue){

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, Food, LocalData, Mutation, PhysiqueAngle, PhysiqueDraft, ProgressSummary, BodyDraft, TrainingSummary } from './types';
 import { api, apiWithMeta, ApiError } from './lib/api';
 import { readLocal, saveLocal, readSavedFoods, saveSavedFoods, saveDatedDiaryBatch, stripLegacyScanDrafts } from './lib/local';
+import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import { today } from './lib/format';
-import { project, rebaseAfterOwnWrite, wireMutation } from './lib/projection';
+import { enqueueMutation, project, rebaseAfterOwnWrite, wireMutation } from './lib/projection';
 import { acknowledgeHistory } from './lib/history';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
@@ -138,6 +139,7 @@ export function useNourish(user: string) {
       const selected = windowDate.current;
       const sequence = ++refreshSequence.current;
       let state: AppState | null = null;
+      let foodsLoaded=false;
       if (!selected) {
         try {
           const bRes = await apiWithMeta<BootstrapResponse>('/bootstrap', {
@@ -148,6 +150,7 @@ export function useNourish(user: string) {
             // A validator hit means the local bootstrap remains authoritative. Do not
             // issue the compatibility /state request or rebuild the same payload.
             state = ref.current?.state ?? null;
+            foodsLoaded=ref.current?.foodsLoaded??false;
           }
           if (bRes.data) {
             const b = bRes.data;
@@ -175,6 +178,7 @@ export function useNourish(user: string) {
             sharedDiaryCoordinator.primeDays(datedDays);
             void saveDatedDiaryBatch(user, datedDays);
             const cachedFoods = await readSavedFoods(user);
+            foodsLoaded=isSavedFoodsCacheUsable(cachedFoods,b.foodRevision??b.revision);
             state = { ...b, foods: cachedFoods?.foods ?? ref.current?.state.foods ?? [], trainingSummaries: ref.current?.state.trainingSummaries ?? [] };
           }
         } catch (ex) {
@@ -187,11 +191,12 @@ export function useNourish(user: string) {
       }
       if (!state) {
         state = await api<AppState>('/state' + (selected ? (selected.length === 4 ? '?year=' : '?date=') + selected : ''));
+        foodsLoaded=true;
       }
       if (!alive.current || sequence !== refreshSequence.current || !state) return;
       if (state.id !== user) throw new Error('The signed-in account changed. Sign in again.');
       if (!ref.current) {
-        const data: LocalData = { state, queue: [] };
+        const data: LocalData = { state, queue: [], foodsLoaded };
         await saveLocal(user, data);
         if (alive.current) { ref.current = data; setLocal(data); }
       } else {
@@ -199,7 +204,7 @@ export function useNourish(user: string) {
           if (state!.revision < current.state.revision || JSON.stringify(state) === JSON.stringify(current.state)) return current;
           const foods = state!.foods ?? (current.state.foods ?? []);
           const trainingSummaries = state!.trainingSummaries ?? (current.state.trainingSummaries ?? []);
-          return { ...current, state: { ...state!, foods, trainingSummaries } };
+          return { ...current, state: { ...state!, foods, trainingSummaries }, foodsLoaded };
         });
       }
     } finally {
@@ -214,10 +219,11 @@ export function useNourish(user: string) {
     if (!user) return;
     const cached = await readSavedFoods(user);
     if (cached && ref.current && (!ref.current.state.foods || !ref.current.state.foods.length)) {
-      await commit(current => ({ ...current, state: { ...current.state, foods: cached.foods } }));
+      const cacheLoaded=cached.loaded===true||cached.foods.length>0||cached.revision===0;
+      await commit(current => ({ ...current, state: { ...current.state, foods: cached.foods }, foodsLoaded: cacheLoaded }));
     }
     const currentFoodRevision = ref.current?.state.foodRevision ?? ref.current?.state.revision ?? 0;
-    if ((cached && Date.now() - cached.fetchedAt <= 300_000 && currentFoodRevision <= cached.revision) || !navigator.onLine) return;
+    if (isSavedFoodsCacheUsable(cached,currentFoodRevision)||!navigator.onLine) return;
     try {
       const res = await apiWithMeta<{ foods: Food[]; revision: number; foodRevision?: number }>('/foods', {
         headers: foodsEtag.current ? { 'If-None-Match': foodsEtag.current } : undefined
@@ -226,7 +232,7 @@ export function useNourish(user: string) {
       if (res.notModified) return;
       if (res.data?.foods && alive.current) {
         await saveSavedFoods(user, res.data.foods, res.data.foodRevision ?? res.data.revision);
-        await commit(current => ({ ...current, state: { ...current.state, foods: res.data!.foods, foodRevision: res.data!.foodRevision ?? res.data!.revision } }));
+        await commit(current => ({ ...current, state: { ...current.state, foods: res.data!.foods, foodRevision: res.data!.foodRevision ?? res.data!.revision }, foodsLoaded:true }));
       }
     } catch { /* retain cached foods */ }
   }, [commit, user]);
@@ -294,7 +300,7 @@ export function useNourish(user: string) {
               }
             }
             const history = Object.fromEntries(Object.entries(current.history ?? {}).map(([k, saved]) => [k, acknowledgeHistory(saved, op, revision)]));
-            return { ...current, state, queue, history };
+            return { ...current, state, queue, history, foodsLoaded: op.kind==='food'?true:current.foodsLoaded };
           });
         } catch (ex) {
           if (ex instanceof ApiError && [400, 409, 422].includes(ex.status)) {
@@ -322,13 +328,7 @@ export function useNourish(user: string) {
 
   const mutate = useCallback(async (op: Omit<Mutation, 'id'>) => {
     const fullOp: Mutation = { ...op, id: crypto.randomUUID() };
-    await commit(current => {
-      if (op.kind === 'settings') {
-        const queued = current.queue.find(item => item.kind === 'settings' && !item.error);
-        if (queued) return { ...current, queue: current.queue.map(item => item.id === queued.id ? { ...item, data: { ...(item.data as object), ...(op.data as object) } } : item) };
-      }
-      return { ...current, queue: [...current.queue, fullOp] };
-    });
+    await commit(current => enqueueMutation(current,fullOp));
     if (op.kind === 'entry') {
       const entryData = op.data as any;
       if (entryData?.date) sharedDiaryCoordinator.projectDate(entryData.date, [fullOp]);

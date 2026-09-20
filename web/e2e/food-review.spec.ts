@@ -238,7 +238,9 @@ test('failed bulk hydration displays basis unavailable and resolves serving on c
   await expect(row.locator('.food-description small')).toContainText('Basis unavailable · Open Food Facts / ODbL / 0748927065725');
   await expect(row.locator('.food-description small')).not.toContainText('/ 100 g');
   await expect(row.locator('.food-description small')).not.toContainText('117 kcal');
+  const detailResponse=page.waitForResponse('**/api/foods/barcode/*');
   await row.click();
+  await detailResponse;
   expect(lookups).toBe(1);
   await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
   await expect(page.locator('.live-calorie-value')).toContainText('117');

@@ -1,4 +1,5 @@
 import type { AppState, BodyDraft, Day, DatedDiaryDay, Entry, Food, LocalData, Mutation, PhysiqueDraft } from '../types';
+import type {SavedFoodsCache} from './savedFoods';
 
 let connection: Promise<IDBDatabase> | undefined;
 
@@ -130,14 +131,14 @@ export async function readDatedDiaryRange(user: string, from: string, to: string
   return results;
 }
 
-export async function readSavedFoods(user: string): Promise<{ foods: Food[]; revision: number; fetchedAt: number } | undefined> {
+export async function readSavedFoods(user: string): Promise<SavedFoodsCache | undefined> {
   const db = await database();
   return idbGet(db, 'saved_foods', user);
 }
 
 export async function saveSavedFoods(user: string, foods: Food[], revision: number): Promise<void> {
   const db = await database();
-  return idbPut(db, 'saved_foods', { foods, revision, fetchedAt: Date.now() }, user);
+  return idbPut(db, 'saved_foods', { foods, revision, fetchedAt: Date.now(), loaded: true }, user);
 }
 
 export async function readMutations(user: string): Promise<Mutation[]> {
@@ -302,9 +303,12 @@ export async function readLocal(user: string): Promise<LocalData | undefined> {
     foods: foodsRecord?.foods ?? raw.state?.foods ?? []
   };
 
+  const cacheHasLoadedData=Boolean(foodsRecord&&(foodsRecord.loaded===true||foodsRecord.foods.length>0||foodsRecord.revision===0));
+
   return {
     ...raw,
     state,
+    foodsLoaded: raw.foodsLoaded===true||cacheHasLoadedData||(!foodsRecord&&Boolean(raw.state?.foods?.length)),
     queue,
     photoDrafts: drafts.photoDrafts ?? raw.photoDrafts,
     bodyDrafts: drafts.bodyDrafts ?? raw.bodyDrafts
@@ -320,7 +324,7 @@ export async function saveLocal(user: string, data: LocalData): Promise<void> {
   // server response is an authoritative deletion, not a reason to retain stale
   // local rows.
   const stores = ['accounts', 'mutations', 'drafts'];
-  if (Array.isArray(data.state?.foods)) stores.push('saved_foods');
+  if (Array.isArray(data.state?.foods)&&data.foodsLoaded!==false) stores.push('saved_foods');
   await new Promise<void>((resolve, reject) => {
     try {
       const tx = db.transaction(stores, 'readwrite');
@@ -328,7 +332,7 @@ export async function saveLocal(user: string, data: LocalData): Promise<void> {
       tx.objectStore('mutations').put({ queue: data.queue ?? [] }, user);
       tx.objectStore('drafts').put({ photoDrafts: data.photoDrafts, bodyDrafts: data.bodyDrafts }, user);
       if (stores.includes('saved_foods')) {
-        tx.objectStore('saved_foods').put({ foods: data.state.foods, revision: data.state.foodRevision ?? data.state.revision ?? 0, fetchedAt: Date.now() }, user);
+        tx.objectStore('saved_foods').put({ foods: data.state.foods, revision: data.state.foodRevision ?? data.state.revision ?? 0, fetchedAt: Date.now(), loaded: true }, user);
       }
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);

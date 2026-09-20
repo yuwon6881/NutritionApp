@@ -18,6 +18,7 @@ Applies only to this independent repository; app-specific rules override the par
 ## UI standardization
 
 - Read `docs/UI_UX_DESIGN_PRINCIPLES.md` and `docs/UI_UX_EXTENSION_CHECKLIST.md` before UI work. Update both only when their reusable patterns or contracts change.
+- Every UI-related change must pass `npm.cmd run test:visual` from `web/` before commit or push; this is the required visual gate for all UI work, not only shared-surface changes.
 - Reuse `web/src/components/ui/` and existing feature flows. Actions use `Button`; forms use `Form`/`Field`/`FileInput`; selectors, dates, dialogs, panels, and sync feedback use their existing primitives. Card or panel failures use the shared `CardFeedback` surface with an accessible announcement and optional recovery action; field validation remains beside its field. Raw buttons belong inside shared primitives, not new feature code. Extend a primitive before creating a parallel implementation.
 - Food search, recipe selection, barcode recovery, servings, and batch review extend `FoodPicker`, `LogFood`, `FoodBasket`, and their shared helpers. Never create a second search/ranking or portion-conversion contract.
 - Preserve Ayu light/dark semantic tokens, bundled Inter Variable, tabular numerals, spacing, typography, and focus rules in `web/src/index.css`. No feature-specific fonts, hard-coded colors, or parallel token systems.
@@ -49,6 +50,6 @@ Applies only to this independent repository; app-specific rules override the par
 ## Verification
 
 - Frontend: `web/`; API: `api/`; API regressions: `tests/`; browser tests: `web/e2e/`. Use Node 24 and the repository's .NET SDK requirements.
-- From repository root: `dotnet test tests/Nutrition.Tests.csproj`. From `web/`: `npm.cmd run check:docs`, `npm.cmd run check:standards`, `npm.cmd run typecheck`, `npm.cmd test`, `npm.cmd run build`; UI/shared-surface changes also require `npm.cmd run test:visual`.
+- From repository root: `dotnet test tests/Nutrition.Tests.csproj`. From `web/`: `npm.cmd run check:docs`, `npm.cmd run check:standards`, `npm.cmd run typecheck`, `npm.cmd test`, `npm.cmd run build`, and for every UI-related change `npm.cmd run test:visual` before commit or push.
 - Browser tests reset accounts: use an isolated development API/database, never production or a personal diary. Browser tests run against the production preview bundle in `web/dist/`; `npm.cmd run test:visual` compiles fresh assets before testing (`npm run build && playwright test`). Always ensure `npm.cmd run build` has run when invoking browser tests so tests never execute against a missing or stale bundle. Serialize shared build/browser output when other work is running.
 - Verify documentation equality and `git diff --check`. Report commands and distinguish source/test evidence from live-provider, browser, or deployment evidence; skipped checks remain unverified.

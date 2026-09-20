@@ -58,5 +58,5 @@ export type ProgressEnergyBucket={date:string;end:string;intake:number|null;main
 export type ProgressEnergyStatistics={days:number;loggedDays:number;completeDays:number;totalIntake:number|null;averageIntake:number|null;averageMaintenance:number|null;totalBalance:number|null;surplusDays:number;deficitDays:number};
 export type ProgressEnergySummary={statistics:ProgressEnergyStatistics;series:ProgressEnergyBucket[]};
 export type ProgressSummary={period:ProgressPeriod;start:string;end:string;revision:number;grouping:ProgressGrouping;weight:ProgressWeightSummary;energy:ProgressEnergySummary;awaitingSynchronization?:boolean};
-export type LocalData={state:AppState;queue:Mutation[];photoDrafts?:PhysiqueDraft[];bodyDrafts?:BodyDraft[];history?:Record<string,AppState>;progress?:Record<string,ProgressSummary>};
+export type LocalData={state:AppState;queue:Mutation[];foodsLoaded?:boolean;photoDrafts?:PhysiqueDraft[];bodyDrafts?:BodyDraft[];history?:Record<string,AppState>;progress?:Record<string,ProgressSummary>};
 export const blankNutrients:Nutrients={name:'',calories:0,protein:null,fat:null,carbs:null,fiber:null,source:'manual'};

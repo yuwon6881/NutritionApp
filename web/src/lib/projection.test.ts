@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {project,rebaseAfterOwnWrite,wireMutation} from './projection';
+import {enqueueMutation,project,rebaseAfterOwnWrite,wireMutation} from './projection';
 import {trend} from './format';
 import type {AppState,Mutation} from '../types';
 const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-03-01',entries:[],foods:[],weights:[],days:[{id:'d',revision:1,deleted:false,date:'2026-02-01',status:'complete'}],plans:[]};
@@ -11,6 +11,17 @@ it('keeps a settings change coalesced during its in-flight write',()=>{
   const coalesced={...sent,data:{checkInWeekday:1,weightUnit:'lb'}};
   const remaining=rebaseAfterOwnWrite([coalesced],sent,5,()=>'00000000-0000-0000-0000-000000000001');
   expect(remaining).toEqual([{...coalesced,id:'00000000-0000-0000-0000-000000000001',expectedRevision:5}]);
+});
+it('uses the latest acknowledged revision when a settings edit is queued after a response',()=>{
+  const current={state:{...state,settings:{checkInWeekday:1,revision:27}},queue:[]};
+  const op:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'kg'}};
+  expect(enqueueMutation(current,op).queue[0].expectedRevision).toBe(27);
+});
+it('coalesces settings data without changing the in-flight revision',()=>{
+  const queued:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'kg'}};
+  const current={state:{...state,settings:{checkInWeekday:1,revision:26}},queue:[queued]};
+  const op:Mutation={...queued,id:'next',data:{heightUnit:'cm'}};
+  expect(enqueueMutation(current,op).queue).toEqual([{...queued,data:{weightUnit:'kg',heightUnit:'cm'}}]);
 });
 it('never sends local error metadata as mutation content',()=>{const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'};expect(wireMutation(op)).not.toHaveProperty('error');});
 it('projects cadence edits without changing the active profile revision',()=>{
