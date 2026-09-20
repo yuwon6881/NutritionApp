@@ -86,7 +86,14 @@ public sealed class TrainingIntegrationTests
         await db.SaveChangesAsync();
         db.CurrentUser = user.Id;
 
-        var grant = new IntegrationGrant { UserId = user.Id, Peer = "workout", Status = "active" };
+        var grant = new IntegrationGrant
+        {
+            UserId = user.Id,
+            Peer = "workout",
+            Status = "active",
+            CentralConnectionId = Guid.NewGuid(),
+            CentralGeneration = 1
+        };
         db.IntegrationGrants.Add(grant);
         await db.SaveChangesAsync();
 

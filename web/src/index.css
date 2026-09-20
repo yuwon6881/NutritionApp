@@ -25,7 +25,7 @@
 .food-time-card.panel{margin:0;padding:10px 14px;box-shadow:none;min-width:0;border-radius:14px}
 .food-time-card-header{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
 .food-time-card-title{margin:0;min-width:0;flex:1}
-.food-time-card-title>.button{justify-content:flex-start;padding:2px 0;text-align:left;overflow-wrap:anywhere;font-size:.93rem;font-weight:600;min-height:30px;line-height:1.3;color:var(--ink-strong)}
+.food-time-card-title>.button,.food-time-card-title>.button.size-md{justify-content:flex-start;padding:2px 0;padding-left:0;padding-right:0;text-align:left;overflow-wrap:anywhere;font-size:.93rem;font-weight:600;min-height:30px;line-height:1.3;color:var(--ink-strong)}
 .food-time-card-title>.button:hover{color:var(--primary-ink)}
 .food-time-card-aside{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .food-time-card-energy{font-variant-numeric:tabular-nums;font-size:.88rem;color:var(--ink-strong);white-space:nowrap}
@@ -41,7 +41,7 @@
 .topbar .mobile-settings{display:none}
 .food-time-card[data-draggable]{cursor:grab}
 .food-time-card[data-dragging]{cursor:grabbing;opacity:.75}
-.food-time-row[data-drop-over] .food-time-cards{background:var(--primary-tint);border-left-color:var(--primary)}
+.food-time-row[data-drop-over] .food-time-cards{background:var(--primary-tint);border-left:2px solid var(--primary);border-radius:12px}
 .food-slot-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:2px}
 .food-empty-slot-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .food-card-select-checkbox{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border);display:inline-flex;align-items:center;justify-content:center;background:var(--card);cursor:pointer;flex-shrink:0;margin-right:6px;color:var(--on-primary);transition:background-color var(--motion-control) ease,border-color var(--motion-control) ease}
@@ -49,12 +49,14 @@
 .food-card-select-checkbox:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .food-check-icon{stroke-width:3}
 .food-time-card-selected,.food-time-card[data-selected]{border-color:var(--primary)!important;background:var(--primary-tint)!important}
-.food-selection-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:90;width:calc(100% - 32px);max-width:640px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow),0 12px 36px rgba(0,0,0,.2);padding:10px 16px}
-.food-selection-bar-content{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.food-selection-bar{position:sticky;top:12px;z-index:40;width:100%;margin:12px 0 16px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow),0 6px 20px rgba(0,0,0,.14);padding:10px 14px}
+.food-selection-bar-content{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .food-selection-bar-info{display:flex;align-items:center;gap:6px;font-size:.85rem;white-space:nowrap}
 .food-selection-count{color:var(--ink-strong);font-weight:600}
 .food-selection-calories{color:var(--muted-foreground);font-size:.8rem}
 .food-selection-bar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.delete-dialog-text{margin:0 0 8px;font-size:.88rem;color:var(--muted-foreground);line-height:1.55}
+.delete-food-modal .modal-actions{border-top:0;padding-top:0;margin-top:20px}
 .food-clipboard-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;background:var(--primary-tint);border:1px solid var(--border);border-radius:14px;margin-bottom:18px;font-size:.84rem}
 .food-clipboard-banner-main{display:flex;align-items:center;gap:10px;min-width:0}
 .food-clipboard-icon{color:var(--primary-ink);flex-shrink:0}
@@ -65,8 +67,7 @@
 .bulk-delete-item{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--muted);border-radius:10px;font-size:.83rem}
 .bulk-delete-item-name{font-weight:550;color:var(--ink-strong)}
 .bulk-delete-item-portion{color:var(--muted-foreground)}
-.bulk-delete-more{font-size:.78rem;color:var(--muted-foreground);text-align:center;margin:4px 0}
-@media(max-width:640px){.food-selection-bar{bottom:calc(76px + env(safe-area-inset-bottom,0px));padding:8px 10px;border-radius:14px;width:calc(100% - 20px)}.food-selection-bar-content{flex-direction:row;flex-wrap:wrap;gap:8px}.food-selection-bar-actions{width:100%;justify-content:space-between;gap:6px}.food-selection-bar-actions>.button{flex:1;min-height:38px;padding:6px 6px;font-size:.76rem}}
+@media(max-width:639px){.food-selection-bar{top:8px;padding:10px 12px;margin:8px 0 14px;border-radius:12px}.food-selection-bar-content{flex-direction:column;align-items:stretch;gap:10px}.food-selection-bar-info{justify-content:space-between;width:100%}.food-selection-bar-actions{width:100%;display:flex;flex-wrap:wrap;gap:6px;justify-content:stretch}.food-selection-bar-actions>.button{flex:1 1 auto;min-height:44px;padding:8px 8px;font-size:.8rem;justify-content:center}.food-selection-bar-actions>.button:last-child{flex:0 0 44px;min-width:44px}}
 @media(max-width:1023px){.topbar .mobile-settings{display:inline-flex;min-width:44px;margin-left:auto}.food-date-navigation{gap:8px;grid-template-columns:44px minmax(0,1fr) 44px auto}.food-time-row{grid-template-columns:62px minmax(0,1fr);gap:14px}.food-time-label{font-size:.73rem}.food-time-label::after{right:-19px}.food-time-cards{padding-left:14px}.food-time-card.panel{padding:12px}.food-time-card .section-heading{flex-wrap:wrap;gap:0 8px}.food-time-card .section-heading>strong{padding:0 0 10px}.food-day-nutrients{gap:12px 20px}}
 :root{font-family:"Inter Variable",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light;--background:#fcfcfc;--foreground:#53575c;--card:#fff;--primary:#f29718;--primary-ink:#714306;--primary-tint:#fff4df;--muted:#f3f4f5;--muted-foreground:#646f7a;--border:#e3e6e9;--destructive:#c0392f;--ring:#a56508;--success:#487b31;--protein:#57917b;--carbs:#bf862f;--fat:#a183b3;--track:#eeeae1;--ink-strong:#303840;--on-primary:#272015;--scrollbar-track:#f5f6f7;--scrollbar-thumb:#b5bdc5;--scrollbar-thumb-hover:#7c8791;--shadow:0 4px 20px rgba(0,0,0,0.035), 0 1px 3px rgba(0,0,0,0.02);--radius:20px;font-synthesis:none;font-variant-numeric:tabular-nums;text-rendering:optimizeLegibility}
 :root[data-theme=dark]{color-scheme:dark;--background:#0b0e14;--foreground:#bfbdb6;--card:#0f131a;--primary:#e6b450;--primary-ink:#e6b450;--primary-tint:#282319;--muted:#161c25;--muted-foreground:#8a9199;--border:#242c3a;--destructive:#ea6c73;--ring:#e6b450;--success:#aad47f;--protein:#95c9ac;--carbs:#e6b450;--fat:#c8a5e2;--track:#242c3a;--ink-strong:#eee9df;--on-primary:#272015;--scrollbar-track:#0f131a;--scrollbar-thumb:#3d4756;--scrollbar-thumb-hover:#687384;--shadow:0 4px 24px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.035)}
@@ -244,7 +245,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 
 /* Shared typography and compact review surface. */
 .sidebar nav{margin-top:32px}.topbar>span{letter-spacing:0;font-size:.8rem;font-weight:500}.auth-story .brand{margin-bottom:32px}@media(max-width:1023px){.sidebar nav{margin-top:0}}
-@media(max-width:639px){.goal-reached-banner{flex-direction:column;align-items:stretch;gap:14px}.goal-reached-banner>.button,.goal-reached-actions>.button{width:100%}.goal-reached-actions{display:grid;grid-template-columns:1fr;gap:8px}.goal-figures{grid-template-columns:repeat(2,minmax(0,1fr))}.goal-percent{font-size:1.3rem}.check-in-card{align-items:center;flex-wrap:nowrap;gap:12px}.check-in-card .check-in-orb{width:84px;height:84px}.check-in-card .check-in-orb-button{width:60px;min-width:60px;height:60px;min-height:60px}.check-in-copy{min-width:0}.goal-progress-path{font-size:.76rem}}
+@media(max-width:639px){.goal-reached-banner{flex-direction:column;align-items:stretch;gap:14px}.goal-reached-banner>.button,.goal-reached-actions>.button{width:100%}.goal-reached-actions{display:grid;grid-template-columns:1fr;gap:8px}.goal-figures,.strategy-figures{grid-template-columns:repeat(2,minmax(0,1fr))}.goal-percent{font-size:1.3rem}.check-in-card{align-items:center;flex-wrap:nowrap;gap:12px}.check-in-card .check-in-orb{width:84px;height:84px}.check-in-card .check-in-orb-button{width:60px;min-width:60px;height:60px;min-height:60px}.check-in-copy{min-width:0}.goal-progress-path{font-size:.76rem}}
 
 /* Pointer feedback for every disclosure control. */
 summary{cursor:pointer}
@@ -297,7 +298,7 @@ summary{cursor:pointer}
 .figure-inline{font-size:1.25rem;font-variant-numeric:tabular-nums}
 .strategy-figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin:0}
 .strategy-figures dt{font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-foreground);margin-bottom:4px}
-.strategy-figures dd{margin:0;font-size:.95rem;font-weight:600;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.strategy-figures dd{margin:0;font-size:.95rem;font-weight:600;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
 .plan-list{display:grid;gap:0;margin:0}
 .plan-list>div{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border)}
 .plan-list>div:last-child{border-bottom:0}
@@ -382,7 +383,6 @@ summary{cursor:pointer}
 .food-time-card-moved{animation:diaryRowMove var(--motion-panel) var(--motion-ease)}
 @keyframes diaryRowMove{from{opacity:.35;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .food-time-card[data-dragging]{box-shadow:0 14px 34px rgba(0,0,0,.16);transform:scale(.99);transition:opacity var(--motion-control) ease,box-shadow var(--motion-control) ease,transform var(--motion-control) ease}
-.food-time-row[data-drop-over] .food-time-cards{outline:1px solid var(--primary);outline-offset:-1px}
 @media(max-width:1023px){
   .nav-mobile-items{grid-template-columns:repeat(5,minmax(0,1fr))}
   .food-log-page .food-time-row{grid-template-columns:72px minmax(0,1fr)}
@@ -1451,7 +1451,7 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
   .sidebar{position:sticky;top:0;height:100svh;max-height:100svh;overflow-y:auto;align-self:start}
 }
 @media(max-width:1023px){
-  .food-time-card-title>.button{min-height:44px}
+  .food-time-card-title>.button,.food-time-card-title>.button.size-md{min-height:44px}
   .food-time-card-more,.food-slot-add{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
 }
 @media(max-width:639px){.food-date-navigation>.button:last-child{min-height:44px}}

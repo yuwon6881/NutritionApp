@@ -33,9 +33,13 @@ export function DeleteFoodDialog({open,entry,onClose,onDelete,restoreFocus}:Dele
     onClose={onClose}
     restoreFocus={restoreFocus}
     title="Delete food"
-    description={`Remove “${entry.name}” from the food log? This cannot be undone.`}
+    ariaDescribedBy="delete-food-description"
     width="sm"
+    className="delete-food-modal"
   >
+    <p id="delete-food-description" className="delete-dialog-text">
+      Remove “{entry.name}” from the food log? This cannot be undone.
+    </p>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="modal-actions">
       <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>

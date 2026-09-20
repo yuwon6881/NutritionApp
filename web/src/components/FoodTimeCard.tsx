@@ -123,7 +123,7 @@ export function FoodTimeCard({
       <div className="food-time-card-details">
         <span className="food-time-card-portion">{displayPortion(entry)}</span>
         <span className="food-time-card-dot" aria-hidden="true">·</span>
-        <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat} fiber={entry.fiber} includeFiber/>
+        <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat}/>
       </div>
       {isPendingSync&&<small className="sync-label" role="status">{pendingError??'Pending sync'}</small>}
     </article>

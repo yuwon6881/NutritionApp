@@ -207,8 +207,14 @@ public class GoogleHealthConnection
     public string GrantedScopesJson { get; set; } = "[]";
     public bool WeightSyncEnabled { get; set; }
     public long WeightSyncRevision { get; set; }
-    public long ConnectionGeneration { get; set; } = 1;
     public DateTime? WeightLastSuccessfulSyncAt { get; set; }
+    public bool NutritionSyncEnabled { get; set; }
+    public long NutritionSyncRevision { get; set; }
+    public DateTime? NutritionLastSuccessfulSyncAt { get; set; }
+    public bool BodyFatSyncEnabled { get; set; }
+    public long BodyFatSyncRevision { get; set; }
+    public DateTime? BodyFatLastSuccessfulSyncAt { get; set; }
+    public long ConnectionGeneration { get; set; } = 1;
     public DateTime ConnectedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastSyncedAt { get; set; }
     public string Status { get; set; } = "connected";
@@ -249,11 +255,65 @@ public class GoogleHealthWeightSyncWork : OwnedRecord
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public class GoogleHealthNutritionSyncWork : OwnedRecord
+{
+    public Guid EntryId { get; set; }
+    public long DesiredRevision { get; set; }
+    public DateOnly DesiredDate { get; set; }
+    public string? DesiredTime { get; set; }
+    public string DesiredName { get; set; } = "";
+    public double DesiredCalories { get; set; }
+    public double? DesiredProtein { get; set; }
+    public double? DesiredFat { get; set; }
+    public double? DesiredCarbs { get; set; }
+    public double? DesiredFiber { get; set; }
+    public bool DesiredDeleted { get; set; }
+    public string GoogleIdHash { get; set; } = "";
+    public long ConnectionGeneration { get; set; }
+    public string GoogleResourceName { get; set; } = "";
+    public string GoogleOperationName { get; set; } = "";
+    public string ProcessingState { get; set; } = "pending";
+    public DateTime NextAttemptAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LeaseUntil { get; set; }
+    public string LeaseId { get; set; } = "";
+    public string LastErrorCategory { get; set; } = "";
+    public string LastErrorMessage { get; set; } = "";
+    public int RetryCount { get; set; }
+    public DateTime? LastSuccessfulSyncAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class GoogleHealthBodyFatSyncWork : OwnedRecord
+{
+    public Guid BodyRecordId { get; set; }
+    public long DesiredRevision { get; set; }
+    public DateOnly DesiredDate { get; set; }
+    public double DesiredBodyFatPercent { get; set; }
+    public bool DesiredDeleted { get; set; }
+    public string GoogleIdHash { get; set; } = "";
+    public long ConnectionGeneration { get; set; }
+    public string GoogleResourceName { get; set; } = "";
+    public string GoogleOperationName { get; set; } = "";
+    public string ProcessingState { get; set; } = "pending";
+    public DateTime NextAttemptAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LeaseUntil { get; set; }
+    public string LeaseId { get; set; } = "";
+    public string LastErrorCategory { get; set; } = "";
+    public string LastErrorMessage { get; set; } = "";
+    public int RetryCount { get; set; }
+    public DateTime? LastSuccessfulSyncAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class IntegrationGrant : OwnedRecord
 {
     public string Peer { get; set; } = "";
     public string Status { get; set; } = "revoked";
     public string ScopesJson { get; set; } = "[]";
+    public Guid? CentralConnectionId { get; set; }
+    public long? CentralGeneration { get; set; }
     public string EncryptedRefreshToken { get; set; } = "";
     public DateTime? GrantedAt { get; set; }
     public DateTime? RevokedAt { get; set; }

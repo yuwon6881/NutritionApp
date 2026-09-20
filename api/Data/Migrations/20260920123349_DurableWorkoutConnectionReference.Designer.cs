@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Nutrition.Api.Data;
@@ -11,9 +12,11 @@ using Nutrition.Api.Data;
 namespace Nutrition.Api.Data.Migrations
 {
     [DbContext(typeof(AppDb))]
-    partial class AppDbModelSnapshot : ModelSnapshot
+    [Migration("20260920123349_DurableWorkoutConnectionReference")]
+    partial class DurableWorkoutConnectionReference
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -514,108 +517,10 @@ namespace Nutrition.Api.Data.Migrations
                     b.ToTable("Foods");
                 });
 
-            modelBuilder.Entity("Nutrition.Api.Data.GoogleHealthBodyFatSyncWork", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BodyRecordId")
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("ConnectionGeneration")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<double>("DesiredBodyFatPercent")
-                        .HasColumnType("double precision");
-
-                    b.Property<DateOnly>("DesiredDate")
-                        .HasColumnType("date");
-
-                    b.Property<bool>("DesiredDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<long>("DesiredRevision")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("GoogleIdHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("GoogleOperationName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("GoogleResourceName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("LastErrorCategory")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("LastErrorMessage")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("LastSuccessfulSyncAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LeaseId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("LeaseUntil")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("NextAttemptAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ProcessingState")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("RetryCount")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("Revision")
-                        .IsConcurrencyToken()
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("UserId", "Id");
-
-                    b.HasIndex("ProcessingState", "NextAttemptAt");
-
-                    b.HasIndex("UserId", "BodyRecordId")
-                        .IsUnique();
-
-                    b.ToTable("GoogleHealthBodyFatSyncWork");
-                });
-
             modelBuilder.Entity("Nutrition.Api.Data.GoogleHealthConnection", b =>
                 {
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("BodyFatLastSuccessfulSyncAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("BodyFatSyncEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<long>("BodyFatSyncRevision")
-                        .HasColumnType("bigint");
 
                     b.Property<DateTime>("ConnectedAt")
                         .HasColumnType("timestamp with time zone");
@@ -646,15 +551,6 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<DateTime?>("LastSyncedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("NutritionLastSuccessfulSyncAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("NutritionSyncEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<long>("NutritionSyncRevision")
-                        .HasColumnType("bigint");
-
                     b.Property<long>("Revision")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint");
@@ -678,114 +574,6 @@ namespace Nutrition.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("GoogleHealthConnections");
-                });
-
-            modelBuilder.Entity("Nutrition.Api.Data.GoogleHealthNutritionSyncWork", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("ConnectionGeneration")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<double>("DesiredCalories")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("DesiredCarbs")
-                        .HasColumnType("double precision");
-
-                    b.Property<DateOnly>("DesiredDate")
-                        .HasColumnType("date");
-
-                    b.Property<bool>("DesiredDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<double?>("DesiredFat")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("DesiredFiber")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("DesiredName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double?>("DesiredProtein")
-                        .HasColumnType("double precision");
-
-                    b.Property<long>("DesiredRevision")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("DesiredTime")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("EntryId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("GoogleIdHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("GoogleOperationName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("GoogleResourceName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("LastErrorCategory")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("LastErrorMessage")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("LastSuccessfulSyncAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LeaseId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("LeaseUntil")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("NextAttemptAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ProcessingState")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("RetryCount")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("Revision")
-                        .IsConcurrencyToken()
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("UserId", "Id");
-
-                    b.HasIndex("ProcessingState", "NextAttemptAt");
-
-                    b.HasIndex("UserId", "EntryId")
-                        .IsUnique();
-
-                    b.ToTable("GoogleHealthNutritionSyncWork");
                 });
 
             modelBuilder.Entity("Nutrition.Api.Data.GoogleHealthOAuthState", b =>
@@ -1444,25 +1232,7 @@ namespace Nutrition.Api.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Nutrition.Api.Data.GoogleHealthBodyFatSyncWork", b =>
-                {
-                    b.HasOne("Nutrition.Api.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Nutrition.Api.Data.GoogleHealthConnection", b =>
-                {
-                    b.HasOne("Nutrition.Api.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Nutrition.Api.Data.GoogleHealthNutritionSyncWork", b =>
                 {
                     b.HasOne("Nutrition.Api.Data.AppUser", null)
                         .WithMany()

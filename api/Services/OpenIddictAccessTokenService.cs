@@ -4,7 +4,13 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
 
-public sealed record ValidatedAccessToken(string Subject, string Issuer, IReadOnlySet<string> Scopes, DateTime ExpiresAt);
+public sealed record ValidatedAccessToken(
+    string Subject,
+    string Issuer,
+    IReadOnlySet<string> Scopes,
+    DateTime ExpiresAt,
+    Guid? ConnectionId = null,
+    long? ConnectionGeneration = null);
 
 public interface ISharedAccessTokenValidator
 {
@@ -36,6 +42,12 @@ public sealed class OpenIddictAccessTokenService(OpenIddictValidationService val
         var expiry = principal.GetExpirationDate();
         Validation.Require(expiry is { } && expiry > DateTimeOffset.UtcNow,
             "The shared access token has expired.", 401);
-        return new(subject!, principal.FindFirst(OpenIddictConstants.Claims.Issuer)?.Value ?? "", scopes, expiry!.Value.UtcDateTime);
+        var rawConnectionId = principal.FindFirst("fitness_connection_id")?.Value;
+        var rawGeneration = principal.FindFirst("fitness_connection_generation")?.Value;
+        Guid? connectionId = Guid.TryParse(rawConnectionId, out var parsedConnectionId) ? parsedConnectionId : null;
+        long? connectionGeneration = long.TryParse(rawGeneration, System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var parsedGeneration) ? parsedGeneration : null;
+        return new(subject!, principal.FindFirst(OpenIddictConstants.Claims.Issuer)?.Value ?? "", scopes,
+            expiry!.Value.UtcDateTime, connectionId, connectionGeneration);
     }
 }

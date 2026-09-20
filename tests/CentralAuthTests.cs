@@ -87,6 +87,47 @@ public sealed class CentralAuthTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Late_consent_callback_cannot_overwrite_a_completed_disconnect()
+    {
+        var user = new AppUser { Id = Guid.NewGuid(), DisplayName = "Alice", IdentitySubject = "sub_callback_race" };
+        var oldConnectionId = Guid.NewGuid();
+        db.CurrentUser = user.Id;
+        db.Users.Add(user);
+        db.IntegrationGrants.Add(new IntegrationGrant
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Peer = "workout",
+            Status = "active",
+            CentralConnectionId = oldConnectionId,
+            CentralGeneration = 1,
+            Revision = 4
+        });
+        await db.SaveChangesAsync();
+        var flowRevision = await db.IntegrationGrants.Select(x => x.Revision).SingleAsync();
+
+        await using (var disconnectDb = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options)
+        { CurrentUser = user.Id })
+        {
+            var grant = await disconnectDb.IntegrationGrants.SingleAsync(x => x.Peer == "workout");
+            grant.Status = "revoked";
+            grant.RevokedAt = DateTime.UtcNow;
+            grant.Revision++;
+            await disconnectDb.SaveChangesAsync();
+        }
+
+        db.ChangeTracker.Clear();
+        var error = await Assert.ThrowsAsync<DomainException>(() => CentralAuthEndpoints.ActivateConnectionGrant(
+            db, user.Id, flowRevision, Guid.NewGuid(), 2, default));
+
+        Assert.Equal(409, error.Status);
+        var saved = await db.IntegrationGrants.AsNoTracking().SingleAsync(x => x.Peer == "workout");
+        Assert.Equal("revoked", saved.Status);
+        Assert.Equal(oldConnectionId, saved.CentralConnectionId);
+        Assert.Equal(1, saved.CentralGeneration);
+    }
+
+    [Fact]
     public void Settings_throws_503_when_client_secret_is_placeholder_outside_development()
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>

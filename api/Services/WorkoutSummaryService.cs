@@ -24,7 +24,8 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
 
     public async Task<bool> IsConnected(CancellationToken ct)
-        => await db.IntegrationGrants.AsNoTracking().AnyAsync(x => x.Peer == "workout" && x.Status == "active", ct);
+        => await db.IntegrationGrants.AsNoTracking().AnyAsync(x => x.Peer == "workout" && x.Status == "active"
+            && x.CentralConnectionId != null && x.CentralGeneration != null, ct);
 
     public async Task<string?> GetLastError(CancellationToken ct)
     {
@@ -42,18 +43,29 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
         var url = config["Integrations:WorkoutTrainingSummaryUrl"];
         var connected = await IsConnected(ct);
-        if (connected && !string.IsNullOrWhiteSpace(url))
+        if (connected)
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(url))
+                    throw new InvalidOperationException("Workout summary endpoint is not configured.");
+                string? token;
+                if (peerTokens is null)
+                {
+                    token = config["Integrations:WorkoutAccessToken"];
+                }
+                else
+                {
+                    using var tokenTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    tokenTimeout.CancelAfter(TimeSpan.FromSeconds(10));
+                    token = await peerTokens.AccessToken("workout", "workout.training_summary.read", tokenTimeout.Token);
+                }
+                if (peerTokens is not null && string.IsNullOrWhiteSpace(token))
+                    throw new InvalidOperationException("Workout access is temporarily unavailable.");
+
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(Timeout);
                 var separator = url.Contains('?') ? '&' : '?';
                 using var request = new HttpRequestMessage(HttpMethod.Get, $"{url}{separator}from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}");
-                var token = peerTokens is null
-                    ? config["Integrations:WorkoutAccessToken"]
-                    : await peerTokens.AccessToken("workout", "workout.training_summary.read", timeout.Token);
-                if (peerTokens is not null && string.IsNullOrWhiteSpace(token))
-                    throw new InvalidOperationException("Workout access is not available.");
                 if (!string.IsNullOrWhiteSpace(token)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 var response = await clients.CreateClient("workout").SendAsync(request, timeout.Token);
                 response.EnsureSuccessStatusCode();
@@ -62,7 +74,11 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
                 await Save(items, from, to, DateTime.UtcNow, null, ct);
                 return items;
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                await Save(null, from, to, DateTime.UtcNow, "Workout summaries are temporarily unavailable.", ct);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
             {
                 await Save(null, from, to, DateTime.UtcNow, ex.Message, ct);
             }

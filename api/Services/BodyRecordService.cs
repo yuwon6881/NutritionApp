@@ -19,7 +19,7 @@ public sealed record BodyRecordView(Guid Id, DateOnly Date, long CreationOrder, 
 public sealed record BodyPage(Guid AccountId, long Revision, bool Configured, long UsedBytes, long MaxBytes,
     IReadOnlyList<BodyRecordView> Records, string? NextCursor, bool HasMore);
 
-public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfiguration config)
+public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfiguration config, GoogleHealthBodyFatSyncService? bodyFatSync = null)
 {
     public const string TrendVersion = "coach-trend-half-life-7d-v1";
     public static readonly IReadOnlyDictionary<string,PropertyInfo> MeasurementFields = typeof(BodyMeasurements)
@@ -82,6 +82,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
             var record=await db.BodyRecords.IgnoreQueryFilters().SingleOrDefaultAsync(b=>b.Id==recordId&&b.UserId==uid,ct);
             Validation.Require((record?.Revision??0)==op.ExpectedRevision,"This Body record changed on another device. Review the conflict.",409);
             Validation.Require(record is not {Deleted:true},"This Body record was deleted. Keep your draft or create a new record.",409);
+            var previousRecord = record != null ? new BodyRecord { Date = record.Date, Measurements = new BodyMeasurements { BodyFatPercent = record.Measurements.BodyFatPercent } } : null;
             var isNew=record==null;
             if(isNew)
             {
@@ -144,6 +145,8 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
                 foreach(var photo in await db.Photos.Where(p=>p.SetId==recordId&&!p.Deleted).ToListAsync(ct))photo.Date=body.Date;
             }
             body.Revision=++user.Revision;user.BodyRevision=user.Revision;body.Updated=DateTime.UtcNow;
+            if (bodyFatSync != null)
+                await bodyFatSync.QueueMutationAsync(previousRecord, op, body.Revision, ct);
             db.Receipts.Add(new MutationReceipt {Id=op.Id,UserId=uid,Hash=hash,Revision=body.Revision});
             await db.SaveChangesAsync(ct);await gate.Commit(ct);
         }

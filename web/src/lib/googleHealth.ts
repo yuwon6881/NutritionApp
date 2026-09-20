@@ -3,18 +3,22 @@ import {api} from './api';
 
 export type GoogleHealthStatus = 'disconnected' | 'connected' | 'reconnect_required';
 export type GoogleHealthFreshness = 'fresh' | 'stale' | 'unavailable';
-export type GoogleHealthWeightSyncState = 'disabled' | 'idle' | 'pending' | 'failed' | 'unknown' | 'reconnect_required';
+export type GoogleHealthSyncItemState = 'disabled' | 'idle' | 'pending' | 'failed' | 'unknown' | 'reconnect_required';
 
-export interface GoogleHealthWeightSyncStatus {
+export interface GoogleHealthItemSyncStatus {
   enabled: boolean;
   permissionGranted: boolean;
-  state: GoogleHealthWeightSyncState;
+  state: GoogleHealthSyncItemState;
   pendingCount: number;
   lastSuccessfulSyncAt: string | null;
   revision: number;
   failureCode?: string | null;
   failureMessage?: string | null;
 }
+
+export type GoogleHealthWeightSyncStatus = GoogleHealthItemSyncStatus;
+export type GoogleHealthNutritionSyncStatus = GoogleHealthItemSyncStatus;
+export type GoogleHealthBodyFatSyncStatus = GoogleHealthItemSyncStatus;
 
 export interface GoogleHealthDay {
   date: string;
@@ -30,7 +34,18 @@ export interface GoogleHealthSyncState {
   warningCode?: string | null;
   warningMessage?: string | null;
   weightSync: GoogleHealthWeightSyncStatus;
+  nutritionSync: GoogleHealthNutritionSyncStatus;
+  bodyFatSync: GoogleHealthBodyFatSyncStatus;
 }
+
+const initialItemStatus: GoogleHealthItemSyncStatus = {
+  enabled: false,
+  permissionGranted: false,
+  state: 'disabled',
+  pendingCount: 0,
+  lastSuccessfulSyncAt: null,
+  revision: 0,
+};
 
 export const initialGoogleHealthState: GoogleHealthSyncState = {
   status: 'disconnected',
@@ -38,14 +53,9 @@ export const initialGoogleHealthState: GoogleHealthSyncState = {
   lastSyncedAt: null,
   freshness: 'unavailable',
   days: [],
-  weightSync: {
-    enabled: false,
-    permissionGranted: false,
-    state: 'disabled',
-    pendingCount: 0,
-    lastSuccessfulSyncAt: null,
-    revision: 0,
-  },
+  weightSync: initialItemStatus,
+  nutritionSync: initialItemStatus,
+  bodyFatSync: initialItemStatus,
 };
 
 // Google-derived data remains in runtime memory ONLY. Never persist to IndexedDB/localStorage.
@@ -71,8 +81,22 @@ function getSnapshot(): GoogleHealthSyncState {
   return memoryState;
 }
 
-export async function connectGoogleHealth(syncWeight = false): Promise<{ authUrl: string }> {
-  return await api<{ authUrl: string }>('/integrations/google-health/connect', syncWeight ? {syncWeight: true} : {});
+export interface ConnectOptions {
+  syncWeight?: boolean;
+  syncNutrition?: boolean;
+  syncBodyFat?: boolean;
+}
+
+export async function connectGoogleHealth(optionsOrWeight: boolean | ConnectOptions = false): Promise<{ authUrl: string }> {
+  const payload: Record<string, boolean> = {};
+  if (typeof optionsOrWeight === 'boolean') {
+    if (optionsOrWeight) payload.syncWeight = true;
+  } else {
+    if (optionsOrWeight.syncWeight) payload.syncWeight = true;
+    if (optionsOrWeight.syncNutrition) payload.syncNutrition = true;
+    if (optionsOrWeight.syncBodyFat) payload.syncBodyFat = true;
+  }
+  return await api<{ authUrl: string }>('/integrations/google-health/connect', payload);
 }
 
 export async function setGoogleHealthWeightSync(enabled: boolean, revision: number): Promise<GoogleHealthWeightSyncStatus> {
@@ -89,9 +113,42 @@ export async function recoverGoogleHealthWeightSync(weightId?: string): Promise<
   return result;
 }
 
+export async function setGoogleHealthNutritionSync(enabled: boolean, revision: number): Promise<GoogleHealthNutritionSyncStatus> {
+  const result = await api<GoogleHealthNutritionSyncStatus>('/integrations/google-health/nutrition-sync/preference', {enabled, revision});
+  memoryState = {...memoryState, nutritionSync: result};
+  notify();
+  return result;
+}
+
+export async function recoverGoogleHealthNutritionSync(entryId?: string): Promise<GoogleHealthNutritionSyncStatus> {
+  const result = await api<GoogleHealthNutritionSyncStatus>('/integrations/google-health/nutrition-sync/recover', {entryId: entryId ?? null});
+  memoryState = {...memoryState, nutritionSync: result};
+  notify();
+  return result;
+}
+
+export async function setGoogleHealthBodyFatSync(enabled: boolean, revision: number): Promise<GoogleHealthBodyFatSyncStatus> {
+  const result = await api<GoogleHealthBodyFatSyncStatus>('/integrations/google-health/body-fat-sync/preference', {enabled, revision});
+  memoryState = {...memoryState, bodyFatSync: result};
+  notify();
+  return result;
+}
+
+export async function recoverGoogleHealthBodyFatSync(bodyRecordId?: string): Promise<GoogleHealthBodyFatSyncStatus> {
+  const result = await api<GoogleHealthBodyFatSyncStatus>('/integrations/google-health/body-fat-sync/recover', {bodyRecordId: bodyRecordId ?? null});
+  memoryState = {...memoryState, bodyFatSync: result};
+  notify();
+  return result;
+}
+
 export async function disconnectGoogleHealth(): Promise<GoogleHealthSyncState> {
   const result = await api<GoogleHealthSyncState>('/integrations/google-health/disconnect', {});
-  const nextState = {...result, weightSync: result.weightSync ?? initialGoogleHealthState.weightSync};
+  const nextState: GoogleHealthSyncState = {
+    ...result,
+    weightSync: result.weightSync ?? initialGoogleHealthState.weightSync,
+    nutritionSync: result.nutritionSync ?? initialGoogleHealthState.nutritionSync,
+    bodyFatSync: result.bodyFatSync ?? initialGoogleHealthState.bodyFatSync,
+  };
   memoryState = nextState;
   lastFetchTime = Date.now();
   notify();
@@ -111,10 +168,15 @@ export async function syncGoogleHealth(force = false): Promise<GoogleHealthSyncS
   inFlightPromise = (async () => {
     try {
       const result = await api<GoogleHealthSyncState>('/integrations/google-health/sync', {force});
-      memoryState = {...result, weightSync: result.weightSync ?? initialGoogleHealthState.weightSync};
+      memoryState = {
+        ...result,
+        weightSync: result.weightSync ?? initialGoogleHealthState.weightSync,
+        nutritionSync: result.nutritionSync ?? initialGoogleHealthState.nutritionSync,
+        bodyFatSync: result.bodyFatSync ?? initialGoogleHealthState.bodyFatSync,
+      };
       lastFetchTime = Date.now();
       notify();
-      return result;
+      return memoryState;
     } catch (err) {
       if (memoryState.status === 'connected') {
         memoryState = {

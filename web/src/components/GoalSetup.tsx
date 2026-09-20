@@ -176,7 +176,7 @@ export function GoalPaceSetup({
       <div className="live-calorie-meta">
         <span>Maintenance ~{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</span>
         {paced&&<span className="live-delta">
-          {live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate).toFixed(2)}% bodyweight/week
+          {live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate).toFixed(2)}% BW/wk
         </span>}
       </div>
     </div>}

@@ -7,7 +7,6 @@ import {CoachingSettings,UnitPreferencesFields} from './CoachingSettings';
 import {unitsFor} from '../lib/units';
 import type {CoachingSettings as CoachingSettingsType,MissingDayAction,UnitPreferences,WeightGoalMetric} from '../types';
 import {useAsyncAction} from './ui/useAsyncAction';
-import {DataExport} from './DataExport';
 import {GoogleHealthSettings} from './GoogleHealthSettings';
 import {ConnectedApps} from './ConnectedApps';
 import {CardFeedback} from './ui/CardFeedback';
@@ -120,7 +119,6 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
         </section>
         <GoogleHealthSettings/>
         <ConnectedApps store={store}/>
-        <DataExport store={store}/>
       </div>
     </div>
 

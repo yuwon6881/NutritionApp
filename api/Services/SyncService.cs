@@ -7,7 +7,7 @@ namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
 public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null, string? WeightGoalMetric = null);
-public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null)
+public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null,GoogleHealthNutritionSyncService? nutritionSync=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
     {
@@ -27,6 +27,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         // trajectory from the earliest date it touches, which the incoming payload alone cannot name.
         DateOnly? storedDate=null,mutatedDate=null;
         Weight? previousWeight=null;
+        DiaryEntry? previousEntry=null;
         if(op.Kind is "entry" or "weight" or "day")
         {
             if(op.Kind=="weight")
@@ -34,10 +35,13 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 previousWeight=await db.Weights.SingleOrDefaultAsync(w=>w.Id==op.RecordId,ct);
                 storedDate=previousWeight?.Date;
             }
+            else if(op.Kind=="entry")
+            {
+                previousEntry=await db.Entries.SingleOrDefaultAsync(e=>e.Id==op.RecordId,ct);
+                storedDate=previousEntry?.Date;
+            }
             else
-                storedDate=op.Kind=="entry"
-                    ? await db.Entries.Where(e=>e.Id==op.RecordId).Select(e=>(DateOnly?)e.Date).SingleOrDefaultAsync(ct)
-                    : await db.Days.Where(d=>d.Id==op.RecordId).Select(d=>(DateOnly?)d.Date).SingleOrDefaultAsync(ct);
+                storedDate=await db.Days.Where(d=>d.Id==op.RecordId).Select(d=>(DateOnly?)d.Date).SingleOrDefaultAsync(ct);
             if(op.Data.ValueKind==JsonValueKind.Object&&op.Data.TryGetProperty("date",out var dateValue)&&dateValue.ValueKind==JsonValueKind.String)
                 mutatedDate=dateValue.Deserialize<DateOnly>();
         }
@@ -146,6 +150,8 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if (op.Kind is "entry" or "day") user.DiaryRevision = revision;
         if(op.Kind=="weight"&&weightSync!=null)
             await weightSync.QueueMutationAsync(previousWeight,op,revision,ct);
+        if(op.Kind=="entry"&&nutritionSync!=null)
+            await nutritionSync.QueueMutationAsync(previousEntry,op,revision,ct);
         if (op.Kind is "profile" or "entry" or "weight" or "day")
         {
             user.TrajectoryRevision = revision;

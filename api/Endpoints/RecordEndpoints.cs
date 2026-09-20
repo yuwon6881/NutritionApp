@@ -248,11 +248,5 @@ public static class RecordEndpoints
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));
         app.MapPost("/api/coach/decline",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Decline(input.Id,input.Revision,ct));
         app.MapPost("/api/goal/complete",async(GoalDecisionInput input,CoachingService coach,CancellationToken ct)=>await coach.CompleteGoal(input.Id,input.Revision,input.Decision,ct));
-        app.MapGet("/api/export",async(ExportService export,CancellationToken ct)=>
-            Results.Stream(async stream=>await System.Text.Json.JsonSerializer.SerializeAsync(stream,await export.BuildJsonDocument(ct),Json.Options,ct),"application/json","nutrition-export.json"))
-            .RequireRateLimiting("export");
-        app.MapGet("/api/export/csv",(ExportService export,CancellationToken ct)=>
-            Results.Stream(stream=>export.WriteCsvBundle(stream,ct),"application/zip","nutrition-export-csv.zip"))
-            .RequireRateLimiting("export");
     }
 }

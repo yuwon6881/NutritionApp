@@ -90,7 +90,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   await expect.poll(()=>forcedSyncs).toBe(1);
   await expect(syncNow).toHaveText('Sync now');
 
-  const weightSyncRow=page.locator('.google-health-weight-sync .check-row');
+  const weightSyncRow=page.locator('.google-health-weight-sync .check-row').first();
   const weightSyncTitle=weightSyncRow.locator('strong');
   const weightSyncDescription=weightSyncRow.locator('small');
   await expect(weightSyncRow).toBeVisible();

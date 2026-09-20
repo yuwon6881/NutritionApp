@@ -118,8 +118,18 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
       </div>
       {date<current&&<div className="food-diary-toolbar-right">
-        <SelectField label="Logging status" value={status==='fasting'||status==='not_logged'?status:'incomplete'} onChange={value=>void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}))}>
-          <option value="incomplete">{count?'Complete automatically':'No food logged'}</option><option value="not_logged">Not logging</option><option value="fasting" disabled={total>0}>Fasting</option>
+        <SelectField
+          label="Logging status"
+          disabled={count>0}
+          value={status==='fasting'||status==='not_logged'?status:'incomplete'}
+          onChange={value=>{
+            if(count>0)return;
+            void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}));
+          }}
+        >
+          <option value="incomplete">{count?'Complete automatically':'No food logged'}</option>
+          <option value="not_logged" disabled={count>0}>Not logging</option>
+          <option value="fasting" disabled={count>0||total>0}>Fasting</option>
         </SelectField>
       </div>}
     </div>
@@ -159,6 +169,27 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
           <SegmentedControl<TimelineView> id="food-timeline-view" label="Food timeline hours" value={timelineView} onChange={setTimelineView} options={[{value:'data',label:'Hours with data'},{value:'full',label:'Full day'}]}/>
         </div>
         {!entries.length&&timelineView==='data'&&<p className="empty">{currentUncached?'No food entries saved on this device for today.':status==='fasting'?'This day is marked as fasting.':status==='not_logged'?'This day is marked as not logging.':'No food entries for this day.'}</p>}
+        {selection.isSelecting&&<FoodSelectionBar
+          selectedCount={selectedEntries.length}
+          totalCount={entries.length}
+          totalCalories={selectedCalories}
+          energyUnit={energyUnit}
+          onSelectAll={()=>selection.selectAll(entries.map(e=>e.id))}
+          onDeselectAll={selection.deselectAll}
+          onCopy={()=>{
+            clipboard.copy(selectedEntries,date);
+            selection.exitSelection();
+          }}
+          onMove={trigger=>{
+            setSelectionRestoreFocus(trigger);
+            setBulkMoving(selectedEntries);
+          }}
+          onDelete={trigger=>{
+            setSelectionRestoreFocus(trigger);
+            setBulkDeleting(selectedEntries);
+          }}
+          onDone={selection.exitSelection}
+        />}
         <FoodTimeline
           store={store}
           date={date}
@@ -181,27 +212,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         />
       </>}
     </>}
-    {selection.isSelecting&&<FoodSelectionBar
-      selectedCount={selectedEntries.length}
-      totalCount={entries.length}
-      totalCalories={selectedCalories}
-      energyUnit={energyUnit}
-      onSelectAll={()=>selection.selectAll(entries.map(e=>e.id))}
-      onDeselectAll={selection.deselectAll}
-      onCopy={()=>{
-        clipboard.copy(selectedEntries,date);
-        selection.exitSelection();
-      }}
-      onMove={trigger=>{
-        setSelectionRestoreFocus(trigger);
-        setBulkMoving(selectedEntries);
-      }}
-      onDelete={trigger=>{
-        setSelectionRestoreFocus(trigger);
-        setBulkDeleting(selectedEntries);
-      }}
-      onDone={selection.exitSelection}
-    />}
     {bulkDeleting&&<BulkDeleteFoodDialog
       open={Boolean(bulkDeleting)}
       entries={bulkDeleting}

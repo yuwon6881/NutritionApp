@@ -1,4 +1,4 @@
-﻿import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import * as apiModule from './api';
 import {
   calculateKnownDayAverage,
@@ -98,6 +98,8 @@ describe('googleHealth sync manager', () => {
         { date: '2026-09-14', count: 7500 },
       ],
       weightSync: initialGoogleHealthState.weightSync,
+      nutritionSync: initialGoogleHealthState.nutritionSync,
+      bodyFatSync: initialGoogleHealthState.bodyFatSync,
     };
     apiSpy.mockResolvedValueOnce(mockSync);
 
@@ -117,6 +119,8 @@ describe('googleHealth sync manager', () => {
       freshness: 'fresh',
       days: [],
       weightSync: initialGoogleHealthState.weightSync,
+      nutritionSync: initialGoogleHealthState.nutritionSync,
+      bodyFatSync: initialGoogleHealthState.bodyFatSync,
     };
     let resolveApi: (value: GoogleHealthSyncState) => void;
     const slowPromise = new Promise<GoogleHealthSyncState>((res) => {
@@ -142,6 +146,8 @@ describe('googleHealth sync manager', () => {
       freshness: 'fresh',
       days: [{ date: '2026-09-14', count: 5000 }],
       weightSync: initialGoogleHealthState.weightSync,
+      nutritionSync: initialGoogleHealthState.nutritionSync,
+      bodyFatSync: initialGoogleHealthState.bodyFatSync,
     };
     apiSpy.mockResolvedValue(mockSync);
 
@@ -166,6 +172,8 @@ describe('googleHealth sync manager', () => {
       freshness: 'fresh',
       days: [{ date: '2026-09-14', count: 3000 }],
       weightSync: initialGoogleHealthState.weightSync,
+      nutritionSync: initialGoogleHealthState.nutritionSync,
+      bodyFatSync: initialGoogleHealthState.bodyFatSync,
     };
     apiSpy.mockResolvedValueOnce(connectedState);
     await syncGoogleHealth();

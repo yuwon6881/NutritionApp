@@ -8,7 +8,9 @@ import {CardFeedback} from './ui/CardFeedback';
 
 type Grant = {
   peer: string;
-  status: 'active' | 'revoked';
+  status: 'active' | 'revoked' | 'reconnect_required';
+  connectionState: 'connected' | 'temporary_unavailable' | 'upgrade_required' | 'reconnect_required' | 'disconnected';
+  syncWarning: string | null;
   scopes: string[];
   grantedAt: string | null;
   revokedAt: string | null;
@@ -41,8 +43,14 @@ export function ConnectedApps({store}: {store?: Nourish}) {
     const url = new URL(window.location.href);
     const canceled = url.searchParams.get('central_error') === 'access_denied'
       || url.searchParams.get('error') === 'access_denied';
-    if (canceled) {
-      setBannerNotice({type: 'error', message: 'Workout connection was canceled.'});
+    const changedElsewhere = url.searchParams.get('central_error') === 'connection_changed';
+    if (canceled || changedElsewhere) {
+      setBannerNotice({
+        type: 'error',
+        message: changedElsewhere
+          ? 'The Workout connection changed in another tab. Check its status and reconnect if needed.'
+          : 'Workout connection was canceled.',
+      });
       url.searchParams.delete('central_error');
       url.searchParams.delete('error');
       window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
@@ -52,8 +60,8 @@ export function ConnectedApps({store}: {store?: Nourish}) {
   const connect = () => {
     setBusy(true);
     setError('');
-    // The backend performs the authorization-code exchange and stores only the encrypted
-    // rotating refresh token. The PWA never receives either token.
+    // The backend performs the authorization-code exchange and stores the durable consent
+    // reference. Access tokens remain server-side and short-lived.
     window.location.href = '/api/auth/central/connect';
   };
 
@@ -91,6 +99,10 @@ export function ConnectedApps({store}: {store?: Nourish}) {
     }
   };
 
+  const connectionState = grant?.connectionState ?? 'disconnected';
+  const isConnected = connectionState === 'connected' || connectionState === 'temporary_unavailable';
+  const needsReconnect = connectionState === 'upgrade_required' || connectionState === 'reconnect_required';
+
   return (
     <section className="panel connected-apps-panel" aria-labelledby="connected-apps-title">
       <div className="section-heading">
@@ -122,27 +134,39 @@ export function ConnectedApps({store}: {store?: Nourish}) {
         </p>
       )}
 
-      {loaded && !error && (!grant || grant.status !== 'active') && (
+      {loaded && !error && !isConnected && (
         <div className="integration-state disconnected">
           <p className="description">
-            Connect Workout to display your scheduled, in-progress, and completed training sessions alongside your diary. Training data is read-only and never changes Nutrition targets.
+            {connectionState === 'upgrade_required'
+              ? 'Reconnect once to upgrade this older Workout connection to permanent consent.'
+              : connectionState === 'reconnect_required'
+                ? 'Workout access has ended. Reconnect to restore training summaries.'
+                : 'Connect Workout to display your scheduled, in-progress, and completed training sessions alongside your diary. Training data is read-only and never changes Nutrition targets.'}
           </p>
           <div className="actions">
             <Button variant="primary" disabled={busy} onClick={connect}>
-              {busy ? 'Opening Fitness Account…' : 'Connect Workout'}
+              {busy ? 'Opening Fitness Account…' : connectionState === 'upgrade_required' ? 'Upgrade connection' : needsReconnect ? 'Reconnect Workout' : 'Connect Workout'}
             </Button>
+            {grant && connectionState !== 'disconnected' && (
+              <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
+                <Unlink size={15} aria-hidden="true" />
+                <span>Disconnect</span>
+              </Button>
+            )}
           </div>
         </div>
       )}
 
-      {loaded && !error && grant?.status === 'active' && (
+      {loaded && !error && isConnected && grant && (
         <div className="integration-state connected">
           <div className="status-row">
-            <div className="status-badge success">
+            <div className={`status-badge ${connectionState === 'connected' ? 'success' : 'warning'}`}>
               <CheckCircle2 size={16} aria-hidden="true" />
-              <span>Connected</span>
+              <span>{connectionState === 'connected' ? 'Connected' : 'Connected · sync delayed'}</span>
             </div>
           </div>
+
+          {grant.syncWarning && <p className="description" role="status">{grant.syncWarning}</p>}
 
           <div className="metadata-grid">
             <div className="metadata-item">

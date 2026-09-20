@@ -9,6 +9,7 @@ export interface ModalProps {
   onClose:()=>void;
   title:string;
   description?:string;
+  ariaDescribedBy?:string;
   headerActions?:ReactNode;
   dirty?:boolean;
   width?:ModalWidth;
@@ -38,6 +39,7 @@ export function Modal({
   onClose,
   title,
   description,
+  ariaDescribedBy,
   headerActions,
   dirty=false,
   width='md',
@@ -214,7 +216,7 @@ export function Modal({
     ref={dialog}
     className={`modal-shell modal-width-${width} modal-${phase} ${className}`.trim()}
     aria-labelledby={titleId}
-    aria-describedby={description?descriptionId:undefined}
+    aria-describedby={ariaDescribedBy ?? (description ? descriptionId : undefined)}
     aria-modal="true"
     onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else if(!preventDismiss)requestClose();}}
     onPointerDownCapture={event=>{

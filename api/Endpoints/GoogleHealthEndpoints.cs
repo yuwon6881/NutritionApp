@@ -7,9 +7,11 @@ namespace Nutrition.Api.Endpoints;
 
 public static class GoogleHealthEndpoints
 {
-    public sealed record ConnectInput(bool SyncWeight = false);
+    public sealed record ConnectInput(bool SyncWeight = false, bool SyncNutrition = false, bool SyncBodyFat = false);
     public sealed record SyncInput(bool Force = false);
     public sealed record WeightSyncPreferenceInput(bool Enabled, long Revision);
+    public sealed record NutritionSyncPreferenceInput(bool Enabled, long Revision);
+    public sealed record BodyFatSyncPreferenceInput(bool Enabled, long Revision);
 
     public static void MapGoogleHealth(this WebApplication app)
     {
@@ -21,7 +23,14 @@ public static class GoogleHealthEndpoints
             if (string.IsNullOrEmpty(origin))
                 origin = $"{http.Request.Scheme}://{http.Request.Host}";
 
-            var result = await service.GenerateConnectUrlAsync(db.CurrentUser!.Value, sessionHash, origin, ct, input?.SyncWeight == true);
+            var result = await service.GenerateConnectUrlAsync(
+                db.CurrentUser!.Value,
+                sessionHash,
+                origin,
+                ct,
+                input?.SyncWeight == true,
+                input?.SyncNutrition == true,
+                input?.SyncBodyFat == true);
             return Results.Ok(result);
         });
 
@@ -68,6 +77,24 @@ public static class GoogleHealthEndpoints
             Results.Ok(await service.RecoverAsync(input.WeightId, ct)));
 
         app.MapPost("/internal/google-health-weight-sync", async (GoogleHealthWeightSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.ProcessDueAsync(ct)));
+
+        app.MapPost("/api/integrations/google-health/nutrition-sync/preference", async (NutritionSyncPreferenceInput input, GoogleHealthNutritionSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.SetPreferenceAsync(input.Enabled, input.Revision, ct)));
+
+        app.MapPost("/api/integrations/google-health/nutrition-sync/recover", async (GoogleHealthNutritionSyncRecoveryInput input, GoogleHealthNutritionSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.RecoverAsync(input.EntryId, ct)));
+
+        app.MapPost("/internal/google-health-nutrition-sync", async (GoogleHealthNutritionSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.ProcessDueAsync(ct)));
+
+        app.MapPost("/api/integrations/google-health/body-fat-sync/preference", async (BodyFatSyncPreferenceInput input, GoogleHealthBodyFatSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.SetPreferenceAsync(input.Enabled, input.Revision, ct)));
+
+        app.MapPost("/api/integrations/google-health/body-fat-sync/recover", async (GoogleHealthBodyFatSyncRecoveryInput input, GoogleHealthBodyFatSyncService service, CancellationToken ct) =>
+            Results.Ok(await service.RecoverAsync(input.BodyRecordId, ct)));
+
+        app.MapPost("/internal/google-health-body-fat-sync", async (GoogleHealthBodyFatSyncService service, CancellationToken ct) =>
             Results.Ok(await service.ProcessDueAsync(ct)));
     }
 }

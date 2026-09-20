@@ -332,7 +332,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             Assert.Equal(0, mockHttp.HealthIdentityRequestCount);
             Assert.Equal("https://health.googleapis.com/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp", mockHttp.LastDailyRollupUrl);
             Assert.Contains("\"windowSizeDays\":1", mockHttp.LastDailyRollupPayload);
-            Assert.Contains("\"dataSourceFamily\":\"users/me/dataSourceFamilies/google-sources\"", mockHttp.LastDailyRollupPayload);
+            Assert.Contains("\"dataSourceFamily\":\"users/me/dataSourceFamilies/all-sources\"", mockHttp.LastDailyRollupPayload);
 
             // Today should be 8450
             var todayItem = syncResult.Days.Single(d => d.Date == today);
@@ -354,6 +354,63 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             await service.SyncAsync(userId, default, force: true);
             Assert.Equal(2, mockHttp.DailyRollupRequestCount);
         }
+    }
+
+    [Fact]
+    public void ParseDailyRollupResponse_Resolves_Duplicates_And_Handles_Various_Payload_Shapes()
+    {
+        // 1. Multiple entries on the same date (e.g. phone with 1210 steps, wearable with 9000 steps)
+        // must resolve to the highest valid count, not blindly overwrite with the last entry.
+        var jsonWithDuplicates = """
+        {
+            "rollupDataPoints": [
+                {
+                    "civilStartTime": { "date": { "year": 2026, "month": 9, "day": 20 } },
+                    "steps": { "countSum": "1210" }
+                },
+                {
+                    "civilStartTime": { "date": { "year": 2026, "month": 9, "day": 20 } },
+                    "steps": { "countSum": "9000" }
+                }
+            ]
+        }
+        """;
+        var map1 = GoogleHealthService.ParseDailyRollupResponse(jsonWithDuplicates);
+        Assert.Equal(9000, map1[new DateOnly(2026, 9, 20)]);
+
+        // 2. Order inverted: higher entry first, lower entry second
+        var jsonWithDuplicatesReversed = """
+        {
+            "rollupDataPoints": [
+                {
+                    "civilStartTime": { "date": { "year": 2026, "month": 9, "day": 20 } },
+                    "steps": { "countSum": "9000" }
+                },
+                {
+                    "civilStartTime": { "date": { "year": 2026, "month": 9, "day": 20 } },
+                    "steps": { "countSum": "1210" }
+                }
+            ]
+        }
+        """;
+        var map2 = GoogleHealthService.ParseDailyRollupResponse(jsonWithDuplicatesReversed);
+        Assert.Equal(9000, map2[new DateOnly(2026, 9, 20)]);
+
+        // 3. Google dailyRollupDataPoints envelope with interval.start
+        var jsonDailyRollupDataPoints = """
+        {
+            "dailyRollupDataPoints": [
+                {
+                    "interval": {
+                        "start": { "date": { "year": 2026, "month": 9, "day": 19 } }
+                    },
+                    "steps": { "countSum": 6543 }
+                }
+            ]
+        }
+        """;
+        var map3 = GoogleHealthService.ParseDailyRollupResponse(jsonDailyRollupDataPoints);
+        Assert.Equal(6543, map3[new DateOnly(2026, 9, 19)]);
     }
 
     [Fact]

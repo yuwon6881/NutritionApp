@@ -26,6 +26,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<GoogleHealthConnection> GoogleHealthConnections => Set<GoogleHealthConnection>();
     public DbSet<GoogleHealthOAuthState> GoogleHealthOAuthStates => Set<GoogleHealthOAuthState>();
     public DbSet<GoogleHealthWeightSyncWork> GoogleHealthWeightSyncWork => Set<GoogleHealthWeightSyncWork>();
+    public DbSet<GoogleHealthNutritionSyncWork> GoogleHealthNutritionSyncWork => Set<GoogleHealthNutritionSyncWork>();
+    public DbSet<GoogleHealthBodyFatSyncWork> GoogleHealthBodyFatSyncWork => Set<GoogleHealthBodyFatSyncWork>();
     public DbSet<IntegrationGrant> IntegrationGrants => Set<IntegrationGrant>();
     public DbSet<WorkoutSummaryCache> WorkoutSummaries => Set<WorkoutSummaryCache>();
 
@@ -57,13 +59,21 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<GoogleHealthWeightSyncWork>().HasQueryFilter(x => x.UserId == CurrentUser);
         m.Entity<GoogleHealthWeightSyncWork>().HasIndex(x => new { x.UserId, x.WeightId }).IsUnique();
         m.Entity<GoogleHealthWeightSyncWork>().HasIndex(x => new { x.ProcessingState, x.NextAttemptAt });
+        m.Entity<GoogleHealthNutritionSyncWork>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<GoogleHealthNutritionSyncWork>().HasIndex(x => new { x.UserId, x.EntryId }).IsUnique();
+        m.Entity<GoogleHealthNutritionSyncWork>().HasIndex(x => new { x.ProcessingState, x.NextAttemptAt });
+        m.Entity<GoogleHealthBodyFatSyncWork>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<GoogleHealthBodyFatSyncWork>().HasIndex(x => new { x.UserId, x.BodyRecordId }).IsUnique();
+        m.Entity<GoogleHealthBodyFatSyncWork>().HasIndex(x => new { x.ProcessingState, x.NextAttemptAt });
         // Deleting an account must take its sessions, idempotency receipts, and usage counters with it.
         OwnedByUser<Session>(m); OwnedByUser<MutationReceipt>(m); OwnedByUser<AiUsage>(m); OwnedByUser<DailyExpenditureEstimate>(m);
         OwnedByUser<GoogleHealthConnection>(m); OwnedByUser<GoogleHealthOAuthState>(m); OwnedByUser<GoogleHealthWeightSyncWork>(m);
+        OwnedByUser<GoogleHealthNutritionSyncWork>(m); OwnedByUser<GoogleHealthBodyFatSyncWork>(m);
         Configure<IntegrationGrant>(m); Configure<WorkoutSummaryCache>(m);
         m.Entity<IntegrationGrant>().HasIndex(x => new { x.UserId, x.Peer }).IsUnique();
         m.Entity<WorkoutSummaryCache>().HasIndex(x => x.UserId).IsUnique();
         Configure<DiaryEntry>(m); Configure<Food>(m); Configure<Weight>(m); Configure<GoogleHealthWeightSyncWork>(m);
+        Configure<GoogleHealthNutritionSyncWork>(m); Configure<GoogleHealthBodyFatSyncWork>(m);
         Configure<DayStatus>(m); Configure<AcceptedPlan>(m); Configure<CheckInDecision>(m); Configure<PhaseDecision>(m); Configure<ScanJob>(m);
         Configure<PhysiquePhoto>(m); Configure<PhotoObjectDeletion>(m);
         m.Entity<PhotoObjectDeletion>().HasIndex(x => new { x.Status, x.NextAttemptAt, x.Id });
