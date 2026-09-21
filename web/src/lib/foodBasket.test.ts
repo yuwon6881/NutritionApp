@@ -1,9 +1,15 @@
 import {expect,it} from 'vitest';
-import {basketEntries,basketTotals,lineFromAi,lineFromPer100,lineKey} from './foodBasket';
+import {aiFoodLineKey,basketEntries,basketTotals,lineFromAi,lineFromPer100,lineKey} from './foodBasket';
 
 it('keys by source and trimmed lowercased name', () => {
   expect(lineKey(' Banana ', 'Open Food Facts')).toBe('Open Food Facts|banana');
   expect(lineKey('egg', 'Open Food Facts')).toBe('Open Food Facts|egg');
+});
+
+it('keeps recovered AI batch rows idempotent for the same scan identity',()=>{
+  expect(aiFoodLineKey('scan-id',0)).toBe('ai:scan-id:0');
+  expect(aiFoodLineKey('scan-id',0)).toBe(aiFoodLineKey('scan-id',0));
+  expect(aiFoodLineKey('scan-id',1)).not.toBe(aiFoodLineKey('scan-id',0));
 });
 
 it('lineFromPer100 defaults quantity to 100 grams', () => {

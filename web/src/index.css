@@ -264,6 +264,25 @@ summary{cursor:pointer}
 .settings-save-status strong{font-size:.82rem;font-weight:600}
 .settings-save-status small{font-size:.72rem}
 .settings-save-indicator{width:9px;height:9px;flex:0 0 auto;margin-top:6px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 4px var(--primary-tint)}
+.pwa-readiness-list{display:grid;gap:10px;margin:16px 0}
+.pwa-readiness-list>div{display:grid;grid-template-columns:minmax(92px,125px) minmax(0,1fr);gap:10px;align-items:start}
+.pwa-readiness-list dt{font-size:.78rem;font-weight:550;color:var(--muted-foreground)}
+.pwa-readiness-list dd{display:flex;align-items:flex-start;gap:6px;min-width:0;margin:0;font-size:.82rem;line-height:1.5;color:var(--foreground);overflow-wrap:anywhere}
+.pwa-readiness-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
+.pwa-readiness-actions>.source{flex:1 1 260px;margin:0}
+.pwa-persisted-status{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted-foreground)}
+.pwa-storage-note{margin-top:12px}
+.pwa-update-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}
+.pwa-update-notice>span{min-width:0;color:var(--foreground)}
+.pwa-update-notice>small{flex:0 0 auto}
+@media(max-width:639px){.pwa-readiness-list>div{grid-template-columns:94px minmax(0,1fr);gap:8px}.pwa-update-notice{align-items:flex-start;flex-direction:column}.pwa-update-notice>.button{align-self:flex-end}}
+.notification-settings>.source{margin-bottom:14px}
+.notification-permission{display:flex;align-items:center;gap:5px}
+.notification-device-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin:12px 0}
+.notification-device-actions>.source{display:flex;align-items:center;gap:6px;margin:0 auto 0 0}
+.notification-reminder-heading{margin-top:20px}
+.notification-schedule-fields .field:last-child{grid-column:1/-1}
+.notification-save-actions{display:flex;justify-content:flex-end;margin-top:12px}
 .settings-error{margin:16px 0 0;padding:0;font-size:.78rem}
 .sync-conflict-notice{margin:0 0 24px;padding:20px;background:var(--muted);border:1px solid var(--border);border-left:3px solid var(--destructive);border-radius:var(--radius);box-shadow:var(--shadow)}
 .sync-conflict-heading{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:12px}

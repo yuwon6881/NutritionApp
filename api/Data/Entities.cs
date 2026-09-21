@@ -28,6 +28,47 @@ public class Session
     public Guid UserId { get; set; }
     public DateTime Expires { get; set; }
 }
+
+/// <summary>One browser installation's opt-in push destination.</summary>
+public sealed class NutritionPushSubscription
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
+    public string DeviceId { get; set; } = "";
+    public string FcmToken { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>An explicitly configured weekly check-in reminder. Disabled until the user opts in.</summary>
+public sealed class NutritionCheckInReminderPreference
+{
+    public Guid UserId { get; set; }
+    public bool Enabled { get; set; }
+    public int Weekday { get; set; } = 1;
+    public TimeOnly LocalTime { get; set; } = new(19, 0);
+    public string TimeZoneId { get; set; } = "Asia/Kuala_Lumpur";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>Per-device idempotency claim for one local calendar day's reminder.</summary>
+public sealed class NutritionPushReminderDelivery
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
+    public string DeviceId { get; set; } = "";
+    public DateOnly ReminderDate { get; set; }
+    public string Status { get; set; } = "sending";
+    public int Attempts { get; set; }
+    public string LeaseId { get; set; } = "";
+    public DateTime? LeaseUntil { get; set; }
+    public DateTime NextAttemptAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddDays(90);
+    public DateTime? SentAt { get; set; }
+}
+
 public abstract class OwnedRecord
 {
     public Guid Id { get; set; }

@@ -107,3 +107,23 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await expect(row1530.getByText('Greek Yogurt 0%')).toBeVisible();
   await expect(row1530.getByText('118 kcal')).toBeVisible();
 });
+
+test('unfinished food batch is restored after the app reloads',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  await page.goto('/');
+  await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
+  await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
+  await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
+  await page.getByRole('button',{name:'Your foods',exact:true}).click();
+  await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
+  await page.getByRole('button',{name:'Add to batch'}).click();
+  await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
+  await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
+  await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
+  await page.getByRole('button',{name:/View batch, 1 food/}).click();
+  await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
+  await expect(page.locator('.batch-food')).toContainText('Greek Yogurt 0%');
+});

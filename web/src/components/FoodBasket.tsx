@@ -62,15 +62,16 @@ export function FoodBasket({
     try{
       await run(async()=>{
         const entries=basketEntries(basket.lines,{date,time});
-        await store.logEntries(entries);
-        basket.clear();
+        await basket.flush();
+        await store.logEntries(entries,{retireFoodBasketDate:date});
+        basket.clearAfterOutboxCommit();
       });
       onSaved();
     }catch(ex){setError((ex as Error).message);}
   };
 
   const editing=basket.lines.find(line=>line.key===editingKey);
-  if(editing)return <div ref={root}><FoodEditor initial={editing} title="Edit batch food" energyUnit={units.energy} onClose={()=>setEditingKey(undefined)} onSave={async data=>{basket.replaceLine(editing.key,{...editing,...data,portions:parsePortions(data.portionsJson)});setEditingKey(undefined);}}/></div>;
+  if(editing)return <div ref={root}><FoodEditor initial={editing} title="Edit batch food" energyUnit={units.energy} onClose={()=>setEditingKey(undefined)} onSave={async data=>{await basket.replaceLine(editing.key,{...editing,...data,portions:parsePortions(data.portionsJson)});setEditingKey(undefined);}}/></div>;
   return <div ref={root} className="dialog-step food-basket">
     {announcement&&<p role="status" style={{position:'absolute',width:1,height:1,padding:0,margin:-1,overflow:'hidden',clip:'rect(0,0,0,0)',whiteSpace:'nowrap',border:0}}>{announcement}</p>}
     <div className="live-calorie-card">
@@ -109,7 +110,7 @@ export function FoodBasket({
         </p>
 
         <div className="batch-food-list">
-          {basket.lines.map(line=><BatchFoodRow key={line.key} line={line} energyUnit={units.energy} open={actionsKey===line.key} onOpen={open=>setActionsKey(open?line.key:undefined)} onEdit={()=>setEditingKey(line.key)} onRemove={()=>{basket.removeLine(line.key);setActionsKey(undefined);setAnnouncement('Removed '+line.name+' from batch.');}}/>)}
+          {basket.lines.map(line=><BatchFoodRow key={line.key} line={line} energyUnit={units.energy} open={actionsKey===line.key} onOpen={open=>setActionsKey(open?line.key:undefined)} onEdit={()=>setEditingKey(line.key)} onRemove={()=>{void basket.removeLine(line.key).then(()=>{setActionsKey(undefined);setAnnouncement('Removed '+line.name+' from batch.');}).catch(()=>setActionsKey(undefined));}}/>)}
         </div>
       </FieldFrame>
 

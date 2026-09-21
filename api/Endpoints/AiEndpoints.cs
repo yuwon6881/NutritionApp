@@ -15,7 +15,7 @@ public static class AiEndpoints
         // Photo cleanup must run before database tombstone purging. It keeps the
         // object path as a durable retry marker until GCS confirms deletion; the
         // storage sweep may then safely remove only already-confirmed rows.
-        app.MapPost("/internal/cleanup",async(StorageService storage,RetentionService retention,PhotoService photos,IConfiguration config,CancellationToken ct)=>
+        app.MapPost("/internal/cleanup",async(StorageService storage,RetentionService retention,PhotoService photos,NutritionNotificationService notifications,IConfiguration config,CancellationToken ct)=>
         {
             using var budget=new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(config.GetValue("Maintenance:MaxSeconds",45),5,120)));
             using var linked=CancellationTokenSource.CreateLinkedTokenSource(ct,budget.Token);
@@ -23,7 +23,8 @@ public static class AiEndpoints
             var deletedPhotos=await photos.Cleanup(cleanupCt);
             var deleted=await storage.Cleanup(cleanupCt);
             var compactedEntries=await retention.CompactAll(cleanupCt);
-            return new { deleted,compactedEntries,deletedPhotos };
+            var expiredNotificationDeliveries=await notifications.CleanupAsync(DateTime.UtcNow,cleanupCt);
+            return new { deleted,compactedEntries,deletedPhotos,expiredNotificationDeliveries };
         });
     }
 }

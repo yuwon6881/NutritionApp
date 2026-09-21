@@ -1,7 +1,7 @@
 import {useEffect,useState} from 'react';
 import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle} from 'lucide-react';
 import {api,ApiError} from './lib/api';
-import {readLocal} from './lib/local';
+import {getLocalDatabaseFailure,readLocal} from './lib/local';
 import {today} from './lib/format';
 import {watchTheme} from './lib/theme';
 import {useNourish} from './useNourish';
@@ -22,10 +22,15 @@ import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncConflictNotice} from './components/SyncConflictNotice';
 import {SyncStatus} from './components/ui/SyncStatus';
+import {ForegroundNotificationHandler,PwaUpdateNotice} from './components/ui/MobilePwa';
+import {readPushDeviceCredential,savePushRevocation} from './lib/local';
+import {getOrCreatePushDeviceId} from './lib/push/deviceId';
+import {retryPendingPushRevocations} from './lib/push/revocations';
+import {captureNutritionShortcut,clearPendingNutritionShortcut,consumeReadyNutritionShortcut} from './lib/nutritionShortcuts';
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 
-function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
+function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLogout:()=>Promise<void>}){
   const store=useNourish(user);
   const initialPage=typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
@@ -65,6 +70,28 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
   };
   const activeDate=store.state?.profile?today(store.state.profile.timeZone):date;
   const selectedEntryDate=page==='food'?foodDate:activeDate;
+  useEffect(()=>{
+    if(!authReady||!store.state?.profile)return;
+    let action:ReturnType<typeof consumeReadyNutritionShortcut>=null;
+    try{action=consumeReadyNutritionShortcut(window.localStorage,{authenticated:authReady,profileReady:!!store.state?.profile});}catch{/* Browser storage can be unavailable; keep the app usable. */}
+    if(!action)return;
+    setPage('today');
+    setDate(activeDate);
+    if(action==='log-food'||action==='scan-barcode'){
+      setFoodDate(activeDate);
+      setFoodEditing(undefined);
+      setFoodInitialTime(undefined);
+      setFoodInitialTab(action==='scan-barcode'?'barcode':'search');
+      setFoodReturnFocus(null);
+      setFoodOriginPage('today');
+      setFoodOpen(true);
+    }else{
+      setWeightDate(activeDate);
+      setWeightEditing(undefined);
+      setWeightReturnFocus(null);
+      setWeightOpen(true);
+    }
+  },[authReady,store.state?.profile,activeDate]);
   const addOptions:ActionSheetOption[]=[
     {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
@@ -112,6 +139,8 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
         <Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button>
       </div>
       <SyncStatus store={store}/>
+      <PwaUpdateNotice/>
+      <ForegroundNotificationHandler/>
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
       {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:<MotionScene sceneKey={needsProfile?'coach':page}>
@@ -131,29 +160,71 @@ function Workspace({user,onLogout}:{user:string;onLogout:()=>Promise<void>}){
 export default function App(){
   const [pathname]=useState(()=>typeof window!=='undefined'?window.location.pathname:'/');
   const [user,setUser]=useState<string|null>();
+  const [authReady,setAuthReady]=useState(false);
+  const [localDatabaseError,setLocalDatabaseError]=useState(getLocalDatabaseFailure);
+  useEffect(()=>{
+    const onDatabaseFailure=(event:Event)=>setLocalDatabaseError((event as CustomEvent<string>).detail||getLocalDatabaseFailure());
+    window.addEventListener('nutrition-local-database-error',onDatabaseFailure);
+    setLocalDatabaseError(getLocalDatabaseFailure());
+    return()=>window.removeEventListener('nutrition-local-database-error',onDatabaseFailure);
+  },[]);
+  useEffect(()=>{
+    if(!user||!authReady)return;
+    const retry=()=>{void retryPendingPushRevocations(user).catch(()=>{});};
+    retry();
+    window.addEventListener('online',retry);
+    window.addEventListener('focus',retry);
+    return()=>{
+      window.removeEventListener('online',retry);
+      window.removeEventListener('focus',retry);
+    };
+  },[authReady,user]);
   useEffect(()=>{
     const stopWatchingTheme=watchTheme();
     let active=true;
     void (async()=>{
+      try{
+        const shortcut=captureNutritionShortcut(window.location.href,window.localStorage);
+        if(shortcut)window.history.replaceState(null,'',shortcut.cleanUrl);
+      }catch{/* Keep the original shortcut URL if browser storage is blocked. */}
       const params=typeof window!=='undefined'?new URLSearchParams(window.location.search):null;
       if(params?.has('auth')){
         try{localStorage.removeItem('nourish-signed-out');}catch{}
         const cleanUrl=window.location.pathname+(window.location.hash||'');
         window.history.replaceState(null,'',cleanUrl);
       }
-      if(localStorage.getItem('nourish-signed-out')==='1'){setUser(null);return;}
+      if(localStorage.getItem('nourish-signed-out')==='1'){setUser(null);setAuthReady(true);return;}
       const previous=localStorage.getItem('nourish-account');let cached=false;
       try{cached=!!previous&&!!await readLocal(previous);}catch{/* Try the server if local storage is unavailable. */}
       if(active&&cached)setUser(previous);
       try{
         const account=await api<{id:string;displayName?:string}>('/auth/me');
-        if(active&&localStorage.getItem('nourish-signed-out')!=='1'){localStorage.setItem('nourish-account',account.id);setUser(account.id);}
-      }catch(ex){if(active&&(!cached||(ex instanceof ApiError&&ex.status===401)))setUser(null);}
+        if(active&&localStorage.getItem('nourish-signed-out')!=='1'){localStorage.setItem('nourish-account',account.id);setUser(account.id);setAuthReady(true);}
+      }catch(ex){if(active){if(!cached||(ex instanceof ApiError&&ex.status===401))setUser(null);setAuthReady(true);}}
     })();
     return()=>{active=false;stopWatchingTheme();};
   },[]);
 
-  const logout=async()=>{localStorage.setItem('nourish-signed-out','1');localStorage.removeItem('nourish-account');setUser(null);try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}};
+  const logout=async()=>{
+    if(user){
+      try{
+        const deviceId=getOrCreatePushDeviceId();
+        const credential=await readPushDeviceCredential(user,deviceId);
+        if(credential){
+          await savePushRevocation(user,deviceId,credential.fcmToken);
+          await retryPendingPushRevocations(user,{signal:AbortSignal.timeout(3000)});
+        }
+      }catch{/* Keep the exact account/device/token revocation for a later authenticated retry. */}
+    }
+    try{clearPendingNutritionShortcut(window.localStorage);}catch{/* The action cannot be retained when browser storage is blocked. */}
+    localStorage.setItem('nourish-signed-out','1');
+    localStorage.removeItem('nourish-account');
+    setUser(null);
+    try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}
+  };
   if(user===undefined)return <main className="startup"><Brand size={38}/></main>;
-  return user?<Workspace key={user} user={user} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);}}/>;
+  return <>
+    {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
+    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);}}/>}
+  </>;
 }

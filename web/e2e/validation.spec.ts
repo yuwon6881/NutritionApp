@@ -58,8 +58,11 @@ test('food, recipe and image actions explain invalid drafts without queuing writ
   await page.getByRole('button',{name:'Add to batch',exact:true}).click();
   await page.getByRole('button',{name:/Log all 1 food/}).click();
   await expect.poll(()=>writes).toBe(1);
-  const state=await (await context.request.get('/api/state')).json();const entry=state.entries.find((item:{name:string})=>item.name==='Zero calorie reviewed item');
-  expect(entry.calories).toBe(0);expect(entry.protein).toBeNull();
+  const readLoggedEntry=async()=>{
+    const state=await (await context.request.get('/api/state')).json();
+    return state.entries.find((item:{name:string})=>item.name==='Zero calorie reviewed item');
+  };
+  await expect.poll(readLoggedEntry,{timeout:15000}).toMatchObject({calories:0,protein:null});
   await food(page);await page.getByRole('button',{name:'Your foods',exact:true}).click();await page.getByRole('button',{name:'New recipe',exact:true}).click();await page.getByRole('button',{name:'Save recipe',exact:true}).click();
   await expect(page.getByText('Enter recipe name.')).toBeVisible();await expect(page.getByText('Add at least one ingredient.')).toBeVisible();expect(writes).toBe(1);
   await page.reload();await food(page);await page.getByRole('button',{name:'AI logging',exact:true}).click();

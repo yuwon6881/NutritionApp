@@ -30,6 +30,9 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<GoogleHealthBodyFatSyncWork> GoogleHealthBodyFatSyncWork => Set<GoogleHealthBodyFatSyncWork>();
     public DbSet<IntegrationGrant> IntegrationGrants => Set<IntegrationGrant>();
     public DbSet<WorkoutSummaryCache> WorkoutSummaries => Set<WorkoutSummaryCache>();
+    public DbSet<NutritionPushSubscription> NutritionPushSubscriptions => Set<NutritionPushSubscription>();
+    public DbSet<NutritionCheckInReminderPreference> NutritionCheckInReminderPreferences => Set<NutritionCheckInReminderPreference>();
+    public DbSet<NutritionPushReminderDelivery> NutritionPushReminderDeliveries => Set<NutritionPushReminderDelivery>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
@@ -65,10 +68,39 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<GoogleHealthBodyFatSyncWork>().HasQueryFilter(x => x.UserId == CurrentUser);
         m.Entity<GoogleHealthBodyFatSyncWork>().HasIndex(x => new { x.UserId, x.BodyRecordId }).IsUnique();
         m.Entity<GoogleHealthBodyFatSyncWork>().HasIndex(x => new { x.ProcessingState, x.NextAttemptAt });
+        m.Entity<NutritionPushSubscription>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<NutritionPushSubscription>().HasKey(x => x.Id);
+        m.Entity<NutritionPushSubscription>().Property(x => x.DeviceId).HasMaxLength(200);
+        m.Entity<NutritionPushSubscription>().Property(x => x.FcmToken).HasMaxLength(4096);
+        m.Entity<NutritionPushSubscription>().HasIndex(x => new { x.UserId, x.DeviceId }).IsUnique();
+        m.Entity<NutritionPushSubscription>().HasIndex(x => x.UpdatedAt);
+        m.Entity<NutritionCheckInReminderPreference>().HasKey(x => x.UserId);
+        m.Entity<NutritionCheckInReminderPreference>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<NutritionCheckInReminderPreference>().Property(x => x.TimeZoneId).HasMaxLength(120);
+        m.Entity<NutritionCheckInReminderPreference>().Property(x => x.LocalTime).HasColumnType("time without time zone");
+        m.Entity<NutritionCheckInReminderPreference>().HasIndex(x => new { x.Enabled, x.Weekday, x.LocalTime });
+        m.Entity<NutritionPushReminderDelivery>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<NutritionPushReminderDelivery>().Property(x => x.DeviceId).HasMaxLength(200);
+        m.Entity<NutritionPushReminderDelivery>().Property(x => x.Status).HasMaxLength(16);
+        m.Entity<NutritionPushReminderDelivery>().Property(x => x.LeaseId).HasMaxLength(32);
+        m.Entity<NutritionPushReminderDelivery>().Property(x => x.LeaseId).IsConcurrencyToken();
+        m.Entity<NutritionPushReminderDelivery>().HasIndex(x => new { x.UserId, x.DeviceId, x.ReminderDate })
+            .HasDatabaseName("IX_NutritionPushReminderDeliveries_User_Device_Date")
+            .IsUnique();
+        m.Entity<NutritionPushReminderDelivery>().HasIndex(x => new { x.Status, x.NextAttemptAt, x.LeaseUntil });
+        m.Entity<NutritionPushReminderDelivery>().HasIndex(x => x.ExpiresAt);
+        m.Entity<NutritionCheckInReminderPreference>().ToTable("NutritionCheckInReminderPreferences", table =>
+            table.HasCheckConstraint("CK_NutritionCheckInReminderPreferences_Weekday", "\"Weekday\" >= 0 AND \"Weekday\" <= 6"));
+        m.Entity<NutritionPushReminderDelivery>().ToTable("NutritionPushReminderDeliveries", table =>
+        {
+            table.HasCheckConstraint("CK_NutritionPushReminderDeliveries_Status", "\"Status\" IN ('sending', 'retry', 'sent', 'disabled', 'failed')");
+            table.HasCheckConstraint("CK_NutritionPushReminderDeliveries_Attempts", "\"Attempts\" >= 0");
+        });
         // Deleting an account must take its sessions, idempotency receipts, and usage counters with it.
         OwnedByUser<Session>(m); OwnedByUser<MutationReceipt>(m); OwnedByUser<AiUsage>(m); OwnedByUser<DailyExpenditureEstimate>(m);
         OwnedByUser<GoogleHealthConnection>(m); OwnedByUser<GoogleHealthOAuthState>(m); OwnedByUser<GoogleHealthWeightSyncWork>(m);
         OwnedByUser<GoogleHealthNutritionSyncWork>(m); OwnedByUser<GoogleHealthBodyFatSyncWork>(m);
+        OwnedByUser<NutritionPushSubscription>(m); OwnedByUser<NutritionCheckInReminderPreference>(m); OwnedByUser<NutritionPushReminderDelivery>(m);
         Configure<IntegrationGrant>(m); Configure<WorkoutSummaryCache>(m);
         m.Entity<IntegrationGrant>().HasIndex(x => new { x.UserId, x.Peer }).IsUnique();
         m.Entity<WorkoutSummaryCache>().HasIndex(x => x.UserId).IsUnique();
@@ -144,6 +176,12 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("OAuth state ownership violation.");
         foreach(var entry in ChangeTracker.Entries<GoogleHealthWeightSyncWork>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Google Health weight work ownership violation.");
+        foreach(var entry in ChangeTracker.Entries<NutritionPushSubscription>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Nutrition push subscription ownership violation.");
+        foreach(var entry in ChangeTracker.Entries<NutritionCheckInReminderPreference>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Nutrition reminder preference ownership violation.");
+        foreach(var entry in ChangeTracker.Entries<NutritionPushReminderDelivery>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Nutrition push delivery ownership violation.");
         return base.SaveChangesAsync(cancellationToken);
     }
 }

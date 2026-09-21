@@ -1,35 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, Food, LocalData, Mutation, PhysiqueAngle, PhysiqueDraft, ProgressSummary, BodyDraft, TrainingSummary } from './types';
 import { api, apiWithMeta, ApiError } from './lib/api';
-import { readLocal, saveLocal, readSavedFoods, saveSavedFoods, saveDatedDiaryBatch, stripLegacyScanDrafts } from './lib/local';
+import { readLocal, saveLocal, saveLocalAndRetireFoodBasketDraft, readSavedFoods, saveSavedFoods, saveDatedDiaryBatch, stripLegacyScanDrafts } from './lib/local';
 import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import { today } from './lib/format';
 import { enqueueMutation, project, rebaseAfterOwnWrite, wireMutation } from './lib/projection';
 import { acknowledgeHistory } from './lib/history';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
-export type SyncKind = Mutation['kind'] | 'photo' | 'body';
-export type SyncPhase = 'idle' | 'queued' | 'syncing' | 'synced';
-export type SyncState = { phase: SyncPhase; kind?: SyncKind };
-function queueEntries(current: LocalData, entries: unknown[]): Mutation[] {
-  return [
-    ...current.queue,
-    ...entries.map(data => ({
-      id: crypto.randomUUID(),
-      kind: 'entry' as const,
-      recordId: crypto.randomUUID(),
-      expectedRevision: 0,
-      data,
-      delete: false
-    }))
-  ];
-}
-function normalizePhotoDraft(value: PhysiqueDraft): PhysiqueDraft {
-  const legacy = value as PhysiqueDraft & { angle?: string; imageBase64?: string };
-  if (Array.isArray(value.photos)) return value;
-  const angle = (legacy.angle === 'side' || legacy.angle === 'back') ? legacy.angle as PhysiqueAngle : 'front';
-  return { id: value.id, date: value.date, photos: legacy.imageBase64 ? [{ id: value.id, angle, imageBase64: legacy.imageBase64 }] : [] };
-}
+import { normalizePhotoDraft, queueEntries, uploadPendingDrafts, type SyncKind, type SyncPhase, type SyncState } from './lib/nourishDrafts';
+export type { SyncKind, SyncPhase, SyncState };
 export function useNourish(user: string) {
   const [calendarDate, setCalendarDate] = useState(today());
   const [local, setLocal] = useState<LocalData>();
@@ -119,12 +99,12 @@ export function useNourish(user: string) {
     clearSyncTimer();
     if (alive.current) setSync({ phase: 'idle' });
   }, [checkActivity, clearSyncTimer]);
-  const commit = useCallback(async (change: (data: LocalData) => LocalData) => {
+  const commit = useCallback(async (change: (data: LocalData) => LocalData, persist?: (account: string, data: LocalData) => Promise<void>) => {
     const task = writes.current.catch(() => {}).then(async () => {
       if (!alive.current || !ref.current) return;
       const next = change(ref.current);
       if (next === ref.current) return;
-      await saveLocal(user, next);
+      await (persist ? persist(user, next) : saveLocal(user, next));
       if (!alive.current) return;
       ref.current = next;
       setLocal(next);
@@ -340,57 +320,18 @@ export function useNourish(user: string) {
   const runPendingDrafts = useCallback(async () => {
     if (processingDrafts.current || !navigator.onLine || !ref.current) return;
     processingDrafts.current = true;
-    const hasPhotoWork = (ref.current.photoDrafts ?? []).some(draft => !draft.error);
-    const hasBodyWork = (ref.current.bodyDrafts ?? []).some(draft => !draft.error);
-    if (!hasPhotoWork && !hasBodyWork) { processingDrafts.current = false; return; }
-    beginSync(hasBodyWork ? 'body' : 'photo');
     try {
-      for (const draft of [...(ref.current.photoDrafts ?? [])]) {
-        if (!alive.current || draft.error) continue;
-        try {
-          const normalized = normalizePhotoDraft(draft);
-          const { error: _, ...input } = normalized;
-          await api('/photos', input);
-          await commit(c => ({ ...c, photoDrafts: (c.photoDrafts ?? []).filter(p => p.id !== draft.id) }));
-        } catch (ex) {
-          if (ex instanceof ApiError) await commit(c => ({ ...c, photoDrafts: (c.photoDrafts ?? []).map(p => p.id === draft.id ? { ...p, error: ex.message } : p) }));
-          else setError('Photo is retained and will retry when connected.');
-        }
-      }
-      for (const draft of [...(ref.current.bodyDrafts ?? [])]) {
-        if (!alive.current || draft.error) continue;
-        try {
-          type BodyResponse = { id: string; revision: number };
-          const action = draft.action ?? 'save';
-          const body = draft.serverRevision != null ? { id: draft.id, revision: draft.serverRevision } : await api<BodyResponse>('/body-records/' + draft.id, {
-            id: draft.mutationId, expectedRevision: draft.expectedRevision, action,
-            ...(action === 'save' ? { data: { date: draft.date, measurements: draft.measurements, photos: draft.photos.map(photo => ({ id: photo.id, angle: photo.angle })), weightContext: draft.weightContext, omitScale: draft.omitScale ?? false, omitTrend: draft.omitTrend ?? false } } : {})
-          });
-          await commit(c => ({ ...c, bodyDrafts: (c.bodyDrafts ?? []).map(item => item.id === draft.id ? { ...item, serverRevision: body.revision, expectedRevision: body.revision, error: undefined } : item) }));
-          let revision = body.revision;
-          if (draft.photos.length) {
-            const photoMutationId = draft.photoMutationId ?? crypto.randomUUID();
-            if (!draft.photoMutationId) await commit(c => ({ ...c, bodyDrafts: (c.bodyDrafts ?? []).map(item => item.id === draft.id ? { ...item, photoMutationId } : item) }));
-            const uploaded = await api<{ revision: number }>('/body-records/' + draft.id + '/photos', {
-              id: draft.id, date: draft.date, photos: draft.photos, mutationId: photoMutationId, expectedRevision: revision
-            });
-            revision = uploaded.revision;
-          }
-          for (const photoId of draft.deletePhotoIds ?? []) {
-            const mutationId = draft.deleteMutationIds?.[photoId] ?? crypto.randomUUID();
-            if (!draft.deleteMutationIds?.[photoId]) await commit(c => ({ ...c, bodyDrafts: (c.bodyDrafts ?? []).map(item => item.id === draft.id ? { ...item, deleteMutationIds: { ...(item.deleteMutationIds ?? {}), [photoId]: mutationId } } : item) }));
-            const deleted = await api<{ revision: number }>('/body-records/' + draft.id, {
-              id: mutationId, expectedRevision: revision, action: 'photo-delete', photoId
-            });
-            revision = deleted.revision;
-          }
-          await commit(c => ({ ...c, bodyDrafts: (c.bodyDrafts ?? []).filter(item => item.id !== draft.id) }));
-        } catch (ex) {
-          if (ex instanceof ApiError) await commit(c => ({ ...c, bodyDrafts: (c.bodyDrafts ?? []).map(item => item.id === draft.id ? { ...item, error: ex.message } : item) }));
-          else setError('Body record is retained and will retry when connected.');
-        }
-      }
-    } finally { processingDrafts.current = false; finishSync(); }
+      await uploadPendingDrafts({
+        isAlive: () => alive.current,
+        getDrafts: () => ref.current,
+        commit,
+        beginSync,
+        finishSync,
+        setError
+      });
+    } finally {
+      processingDrafts.current = false;
+    }
   }, [beginSync, commit, finishSync]);
 
   useEffect(() => {
@@ -481,8 +422,11 @@ export function useNourish(user: string) {
 
   return {
     state, local, error, busy, sync, isActivityActive, beginActivity, mutate, refresh, refreshHistory, refreshProgress, loadSavedFoods, loadTrainingSummaries, drain, calendarDate,
-    logEntries: async (entries: unknown[]) => {
-      await commit(current => ({ ...current, queue: queueEntries(current, entries) }));
+    logEntries: async (entries: unknown[], options?: { retireFoodBasketDate?: string }) => {
+      const persist = options?.retireFoodBasketDate
+        ? (account: string, data: LocalData) => saveLocalAndRetireFoodBasketDraft(account, data, options.retireFoodBasketDate!)
+        : undefined;
+      await commit(current => ({ ...current, queue: queueEntries(current, entries) }), persist);
       markSyncQueued('entry');
       void drain();
     },

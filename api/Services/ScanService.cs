@@ -21,16 +21,35 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
         Validation.Require(input.Mode=="description"||bytes!=null,"Choose a photo first.");
         var hash=AuthService.Hash(Json.Write(input));
         ScanJob scan;
+        var uploadRequired=false;
         await using(var gate=await MutationLock.Acquire(db,null,ct))
         {
             var duplicate=await db.Scans.SingleOrDefaultAsync(s=>s.Id==input.Id,ct);
-            if(duplicate!=null) { Validation.Require(duplicate.RequestHash==hash,"Scan identity was reused.",409); return duplicate; }
-            await storage.AllowOptional(ct);
-            Validation.Require(await db.Scans.CountAsync(s=>s.Created>DateTime.UtcNow.AddDays(-1),ct)<40,"Too many AI requests today.",429);
-            scan=new ScanJob { Id=input.Id,UserId=db.CurrentUser!.Value,RequestHash=hash,ImageBytes=bytes?.Length??0,Mode=input.Mode,Description=input.Description,Status=bytes==null?"queued":"uploading",ObjectPath=bytes==null?null:$"nutrition-scans/{db.CurrentUser}/{input.Id}.jpg" };
-            db.Scans.Add(scan); await db.SaveChangesAsync(ct); await gate.Commit(ct);
+            if(duplicate!=null)
+            {
+                Validation.Require(duplicate.RequestHash==hash,"Scan identity was reused.",409);
+                if(!CanRetryExistingUpload(duplicate,hash,bytes!=null))return duplicate;
+                if(bytes!=null)await storage.AllowOptional(ct);
+                duplicate.Status=bytes==null?"queued":"uploading";
+                duplicate.Error=null;
+                duplicate.ResultJson=null;
+                duplicate.LeaseUntil=null;
+                duplicate.ObjectPath=bytes==null?null:$"nutrition-scans/{db.CurrentUser}/{input.Id}.jpg";
+                await db.SaveChangesAsync(ct);
+                await gate.Commit(ct);
+                scan=duplicate;
+                uploadRequired=bytes!=null;
+            }
+            else
+            {
+                await storage.AllowOptional(ct);
+                Validation.Require(await db.Scans.CountAsync(s=>s.Created>DateTime.UtcNow.AddDays(-1),ct)<40,"Too many AI requests today.",429);
+                scan=new ScanJob { Id=input.Id,UserId=db.CurrentUser!.Value,RequestHash=hash,ImageBytes=bytes?.Length??0,Mode=input.Mode,Description=input.Description,Status=bytes==null?"queued":"uploading",ObjectPath=bytes==null?null:$"nutrition-scans/{db.CurrentUser}/{input.Id}.jpg" };
+                db.Scans.Add(scan); await db.SaveChangesAsync(ct); await gate.Commit(ct);
+                uploadRequired=bytes!=null;
+            }
         }
-        if(bytes!=null)
+        if(bytes!=null&&uploadRequired)
         {
             try { await images.Put(scan.ObjectPath!,bytes,ct); scan.Status="queued"; }
             catch { scan.Status="failed";scan.Error="Upload interrupted. Try again."; }
@@ -38,6 +57,11 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
         }
         return scan;
     }
+
+    internal static bool CanRetryExistingUpload(ScanJob scan,string requestHash,bool hasImage)=>
+        scan.RequestHash==requestHash&&hasImage&&scan.ImageBytes>0&&
+        (scan.Status=="uploading"||(scan.Status=="failed"&&scan.Error=="Upload interrupted. Try again."));
+
     public async Task<ScanJob> Process(Guid id,CancellationToken ct)
     {
         ScanJob scan; AiUsage usage;

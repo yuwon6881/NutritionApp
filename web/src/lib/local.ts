@@ -1,15 +1,77 @@
-import type { AppState, BodyDraft, Day, DatedDiaryDay, Entry, Food, LocalData, Mutation, PhysiqueDraft } from '../types';
-import type {SavedFoodsCache} from './savedFoods';
+import type { AppState, BodyDraft, DatedDiaryDay, Food, LocalData, Mutation, PhysiqueDraft } from '../types';
+import type { SavedFoodsCache } from './savedFoods';
+import type { BasketLine } from './foodBasket';
+import type { FoodScanDraft } from './foodScans';
+import { idbDelete, idbGet, idbGetAllKeys, idbPut } from './idb';
+import { migrateV1ToV2 } from './localMigration';
+
+export { idbDelete, idbGet, idbGetAllKeys, idbPut };
+export * from './localMigration';
+export * from './localDataRemoval';
+export * from './push/deviceStorage';
 
 let connection: Promise<IDBDatabase> | undefined;
+let databaseInvalidated = false;
+let databaseFailure = '';
 
-export function resetDatabaseConnectionForTests() {
+const DATABASE_VERSION = 5;
+const DATABASE_OPEN_TIMEOUT_MS = 10_000;
+
+export type LocalDatabaseErrorCode = 'timeout' | 'unavailable' | 'versionchange';
+
+export class LocalDatabaseError extends Error {
+  constructor(readonly code: LocalDatabaseErrorCode, message: string) {
+    super(message);
+    this.name = 'LocalDatabaseError';
+  }
+}
+
+export function resetDatabaseConnectionForTests(): void {
   connection = undefined;
+  databaseInvalidated = false;
+  databaseFailure = '';
+}
+
+export function getLocalDatabaseFailure(): string {
+  return databaseFailure;
+}
+
+function reportDatabaseFailure(error: LocalDatabaseError): void {
+  databaseFailure = error.message;
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('nutrition-local-database-error', { detail: error.message }));
 }
 
 export function database(): Promise<IDBDatabase> {
-  return connection ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open('nourish-local', 2);
+  if (databaseInvalidated) {
+    return Promise.reject(new LocalDatabaseError('versionchange', 'Nutrition storage changed in another tab. Reload the app before continuing.'));
+  }
+  if (connection) return connection;
+
+  let opening: Promise<IDBDatabase>;
+  opening = new Promise<IDBDatabase>((resolve, reject) => {
+    let settled = false;
+    let blocked = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      const error = blocked
+        ? new LocalDatabaseError('timeout', 'Local Nutrition data is blocked by another open tab. Close older Nutrition tabs and reload; unsynced data has not been submitted.')
+        : new LocalDatabaseError('timeout', 'Local Nutrition data storage did not open. Reload the app; unsynced data has not been submitted.');
+      reportDatabaseFailure(error);
+      reject(error);
+    }, DATABASE_OPEN_TIMEOUT_MS);
+    let request: IDBOpenDBRequest;
+    try {
+      request = indexedDB.open('nourish-local', DATABASE_VERSION);
+    } catch {
+      clearTimeout(timeout);
+      settled = true;
+      const error = new LocalDatabaseError('unavailable', 'Local Nutrition data storage is unavailable. Reload the app; unsynced data has not been submitted.');
+      reportDatabaseFailure(error);
+      reject(error);
+      return;
+    }
+    request.onblocked = () => { blocked = true; };
     request.onupgradeneeded = (event) => {
       const db = request.result;
       const oldVersion = event.oldVersion;
@@ -23,65 +85,49 @@ export function database(): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains('drafts')) db.createObjectStore('drafts');
         if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
       }
+      if (oldVersion < 3 && !db.objectStoreNames.contains('food_drafts')) {
+        db.createObjectStore('food_drafts');
+      }
+      if (oldVersion < 4 && !db.objectStoreNames.contains('food_scans')) {
+        db.createObjectStore('food_scans');
+      }
+      if (oldVersion < 5 && !db.objectStoreNames.contains('push_revocations')) {
+        db.createObjectStore('push_revocations');
+      }
+      if (oldVersion < 5 && !db.objectStoreNames.contains('push_devices')) {
+        db.createObjectStore('push_devices');
+      }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        databaseInvalidated = true;
+        if (connection === opening) connection = undefined;
+        const error = new LocalDatabaseError('versionchange', 'Nutrition storage changed in another tab. Reload the app before continuing; unsynced data has not been submitted.');
+        reportDatabaseFailure(error);
+      };
+      if (settled) {
+        db.close();
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      databaseInvalidated = false;
+      databaseFailure = '';
+      resolve(db);
+    };
+    request.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      const error = new LocalDatabaseError('unavailable', 'Local Nutrition data storage could not be opened. Reload the app; unsynced data has not been submitted.');
+      reportDatabaseFailure(error);
+      reject(error);
+    };
   });
-}
-
-function idbGet<T>(db: IDBDatabase, storeName: string, key: IDBValidKey): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    try {
-      const tx = db.transaction(storeName, 'readonly');
-      const req = tx.objectStore(storeName).get(key);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    } catch (ex) {
-      reject(ex);
-    }
-  });
-}
-
-function idbPut<T>(db: IDBDatabase, storeName: string, value: T, key?: IDBValidKey): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      const tx = db.transaction(storeName, 'readwrite');
-      if (key !== undefined) tx.objectStore(storeName).put(value, key);
-      else tx.objectStore(storeName).put(value);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error ?? new Error('Transaction aborted'));
-    } catch (ex) {
-      reject(ex);
-    }
-  });
-}
-
-function idbDelete(db: IDBDatabase, storeName: string, key: IDBValidKey): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      const tx = db.transaction(storeName, 'readwrite');
-      tx.objectStore(storeName).delete(key);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error ?? new Error('Transaction aborted'));
-    } catch (ex) {
-      reject(ex);
-    }
-  });
-}
-
-function idbGetAllKeys(db: IDBDatabase, storeName: string): Promise<IDBValidKey[]> {
-  return new Promise((resolve, reject) => {
-    try {
-      const tx = db.transaction(storeName, 'readonly');
-      const req = tx.objectStore(storeName).getAllKeys();
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    } catch (ex) {
-      reject(ex);
-    }
-  });
+  connection = opening;
+  return opening;
 }
 
 export async function readDatedDiary(user: string, date: string): Promise<DatedDiaryDay | undefined> {
@@ -168,123 +214,77 @@ export async function saveDrafts(user: string, drafts: StoredDrafts): Promise<vo
   return idbPut(db, 'drafts', drafts, user);
 }
 
-export async function clearUserCache(user: string): Promise<void> {
+export async function readFoodBasketDraft(user: string, date: string): Promise<BasketLine[]> {
   const db = await database();
-  await idbDelete(db, 'accounts', user).catch(() => {});
-  await idbDelete(db, 'saved_foods', user).catch(() => {});
-  await idbDelete(db, 'mutations', user).catch(() => {});
-  await idbDelete(db, 'drafts', user).catch(() => {});
-  await idbDelete(db, 'meta', `migrated_v2:${user}`).catch(() => {});
-  const allKeys = await idbGetAllKeys(db, 'diary_days').catch(() => []);
-  const prefix = `${user}:`;
-  for (const key of allKeys) {
-    if (typeof key === 'string' && key.startsWith(prefix)) {
-      await idbDelete(db, 'diary_days', key).catch(() => {});
-    }
-  }
+  const record = await idbGet<{ version: number; lines: unknown }>(db, 'food_drafts', foodBasketDraftKey(user, date));
+  if (record?.version !== 1 || !Array.isArray(record.lines)) return [];
+  return record.lines.filter(isBasketLine);
 }
 
-/**
- * Migration from v1 monolithic LocalData to v2 partitioned stores.
- * Extracts mutations, drafts, saved foods, and dated diary records.
- * Recoverable on quota exceeded or interruption.
- */
-export async function migrateV1ToV2(db: IDBDatabase, user: string): Promise<boolean> {
-  const metaKey = `migrated_v2:${user}`;
-  const alreadyMigrated = await idbGet<boolean>(db, 'meta', metaKey).catch(() => false);
-  if (alreadyMigrated) return true;
+export function isBasketLine(value: unknown): value is BasketLine {
+  if (!value || typeof value !== 'object') return false;
+  const line = value as Partial<BasketLine>;
+  const finiteOrNull = (number: unknown) => number === null || (typeof number === 'number' && Number.isFinite(number));
+  return typeof line.key === 'string' && typeof line.name === 'string' && typeof line.source === 'string' &&
+    typeof line.quantity === 'number' && Number.isFinite(line.quantity) && line.quantity > 0 &&
+    (line.unit === 'g' || line.unit === 'serving') && typeof line.calories === 'number' && Number.isFinite(line.calories) &&
+    finiteOrNull(line.protein) && finiteOrNull(line.carbs) && finiteOrNull(line.fat) && finiteOrNull(line.fiber) &&
+    (line.portionLabel === null || typeof line.portionLabel === 'string') && finiteOrNull(line.portionGrams) &&
+    Array.isArray(line.portions) && line.portions.every(portion => typeof portion?.label === 'string' &&
+      typeof portion.grams === 'number' && Number.isFinite(portion.grams) && portion.grams > 0);
+}
 
-  const raw = await idbGet<LocalData>(db, 'accounts', user).catch(() => undefined);
-  if (!raw) return true;
+export async function saveFoodBasketDraft(user: string, date: string, lines: BasketLine[]): Promise<void> {
+  const db = await database();
+  const key = foodBasketDraftKey(user, date);
+  if (lines.length === 0) return idbDelete(db, 'food_drafts', key);
+  return idbPut(db, 'food_drafts', { version: 1, updatedAt: Date.now(), lines }, key);
+}
 
-  try {
-    // 1. Separate mutation queue if present
-    if (raw.queue && raw.queue.length > 0) {
-      await idbPut(db, 'mutations', { queue: raw.queue }, user);
-    }
+export function foodBasketDraftKey(user: string, date: string): string {
+  return `${user}:${date}`;
+}
 
-    // 2. Separate drafts if present
-    if ((raw.photoDrafts && raw.photoDrafts.length > 0) || (raw.bodyDrafts && raw.bodyDrafts.length > 0)) {
-      await idbPut(db, 'drafts', { photoDrafts: raw.photoDrafts ?? [], bodyDrafts: raw.bodyDrafts ?? [] }, user);
-    }
+export function isFoodBasketDraftKeyLoaded(loadedKey: string | null, user: string, date: string): boolean {
+  return loadedKey === foodBasketDraftKey(user, date);
+}
 
-    // 3. Separate foods if present
-    if (raw.state?.foods && raw.state.foods.length > 0) {
-      await idbPut(db, 'saved_foods', { foods: raw.state.foods, revision: raw.state.foodRevision ?? raw.state.revision ?? 0, fetchedAt: Date.now() }, user);
-    }
+export async function readFoodScanDraft(user: string, date: string): Promise<FoodScanDraft | undefined> {
+  const db = await database();
+  const record = await idbGet<FoodScanDraft>(db, 'food_scans', foodBasketDraftKey(user, date));
+  return isFoodScanDraft(record, date) ? record : undefined;
+}
 
-    // 4. Extract dated diary records from state and historical snapshots
-    const datesMap = new Map<string, { entries: Map<string, Entry>; day?: Day; revision: number }>();
+export async function saveFoodScanDraft(user: string, draft: FoodScanDraft): Promise<void> {
+  if (!isFoodScanDraft(draft)) throw new Error('The saved food scan draft is invalid.');
+  const db = await database();
+  await idbPut(db, 'food_scans', { ...draft, version: 1, updatedAt: Date.now() }, foodBasketDraftKey(user, draft.date));
+  notifyFoodScanDraftsChanged();
+}
 
-    const ingestState = (st: AppState) => {
-      if (!st) return;
-      for (const entry of st.entries ?? []) {
-        if (!entry.date) continue;
-        let bucket = datesMap.get(entry.date);
-        if (!bucket) {
-          bucket = { entries: new Map(), revision: st.revision ?? 0 };
-          datesMap.set(entry.date, bucket);
-        }
-        const existing = bucket.entries.get(entry.id);
-        if (!existing || (entry.revision ?? 0) >= (existing.revision ?? 0)) {
-          bucket.entries.set(entry.id, entry);
-        }
-        if ((st.revision ?? 0) > bucket.revision) bucket.revision = st.revision;
-      }
-      for (const day of st.days ?? []) {
-        if (!day.date) continue;
-        let bucket = datesMap.get(day.date);
-        if (!bucket) {
-          bucket = { entries: new Map(), revision: st.revision ?? 0 };
-          datesMap.set(day.date, bucket);
-        }
-        if (!bucket.day || (day.revision ?? 0) >= (bucket.day.revision ?? 0)) {
-          bucket.day = day;
-        }
-      }
-    };
+export async function deleteFoodScanDraft(user: string, date: string): Promise<void> {
+  const db = await database();
+  await idbDelete(db, 'food_scans', foodBasketDraftKey(user, date));
+  notifyFoodScanDraftsChanged();
+}
 
-    if (raw.state) ingestState(raw.state);
-    if (raw.history) {
-      for (const hist of Object.values(raw.history)) {
-        if (hist) ingestState(hist);
-      }
-    }
+export function notifyFoodScanDraftsChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('nutrition-scan-drafts-changed'));
+}
 
-    const now = Date.now();
-    for (const [date, bucket] of datesMap.entries()) {
-      const dayRecord: DatedDiaryDay = {
-        date,
-        entries: [...bucket.entries.values()].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.id.localeCompare(b.id)),
-        day: bucket.day,
-        revision: bucket.revision,
-        fetchedAt: now
-      };
-      await idbPut(db, 'diary_days', dayRecord, `${user}:${date}`);
-    }
-
-    // 5. Clean up bloated history and embedded drafts from the account snapshot in accounts store
-    if (raw.history || raw.photoDrafts || raw.bodyDrafts) {
-      const cleanState = { ...raw.state };
-      const cleanData: LocalData = {
-        state: cleanState,
-        queue: raw.queue ?? [],
-        progress: raw.progress
-      };
-      await idbPut(db, 'accounts', cleanData, user);
-    }
-
-    // 6. Record successful migration marker
-    await idbPut(db, 'meta', true, metaKey);
-    return true;
-  } catch (ex: any) {
-    // Gracefully handle storage quota errors or interruption
-    if (ex?.name === 'QuotaExceededError' || ex?.code === 22) {
-      console.warn('Storage quota exceeded during migration; preserved existing data.');
-      return false;
-    }
-    throw ex;
-  }
+export function isFoodScanDraft(value: unknown, date?: string): value is FoodScanDraft {
+  if (!value || typeof value !== 'object') return false;
+  const draft = value as Partial<FoodScanDraft>;
+  return draft.version === 1 && typeof draft.id === 'string' && draft.id.length > 0 &&
+    typeof draft.date === 'string' && (!date || draft.date === date) &&
+    ['photo', 'label', 'description'].includes(draft.mode ?? '') &&
+    typeof draft.description === 'string' &&
+    (draft.imageBase64 === null || typeof draft.imageBase64 === 'string') &&
+    ['captured', 'submitted', 'review', 'failed'].includes(draft.status ?? '') &&
+    (draft.resultJson == null || typeof draft.resultJson === 'string') &&
+    (draft.error == null || typeof draft.error === 'string') &&
+    (draft.pendingBarcode == null || (typeof draft.pendingBarcode.code === 'string' &&
+      (draft.pendingBarcode.purpose === 'log' || draft.pendingBarcode.purpose === 'recipe')));
 }
 
 export async function readLocal(user: string): Promise<LocalData | undefined> {
@@ -303,12 +303,12 @@ export async function readLocal(user: string): Promise<LocalData | undefined> {
     foods: foodsRecord?.foods ?? raw.state?.foods ?? []
   };
 
-  const cacheHasLoadedData=Boolean(foodsRecord&&(foodsRecord.loaded===true||foodsRecord.foods.length>0||foodsRecord.revision===0));
+  const cacheHasLoadedData = Boolean(foodsRecord && (foodsRecord.loaded === true || foodsRecord.foods.length > 0 || foodsRecord.revision === 0));
 
   return {
     ...raw,
     state,
-    foodsLoaded: raw.foodsLoaded===true||cacheHasLoadedData||(!foodsRecord&&Boolean(raw.state?.foods?.length)),
+    foodsLoaded: raw.foodsLoaded === true || cacheHasLoadedData || (!foodsRecord && Boolean(raw.state?.foods?.length)),
     queue,
     photoDrafts: drafts.photoDrafts ?? raw.photoDrafts,
     bodyDrafts: drafts.bodyDrafts ?? raw.bodyDrafts
@@ -317,6 +317,15 @@ export async function readLocal(user: string): Promise<LocalData | undefined> {
 
 export async function saveLocal(user: string, data: LocalData): Promise<void> {
   const db = await database();
+  return writeLocalSnapshot(db, user, data);
+}
+
+export async function saveLocalAndRetireFoodBasketDraft(user: string, data: LocalData, date: string): Promise<void> {
+  const db = await database();
+  return writeLocalSnapshot(db, user, data, date);
+}
+
+async function writeLocalSnapshot(db: IDBDatabase, user: string, data: LocalData, retireFoodBasketDate?: string): Promise<void> {
   // Keep the canonical account, queue, drafts, and saved-food snapshot in one
   // transaction. The old implementation opened four transactions for every
   // optimistic update and could leave the stores at different revisions after
@@ -324,7 +333,8 @@ export async function saveLocal(user: string, data: LocalData): Promise<void> {
   // server response is an authoritative deletion, not a reason to retain stale
   // local rows.
   const stores = ['accounts', 'mutations', 'drafts'];
-  if (Array.isArray(data.state?.foods)&&data.foodsLoaded!==false) stores.push('saved_foods');
+  if (Array.isArray(data.state?.foods) && data.foodsLoaded !== false) stores.push('saved_foods');
+  if (retireFoodBasketDate !== undefined) stores.push('food_drafts');
   await new Promise<void>((resolve, reject) => {
     try {
       const tx = db.transaction(stores, 'readwrite');
@@ -334,6 +344,9 @@ export async function saveLocal(user: string, data: LocalData): Promise<void> {
       if (stores.includes('saved_foods')) {
         tx.objectStore('saved_foods').put({ foods: data.state.foods, revision: data.state.foodRevision ?? data.state.revision ?? 0, fetchedAt: Date.now(), loaded: true }, user);
       }
+      if (retireFoodBasketDate !== undefined) {
+        tx.objectStore('food_drafts').delete(foodBasketDraftKey(user, retireFoodBasketDate));
+      }
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error ?? new Error('Local data transaction aborted'));
@@ -341,12 +354,4 @@ export async function saveLocal(user: string, data: LocalData): Promise<void> {
       reject(ex);
     }
   });
-}
-
-/** Remove the retired client-side AI scan records when an older cache is reopened. */
-export function stripLegacyScanDrafts(data: LocalData): LocalData {
-  if (!Object.prototype.hasOwnProperty.call(data, 'scans')) return data;
-  const current = { ...data } as LocalData & { scans?: unknown };
-  delete current.scans;
-  return current;
 }

@@ -15,6 +15,10 @@ export function lineKey(name:string,source:string):string{
   return `${source}|${name.trim().toLowerCase()}`;
 }
 
+export function aiFoodLineKey(operationId:string,index:number):string{
+  return `ai:${operationId}:${index}`;
+}
+
 export function lineFromPer100(item:Nutrients&{name:string;source:string;portions?:Portion[];portionsJson?:string}):BasketLine{
   const portions=parsePortions(item.portions?JSON.stringify(item.portions):item.portionsJson);
   const line:BasketLine={

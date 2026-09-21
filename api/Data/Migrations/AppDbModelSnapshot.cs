@@ -988,6 +988,140 @@ namespace Nutrition.Api.Data.Migrations
                     b.ToTable("Receipts");
                 });
 
+            modelBuilder.Entity("Nutrition.Api.Data.NutritionCheckInReminderPreference", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly>("LocalTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Weekday")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("Enabled", "Weekday", "LocalTime");
+
+                    b.ToTable("NutritionCheckInReminderPreferences", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_NutritionCheckInReminderPreferences_Weekday", "\"Weekday\" >= 0 AND \"Weekday\" <= 6");
+                        });
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.NutritionPushReminderDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LeaseId")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("LeaseUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("ReminderDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("Status", "NextAttemptAt", "LeaseUntil");
+
+                    b.HasIndex("UserId", "DeviceId", "ReminderDate")
+                        .HasDatabaseName("IX_NutritionPushReminderDeliveries_User_Device_Date")
+                        .IsUnique();
+
+                    b.ToTable("NutritionPushReminderDeliveries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_NutritionPushReminderDeliveries_Attempts", "\"Attempts\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionPushReminderDeliveries_Status", "\"Status\" IN ('sending', 'retry', 'sent', 'disabled', 'failed')");
+                        });
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.NutritionPushSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("FcmToken")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("UserId", "DeviceId")
+                        .IsUnique();
+
+                    b.ToTable("NutritionPushSubscriptions");
+                });
+
             modelBuilder.Entity("Nutrition.Api.Data.PhaseDecision", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1499,6 +1633,33 @@ namespace Nutrition.Api.Data.Migrations
                 });
 
             modelBuilder.Entity("Nutrition.Api.Data.MutationReceipt", b =>
+                {
+                    b.HasOne("Nutrition.Api.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.NutritionCheckInReminderPreference", b =>
+                {
+                    b.HasOne("Nutrition.Api.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.NutritionPushReminderDelivery", b =>
+                {
+                    b.HasOne("Nutrition.Api.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.NutritionPushSubscription", b =>
                 {
                     b.HasOne("Nutrition.Api.Data.AppUser", null)
                         .WithMany()

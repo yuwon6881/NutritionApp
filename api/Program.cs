@@ -32,6 +32,9 @@ builder.Services.AddDbContext<AppDb>((services,o)=>
     else throw new InvalidOperationException("ConnectionStrings:Database must be configured in production.");
 });
 builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<ExpenditureTrajectoryService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<NutritionNotificationService>();
+builder.Services.AddHttpClient<INutritionPushSender, NutritionFcmPushSender>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddScoped<ScanService>();builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<ExportService>();
@@ -137,7 +140,7 @@ app.Use(async(http,next)=>
 });
 app.UseRateLimiter();
 app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> { if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache"; } });
-app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();
+app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapNutritionNotifications();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>
 {

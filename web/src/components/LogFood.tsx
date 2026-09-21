@@ -6,6 +6,8 @@ import type {AiEstimate,Entry,Food} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {api,ApiError} from '../lib/api';
+import {createFoodScanDraft,foodScanDraftForAttempt,resumeFoodScanJob,type FoodScanDraft} from '../lib/foodScans';
+import {deleteFoodScanDraft,foodBasketDraftKey,readFoodScanDraft,saveFoodScanDraft} from '../lib/local';
 import {lineFromPer100,lineKey} from '../lib/foodBasket';
 import {serializePortions,parsePortions} from '../lib/portions';
 import {FoodMacroSummary} from './FoodMacroSummary';
@@ -69,7 +71,7 @@ export function LogFood({
   const defaultTab=initialTab??(initialAi?'ai':'search');
   const history=useHistoryWindow(store,date,open);
   useEffect(()=>{if(open)void store.loadSavedFoods?.();},[open,store]);
-  const basket=useFoodBasket(open);
+  const basket=useFoodBasket(open,store.state!.id,date);
   const [step,setStep]=useState<FoodStep>(editing?'editor':'selection');
   const [selectionPurpose,setSelectionPurpose]=useState<'log'|'recipe'>('log');
   const [recipeDraft,setRecipeDraft]=useState<RecipeDraft>(()=>emptyRecipeDraft());
@@ -92,6 +94,11 @@ export function LogFood({
   const [description,setDescription]=useState('');
   const [mode,setMode]=useState<AiMode>('description');
   const [photo,setPhoto]=useState<string|null>(null);
+  const [scanDraft,setScanDraft]=useState<FoodScanDraft|null>(null);
+  const scanDraftRef=useRef<FoodScanDraft|null>(null);
+  const [scanDraftLoadedKey,setScanDraftLoadedKey]=useState<string|null>(null);
+  const [scanDraftStorageError,setScanDraftStorageError]=useState('');
+  const scanDraftWrites=useRef<Promise<void>>(Promise.resolve());
   const [labelNote,setLabelNote]=useState('');
   const [error,setError]=useState('');
   const [batchTime,setBatchTime]=useState<string|undefined>(undefined);
@@ -127,10 +134,81 @@ export function LogFood({
       setError('');
       setCamera(false);
       setBatchTime(undefined);
-      basket.clear();
     }
     wasOpen.current=open;
   },[open,editing?.id,date,defaultTab,basket]);
+
+  const accountId=store.state!.id;
+  const persistScanDraft=(next:FoodScanDraft)=>{
+    const write=scanDraftWrites.current.catch(()=>undefined).then(()=>saveFoodScanDraft(accountId,next));
+    scanDraftWrites.current=write;
+    return write.then(()=>{
+      scanDraftRef.current=next;
+      setScanDraft(next);
+      setScanDraftStorageError('');
+    });
+  };
+  const removeScanDraft=async(targetDate=date)=>{
+    const write=scanDraftWrites.current.catch(()=>undefined).then(()=>deleteFoodScanDraft(accountId,targetDate));
+    scanDraftWrites.current=write;
+    await write;
+    if(targetDate===date){scanDraftRef.current=null;setScanDraft(null);setScanDraftStorageError('');}
+  };
+
+  useEffect(()=>{
+    if(!open)return;
+    let current=true;
+    const key=foodBasketDraftKey(accountId,date);
+    setScanDraftLoadedKey(null);
+    setScanDraft(null);
+    scanDraftRef.current=null;
+    setScanDraftStorageError('');
+    setDescription('');setMode('description');setPhoto(null);setPendingBarcode(undefined);
+    void readFoodScanDraft(accountId,date).then(saved=>{
+      if(!current)return;
+      if(saved){
+        scanDraftRef.current=saved;
+        setScanDraft(saved);
+        setDescription(saved.description);
+        setMode(saved.mode);
+        setPhoto(saved.imageBase64);
+        setPendingBarcode(saved.pendingBarcode);
+        setTab('ai');
+      }
+    }).catch(()=>{
+      if(current)setScanDraftStorageError('This device could not check for a saved scan. Keep this screen open until the scan has been reviewed.');
+    }).finally(()=>{
+      if(current)setScanDraftLoadedKey(key);
+    });
+    return()=>{current=false;};
+  },[open,accountId,date]);
+
+  useEffect(()=>{
+    if(!open||scanDraftLoadedKey!==foodBasketDraftKey(accountId,date))return;
+    const current=scanDraftRef.current;
+    const hasContent=!!photo||!!description.trim()||!!pendingBarcode;
+    const matchesSavedReview=current?.status==='review'&&current.date===date&&current.mode===mode&&
+      current.description===description&&current.imageBase64===(mode==='description'?null:photo)&&
+      JSON.stringify(current.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
+    if(matchesSavedReview)return;
+    if(!hasContent){
+      if(current?.status==='captured'){
+        const timer=window.setTimeout(()=>{void removeScanDraft(date).catch(()=>setScanDraftStorageError('The saved scan could not be cleared from this device.'));},250);
+        return()=>window.clearTimeout(timer);
+      }
+      return;
+    }
+    const sameInput=current?.date===date&&current.mode===mode&&current.description===description&&
+      current.imageBase64===(mode==='description'?null:photo)&&
+      JSON.stringify(current.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
+    const canContinueCaptured=current?.status==='captured'&&current.date===date;
+    const base=sameInput?current:canContinueCaptured?current:createFoodScanDraft({
+      date,mode,description,imageBase64:mode==='description'?null:photo,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined
+    });
+    const next={...base,mode,description,imageBase64:mode==='description'?null:photo,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined};
+    const timer=window.setTimeout(()=>{void persistScanDraft(next).catch(()=>setScanDraftStorageError('The scan draft could not be saved on this device. It will not upload until it can be saved.'));},250);
+    return()=>window.clearTimeout(timer);
+  },[open,scanDraftLoadedKey,accountId,date,mode,description,photo,pendingBarcode]);
 
   useEffect(()=>{if(!open||tab!=='barcode'||step!=='selection')setCamera(false);},[open,tab,step]);
 
@@ -206,22 +284,36 @@ export function LogFood({
     onClose();
   };
   const submitAiEstimate=async()=>{
-    const id=crypto.randomUUID();
-    let job=await api<AiJob>('/scans',{
-      id,
-      mode,
-      description:mode==='description'?description:'',
-      imageBase64:mode==='description'?null:photo,
-    });
-    if(job.status==='queued'||job.status==='processing')job=await api<AiJob>('/scans/'+job.id+'/process',{});
-    if(job.status!=='complete'||!job.resultJson)throw new Error(job.error??'AI could not estimate this meal. Try again.');
+    if(scanDraftLoadedKey!==foodBasketDraftKey(accountId,date))throw new Error('Checking saved scan work on this device. Try again in a moment.');
+    if(mode!=='description'&&!photo)throw new Error('Choose a photo before continuing.');
+    const input={date,mode,description,imageBase64:mode==='description'?null:photo,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined};
+    const base=foodScanDraftForAttempt(scanDraftRef.current,input);
+    const useSavedReview=base.status==='review'&&!!base.resultJson;
+    const requestDraft:FoodScanDraft=useSavedReview?base:{...base,...input,status:'submitted',error:null};
+    await persistScanDraft(requestDraft);
+    let job:AiJob;
+    try{
+      if(useSavedReview)job={id:requestDraft.id,status:'complete',resultJson:requestDraft.resultJson};
+      else job=await resumeFoodScanJob(requestDraft);
+    }catch(ex){
+      const message=ex instanceof Error?ex.message:'AI could not estimate this meal. Try again.';
+      await persistScanDraft({...requestDraft,status:'submitted',error:message}).catch(()=>undefined);
+      throw ex;
+    }
+    if(job.status!=='complete'||!job.resultJson){
+      const message=job.error??'AI could not estimate this meal. Try again.';
+      await persistScanDraft({...requestDraft,status:job.status==='failed'?'failed':'submitted',error:message});
+      throw new Error(message);
+    }
     let estimate:AiEstimate;
     try{estimate=JSON.parse(job.resultJson) as AiEstimate;}catch{throw new Error('AI returned an invalid estimate. Try again.');}
+    if(!Array.isArray(estimate.foods))throw new Error('AI returned an invalid estimate. Try again.');
     const barcodeContext=pendingBarcode;
     if(!Array.isArray(estimate.foods)||estimate.foods.length===0){
       if(barcodeContext&&mode==='label')throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
       throw new Error(estimate.explanation||'AI could not identify a food. Add more detail and try again.');
     }
+    await persistScanDraft({...requestDraft,status:'review',imageBase64:null,resultJson:job.resultJson,error:null});
     if(barcodeContext&&mode==='label'){
       if(estimate.foods.length!==1)throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
       const food=estimate.foods[0];
@@ -252,7 +344,8 @@ export function LogFood({
       setDescription('');setPhoto(null);go('editor');
       return;
     }
-    basket.addAiFoods(estimate.foods,mode==='label'?'AI label estimate':'AI estimate');
+    await basket.addAiFoods(estimate.foods,mode==='label'?'AI label estimate':'AI estimate',requestDraft.id);
+    await removeScanDraft(date);
     setDescription('');setPhoto(null);setLabelNote('');go('batch');
   };
   const log=async(data:FoodDraft)=>{
@@ -286,7 +379,11 @@ export function LogFood({
           barcode:barcodeContext.code,
         };
       }
-      await store.mutate({kind:'food',recordId:saveFood===true?crypto.randomUUID():saveFood.id,expectedRevision:saveFood===true?0:saveFood.revision,delete:false,data:{...savedData,servingGrams:100,favourite:saveFood===true?true:saveFood.favourite,ingredientsJson:saveFood===true?'[]':saveFood.ingredientsJson,cookedYieldGrams:saveFood===true?null:saveFood.cookedYieldGrams}});
+      const scanFoodId=saveFood===true&&scanDraftRef.current?.status==='review'?scanDraftRef.current.id:null;
+      const foodId=saveFood===true?(scanFoodId??crypto.randomUUID()):saveFood.id;
+      const alreadySaved=!!scanFoodId&&store.state!.foods.some(food=>food.id===scanFoodId&&!food.deleted);
+      if(!alreadySaved)await store.mutate({kind:'food',recordId:foodId,expectedRevision:saveFood===true?0:saveFood.revision,delete:false,data:{...savedData,servingGrams:100,favourite:saveFood===true?true:saveFood.favourite,ingredientsJson:saveFood===true?'[]':saveFood.ingredientsJson,cookedYieldGrams:saveFood===true?null:saveFood.cookedYieldGrams}});
+      if(scanFoodId)await removeScanDraft(date).catch(()=>setScanDraftStorageError('The reviewed scan is still saved on this device. It can be safely cleared after this food finishes saving.'));
       setSaveFood(false);setDraft(undefined);
       setLabelNote('');
       if(barcodeContext){
@@ -318,7 +415,7 @@ export function LogFood({
       onSaved();
     }else{
       if(data.time)setBatchTime(data.time);
-      basket.addLine({
+      await basket.addLineDurably({
         key:`${lineKey(data.name,data.source)}_${crypto.randomUUID().slice(0,8)}`,
         name:data.name,
         calories:data.calories,
@@ -448,6 +545,8 @@ export function LogFood({
   const selectionDirty=Boolean(basket.lines.length);
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(selectionPurpose==='recipe'?'Choose ingredient':initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
   const descriptionText=step==='selection'?`For ${date}`:undefined;
+  const hasSavedScanReview=scanDraft?.date===date&&scanDraft.mode===mode&&scanDraft.status==='review'&&!!scanDraft.resultJson&&
+    scanDraft.description===description&&JSON.stringify(scanDraft.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
 
   const selection=<div ref={selectionRef} className="dialog-step food-selection">
     {selectionPurpose==='recipe'&&<div style={{marginBottom:12}}><Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={cancelRecipeIngredient}><ArrowLeft size={16} aria-hidden="true"/>Back to recipe</Button></div>}
@@ -632,9 +731,20 @@ export function LogFood({
       {!pendingBarcode&&<h3>AI logging</h3>}
       {!pendingBarcode&&<SelectField id="ai-log-mode" name="mode" disabled={busy} label="How would you like to log?" value={mode} onChange={value=>{setMode(value as AiMode);setPhoto(null);}}><option value="description">Describe my meal</option><option value="photo">Meal photo</option><option value="label">Nutrition label</option></SelectField>}
       {mode==='description'&&<TextArea id="ai-meal-description" name="description" disabled={busy} required label="Meal description and portions" maxLength={3000} value={description} onChange={event=>setDescription(event.target.value)} placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"/>}
-      {mode!=='description'&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';setPhoto(null);if(file){void run(async()=>setPhoto(await prepareImage(file)));}}}/>}
+      {mode!=='description'&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo&&!hasSavedScanReview?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file){void run(async()=>{
+        const imageBase64=await prepareImage(file);
+        const current=scanDraftRef.current;
+        const next=current?.status==='captured'&&current.date===date&&current.mode===mode
+          ?{...current,description,imageBase64,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined}
+          :createFoodScanDraft({date,mode,description,imageBase64,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined});
+        await persistScanDraft(next);
+        setPhoto(imageBase64);
+      });}}}/>}
       {photo&&mode!=='description'&&<p className="notice">Location metadata removed · deleted after processing.</p>}
-      <div className="modal-actions"><Button variant="primary" disabled={busy} type="submit"><Sparkles size={18}/>{busy?'Estimating…':mode==='label'?'Read nutrition label':'Estimate my meal'}</Button></div>
+      {hasSavedScanReview&&<p className="notice" role="status">This scan is saved on this device and ready for review.</p>}
+      {scanDraft?.date===date&&scanDraft.status==='failed'&&scanDraft.error&&<p className="notice" role="status">{scanDraft.error==='Upload interrupted. Try again.'?'The photo is retained on this device. Retry will use the same scan identity.':'The previous scan failed. Try again to start a new scan; the failed request will not be duplicated.'}</p>}
+      {scanDraftStorageError&&<p className="error" role="alert">{scanDraftStorageError}</p>}
+      <div className="modal-actions"><Button variant="primary" disabled={busy||!!scanDraftStorageError} type="submit"><Sparkles size={18}/>{busy?'Estimating…':hasSavedScanReview?'Review saved estimate':scanDraft?.status==='failed'?scanDraft.error==='Upload interrupted. Try again.'?'Retry saved scan':'Try again':scanDraft?.status==='submitted'?'Resume saved scan':mode==='label'?'Read nutrition label':'Estimate my meal'}</Button></div>
     </Form>}
     {error&&<p className="error" role="alert">{error}</p>}
   </div>;
@@ -668,8 +778,10 @@ export function LogFood({
   const animatedChild=<MotionPanel motionKey={step} direction={stepDirection} axis="fade">{child}</MotionPanel>;
 
   const content=!history.state?<div className="dialog-step"><p role="status" aria-busy="true">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
+  const readyContent=!basket.ready?<div className="dialog-step"><p role="status" aria-busy="true">Restoring your unfinished food batch…</p></div>:basket.storageError?<div className="dialog-step"><p className="notice" role="alert">{basket.storageError}</p><Button variant="secondary" onClick={()=>void basket.retrySave().catch(()=>{})}>Retry saving this batch</Button>{animatedChild}</div>:animatedChild;
+  const resolvedContent=history.state&& !mealReadOnly(history.state,date) ? readyContent : content;
   return <>
-    <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{content}</Modal>
+    <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{resolvedContent}</Modal>
   </>;
 }
 
