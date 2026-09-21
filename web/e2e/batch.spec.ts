@@ -87,6 +87,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   const qtyInput=page.getByLabel('Quantity',{exact:true});
   await qtyInput.fill('200');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();
   await expect(calorieCard.getByText('175')).toBeVisible();
 
   // Remove Blueberries Fresh from batch

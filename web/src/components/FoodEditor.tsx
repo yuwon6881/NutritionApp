@@ -63,6 +63,7 @@ export function FoodEditor({
   energyUnit?:EnergyUnit;
 }){
   const [draft,setDraft]=useState<FoodDraft>(()=>makeDraft(initial));
+  const lastValidQty=useRef<number>(initial?.quantity&&initial.quantity>0?initial.quantity:1);
   const [portionDrafts,setPortionDrafts]=useState<PortionDraft[]>(()=>initialPortions(initial).map(portion=>({label:portion.label,grams:String(portion.grams)})));
   const [error,setError]=useState('');
   const [portionError,setPortionError]=useState('');
@@ -77,13 +78,30 @@ export function FoodEditor({
   useEffect(()=>onDirtyChange?.(JSON.stringify({draft,portionDrafts})!==initialDraft.current||customServing.grams!==''||customServing.label!=='serving'),[draft,portionDrafts,customServing,onDirtyChange]);
 
   const set=(key:keyof FoodDraft,value:unknown)=>setDraft(current=>{
-    if(key==='quantity')return rescaleNutrients(current,typeof value==='number'?value:current.quantity);
+    if(key==='quantity'){
+      const num=typeof value==='number'?value:Number(value);
+      if(!Number.isFinite(num)||num<=0){
+        return {...current,quantity:num};
+      }
+      const baseQty=Number.isFinite(current.quantity)&&current.quantity>0?current.quantity:lastValidQty.current;
+      lastValidQty.current=num;
+      const effectiveCurrent={...current,quantity:baseQty};
+      return rescaleNutrients(effectiveCurrent,num);
+    }
     return {...current,[key]:value};
   });
 
   const setBasis=(next:Partial<Pick<FoodDraft,'quantity'|'unit'|'portionLabel'|'portionGrams'>>)=>{
     setBasisWarning(nutrientRescaleWarning(draft,next)??'');
-    setDraft(current=>rescaleNutrients(current,next));
+    setDraft(current=>{
+      const baseQty=Number.isFinite(current.quantity)&&current.quantity>0?current.quantity:lastValidQty.current;
+      const effectiveCurrent={...current,quantity:baseQty};
+      const rescaled=rescaleNutrients(effectiveCurrent,next);
+      if(typeof rescaled.quantity==='number'&&Number.isFinite(rescaled.quantity)&&rescaled.quantity>0){
+        lastValidQty.current=rescaled.quantity;
+      }
+      return rescaled;
+    });
   };
 
   const portions=parsePortions(draft.portionsJson);
@@ -110,6 +128,10 @@ export function FoodEditor({
 
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busy)return;setError('');
+    if(!Number.isFinite(draft.quantity)||draft.quantity<=0){
+      setError('Enter a valid quantity greater than zero.');
+      return;
+    }
     try{
       let next=draft;
       if(showPortionDefinitions){
@@ -213,6 +235,7 @@ export function FoodEditor({
         <Button type="button" disabled={!customServing.label.trim()||!Number.isFinite(Number(customServing.grams))||Number(customServing.grams)<0.1||Number(customServing.grams)>10000} onClick={()=>{
           const portion={label:customServing.label.trim(),grams:Number(customServing.grams)};
           setBasisWarning(nutrientRescaleWarning(draft,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams})??'');
+          lastValidQty.current=1;
           setDraft(current=>({...rescaleNutrients(current,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams}),portionsJson:serializePortions([portion])}));
         }}>Use this serving</Button>
       </fieldset>}
