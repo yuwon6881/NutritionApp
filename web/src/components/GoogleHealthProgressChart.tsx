@@ -8,6 +8,7 @@ interface GoogleHealthProgressChartProps {
   days: GoogleHealthDay[];
   status: GoogleHealthStatus;
   freshness: GoogleHealthFreshness;
+  todayDate?: string;
   loading?: boolean;
   onOpenSettings?: () => void;
 }
@@ -16,6 +17,7 @@ export function GoogleHealthProgressChart({
   days,
   status,
   freshness,
+  todayDate,
   loading = false,
   onOpenSettings,
 }: GoogleHealthProgressChartProps) {
@@ -42,9 +44,11 @@ export function GoogleHealthProgressChart({
     );
   }
 
-  const average = calculateKnownDayAverage(days);
-  const knownCount = days.filter(d => d.count !== null && d.count !== undefined).length;
-  const hasRenderableHistory = knownCount > 0;
+  const completedDays = todayDate ? days.filter(d => d.date !== todayDate) : days;
+  const average = calculateKnownDayAverage(completedDays);
+  const knownCount = completedDays.filter(d => d.count !== null && d.count !== undefined).length;
+  const hasRenderableHistory = days.some(d => d.count !== null && d.count !== undefined);
+  const hasExcludedToday = Boolean(todayDate && days.some(d => d.date === todayDate));
 
   // Compute SVG chart dimensions
   const chartHeight = 120;
@@ -98,7 +102,7 @@ export function GoogleHealthProgressChart({
           </h2>
           <p className="source">
             {knownCount > 0
-              ? `${knownCount} of ${days.length} days recorded · Missing days excluded`
+              ? `${knownCount} of ${completedDays.length} days recorded · ${hasExcludedToday ? 'Incomplete today excluded' : 'Missing days excluded'}`
               : 'No recorded steps in this period'}
           </p>
         </div>

@@ -59,10 +59,12 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   await connect.click();
   const disclosure=page.getByRole('dialog',{name:'Connect Google Health',exact:true});
   await expect(disclosure).toBeVisible();
-  const weightSwitch=disclosure.getByRole('switch',{name:'Sync weight to Google Health'});
-  await expect(weightSwitch).not.toBeChecked();
-  await weightSwitch.check();
-  await expect(weightSwitch).toBeChecked();
+  const dataSwitch=disclosure.getByRole('switch',{name:'Sync health & nutrition data'});
+  await expect(dataSwitch).toBeChecked();
+  await dataSwitch.uncheck();
+  await expect(dataSwitch).not.toBeChecked();
+  await dataSwitch.check();
+  await expect(dataSwitch).toBeChecked();
   await disclosure.getByRole('button',{name:'Cancel',exact:true}).click();
   await expect(disclosure).toHaveCount(0);
   await expect(connect).toBeFocused();

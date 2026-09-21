@@ -107,7 +107,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
               <option value="trend">Trend weight</option>
             </SelectField>
           </UnitPreferencesFields>
-          <p className="source">Units apply across your diary, charts, and coach. Profile time zone: {state.profile?.timeZone??'Asia/Kuala_Lumpur'}.</p>
+          <p className="source">Units apply app-wide. Time zone: {state.profile?.timeZone??'Asia/Kuala_Lumpur'}.</p>
         </section>
         {state.profile&&<CoachingSettings store={store} hideUnits hideSaveStatus/>}
       </div>
@@ -115,7 +115,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       <div className="settings-column">
         <section className="panel" aria-labelledby="account-title">
           <h2 id="account-title">Fitness Account</h2>
-          <p className="source">Your sign-in credentials and security are managed centrally by Fitness Account.</p>
+          <p className="source">Credentials and security managed centrally by Fitness Account.</p>
         </section>
         <GoogleHealthSettings/>
         <ConnectedApps store={store}/>

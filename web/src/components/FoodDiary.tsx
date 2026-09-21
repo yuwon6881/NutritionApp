@@ -148,7 +148,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':'No food logged'}</p></div>
           <strong className="figure-inline">{count||status==='fasting'?displayEnergy(total,energyUnit):'—'} <span className="unit">{energyLabel(energyUnit)}</span></strong>
         </div>
-        <dl className="food-day-nutrients">{(['protein','carbs','fat','fiber'] as const).map(key=>{
+        <dl className="food-day-nutrients">{(['protein','carbs','fat'] as const).map(key=>{
           const known=entries.filter(e=>e[key]!=null);
           const value=archived?day?.[key]:known.length?known.reduce((sum,e)=>sum+e[key]!,0):null;
           const partial=!archived&&known.length>0&&known.length<entries.length;

@@ -2,12 +2,8 @@ import {useEffect, useState} from 'react';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {
-  recoverGoogleHealthBodyFatSync,
-  recoverGoogleHealthNutritionSync,
-  recoverGoogleHealthWeightSync,
-  setGoogleHealthBodyFatSync,
-  setGoogleHealthNutritionSync,
-  setGoogleHealthWeightSync,
+  recoverGoogleHealthBundledSync,
+  setGoogleHealthBundledSync,
   useGoogleHealth,
 } from '../lib/googleHealth';
 import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
@@ -24,18 +20,43 @@ export function GoogleHealthSettings() {
   const [actionError, setActionError] = useState('');
   const [bannerNotice, setBannerNotice] = useState<{type: 'success' | 'error'; message: string} | null>(null);
 
-  const [requestWeightSync, setRequestWeightSync] = useState(false);
-  const [requestNutritionSync, setRequestNutritionSync] = useState(false);
-  const [requestBodyFatSync, setRequestBodyFatSync] = useState(false);
+  const [requestDataSync, setRequestDataSync] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const [weightActionLoading, setWeightActionLoading] = useState(false);
-  const [nutritionActionLoading, setNutritionActionLoading] = useState(false);
-  const [bodyFatActionLoading, setBodyFatActionLoading] = useState(false);
+  const allPermissionsGranted = state.weightSync.permissionGranted &&
+    state.nutritionSync.permissionGranted &&
+    state.bodyFatSync.permissionGranted;
+
+  const bundledSyncEnabled = state.weightSync.enabled ||
+    state.nutritionSync.enabled ||
+    state.bodyFatSync.enabled;
+
+  const totalPending = (state.weightSync.enabled ? state.weightSync.pendingCount : 0) +
+    (state.nutritionSync.enabled ? state.nutritionSync.pendingCount : 0) +
+    (state.bodyFatSync.enabled ? state.bodyFatSync.pendingCount : 0);
+
+  const syncTimestamps = [
+    state.weightSync.lastSuccessfulSyncAt,
+    state.nutritionSync.lastSuccessfulSyncAt,
+    state.bodyFatSync.lastSuccessfulSyncAt,
+  ].filter((t): t is string => Boolean(t));
+  const latestSyncAt = syncTimestamps.length > 0 ? [...syncTimestamps].sort().at(-1) : null;
+
+  const hasUnknown = state.weightSync.state === 'unknown' ||
+    state.nutritionSync.state === 'unknown' ||
+    state.bodyFatSync.state === 'unknown';
+
+  const hasFailed = state.weightSync.state === 'failed' ||
+    state.nutritionSync.state === 'failed' ||
+    state.bodyFatSync.state === 'failed';
+
+  const failureMessage = state.weightSync.failureMessage ||
+    state.nutritionSync.failureMessage ||
+    state.bodyFatSync.failureMessage ||
+    'Google Health rejected an upload.';
 
   const openDisclosure = () => {
-    setRequestWeightSync(state.weightSync.enabled);
-    setRequestNutritionSync(state.nutritionSync.enabled);
-    setRequestBodyFatSync(state.bodyFatSync.enabled);
+    setRequestDataSync(bundledSyncEnabled || !allPermissionsGranted);
     setDisclosureOpen(true);
   };
 
@@ -48,7 +69,7 @@ export function GoogleHealthSettings() {
     if (ghResult === 'connected') {
       setBannerNotice({
         type: 'success',
-        message: 'Google Health connected successfully. Initial step synchronization is starting separately.',
+        message: 'Google Health connected successfully.',
       });
       setActionError('');
       void refresh(true);
@@ -59,29 +80,29 @@ export function GoogleHealthSettings() {
     } else if (ghResult === 'error') {
       let msg = 'Google Health connection was not completed.';
       if (code === 'duplicate_account') {
-        msg = 'This Google account is already linked to another NutritionApp account. Each Google account can only connect once.';
+        msg = 'This Google account is already linked to another NutritionApp account.';
       } else if (code === 'identity_change_requires_disconnect') {
-        msg = 'This NutritionApp account is already linked to a different Google account. Disconnect it before connecting another account.';
+        msg = 'Disconnect the current Google account before connecting a different one.';
       } else if (code === 'session_mismatch' || code === 'session_expired') {
-        msg = 'Your NutritionApp session changed during connection. Please sign in and try again.';
+        msg = 'Session expired during connection. Please sign in and try again.';
       } else if (code === 'access_denied') {
         msg = 'Access was denied in Google permissions.';
       } else if (code === 'invalid_state') {
-        msg = 'Connection session expired. Please start the connection again.';
+        msg = 'Connection session expired. Please try again.';
       } else if (code === 'identity_resolution_failed') {
-        msg = 'Google granted access, but its account identity could not be confirmed. Try again, and contact support if it continues.';
+        msg = 'Google account identity could not be confirmed. Try again.';
       } else if (code === 'token_exchange_failed') {
-        msg = 'Google could not finish the authorization exchange. Check the configured redirect URI and try again.';
+        msg = 'Could not complete authorization exchange with Google.';
       } else if (code === 'missing_tokens') {
-        msg = 'Google did not return the required authorization tokens. Remove this app from your Google account and reconnect.';
+        msg = 'Required authorization tokens were missing. Please reconnect.';
       } else if (code === 'encryption_failed') {
-        msg = 'NutritionApp could not securely store the Google connection. Try again later.';
+        msg = 'Could not securely store the Google connection. Try again later.';
       } else if (code === 'missing_parameters') {
-        msg = 'Google returned an incomplete authorization response. Please start the connection again.';
+        msg = 'Google returned an incomplete response. Please try again.';
       } else if (code === 'invalid_scope') {
-        msg = 'The Google Health permission is not enabled for this app. The app administrator must enable the requested scope before reconnecting.';
+        msg = 'Requested Google Health permissions are not enabled for this app.';
       } else if (code === 'provider_error') {
-        msg = 'Google returned an unexpected authorization error. Please try again.';
+        msg = 'Google returned an unexpected authorization error.';
       }
       setBannerNotice({type: 'error', message: msg});
       const url = new URL(window.location.href);
@@ -96,9 +117,9 @@ export function GoogleHealthSettings() {
     setActionError('');
     try {
       const {authUrl} = await connect({
-        syncWeight: requestWeightSync,
-        syncNutrition: requestNutritionSync,
-        syncBodyFat: requestBodyFatSync,
+        syncWeight: requestDataSync,
+        syncNutrition: requestDataSync,
+        syncBodyFat: requestDataSync,
       });
       window.location.href = authUrl;
     } catch (ex) {
@@ -107,90 +128,32 @@ export function GoogleHealthSettings() {
     }
   };
 
-  const handleWeightSyncChange = async (enabled: boolean) => {
-    if (!state.weightSync.permissionGranted) {
-      setRequestWeightSync(true);
+  const handleBundledSyncChange = async (enabled: boolean) => {
+    if (enabled && !allPermissionsGranted) {
+      setRequestDataSync(true);
       setDisclosureOpen(true);
       return;
     }
-    setWeightActionLoading(true);
+    setActionLoading(true);
     setActionError('');
     try {
-      await setGoogleHealthWeightSync(enabled, state.weightSync.revision);
+      await setGoogleHealthBundledSync(enabled);
     } catch (ex) {
-      setActionError((ex as Error).message || 'Could not update weight synchronization');
+      setActionError((ex as Error).message || 'Could not update data synchronization');
     } finally {
-      setWeightActionLoading(false);
+      setActionLoading(false);
     }
   };
 
-  const handleNutritionSyncChange = async (enabled: boolean) => {
-    if (!state.nutritionSync.permissionGranted) {
-      setRequestNutritionSync(true);
-      setDisclosureOpen(true);
-      return;
-    }
-    setNutritionActionLoading(true);
+  const handleBundledRecovery = async () => {
+    setActionLoading(true);
     setActionError('');
     try {
-      await setGoogleHealthNutritionSync(enabled, state.nutritionSync.revision);
+      await recoverGoogleHealthBundledSync();
     } catch (ex) {
-      setActionError((ex as Error).message || 'Could not update nutrition synchronization');
+      setActionError((ex as Error).message || 'Could not recover data synchronization');
     } finally {
-      setNutritionActionLoading(false);
-    }
-  };
-
-  const handleBodyFatSyncChange = async (enabled: boolean) => {
-    if (!state.bodyFatSync.permissionGranted) {
-      setRequestBodyFatSync(true);
-      setDisclosureOpen(true);
-      return;
-    }
-    setBodyFatActionLoading(true);
-    setActionError('');
-    try {
-      await setGoogleHealthBodyFatSync(enabled, state.bodyFatSync.revision);
-    } catch (ex) {
-      setActionError((ex as Error).message || 'Could not update body fat synchronization');
-    } finally {
-      setBodyFatActionLoading(false);
-    }
-  };
-
-  const handleWeightRecovery = async () => {
-    setWeightActionLoading(true);
-    setActionError('');
-    try {
-      await recoverGoogleHealthWeightSync();
-    } catch (ex) {
-      setActionError((ex as Error).message || 'Could not recover weight synchronization');
-    } finally {
-      setWeightActionLoading(false);
-    }
-  };
-
-  const handleNutritionRecovery = async () => {
-    setNutritionActionLoading(true);
-    setActionError('');
-    try {
-      await recoverGoogleHealthNutritionSync();
-    } catch (ex) {
-      setActionError((ex as Error).message || 'Could not recover nutrition synchronization');
-    } finally {
-      setNutritionActionLoading(false);
-    }
-  };
-
-  const handleBodyFatRecovery = async () => {
-    setBodyFatActionLoading(true);
-    setActionError('');
-    try {
-      await recoverGoogleHealthBodyFatSync();
-    } catch (ex) {
-      setActionError((ex as Error).message || 'Could not recover body fat synchronization');
-    } finally {
-      setBodyFatActionLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -202,7 +165,7 @@ export function GoogleHealthSettings() {
       setDisconnectOpen(false);
       setBannerNotice({
         type: 'success',
-        message: 'Google Health disconnected. All imported step counts have been deleted.',
+        message: 'Google Health disconnected. Local step data deleted.',
       });
     } catch (ex) {
       setActionError((ex as Error).message || 'Failed to disconnect Google Health');
@@ -261,7 +224,7 @@ export function GoogleHealthSettings() {
       {state.status === 'disconnected' && !loading && !syncError && (
         <div className="integration-state disconnected">
           <p className="description">
-            Sync daily step totals automatically from Google Health. Step counts are read-only and never affect your calories, expenditure, or coaching targets.
+            Sync steps, weight, nutrition, and body fat with Google Health.
           </p>
           <div className="actions">
             <Button variant="primary" onClick={() => openDisclosure()}>
@@ -278,7 +241,7 @@ export function GoogleHealthSettings() {
             <span>Reconnect required</span>
           </div>
           <p className="description">
-            Google Health authorization has expired or was revoked. Reconnect to resume step synchronization.
+            Google Health connection expired. Reconnect to resume syncing.
           </p>
           <div className="actions">
             <Button variant="primary" onClick={() => openDisclosure()}>
@@ -325,115 +288,40 @@ export function GoogleHealthSettings() {
             />
           )}
 
-          {/* Scale Weight Stream */}
+          {/* Bundled Health Data Sync Stream */}
           <div className="google-health-weight-sync">
             <Checkbox
-              id="google-health-weight-sync-setting"
+              id="google-health-sync-setting"
               role="switch"
-              checked={state.weightSync.enabled}
-              disabled={weightActionLoading}
-              onChange={checked => void handleWeightSyncChange(checked)}
+              aria-label="Sync health & nutrition data"
+              checked={bundledSyncEnabled}
+              disabled={actionLoading}
+              onChange={checked => void handleBundledSyncChange(checked)}
             >
               <span>
-                <strong>Sync weight to Google Health</strong>
+                <strong>Sync health & nutrition data</strong>
                 <small>
-                  {state.weightSync.permissionGranted
-                    ? 'Newly accepted scale entries, edits, and deletions are processed automatically.'
-                    : 'Reconnect and grant the health metrics write permission to enable this.'}
+                  {allPermissionsGranted
+                    ? 'Syncs weight, nutrition, and body fat.'
+                    : 'Reconnect to grant sync permissions.'}
                 </small>
               </span>
             </Checkbox>
-            {state.weightSync.pendingCount > 0 && (
-              <p className="source">{state.weightSync.pendingCount} weight {state.weightSync.pendingCount === 1 ? 'upload is' : 'uploads are'} pending.</p>
+            {totalPending > 0 && (
+              <p className="source">{totalPending} {totalPending === 1 ? 'upload' : 'uploads'} pending.</p>
             )}
-            {state.weightSync.lastSuccessfulSyncAt && (
-              <p className="source">Last successful weight sync: {formatTimestamp(state.weightSync.lastSuccessfulSyncAt)}.</p>
+            {latestSyncAt && (
+              <p className="source">Last sync: {formatTimestamp(latestSyncAt)}.</p>
             )}
-            {(state.weightSync.state === 'failed' || state.weightSync.state === 'unknown') && (
+            {(hasFailed || hasUnknown) && (
               <CardFeedback
-                tone={state.weightSync.state === 'unknown' ? 'warning' : 'error'}
-                title={state.weightSync.state === 'unknown' ? 'Upload status unknown' : 'Weight sync needs attention'}
-                message={state.weightSync.failureMessage ?? 'Google Health rejected a weight upload.'}
+                tone={hasUnknown ? 'warning' : 'error'}
+                title={hasUnknown ? 'Upload status unknown' : 'Sync needs attention'}
+                message={failureMessage}
                 action={{
-                  label: state.weightSync.state === 'unknown' ? 'Check Google copy and retry' : 'Retry weight sync',
-                  onClick: () => void handleWeightRecovery(),
-                  disabled: weightActionLoading,
-                }}
-              />
-            )}
-          </div>
-
-          {/* Calories & Macronutrients Stream */}
-          <div className="google-health-weight-sync">
-            <Checkbox
-              id="google-health-nutrition-sync-setting"
-              role="switch"
-              checked={state.nutritionSync.enabled}
-              disabled={nutritionActionLoading}
-              onChange={checked => void handleNutritionSyncChange(checked)}
-            >
-              <span>
-                <strong>Sync calories & macronutrients</strong>
-                <small>
-                  {state.nutritionSync.permissionGranted
-                    ? 'Diary food logs (calories, protein, carbs, fat, fiber) are uploaded as Google Health nutrition logs.'
-                    : 'Reconnect and grant the nutrition write permission to enable this.'}
-                </small>
-              </span>
-            </Checkbox>
-            {state.nutritionSync.pendingCount > 0 && (
-              <p className="source">{state.nutritionSync.pendingCount} nutrition {state.nutritionSync.pendingCount === 1 ? 'upload is' : 'uploads are'} pending.</p>
-            )}
-            {state.nutritionSync.lastSuccessfulSyncAt && (
-              <p className="source">Last successful nutrition sync: {formatTimestamp(state.nutritionSync.lastSuccessfulSyncAt)}.</p>
-            )}
-            {(state.nutritionSync.state === 'failed' || state.nutritionSync.state === 'unknown') && (
-              <CardFeedback
-                tone={state.nutritionSync.state === 'unknown' ? 'warning' : 'error'}
-                title={state.nutritionSync.state === 'unknown' ? 'Upload status unknown' : 'Nutrition sync needs attention'}
-                message={state.nutritionSync.failureMessage ?? 'Google Health rejected a nutrition upload.'}
-                action={{
-                  label: state.nutritionSync.state === 'unknown' ? 'Check Google copy and retry' : 'Retry nutrition sync',
-                  onClick: () => void handleNutritionRecovery(),
-                  disabled: nutritionActionLoading,
-                }}
-              />
-            )}
-          </div>
-
-          {/* Body Fat Percentage Stream */}
-          <div className="google-health-weight-sync">
-            <Checkbox
-              id="google-health-body-fat-sync-setting"
-              role="switch"
-              checked={state.bodyFatSync.enabled}
-              disabled={bodyFatActionLoading}
-              onChange={checked => void handleBodyFatSyncChange(checked)}
-            >
-              <span>
-                <strong>Sync body fat percentage</strong>
-                <small>
-                  {state.bodyFatSync.permissionGranted
-                    ? 'Body fat percentage entries are uploaded as Google Health body fat metrics.'
-                    : 'Reconnect and grant the health metrics write permission to enable this.'}
-                </small>
-              </span>
-            </Checkbox>
-            {state.bodyFatSync.pendingCount > 0 && (
-              <p className="source">{state.bodyFatSync.pendingCount} body fat {state.bodyFatSync.pendingCount === 1 ? 'upload is' : 'uploads are'} pending.</p>
-            )}
-            {state.bodyFatSync.lastSuccessfulSyncAt && (
-              <p className="source">Last successful body fat sync: {formatTimestamp(state.bodyFatSync.lastSuccessfulSyncAt)}.</p>
-            )}
-            {(state.bodyFatSync.state === 'failed' || state.bodyFatSync.state === 'unknown') && (
-              <CardFeedback
-                tone={state.bodyFatSync.state === 'unknown' ? 'warning' : 'error'}
-                title={state.bodyFatSync.state === 'unknown' ? 'Upload status unknown' : 'Body fat sync needs attention'}
-                message={state.bodyFatSync.failureMessage ?? 'Google Health rejected a body fat upload.'}
-                action={{
-                  label: state.bodyFatSync.state === 'unknown' ? 'Check Google copy and retry' : 'Retry body fat sync',
-                  onClick: () => void handleBodyFatRecovery(),
-                  disabled: bodyFatActionLoading,
+                  label: hasUnknown ? 'Check Google copy and retry' : 'Retry sync',
+                  onClick: () => void handleBundledRecovery(),
+                  disabled: actionLoading,
                 }}
               />
             )}
@@ -453,7 +341,7 @@ export function GoogleHealthSettings() {
       )}
 
       <p className="source google-health-retention-note">
-        Step data is encrypted with Google Cloud KMS and retained for a rolling 31-day window. Disconnecting revokes access and deletes imported steps, queue records, and mappings; already-uploaded Google copies remain.
+        Steps are retained for 31 days. Disconnecting revokes access and deletes local sync data; Google copies remain.
       </p>
 
       {/* Pre-connection disclosure modal */}
@@ -461,12 +349,8 @@ export function GoogleHealthSettings() {
         open={disclosureOpen}
         onClose={() => setDisclosureOpen(false)}
         onConfirm={handleStartConnect}
-        syncWeight={requestWeightSync}
-        onSyncWeightChange={setRequestWeightSync}
-        syncNutrition={requestNutritionSync}
-        onSyncNutritionChange={setRequestNutritionSync}
-        syncBodyFat={requestBodyFatSync}
-        onSyncBodyFatChange={setRequestBodyFatSync}
+        syncData={requestDataSync}
+        onSyncDataChange={setRequestDataSync}
         loading={connecting}
         error={actionError}
       />
@@ -481,7 +365,7 @@ export function GoogleHealthSettings() {
       >
         <div className="disconnect-dialog">
           <p>
-            Disconnecting will revoke NutritionApp&apos;s access, delete all 31 days of imported step data, and remove local upload sync mappings. Copies already uploaded to Google Health are not deleted.
+            Disconnecting revokes access and deletes local step and sync data. Uploaded Google copies remain.
           </p>
           <div className="actions">
             <Button variant="tertiary" onClick={() => setDisconnectOpen(false)} disabled={disconnecting}>

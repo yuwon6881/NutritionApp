@@ -86,7 +86,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
     {tab==='body'&&<PhysiquePhotos store={store}/>}
     </div>
     </MotionPanel>
-    <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} loading={ghLoading} onOpenSettings={onSettings}/>
+    <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
     <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} onOpenSettings={onSettings}/>
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
   </>;

@@ -799,7 +799,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .stats-grid>.panel>p:last-child{margin-bottom:0}
 .stats-grid .eyebrow{line-height:1.6}
 .food-date-navigation{grid-template-columns:44px minmax(180px,260px) 44px auto}
-.food-day-nutrients{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.food-day-nutrients{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .food-day-nutrients>div{min-width:0}
 .food-day-nutrients dd{font-size:.95rem}
 .food-timeline-toolbar>div{min-width:0}
@@ -895,7 +895,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .history-filter{max-width:none}
   .food-date-navigation{grid-template-columns:44px minmax(0,1fr) 44px;gap:8px}
   .food-date-navigation>.button:last-child{grid-column:1/-1;width:100%;justify-self:stretch;min-height:42px;padding:8px 16px;font-weight:550}
-  .food-day-nutrients{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0}
+  .food-day-nutrients{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0}
   .food-day-summary>.field{margin-top:18px}
   .food-timeline-toolbar .segmented-control{min-width:0}
   .food-time-row{grid-template-columns:48px minmax(0,1fr);gap:12px}

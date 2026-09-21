@@ -87,10 +87,14 @@ export interface ConnectOptions {
   syncBodyFat?: boolean;
 }
 
-export async function connectGoogleHealth(optionsOrWeight: boolean | ConnectOptions = false): Promise<{ authUrl: string }> {
+export async function connectGoogleHealth(optionsOrWeight: boolean | ConnectOptions = true): Promise<{ authUrl: string }> {
   const payload: Record<string, boolean> = {};
   if (typeof optionsOrWeight === 'boolean') {
-    if (optionsOrWeight) payload.syncWeight = true;
+    if (optionsOrWeight) {
+      payload.syncWeight = true;
+      payload.syncNutrition = true;
+      payload.syncBodyFat = true;
+    }
   } else {
     if (optionsOrWeight.syncWeight) payload.syncWeight = true;
     if (optionsOrWeight.syncNutrition) payload.syncNutrition = true;
@@ -139,6 +143,37 @@ export async function recoverGoogleHealthBodyFatSync(bodyRecordId?: string): Pro
   memoryState = {...memoryState, bodyFatSync: result};
   notify();
   return result;
+}
+
+export async function setGoogleHealthBundledSync(enabled: boolean): Promise<void> {
+  const current = getSnapshot();
+  const [weight, nutrition, bodyFat] = await Promise.all([
+    setGoogleHealthWeightSync(enabled, current.weightSync.revision),
+    setGoogleHealthNutritionSync(enabled, current.nutritionSync.revision),
+    setGoogleHealthBodyFatSync(enabled, current.bodyFatSync.revision),
+  ]);
+  memoryState = {
+    ...memoryState,
+    weightSync: weight,
+    nutritionSync: nutrition,
+    bodyFatSync: bodyFat,
+  };
+  notify();
+}
+
+export async function recoverGoogleHealthBundledSync(): Promise<void> {
+  const current = getSnapshot();
+  const promises: Promise<unknown>[] = [];
+  if (current.weightSync.state === 'failed' || current.weightSync.state === 'unknown') {
+    promises.push(recoverGoogleHealthWeightSync());
+  }
+  if (current.nutritionSync.state === 'failed' || current.nutritionSync.state === 'unknown') {
+    promises.push(recoverGoogleHealthNutritionSync());
+  }
+  if (current.bodyFatSync.state === 'failed' || current.bodyFatSync.state === 'unknown') {
+    promises.push(recoverGoogleHealthBodyFatSync());
+  }
+  await Promise.all(promises);
 }
 
 export async function disconnectGoogleHealth(): Promise<GoogleHealthSyncState> {
@@ -206,11 +241,12 @@ export function resetGoogleHealthState() {
 
 /**
  * Calculates the average of days with known step counts.
- * Missing dates (null) are excluded from the average.
+ * Missing dates (null) and an optionally excluded date (such as today) are excluded from the average.
  * If there are zero known days, returns null.
  */
-export function calculateKnownDayAverage(days: GoogleHealthDay[]): number | null {
-  const known = days.filter((d): d is GoogleHealthDay & { count: number } => d.count !== null && d.count !== undefined);
+export function calculateKnownDayAverage(days: GoogleHealthDay[], excludeDate?: string): number | null {
+  const eligible = excludeDate ? days.filter(d => d.date !== excludeDate) : days;
+  const known = eligible.filter((d): d is GoogleHealthDay & { count: number } => d.count !== null && d.count !== undefined);
   if (known.length === 0) return null;
   const total = known.reduce((acc, d) => acc + d.count, 0);
   return Math.round(total / known.length);

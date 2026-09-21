@@ -6,7 +6,9 @@ import {
   disconnectGoogleHealth,
   getTodayStepCount,
   initialGoogleHealthState,
+  recoverGoogleHealthBundledSync,
   resetGoogleHealthState,
+  setGoogleHealthBundledSync,
   shouldShowDashboardSteps,
   syncGoogleHealth,
   GoogleHealthSyncState,
@@ -41,6 +43,14 @@ describe('calculateKnownDayAverage', () => {
       { date: '2026-09-02', count: 10000 },
     ];
     expect(calculateKnownDayAverage(days)).toBe(5000);
+  });
+
+  it('excludes specified date (such as today) from the average calculation', () => {
+    const days = [
+      { date: '2026-09-01', count: 5000 },
+      { date: '2026-09-02', count: 1000 },
+    ];
+    expect(calculateKnownDayAverage(days, '2026-09-02')).toBe(5000);
   });
 });
 
@@ -81,11 +91,58 @@ describe('googleHealth sync manager', () => {
     resetGoogleHealthState();
   });
 
-  it('connectGoogleHealth calls connect endpoint', async () => {
+  it('connectGoogleHealth calls connect endpoint with bundled write sync by default', async () => {
     apiSpy.mockResolvedValueOnce({ authUrl: 'https://accounts.google.com/o/oauth2/v2/auth?test=1' });
     const result = await connectGoogleHealth();
-    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/connect', {});
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/connect', {
+      syncWeight: true,
+      syncNutrition: true,
+      syncBodyFat: true,
+    });
     expect(result.authUrl).toContain('accounts.google.com');
+  });
+
+  it('connectGoogleHealth calls connect endpoint with empty payload when disabled', async () => {
+    apiSpy.mockResolvedValueOnce({ authUrl: 'https://accounts.google.com/o/oauth2/v2/auth?test=1' });
+    await connectGoogleHealth(false);
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/connect', {});
+  });
+
+  it('setGoogleHealthBundledSync updates all three sync preferences', async () => {
+    const updatedItem = {
+      enabled: true,
+      permissionGranted: true,
+      state: 'idle' as const,
+      pendingCount: 0,
+      lastSuccessfulSyncAt: null,
+      revision: 1,
+    };
+    apiSpy.mockResolvedValue(updatedItem);
+    await setGoogleHealthBundledSync(true);
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/weight-sync/preference', {enabled: true, revision: 0});
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/nutrition-sync/preference', {enabled: true, revision: 0});
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/body-fat-sync/preference', {enabled: true, revision: 0});
+  });
+
+  it('recoverGoogleHealthBundledSync recovers failed or unknown streams', async () => {
+    const mockSync: GoogleHealthSyncState = {
+      status: 'connected',
+      connectedAt: '2026-09-14T08:00:00Z',
+      lastSyncedAt: '2026-09-14T08:00:00Z',
+      freshness: 'fresh',
+      days: [],
+      weightSync: {...initialGoogleHealthState.weightSync, state: 'failed'},
+      nutritionSync: {...initialGoogleHealthState.nutritionSync, state: 'unknown'},
+      bodyFatSync: {...initialGoogleHealthState.bodyFatSync, state: 'idle'},
+    };
+    apiSpy.mockResolvedValueOnce(mockSync);
+    await syncGoogleHealth();
+
+    apiSpy.mockResolvedValue(initialGoogleHealthState.weightSync);
+    await recoverGoogleHealthBundledSync();
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/weight-sync/recover', {weightId: null});
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/nutrition-sync/recover', {entryId: null});
+    expect(apiSpy).not.toHaveBeenCalledWith('/integrations/google-health/body-fat-sync/recover', expect.anything());
   });
 
   it('syncGoogleHealth calls sync endpoint and updates memory state', async () => {
