@@ -1,47 +1,22 @@
-import {useCallback,useEffect,useRef,useState,type ChangeEvent, type FormEvent} from 'react';
-import {ArrowLeft,Camera,Scale} from 'lucide-react';
+import {useCallback,useEffect,useRef,useState} from 'react';
+import {ArrowLeft,Camera,Scale,ArrowLeftRight} from 'lucide-react';
 import type {Nourish} from '../useNourish';
-import type {BodyDraft,BodyMeasurementKey,BodyPage,BodyRecord,BodyWeightContext,PhysiqueAngle,PhysiquePhoto,PhysiquePhotoPage,PhysiquePhotoSet} from '../types';
+import type {BodyDraft,BodyMeasurementKey,BodyPage,BodyRecord,PhysiqueAngle,PhysiquePhoto,PhysiquePhotoPage,PhysiquePhotoSet} from '../types';
 import {api} from '../lib/api';
-import {number,today} from '../lib/format';
+import {number} from '../lib/format';
 import {Button} from './ui/Button';
-import {Checkbox} from './ui/Checkbox';
-import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {PhotoUploadDialog} from './PhotoUploadDialog';
 import {useAsyncAction} from './ui/useAsyncAction';
-import {Form} from './ui/Form';
-import {DatePicker} from './ui/DatePicker';
-import {Field} from './ui/Field';
-import {FileInput} from './ui/FileInput';
-import {prepareImage} from '../lib/image';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
 import {CardFeedback} from './ui/CardFeedback';
+import {BodyCompare} from './BodyCompare';
+import {BodyRecordDialog,allMeasurementKeys,angles,angleLabel,measurementGroups,measurementLabel} from './BodyRecordDialog';
 
-const angles:PhysiqueAngle[]=['front','side','back'];
-const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
-const measurementGroups:[string,BodyMeasurementKey[]][]=[
-  ['Core',['neckCm','shouldersCm','chestCm','waistCm','hipsCm']],
-  ['Arms',['leftBicepsCm','rightBicepsCm','leftForearmCm','rightForearmCm']],
-  ['Legs',['leftThighCm','rightThighCm','leftCalfCm','rightCalfCm']]
-];
-const measurementLabel=(key:BodyMeasurementKey)=>({neckCm:'Neck',shouldersCm:'Shoulders',chestCm:'Chest',waistCm:'Waist',hipsCm:'Hips',leftBicepsCm:'Left biceps',rightBicepsCm:'Right biceps',leftForearmCm:'Left forearm',rightForearmCm:'Right forearm',leftThighCm:'Left thigh',rightThighCm:'Right thigh',leftCalfCm:'Left calf',rightCalfCm:'Right calf',bodyFatPercent:'Body fat'}[key]);
-const allMeasurementKeys:BodyMeasurementKey[]=measurementGroups.flatMap(([,keys])=>keys).concat('bodyFatPercent');
-const toCm=(value:number,unit:'cm'|'in')=>unit==='in'?value*2.54:value;
 const measurementCount=(record:BodyRecord)=>allMeasurementKeys.filter(key=>record.measurements[key]!=null).length;
-async function captureBodyContext(store:Nourish,date:string):Promise<BodyWeightContext>{
-  if(navigator.onLine){
-    try{return await api<BodyWeightContext>('/body-records/weight-context?date='+encodeURIComponent(date));}catch{/* Fall back to the retained local values below. */}
-  }
-  const state=store.state;
-  const scale=[...(state?.weights??[])].filter(weight=>!weight.deleted&&weight.date<=date).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
-  const cachedPoints=Object.values(store.local?.progress??{}).flatMap(summary=>summary.weight.series).filter(point=>point.date<=date).sort((a,b)=>a.date.localeCompare(b.date));
-  const trend=cachedPoints.at(-1);
-  return {scaleKg:scale?.kg??null,scaleDate:scale?.date??null,trendKg:trend?.trendKg??null,trendDate:trend?.date??null,capturedAt:new Date().toISOString(),calculationVersion:'coach-trend-half-life-7d-v1',provenance:'cached'};
-}
 
 export function PhysiquePhotos({store}:{store:Nourish}){
-  const [page,setPage]=useState<'home'|'history'|'body-viewer'|'gallery'|'viewer'>('home');
+  const [page,setPage]=useState<'home'|'history'|'body-viewer'|'gallery'|'viewer'|'compare'>('home');
   const [bodyRecords,setBodyRecords]=useState<BodyRecord[]>([]);
   const [bodyCursor,setBodyCursor]=useState<string|null>(null);
   const [bodyHasMore,setBodyHasMore]=useState(false);
@@ -53,7 +28,6 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   const [bodyViewerIndex,setBodyViewerIndex]=useState(0);
   const [bodyViewerAngle,setBodyViewerAngle]=useState<PhysiqueAngle>('front');
   const [sets,setSets]=useState<PhysiquePhotoSet[]>([]);
-  const [nextCursor,setNextCursor]=useState<string|null>(null);
   const [hasMore,setHasMore]=useState(false);
   const [loaded,setLoaded]=useState(false);
   const [error,setError]=useState('');
@@ -87,7 +61,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
     try{
       const cursor=reset?null:cursorRef.current;
       const response=await run(()=>api<PhysiquePhotoPage>('/photos?limit=20'+(cursor?'&cursor='+encodeURIComponent(cursor):'')));
-      cursorRef.current=response.nextCursor;setNextCursor(response.nextCursor);setHasMore(response.hasMore);setLoaded(true);
+      cursorRef.current=response.nextCursor;setHasMore(response.hasMore);setLoaded(true);
       setSets(current=>{
         if(reset)return response.sets;
         const byId=new Map(current.map(item=>[item.id,item]));
@@ -101,7 +75,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
 
   useEffect(()=>{
     if(page==='gallery'&&!loaded)void loadPage(true);
-    if(page==='history'&&!bodyLoaded)void loadBodyPage(true);
+    if((page==='history'||page==='compare')&&!bodyLoaded)void loadBodyPage(true);
     if(page==='gallery'){
       const frame=window.requestAnimationFrame(()=>window.scrollTo({top:galleryScroll.current,behavior:'auto'}));
       return()=>window.cancelAnimationFrame(frame);
@@ -118,29 +92,29 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   const openEdit=(set:PhysiquePhotoSet,trigger:HTMLElement)=>{setEditingSet(set);setUploadReturnFocus(trigger);setUploadOpen(true);};
   const closeUpload=()=>{setUploadOpen(false);setEditingSet(undefined);void loadPage(true);};
   const openViewer=()=>{if(!sets.length)return;rememberGallery();setViewerIndex(0);setViewerAngle('front');setPage('viewer');};
-  const goOlder=async()=>{
-    if(viewerIndex+1<sets.length){setViewerIndex(index=>index+1);return;}
-    if(!hasMore)return;
-    const count=await loadPage(false);
-    if(count>0)setViewerIndex(index=>index+1);
-  };
+  const goOlder=async()=>{if(viewerIndex+1<sets.length){setViewerIndex(index=>index+1);return;}if(!hasMore)return;const count=await loadPage(false);if(count>0)setViewerIndex(index=>index+1);};
   const goNewer=()=>{if(viewerIndex>0)setViewerIndex(index=>index-1);};
   const openBodyViewer=(index:number)=>{setBodyViewerIndex(index);setBodyViewerAngle('front');setPage('body-viewer');};
-  const openBodyCompare=()=>{
-    const index=bodyRecords.findIndex(record=>record.photos.some(photo=>photo.status==='complete'||photo.status==='pending'));
-    openBodyViewer(index<0?0:index);
-  };
+  const openCompare=(targetIndex=0)=>{setBodyViewerIndex(targetIndex);setPage('compare');};
   const goBodyOlder=()=>{if(bodyViewerIndex+1<bodyRecords.length)setBodyViewerIndex(index=>index+1);};
   const goBodyNewer=()=>{if(bodyViewerIndex>0)setBodyViewerIndex(index=>index-1);};
 
   const drafts=store.local?.photoDrafts??[];
   const bodyDrafts=store.local?.bodyDrafts??[];
-  const viewer=page==='viewer';
+  const weightUnit=unitsFor(store.state!.settings).weight;
+
+  if(page==='compare'){
+    return <>
+      <BodyCompare records={bodyRecords} initialPresentIndex={bodyViewerIndex} initialPastIndex={bodyRecords.length>1?bodyRecords.length-1:0} weightUnit={weightUnit} onBack={()=>setPage('history')} onEditRecord={rec=>openBodyEditor(rec)}/>
+      <BodyRecordDialog open={bodyOpen} record={bodyEditor} store={store} restoreFocus={bodyReturnFocus} onClose={closeBodyEditor}/>
+    </>;
+  }
+
   if(page==='history')return <>
     <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeHistory}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
     {bodyError&&<p className="notice" role="status">{bodyError} <Button onClick={()=>void loadBodyPage(!bodyRecords.length)}>Retry history</Button></p>}
     <section className="panel body-history-panel">
-      <div className="section-heading"><div><h2>Measurements and photos</h2><p>Records are ordered by date. Weight attachments are server snapshots.</p></div><Button variant="secondary" disabled={!bodyRecords.length} onClick={openBodyCompare}>Compare</Button></div>
+      <div className="section-heading"><div><h2>Measurements and photos</h2><p>Records are ordered by date. Weight attachments are server snapshots.</p></div><Button variant="secondary" disabled={!bodyRecords.length} onClick={()=>openCompare(0)}>Compare</Button></div>
       {!bodyRecords.length&&!bodyError&&<p className="empty">{bodyLoaded?'No Body records yet.':'Loading Body history…'}</p>}
       <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
       {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
@@ -152,9 +126,10 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   if(page==='body-viewer'){
     const current=bodyRecords[bodyViewerIndex];
     return <>
-      <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={()=>setPage('history')}><ArrowLeft size={16} aria-hidden="true"/>Back to Body history</Button><h2>Body record</h2></div><Button variant="secondary" onClick={event=>openBodyEditor(current,event.currentTarget)}>Edit record</Button></header>
-      {current&&<BodyRecordViewer record={current} previous={bodyRecords[bodyViewerIndex+1]} angle={bodyViewerAngle} onAngle={setBodyViewerAngle} weightUnit={unitsFor(store.state!.settings).weight}/>}
+      <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={()=>setPage('history')}><ArrowLeft size={16} aria-hidden="true"/>Back to Body history</Button><h2>Body record</h2></div><div className="physique-hub-actions"><Button variant="secondary" onClick={()=>openCompare(bodyViewerIndex)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare with past</Button><Button variant="secondary" onClick={event=>openBodyEditor(current,event.currentTarget)}>Edit record</Button></div></header>
+      {current&&<BodyRecordViewer record={current} previous={bodyRecords[bodyViewerIndex+1]} angle={bodyViewerAngle} onAngle={setBodyViewerAngle} weightUnit={weightUnit}/>}
       <div className="modal-actions body-history-nav"><Button variant="secondary" disabled={bodyViewerIndex===0} onClick={goBodyNewer}>Newer record</Button><Button variant="secondary" disabled={bodyViewerIndex===bodyRecords.length-1} onClick={goBodyOlder}>Older record</Button></div>
+      <BodyRecordDialog open={bodyOpen} record={bodyEditor} store={store} restoreFocus={bodyReturnFocus} onClose={closeBodyEditor}/>
     </>;
   }
 
@@ -171,7 +146,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
     <PhotoUploadDialog open={uploadOpen} store={store} initial={editingSet} restoreFocus={uploadReturnFocus} onClose={closeUpload} onChanged={()=>void loadPage(true)}/>
   </>;
 
-  if(viewer){
+  if(page==='viewer'){
     const current=sets[viewerIndex];
     const photo=current?.photos.find(item=>item.angle===viewerAngle);
     const adjacent=viewerIndex>0?sets[viewerIndex-1]:sets[viewerIndex+1];
@@ -215,6 +190,9 @@ export function PhysiquePhotos({store}:{store:Nourish}){
             <Button variant="secondary" onClick={openGallery}>Open gallery</Button>
           </div>
         </article>
+      </div>
+      <div className="body-hub-compare-cta" style={{marginTop:'16px',display:'flex',justifyContent:'flex-end'}}>
+        <Button variant="secondary" size="md" onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare past & present</Button>
       </div>
       {loaded&&<p className="source body-hub-status">{sets.length} legacy photo {sets.length===1?'set':'sets'} loaded · {number((store.local?.photoDrafts?.length??0))} retained upload{drafts.length===1?'':'s'}</p>}
       {!store.local?.photoDrafts?.length&&!bodyDrafts.length&&<p className="source body-hub-status">Retained entries and upload status appear here when a connection is unavailable.</p>}
@@ -275,102 +253,6 @@ function BodyDraftNotice({draft,store}:{draft:BodyDraft;store:Nourish}){
   const count=Object.values(draft.measurements).filter(value=>value!=null).length;
   const detail=draft.action==='delete'?'Delete pending':count+' measurement'+(count===1?'':'s')+(draft.photos.length?' · '+draft.photos.length+' photo'+(draft.photos.length===1?'':'s'):'');
   return <div className="notice body-draft-notice"><p>{draft.date} · {detail} · {draft.error??'Saved locally; syncing when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryBody(draft.id)}>Retry Body record</Button>}<Button variant="tertiary" onClick={()=>void store.removeBodyDraft(draft.id)}>Discard local Body record</Button></div></div>;
-}
-
-interface BodyRecordDialogProps{open:boolean;record?:BodyRecord;store:Nourish;restoreFocus?:HTMLElement|null;onClose:()=>void}
-type BodySlot={angle:PhysiqueAngle;id:string;existing?:PhysiquePhoto;imageBase64?:string;changed:boolean;deleted:boolean;fileKey:number};
-
-function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRecordDialogProps){
-  const current=today(store.state!.profile?.timeZone);
-  const defaultUnit=unitsFor(store.state!.settings).weight==='lb'?'in':'cm';
-  const [date,setDate]=useState(current);
-  const [unit,setUnit]=useState<'cm'|'in'>(defaultUnit);
-  const [values,setValues]=useState<Record<BodyMeasurementKey,string>>(()=>Object.fromEntries(allMeasurementKeys.map(key=>[key,''])) as Record<BodyMeasurementKey,string>);
-  const [slots,setSlots]=useState<BodySlot[]>(()=>makeBodySlots());
-  const [omitScale,setOmitScale]=useState(false);
-  const [omitTrend,setOmitTrend]=useState(false);
-  const [confirmDelete,setConfirmDelete]=useState(false);
-  const [error,setError]=useState('');
-  const {busy,run,reset}=useAsyncAction();
-  const initialRef=useRef({date,values,slots});
-  useEffect(()=>{
-    if(!open)return;
-    const nextValues=Object.fromEntries(allMeasurementKeys.map(key=>[key,record?.measurements[key]==null?'':String(record.measurements[key])])) as Record<BodyMeasurementKey,string>;
-    const nextSlots=makeBodySlots(record);
-    setDate(record?.date??current);setUnit(defaultUnit);setValues(nextValues);setSlots(nextSlots);setOmitScale(false);setOmitTrend(false);setConfirmDelete(false);setError('');reset();
-    initialRef.current={date:record?.date??current,values:nextValues,slots:nextSlots};
-  },[open,record?.id,current,defaultUnit,reset]);
-  const dirty=date!==initialRef.current.date||allMeasurementKeys.some(key=>values[key]!==initialRef.current.values[key])||slots.some(slot=>slot.changed||slot.deleted);
-  const select=async(angle:PhysiqueAngle,event:ChangeEvent<HTMLInputElement>)=>{
-    const file=event.currentTarget.files?.[0];event.currentTarget.value='';
-    if(!file)return;
-    setError('');
-    try{const imageBase64=await run(()=>prepareImage(file,750000));setSlots(currentSlots=>currentSlots.map(slot=>slot.angle===angle?{...slot,imageBase64,changed:true,deleted:false}:slot));}
-    catch(ex){setError((ex as Error).message);}
-  };
-  const save=async(event:FormEvent)=>{
-    event.preventDefault();if(busy)return;
-    const measurements:Record<string,number|null>={};
-    for(const key of allMeasurementKeys){
-      const raw=values[key].trim();
-      if(!record&&raw==='')continue;
-      measurements[key]=raw===''?null:Number(raw);
-    }
-    const photos=slots.filter(slot=>slot.changed&&slot.imageBase64).map(slot=>({id:slot.id,angle:slot.angle,imageBase64:slot.imageBase64!}));
-    const deletePhotoIds=slots.filter(slot=>slot.deleted&&slot.existing).map(slot=>slot.existing!.id);
-    if(!record&&Object.keys(measurements).length===0&&photos.length===0){setError('Add at least one measurement or photo before saving.');return;}
-    setError('');
-    try{
-      const weightContext=record?undefined:await captureBodyContext(store,date);
-      const draft:BodyDraft={id:record?.id??crypto.randomUUID(),date,measurements,photos,deletePhotoIds,mutationId:crypto.randomUUID(),photoMutationId:photos.length?crypto.randomUUID():undefined,deleteMutationIds:Object.fromEntries(deletePhotoIds.map(id=>[id,crypto.randomUUID()])),weightContext,omitScale,omitTrend,expectedRevision:record?.revision??0};
-      await run(()=>store.saveBodyDraft(draft));onClose();
-    }catch(ex){setError((ex as Error).message);}
-  };
-  const deleteRecord=async()=>{
-    if(!record)return;
-    setError('');
-    try{
-      const draft:BodyDraft={id:record.id,date:record.date,measurements:{},photos:[],action:'delete',mutationId:crypto.randomUUID(),expectedRevision:record.revision};
-      await run(()=>store.saveBodyDraft(draft));setConfirmDelete(false);onClose();
-    }catch(ex){setError((ex as Error).message);}
-  };
-  return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} title={record?'Edit Body record':'Add Body record'} description="Measurements are stored in centimetres. Weight context is captured once by the server and remains reviewable." dirty={dirty} width="xl">
-    <Form onSubmit={save} className="dialog-form body-record-form">
-      <div className="body-record-form-top">
-        <DatePicker id="body-date" name="date" min="2000-01-01" max={current} required label="Record date" value={date} onChange={setDate}/>
-        <div className="field body-unit-toggle-field">
-          <span>Circumference unit</span>
-          <SegmentedControl<'cm'|'in'> id="body-circumference-unit" label="Circumference unit" value={unit} onChange={setUnit} options={[{value:'cm',label:'Centimetres (cm)'},{value:'in',label:'Inches (in)'}]}/>
-        </div>
-      </div>
-      {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
-        <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
-        <div className="body-field-grid">{keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={measurementLabel(key)+' ('+unit+')'} value={values[key]===''?'':unit==='cm'?values[key]:String(Number(values[key])/2.54)} onChange={event=>{const raw=event.currentTarget.value;setValues(currentValues=>({...currentValues,[key]:raw===''?'':String(toCm(Number(raw),unit))}));}}/>)}</div>
-      </section>)}
-      <section className="body-form-section">
-        <div className="body-form-section-header"><h3>Composition</h3><span className="unit-indicator">%</span></div>
-        <div className="body-field-grid body-composition-grid"><Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={event=>setValues(currentValues=>({...currentValues,bodyFatPercent:event.currentTarget.value}))}/></div>
-      </section>
-      <section className="body-form-section body-context-section">
-        <div className="body-form-section-header"><h3>Weight context</h3><p className="source">Captured when this record is saved. Missing values stay unavailable.</p></div>
-        <div className="body-context-switches">
-          <Checkbox id="body-omit-scale" role="switch" checked={omitScale} onChange={setOmitScale}>Omit scale snapshot</Checkbox>
-          <Checkbox id="body-omit-trend" role="switch" checked={omitTrend} onChange={setOmitTrend}>Omit trend snapshot</Checkbox>
-        </div>
-      </section>
-      <section className="body-form-section body-photo-section">
-        <div className="body-form-section-header"><h3>Photos</h3><p className="source">Optional. Replace or remove one view without changing the other angles.</p></div>
-        <div className="physique-upload-grid">{slots.map(slot=>{const preview=slot.imageBase64?'data:image/jpeg;base64,'+slot.imageBase64:slot.existing&&!slot.deleted?'/api/photos/'+slot.existing.id+'/content':undefined;return <section className="physique-upload-slot" key={slot.angle}><div className="physique-upload-slot-heading"><h4>{angleLabel(slot.angle)}</h4>{slot.existing&&!slot.deleted&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busy} onClick={()=>setSlots(currentSlots=>currentSlots.map(item=>item.angle===slot.angle?{...item,deleted:true}:item))}>Delete</Button>}</div>{preview&&<img className="photo-preview" src={preview} alt={(slot.changed?'Selected':'Current')+' '+slot.angle+' physique photo'}/>}<FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busy} label={angleLabel(slot.angle)+' photo'} accept="image/*" hint="JPEG or PNG; ≤750 KB." onChange={event=>void select(slot.angle,event)}/></section>})}</div>
-      </section>
-      {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions">{record&&<Button type="button" variant="destructive" disabled={busy} onClick={()=>setConfirmDelete(true)}>Delete record</Button>}<Button type="submit" variant="primary" disabled={busy}>{busy?'Preparing…':'Save Body record'}</Button></div>
-    </Form>
-    <Modal open={confirmDelete} onClose={()=>setConfirmDelete(false)} title="Delete Body record?" description="The record and its private photo views will be marked for deletion. You can retry cleanup if storage is unavailable." width="sm"><div className="modal-actions"><Button variant="secondary" onClick={()=>setConfirmDelete(false)}>Keep record</Button><Button variant="destructive" disabled={busy} onClick={()=>void deleteRecord()}>Delete record</Button></div></Modal>
-  </Modal>;
-}
-
-function makeBodySlots(record?:BodyRecord):BodySlot[]{
-  return angles.map(angle=>{const existing=record?.photos.find(photo=>photo.angle===angle&&photo.status!=='deleted');return {angle,id:existing?.id??crypto.randomUUID(),existing,changed:false,deleted:false,fileKey:0};});
 }
 
 function PhotoSetRow({set,onEdit}:{set:PhysiquePhotoSet;onEdit:(set:PhysiquePhotoSet,trigger:HTMLElement)=>void}){

@@ -55,6 +55,7 @@ export function Select({
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Extract options either from prop or from <option> children
   const options: SelectOption[] = optionsProp ?? [];
@@ -96,6 +97,7 @@ export function Select({
   const handleSelect = (val: string) => {
     onChange(val);
     setIsOpen(false);
+    triggerRef.current?.focus({preventScroll: true});
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -142,6 +144,7 @@ export function Select({
         e.preventDefault();
         e.stopPropagation();
         setIsOpen(false);
+        triggerRef.current?.focus({preventScroll: true});
       }
     } else if (e.key === 'Tab') {
       setIsOpen(false);
@@ -156,6 +159,7 @@ export function Select({
 
       <div className="custom-select-wrapper">
         <button
+          ref={triggerRef}
           data-validation-focus
           aria-label={`Choose ${label.toLowerCase()}`}
           aria-describedby={[`${selectId}-value`,hint?`${selectId}-hint`:undefined].filter(Boolean).join(' ')}

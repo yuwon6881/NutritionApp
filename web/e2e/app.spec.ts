@@ -35,7 +35,6 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('female');
   await page.getByRole('button',{name:/^Next: Activity/}).click();
   await page.getByLabel('Usual activity (approximate)',{exact:true}).selectOption('1.4');
-  await page.getByLabel('Known maintenance calories (optional)').fill('2500');
   await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
   await page.getByRole('radio',{name:'Maintenance',exact:true}).check();
@@ -280,7 +279,7 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
   expect((await (await context.request.get('/api/state')).json()).plans).toHaveLength(2);
   const state=await (await context.request.get('/api/state')).json();const result=JSON.parse(state.plans[0].resultJson);
-  expect(result.expenditure).toBe(2500);expect(result.calories).toBe(2200);expect(state.profile.goalRatePercent).toBe(-0.35);
+  expect(result.expenditure).toBe(2186.1);expect(result.calories).toBe(1875);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
   await expect(page.getByText('No complete days with an accepted maintenance estimate.',{exact:true})).toBeVisible();

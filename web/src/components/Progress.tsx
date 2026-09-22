@@ -18,12 +18,17 @@ import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {CardFeedback} from './ui/CardFeedback';
 
-type Tab='weight'|'energy'|'body';
+type Tab='weight'|'energy'|'body'|'activity';
 const progressKinds=new Set(['entry','weight','day','profile','settings']);
 
 function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean){
   const [error,setError]=useState('');
   const cached=store.local?.progress?.[period];
+  const [retained,setRetained]=useState<ProgressSummary|undefined>(cached);
+  useEffect(()=>{
+    if(cached)setRetained(cached);
+  },[cached]);
+  const activeSummary=cached??retained;
   const [loading,setLoading]=useState(!cached&&enabled);
   const load=useCallback(async()=>{
     if(!enabled)return;
@@ -35,7 +40,7 @@ function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean)
   const revision=store.local?.state.revision;
   const queueKey=store.local?.queue.filter(item=>progressKinds.has(item.kind)).map(item=>item.id+item.error).join('|')??'';
   useEffect(()=>{void load();},[load,revision,queueKey,store.calendarDate]);
-  return {summary:cached,error,loading,retry:load};
+  return {summary:activeSummary,error,loading,retry:load};
 }
 
 export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}){
@@ -51,8 +56,8 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const state=store.state!;
   useEffect(()=>{void store.loadTrainingSummaries?.();},[store]);
   const units=unitsFor(state.settings);
-  const tabs=[['weight','Weight'],['energy','Energy'],['body','Body']] as const;
-  const tabDirection:1|-1=tab==='body'?-1:1;
+  const tabs=[['weight','Weight'],['energy','Energy'],['body','Body'],['activity','Activity']] as const;
+  const tabDirection:1|-1=tab==='body'||tab==='activity'?-1:1;
   const pending=store.local?.queue.some(item=>progressKinds.has(item.kind))??false;
   const addWeight=(trigger?:HTMLElement|null)=>{setWeightEdit(undefined);setWeightReturnFocus(trigger??null);setWeightOpen(true);};
   const editWeight=(weight:Weight,trigger:HTMLElement)=>{setWeightEdit(weight);setWeightReturnFocus(trigger);setWeightOpen(true);};
@@ -84,10 +89,12 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
       <CoachingProgress store={store}/>
     </>}
     {tab==='body'&&<PhysiquePhotos store={store}/>}
+    {tab==='activity'&&<div className="activity-progress-hub">
+      <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
+      <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} onOpenSettings={onSettings}/>
+    </div>}
     </div>
     </MotionPanel>
-    <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
-    <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} onOpenSettings={onSettings}/>
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
   </>;
 }

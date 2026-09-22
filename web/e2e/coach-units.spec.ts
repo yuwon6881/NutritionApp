@@ -99,7 +99,6 @@ test.describe('Coach unit selection', () => {
 
     // Fill Step 2: Activity
     await page.getByLabel('Usual activity (approximate)', {exact: true}).selectOption('1.4');
-    await page.getByLabel('Known maintenance calories (optional)').fill('2500');
     await page.getByRole('button', {name: /^Next: Goal/}).click();
 
     // Step 3: Goal

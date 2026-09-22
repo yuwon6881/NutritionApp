@@ -174,7 +174,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       ?customSplit
       :(selectedPreset?.split??coachDefaultSplit);
   const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
-  const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5&&(profile.maintenance==null||(profile.maintenance>=1000&&profile.maintenance<=7000)));
+  const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5);
   const phaseInitial=currentGoalWeight;
   const target=profile.targetWeightKg??phaseInitial;
   const canAdvanceGoal=Boolean(profile.goal);
@@ -394,15 +394,11 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           <option value="1.8">Active most days · 1.8</option>
           <option value="2.0">Very active · 2.0</option>
         </SelectField>
-        <Field id="coach-maintenance" name="maintenance" label={`Known maintenance calories${units.energy==='kcal'?'':` (${energyLabel(units.energy)})`} (optional)`} type="number" min={units.energy==='kj'?4184:1000} max={units.energy==='kj'?29288:7000} value={profile.maintenance==null?'':inputEnergy(profile.maintenance,units.energy,0)} placeholder="Use the equation" onChange={e=>{const next=parseEnergy(e.target.value,units.energy);set('maintenance',e.target.value===''?null:Number.isFinite(next)?next:null);}} labelAction={<MiniUnitToggle<'kcal'|'kj'> label="Energy unit" value={units.energy} onChange={v=>updateUnits({energy:v})} options={[{value:'kcal',label:'kcal'},{value:'kj',label:'kJ'}]}/>}/>
         <div className="checks">
           <label htmlFor="coach-resistance-training">
             <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" role="switch" aria-checked={profile.resistanceTraining} checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
             Resistance training
           </label>
-          {([['pregnancyOrBreastfeeding','Pregnant or breastfeeding'],['medicalNutrition','Medically managed nutrition']] as const).filter(([key])=>key!=='pregnancyOrBreastfeeding'||profile.sex!=='male').map(([key,label])=><label key={key} htmlFor={`coach-${key}`}>
-            <input id={`coach-${key}`} name={key} type="checkbox" role="switch" aria-checked={profile[key]} checked={profile[key]} onChange={e=>set(key,e.target.checked)}/>{label}
-          </label>)}
         </div>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('body')}><ArrowLeft size={16}/> Back</Button>

@@ -59,31 +59,18 @@ async function changeGoal(page:Page){
   await savePlan(page);
 }
 
-test('male plan selection hides and clears pregnancy through save and reload',async({page,context})=>{
+test('activity step preserves resistance training and omits removed controls',async({page,context})=>{
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   await step(page,'Activity');
-  const pregnancy=page.getByLabel('Pregnant or breastfeeding',{exact:true});
-  await pregnancy.check();
+  await expect(page.getByLabel('Resistance training',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Pregnant or breastfeeding',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Medically managed nutrition',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Known maintenance calories (optional)',{exact:true})).toHaveCount(0);
   await step(page,'Body');
   await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('male');
   await step(page,'Activity');
-  await expect(pregnancy).toHaveCount(0);
-  await expect(page.getByLabel('Medically managed nutrition',{exact:true})).toBeVisible();
-  await step(page,'Body');
-  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('female');
-  await step(page,'Activity');
-  await expect(pregnancy).not.toBeChecked();
-  await pregnancy.check();
-  await step(page,'Body');
-  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('male');
-  await savePlan(page);
-  await expect.poll(async()=>{
-    const state=await (await context.request.get('/api/state')).json();
-    return {sex:state.profile.sex,pregnancy:state.profile.pregnancyOrBreastfeeding};
-  }).toEqual({sex:'male',pregnancy:false});
-  await page.reload();await page.getByRole('button',{name:'Coach',exact:true}).click();
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
-  await step(page,'Activity');await expect(pregnancy).toHaveCount(0);
+  await expect(page.getByLabel('Resistance training',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Pregnant or breastfeeding',{exact:true})).toHaveCount(0);
 });
 async function transitionFrames(page:Page,name:string){
   return page.getByRole('button',{name,exact:true}).evaluate(button=>new Promise<string[]>(resolve=>{

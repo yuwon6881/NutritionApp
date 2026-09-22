@@ -103,6 +103,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   expect(descriptionBox!.y).toBeGreaterThanOrEqual(titleBox!.y+titleBox!.height-1);
 
   await page.getByRole('button',{name:'Progress',exact:true}).click();
+  await page.getByRole('button',{name:'Activity',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Google Health steps · Last 30 days',exact:true})).toBeVisible();
   await expect(page.getByText('Daily step history is unavailable right now.',{exact:true})).toBeVisible();
   await expect(page.locator('.chart-date-axis')).toHaveCount(0);
@@ -167,6 +168,7 @@ test('Google Health step chart selects a day by click and keyboard',async({page}
 
   await page.goto('/');
   await page.getByRole('button',{name:'Progress',exact:true}).click();
+  await page.getByRole('button',{name:'Activity',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Google Health steps · Last 30 days',exact:true})).toBeVisible();
 
   const missingDay=page.getByRole('button',{name:'2026-08-19: No step data',exact:true});
