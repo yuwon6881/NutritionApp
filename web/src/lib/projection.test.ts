@@ -5,6 +5,12 @@ import type {AppState,Mutation} from '../types';
 const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-03-01',entries:[],foods:[],weights:[],days:[{id:'d',revision:1,deleted:false,date:'2026-02-01',status:'complete'}],plans:[]};
 describe('offline projection',()=>{
 it('marks edited days incomplete before sync and preserves unknown nutrients',()=>{const op:Mutation={id:'m',kind:'entry',recordId:'e',expectedRevision:0,delete:false,data:{date:'2026-02-01',name:'Rice',calories:130,protein:null}};const result=project(state,[op]);expect(result.days[0].status).toBe('incomplete');expect(result.entries[0].protein).toBeNull();expect(state.days[0].status).toBe('complete');});
+it('retains weigh-in context in the offline projection and replay payload',()=>{
+  const op:Mutation={id:'weight',kind:'weight',recordId:'w',expectedRevision:0,delete:false,data:{date:'2026-02-01',kg:82,context:'stress'}};
+  const queue=enqueueMutation({state,queue:[]},op).queue;
+  expect(project(state,queue).weights[0]).toMatchObject({kg:82,context:'stress'});
+  expect(wireMutation(queue[0]).data).toEqual({date:'2026-02-01',kg:82,context:'stress'});
+});
 it('rebases only subsequent writes to the same record',()=>{const op:Mutation={id:'m',kind:'weight',recordId:'w',expectedRevision:0,delete:false,data:{}};const queue=[op,{...op,id:'n'},{...op,id:'o',recordId:'other',expectedRevision:3}];expect(rebaseAfterOwnWrite(queue,op,5).map(q=>q.expectedRevision)).toEqual([5,3]);});
 it('keeps a settings change coalesced during its in-flight write',()=>{
   const sent:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:4,delete:false,data:{checkInWeekday:1,weightUnit:'kg'}};

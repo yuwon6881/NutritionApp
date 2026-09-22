@@ -10,13 +10,33 @@ public record ExpenditureEstimate(bool Adaptive, double Expenditure, double? Obs
 public record WeightSignalResult(IReadOnlyList<WeightPoint> Retained, double NoiseKg,
     int WaterFlaggedDays, double? TheilSenSlopeKgPerDay, double? EndpointSlopeKgPerDay);
 
+public static class WeightContextPolicy
+{
+    private static readonly HashSet<string> ValidCodes = [
+        "stress", "bloating", "menstrual_cycle", "illness", "travel", "other_temporary", "genuine_change", "unsure"
+    ];
+
+    private static readonly HashSet<string> TemporaryCodes = [
+        "stress", "bloating", "menstrual_cycle", "illness", "travel", "other_temporary"
+    ];
+
+    public static bool IsValid(string? context) => context is null || ValidCodes.Contains(context);
+
+    public static bool IsTemporary(string? context) => context is not null && TemporaryCodes.Contains(context);
+
+    public static IReadOnlyList<WeightPoint> ForCalorieEstimation(IEnumerable<WeightPoint> weights)
+        => weights.Where(weight => !IsTemporary(weight.Context)).ToArray();
+}
+
 public static class WeightSignal
 {
     public static WeightSignalResult Analyze(IReadOnlyList<WeightPoint> weights, DateOnly today, int windowDays = 28)
     {
         var start = today.AddDays(-windowDays);
-        var points = weights.Where(w => w.Date >= start && w.Date < today).OrderBy(w => w.Date).ToArray();
-        var all = weights.Where(w => w.Date <= today).OrderBy(w => w.Date).ToArray();
+        var points = weights.Where(w => !WeightContextPolicy.IsTemporary(w.Context) && w.Date >= start && w.Date < today)
+            .OrderBy(w => w.Date).ToArray();
+        var all = weights.Where(w => !WeightContextPolicy.IsTemporary(w.Context) && w.Date <= today)
+            .OrderBy(w => w.Date).ToArray();
         var trends = Coach.Trend(all).ToDictionary(w => w.Date, w => w.Kg);
         var residuals = points.Select(w => w.Kg - trends[w.Date]).ToArray();
         var noise = MedianAbsoluteDeviation(residuals);
@@ -82,6 +102,8 @@ public static class Expenditure
             .GroupBy(d => d.Date).Select(group => group.Last()).ToArray();
         var logged = window.Where(IsLogged).ToArray();
         var coverage = logged.Length / (double)windowDays;
+        var contextExcluded = weights.Count(weight => WeightContextPolicy.IsTemporary(weight.Context)
+            && weight.Date >= start && weight.Date < today);
         var signal = WeightSignal.Analyze(weights, today, windowDays);
         var retained = signal.Retained;
         var span = retained.Count < 2 ? 0 : retained[^1].Date.DayNumber - retained[0].Date.DayNumber;
@@ -99,6 +121,8 @@ public static class Expenditure
 
         var prefix = $"{logged.Length} of {windowDays} days logged; unlogged days are excluded and may bias this estimate. " +
             "The 28-day window spans a full menstrual cycle.";
+        if (contextExcluded > 0)
+            prefix += $" Excluded {contextExcluded} weigh-in day{(contextExcluded == 1 ? "" : "s")} you marked as a possible temporary fluctuation from the calorie trend.";
         if (signal.WaterFlaggedDays > 0)
             prefix += $" Flagged {signal.WaterFlaggedDays} possible water or level-shift weigh-in day{(signal.WaterFlaggedDays == 1 ? "" : "s")} and excluded them from the slope.";
 

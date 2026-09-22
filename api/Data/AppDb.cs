@@ -42,6 +42,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<AppUser>().Property(x => x.MissingDayAction).HasDefaultValue("ask");
         m.Entity<AppUser>().Property(x => x.WeightGoalMetric).HasDefaultValue("scale");
         m.Entity<Food>().Property(x => x.PortionsJson).HasDefaultValue("[]");
+        m.Entity<Weight>().Property(x => x.Context).HasMaxLength(32);
         m.Entity<PublicFoodProduct>().HasKey(x => x.Code);
         m.Entity<PublicFoodProduct>().HasIndex(x => x.ExpiresAt);
         m.Entity<Session>().HasKey(x => x.Hash);

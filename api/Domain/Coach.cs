@@ -30,7 +30,7 @@ public sealed record Profile
     public bool MedicalNutrition { get; init; }
     public string TimeZone { get; init; } = "Asia/Kuala_Lumpur";
 }
-public record WeightPoint(DateOnly Date, double Kg);
+public record WeightPoint(DateOnly Date, double Kg, string? Context = null);
 public record NutritionDay(DateOnly Date, string Status, double Calories);
 public record PreviousPlan(double Calories, double Expenditure, bool PhaseComplete = false);
 public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double? Expenditure,
@@ -48,7 +48,7 @@ public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double
 
 public static class Coach
 {
-    public const string Version = "2.0.0";
+    public const string Version = "2.1.0";
     public static double Resting(Profile p) => 10 * p.WeightKg + 6.25 * p.HeightCm - 5 * p.Age + (p.Sex == "male" ? 5 : -161);
 
     /// A stored date of birth is authoritative so age advances with the calendar; Age remains the fallback for profiles saved before it existed.
@@ -68,14 +68,15 @@ public static class Coach
         p = p with { Age = AgeAt(p, today) };
         if (p.Age < 18 || p.PregnancyOrBreastfeeding || p.MedicalNutrition)
             return Blocked("Automated targets are unavailable for this profile. You can still keep a food and weight diary.");
-        var progress = GoalPolicy.Evaluate(p, weights, today, phaseDecision, weightGoalMetric);
-        var currentWeight = Trend(weights.Where(w => w.Date <= today).ToArray()).LastOrDefault()?.Kg ?? p.WeightKg;
+        var calorieWeights = WeightContextPolicy.ForCalorieEstimation(weights);
+        var progress = GoalPolicy.Evaluate(p, calorieWeights, today, phaseDecision, weightGoalMetric);
+        var currentWeight = Trend(calorieWeights.Where(w => w.Date <= today).ToArray()).LastOrDefault()?.Kg ?? p.WeightKg;
         p = p with { WeightKg = currentWeight };
         var effectiveGoal = progress.Complete ? "maintain" : p.Goal;
         if (effectiveGoal == "lose" && p.WeightKg / Math.Pow(p.HeightCm / 100, 2) < 18.5)
             return Blocked("Weight-loss coaching is unavailable at an underweight BMI.");
         var expenditure = startingExpenditure ?? previous?.Expenditure ?? p.Maintenance ?? Resting(p) * p.Activity;
-        var estimate = Expenditure.Estimate(days, weights, expenditure, today, allowAdaptation);
+        var estimate = Expenditure.Estimate(days, calorieWeights, expenditure, today, allowAdaptation);
         var adaptive = adaptiveOverride ?? estimate.Adaptive;
         var reason = p.Maintenance is not null
             ? "Starting from your supplied maintenance estimate. Log complete days and weigh regularly to calibrate it."

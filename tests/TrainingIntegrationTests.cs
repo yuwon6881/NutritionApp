@@ -33,6 +33,17 @@ public sealed class TrainingIntegrationTests
     }
 
     [Fact]
+    public void Observed_rate_returns_negative_rate_when_gaining_weight()
+    {
+        var result = TrainingContextService.ObservedLoss(
+            [new WeightPoint(Today.AddDays(-21), 78), new WeightPoint(Today.AddDays(-14), 79), new WeightPoint(Today, 80)], Today);
+
+        Assert.NotNull(result);
+        Assert.Equal(21, result.Value.WindowDays);
+        Assert.True(result.Value.RatePercent < 0);
+    }
+
+    [Fact]
     public void Summary_merge_keeps_completed_history_and_replaces_ephemeral_rows_in_range()
     {
         static TrainingSummaryItem Item(string id, string status, DateOnly date, string name)
@@ -44,7 +55,7 @@ public sealed class TrainingIntegrationTests
             Item("scheduled-1", "scheduled", Today.AddDays(2), "Moved session"),
             Item("in-progress-1", "in_progress", Today.AddDays(1), "In progress")
         };
-        var incoming = new[] { Item("scheduled-2", "scheduled", Today.AddDays(2), "New session") };
+        var incoming = new[] { Item("scheduled-2", "scheduled", Today.AddDays(2), "New session"), Item("completed-1", "completed", Today.AddDays(-2), "Old session") };
 
         var merged = WorkoutSummaryService.Merge(existing, incoming, Today, Today.AddDays(7));
 
@@ -52,6 +63,27 @@ public sealed class TrainingIntegrationTests
         Assert.DoesNotContain(merged, item => item.Id == "scheduled-1");
         Assert.DoesNotContain(merged, item => item.Id == "in-progress-1");
         Assert.Contains(merged, item => item.Id == "scheduled-2");
+    }
+
+    [Fact]
+    public void Summary_merge_removes_completed_items_within_range_when_absent_from_incoming()
+    {
+        static TrainingSummaryItem Item(string id, string status, DateOnly date, string name)
+            => new(id, status, date, null, null, name, [], 0, null, null, null);
+
+        var existing = new[]
+        {
+            Item("completed-outside", "completed", Today.AddDays(-10), "Outside range"),
+            Item("completed-inside-kept", "completed", Today.AddDays(-2), "Inside range kept"),
+            Item("completed-inside-deleted", "completed", Today.AddDays(-1), "Inside range deleted")
+        };
+        var incoming = new[] { Item("completed-inside-kept", "completed", Today.AddDays(-2), "Inside range kept") };
+
+        var merged = WorkoutSummaryService.Merge(existing, incoming, Today.AddDays(-7), Today);
+
+        Assert.Contains(merged, item => item.Id == "completed-outside");
+        Assert.Contains(merged, item => item.Id == "completed-inside-kept");
+        Assert.DoesNotContain(merged, item => item.Id == "completed-inside-deleted");
     }
 
     [Fact]

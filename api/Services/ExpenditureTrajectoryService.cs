@@ -96,7 +96,7 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         var weights = await db.Weights
             .Where(weight => !weight.Deleted && weight.Date >= start.AddDays(-56) && weight.Date <= today)
             .OrderBy(weight => weight.Date)
-            .Select(weight => new WeightPoint(weight.Date, weight.Kg))
+            .Select(weight => new WeightPoint(weight.Date, weight.Kg, weight.Context))
             .ToListAsync(ct);
 
         foreach (var tracked in db.ChangeTracker.Entries<DailyExpenditureEstimate>().ToList())

@@ -149,6 +149,8 @@ public static class RecordEndpoints
         {
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
             var today = RetentionService.Today(user.ProfileJson);
+            var profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
+            var timeZone = profile?.TimeZone;
             var start = from ?? today.AddDays(-89);
             var end = to ?? today.AddDays(14);
             var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
@@ -164,7 +166,7 @@ public static class RecordEndpoints
                 http.Response.Headers.ETag = etag;
                 return Results.StatusCode(StatusCodes.Status304NotModified);
             }
-            var trainingSummary = await training.Get(start, end, ct);
+            var trainingSummary = await training.Get(start, end, timeZone, ct);
             var workoutConnected = await training.IsConnected(ct);
             var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
             http.Response.Headers.ETag = etag;
@@ -179,6 +181,8 @@ public static class RecordEndpoints
         {
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
             var today = RetentionService.Today(user.ProfileJson);
+            var profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
+            var timeZone = profile?.TimeZone;
             var start = from ?? today.AddDays(-89);
             var end = to ?? today.AddDays(14);
             var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
@@ -191,7 +195,7 @@ public static class RecordEndpoints
                 http.Response.Headers.ETag = etag;
                 return Results.StatusCode(StatusCodes.Status304NotModified);
             }
-            var trainingSummary = await training.Get(start, end, ct);
+            var trainingSummary = await training.Get(start, end, timeZone, ct);
             var workoutConnected = await training.IsConnected(ct);
             var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
             http.Response.Headers.ETag = etag;
@@ -215,9 +219,11 @@ public static class RecordEndpoints
             if(precedingSnapshot!=null)energySnapshots.Insert(0,precedingSnapshot);
             var orderedPlans=await db.Plans.OrderBy(plan=>plan.Date).ThenBy(plan=>plan.Revision).ToListAsync(ct);
             var acceptedTargetIntervals=BuildAcceptedTargetIntervals(orderedPlans,today);
+            var profileObj = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
+            var timeZone = profileObj?.TimeZone;
             // Nutrition displays scheduled training ahead of today, but the returned workout
             // context remains informational and does not extend the nutrition target interval.
-            var trainingSummary = await training.Get(start, end.AddDays(14), ct);
+            var trainingSummary = await training.Get(start, end.AddDays(14), timeZone, ct);
             var workoutConnected = await training.IsConnected(ct);
             var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
             return Results.Ok(new {

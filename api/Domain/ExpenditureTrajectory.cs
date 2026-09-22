@@ -14,7 +14,7 @@ public sealed record TrajectoryPoint(
 
 public static class ExpenditureTrajectory
 {
-    public const string AlgorithmVersion = "v3-behavioral-equivalent";
+    public const string AlgorithmVersion = "v4-weight-context";
 
     public static TrajectoryPoint Calculate(
         Profile profile,
@@ -24,7 +24,8 @@ public static class ExpenditureTrajectory
         double previousExpenditure)
     {
         var estimate = Expenditure.EstimateDaily(days, weights, previousExpenditure, date);
-        var trendWeight = Coach.Trend(weights.Where(weight => weight.Date <= date).OrderBy(weight => weight.Date).ToArray())
+        var trendWeight = Coach.Trend(WeightContextPolicy.ForCalorieEstimation(weights)
+                .Where(weight => weight.Date <= date).OrderBy(weight => weight.Date).ToArray())
             .LastOrDefault()?.Kg ?? profile.WeightKg;
         int? suggested = estimate.Adaptive
             ? SuggestedCalories(profile, estimate.Expenditure, trendWeight)

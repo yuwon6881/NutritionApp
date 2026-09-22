@@ -27,9 +27,11 @@ export function TrainingSummaryCard({
     .sort((left,right)=>{
       const leftUpcoming=left.localDate>=todayDate && left.status!=='completed';
       const rightUpcoming=right.localDate>=todayDate && right.status!=='completed';
-      return Number(rightUpcoming)-Number(leftUpcoming)
-        || left.localDate.localeCompare(right.localDate)
-        || left.workoutName.localeCompare(right.workoutName);
+      if (leftUpcoming !== rightUpcoming) return Number(rightUpcoming)-Number(leftUpcoming);
+      const dateOrder = leftUpcoming
+        ? left.localDate.localeCompare(right.localDate)
+        : right.localDate.localeCompare(left.localDate);
+      return dateOrder || left.workoutName.localeCompare(right.workoutName);
     })
     .slice(0,8);
   const unit=unitsFor(settings).weight;

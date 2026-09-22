@@ -43,7 +43,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
                 d?.Archived == true ? d.Calories : totals.GetValueOrDefault(date));
         }).ToList();
         var weights = await db.Weights.Where(w => w.Date >= since.AddDays(-56) && w.Date <= today && !w.Deleted)
-            .OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date, w.Kg)).ToListAsync(ct);
+            .OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date, w.Kg, w.Context)).ToListAsync(ct);
         var last = await db.Plans.OrderByDescending(p => p.Revision).FirstOrDefaultAsync(ct);
         var accepted = last == null ? null : Json.Read<CoachResult>(last.ResultJson);
         var previous = last?.ProfileRevision == user.ProfileRevision ? accepted : null;
@@ -199,10 +199,11 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         var profile = Json.Read<Profile>(user.ProfileJson);
         var today = Today(profile);
         var weights = await db.Weights.Where(w => !w.Deleted).OrderBy(w => w.Date)
-            .Select(w => new WeightPoint(w.Date, w.Kg)).ToListAsync(ct);
+            .Select(w => new WeightPoint(w.Date, w.Kg, w.Context)).ToListAsync(ct);
         var current = await db.PhaseDecisions
             .SingleOrDefaultAsync(d => d.ProfileRevision == user.ProfileRevision && !d.Deleted, ct);
-        var progress = GoalPolicy.Evaluate(profile, weights, today, current, user.WeightGoalMetric ?? "scale");
+        var progress = GoalPolicy.Evaluate(profile, WeightContextPolicy.ForCalorieEstimation(weights), today,
+            current, user.WeightGoalMetric ?? "scale");
         var reached = decision == "await-trend"
             ? progress.ScaleReached
             : progress.DurationReached || progress.ScaleReached || progress.TrendReached || progress.Complete;

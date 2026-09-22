@@ -1114,6 +1114,10 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .body-weight-context{border-top:1px solid var(--border);padding-top:12px}
 .body-weight-context p{margin:5px 0;font-size:.82rem;color:var(--muted-foreground)}
 .body-record-form{display:grid;gap:16px}
+.weight-context-prompt{display:grid;gap:8px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--muted)}
+.weight-context-prompt h3{margin:0;font-size:.95rem;font-weight:600;color:var(--ink-strong)}
+.weight-context-prompt p{margin:0;font-size:.84rem;color:var(--muted-foreground)}
+.weight-context-prompt .field{margin:0}
 .body-record-form-top{display:grid;grid-template-columns:1.2fr 1fr;gap:16px;align-items:start}
 .body-record-form-top>.field{margin:0}
 .body-unit-toggle-field{margin-bottom:0}

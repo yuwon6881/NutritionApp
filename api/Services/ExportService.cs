@@ -165,11 +165,11 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
     private async Task<int> WriteWeights(ZipArchive archive, CancellationToken ct)
         => await WriteCsv(archive, "weights.csv", async writer =>
         {
-            await writer.WriteAsync(Csv.Line("id", "date", "kg", "revision"));
+            await writer.WriteAsync(Csv.Line("id", "date", "kg", "revision", "context"));
             var count = 0;
             await foreach (var item in db.Weights.AsNoTracking().Where(weight => !weight.Deleted).OrderBy(weight => weight.Date).ThenBy(weight => weight.Id).AsAsyncEnumerable().WithCancellation(ct))
             {
-                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Date), Csv.Field(item.Kg), Csv.Field(item.Revision)));
+                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Date), Csv.Field(item.Kg), Csv.Field(item.Revision), Csv.Field(item.Context)));
                 count++;
             }
             return count;
@@ -260,11 +260,12 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, leaveOpen: false);
         await writer.WriteAsync("NutritionApp CSV export\r\n");
-        await writer.WriteAsync("csvSchemaVersion=4\r\n\r\n");
+        await writer.WriteAsync("csvSchemaVersion=5\r\n\r\n");
         await writer.WriteAsync("Files use RFC 4180 commas and CRLF line endings. CSV files are UTF-8 with a BOM for spreadsheet compatibility.\r\n");
         await writer.WriteAsync("Null values are empty cells. Text beginning with =, +, -, @, tab, or carriage return is prefixed with an apostrophe.\r\n");
         await writer.WriteAsync("Dates use yyyy-MM-dd; timestamps use yyyy-MM-ddTHH:mm:ssZ; numeric values are invariant round-trip values.\r\n");
         await writer.WriteAsync("weights.csv is always kilograms, regardless of the account display preference.\r\n");
+        await writer.WriteAsync("The optional context column records the user's explanation for an unusual weigh-in; temporary contexts are excluded from calorie-estimation trends.\r\n");
         await writer.WriteAsync("body-records.csv uses canonical centimetres and kilograms. Body fat uses percent; blank measurements and snapshots are unknown. Photo set_id is the Body record id; photo_ids includes pending relationships. Frozen weight source dates, capture time, provenance and calculation version are exported unchanged.\r\n");
         await writer.WriteAsync($"Meal-level detail is retained for {detailDays} days from {detailCutoff:yyyy-MM-dd}; earlier dates export as daily totals only because detail was deleted on schedule.\r\n");
         await writer.WriteAsync("Physique photo binaries are excluded. physique-photos.csv includes metadata and authenticated download paths.\r\n");

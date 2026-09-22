@@ -109,7 +109,11 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                     using var recipe = JsonDocument.Parse(f.IngredientsJson);
                     Validation.Require(recipe.RootElement.ValueKind == JsonValueKind.Array, "Recipe ingredients must be a list.");
                 }, ct); break;
-            case "weight": await Upsert<Weight>(op, revision, w => { Date(w.Date); Validation.Number(w.Kg, 20, 400, "Weight"); }, ct); break;
+            case "weight": await Upsert<Weight>(op, revision, w =>
+            {
+                Date(w.Date); Validation.Number(w.Kg, 20, 400, "Weight");
+                Validation.Require(WeightContextPolicy.IsValid(w.Context), "Choose a valid weigh-in context.");
+            }, ct); break;
             case "day":
                 var savedDay=await db.Days.SingleOrDefaultAsync(d=>d.Id==op.RecordId,ct);
                 Validation.Require(!(op.Delete && savedDay?.Archived == true),"Daily summaries cannot be deleted.",409);
@@ -181,6 +185,8 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         }
         if(next is Food food&&existing is Food savedFood&&!op.Data.TryGetProperty("portionsJson",out _))
             food.PortionsJson=savedFood.PortionsJson;
+        if(next is Weight weight&&existing is Weight savedWeight&&!op.Data.TryGetProperty("context",out _))
+            weight.Context=savedWeight.Context;
         if(next is Food barcodeFood&&existing is Food savedBarcodeFood&&!op.Data.TryGetProperty("barcode",out _))
             barcodeFood.Barcode=savedBarcodeFood.Barcode;
         if(next is Food normalizedBarcodeFood)

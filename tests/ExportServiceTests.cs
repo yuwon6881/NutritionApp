@@ -33,6 +33,7 @@ public sealed class ExportServiceTests : IAsyncLifetime
             seed.Entries.Add(new DiaryEntry { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),Name="Rice",Quantity=1.5,Unit="serving",PortionLabel="bowl",PortionGrams=180,Calories=390,Source="manual" });
             seed.Foods.Add(new Food { Id=Guid.NewGuid(),UserId=alice.Id,Name="Private tuna",Calories=180,Protein=25,ServingGrams=100,Barcode="9551234567890",Source="custom",PortionsJson="[{\"label\":\"can\",\"grams\":185}]" });
             seed.BodyRecords.Add(new BodyRecord { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),CreationOrder=1,Measurements=new BodyMeasurements { WaistCm=82 },WeightContextJson=Json.Write(new BodyWeightContext()),PendingPhotosJson="[]" });
+            seed.Weights.Add(new Weight { Id=Guid.NewGuid(),UserId=alice.Id,Date=new(2026,9,10),Kg=71.2,Context="bloating" });
             await seed.SaveChangesAsync();
         }
         await using (var seed = Open(bob.Id))
@@ -52,6 +53,7 @@ public sealed class ExportServiceTests : IAsyncLifetime
         Assert.Equal("9551234567890",food.Barcode);
         var body=Assert.Single(json.BodyRecords);
         Assert.Equal(82,body.Measurements.WaistCm);
+        Assert.Equal("bloating",Assert.Single(json.Weights).Context);
 
         await using var output = new MemoryStream();
         await service.WriteCsvBundle(output, default);
@@ -65,10 +67,13 @@ public sealed class ExportServiceTests : IAsyncLifetime
         Assert.Contains("barcode",foodsCsv,StringComparison.Ordinal);
         Assert.Contains("9551234567890",foodsCsv,StringComparison.Ordinal);
         var readme=await Read(archive,"README.txt");
-        Assert.Contains("csvSchemaVersion=4",readme,StringComparison.Ordinal);
+        Assert.Contains("csvSchemaVersion=5",readme,StringComparison.Ordinal);
         var bodyCsv=await Read(archive,"body-records.csv");
         Assert.Contains("waist_cm",bodyCsv,StringComparison.Ordinal);
         Assert.Contains("82",bodyCsv,StringComparison.Ordinal);
+        var weightsCsv=await Read(archive,"weights.csv");
+        Assert.Contains("context",weightsCsv,StringComparison.Ordinal);
+        Assert.Contains("bloating",weightsCsv,StringComparison.Ordinal);
         var profileCsv = await Read(archive, "profile.csv");
         Assert.Contains("profile_json,\"{\"\"age\"\":30", profileCsv, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("profile_json,\"\"\"", profileCsv, StringComparison.Ordinal);

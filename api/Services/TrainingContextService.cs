@@ -59,6 +59,6 @@ public sealed class TrainingContextService(AppDb db)
         var average = window.Average(p => p.Kg);
         if (average <= 0) return null;
         var weekly = -(last - first) / span * 7;
-        return (Math.Max(0, weekly / average * 100), span);
+        return (weekly / average * 100, span);
     }
 }

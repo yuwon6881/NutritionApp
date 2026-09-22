@@ -38,7 +38,7 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
             : "Workout training summaries are temporarily unavailable. Try again later.";
     }
 
-    public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, CancellationToken ct)
+    public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, string? timeZone, CancellationToken ct)
     {
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
         var url = config["Integrations:WorkoutTrainingSummaryUrl"];
@@ -65,7 +65,8 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
 
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(Timeout);
                 var separator = url.Contains('?') ? '&' : '?';
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"{url}{separator}from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}");
+                var tz = string.IsNullOrWhiteSpace(timeZone) ? "" : $"&timeZone={Uri.EscapeDataString(timeZone)}";
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{url}{separator}from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}{tz}");
                 if (!string.IsNullOrWhiteSpace(token)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 var response = await clients.CreateClient("workout").SendAsync(request, timeout.Token);
                 response.EnsureSuccessStatusCode();
@@ -100,7 +101,10 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     {
         existing = existing.Select(Canonical).ToList();
         incoming = incoming.Select(Canonical).ToList();
-        var retained = existing.Where(item => item.Status == "completed" || item.LocalDate < from || item.LocalDate > to)
+        var incomingIds = incoming.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var retained = existing.Where(item =>
+            (item.LocalDate < from || item.LocalDate > to) ||
+            (item.Status == "completed" && incomingIds.Contains(item.Id)))
             .ToList();
         var mergedById = retained.GroupBy(item => item.Id, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);

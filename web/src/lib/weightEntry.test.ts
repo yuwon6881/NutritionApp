@@ -9,7 +9,7 @@ describe('weigh-in dialog values',()=>{
   it('opens an untouched form that is not dirty against its own baseline',()=>{
     const opened=weightEntryValues(undefined,'2026-09-11',[],undefined,'kg');
 
-    expect(opened).toEqual({date:'2026-09-11',kg:''});
+    expect(opened).toEqual({date:'2026-09-11',kg:'',context:''});
     expect(weightEntryDirty(opened,opened)).toBe(false);
   });
 
@@ -41,7 +41,7 @@ describe('weigh-in dialog values',()=>{
 
     const opened=weightEntryValues(undefined,'2026-09-11',weights,weight('2026-09-04',75),'kg');
 
-    expect(opened).toEqual({date:'2026-09-04',kg:'75'});
+    expect(opened).toEqual({date:'2026-09-04',kg:'75',context:''});
   });
 
   it('reports a dirty form only once a field leaves its baseline',()=>{

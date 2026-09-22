@@ -122,6 +122,10 @@ public class DiaryEndpointsTests
                 new Food { Id = Guid.NewGuid(), UserId = userA.Id, Name = "Alice Oats", Calories = 350, ServingGrams = 100, IngredientsJson = "[]", PortionsJson = "[]" },
                 new Food { Id = Guid.NewGuid(), UserId = userB.Id, Name = "Bob Berries", Calories = 60, ServingGrams = 100, IngredientsJson = "[]", PortionsJson = "[]" }
             );
+            db.Weights.AddRange(
+                new Weight { Id = Guid.NewGuid(), UserId = userA.Id, Date = today, Kg = 80, Context = "stress" },
+                new Weight { Id = Guid.NewGuid(), UserId = userB.Id, Date = today, Kg = 70, Context = "bloating" }
+            );
             await db.SaveChangesAsync();
 
             // Client is authenticated as Alice
@@ -139,6 +143,9 @@ public class DiaryEndpointsTests
             var bEntries = bootstrap.GetProperty("entries").EnumerateArray().ToList();
             Assert.Single(bEntries);
             Assert.Equal("Alice Apple", bEntries[0].GetProperty("name").GetString());
+            var bWeights = bootstrap.GetProperty("weights").EnumerateArray().ToList();
+            Assert.Single(bWeights);
+            Assert.Equal("stress", bWeights[0].GetProperty("context").GetString());
 
             var foodsRes = await client.GetAsync("/api/foods");
             Assert.Equal(HttpStatusCode.OK, foodsRes.StatusCode);

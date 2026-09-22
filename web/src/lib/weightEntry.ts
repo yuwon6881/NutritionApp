@@ -1,7 +1,7 @@
-import type {Weight,WeightUnit} from '../types';
+import type {Weight,WeightContextCode,WeightUnit} from '../types';
 import {inputWeight} from './units';
 
-export interface WeightEntryValues {date:string;kg:string}
+export interface WeightEntryValues {date:string;kg:string;context:WeightContextCode|''}
 
 /**
  * The values a freshly opened weigh-in dialog holds. The dialog's fields and its dirty baseline
@@ -17,9 +17,9 @@ export function weightEntryValues(
 ):WeightEntryValues{
   const target=date??current;
   const existing=initial??weights.find(weight=>!weight.deleted&&weight.date===target);
-  return {date:existing?.date??target,kg:existing?inputWeight(existing.kg,unit,2):''};
+  return {date:existing?.date??target,kg:existing?inputWeight(existing.kg,unit,2):'',context:existing?.context??''};
 }
 
 export function weightEntryDirty(values:WeightEntryValues,baseline:WeightEntryValues){
-  return values.date!==baseline.date||values.kg!==baseline.kg;
+  return values.date!==baseline.date||values.kg!==baseline.kg||values.context!==baseline.context;
 }

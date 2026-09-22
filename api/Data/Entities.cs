@@ -120,6 +120,7 @@ public class Weight : OwnedRecord
 {
     public DateOnly Date { get; set; }
     public double Kg { get; set; }
+    public string? Context { get; set; }
 }
 public class DayStatus : OwnedRecord
 {
