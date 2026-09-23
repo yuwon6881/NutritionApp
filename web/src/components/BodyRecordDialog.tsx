@@ -192,7 +192,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
         <DatePicker id="body-date" name="date" min="2000-01-01" max={current} required label="Record date" value={date} onChange={setDate}/>
         <div className="field body-unit-toggle-field">
           <span>Circumference unit</span>
-          <SegmentedControl<'cm'|'in'> id="body-circumference-unit" label="Circumference unit" value={unit} onChange={handleUnitToggle} options={[{value:'cm',label:'Centimetres (cm)'},{value:'in',label:'Inches (in)'}]}/>
+          <SegmentedControl<'cm'|'in'> id="body-circumference-unit" label="Circumference unit" value={unit} onChange={handleUnitToggle} options={[{value:'cm',label:'cm'},{value:'in',label:'in'}]}/>
         </div>
       </div>
 

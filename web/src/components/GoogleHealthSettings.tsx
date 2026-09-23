@@ -367,7 +367,7 @@ export function GoogleHealthSettings() {
           <p>
             Disconnecting revokes access and deletes local step and sync data. Uploaded Google copies remain.
           </p>
-          <div className="actions">
+          <div className="modal-actions">
             <Button variant="tertiary" onClick={() => setDisconnectOpen(false)} disabled={disconnecting}>
               Keep connected
             </Button>

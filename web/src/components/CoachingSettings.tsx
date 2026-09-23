@@ -58,14 +58,14 @@ export function CoachingSettings({store,hideUnits=false,hideSaveStatus=false}:{s
 
 export function UnitPreferencesFields({value=defaultUnits,onChange,compact=false,asFieldset=true,children}:{value?:UnitPreferences;onChange:(patch:Partial<UnitPreferences>)=>void;compact?:boolean;asFieldset?:boolean;children?:ReactNode}){
   const content=(
-    <div className="form-grid">
+    <div className="form-grid unit-preferences-grid">
       <SelectField id="settings-weight-unit" name="weightUnit" label="Weight" value={value.weight} onChange={v=>onChange({weight:v as WeightUnit})}>
         <option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option>
       </SelectField>
       <SelectField id="settings-energy-unit" name="energyUnit" label="Energy" value={value.energy} onChange={v=>onChange({energy:v as EnergyUnit})}>
         <option value="kcal">Kilocalories (kcal)</option><option value="kj">Kilojoules (kJ)</option>
       </SelectField>
-      <SelectField id="settings-height-unit" name="heightUnit" label="Height" value={value.height} onChange={v=>onChange({height:v as HeightUnit})}>
+      <SelectField id="settings-height-unit" name="heightUnit" className={!children?'form-grid-span-all':undefined} label="Height" value={value.height} onChange={v=>onChange({height:v as HeightUnit})}>
         <option value="cm">Centimetres (cm)</option><option value="ft-in">Feet / inches</option>
       </SelectField>
       {children}

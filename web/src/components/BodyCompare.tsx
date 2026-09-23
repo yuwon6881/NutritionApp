@@ -122,6 +122,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
       <div className="compare-swap-col">
         <Button variant="tertiary" size="md" className="compare-swap-btn" aria-label="Swap past and present records" onClick={swapDates}>
           <ArrowLeftRight size={16} aria-hidden="true"/>
+          <span className="compare-swap-label">Swap dates</span>
         </Button>
       </div>
 
