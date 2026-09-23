@@ -14,6 +14,7 @@ import {Checkbox} from './ui/Checkbox';
 import {Field,SelectField} from './ui/Field';
 import {CardFeedback} from './ui/CardFeedback';
 import {useMobilePwa} from './ui/MobilePwa';
+import {isNativeApp} from '../lib/nativeApp';
 
 const weekdays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -27,6 +28,7 @@ function validTimeZone(value:string){
 }
 
 function deviceSupportError(installed:boolean,status?:NotificationStatus){
+  if(isNativeApp())return 'Native push notifications are not enabled in this Android build. Use the browser app to receive reminder notifications.';
   if(status?.configured===false)return 'Push notifications are not configured for this Nutrition deployment yet.';
   if(!isFirebasePushConfigured())return 'Push notifications are not configured for this app build yet.';
   if(typeof Notification==='undefined'||!('PushManager' in window)||!('serviceWorker' in navigator))return 'This browser does not support web push notifications.';

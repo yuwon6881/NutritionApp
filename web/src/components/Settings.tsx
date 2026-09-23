@@ -11,7 +11,6 @@ import {useAsyncAction} from './ui/useAsyncAction';
 import {GoogleHealthSettings} from './GoogleHealthSettings';
 import {ConnectedApps} from './ConnectedApps';
 import {CardFeedback} from './ui/CardFeedback';
-import {PwaReadiness} from './ui/MobilePwa';
 import {NotificationsSettings} from './NotificationsSettings';
 import {Modal} from './ui/Modal';
 
@@ -153,7 +152,6 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
         </section>
         <GoogleHealthSettings/>
         <ConnectedApps store={store}/>
-        <PwaReadiness store={store}/>
         <NotificationsSettings store={store}/>
         <section className="panel" aria-labelledby="local-data-title">
           <h2 id="local-data-title">Local Nutrition data</h2>

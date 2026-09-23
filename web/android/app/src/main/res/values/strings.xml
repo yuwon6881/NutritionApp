@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Nutrition App</string>
+    <string name="title_activity_main">Nutrition App</string>
+    <string name="package_name">com.nutritionapp.mobile</string>
+    <string name="custom_url_scheme">com.nutritionapp.mobile</string>
+</resources>

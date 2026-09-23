@@ -39,34 +39,14 @@ async function savePushCredential(page:import('@playwright/test').Page,userId:st
   },userId);
 }
 
-test('Settings explains mobile installation and reports local offline readiness',async({page})=>{
+test('Settings renders without mobile app and offline data area',async({page})=>{
   await signInWithProfile(page);
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();
 
   const readiness=page.getByRole('region',{name:'Mobile app and offline data'});
-  await expect(readiness).toBeVisible();
-  await expect(readiness.getByText(/Android: open the browser menu/)).toBeVisible();
-  await expect(readiness.getByText(/iPhone or iPad: in Safari/)).toHaveCount(0);
-  await expect(readiness.getByText(/version 0\.1\.0/)).toBeVisible();
-  await expect(readiness.getByText(/Saved changes/)).toBeVisible();
-});
-
-test('install prompt is captured before opening Settings',async({page})=>{
-  await signInWithProfile(page);
-  await page.evaluate(()=>{
-    const event=new Event('beforeinstallprompt',{cancelable:true});
-    Object.assign(event,{
-      prompt:async()=>{(window as Window&{installPromptCalled?:boolean}).installPromptCalled=true;},
-      userChoice:Promise.resolve({outcome:'dismissed',platform:'web'})
-    });
-    window.dispatchEvent(event);
-  });
-  await page.getByRole('button',{name:'Settings',exact:true}).first().click();
-  const readiness=page.getByRole('region',{name:'Mobile app and offline data'});
-  const install=readiness.getByRole('button',{name:'Install app',exact:true});
-  await expect(install).toBeVisible();
-  await install.click();
-  await expect.poll(()=>page.evaluate(()=>Boolean((window as Window&{installPromptCalled?:boolean}).installPromptCalled))).toBeTruthy();
+  await expect(readiness).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Fitness Account'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Local Nutrition data'})).toBeVisible();
 });
 
 test('failed push revocation does not block sign-out and runs before session logout',async({page})=>{

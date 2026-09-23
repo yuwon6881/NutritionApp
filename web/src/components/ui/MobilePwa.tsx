@@ -1,12 +1,10 @@
 import {createContext,useContext,useEffect,useRef,useState,type ReactNode} from 'react';
-import {Check,Download,HardDrive,RefreshCw,Wifi,WifiOff} from 'lucide-react';
-import type {Nourish} from '../../useNourish';
-import {countFoodBasketDrafts,countFoodScanDrafts} from '../../lib/local';
+import {RefreshCw} from 'lucide-react';
 import {isFirebasePushConfigured} from '../../lib/push/firebaseConfig';
 import {onForegroundMessage} from '../../lib/push/firebaseMessaging';
 import {getPwaUpdateNoticeState,hasUncommittedPwaWork} from '../../lib/pwaUpdate';
-import {summarizePwaPendingWork} from '../../lib/pwaReadiness';
 import {registerAppServiceWorker,waitForAppServiceWorker} from '../../lib/registerAppServiceWorker';
+import {isNativeApp} from '../../lib/nativeApp';
 import {Button} from './Button';
 
 interface InstallPromptEvent extends Event {
@@ -36,7 +34,7 @@ interface MobilePwaContextValue {
   requestPersistentStorage:()=>Promise<boolean>;
   storageBusy:boolean;
   storageMessage:string;
-  serviceWorkerStatus:'checking'|'ready'|'failed'|'unsupported';
+  serviceWorkerStatus:'checking'|'ready'|'failed'|'unsupported'|'native';
   serviceWorkerError:string;
   retryServiceWorker:()=>void;
   appVersion:string;
@@ -45,7 +43,7 @@ interface MobilePwaContextValue {
 const MobilePwaContext=createContext<MobilePwaContextValue|null>(null);
 
 function standaloneMode(){
-  return window.matchMedia('(display-mode: standalone)').matches
+  return isNativeApp()||window.matchMedia('(display-mode: standalone)').matches
     || window.matchMedia('(display-mode: fullscreen)').matches
     || (navigator as Navigator&{standalone?:boolean}).standalone===true;
 }
@@ -70,7 +68,7 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
   const [storage,setStorage]=useState<StorageSnapshot>({supported:false,persistent:null});
   const [storageBusy,setStorageBusy]=useState(false);
   const [storageMessage,setStorageMessage]=useState('');
-  const [serviceWorkerStatus,setServiceWorkerStatus]=useState<MobilePwaContextValue['serviceWorkerStatus']>('checking');
+  const [serviceWorkerStatus,setServiceWorkerStatus]=useState<MobilePwaContextValue['serviceWorkerStatus']>(()=>isNativeApp()?'native':'checking');
   const [serviceWorkerError,setServiceWorkerError]=useState('');
   const [serviceWorkerRetry,setServiceWorkerRetry]=useState(0);
   const watchedRegistrations=useRef(new WeakSet<ServiceWorkerRegistration>());
@@ -105,14 +103,19 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
     const watchRegistration=(registration:ServiceWorkerRegistration)=>{
       if(watchedRegistrations.current.has(registration))return;
       watchedRegistrations.current.add(registration);
+      const activate=(worker:ServiceWorker|null|undefined)=>{
+        if(!worker)return;
+        setWaitingWorker(worker);
+        worker.postMessage({type:'SKIP_WAITING'});
+      };
       const inspect=()=>{
-        if(registration.waiting)setWaitingWorker(registration.waiting);
+        if(registration.waiting)activate(registration.waiting);
       };
       const onUpdateFound=()=>{
         const worker=registration.installing;
         if(!worker)return;
         worker.addEventListener('statechange',()=>{
-          if(worker.state==='installed'&&navigator.serviceWorker.controller)setWaitingWorker(registration.waiting??worker);
+          if(worker.state==='installed'&&navigator.serviceWorker.controller)activate(registration.waiting??worker);
         });
       };
       inspect();
@@ -127,7 +130,8 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
     navigator.serviceWorker?.addEventListener('controllerchange',onControllerChange);
     void refreshStorage();
     setServiceWorkerError('');
-    if(!('serviceWorker' in navigator))setServiceWorkerStatus('unsupported');
+    if(isNativeApp())setServiceWorkerStatus('native');
+    else if(!('serviceWorker' in navigator))setServiceWorkerStatus('unsupported');
     else{
       setServiceWorkerStatus('checking');
       void registerAppServiceWorker().then(registration=>{
@@ -206,17 +210,12 @@ export function useMobilePwa(){
 
 export function PwaUpdateNotice(){
   const pwa=useMobilePwa();
-  const state=getPwaUpdateNoticeState(pwa.reloadPending,pwa.waiting,pwa.editorOpen);
+  const state=getPwaUpdateNoticeState(pwa.reloadPending,pwa.editorOpen);
   if(state.kind==='none')return null;
-  if(state.kind==='activated')return <div className="notice pwa-update-notice" role="status" aria-live="polite">
+  return <div className="notice pwa-update-notice" role="status" aria-live="polite">
     <span><strong>App update ready to use.</strong> Reload when your current work is saved.</span>
     {!state.canReload&&<small>Save or close your current work before reloading.</small>}
     <Button disabled={!state.canReload} onClick={pwa.reloadApp}><RefreshCw size={16}/>Reload app</Button>
-  </div>;
-  return <div className="notice pwa-update-notice" role="status" aria-live="polite">
-    <span><strong>App update available.</strong> Your saved offline work stays on this device.</span>
-    {!state.canActivate&&<small>Save or close your current work before updating.</small>}
-    <Button disabled={!state.canActivate} onClick={pwa.applyUpdate}><RefreshCw size={16}/>Prepare update</Button>
   </div>;
 }
 
@@ -254,87 +253,4 @@ export function ForegroundNotificationHandler(){
     };
   },[]);
   return null;
-}
-
-function formatBytes(value?:number){
-  if(value==null||!Number.isFinite(value))return 'Unavailable';
-  if(value<1024)return `${Math.round(value)} bytes`;
-  const units=['KB','MB','GB'];
-  let amount=value/1024;
-  let index=0;
-  while(amount>=1024&&index<units.length-1){amount/=1024;index++;}
-  return `${amount.toFixed(amount>=10?0:1)} ${units[index]}`;
-}
-
-function isIos(){
-  const platform=navigator.platform??'';
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent)||(/MacIntel/i.test(platform)&&navigator.maxTouchPoints>1);
-}
-
-function pendingWork(store:Nourish,foodScanDraftCount:number|null){
-  const queue=store.local?.queue??[];
-  const photos=store.local?.photoDrafts??[];
-  const body=store.local?.bodyDrafts??[];
-  return summarizePwaPendingWork(
-    queue.length,photos.length,body.length,
-    queue.filter(item=>!!item.error).length+photos.filter(item=>!!item.error).length+body.filter(item=>!!item.error).length,
-    foodScanDraftCount
-  );
-}
-
-export function PwaReadiness({store}:{store:Nourish}){
-  const pwa=useMobilePwa();
-  const [foodDraftCount,setFoodDraftCount]=useState<number|null>(null);
-  useEffect(()=>{
-    let current=true;
-    void countFoodBasketDrafts(store.state!.id).then(count=>{if(current)setFoodDraftCount(count);}).catch(()=>{if(current)setFoodDraftCount(-1);});
-    return()=>{current=false;};
-  },[store.state!.id]);
-  const [foodScanDraftCount,setFoodScanDraftCount]=useState<number|null>(null);
-  useEffect(()=>{
-    let current=true;
-    let revision=0;
-    setFoodScanDraftCount(null);
-    const refresh=()=>{
-      const requested=++revision;
-      void countFoodScanDrafts(store.state!.id).then(count=>{if(current&&requested===revision)setFoodScanDraftCount(count);}).catch(()=>{if(current&&requested===revision)setFoodScanDraftCount(-1);});
-    };
-    refresh();
-    window.addEventListener('nutrition-scan-drafts-changed',refresh);
-    window.addEventListener('focus',refresh);
-    return()=>{current=false;window.removeEventListener('nutrition-scan-drafts-changed',refresh);window.removeEventListener('focus',refresh);};
-  },[store.state!.id]);
-  const pending=pendingWork(store,foodScanDraftCount);
-  const usage=pwa.storage.used==null?'Storage use unavailable':`${formatBytes(pwa.storage.used)} used${pwa.storage.quota==null?'':` of ${formatBytes(pwa.storage.quota)}`}`;
-  const ios=isIos();
-  const offlineData=store.local
-    ?`Saved foods: ${store.local.foodsLoaded?'available offline':'not loaded yet'} · recent diary: ${store.local.state.entries.length?'available on this device':'will load as you browse'}`
-    :'Offline data is being checked.';
-
-  return <section className="panel pwa-readiness" aria-labelledby="pwa-readiness-title">
-    <h2 id="pwa-readiness-title">Mobile app and offline data</h2>
-    <p className="source">Install Nutrition App on your phone to open it from the Home Screen and use the cached diary when you are offline.</p>
-    <dl className="pwa-readiness-list">
-      <div><dt>App</dt><dd>{pwa.installed?'Installed on this device':'Open in a browser'} · version {__APP_VERSION__}</dd></div>
-      <div><dt>Connection</dt><dd>{pwa.online?<><Wifi size={15} aria-hidden="true"/> Online</>:<><WifiOff size={15} aria-hidden="true"/> Offline</>}</dd></div>
-      <div><dt>Offline support</dt><dd>{pwa.serviceWorkerStatus==='checking'?'Checking app setup…':pwa.serviceWorkerStatus==='ready'?'Ready on this device':pwa.serviceWorkerStatus==='unsupported'?'Not available in this browser':'Could not start'}</dd></div>
-      <div><dt>Offline data</dt><dd>{offlineData}</dd></div>
-      <div><dt>Saved changes</dt><dd>{!pending.complete?'Checking retained scan work before showing status…':pending.total===0?'No pending changes':`${pending.total} pending items on this device`}{pending.needsReview?` · ${pending.needsReview} need review`:''}</dd></div>
-      <div><dt>Food batches</dt><dd>{foodDraftCount===null?'Checking saved batches…':foodDraftCount<0?'Could not check saved batches':foodDraftCount===0?'No unfinished batch':`${foodDraftCount} unfinished batch${foodDraftCount===1?'':'es'} saved on this device`}</dd></div>
-      <div><dt>Food scans</dt><dd>{foodScanDraftCount===null?'Checking retained scans…':foodScanDraftCount<0?'Could not check retained scans; pending photos may need attention':foodScanDraftCount===0?'No retained scans':`${foodScanDraftCount} retained scan${foodScanDraftCount===1?'':'s'} awaiting review or sync`}</dd></div>
-      <div><dt>Device storage</dt><dd>{pwa.storage.persistent===true?'Persistent storage enabled':pwa.storage.persistent===false?'Browser managed retention':'Retention status unavailable'} · {usage}</dd></div>
-    </dl>
-    <div className="actions pwa-readiness-actions">
-      {!pwa.installed&&pwa.installAvailable&&<Button onClick={()=>void pwa.install()}><Download size={16}/>Install app</Button>}
-      {!pwa.installed&&!pwa.installAvailable&&<span className="source">{ios
-        ?'iPhone or iPad: in Safari, tap Share → Add to Home Screen. On iOS 26 or later, choose Open as Web App if offered.'
-        :'Android: open the browser menu and choose Install app or Add to Home screen.'}</span>}
-      {pwa.serviceWorkerStatus==='failed'&&<Button variant="secondary" onClick={pwa.retryServiceWorker}><RefreshCw size={16}/>Retry offline setup</Button>}
-      {pwa.storage.persistent!==true&&pwa.storage.supported&&<Button variant="secondary" disabled={pwa.storageBusy} onClick={()=>void pwa.requestPersistentStorage()}><HardDrive size={16}/>{pwa.storageBusy?'Checking…':'Protect local data'}</Button>}
-      {pwa.storage.persistent===true&&<span className="pwa-persisted-status"><Check size={16} aria-hidden="true"/> Browser retention enabled</span>}
-    </div>
-    {pwa.serviceWorkerError&&<p className="source" role="status">{pwa.serviceWorkerError}</p>}
-    {pwa.storageMessage&&<p className="source" role="status">{pwa.storageMessage}</p>}
-    <p className="source pwa-storage-note">Persistent storage reduces browser cleanup risk; it is not a backup. Keep the app connected so account data can sync.</p>
-  </section>;
 }

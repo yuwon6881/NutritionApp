@@ -6,6 +6,14 @@ A separate two-user, mobile-first nutrition PWA. React/TypeScript/Vite frontend,
 
 Requirements: Node 24 and .NET 10. run `npm.cmd install` and `npm.cmd run build` inside `web`, then copy `web/dist/` into `api/wwwroot/` or run `scripts/build.ps1`. Start `scripts/run-local.ps1` and open http://127.0.0.1:5088. Development defaults to an isolated local SQLite database. Production requires a PostgreSQL connection string and applied migrations.
 
+## Android app
+
+The Android app uses Capacitor 8 (`com.nutritionapp.mobile`) and packages the built web interface in the APK. API requests use the production Nutrition origin so the existing session cookie and Vercel API proxy continue to work. From `web/`, run `npm.cmd run android:sync` after web changes, then `npm.cmd run android:open` to open the project in Android Studio. Connect an Android phone with USB debugging enabled and use Run, or build a debug APK with `cd android; .\gradlew.bat assembleDebug`; the APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Building requires Android Studio, its Android SDK (API 36), and JDK 21. `android:run` also requires a connected device or configured emulator. This workspace currently has no Android SDK or JDK, so the native Gradle build and phone installation still need to be checked there. Camera scanning requests Android's camera permission. Hardware Back dismisses the active Nutrition dialog and exits from the main screen.
+
+Fitness Account sign-in remains a web authorization flow. Google Health consent must be completed in the browser/PWA because Google blocks OAuth in embedded WebViews; an Android browser session cannot reuse the app WebView's Nutrition cookie. Native push delivery is not enabled in this build; reminder schedules remain manageable in Settings, and the existing browser subscription continues to work from the installed PWA.
+
 For Vite hot reload, run the API on port 5088 with `PublicOrigin=http://127.0.0.1:5178`, then run `npm.cmd run dev` inside `web`. Use the Vite URL. Accounts are provisioned via central Fitness Account OIDC (`openid`, `profile`), capped at two users; no credentials or passwords are stored in NutritionApp.
 
 Optional development configuration goes in ignored `api/appsettings.Local.json` or environment variables. See [deployment configuration](deploy/README.md). The UI remains fully useful without food-provider or OpenAI credentials: manual food/recipe logging, weight tracking, and deterministic coaching need no external AI.

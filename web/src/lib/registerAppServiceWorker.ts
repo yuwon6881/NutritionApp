@@ -1,3 +1,5 @@
+import {Capacitor} from '@capacitor/core';
+
 const DEFAULT_REGISTRATION_TIMEOUT_MS=10_000;
 const DEFAULT_READY_TIMEOUT_MS=8_000;
 
@@ -17,6 +19,8 @@ function withTimeout<T>(promise:Promise<T>,timeoutMs:number,message:string):Prom
 }
 
 export function registerAppServiceWorker(timeoutMs=DEFAULT_REGISTRATION_TIMEOUT_MS):Promise<ServiceWorkerRegistration|null>{
+  // The Android package carries its own app shell; its WebView cache must not shadow APK updates.
+  if(Capacitor.isNativePlatform())return Promise.resolve(null);
   if(!('serviceWorker' in navigator))return Promise.resolve(null);
   if(registrationPromise)return registrationPromise;
 

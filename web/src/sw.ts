@@ -85,8 +85,8 @@ if(firebaseConfig){
   })();
 }
 self.addEventListener('install',event=>{
-  // A failed precache never activates a partially installed release. Updates wait for old clients.
-  event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll(precacheUrls)));
+  // A failed precache never activates a partially installed release. Once cached, activate immediately.
+  event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll(precacheUrls)).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{

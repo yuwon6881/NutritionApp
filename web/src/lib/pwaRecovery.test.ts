@@ -5,13 +5,14 @@ import {parseNutritionReminderPayload} from './push/pushPayload';
 
 describe('safe PWA update recovery',()=>{
   it('shows an explicit reload action after activation instead of reloading sibling tabs',()=>{
-    expect(getPwaUpdateNoticeState(true,false,false)).toEqual({kind:'activated',canReload:true});
-    expect(getPwaUpdateNoticeState(true,false,true)).toEqual({kind:'activated',canReload:false});
+    expect(getPwaUpdateNoticeState(true,false)).toEqual({kind:'activated',canReload:true});
+    expect(getPwaUpdateNoticeState(true,true)).toEqual({kind:'activated',canReload:false});
+    expect(getPwaUpdateNoticeState(false,false)).toEqual({kind:'none'});
   });
 
   it('blocks the reload action for dirty inline reminder settings as well as open dialogs',()=>{
     expect(hasUncommittedPwaWork(false,true)).toBe(true);
-    expect(getPwaUpdateNoticeState(true,false,hasUncommittedPwaWork(false,true)))
+    expect(getPwaUpdateNoticeState(true,hasUncommittedPwaWork(false,true)))
       .toEqual({kind:'activated',canReload:false});
     expect(hasUncommittedPwaWork(false,false)).toBe(false);
   });
