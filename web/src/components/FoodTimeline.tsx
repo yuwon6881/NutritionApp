@@ -63,6 +63,8 @@ export function FoodTimeline({
   const groups=showEmptySlots?timelineSlots(entries,0,23,timelineView):timelineGroups(entries);
   const previousTimes=useRef(new Map<string,string|null>());
   const [movedIds,setMovedIds]=useState<Set<string>>(()=>new Set());
+  const previousIds=useRef<Set<string>|null>(null);
+  const [addedIds,setAddedIds]=useState<Set<string>>(()=>new Set());
 
   useEffect(()=>{
     const changed=entries.filter(entry=>{
@@ -70,9 +72,23 @@ export function FoodTimeline({
       previousTimes.current.set(entry.id,entry.time??null);
       return previous!==undefined&&previous!==(entry.time??null);
     }).map(entry=>entry.id);
-    if(!changed.length||changed.length>8)return;
-    setMovedIds(new Set(changed));
-    const timer=window.setTimeout(()=>setMovedIds(new Set()),260);
+    if(changed.length&&changed.length<=8){
+      setMovedIds(new Set(changed));
+      const timer=window.setTimeout(()=>setMovedIds(new Set()),260);
+      return()=>window.clearTimeout(timer);
+    }
+  },[entries]);
+
+  useEffect(()=>{
+    if(!previousIds.current){
+      previousIds.current=new Set(entries.map(e=>e.id));
+      return;
+    }
+    const newlyAdded=entries.filter(entry=>!previousIds.current!.has(entry.id)).map(e=>e.id);
+    previousIds.current=new Set(entries.map(e=>e.id));
+    if(!newlyAdded.length||newlyAdded.length>8)return;
+    setAddedIds(new Set(newlyAdded));
+    const timer=window.setTimeout(()=>setAddedIds(new Set()),350);
     return()=>window.clearTimeout(timer);
   },[entries]);
 
@@ -102,7 +118,7 @@ export function FoodTimeline({
   });
 
   return <>
-    {announcement&&<p role="status" style={{position:'absolute',width:1,height:1,padding:0,margin:-1,overflow:'hidden',clip:'rect(0,0,0,0)',whiteSpace:'nowrap',border:0}}>{announcement}</p>}
+    {announcement&&<p role="status" className="sr-only">{announcement}</p>}
     <ol className="food-timeline" aria-label={`Food timeline for ${date}`}>
       {groups.map(group=><li
         className="food-time-row"
@@ -130,7 +146,7 @@ export function FoodTimeline({
               onClick={()=>onPasteAtTime(group.time)}
             ><ClipboardPaste size={16}/></Button>}
           </div>
-          {group.entries.length>1&&!readOnly&&!isSelecting&&<div style={{marginTop:4}}>
+          {group.entries.length>1&&!readOnly&&!isSelecting&&<div className="food-slot-move-all">
             <Button
               variant="tertiary"
               size="sm"
@@ -166,6 +182,7 @@ export function FoodTimeline({
               isSelecting={isSelecting}
               isSelected={Boolean(selectedIds?.has(entry.id))}
               isMoved={movedIds.has(entry.id)}
+              isAdded={addedIds.has(entry.id)}
               pendingError={pending.find(op=>op.error)?.error}
               isPendingSync={pending.length>0}
               onEdit={onEdit}

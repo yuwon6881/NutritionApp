@@ -151,7 +151,7 @@ export function FoodEditor({
 
   return <div className="dialog-step editor">
     <Form onSubmit={save}>
-      <div style={{marginBottom: 12}}>
+      <div className="editor-back-nav">
         <Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={onClose}>
           <ArrowLeft size={16} aria-hidden="true"/>
           Back
@@ -159,12 +159,12 @@ export function FoodEditor({
       </div>
       {isProviderFood ? (
         <>
-          <div className="review-food-heading" style={{marginBottom: 14}}>
-            <h3 style={{fontSize: '1.2rem', marginBottom: 4, color: 'var(--foreground)'}}>{draft.name}</h3>
+          <div className="review-food-heading">
+            <h3>{draft.name}</h3>
             <small className="source">{draft.source}</small>
           </div>
 
-          <div className="live-calorie-card" style={{margin: '12px 0 18px'}}>
+          <div className="live-calorie-card">
             <div className="live-calorie-header">
               <span className="live-calorie-tag">CALORIES</span>
               <div className="live-calorie-value">

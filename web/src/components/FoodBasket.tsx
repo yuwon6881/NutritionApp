@@ -73,7 +73,7 @@ export function FoodBasket({
   const editing=basket.lines.find(line=>line.key===editingKey);
   if(editing)return <div ref={root}><FoodEditor initial={editing} title="Edit batch food" energyUnit={units.energy} onClose={()=>setEditingKey(undefined)} onSave={async data=>{await basket.replaceLine(editing.key,{...editing,...data,portions:parsePortions(data.portionsJson)});setEditingKey(undefined);}}/></div>;
   return <div ref={root} className="dialog-step food-basket">
-    {announcement&&<p role="status" style={{position:'absolute',width:1,height:1,padding:0,margin:-1,overflow:'hidden',clip:'rect(0,0,0,0)',whiteSpace:'nowrap',border:0}}>{announcement}</p>}
+    {announcement&&<p role="status" className="sr-only">{announcement}</p>}
     <div className="live-calorie-card">
       <div className="live-calorie-header">
         <span className="live-calorie-tag">BATCH TOTAL</span>
@@ -89,7 +89,7 @@ export function FoodBasket({
           Fat {number(totals.fat.value)} g{totals.fat.partial?' · partial':''}
         </span>
       </div>
-      {partials.map(p=><small key={p.nutrient} style={{display:'block',marginTop:4}}>
+      {partials.map(p=><small key={p.nutrient}>
         {p.known} of {p.total} foods report {p.nutrient}.
       </small>)}
     </div>
@@ -105,7 +105,7 @@ export function FoodBasket({
           ?'You can log up to 20 foods in one batch. Remove a food before continuing.'
           :undefined}
       >
-        <p data-validation-focus tabIndex={-1} className="eyebrow" style={{marginBottom:12}}>
+        <p data-validation-focus tabIndex={-1} className="eyebrow food-basket-eyebrow">
           BATCH FOODS ({basket.lines.length})
         </p>
 

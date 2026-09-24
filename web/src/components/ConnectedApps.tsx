@@ -204,7 +204,7 @@ export function ConnectedApps({store}: {store?: Nourish}) {
           <p>
             Disconnecting will revoke NutritionApp&apos;s access to Workout training summaries and clear ephemeral summary data.
           </p>
-          <div className="actions">
+          <div className="modal-actions">
             <Button variant="tertiary" onClick={() => setDisconnectOpen(false)} disabled={disconnecting}>
               Keep connected
             </Button>

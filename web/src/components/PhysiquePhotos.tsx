@@ -10,6 +10,7 @@ import {PhotoUploadDialog} from './PhotoUploadDialog';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
 import {CardFeedback} from './ui/CardFeedback';
+import {MotionPanel} from './ui/Motion';
 import {BodyCompare} from './BodyCompare';
 import {BodyRecordDialog,allMeasurementKeys,angles,angleLabel,measurementGroups,measurementLabel} from './BodyRecordDialog';
 
@@ -103,54 +104,45 @@ export function PhysiquePhotos({store}:{store:Nourish}){
   const bodyDrafts=store.local?.bodyDrafts??[];
   const weightUnit=unitsFor(store.state!.settings).weight;
 
+  let view: React.ReactNode;
   if(page==='compare'){
-    return <>
-      <BodyCompare records={bodyRecords} initialPresentIndex={bodyViewerIndex} initialPastIndex={bodyRecords.length>1?bodyRecords.length-1:0} weightUnit={weightUnit} onBack={()=>setPage('history')} onEditRecord={rec=>openBodyEditor(rec)}/>
-      <BodyRecordDialog open={bodyOpen} record={bodyEditor} store={store} restoreFocus={bodyReturnFocus} onClose={closeBodyEditor}/>
+    view=<BodyCompare records={bodyRecords} initialPresentIndex={bodyViewerIndex} initialPastIndex={bodyRecords.length>1?bodyRecords.length-1:0} weightUnit={weightUnit} onBack={()=>setPage('history')} onEditRecord={rec=>openBodyEditor(rec)}/>;
+  }else if(page==='history'){
+    view=<>
+      <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeHistory}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
+      {bodyError&&<CardFeedback title="Body history unavailable" message={bodyError} action={{label:'Retry history',onClick:()=>void loadBodyPage(!bodyRecords.length),disabled:busy}}/>}
+      <section className="panel body-history-panel">
+        <div className="section-heading"><div><h2>Measurements and photos</h2><p>Records are ordered by date. Weight attachments are server snapshots.</p></div><Button variant="secondary" disabled={!bodyRecords.length} onClick={()=>openCompare(0)}>Compare</Button></div>
+        {!bodyRecords.length&&!bodyError&&<p className="empty">{bodyLoaded?'No Body records yet.':'Loading Body history…'}</p>}
+        <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
+        {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
+      </section>
+      {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}
     </>;
-  }
-
-  if(page==='history')return <>
-    <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeHistory}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
-    {bodyError&&<p className="notice" role="status">{bodyError} <Button onClick={()=>void loadBodyPage(!bodyRecords.length)}>Retry history</Button></p>}
-    <section className="panel body-history-panel">
-      <div className="section-heading"><div><h2>Measurements and photos</h2><p>Records are ordered by date. Weight attachments are server snapshots.</p></div><Button variant="secondary" disabled={!bodyRecords.length} onClick={()=>openCompare(0)}>Compare</Button></div>
-      {!bodyRecords.length&&!bodyError&&<p className="empty">{bodyLoaded?'No Body records yet.':'Loading Body history…'}</p>}
-      <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
-      {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
-    </section>
-    {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}
-    <BodyRecordDialog open={bodyOpen} record={bodyEditor} store={store} restoreFocus={bodyReturnFocus} onClose={closeBodyEditor}/>
-  </>;
-
-  if(page==='body-viewer'){
+  }else if(page==='body-viewer'){
     const current=bodyRecords[bodyViewerIndex];
-    return <>
+    view=<>
       <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={()=>setPage('history')}><ArrowLeft size={16} aria-hidden="true"/>Back to Body history</Button><h2>Body record</h2></div><div className="physique-hub-actions"><Button variant="secondary" onClick={()=>openCompare(bodyViewerIndex)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare with past</Button><Button variant="secondary" onClick={event=>openBodyEditor(current,event.currentTarget)}>Edit record</Button></div></header>
       {current&&<BodyRecordViewer record={current} previous={bodyRecords[bodyViewerIndex+1]} angle={bodyViewerAngle} onAngle={setBodyViewerAngle} weightUnit={weightUnit}/>}
       <div className="modal-actions body-history-nav"><Button variant="secondary" disabled={bodyViewerIndex===0} onClick={goBodyNewer}>Newer record</Button><Button variant="secondary" disabled={bodyViewerIndex===bodyRecords.length-1} onClick={goBodyOlder}>Older record</Button></div>
-      <BodyRecordDialog open={bodyOpen} record={bodyEditor} store={store} restoreFocus={bodyReturnFocus} onClose={closeBodyEditor}/>
     </>;
-  }
-
-  if(page==='gallery')return <>
-    <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeGallery}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Gallery</h2></div><Button variant="primary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button></header>
-    {error&&<CardFeedback title="Photo gallery unavailable" message={error} action={{label:'Retry gallery',onClick:()=>void loadPage(!sets.length),disabled:busy}}/>}
-    <section className="panel physique-gallery-panel">
-      <div className="section-heading"><div><h2>Compare</h2><p>Newest sets appear first. Missing views stay missing.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}>Compare</Button></div>
-      {!sets.length&&!error&&<p className="empty">{loaded?'No photo sets yet.':'Loading gallery…'}</p>}
-      <div className="photo-gallery-list">{sets.map(set=><PhotoSetRow key={set.id} set={set} onEdit={openEdit}/>)}</div>
-      {hasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
-    </section>
-    {drafts.map(draft=><div className="notice" key={draft.id}><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>)}
-    <PhotoUploadDialog open={uploadOpen} store={store} initial={editingSet} restoreFocus={uploadReturnFocus} onClose={closeUpload} onChanged={()=>void loadPage(true)}/>
-  </>;
-
-  if(page==='viewer'){
+  }else if(page==='gallery'){
+    view=<>
+      <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={closeGallery}><ArrowLeft size={16} aria-hidden="true"/>Back to Body</Button><h2>Gallery</h2></div><Button variant="primary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button></header>
+      {error&&<CardFeedback title="Photo gallery unavailable" message={error} action={{label:'Retry gallery',onClick:()=>void loadPage(!sets.length),disabled:busy}}/>}
+      <section className="panel physique-gallery-panel">
+        <div className="section-heading"><div><h2>Compare</h2><p>Newest sets appear first. Missing views stay missing.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}>Compare</Button></div>
+        {!sets.length&&!error&&<p className="empty">{loaded?'No photo sets yet.':'Loading gallery…'}</p>}
+        <div className="photo-gallery-list">{sets.map(set=><PhotoSetRow key={set.id} set={set} onEdit={openEdit}/>)}</div>
+        {hasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
+      </section>
+      {drafts.map(draft=><div className="notice" key={draft.id}><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>)}
+    </>;
+  }else if(page==='viewer'){
     const current=sets[viewerIndex];
     const photo=current?.photos.find(item=>item.angle===viewerAngle);
     const adjacent=viewerIndex>0?sets[viewerIndex-1]:sets[viewerIndex+1];
-    return <>
+    view=<>
       <header className="page-heading photo-view-heading"><div className="subpage-header-title"><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={()=>{setPage('gallery');}}><ArrowLeft size={16} aria-hidden="true"/>Back to Gallery</Button><h2>Compare photos</h2></div></header>
       {current&&<section className="panel photo-viewer-panel"><div className="section-heading"><div><h2>{current.date}</h2><p>Set {viewerIndex+1} of {sets.length}{hasMore?' · More older sets available':''}</p></div></div>
         <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={viewerAngle} onChange={setViewerAngle} options={angles.map(angle=>({value:angle,label:angleLabel(angle)}))}/>
@@ -159,46 +151,52 @@ export function PhysiquePhotos({store}:{store:Nourish}){
         <div className="modal-actions photo-viewer-actions"><Button variant="secondary" disabled={viewerIndex===0} onClick={goNewer}>Newer set</Button><Button variant="secondary" disabled={!hasMore&&viewerIndex===sets.length-1} onClick={()=>void goOlder()}>Older set</Button></div>
       </section>}
     </>;
+  }else{
+    view=<>
+      <section className="panel physique physique-photo-home"><div className="section-heading"><div><h2>Body tracking & progress</h2><p>Measurements, circumference tracking, weight context, and private physique photos.</p></div></div>
+        <div className="body-hub-grid">
+          <article className="body-hub-card">
+            <div className="body-hub-card-header">
+              <div className="body-hub-icon-wrap" aria-hidden="true"><Scale size={20}/></div>
+              <div>
+                <h3>Measurements & records</h3>
+                <p>Track circumference across core, arms, and legs alongside body fat and server weight snapshots.</p>
+              </div>
+            </div>
+            <div className="body-hub-card-footer">
+              <Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button>
+              <Button variant="secondary" onClick={openHistory}>Open history</Button>
+            </div>
+          </article>
+          <article className="body-hub-card">
+            <div className="body-hub-card-header">
+              <div className="body-hub-icon-wrap" aria-hidden="true"><Camera size={20}/></div>
+              <div>
+                <h3>Physique photos & gallery</h3>
+                <p>Private front, side, and back visual progress with historical comparison timeline.</p>
+              </div>
+            </div>
+            <div className="body-hub-card-footer">
+              <Button variant="secondary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button>
+              <Button variant="secondary" onClick={openGallery}>Open gallery</Button>
+            </div>
+          </article>
+        </div>
+        <div className="body-hub-compare-cta">
+          <Button variant="secondary" size="md" onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare past & present</Button>
+        </div>
+        {loaded&&<p className="source body-hub-status">{sets.length} legacy photo {sets.length===1?'set':'sets'} loaded · {number((store.local?.photoDrafts?.length??0))} retained upload{drafts.length===1?'':'s'}</p>}
+        {!store.local?.photoDrafts?.length&&!bodyDrafts.length&&<p className="source body-hub-status">Retained entries and upload status appear here when a connection is unavailable.</p>}
+      </section>
+      {drafts.map(draft=><div className="notice" key={draft.id}><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>)}
+      {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}
+    </>;
   }
 
   return <>
-    <section className="panel physique physique-photo-home"><div className="section-heading"><div><h2>Body tracking & progress</h2><p>Measurements, circumference tracking, weight context, and private physique photos.</p></div></div>
-      <div className="body-hub-grid">
-        <article className="body-hub-card">
-          <div className="body-hub-card-header">
-            <div className="body-hub-icon-wrap" aria-hidden="true"><Scale size={20}/></div>
-            <div>
-              <h3>Measurements & records</h3>
-              <p>Track circumference across core, arms, and legs alongside body fat and server weight snapshots.</p>
-            </div>
-          </div>
-          <div className="body-hub-card-footer">
-            <Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button>
-            <Button variant="secondary" onClick={openHistory}>Open history</Button>
-          </div>
-        </article>
-        <article className="body-hub-card">
-          <div className="body-hub-card-header">
-            <div className="body-hub-icon-wrap" aria-hidden="true"><Camera size={20}/></div>
-            <div>
-              <h3>Physique photos & gallery</h3>
-              <p>Private front, side, and back visual progress with historical comparison timeline.</p>
-            </div>
-          </div>
-          <div className="body-hub-card-footer">
-            <Button variant="secondary" onClick={event=>{setEditingSet(undefined);setUploadReturnFocus(event.currentTarget);setUploadOpen(true);}}>Add photo set</Button>
-            <Button variant="secondary" onClick={openGallery}>Open gallery</Button>
-          </div>
-        </article>
-      </div>
-      <div className="body-hub-compare-cta" style={{marginTop:'16px',display:'flex',justifyContent:'flex-end'}}>
-        <Button variant="secondary" size="md" onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare past & present</Button>
-      </div>
-      {loaded&&<p className="source body-hub-status">{sets.length} legacy photo {sets.length===1?'set':'sets'} loaded · {number((store.local?.photoDrafts?.length??0))} retained upload{drafts.length===1?'':'s'}</p>}
-      {!store.local?.photoDrafts?.length&&!bodyDrafts.length&&<p className="source body-hub-status">Retained entries and upload status appear here when a connection is unavailable.</p>}
-    </section>
-    {drafts.map(draft=><div className="notice" key={draft.id}><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>)}
-    {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}
+    <MotionPanel motionKey={page} axis="fade">
+      {view}
+    </MotionPanel>
     <PhotoUploadDialog open={uploadOpen} store={store} initial={editingSet} restoreFocus={uploadReturnFocus} onClose={closeUpload} onChanged={()=>void loadPage(true)}/>
     <BodyRecordDialog open={bodyOpen} record={bodyEditor} store={store} restoreFocus={bodyReturnFocus} onClose={closeBodyEditor}/>
   </>;

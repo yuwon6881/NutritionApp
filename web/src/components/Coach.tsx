@@ -23,6 +23,7 @@ import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,
 import {useAsyncAction} from './ui/useAsyncAction';
 import {resolveGoalStartWeight} from '../lib/goalPhase';
 import {CardFeedback} from './ui/CardFeedback';
+import {MotionPanel} from './ui/Motion';
 
 const defaults:ProfileDraft={
   age:0,
@@ -55,6 +56,7 @@ const defaults:ProfileDraft={
 type StepKey='body'|'activity'|'goal'|'goal-details'|'pace'|'macros'|'macro-adjustments'|'distribution'|'review';
 type MainTab='targets'|'plan'|'history';
 const stepOrder=['body','activity','goal','goal-details','pace','macros','macro-adjustments','distribution','review'] as const;
+const tabOrder:MainTab[]=['targets','plan','history'];
 
 export const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
@@ -75,6 +77,14 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
   const [message,setMessage]=useState('');
   const {busy:saving,run:runSave}=useAsyncAction();
   const [mainTab,setMainTab]=useState<MainTab>('targets');
+  const previousTab=useRef<MainTab>(mainTab);
+  const tabDirection=useRef<1|-1>(1);
+  if(previousTab.current!==mainTab){
+    const prevIdx=tabOrder.indexOf(previousTab.current);
+    const nextIdx=tabOrder.indexOf(mainTab);
+    tabDirection.current=nextIdx>=prevIdx?1:-1;
+    previousTab.current=mainTab;
+  }
   const [review,setReview]=useState(false);
   const [weeklyDraft,setWeeklyDraft]=useState<number[]>();
   const [customSplit,setCustomSplit]=useState<MacroSplit>(()=>storedSplit(profile)??normalise({protein:30,carbs:40,fat:30}));
@@ -652,10 +662,16 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {message&&<p className="status-banner coach-success" role="status"><Check size={18} aria-hidden="true"/>{message}</p>}
     {error&&operation!=='error'&&operation!=='refresh-error'&&<CardFeedback title="Coach update needs attention" message={error}/>}
 
-    <div key={isInitialSetup?(review?'review':'setup'):mainTab} className="coach-tab-scene">
-    {isInitialSetup?<>{review?proposalPanel:planTab}</>
-    :mainTab==='targets'?targetsTab
-      :mainTab==='plan'?(review?proposalPanel:planTab)
-      :historyTab}</div>
+    <MotionPanel
+      motionKey={isInitialSetup?(review?'review':'setup'):mainTab}
+      direction={tabDirection.current}
+      axis="horizontal"
+      className="coach-tab-scene"
+    >
+      {isInitialSetup?<>{review?proposalPanel:planTab}</>
+        :mainTab==='targets'?targetsTab
+        :mainTab==='plan'?(review?proposalPanel:planTab)
+        :historyTab}
+    </MotionPanel>
   </>;
 }

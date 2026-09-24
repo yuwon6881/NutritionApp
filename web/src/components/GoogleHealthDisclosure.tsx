@@ -100,7 +100,7 @@ export function GoogleHealthDisclosure({
           </p>
         )}
 
-        <div className="actions">
+        <div className="modal-actions">
           <Button variant="tertiary" onClick={onClose} disabled={loading}>
             Cancel
           </Button>

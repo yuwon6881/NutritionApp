@@ -549,7 +549,7 @@ export function LogFood({
     scanDraft.description===description&&JSON.stringify(scanDraft.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
 
   const selection=<div ref={selectionRef} className="dialog-step food-selection">
-    {selectionPurpose==='recipe'&&<div style={{marginBottom:12}}><Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={cancelRecipeIngredient}><ArrowLeft size={16} aria-hidden="true"/>Back to recipe</Button></div>}
+    {selectionPurpose==='recipe'&&<div className="editor-back-nav"><Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={cancelRecipeIngredient}><ArrowLeft size={16} aria-hidden="true"/>Back to recipe</Button></div>}
     {selectionPurpose==='log'&&!editing&&<div className="dialog-toolbar"><Button variant="primary" onClick={()=>go('quick')}><Plus size={17}/>Quick add</Button><Button onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}>Manual entry</Button></div>}
     <SegmentedControl<'search'|'saved'|'barcode'|'ai'> layout="equal" className="section-segments" label="Food logging method" value={tab} options={[
       {value:'search',label:<><Search size={16}/><span>Search</span></>,ariaLabel:'Search'},
@@ -653,7 +653,7 @@ export function LogFood({
                   )}
                 </div>
               </div>
-              <div className="food-row-actions" style={{display:'flex',alignItems:'center',gap:4}}>
+              <div className="food-row-actions">
                 <Button
                   variant="tertiary"
                   className={`food-row-star ${food.favourite?'starred':''}`}

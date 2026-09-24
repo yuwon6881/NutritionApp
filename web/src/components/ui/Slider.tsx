@@ -45,6 +45,7 @@ export function Slider({
   const trackRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const activePointerId = useRef<number | null>(null);
+  const [isSliding, setIsSliding] = useState(false);
 
   const clampAndSnap = useCallback((raw: number) => {
     const clamped = Math.min(Math.max(raw, min), max);
@@ -69,6 +70,7 @@ export function Slider({
     if (disabled || e.button !== 0) return; // Primary click only
     isDragging.current = true;
     activePointerId.current = e.pointerId;
+    setIsSliding(true);
     e.currentTarget.setPointerCapture(e.pointerId);
     updateFromPointer(e.clientX);
   };
@@ -82,6 +84,7 @@ export function Slider({
     if (isDragging.current && activePointerId.current === e.pointerId) {
       isDragging.current = false;
       activePointerId.current = null;
+      setIsSliding(false);
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
@@ -93,6 +96,7 @@ export function Slider({
   const handleLostPointerCapture = () => {
     isDragging.current = false;
     activePointerId.current = null;
+    setIsSliding(false);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -154,7 +158,8 @@ export function Slider({
       <div
         id={id}
         ref={trackRef}
-        className={`custom-slider${disabled ? ' is-disabled' : ''}`}
+        className={`custom-slider${disabled ? ' is-disabled' : ''}${isSliding ? ' is-sliding' : ''}`}
+        data-sliding={isSliding || undefined}
         role="slider"
         tabIndex={0}
         aria-label={ariaLabel ?? label}

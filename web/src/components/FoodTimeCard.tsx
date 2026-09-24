@@ -13,6 +13,7 @@ export interface FoodTimeCardProps {
   isSelecting:boolean;
   isSelected:boolean;
   isMoved:boolean;
+  isAdded?:boolean;
   pendingError?:string;
   isPendingSync:boolean;
   onEdit:(entry:Entry)=>void;
@@ -29,6 +30,7 @@ export function FoodTimeCard({
   isSelecting,
   isSelected,
   isMoved,
+  isAdded=false,
   pendingError,
   isPendingSync,
   onEdit,
@@ -71,7 +73,7 @@ export function FoodTimeCard({
 
   return (
     <article
-      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isSelected?'food-time-card-selected':''}`.trim()}
+      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''}`.trim()}
       data-selected={isSelected?true:undefined}
       onClick={isSelecting?handleCardClick:undefined}
       {...pointerProps}

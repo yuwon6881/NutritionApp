@@ -72,7 +72,20 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
     if(first.current){
       first.current=false;
       previousSceneKey.current=sceneKey;
-      return;
+      if(reduced)return;
+      const landingAnimation=node.animate(
+        [{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],
+        motionTiming('--motion-panel',240)
+      );
+      landingAnimation.onfinish=()=>{
+        node.style.removeProperty('opacity');
+        node.style.removeProperty('transform');
+      };
+      return()=>{
+        landingAnimation.cancel();
+        node.style.removeProperty('opacity');
+        node.style.removeProperty('transform');
+      };
     }
     const transitioned=previousSceneKey.current!==sceneKey;
     previousSceneKey.current=sceneKey;
@@ -92,7 +105,7 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
       heading?.removeEventListener('blur',clearOrigin);
     };
     const animation=node.animate(
-      [{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'translateY(0)'}],
+      [{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],
       motionTiming('--motion-panel',240)
     );
     animation.onfinish=()=>{

@@ -318,7 +318,7 @@ export function WeeklyProgramSetup({
       )}
 
       {!valid && (
-        <p className="error">
+        <p className="error" role="alert">
           Enter seven non-negative whole {energyLabel(energyUnit)} targets that total exactly{' '}
           {displayEnergy(target, energyUnit)} {energyLabel(energyUnit)}.
         </p>
