@@ -2,7 +2,7 @@
 param(
     [string]$ProjectId = (gcloud config get-value project 2>$null),
     [string]$Region = 'asia-southeast1',
-    [string]$JobName = 'nutrition-google-health-weight-sync',
+    [string]$JobName = 'nutrition-google-health-sync',
     [string]$ApiOrigin = '',
     [string]$SchedulerToken = $env:NUTRITION_CLEANUP_TOKEN
 )
@@ -19,10 +19,10 @@ if ([string]::IsNullOrWhiteSpace($SchedulerToken)) {
     throw 'Provide -SchedulerToken from Secret Manager or set NUTRITION_CLEANUP_TOKEN; do not store it in source control.'
 }
 
-$uri = "$($ApiOrigin.TrimEnd('/'))/internal/google-health-weight-sync"
+$uri = "$($ApiOrigin.TrimEnd('/'))/internal/google-health-sync"
 $locationArgs = @('--project', $ProjectId, '--location', $Region)
 $targetArgs = @(
-    '--schedule', '* * * * *',
+    '--schedule', '7 * * * *',
     '--time-zone', 'UTC',
     '--uri', $uri,
     '--http-method', 'POST',
@@ -43,4 +43,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "Cloud Scheduler could not configure $JobName."
 }
 
-Write-Output "Configured $JobName in $Region to POST every minute."
+Write-Output "Configured $JobName in $Region to POST hourly at minute 7."

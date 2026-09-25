@@ -6,7 +6,7 @@ const connectedRoute='**/api/integrations/connected';
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const requestHeaders={Origin:origin,'X-Nutrition-Request':'1'};
 
-async function openConnectedApps(page: Page) {
+async function openSignedInApp(page: Page) {
   await signIn(page,'test-alice');
   const state=await (await page.request.get('/api/state')).json();
   if(!state.profile){
@@ -33,6 +33,10 @@ async function openConnectedApps(page: Page) {
     expect(profile.ok(),await profile.text()).toBeTruthy();
   }
   await page.goto('/');
+}
+
+async function openConnectedApps(page: Page) {
+  await openSignedInApp(page);
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Connected Apps',exact:true})).toBeVisible();
 }
@@ -77,4 +81,19 @@ test('status request failure does not appear as disconnected',async({page})=>{
 
   await expect(page.getByText('Connected apps unavailable',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Connect Workout',exact:true})).toHaveCount(0);
+});
+
+test('dashboard loads Workout summaries once instead of re-fetching after each response',async({page})=>{
+  let requests=0;
+  // Each response carries a new payload and no validator, exactly what a refreshed cache returns.
+  await page.route('**/api/training/summary',route=>{
+    requests+=1;
+    return route.fulfill({json:{summaries:[],workoutConnected:true,workoutWarning:null,request:requests}});
+  });
+  await openSignedInApp(page);
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+  await expect.poll(()=>requests).toBeGreaterThan(0);
+  await page.waitForTimeout(3000);
+
+  expect(requests).toBeLessThanOrEqual(2);
 });

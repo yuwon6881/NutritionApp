@@ -21,7 +21,11 @@ public sealed record TrainingSummaryItem(
 
 public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, IConfiguration config, IntegrationTokenService? peerTokens = null)
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
+    /// Reads that block the main Nutrition state stay short so Workout never delays the diary.
+    public static readonly TimeSpan InlineDeadline = TimeSpan.FromSeconds(2);
+    /// Dedicated summary refreshes may wait out a scale-to-zero cold start of Workout, whose
+    /// handler also validates the connection with Fitness Account before answering.
+    public static readonly TimeSpan RefreshDeadline = TimeSpan.FromSeconds(8);
 
     public async Task<bool> IsConnected(CancellationToken ct)
         => await db.IntegrationGrants.AsNoTracking().AnyAsync(x => x.Peer == "workout" && x.Status == "active"
@@ -38,7 +42,8 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
             : "Workout training summaries are temporarily unavailable. Try again later.";
     }
 
-    public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, string? timeZone, CancellationToken ct)
+    public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, string? timeZone, CancellationToken ct,
+        TimeSpan? deadline = null)
     {
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
         var url = config["Integrations:WorkoutTrainingSummaryUrl"];
@@ -63,7 +68,7 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
                 if (peerTokens is not null && string.IsNullOrWhiteSpace(token))
                     throw new InvalidOperationException("Workout access is temporarily unavailable.");
 
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(Timeout);
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(deadline ?? InlineDeadline);
                 var separator = url.Contains('?') ? '&' : '?';
                 var tz = string.IsNullOrWhiteSpace(timeZone) ? "" : $"&timeZone={Uri.EscapeDataString(timeZone)}";
                 using var request = new HttpRequestMessage(HttpMethod.Get, $"{url}{separator}from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}{tz}");
@@ -87,8 +92,12 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
         if (cache is null || string.IsNullOrWhiteSpace(cache.SummaryJson)) return [];
         try
         {
+            // Without an active connection, scheduled and in-progress rows can no longer be
+            // revalidated and would read as current. Only frozen completed history remains, the
+            // same set an explicit disconnect keeps.
             return Json.Read<List<TrainingSummaryItem>>(cache.SummaryJson).Select(Canonical)
-                .Where(item => item.LocalDate >= from && item.LocalDate <= to).ToList();
+                .Where(item => item.LocalDate >= from && item.LocalDate <= to)
+                .Where(item => connected || item.Status == "completed").ToList();
         }
         catch (Exception ex) when (ex is JsonException or DomainException) { return []; }
     }

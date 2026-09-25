@@ -229,12 +229,13 @@ public sealed class GoogleHealthNutritionSyncService(
             problem?.LastErrorMessage);
     }
 
-    public async Task<GoogleHealthNutritionSyncProcessResult> ProcessDueAsync(CancellationToken ct)
+    /// Processes due uploads for every account, or for one account while its user is active.
+    public async Task<GoogleHealthNutritionSyncProcessResult> ProcessDueAsync(CancellationToken ct, Guid? userId = null, TimeSpan? budget = null)
     {
         var started = DateTime.UtcNow;
-        var deadline = started.AddSeconds(45);
+        var deadline = started.Add(budget ?? GoogleHealthSyncLeases.ScheduledBudget);
         var candidates = await db.GoogleHealthNutritionSyncWork.IgnoreQueryFilters()
-            .Where(x => new[] { "pending", "awaiting_operation" }.Contains(x.ProcessingState)
+            .Where(x => (userId == null || x.UserId == userId) && GoogleHealthSyncLeases.Claimable.Contains(x.ProcessingState)
                 && x.NextAttemptAt <= started
                 && (x.LeaseUntil == null || x.LeaseUntil < started))
             .OrderBy(x => x.NextAttemptAt)
@@ -256,7 +257,14 @@ public sealed class GoogleHealthNutritionSyncService(
             var lease = await LeaseAsync(candidate.UserId, candidate.Id, ct);
             if (lease is null) continue;
             processed++;
-            var result = await ProcessOneAsync(lease, ct);
+            string result;
+            try { result = await ProcessOneAsync(lease, ct); }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                // The row keeps its lease; once it expires, the next run recovers it.
+                logger?.LogWarning("Google Health nutrition sync stopped on one record: {FailureType}.", ex.GetType().Name);
+                result = "retry";
+            }
             succeeded += result == "succeeded" ? 1 : 0;
             retried += result == "retry" ? 1 : 0;
             failed += result == "failed" ? 1 : 0;
@@ -273,8 +281,15 @@ public sealed class GoogleHealthNutritionSyncService(
         await using var gate = await MutationLock.Acquire(db, userId, ct);
         db.CurrentUser = userId;
         var work = await db.GoogleHealthNutritionSyncWork.SingleOrDefaultAsync(x => x.Id == workId, ct);
-        if (work is null || work.ProcessingState is not ("pending" or "awaiting_operation") || work.NextAttemptAt > DateTime.UtcNow || work.LeaseUntil > DateTime.UtcNow)
+        if (work is null || !GoogleHealthSyncLeases.Claimable.Contains(work.ProcessingState) || work.NextAttemptAt > DateTime.UtcNow || work.LeaseUntil > DateTime.UtcNow)
             return null;
+        if (GoogleHealthSyncLeases.IsInterruptedCreate(work.ProcessingState, work.GoogleResourceName, work.GoogleOperationName, work.DesiredDeleted))
+        {
+            MarkUnknown(work);
+            await db.SaveChangesAsync(ct);
+            await gate.Commit(ct);
+            return null;
+        }
         var leaseId = Guid.NewGuid().ToString("N");
         work.ProcessingState = "processing";
         work.LeaseId = leaseId;

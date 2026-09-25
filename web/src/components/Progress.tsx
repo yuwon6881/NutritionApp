@@ -54,7 +54,10 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
   const {state:ghState,loading:ghLoading}=useGoogleHealth();
   const state=store.state!;
-  useEffect(()=>{void store.loadTrainingSummaries?.();},[store]);
+  // Depend on the stable loader, not the store object: every commit returns a new store, so a
+  // store dependency re-fetched after each response in an endless loop.
+  const loadTrainingSummaries=store.loadTrainingSummaries;
+  useEffect(()=>{void loadTrainingSummaries?.();},[loadTrainingSummaries]);
   const units=unitsFor(state.settings);
   const tabs=[['weight','Weight'],['energy','Energy'],['body','Body'],['activity','Activity']] as const;
   const tabDirection:1|-1=tab==='body'||tab==='activity'?-1:1;

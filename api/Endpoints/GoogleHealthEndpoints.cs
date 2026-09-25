@@ -58,8 +58,16 @@ public static class GoogleHealthEndpoints
             return Results.Redirect(redirectUrl);
         });
 
-        app.MapPost("/api/integrations/google-health/sync", async (SyncInput? input, GoogleHealthService service, AppDb db, CancellationToken ct) =>
+        app.MapPost("/api/integrations/google-health/sync", async (SyncInput? input, GoogleHealthService service, AppDb db,
+            IServiceScopeFactory scopes, ILogger<GoogleHealthService> logger, CancellationToken ct) =>
         {
+            // The app calls this while its user is active, so their queued uploads go now at no
+            // extra wake-up cost. The hourly sweep retries anything this bounded pass leaves.
+            try { await GoogleHealthOutboundSync.RunAsync(scopes, db.CurrentUser!.Value, GoogleHealthOutboundSync.ActiveUserBudget, ct); }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning("Google Health uploads for an active user were deferred to the scheduled sweep: {FailureType}.", ex.GetType().Name);
+            }
             var result = await service.SyncAsync(db.CurrentUser!.Value, ct, input?.Force == true);
             return Results.Ok(result);
         });
@@ -76,17 +84,11 @@ public static class GoogleHealthEndpoints
         app.MapPost("/api/integrations/google-health/weight-sync/recover", async (GoogleHealthWeightSyncRecoveryInput input, GoogleHealthWeightSyncService service, CancellationToken ct) =>
             Results.Ok(await service.RecoverAsync(input.WeightId, ct)));
 
-        app.MapPost("/internal/google-health-weight-sync", async (GoogleHealthWeightSyncService service, CancellationToken ct) =>
-            Results.Ok(await service.ProcessDueAsync(ct)));
-
         app.MapPost("/api/integrations/google-health/nutrition-sync/preference", async (NutritionSyncPreferenceInput input, GoogleHealthNutritionSyncService service, CancellationToken ct) =>
             Results.Ok(await service.SetPreferenceAsync(input.Enabled, input.Revision, ct)));
 
         app.MapPost("/api/integrations/google-health/nutrition-sync/recover", async (GoogleHealthNutritionSyncRecoveryInput input, GoogleHealthNutritionSyncService service, CancellationToken ct) =>
             Results.Ok(await service.RecoverAsync(input.EntryId, ct)));
-
-        app.MapPost("/internal/google-health-nutrition-sync", async (GoogleHealthNutritionSyncService service, CancellationToken ct) =>
-            Results.Ok(await service.ProcessDueAsync(ct)));
 
         app.MapPost("/api/integrations/google-health/body-fat-sync/preference", async (BodyFatSyncPreferenceInput input, GoogleHealthBodyFatSyncService service, CancellationToken ct) =>
             Results.Ok(await service.SetPreferenceAsync(input.Enabled, input.Revision, ct)));
@@ -94,7 +96,9 @@ public static class GoogleHealthEndpoints
         app.MapPost("/api/integrations/google-health/body-fat-sync/recover", async (GoogleHealthBodyFatSyncRecoveryInput input, GoogleHealthBodyFatSyncService service, CancellationToken ct) =>
             Results.Ok(await service.RecoverAsync(input.BodyRecordId, ct)));
 
-        app.MapPost("/internal/google-health-body-fat-sync", async (GoogleHealthBodyFatSyncService service, CancellationToken ct) =>
-            Results.Ok(await service.ProcessDueAsync(ct)));
+        // The single scheduled sweep for all outbound queues. Active users are served by the
+        // steps sync above, so this runs hourly and lets the API and database scale to zero.
+        app.MapPost("/internal/google-health-sync", async (IServiceScopeFactory scopes, CancellationToken ct) =>
+            Results.Ok(await GoogleHealthOutboundSync.RunAsync(scopes, null, null, ct)));
     }
 }

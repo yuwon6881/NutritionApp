@@ -145,66 +145,9 @@ public static class RecordEndpoints
             });
         });
 
-        app.MapGet("/api/training/summary", async (HttpContext http, AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
-        {
-            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
-            var today = RetentionService.Today(user.ProfileJson);
-            var profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
-            var timeZone = profile?.TimeZone;
-            var start = from ?? today.AddDays(-89);
-            var end = to ?? today.AddDays(14);
-            var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
-            var grantRevision = await db.IntegrationGrants.AsNoTracking()
-                .Where(x => x.Peer == "workout" && x.Status == "active")
-                .Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
-            var etag = $"\"training:{user.Id:N}:{cached?.Revision ?? 0}:{grantRevision}:{start:yyyy-MM-dd}:{end:yyyy-MM-dd}\"";
-            // Peer context is informational and is revalidated at the existing two-minute
-            // cadence. A fresh cache can answer an unchanged browser read with no provider call;
-            // an older cache still falls through to WorkoutSummaryService for revalidation.
-            if (http.Request.Headers.IfNoneMatch == etag && cached?.LastSuccessAt >= DateTime.UtcNow.AddMinutes(-2))
-            {
-                http.Response.Headers.ETag = etag;
-                return Results.StatusCode(StatusCodes.Status304NotModified);
-            }
-            var trainingSummary = await training.Get(start, end, timeZone, ct);
-            var workoutConnected = await training.IsConnected(ct);
-            var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
-            http.Response.Headers.ETag = etag;
-            return Results.Ok(new {
-                summaries = trainingSummary,
-                workoutConnected,
-                workoutWarning
-            });
-        });
-
-        app.MapGet("/api/training", async (HttpContext http, AppDb db, WorkoutSummaryService training, DateOnly? from, DateOnly? to, CancellationToken ct) =>
-        {
-            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
-            var today = RetentionService.Today(user.ProfileJson);
-            var profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
-            var timeZone = profile?.TimeZone;
-            var start = from ?? today.AddDays(-89);
-            var end = to ?? today.AddDays(14);
-            var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
-            var grantRevision = await db.IntegrationGrants.AsNoTracking()
-                .Where(x => x.Peer == "workout" && x.Status == "active")
-                .Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
-            var etag = $"\"training:{user.Id:N}:{cached?.Revision ?? 0}:{grantRevision}:{start:yyyy-MM-dd}:{end:yyyy-MM-dd}\"";
-            if (http.Request.Headers.IfNoneMatch == etag && cached?.LastSuccessAt >= DateTime.UtcNow.AddMinutes(-2))
-            {
-                http.Response.Headers.ETag = etag;
-                return Results.StatusCode(StatusCodes.Status304NotModified);
-            }
-            var trainingSummary = await training.Get(start, end, timeZone, ct);
-            var workoutConnected = await training.IsConnected(ct);
-            var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
-            http.Response.Headers.ETag = etag;
-            return Results.Ok(new {
-                summaries = trainingSummary,
-                workoutConnected,
-                workoutWarning
-            });
-        });
+        // Both routes serve the same payload; /api/training is the older client path.
+        app.MapGet("/api/training/summary", TrainingSummary);
+        app.MapGet("/api/training", TrainingSummary);
 
         app.MapGet("/api/state",async(AppDb db,RetentionService retention,ExpenditureTrajectoryService trajectory,WorkoutSummaryService training,DateOnly? date,int? year,CancellationToken ct) =>
         {
@@ -254,5 +197,47 @@ public static class RecordEndpoints
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));
         app.MapPost("/api/coach/decline",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Decline(input.Id,input.Revision,ct));
         app.MapPost("/api/goal/complete",async(GoalDecisionInput input,CoachingService coach,CancellationToken ct)=>await coach.CompleteGoal(input.Id,input.Revision,input.Decision,ct));
+    }
+
+    private static async Task<IResult> TrainingSummary(HttpContext http, AppDb db, WorkoutSummaryService training,
+        DateOnly? from, DateOnly? to, CancellationToken ct)
+    {
+        var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+        var today = RetentionService.Today(user.ProfileJson);
+        var profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
+        var start = from ?? today.AddDays(-89);
+        var end = to ?? today.AddDays(14);
+        var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
+        // Peer context is informational and is revalidated at a two-minute cadence. A fresh cache
+        // answers an unchanged browser read with no Workout call; an older cache falls through to
+        // WorkoutSummaryService for revalidation.
+        var ifNoneMatch = http.Request.Headers.IfNoneMatch.ToString();
+        if (ifNoneMatch.Length > 0 && cached?.LastSuccessAt >= DateTime.UtcNow.AddMinutes(-2)
+            && ifNoneMatch == await TrainingEtag(db, user.Id, cached.Revision, start, end, ct))
+        {
+            http.Response.Headers.ETag = ifNoneMatch;
+            return Results.StatusCode(StatusCodes.Status304NotModified);
+        }
+        var trainingSummary = await training.Get(start, end, profile?.TimeZone, ct, WorkoutSummaryService.RefreshDeadline);
+        var workoutConnected = await training.IsConnected(ct);
+        var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
+        // A refresh writes the cache and advances its revision, so the validator must describe the
+        // state after that write. A pre-refresh revision would never match again and every poll
+        // would call Workout.
+        var revision = await db.WorkoutSummaries.AsNoTracking().Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct);
+        http.Response.Headers.ETag = await TrainingEtag(db, user.Id, revision, start, end, ct);
+        return Results.Ok(new {
+            summaries = trainingSummary,
+            workoutConnected,
+            workoutWarning
+        });
+    }
+
+    private static async Task<string> TrainingEtag(AppDb db, Guid userId, long? cacheRevision, DateOnly start, DateOnly end, CancellationToken ct)
+    {
+        var grantRevision = await db.IntegrationGrants.AsNoTracking()
+            .Where(x => x.Peer == "workout" && x.Status == "active")
+            .Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
+        return $"\"training:{userId:N}:{cacheRevision ?? 0}:{grantRevision}:{start:yyyy-MM-dd}:{end:yyyy-MM-dd}\"";
     }
 }

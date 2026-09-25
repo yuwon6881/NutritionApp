@@ -48,7 +48,10 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
   // Once a connection is known, keep the card visible during background refresh so
   // a temporary loading state does not make the dashboard jump.
   const showGoogleHealthSteps = shouldShowDashboardSteps(ghState,ghLoading);
-  useEffect(()=>{void store.loadTrainingSummaries?.();},[store]);
+  // Depend on the stable loader, not the store object: every commit returns a new store, so a
+  // store dependency re-fetched after each response in an endless loop.
+  const loadTrainingSummaries=store.loadTrainingSummaries;
+  useEffect(()=>{void loadTrainingSummaries?.();},[loadTrainingSummaries]);
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
