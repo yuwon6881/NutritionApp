@@ -1,5 +1,5 @@
 import type {Nourish} from '../useNourish';
-import {today} from '../lib/format';
+import {longDate,today} from '../lib/format';
 import {checkInSchedule,checkInWindowEvidence} from '../lib/checkIn';
 import {CheckInButton} from './CheckInButton';
 
@@ -9,7 +9,7 @@ export function CheckInCard({store,onReview}:{store:Nourish;onReview:(trigger:HT
   if(!state.profile)return null;
   const schedule=checkInSchedule(state,current);
   const evidence=checkInWindowEvidence(state,current);
-  const dateLabel=new Intl.DateTimeFormat('en',{weekday:'long',month:'short',day:'numeric',timeZone:'UTC'}).format(new Date(`${schedule.nextDate}T00:00:00Z`));
+  const dateLabel=longDate(schedule.nextDate);
   return <section className={`panel check-in-card ${schedule.due?'is-ready':'is-waiting'}`} aria-labelledby="check-in-card-title">
     <CheckInButton schedule={schedule} label="Review this week" onClick={onReview}/>
     <div className="check-in-copy">

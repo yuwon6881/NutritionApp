@@ -173,12 +173,12 @@ test('add dialog is adaptive, reduced-motion safe, and restores launcher focus',
 });
 test('explicit light and dark themes persist without following the browser',async({page,context})=>{
   await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Settings',exact:true}).first().click();
-  const appearance=page.getByLabel('Appearance',{exact:true});await expect(appearance.locator('option')).toHaveText(['Light','Dark']);
-  await appearance.selectOption('dark');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  const appearance=page.getByRole('group',{name:'Appearance',exact:true});await expect(appearance.getByRole('button')).toHaveText(['Light','Dark']);
+  await appearance.getByRole('button',{name:'Dark',exact:true}).click();await expect(appearance.getByRole('button',{name:'Dark',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.emulateMedia({colorScheme:'light'});await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#0b0e14');
   await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  await page.getByRole('button',{name:'Settings',exact:true}).first().click();await page.getByLabel('Appearance',{exact:true}).selectOption('light');
+  await page.getByRole('button',{name:'Settings',exact:true}).first().click();await page.getByRole('group',{name:'Appearance',exact:true}).getByRole('button',{name:'Light',exact:true}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#fcfcfc');
 });
 test('changed food dialog asks before closing while AI input stays transient',async({page,context})=>{
@@ -354,17 +354,17 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   const acceptedResponse=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:proposal.revision}});expect(acceptedResponse.ok(),await acceptedResponse.text()).toBeTruthy();
   state=await (await context.request.get('/api/state')).json();const nextResult=JSON.parse(state.plans[0].resultJson) as {calories:number;weeklyCalories:number;dailyCalories:number[]};expect(state.plans[0].id).not.toBe(active.id);expect(nextResult.dailyCalories).toEqual(proposal.result.dailyCalories);expect(nextResult.dailyCalories.reduce((sum,value)=>sum+value,0)).toBe(nextResult.weeklyCalories);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await context.setOffline(true);
-  await page.locator('#settings-weight-unit').selectOption('lb');await expect(page.getByText(/Saving your unit preferences/)).toBeVisible();
-  await page.locator('#settings-energy-unit').selectOption('kj');await page.locator('#settings-height-unit').selectOption('ft-in');await expect(page.getByText(/Saving your unit preferences/)).toBeVisible();
+  await page.locator('#settings-weight-unit-lb').click();await expect(page.getByText(/Saving your unit preferences/)).toBeVisible();
+  await page.locator('#settings-energy-unit-kj').click();await page.locator('#settings-height-unit-ft-in').click();await expect(page.getByText(/Saving your unit preferences/)).toBeVisible();
   await page.locator('#coaching-check-in-weekday').selectOption('5');await expect(page.getByText(/Saving your check-in day and unit preferences/)).toBeVisible();
-  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await expect(page.locator('#coaching-check-in-weekday')).toHaveValue('5');await expect(page.locator('#settings-weight-unit')).toHaveValue('lb');await expect(page.locator('#settings-energy-unit')).toHaveValue('kj');await expect(page.locator('#settings-height-unit')).toHaveValue('ft-in');await expect(page.getByText(/Saving your check-in day and unit preferences/)).toBeVisible();
+  await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await expect(page.locator('#coaching-check-in-weekday')).toHaveValue('5');await expect(page.locator('#settings-weight-unit-lb')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#settings-energy-unit-kj')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#settings-height-unit-ft-in')).toHaveAttribute('aria-pressed','true');await expect(page.getByText(/Saving your check-in day and unit preferences/)).toBeVisible();
   await context.setOffline(false);await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday===5&&latest.settings?.weightUnit==='lb'&&latest.settings?.energyUnit==='kj'&&latest.settings?.heightUnit==='ft-in';}).toBeTruthy();
   const afterSettings=await (await context.request.get('/api/state')).json();expect(afterSettings.profileRevision).toBe(state.profileRevision);expect(afterSettings.plans[0].id).toBe(state.plans[0].id);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('#coaching-check-in-weekday').selectOption('1');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday;}).toBe(1);
   await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByText('kJ',{exact:true}).first()).toBeVisible();await expect(page.getByText(/lb/).first()).toBeVisible();await page.getByRole('button',{name:'Plan',exact:true}).click();await expect(page.getByLabel('Height (feet)',{exact:true})).toBeVisible();await expect(page.getByLabel('Starting weight (lb)',{exact:true})).toHaveValue('178.6');
   await page.reload();await resolveMissingDays(page);
-  await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('#settings-weight-unit').selectOption('kg');await page.locator('#settings-energy-unit').selectOption('kcal');await page.locator('#settings-height-unit').selectOption('cm');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.weightUnit==='kg'&&latest.settings?.energyUnit==='kcal'&&latest.settings?.heightUnit==='cm';}).toBeTruthy();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('#settings-weight-unit-kg').click();await page.locator('#settings-energy-unit-kcal').click();await page.locator('#settings-height-unit-cm').click();await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.weightUnit==='kg'&&latest.settings?.energyUnit==='kcal'&&latest.settings?.heightUnit==='cm';}).toBeTruthy();
 });
 
 test('conflicting retained edits explain the saved record and can be discarded',async({page,context})=>{

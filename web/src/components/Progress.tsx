@@ -108,7 +108,7 @@ function WeightSummary({summary,units,pending,onEdit,onDelete}:{summary:Progress
   return <>
     {pending&&<p className="notice" role="status">Recent progress edits are retained locally and this summary will refresh after synchronization.</p>}
     <div className="stats-grid">
-      <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{summary.start} to {summary.end}</p></section>
+      <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p><span className="nowrap">{summary.start}</span> to <span className="nowrap">{summary.end}</span></p></section>
       <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{stats.count} weigh-ins</p></section>
       <section className="panel"><p className="eyebrow">CHANGE IN TREND</p><h2>{stats.trendChangeKg==null?'—':`${stats.trendChangeKg>0?'+':''}${displayWeight(stats.trendChangeKg,units.weight,1)}`} <span className="unit">{weightLabel(units.weight)}</span></h2><p>From first to latest point</p></section>
     </div>

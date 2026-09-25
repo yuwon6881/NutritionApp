@@ -23,7 +23,7 @@ export function SegmentedControl<T extends string>({label,value,options,onChange
     if(next){onChange(next.value);window.requestAnimationFrame(()=>document.getElementById(`${id??'segment'}-${next.value}`)?.focus());}
     else if(enabled[current])onChange(enabled[current].value);
   };
-  return <SelectionIndicator id={id} active={value} className={`segmented-control ${className}`.trim()} dataLayout={layout}
+  return <SelectionIndicator id={id} active={value} className={`segmented-control ${className}`.trim()} dataLayout={layout} role="group" ariaLabel={label}
     style={layout==='equal'?{gridTemplateColumns:`repeat(${options.length}, minmax(0, 1fr))`}:undefined}>
     {options.map(option=><Button key={option.value} id={`${id??'segment'}-${option.value}`} data-selection-key={option.value} type="button" size={size}
       className={value===option.value?'segment-active':undefined}

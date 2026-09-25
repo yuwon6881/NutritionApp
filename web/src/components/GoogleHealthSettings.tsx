@@ -55,6 +55,11 @@ export function GoogleHealthSettings() {
     state.bodyFatSync.failureMessage ||
     'Google Health rejected an upload.';
 
+  const statusLabel = loading && state.status === 'disconnected'
+    ? 'Checking…'
+    : state.status === 'connected' ? 'Connected' : state.status === 'reconnect_required' ? 'Reconnect required' : 'Not connected';
+  const statusTone = state.status === 'connected' ? 'success' : state.status === 'reconnect_required' ? 'warning' : 'neutral';
+
   const openDisclosure = () => {
     setRequestDataSync(bundledSyncEnabled || !allPermissionsGranted);
     setDisclosureOpen(true);
@@ -188,13 +193,18 @@ export function GoogleHealthSettings() {
   };
 
   return (
-    <section className="panel google-health-panel" aria-labelledby="google-health-title">
-      <div className="section-heading">
-        <div className="title-with-icon">
-          <Activity size={22} className="panel-icon" aria-hidden="true" />
-          <h2 id="google-health-title">Google Health</h2>
+    <article className="panel integration-card google-health-panel" aria-labelledby="google-health-title">
+      <header className="integration-card-header">
+        <span className="integration-logo" aria-hidden="true"><Activity size={20} /></span>
+        <div className="integration-card-title">
+          <h3 id="google-health-title">Google Health</h3>
+          <p>Steps in; weight, nutrition, and body fat out when sync is on.</p>
         </div>
-      </div>
+        <span className={`status-badge ${statusTone}`} role="status">
+          {state.status === 'connected' ? <CheckCircle2 size={14} aria-hidden="true" /> : state.status === 'reconnect_required' ? <AlertTriangle size={14} aria-hidden="true" /> : null}
+          <span>{statusLabel}</span>
+        </span>
+      </header>
 
       {bannerNotice && (
         <CardFeedback
@@ -224,7 +234,7 @@ export function GoogleHealthSettings() {
       {state.status === 'disconnected' && !loading && !syncError && (
         <div className="integration-state disconnected">
           <p className="description">
-            Sync steps, weight, nutrition, and body fat with Google Health.
+            Show your daily steps beside your diary and, if you choose, send new weight, nutrition, and body fat entries to Google Health.
           </p>
           <div className="actions">
             <Button variant="primary" onClick={() => openDisclosure()}>
@@ -236,10 +246,6 @@ export function GoogleHealthSettings() {
 
       {state.status === 'reconnect_required' && (
         <div className="integration-state reconnect-required">
-          <div className="status-badge warning">
-            <AlertTriangle size={16} aria-hidden="true" />
-            <span>Reconnect required</span>
-          </div>
           <p className="description">
             Google Health connection expired. Reconnect to resume syncing.
           </p>
@@ -256,28 +262,20 @@ export function GoogleHealthSettings() {
 
       {state.status === 'connected' && (
         <div className="integration-state connected">
-          <div className="status-row">
-            <div className="status-badge success">
-              <CheckCircle2 size={16} aria-hidden="true" />
-              <span>Connected</span>
-            </div>
-            {state.freshness === 'stale' && (
-              <span className="freshness-badge stale" title="Step totals may not reflect the latest activity">
-                Stale
-              </span>
-            )}
-          </div>
+          {state.freshness === 'stale' && (
+            <p className="source freshness-note">Step totals may not reflect your latest activity yet.</p>
+          )}
 
-          <div className="metadata-grid">
+          <dl className="metadata-grid">
             <div className="metadata-item">
-              <span className="label">Connected since</span>
-              <span className="value">{formatTimestamp(state.connectedAt)}</span>
+              <dt className="label">Connected since</dt>
+              <dd className="value">{formatTimestamp(state.connectedAt)}</dd>
             </div>
             <div className="metadata-item">
-              <span className="label">Last updated</span>
-              <span className="value">{formatTimestamp(state.lastSyncedAt)}</span>
+              <dt className="label">Steps updated</dt>
+              <dd className="value">{formatTimestamp(state.lastSyncedAt)}</dd>
             </div>
-          </div>
+          </dl>
 
           {state.warningMessage && (
             <CardFeedback
@@ -340,7 +338,7 @@ export function GoogleHealthSettings() {
         </div>
       )}
 
-      <p className="source google-health-retention-note">
+      <p className="source integration-note">
         Steps are retained for 31 days. Disconnecting revokes access and deletes local sync data; Google copies remain.
       </p>
 
@@ -377,6 +375,6 @@ export function GoogleHealthSettings() {
           </div>
         </div>
       </Modal>
-    </section>
+    </article>
   );
 }

@@ -103,14 +103,28 @@ export function ConnectedApps({store}: {store?: Nourish}) {
   const isConnected = connectionState === 'connected' || connectionState === 'temporary_unavailable';
   const needsReconnect = connectionState === 'upgrade_required' || connectionState === 'reconnect_required';
 
+  const statusLabel = !loaded
+    ? 'Checking…'
+    : isConnected
+      ? connectionState === 'connected' ? 'Connected' : 'Connected · sync delayed'
+      : needsReconnect ? 'Reconnect required' : 'Not connected';
+  const statusTone = !loaded ? 'neutral' : connectionState === 'connected' ? 'success' : isConnected || needsReconnect ? 'warning' : 'neutral';
+
   return (
-    <section className="panel connected-apps-panel" aria-labelledby="connected-apps-title">
-      <div className="section-heading">
-        <div className="title-with-icon">
-          <Dumbbell size={22} className="panel-icon" aria-hidden="true" />
-          <h2 id="connected-apps-title">Connected Apps</h2>
+    <article className="panel integration-card connected-apps-panel" aria-labelledby="connected-workout-title">
+      <header className="integration-card-header">
+        <span className="integration-logo" aria-hidden="true"><Dumbbell size={20} /></span>
+        <div className="integration-card-title">
+          <h3 id="connected-workout-title">Workout</h3>
+          <p>Scheduled, in-progress, and completed training sessions.</p>
         </div>
-      </div>
+        {!error && (
+          <span className={`status-badge ${statusTone}`}>
+            {isConnected && <CheckCircle2 size={14} aria-hidden="true" />}
+            <span>{statusLabel}</span>
+          </span>
+        )}
+      </header>
 
       {bannerNotice && (
         <CardFeedback
@@ -141,43 +155,36 @@ export function ConnectedApps({store}: {store?: Nourish}) {
               ? 'Reconnect once to upgrade this older Workout connection to permanent consent.'
               : connectionState === 'reconnect_required'
                 ? 'Workout access has ended. Reconnect to restore training summaries.'
-                : 'Connect Workout to display your scheduled, in-progress, and completed training sessions alongside your diary. Training data is read-only and never changes Nutrition targets.'}
+                : 'Show your training sessions alongside your diary. Training data is read-only.'}
           </p>
           <div className="actions">
-            <Button variant="primary" disabled={busy} onClick={connect}>
-              {busy ? 'Opening Fitness Account…' : connectionState === 'upgrade_required' ? 'Upgrade connection' : needsReconnect ? 'Reconnect Workout' : 'Connect Workout'}
-            </Button>
             {grant && connectionState !== 'disconnected' && (
               <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
                 <Unlink size={15} aria-hidden="true" />
                 <span>Disconnect</span>
               </Button>
             )}
+            <Button variant="primary" disabled={busy} onClick={connect}>
+              {busy ? 'Opening Fitness Account…' : connectionState === 'upgrade_required' ? 'Upgrade connection' : needsReconnect ? 'Reconnect Workout' : 'Connect Workout'}
+            </Button>
           </div>
         </div>
       )}
 
       {loaded && !error && isConnected && grant && (
         <div className="integration-state connected">
-          <div className="status-row">
-            <div className={`status-badge ${connectionState === 'connected' ? 'success' : 'warning'}`}>
-              <CheckCircle2 size={16} aria-hidden="true" />
-              <span>{connectionState === 'connected' ? 'Connected' : 'Connected · sync delayed'}</span>
-            </div>
-          </div>
-
           {grant.syncWarning && <p className="description" role="status">{grant.syncWarning}</p>}
 
-          <div className="metadata-grid">
+          <dl className="metadata-grid">
             <div className="metadata-item">
-              <span className="label">Connected app</span>
-              <span className="value">Workout</span>
+              <dt className="label">Connected since</dt>
+              <dd className="value">{formatTimestamp(grant.grantedAt)}</dd>
             </div>
             <div className="metadata-item">
-              <span className="label">Connected since</span>
-              <span className="value">{formatTimestamp(grant.grantedAt)}</span>
+              <dt className="label">Access</dt>
+              <dd className="value">Read-only summaries</dd>
             </div>
-          </div>
+          </dl>
 
           <div className="actions">
             <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
@@ -188,8 +195,8 @@ export function ConnectedApps({store}: {store?: Nourish}) {
         </div>
       )}
 
-      <p className="source connected-apps-retention-note">
-        Nutrition reads Workout’s scheduled, in-progress, and completed training summaries. Workout never changes Nutrition targets. To enable the reverse direction, connect Nutrition from Workout.
+      <p className="source integration-note">
+        To share Nutrition goals and weight trends with Workout, connect Nutrition from Workout.
       </p>
 
       {/* Disconnect confirmation modal */}
@@ -214,6 +221,6 @@ export function ConnectedApps({store}: {store?: Nourish}) {
           </div>
         </div>
       </Modal>
-    </section>
+    </article>
   );
 }

@@ -15,6 +15,7 @@ import {Checkbox} from './ui/Checkbox';
 import {Field,SelectField} from './ui/Field';
 import {CardFeedback} from './ui/CardFeedback';
 import {useMobilePwa} from './ui/MobilePwa';
+import {SettingRow} from './ui/SettingRow';
 import {checkNativeNotificationPermission,isNativeAndroid,isNativePushConfigured,registerNativePushAndGetToken,requestNativeNotificationPermission} from '../lib/push/nativeNotifications';
 import {disableLocalPushForPlatform} from '../lib/push/deviceLifecycle';
 
@@ -189,35 +190,43 @@ export function NotificationsSettings({store}:{store:Nourish}){
     reminder.localTime!==savedReminder.localTime||reminder.timeZoneId!==savedReminder.timeZoneId
   );
 
-  return <section className="panel notification-settings" aria-labelledby="notifications-title" data-pwa-dirty={reminderDirty?'true':undefined}>
-    <h2 id="notifications-title">Notifications</h2>
-    <p className="source">Optional weekly coaching reminders. Notifications use general text and never include food, weight, or account details.</p>
-    {loading&&<p role="status" aria-busy="true">Checking notification availability…</p>}
+  const permissionLabel=permission==='granted'?'Allowed':permission==='denied'?'Blocked':permission==='default'||permission==='prompt'?'Not requested':'Unavailable';
+  const fieldsDisabled=busy||!canManageSchedule;
+
+  return <div className="notification-settings" data-pwa-dirty={reminderDirty?'true':undefined}>
+    {loading&&<p className="settings-loading" role="status" aria-busy="true">Checking notification availability…</p>}
     {loadError&&<CardFeedback tone="warning" title="Notification settings unavailable" message={loadError}/>}
     {!loading&&supportError&&<CardFeedback tone="info" message={supportError}/>}
     {!loading&&status?.configured&&<>
-      {pushBuildConfigured&&<>
-        <p className="source notification-permission">{isNativeAndroid()?'App permission':'Browser permission'}: <strong>{permission==='granted'?'Allowed':permission==='denied'?'Blocked':permission==='default'||permission==='prompt'?'Not requested':'Unavailable'}</strong></p>
+      {pushBuildConfigured&&<SettingRow label="This device"
+        description={<>
+          <span className="notification-permission">{isNativeAndroid()?'App permission':'Browser permission'}: <strong>{permissionLabel}</strong></span>
+          {status.thisDeviceSubscribed&&<span className="setting-row-status is-positive"><Bell size={14} aria-hidden="true"/>This device can receive reminders.</span>}
+        </>}>
         {status.thisDeviceSubscribed
-          ?<div className="actions notification-device-actions"><span className="source"><Bell size={16} aria-hidden="true"/> This device can receive reminders.</span><Button variant="secondary" disabled={busy} onClick={()=>void disableThisDevice()}><BellOff size={16}/>Turn off on this device</Button></div>
-          :<div className="actions notification-device-actions"><Button disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16}/>{busy?'Updating…':'Enable notifications on this device'}</Button></div>}
-        {reminder.enabled&&!status.thisDeviceSubscribed&&<p className="notice" role="status">The account reminder is on, but this device is not subscribed. Enable device notifications to receive it here.</p>}
-      </>}
-      <h3 className="notification-reminder-heading">Weekly coaching reminder</h3>
-      {!scheduleLoaded&&<p role="status">Loading reminder settings…</p>}
-      {scheduleLoaded&&<>
-        <Checkbox id="nutrition-checkin-reminder-enabled" checked={reminder.enabled} disabled={busy||!canManageSchedule} onChange={enabled=>setReminder(current=>({...current,enabled}))} role="switch">Send a reminder on my check-in day</Checkbox>
+          ?<Button variant="secondary" disabled={busy} onClick={()=>void disableThisDevice()}><BellOff size={16} aria-hidden="true"/>Turn off on this device</Button>
+          :<Button disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16} aria-hidden="true"/>{busy?'Updating…':'Enable notifications on this device'}</Button>}
+      </SettingRow>}
+      {pushBuildConfigured&&reminder.enabled&&!status.thisDeviceSubscribed&&<p className="notice settings-inline-notice" role="status">The account reminder is on, but this device is not subscribed. Enable device notifications to receive it here.</p>}
+      {!scheduleLoaded&&<p className="settings-loading" role="status">Loading reminder settings…</p>}
+      {scheduleLoaded&&<div className="setting-row-group">
+        <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Sent on your check-in day to every device with notifications turned on.">
+          <Checkbox id="nutrition-checkin-reminder-enabled" role="switch" aria-label="Send a reminder on my check-in day" checked={reminder.enabled} disabled={fieldsDisabled} onChange={enabled=>setReminder(current=>({...current,enabled}))}/>
+        </SettingRow>
         <div className="form-grid notification-schedule-fields">
-          <SelectField id="nutrition-checkin-reminder-weekday" name="weekday" label="Day" value={String(reminder.weekday)} disabled={busy||!canManageSchedule} onChange={value=>setReminder(current=>({...current,weekday:Number(value)}))}>
+          <SelectField id="nutrition-checkin-reminder-weekday" name="weekday" label="Day" value={String(reminder.weekday)} disabled={fieldsDisabled} onChange={value=>setReminder(current=>({...current,weekday:Number(value)}))}>
             {weekdays.map((day,index)=><option key={day} value={index}>{day}</option>)}
           </SelectField>
-          <Field id="nutrition-checkin-reminder-time" name="localTime" type="time" step={60} label="Time" value={reminder.localTime} disabled={busy||!canManageSchedule} onChange={event=>setReminder(current=>({...current,localTime:event.target.value}))}/>
-          <Field id="nutrition-checkin-reminder-zone" name="timeZoneId" type="text" label="Time zone" value={reminder.timeZoneId} disabled={busy||!canManageSchedule} onChange={event=>setReminder(current=>({...current,timeZoneId:event.target.value}))} validate={()=>reminder.timeZoneId&&!validTimeZone(reminder.timeZoneId)?'Enter a valid IANA time zone.':undefined} hint="Use an IANA time zone, for example Asia/Kuala_Lumpur."/>
+          <Field id="nutrition-checkin-reminder-time" name="localTime" type="time" step={60} label="Time" value={reminder.localTime} disabled={fieldsDisabled} onChange={event=>setReminder(current=>({...current,localTime:event.target.value}))}/>
+          <Field id="nutrition-checkin-reminder-zone" name="timeZoneId" type="text" label="Time zone" value={reminder.timeZoneId} disabled={fieldsDisabled} onChange={event=>setReminder(current=>({...current,timeZoneId:event.target.value}))} validate={()=>reminder.timeZoneId&&!validTimeZone(reminder.timeZoneId)?'Enter a valid IANA time zone.':undefined} hint="Use an IANA time zone, for example Asia/Kuala_Lumpur."/>
         </div>
-        <div className="actions notification-save-actions"><Button disabled={busy||!canManageSchedule} onClick={()=>void saveReminder()}>{busy?'Saving…':'Save reminder settings'}</Button></div>
-      </>}
+        <div className="actions notification-save-actions">
+          {reminderDirty&&<span className="setting-row-status">Unsaved changes</span>}
+          <Button variant={reminderDirty?'primary':'secondary'} disabled={fieldsDisabled||!reminderDirty} onClick={()=>void saveReminder()}>{busy?'Saving…':'Save reminder settings'}</Button>
+        </div>
+      </div>}
     </>}
     {error&&<CardFeedback title="Notification action failed" message={error}/>}
     {message&&<CardFeedback tone="success" message={message}/>}
-  </section>;
+  </div>;
 }
