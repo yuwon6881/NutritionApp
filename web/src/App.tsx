@@ -26,13 +26,14 @@ import {ForegroundNotificationHandler,PwaUpdateNotice} from './components/ui/Mob
 import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
 import {retryPendingPushRevocations} from './lib/push/revocations';
+import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
 import {captureNutritionShortcut,clearPendingNutritionShortcut,consumeReadyNutritionShortcut} from './lib/nutritionShortcuts';
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 
 function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLogout:()=>Promise<void>}){
   const store=useNourish(user);
-  const initialPage=typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
+  const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
   const [date,setDate]=useState(today());
   const [foodOpen,setFoodOpen]=useState(false);
@@ -56,6 +57,17 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   const conflictCount=store.local?.queue.filter(queue=>queue.error).length??0;
 
   useEffect(()=>{if(needsProfile)setPage('coach');},[needsProfile]);
+  useEffect(()=>{
+    const openCoachFromPush=(event:Event)=>{
+      const route=(event as CustomEvent<{route?:string}>).detail?.route;
+      if(route!=='/coach')return;
+      setFoodOpen(false);setWeightOpen(false);setCopyOpen(false);setShowAddSheet(false);
+      setPage('coach');
+      window.scrollTo({top:0,behavior:'instant'});
+    };
+    window.addEventListener('nutrition-push-navigation',openCoachFromPush);
+    return()=>window.removeEventListener('nutrition-push-navigation',openCoachFromPush);
+  },[]);
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setDate(current);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
   const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string)=>{
@@ -140,7 +152,6 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
       </div>
       <SyncStatus store={store}/>
       <PwaUpdateNotice/>
-      <ForegroundNotificationHandler/>
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
       {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:<MotionScene sceneKey={needsProfile?'coach':page}>
@@ -158,7 +169,6 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
 }
 
 export default function App(){
-  const [pathname]=useState(()=>typeof window!=='undefined'?window.location.pathname:'/');
   const [user,setUser]=useState<string|null>();
   const [authReady,setAuthReady]=useState(false);
   const [localDatabaseError,setLocalDatabaseError]=useState(getLocalDatabaseFailure);
@@ -212,6 +222,7 @@ export default function App(){
         const credential=await readPushDeviceCredential(user,deviceId);
         if(credential){
           await savePushRevocation(user,deviceId,credential.fcmToken);
+          await disableLocalPushForPlatform().catch(()=>{});
           await retryPendingPushRevocations(user,{signal:AbortSignal.timeout(3000)});
         }
       }catch{/* Keep the exact account/device/token revocation for a later authenticated retry. */}
@@ -225,6 +236,7 @@ export default function App(){
   if(user===undefined)return <main className="startup"><Brand size={38}/></main>;
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
+    <ForegroundNotificationHandler userId={user} authReady={authReady}/>
     {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);}}/>}
   </>;
 }

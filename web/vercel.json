@@ -21,6 +21,7 @@
     { "src": "/health", "dest": "https://nutrition-api-396431756440.asia-southeast1.run.app/health", "headers": { "Cache-Control": "no-store" } },
     { "src": "/(?:sw\\.js|index\\.html|manifest\\.webmanifest|)", "headers": { "Cache-Control": "no-cache" }, "continue": true },
     { "handle": "filesystem" },
+    { "src": "/coach", "dest": "/index.html" },
     { "src": "/", "dest": "/index.html" },
     { "src": "/(.*)", "status": 404 }
   ]

@@ -71,7 +71,7 @@ substitutions:
   _FITNESS_ACCOUNT_ISSUER: 'https://fitness-account-i47taxhzba-as.a.run.app'
   _NUTRITION_REDIRECT_URI: 'https://nutrition-diary-app.vercel.app/api/auth/central/callback'
   _GOOGLE_HEALTH_CLIENT_ID: '396431756440-f05klmtoc05mktbgk39i5jbfqgd0sn03.apps.googleusercontent.com'
-  _NUTRITION_FCM_PROJECT_ID: '__not_configured__'
+  _NUTRITION_FCM_PROJECT_ID: 'project-7eb1aec8-8636-4c86-b2a'
   _WORKOUT_SUMMARY_URL: 'https://workout-api-i47taxhzba-as.a.run.app/api/integrations/v1/training-summary'
   # Physique photos share the FinancialApp vault bucket under the nutrition-physique/ prefix;
   # scans use their own short-retention bucket. Both were dropped when this pipeline replaced the

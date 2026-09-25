@@ -72,6 +72,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<NutritionPushSubscription>().HasQueryFilter(x => x.UserId == CurrentUser);
         m.Entity<NutritionPushSubscription>().HasKey(x => x.Id);
         m.Entity<NutritionPushSubscription>().Property(x => x.DeviceId).HasMaxLength(200);
+        m.Entity<NutritionPushSubscription>().Property(x => x.Platform).HasMaxLength(16).HasDefaultValue("web");
         m.Entity<NutritionPushSubscription>().Property(x => x.FcmToken).HasMaxLength(4096);
         m.Entity<NutritionPushSubscription>().HasIndex(x => new { x.UserId, x.DeviceId }).IsUnique();
         m.Entity<NutritionPushSubscription>().HasIndex(x => x.UpdatedAt);

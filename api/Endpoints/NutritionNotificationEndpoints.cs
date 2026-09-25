@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Nutrition.Api.Endpoints;
 
 public sealed record NutritionCheckInReminderInput(bool Enabled, int Weekday, string LocalTime, string TimeZoneId);
-public sealed record NutritionPushSubscriptionInput(string DeviceId, string FcmToken);
+public sealed record NutritionPushSubscriptionInput(string DeviceId, string FcmToken, string? Platform = null);
 public sealed record NutritionPushUnsubscribeInput(string FcmToken);
 
 public static class NutritionNotificationEndpoints
@@ -35,7 +35,7 @@ public static class NutritionNotificationEndpoints
             NutritionNotificationService notifications,
             CancellationToken ct) =>
         {
-            await notifications.RegisterDeviceAsync(input.DeviceId, input.FcmToken, ct);
+            await notifications.RegisterDeviceAsync(input.DeviceId, input.FcmToken, ct, input.Platform);
             return Results.Ok(new { subscribed = true });
         });
 

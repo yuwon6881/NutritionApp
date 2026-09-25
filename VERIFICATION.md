@@ -77,4 +77,23 @@ This is a historical snapshot from before the central Fitness Account cutover, n
 
 Nutrition export includes durable daily summaries, retained detail, foods/recipes, weights, accepted programs and physique photo metadata/download routes. Photo binaries remain private GCS objects and are not embedded in the JSON export.
 
+## Weekly check-in push extension (2026-09-25)
+
+### Automated and emulator checks
+
+- `dotnet test tests/Nutrition.Tests.csproj`: 256 tests passed, including platform registration, token replacement/revocation, dispatch deduplication, Android/web payloads, and Android delivery-window TTL.
+- `npm.cmd run typecheck` and `npm.cmd test` in `web`: passed; 187 frontend tests passed. The focused push permission browser test passed and confirms permission is requested only after Enable; denial leaves the device unregistered.
+- `npm.cmd run test:visual` in `web`: all 82 browser scenarios passed against the isolated local API. `npm.cmd run check:android-firebase`, documentation equality, and source standards checks passed.
+- `npm.cmd run android:sync` and `gradlew.bat assembleDebug`: passed with Android SDK 36 and Java 21. The debug APK installed and launched in the API 36 emulator without an Android runtime exception. This is an install/startup smoke check, not a push-delivery test.
+
+### Firebase and scheduler configuration
+
+- Registered NutritionApp web and Android apps in shared Firebase project `project-7eb1aec8-8636-4c86-b2a`; the Android config matches `com.nutritionapp.mobile`.
+- Saved the six public Firebase web settings in the Nutrition Vercel Production environment. Vercel reports that a new deployment is needed before they take effect.
+- Granted the Nutrition Cloud Run service identity Firebase Cloud Messaging send access, set its `Fcm__ProjectId` to the shared project, and configured the five-minute `nutrition-check-in-push` job.
+
+### Live delivery still unverified
+
+The new application source and `NutritionPushPlatform` database migration have not been deployed. The Cloud Run revision above changes configuration only; the Vercel web settings await a deployment. No real browser/PWA delivery, Android foreground/background/closed-app delivery, or notification-tap routing has been exercised against the deployed code. Those checks require deploying the source and migration, then using an authenticated test account on a browser/PWA and Android device. The Android evidence here is from an emulator, not a physical phone.
+
 

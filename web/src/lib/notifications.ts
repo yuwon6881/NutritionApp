@@ -12,6 +12,8 @@ export interface NotificationStatus extends CheckInReminder {
   thisDeviceSubscribed:boolean;
 }
 
+export type NotificationPlatform='web'|'android';
+
 export function fetchNotificationStatus(deviceId:string){
   return api<NotificationStatus>(`/notifications/status?deviceId=${encodeURIComponent(deviceId)}`,undefined,'GET');
 }
@@ -24,8 +26,8 @@ export function saveCheckInReminder(reminder:CheckInReminder){
   return api<CheckInReminder>('/notifications/check-in-reminder',reminder,'POST');
 }
 
-export function registerNotificationDevice(deviceId:string,fcmToken:string){
-  return api<void>('/notifications/subscriptions',{deviceId,fcmToken},'POST');
+export function registerNotificationDevice(deviceId:string,fcmToken:string,platform:NotificationPlatform='web'){
+  return api<void>('/notifications/subscriptions',{deviceId,fcmToken,platform},'POST');
 }
 
 export function removeNotificationDevice(deviceId:string,fcmToken:string,options?:ApiFetchOptions){

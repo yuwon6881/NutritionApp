@@ -30,6 +30,13 @@ export async function getFcmToken(registration:ServiceWorkerRegistration){
   return token;
 }
 
+export async function deleteFcmToken(registration:ServiceWorkerRegistration){
+  const messaging=await getMessagingInstance();
+  if(!messaging)return false;
+  const {deleteToken}=await import('firebase/messaging');
+  return deleteToken(messaging);
+}
+
 export async function onForegroundMessage(callback:(payload:MessagePayload)=>void){
   const messaging=await getMessagingInstance();
   if(!messaging)return ()=>undefined;

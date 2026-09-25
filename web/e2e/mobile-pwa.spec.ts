@@ -49,6 +49,50 @@ test('Settings renders without mobile app and offline data area',async({page})=>
   await expect(page.getByRole('heading',{name:'Local Nutrition data'})).toBeVisible();
 });
 
+test('push permission is requested only from Enable and a denial does not register a token',async({page})=>{
+  await page.addInitScript(()=>{
+    const permissionWindow=window as typeof window&{pushPermissionRequests:number};
+    permissionWindow.pushPermissionRequests=0;
+    Object.defineProperty(Notification,'permission',{configurable:true,get:()=> 'denied'});
+    Notification.requestPermission=async()=>{
+      permissionWindow.pushPermissionRequests++;
+      return 'denied';
+    };
+  });
+  await page.route('**/api/notifications/status*',route=>route.fulfill({json:{
+    configured:true,
+    thisDeviceSubscribed:false,
+    reminderEnabled:false,
+    weekday:1,
+    localTime:'09:00',
+    timeZoneId:'Asia/Kuala_Lumpur'
+  }}));
+  await page.route('**/api/notifications/check-in-reminder',route=>route.fulfill({json:{
+    enabled:false,
+    weekday:1,
+    localTime:'09:00',
+    timeZoneId:'Asia/Kuala_Lumpur'
+  }}));
+  let registrations=0;
+  await page.route('**/api/notifications/subscriptions',async route=>{
+    if(route.request().method()==='POST')registrations++;
+    await route.continue();
+  });
+
+  await signInWithProfile(page);
+  await page.getByRole('button',{name:'Settings',exact:true}).first().click();
+  await expect(page.getByRole('heading',{name:'Notifications'})).toBeVisible();
+  await expect(page.getByText('Browser permission: Blocked')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Enable notifications on this device'})).toBeVisible();
+  expect(await page.evaluate(()=>((window as typeof window&{pushPermissionRequests:number}).pushPermissionRequests))).toBe(0);
+
+  await page.getByRole('button',{name:'Enable notifications on this device'}).click();
+
+  await expect(page.getByText('Notifications are blocked. Allow them for this app in your device settings.')).toBeVisible();
+  expect(await page.evaluate(()=>((window as typeof window&{pushPermissionRequests:number}).pushPermissionRequests))).toBe(1);
+  expect(registrations).toBe(0);
+});
+
 test('failed push revocation does not block sign-out and runs before session logout',async({page})=>{
   await signInWithProfile(page);
   const state=await (await page.request.get('/api/state')).json();

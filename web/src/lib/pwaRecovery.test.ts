@@ -23,11 +23,14 @@ describe('safe PWA update recovery',()=>{
     expect(summarizePwaPendingWork(0,0,0,0,-1)).toMatchObject({total:0,complete:false,scanCountFailed:true});
   });
 
-  it('recovers only generic check-in pushes and constrains their route to this application',()=>{
+  it('recovers only generic check-in pushes routed to Coach',()=>{
+    expect(parseNutritionReminderPayload({data:{kind:'check-in',route:'/coach'}},'https://nutrition.example'))
+      .toEqual({route:'/coach'});
     expect(parseNutritionReminderPayload({data:{kind:'check-in',route:'/diary?date=2026-09-21'}},'https://nutrition.example'))
-      .toEqual({route:'/diary?date=2026-09-21'});
+      .toBeNull();
     expect(parseNutritionReminderPayload({kind:'check-in',route:'https://other.example/private'},'https://nutrition.example'))
-      .toEqual({route:'/'});
+      .toBeNull();
     expect(parseNutritionReminderPayload({data:{kind:'transaction',route:'/'}},'https://nutrition.example')).toBeNull();
+    expect(parseNutritionReminderPayload({data:{kind:'check-in'}},'https://nutrition.example')).toBeNull();
   });
 });

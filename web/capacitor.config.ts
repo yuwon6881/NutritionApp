@@ -13,6 +13,9 @@ const config:CapacitorConfig={
     loggingBehavior:'none',
     resolveServiceWorkerRequests:false,
   },
+  plugins:{
+    PushNotifications:{presentationOptions:['alert']},
+  },
 };
 
 export default config;

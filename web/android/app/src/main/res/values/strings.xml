@@ -4,4 +4,5 @@
     <string name="title_activity_main">Nutrition App</string>
     <string name="package_name">com.nutritionapp.mobile</string>
     <string name="custom_url_scheme">com.nutritionapp.mobile</string>
+    <string name="nutrition_push_channel_id">nutrition-reminders</string>
 </resources>

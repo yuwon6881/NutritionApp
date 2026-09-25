@@ -35,6 +35,7 @@ public sealed class NutritionPushSubscription
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
     public string DeviceId { get; set; } = "";
+    public string Platform { get; set; } = "web";
     public string FcmToken { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

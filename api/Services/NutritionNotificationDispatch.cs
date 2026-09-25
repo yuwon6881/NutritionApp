@@ -94,8 +94,9 @@ public sealed partial class NutritionNotificationService
                         "Nutrition check-in",
                         "Open Nutrition to review your check-in.",
                         "nutrition-check-in",
-                        "/",
-                        remainingTtl), ct);
+                        "/coach",
+                        remainingTtl,
+                        subscription.Platform), ct);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

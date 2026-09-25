@@ -12,13 +12,7 @@ const assets=new Set(manifest.map(e=>new URL(e.url,self.location.origin).pathnam
 const precacheUrls=[...new Set([...manifest.map(e=>e.url),'/'])];
 const cacheable=(request:Request,url:URL)=>request.method==='GET'&&url.origin===self.location.origin&&!url.pathname.startsWith('/api/');
 let firebaseBackgroundReady=false;
-function safeRoute(value:unknown):string{
-  if(typeof value!=='string')return '/';
-  try{
-    const candidate=new URL(value,self.location.origin);
-    return candidate.origin===self.location.origin?candidate.pathname+candidate.search+candidate.hash:'/';
-  }catch{return '/';}
-}
+function safeRoute(value:unknown):string{return value==='/coach'?'/coach':'/';}
 self.addEventListener('push',(event:PushEvent)=>{
   // Firebase registers its handler asynchronously after feature detection. This
   // synchronous listener preserves a generic reminder if a cold-start push arrives
@@ -69,13 +63,14 @@ if(firebaseConfig){
       if(!await isSupported())return;
       const messaging=getMessaging(initializeApp(firebaseConfig));
       onBackgroundMessage(messaging,async payload=>{
-        const route=typeof payload.data?.route==='string'?payload.data.route:'/';
+        const reminder=parseNutritionReminderPayload(payload,self.location.origin);
+        if(!reminder)return;
         await self.registration.showNotification(payload.notification?.title??'Nutrition check-in',{
           body:payload.notification?.body??'Open Nutrition to review your check-in.',
           icon:'/icon-192.png',
           badge:'/icon-192.png',
           tag:'nutrition-check-in',
-          data:{route}
+          data:{route:reminder.route}
         });
       });
       firebaseBackgroundReady=true;

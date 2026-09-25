@@ -3,6 +3,7 @@ import {Bell,BellOff} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {CheckInReminder,NotificationStatus} from '../lib/notifications';
 import {fetchCheckInReminder,fetchNotificationStatus,registerNotificationDevice,saveCheckInReminder} from '../lib/notifications';
+import type {NotificationPlatform} from '../lib/notifications';
 import {getOrCreatePushDeviceId} from '../lib/push/deviceId';
 import {getFcmToken} from '../lib/push/firebaseMessaging';
 import {deletePushDeviceCredential,readPushDeviceCredential,readPushRevocations,savePushDeviceCredential,savePushRevocation} from '../lib/local';
@@ -14,7 +15,8 @@ import {Checkbox} from './ui/Checkbox';
 import {Field,SelectField} from './ui/Field';
 import {CardFeedback} from './ui/CardFeedback';
 import {useMobilePwa} from './ui/MobilePwa';
-import {isNativeApp} from '../lib/nativeApp';
+import {checkNativeNotificationPermission,isNativeAndroid,isNativePushConfigured,registerNativePushAndGetToken,requestNativeNotificationPermission} from '../lib/push/nativeNotifications';
+import {disableLocalPushForPlatform} from '../lib/push/deviceLifecycle';
 
 const weekdays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -27,9 +29,9 @@ function validTimeZone(value:string){
   catch{return false;}
 }
 
-function deviceSupportError(installed:boolean,status?:NotificationStatus){
-  if(isNativeApp())return 'Native push notifications are not enabled in this Android build. Use the browser app to receive reminder notifications.';
+function deviceSupportError(installed:boolean,status?:NotificationStatus,nativeConfigured=false){
   if(status?.configured===false)return 'Push notifications are not configured for this Nutrition deployment yet.';
+  if(isNativeAndroid())return nativeConfigured?'':'Firebase push is not configured in this Android build yet.';
   if(!isFirebasePushConfigured())return 'Push notifications are not configured for this app build yet.';
   if(typeof Notification==='undefined'||!('PushManager' in window)||!('serviceWorker' in navigator))return 'This browser does not support web push notifications.';
   if(iosDevice()&&!installed)return 'On iPhone and iPad, install Nutrition on the Home Screen before turning on notifications.';
@@ -47,7 +49,8 @@ export function NotificationsSettings({store}:{store:Nourish}){
     localTime:'09:00',
     timeZoneId:store.state!.profile?.timeZone||Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'
   }));
-  const [permission,setPermission]=useState(()=>typeof Notification==='undefined'?'unsupported':Notification.permission);
+  const [permission,setPermission]=useState(()=>isNativeAndroid()?'prompt':typeof Notification==='undefined'?'unsupported':Notification.permission);
+  const [nativePushConfigured,setNativePushConfigured]=useState(false);
   const [loading,setLoading]=useState(true);
   const [scheduleLoaded,setScheduleLoaded]=useState(false);
   const [busy,setBusy]=useState(false);
@@ -74,7 +77,8 @@ export function NotificationsSettings({store}:{store:Nourish}){
 
   useEffect(()=>{
     const refreshPermission=()=>{
-      setPermission(typeof Notification==='undefined'?'unsupported':Notification.permission);
+      if(isNativeAndroid())void checkNativeNotificationPermission().then(setPermission).catch(()=>setPermission('unsupported'));
+      else setPermission(typeof Notification==='undefined'?'unsupported':Notification.permission);
       void fetchNotificationStatus(deviceId).then(setStatus).catch(()=>{});
     };
     window.addEventListener('focus',refreshPermission);
@@ -87,23 +91,50 @@ export function NotificationsSettings({store}:{store:Nourish}){
     };
   },[deviceId]);
 
-  const supportError=deviceSupportError(pwa.installed,status);
+  useEffect(()=>{
+    if(!isNativeAndroid())return;
+    let current=true;
+    void Promise.all([isNativePushConfigured(),checkNativeNotificationPermission()]).then(([configured,permission])=>{
+      if(!current)return;
+      setNativePushConfigured(configured);
+      setPermission(permission);
+    }).catch(()=>{
+      if(current)setNativePushConfigured(false);
+    });
+    return()=>{current=false;};
+  },[]);
+
+  const supportError=deviceSupportError(pwa.installed,status,nativePushConfigured);
   const canManageSchedule=status?.configured===true;
+  const pushBuildConfigured=isNativeAndroid()?nativePushConfigured:isFirebasePushConfigured();
 
   const enableThisDevice=async()=>{
     setError('');setMessage('');setBusy(true);
     try{
-      if(typeof Notification==='undefined')throw new Error('Notifications are unavailable in this browser.');
-      const granted=Notification.permission==='granted'||await Notification.requestPermission()==='granted';
-      setPermission(Notification.permission);
-      if(!granted)throw new Error(Notification.permission==='denied'
-        ?'Notifications are blocked. Allow them for this app in your browser or iPhone/iPad settings.'
+      const native=isNativeAndroid();
+      let granted=false;
+      let permissionValue='';
+      if(native){
+        if(!nativePushConfigured)throw new Error('Firebase push is not configured in this Android build yet.');
+        const current=await checkNativeNotificationPermission();
+        const next=current==='granted'?current:await requestNativeNotificationPermission();
+        setPermission(next);
+        permissionValue=next;
+        granted=next==='granted';
+      }else{
+        if(typeof Notification==='undefined')throw new Error('Notifications are unavailable in this browser.');
+        granted=Notification.permission==='granted'||await Notification.requestPermission()==='granted';
+        setPermission(Notification.permission);
+        permissionValue=Notification.permission;
+      }
+      if(!granted)throw new Error(permissionValue==='denied'||permissionValue==='prompt-with-rationale'
+        ?'Notifications are blocked. Allow them for this app in your device settings.'
         :'Notification permission was not granted.');
-      const registration=await waitForAppServiceWorker();
-      const token=await getFcmToken(registration);
+      const token=native?await registerNativePushAndGetToken():await getFcmToken(await waitForAppServiceWorker());
       if(!token)throw new Error('This app build does not have a push registration key.');
       await savePushDeviceCredential(store.state!.id,deviceId,token);
-      await registerNotificationDevice(deviceId,token);
+      const platform:NotificationPlatform=native?'android':'web';
+      await registerNotificationDevice(deviceId,token,platform);
       setStatus(current=>current?{...current,thisDeviceSubscribed:true}:current);
       window.dispatchEvent(new Event('nourish-push-enabled'));
       setMessage('Notifications are enabled on this device. Lock-screen text is kept general.');
@@ -117,6 +148,9 @@ export function NotificationsSettings({store}:{store:Nourish}){
       const credential=await readPushDeviceCredential(store.state!.id,deviceId);
       if(!credential)throw new Error('The saved notification token is unavailable. Enable notifications again on this device before turning them off.');
       await savePushRevocation(store.state!.id,deviceId,credential.fcmToken);
+      let localUnregisterError:Error|undefined;
+      try{await disableLocalPushForPlatform();}
+      catch(ex){localUnregisterError=ex instanceof Error?ex:new Error('The device could not unregister from push notifications.');}
       try{await retryPendingPushRevocations(store.state!.id);}
       catch{/* Keep the durable request and report its retry state below. */}
       const remaining=await readPushRevocations();
@@ -125,6 +159,7 @@ export function NotificationsSettings({store}:{store:Nourish}){
       await deletePushDeviceCredential(store.state!.id,deviceId,credential.fcmToken);
       setStatus(current=>current?{...current,thisDeviceSubscribed:false}:current);
       window.dispatchEvent(new Event('nourish-push-disabled'));
+      if(localUnregisterError)throw new Error(`The server subscription was removed, but this device could not unregister locally: ${localUnregisterError.message}`);
       setMessage('Notifications are turned off on this device. The account reminder schedule is unchanged.');
     }catch(ex){setError((ex as Error).message||'Could not turn off notifications on this device.');}
     finally{setBusy(false);}
@@ -160,12 +195,14 @@ export function NotificationsSettings({store}:{store:Nourish}){
     {loading&&<p role="status" aria-busy="true">Checking notification availability…</p>}
     {loadError&&<CardFeedback tone="warning" title="Notification settings unavailable" message={loadError}/>}
     {!loading&&supportError&&<CardFeedback tone="info" message={supportError}/>}
-    {!loading&&status?.configured&&isFirebasePushConfigured()&&<>
-      <p className="source notification-permission">Browser permission: <strong>{permission==='granted'?'Allowed':permission==='denied'?'Blocked':permission==='default'?'Not requested':'Unavailable'}</strong></p>
-      {status.thisDeviceSubscribed
-        ?<div className="actions notification-device-actions"><span className="source"><Bell size={16} aria-hidden="true"/> This device can receive reminders.</span><Button variant="secondary" disabled={busy} onClick={()=>void disableThisDevice()}><BellOff size={16}/>Turn off on this device</Button></div>
-        :<div className="actions notification-device-actions"><Button disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16}/>{busy?'Updating…':'Enable notifications on this device'}</Button></div>}
-      {reminder.enabled&&!status.thisDeviceSubscribed&&<p className="notice" role="status">The account reminder is on, but this device is not subscribed. Enable device notifications to receive it here.</p>}
+    {!loading&&status?.configured&&<>
+      {pushBuildConfigured&&<>
+        <p className="source notification-permission">{isNativeAndroid()?'App permission':'Browser permission'}: <strong>{permission==='granted'?'Allowed':permission==='denied'?'Blocked':permission==='default'||permission==='prompt'?'Not requested':'Unavailable'}</strong></p>
+        {status.thisDeviceSubscribed
+          ?<div className="actions notification-device-actions"><span className="source"><Bell size={16} aria-hidden="true"/> This device can receive reminders.</span><Button variant="secondary" disabled={busy} onClick={()=>void disableThisDevice()}><BellOff size={16}/>Turn off on this device</Button></div>
+          :<div className="actions notification-device-actions"><Button disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16}/>{busy?'Updating…':'Enable notifications on this device'}</Button></div>}
+        {reminder.enabled&&!status.thisDeviceSubscribed&&<p className="notice" role="status">The account reminder is on, but this device is not subscribed. Enable device notifications to receive it here.</p>}
+      </>}
       <h3 className="notification-reminder-heading">Weekly coaching reminder</h3>
       {!scheduleLoaded&&<p role="status">Loading reminder settings…</p>}
       {scheduleLoaded&&<>

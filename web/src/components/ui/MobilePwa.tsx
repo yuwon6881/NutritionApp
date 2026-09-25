@@ -1,10 +1,15 @@
 import {createContext,useContext,useEffect,useRef,useState,type ReactNode} from 'react';
+import {App} from '@capacitor/app';
 import {RefreshCw} from 'lucide-react';
 import {isFirebasePushConfigured} from '../../lib/push/firebaseConfig';
 import {onForegroundMessage} from '../../lib/push/firebaseMessaging';
 import {getPwaUpdateNoticeState,hasUncommittedPwaWork} from '../../lib/pwaUpdate';
 import {registerAppServiceWorker,waitForAppServiceWorker} from '../../lib/registerAppServiceWorker';
 import {isNativeApp} from '../../lib/nativeApp';
+import {getOrCreatePushDeviceId} from '../../lib/push/deviceId';
+import {reconcileNotificationDevice} from '../../lib/push/deviceLifecycle';
+import {listenForNativePushActions,isNativeAndroid} from '../../lib/push/nativeNotifications';
+import {parseNutritionReminderPayload} from '../../lib/push/pushPayload';
 import {Button} from './Button';
 
 interface InstallPromptEvent extends Event {
@@ -219,16 +224,49 @@ export function PwaUpdateNotice(){
   </div>;
 }
 
-export function ForegroundNotificationHandler(){
+export function ForegroundNotificationHandler({userId,authReady}:{userId:string|null|undefined;authReady:boolean}){
+  const current=useRef({userId,authReady});
+  const pendingRoute=useRef<string|null>(null);
+
+  const openPendingRoute=()=>{
+    const route=pendingRoute.current;
+    if(!route||!current.current.userId||!current.current.authReady)return;
+    pendingRoute.current=null;
+    window.history.replaceState(window.history.state,'',route);
+    window.dispatchEvent(new CustomEvent('nutrition-push-navigation',{detail:{route}}));
+  };
+
+  useEffect(()=>{
+    current.current={userId,authReady};
+    openPendingRoute();
+  },[userId,authReady]);
+
   useEffect(()=>{
     let disposed=false;
     let stopListening:(()=>void)|undefined;
+    if(isNativeAndroid()){
+      void listenForNativePushActions(data=>{
+        const reminder=parseNutritionReminderPayload({data},window.location.origin);
+        if(!reminder)return;
+        pendingRoute.current=reminder.route;
+        openPendingRoute();
+      }).then(stop=>{
+        if(disposed)stop();
+        else stopListening=stop;
+      }).catch(()=>{});
+      return()=>{
+        disposed=true;
+        stopListening?.();
+      };
+    }
     const start=async()=>{
       if(!isFirebasePushConfigured()||typeof Notification==='undefined'||Notification.permission!=='granted'||stopListening)return;
       try{
         const unsubscribe=await onForegroundMessage(payload=>{
           if(disposed||!navigator.serviceWorker)return;
-          const route=typeof payload.data?.route==='string'?payload.data.route:'/';
+          const reminder=parseNutritionReminderPayload(payload,window.location.origin);
+          if(!reminder)return;
+          const route=reminder.route;
           void waitForAppServiceWorker().then(registration=>registration.showNotification(
             payload.notification?.title??'Nutrition check-in',
             {body:payload.notification?.body??'Open Nutrition to review your check-in.',icon:'/icon-192.png',badge:'/icon-192.png',tag:'nutrition-check-in',data:{route}}
@@ -252,5 +290,35 @@ export function ForegroundNotificationHandler(){
       window.removeEventListener('nourish-push-disabled',stop);
     };
   },[]);
+
+  useEffect(()=>{
+    if(!userId||!authReady)return;
+    let disposed=false;
+    let running=false;
+    let removeAppState:(()=>void)|undefined;
+    const deviceId=getOrCreatePushDeviceId();
+    const run=async()=>{
+      if(disposed||running)return;
+      running=true;
+      try{await reconcileNotificationDevice(userId,deviceId);}
+      catch(error){console.warn('Could not refresh this device notification registration.',error);}
+      finally{running=false;}
+    };
+    window.addEventListener('focus',run);
+    window.addEventListener('online',run);
+    void run();
+    if(isNativeAndroid()){
+      void App.addListener('appStateChange',({isActive})=>{if(isActive)void run();}).then(handle=>{
+        if(disposed)void handle.remove();
+        else removeAppState=()=>{void handle.remove();};
+      }).catch(()=>{});
+    }
+    return()=>{
+      disposed=true;
+      removeAppState?.();
+      window.removeEventListener('focus',run);
+      window.removeEventListener('online',run);
+    };
+  },[userId,authReady]);
   return null;
 }

@@ -66,9 +66,26 @@ public sealed class NutritionPushTests : IAsyncLifetime
         Assert.Single(sender.Messages);
         Assert.Equal("Nutrition check-in", sender.Messages[0].Title);
         Assert.Equal("Open Nutrition to review your check-in.", sender.Messages[0].Body);
-        Assert.Equal("/", sender.Messages[0].Route);
+        Assert.Equal("/coach", sender.Messages[0].Route);
         Assert.DoesNotContain("weight", sender.Messages[0].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("sent", (await db.NutritionPushReminderDeliveries.SingleAsync()).Status);
+    }
+
+    [Fact]
+    public async Task Dispatch_preserves_the_native_platform_for_android_delivery()
+    {
+        var sender = new FakeSender();
+        await using var db = Open();
+        var subscription = Subscription("device-android");
+        subscription.Platform = "android";
+        db.NutritionPushSubscriptions.Add(subscription);
+        db.NutritionCheckInReminderPreferences.Add(Preference());
+        await db.SaveChangesAsync();
+
+        var result = await new NutritionNotificationService(db, Config(), clock).DispatchDueAsync(sender, null, default);
+
+        Assert.Equal(1, result.Sent);
+        Assert.Equal("android", Assert.Single(sender.Messages).Platform);
     }
 
     [Fact]
@@ -224,6 +241,58 @@ public sealed class NutritionPushTests : IAsyncLifetime
         Assert.Equal("new-token", (await db.NutritionPushSubscriptions.SingleAsync()).FcmToken);
         Assert.True(await service.UnsubscribeDeviceAsync("device-a", "new-token", default));
         Assert.Empty(await db.NutritionPushSubscriptions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Registration_stores_platform_and_defaults_legacy_clients_to_web()
+    {
+        await using var db = Open();
+        var service = new NutritionNotificationService(db, Config(), clock);
+
+        await service.RegisterDeviceAsync("device-a", "android-token", default, "android");
+        var subscription = await db.NutritionPushSubscriptions.SingleAsync();
+        Assert.Equal("android", subscription.Platform);
+
+        await service.RegisterDeviceAsync("device-a", "web-token", default);
+        subscription = await db.NutritionPushSubscriptions.SingleAsync();
+        Assert.Equal("web", subscription.Platform);
+        Assert.Equal("web-token", subscription.FcmToken);
+    }
+
+    [Fact]
+    public async Task Registration_rejects_unknown_platforms()
+    {
+        await using var db = Open();
+        var service = new NutritionNotificationService(db, Config(), clock);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            service.RegisterDeviceAsync("device-a", "token", default, "windows"));
+
+        Assert.Equal("Choose a supported notification platform.", error.Message);
+    }
+
+    [Fact]
+    public void Fcm_payload_uses_webpush_data_for_browsers_and_visible_notifications_for_android()
+    {
+        var content = new NutritionPushContent(
+            "Nutrition check-in", "Open Nutrition to review your check-in.",
+            "nutrition-check-in", "/coach", TimeSpan.FromMinutes(12));
+
+        using var web = JsonDocument.Parse(JsonSerializer.Serialize(
+            NutritionFcmPushSender.BuildMessagePayload("web-token", content)));
+        var webMessage = web.RootElement.GetProperty("message");
+        Assert.True(webMessage.TryGetProperty("webpush", out _));
+        Assert.False(webMessage.TryGetProperty("notification", out _));
+        Assert.Equal("/coach", webMessage.GetProperty("data").GetProperty("route").GetString());
+
+        using var android = JsonDocument.Parse(JsonSerializer.Serialize(
+            NutritionFcmPushSender.BuildMessagePayload("android-token", content with { Platform = "android" })));
+        var androidMessage = android.RootElement.GetProperty("message");
+        Assert.False(androidMessage.TryGetProperty("webpush", out _));
+        Assert.Equal("Nutrition check-in", androidMessage.GetProperty("notification").GetProperty("title").GetString());
+        Assert.Equal("720s", androidMessage.GetProperty("android").GetProperty("ttl").GetString());
+        Assert.Equal("nutrition-reminders", androidMessage.GetProperty("android").GetProperty("notification").GetProperty("channel_id").GetString());
+        Assert.Equal("/coach", androidMessage.GetProperty("data").GetProperty("route").GetString());
     }
 
     [Fact]

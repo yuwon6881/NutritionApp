@@ -91,11 +91,13 @@ public sealed partial class NutritionNotificationService(
         return ToSettings(preference);
     }
 
-    public async Task RegisterDeviceAsync(string deviceId, string fcmToken, CancellationToken ct)
+    public async Task RegisterDeviceAsync(string deviceId, string fcmToken, CancellationToken ct, string? platform = null)
     {
         Validation.Require(Configured, "Nutrition notifications are not configured yet.", 503);
         Validation.Require(!string.IsNullOrWhiteSpace(deviceId) && deviceId.Trim().Length <= 200, "A valid device id is required.");
         Validation.Require(!string.IsNullOrWhiteSpace(fcmToken) && fcmToken.Trim().Length <= 4096, "A valid notification token is required.");
+        var cleanPlatform = string.IsNullOrWhiteSpace(platform) ? "web" : platform.Trim().ToLowerInvariant();
+        Validation.Require(cleanPlatform is "web" or "android", "Choose a supported notification platform.");
         var userId = db.CurrentUser ?? throw new DomainException("Sign in again.", 401);
         var now = clock.GetUtcNow().UtcDateTime;
         var cleanDeviceId = deviceId.Trim();
@@ -106,6 +108,7 @@ public sealed partial class NutritionNotificationService(
             db.NutritionPushSubscriptions.Add(subscription);
         }
 
+        subscription.Platform = cleanPlatform;
         subscription.FcmToken = fcmToken.Trim();
         subscription.UpdatedAt = now;
         try
@@ -118,6 +121,7 @@ public sealed partial class NutritionNotificationService(
             // unique user/device key selects one row, then the losing request updates that row.
             db.Entry(subscription).State = EntityState.Detached;
             var winner = await db.NutritionPushSubscriptions.SingleAsync(x => x.DeviceId == cleanDeviceId, ct);
+            winner.Platform = cleanPlatform;
             winner.FcmToken = fcmToken.Trim();
             winner.UpdatedAt = now;
             await db.SaveChangesAsync(ct);

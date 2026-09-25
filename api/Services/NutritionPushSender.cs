@@ -4,7 +4,7 @@ using Google.Apis.Auth.OAuth2;
 
 namespace Nutrition.Api.Services;
 
-public sealed record NutritionPushContent(string Title, string Body, string Tag, string Route, TimeSpan TimeToLive);
+public sealed record NutritionPushContent(string Title, string Body, string Tag, string Route, TimeSpan TimeToLive, string Platform = "web");
 
 public enum NutritionPushSendStatus
 {
@@ -47,28 +47,7 @@ public sealed class NutritionFcmPushSender(
             return new(NutritionPushSendStatus.TransientFailure);
         }
 
-        var payload = new
-        {
-            message = new
-            {
-                token,
-                webpush = new
-                {
-                    headers = new Dictionary<string, string>
-                    {
-                        ["TTL"] = Math.Max(1, (long)content.TimeToLive.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    }
-                },
-                data = new Dictionary<string, string>
-                {
-                    ["kind"] = "check-in",
-                    ["title"] = content.Title,
-                    ["body"] = content.Body,
-                    ["tag"] = content.Tag,
-                    ["route"] = content.Route
-                }
-            }
-        };
+        var payload = BuildMessagePayload(token, content);
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -129,6 +108,49 @@ public sealed class NutritionFcmPushSender(
         }
 
         return false;
+    }
+
+    internal static object BuildMessagePayload(string token, NutritionPushContent content)
+    {
+        var message = new Dictionary<string, object>
+        {
+            ["token"] = token,
+            ["data"] = new Dictionary<string, string>
+            {
+                ["kind"] = "check-in",
+                ["title"] = content.Title,
+                ["body"] = content.Body,
+                ["tag"] = content.Tag,
+                ["route"] = content.Route
+            }
+        };
+
+        if (content.Platform == "android")
+        {
+            message["notification"] = new { title = content.Title, body = content.Body };
+            message["android"] = new
+            {
+                priority = "HIGH",
+                ttl = $"{Math.Max(1, (long)content.TimeToLive.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)}s",
+                notification = new
+                {
+                    channel_id = "nutrition-reminders",
+                    tag = content.Tag
+                }
+            };
+        }
+        else
+        {
+            message["webpush"] = new
+            {
+                headers = new Dictionary<string, string>
+                {
+                    ["TTL"] = Math.Max(1, (long)content.TimeToLive.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                }
+            };
+        }
+
+        return new { message };
     }
 
     private static async Task<GoogleCredential> BuildScopedCredentialAsync(CancellationToken ct)

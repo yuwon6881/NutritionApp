@@ -8,9 +8,10 @@ export function parseNutritionReminderPayload(value:unknown,origin:string):Nutri
   const envelope=isObject(value)?value:null;
   const data=envelope&&isObject(envelope.data)?envelope.data:envelope;
   if(!data||data.kind!=='check-in')return null;
-  if(typeof data.route!=='string')return {route:'/'};
+  if(data.route!=='/coach')return null;
   try{
     const destination=new URL(data.route,origin);
-    return {route:destination.origin===origin?destination.pathname+destination.search+destination.hash:'/'};
-  }catch{return {route:'/'};}
+    if(destination.origin!==origin||destination.pathname!=='/coach'||destination.search||destination.hash)return null;
+    return {route:'/coach'};
+  }catch{return null;}
 }
