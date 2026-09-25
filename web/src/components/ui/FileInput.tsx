@@ -14,6 +14,8 @@ export interface FileInputProps {
   id?: string;
   name?: string;
   className?: string;
+  /** The size photos are compressed to on this device before upload. */
+  maxSizeLabel?: string;
 }
 
 export function FileInput({
@@ -28,6 +30,7 @@ export function FileInput({
   id: idProp,
   name: nameProp,
   className = '',
+  maxSizeLabel = '750 KB',
 }: FileInputProps) {
   const generatedId = useId();
   const id = idProp ?? generatedId;
@@ -35,6 +38,8 @@ export function FileInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
+  // Phones have no drag and drop; offer the camera or library instead.
+  const touchFirst = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -143,8 +148,8 @@ export function FileInput({
         ) : (
           <div className="dropzone-prompt">
             <UploadCloud size={24} className="dropzone-icon" />
-            <span className="dropzone-main-text">Choose a photo or drag & drop</span>
-            <small className="dropzone-subtext">JPEG or PNG, up to 750 KB</small>
+            <span className="dropzone-main-text">{touchFirst ? 'Take or choose a photo' : 'Choose a photo or drag & drop'}</span>
+            <small className="dropzone-subtext">JPEG or PNG · compressed on this device to {maxSizeLabel} or less</small>
           </div>
         )}
       </div>

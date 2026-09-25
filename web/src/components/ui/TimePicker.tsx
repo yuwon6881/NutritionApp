@@ -1,6 +1,7 @@
 import {useEffect, useId, useRef, useState, type KeyboardEvent} from 'react';
 import {Clock} from 'lucide-react';
 import {FieldFrame} from './Form';
+import {useDismissablePopover} from './useDismissablePopover';
 
 export interface TimePickerProps {
   label: string;
@@ -77,17 +78,7 @@ export function TimePicker({
 
   const {hour12, minute, period} = parseTimeParts(value);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  useDismissablePopover(isOpen, [containerRef], () => setIsOpen(false));
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Tab' && isOpen) {

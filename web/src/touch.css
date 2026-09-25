@@ -1,0 +1,27 @@
+/*
+ * Touch and on-screen keyboard behaviour for the compact and medium tiers.
+ * Loaded after index.css so these contracts win over older per-feature sizes.
+ */
+:root{--touch-target:44px;--touch-target-expanded:36px}
+
+/* Diary cards own press-and-hold (select or drag); the platform must not start text selection or a callout. */
+@media (pointer:coarse){
+  .food-time-card[data-draggable]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  .food-time-card.panel:active:not([data-dragging]){border-color:color-mix(in srgb,var(--primary) 32%,var(--border))}
+}
+
+@media (max-width:1023px){
+  .food-row-star{width:var(--touch-target);height:var(--touch-target);min-height:var(--touch-target)!important}
+  .custom-time-option{min-height:var(--touch-target)}
+  .custom-time-now-btn{min-height:var(--touch-target);padding:4px 14px}
+  /* The 22px box stays visual; the card toggles too, but the box itself must be hittable. */
+  .food-card-select-checkbox{position:relative}
+  .food-card-select-checkbox::after{content:'';position:absolute;inset:-11px}
+}
+
+/* While the on-screen keyboard is open, fixed chrome would cover the focused field. */
+@media (max-width:1023px){
+  html[data-keyboard='open'] .sidebar,
+  html[data-keyboard='open'] .sync-status{display:none}
+  html[data-keyboard='open'] .main-content{padding-bottom:16px}
+}

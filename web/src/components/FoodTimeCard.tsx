@@ -4,7 +4,6 @@ import {Button} from './ui/Button';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {displayEnergy,energyLabel,type EnergyUnit} from '../lib/units';
 import {displayPortion} from '../lib/portions';
-import {useLongPress} from '../lib/useLongPress';
 
 export interface FoodTimeCardProps {
   entry:Entry;
@@ -19,7 +18,6 @@ export interface FoodTimeCardProps {
   onEdit:(entry:Entry)=>void;
   onOpenActions:(entry:Entry,trigger:HTMLElement)=>void;
   onToggleSelect:(id:string)=>void;
-  onLongPressSelect:(id:string)=>void;
   dragProps:Record<string,unknown>;
 }
 
@@ -36,46 +34,17 @@ export function FoodTimeCard({
   onEdit,
   onOpenActions,
   onToggleSelect,
-  onLongPressSelect,
   dragProps,
 }:FoodTimeCardProps){
-  const {handlers,hasTriggered}=useLongPress({
-    onLongPress:()=>onLongPressSelect(entry.id),
-    disabled:readOnly||isSelecting,
-  });
-
-  const handleCardClick=()=>{
-    if(hasTriggered())return;
-    if(isSelecting){
-      onToggleSelect(entry.id);
-    }
-  };
-
-  const pointerProps = isSelecting ? {} : {
-    ...dragProps,
-    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
-      (dragProps.onPointerDown as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
-      handlers.onPointerDown(e);
-    },
-    onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
-      (dragProps.onPointerMove as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
-      handlers.onPointerMove(e);
-    },
-    onPointerUp: (e: React.PointerEvent<HTMLElement>) => {
-      (dragProps.onPointerUp as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
-      handlers.onPointerUp();
-    },
-    onPointerCancel: (e: React.PointerEvent<HTMLElement>) => {
-      (dragProps.onPointerCancel as ((e: React.PointerEvent<HTMLElement>) => void) | undefined)?.(e);
-      handlers.onPointerCancel();
-    },
-  };
+  // Touch hold (select or drag) and mouse drag are one gesture owned by the
+  // timeline; see useTimelineDrag. Nothing competes for the same pointer.
+  const pointerProps=isSelecting?{}:dragProps;
 
   return (
     <article
       className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''}`.trim()}
       data-selected={isSelected?true:undefined}
-      onClick={isSelecting?handleCardClick:undefined}
+      onClick={isSelecting?()=>onToggleSelect(entry.id):undefined}
       {...pointerProps}
     >
       <div className="food-time-card-header">

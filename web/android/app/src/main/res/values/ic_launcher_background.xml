@@ -2,4 +2,5 @@
 <resources>
     <color name="ic_launcher_background">#0B0E14</color>
     <color name="nutrition_splash_background">#0B0E14</color>
+    <color name="nutrition_splash_window">#FCFCFC</color>
 </resources>

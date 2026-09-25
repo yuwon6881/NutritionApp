@@ -1,8 +1,8 @@
-import {useState,useRef,useEffect,useCallback} from 'react';
+import {useState,useRef,useEffect} from 'react';
 import {ClipboardPaste,Copy,MoveRight,Pencil,Trash2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
-import {timelineGroups,timelineSlots,dropTarget,moveAnnouncement,type DropRow,type TimelineView} from '../lib/foodDiary';
+import {timelineGroups,timelineSlots,moveAnnouncement,type TimelineView} from '../lib/foodDiary';
 import {Button} from './ui/Button';
 import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
 import {CopyFoodDialog} from './CopyFoodDialog';
@@ -10,6 +10,7 @@ import {DeleteFoodDialog} from './DeleteFoodDialog';
 import {MoveFoodDialog} from './MoveFoodDialog';
 import {unitsFor} from '../lib/units';
 import {FoodTimeCard} from './FoodTimeCard';
+import {useTimelineDrag} from './useTimelineDrag';
 
 export interface FoodTimelineProps {
   store:Nourish;
@@ -115,6 +116,7 @@ export function FoodTimeline({
   const {draggingEntry,dropOverTime,bindDrag}=useTimelineDrag({
     enabled:!readOnly&&!isSelecting,
     onDrop:(entry,targetTime)=>void handleMove([entry],date,targetTime),
+    onHoldSelect:entry=>onLongPressSelect?.(entry.id),
   });
 
   return <>
@@ -188,7 +190,6 @@ export function FoodTimeline({
               onEdit={onEdit}
               onOpenActions={openActions}
               onToggleSelect={id=>onToggleSelect?.(id)}
-              onLongPressSelect={id=>onLongPressSelect?.(id)}
               dragProps={dragProps}
             />;
           })}
@@ -228,181 +229,4 @@ export function FoodTimeline({
       restoreFocus={restoreFocus}
     />}
   </>;
-}
-
-function useTimelineDrag({
-  enabled,
-  onDrop,
-}:{
-  enabled:boolean;
-  onDrop:(entry:Entry,targetTime:string)=>void;
-}){
-  const [draggingEntry,setDraggingEntry]=useState<Entry|null>(null);
-  const [dropOverTime,setDropOverTime]=useState<string|null>(null);
-  const isEnabled=enabled;
-
-  const activeRef=useRef<{
-    entry:Entry;
-    targetEl:HTMLElement;
-    pointerId:number;
-    pointerType:string;
-    startX:number;
-    startY:number;
-    lifted:boolean;
-    touchTimer?:ReturnType<typeof setTimeout>;
-    rowRects:DropRow[];
-    currentTargetTime?:string;
-  }|null>(null);
-
-  const cancelDrag=useCallback(()=>{
-    if(activeRef.current?.touchTimer){
-      clearTimeout(activeRef.current.touchTimer);
-    }
-    if(activeRef.current){
-      try{
-        activeRef.current.targetEl.releasePointerCapture(activeRef.current.pointerId);
-      }catch{}
-    }
-    activeRef.current=null;
-    setDraggingEntry(null);
-    setDropOverTime(null);
-  },[]);
-
-  useEffect(()=>{
-    if(!draggingEntry)return;
-    const blockTouch=(e:TouchEvent)=>{
-      if(e.cancelable)e.preventDefault();
-    };
-    window.addEventListener('touchmove',blockTouch,{passive:false});
-    return()=>window.removeEventListener('touchmove',blockTouch);
-  },[draggingEntry]);
-
-  useEffect(()=>{
-    if(!draggingEntry)return;
-    const onKey=(e:KeyboardEvent)=>{
-      if(e.key==='Escape')cancelDrag();
-    };
-    window.addEventListener('keydown',onKey);
-    return()=>window.removeEventListener('keydown',onKey);
-  },[draggingEntry,cancelDrag]);
-
-  const snapshotRows=():DropRow[]=>{
-    const elements=Array.from(document.querySelectorAll<HTMLElement>('.food-time-row[data-time-row]'));
-    return elements
-      .filter(el=>el.dataset.timeRow!==undefined&&el.dataset.timeRow!=='')
-      .map(el=>{
-        const rect=el.getBoundingClientRect();
-        return {
-          time:el.dataset.timeRow!,
-          top:rect.top,
-          bottom:rect.bottom,
-        };
-      });
-  };
-
-  const lift=(entry:Entry,rowRects:DropRow[],clientY:number)=>{
-    if(!activeRef.current)return;
-    activeRef.current.lifted=true;
-    activeRef.current.rowRects=rowRects;
-    const target=dropTarget(rowRects,clientY);
-    activeRef.current.currentTargetTime=target;
-    setDraggingEntry(entry);
-    setDropOverTime(target??null);
-  };
-
-  const onPointerDown=(entry:Entry,event:React.PointerEvent<HTMLElement>)=>{
-    if(!isEnabled)return;
-    const target=event.target as HTMLElement;
-    if(target.closest('button,a,input,select,textarea,summary,.food-card-select-checkbox'))return;
-
-    const el=event.currentTarget;
-    const pointerId=event.pointerId;
-    const pointerType=event.pointerType;
-    const startX=event.clientX;
-    const startY=event.clientY;
-
-    const current:NonNullable<typeof activeRef.current>={
-      entry,
-      targetEl:el,
-      pointerId,
-      pointerType,
-      startX,
-      startY,
-      lifted:false,
-      rowRects:[],
-    };
-    activeRef.current=current;
-
-    try{
-      el.setPointerCapture(pointerId);
-    }catch{}
-
-    if(pointerType==='touch'){
-      current.touchTimer=setTimeout(()=>{
-        if(activeRef.current===current&&!current.lifted){
-          const rows=snapshotRows();
-          lift(entry,rows,startY);
-        }
-      },350);
-    }
-  };
-
-  const onPointerMove=(event:React.PointerEvent<HTMLElement>)=>{
-    const current=activeRef.current;
-    if(!current)return;
-
-    const dx=event.clientX-current.startX;
-    const dy=event.clientY-current.startY;
-    const dist=Math.hypot(dx,dy);
-
-    if(!current.lifted){
-      if(current.pointerType==='mouse'){
-        if(dist>=8){
-          const rows=snapshotRows();
-          lift(current.entry,rows,event.clientY);
-        }
-      }else{
-        if(dist>6&&current.touchTimer){
-          clearTimeout(current.touchTimer);
-          cancelDrag();
-        }
-      }
-      return;
-    }
-
-    const target=dropTarget(current.rowRects,event.clientY);
-    current.currentTargetTime=target;
-    setDropOverTime(target??null);
-  };
-
-  const onPointerUp=()=>{
-    const current=activeRef.current;
-    if(!current)return;
-
-    if(current.touchTimer)clearTimeout(current.touchTimer);
-
-    if(current.lifted&&current.currentTargetTime){
-      const entry=current.entry;
-      const targetTime=current.currentTargetTime;
-      if(targetTime!==(entry.time??null)){
-        onDrop(entry,targetTime);
-      }
-    }
-
-    cancelDrag();
-  };
-
-  return {
-    isEnabled,
-    draggingEntry,
-    dropOverTime,
-    bindDrag:(entry:Entry)=>({
-      onPointerDown:(e:React.PointerEvent<HTMLElement>)=>onPointerDown(entry,e),
-      onPointerMove,
-      onPointerUp,
-      onPointerCancel:cancelDrag,
-      'data-draggable':isEnabled?true:undefined,
-      'data-dragging':draggingEntry?.id===entry.id?true:undefined,
-    }),
-  };
 }

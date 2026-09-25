@@ -1,10 +1,13 @@
 import '@fontsource-variable/inter/index.css';
 import {createRoot} from 'react-dom/client';
 import {registerAppServiceWorker} from './lib/registerAppServiceWorker';
-import {initializeNativeApp} from './lib/nativeApp';
+import {initializeNativeApp,isNativeApp} from './lib/nativeApp';
+import {watchVirtualKeyboard} from './lib/virtualKeyboard';
 import App from './App';
 import {MobilePwaProvider} from './components/ui/MobilePwa';
 import './index.css';
+import './touch.css';
 void registerAppServiceWorker().catch(()=>{});
 void initializeNativeApp().catch(()=>{});
+if(!isNativeApp())watchVirtualKeyboard();
 createRoot(document.getElementById('root')!).render(<MobilePwaProvider><App/></MobilePwaProvider>);

@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle} from 'lucide-react';
 import {api,ApiError} from './lib/api';
 import {getLocalDatabaseFailure,readLocal} from './lib/local';
@@ -27,9 +27,13 @@ import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
 import {retryPendingPushRevocations} from './lib/push/revocations';
 import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
+import {backCoordinator,isLayerEntry,readState,PAGE_KEY} from './lib/appHistory';
+import {BACK_TO_HOME_EVENT} from './lib/nativeApp';
 import {captureNutritionShortcut,clearPendingNutritionShortcut,consumeReadyNutritionShortcut} from './lib/nutritionShortcuts';
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
+const PAGES:readonly Page[]=['today','food','progress','coach','settings'];
+const asPage=(value:unknown):Page|undefined=>PAGES.find(page=>page===value);
 
 function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLogout:()=>Promise<void>}){
   const store=useNourish(user);
@@ -56,14 +60,53 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   const needsProfile=!!store.state&&!store.state.profile;
   const conflictCount=store.local?.queue.filter(queue=>queue.error).length??0;
 
-  useEffect(()=>{if(needsProfile)setPage('coach');},[needsProfile]);
+  const pageRef=useRef(page);
+  pageRef.current=page;
+  // A page change requested while a dialog is closing waits for that dialog's
+  // history entry to unwind, then records itself on top of the page below.
+  const pendingPage=useRef<Page|null>(null);
+  const showPage=(next:Page)=>{setPage(next);window.scrollTo({top:0,behavior:'instant'});};
+  const requestPage=(next:Page)=>{
+    if(next===pageRef.current)return;
+    if(!isLayerEntry(readState(window.history))){backCoordinator().pushPage(next);showPage(next);return;}
+    pendingPage.current=next;
+    showPage(next);
+    window.setTimeout(()=>{
+      if(pendingPage.current!==next)return;
+      pendingPage.current=null;
+      backCoordinator().pushPage(next);
+    },600);
+  };
+
+  // Record the first page once so Back from later pages can return to it.
+  useEffect(()=>{backCoordinator().replacePage(initialPage);},[]);
+  useEffect(()=>{
+    const onPopState=()=>{
+      const state=readState(window.history);
+      if(pendingPage.current){
+        // Dialog and layer entries are still unwinding; the requested page is already showing.
+        if(isLayerEntry(state))return;
+        const next=pendingPage.current;
+        pendingPage.current=null;
+        backCoordinator().pushPage(next);
+        if(next!==pageRef.current)showPage(next);
+        return;
+      }
+      const target=asPage(state[PAGE_KEY])??'today';
+      if(target!==pageRef.current)showPage(target);
+    };
+    const goHome=()=>{backCoordinator().replacePage('today');showPage('today');};
+    window.addEventListener('popstate',onPopState);
+    window.addEventListener(BACK_TO_HOME_EVENT,goHome);
+    return()=>{window.removeEventListener('popstate',onPopState);window.removeEventListener(BACK_TO_HOME_EVENT,goHome);};
+  },[]);
+  useEffect(()=>{if(needsProfile){backCoordinator().replacePage('coach');setPage('coach');}},[needsProfile]);
   useEffect(()=>{
     const openCoachFromPush=(event:Event)=>{
       const route=(event as CustomEvent<{route?:string}>).detail?.route;
       if(route!=='/coach')return;
       setFoodOpen(false);setWeightOpen(false);setCopyOpen(false);setShowAddSheet(false);
-      setPage('coach');
-      window.scrollTo({top:0,behavior:'instant'});
+      requestPage('coach');
     };
     window.addEventListener('nutrition-push-navigation',openCoachFromPush);
     return()=>window.removeEventListener('nutrition-push-navigation',openCoachFromPush);
@@ -109,7 +152,15 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
     {id:'scan',label:'Scan food or label',description:'Scan a packaged food barcode or nutrition label.',icon:<Camera size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'barcode',addReturnFocus)},
   ];
-  const navigate=(next:Page)=>{if(next===page)return;if(next==='food')setFoodDate(date);setPage(next);window.scrollTo({top:0,behavior:'instant'});};
+  const navigate=(next:Page)=>{
+    if(next===page){
+      const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({top:0,behavior:reduce?'instant':'smooth'});
+      return;
+    }
+    if(next==='food')setFoodDate(date);
+    requestPage(next);
+  };
   const foodSavedPage=foodOriginPage==='food'?'food':'today';
   const nav=[
     {id:'today',label:'Dashboard',icon:Utensils},
@@ -159,7 +210,7 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
       </MotionScene>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        <LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>{setFoodOpen(false);setPage(foodOriginPage);}} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);setPage(foodSavedPage);}}/>
+        <LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/>
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}

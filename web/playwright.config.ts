@@ -17,9 +17,16 @@ export default defineConfig({
     { name: 'setup', testMatch: 'auth.setup.ts' },
     {
       name: 'chromium',
-      testIgnore: 'auth.setup.ts',
+      testIgnore: ['auth.setup.ts', '**/*.touch.spec.ts'],
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], ...signedIn }
+    },
+    {
+      // Real touch input (hasTouch, coarse pointer, mobile viewport) for gesture, Back, and keyboard contracts.
+      name: 'mobile-chromium',
+      testMatch: '**/*.touch.spec.ts',
+      dependencies: ['setup'],
+      use: { ...devices['Pixel 7'], ...signedIn }
     }
   ],
   webServer: process.env.NUTRITION_TEST_URL ? undefined : testServers,

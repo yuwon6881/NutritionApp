@@ -12,18 +12,35 @@ try {
   sharp = require(workspaceRoot);
 }
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="1024" height="1024">
-  <rect width="192" height="192" fill="#0b0e14" />
-  <path d="M50 137V55h20l52 61V55h20v82h-20L70 76v61z" fill="#ffffff" />
-  <circle cx="147" cy="40" r="14" fill="#ffffff" />
-</svg>`;
+// The mark is the N alone, centred on the 192 grid. Keep it in step with
+// components/ui/Brand.tsx, public/icon.svg, and the Android launcher vector.
+const mark = `<path d="M50 137V55h20l52 61V55h20v82h-20L70 76v61z" fill="#ffffff" />`;
+const plate = '<rect width="192" height="192" fill="#0b0e14" />';
+const canvas = body => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="1024" height="1024">${body}</svg>`;
+
+const svg = canvas(plate + mark);
+// Launchers crop maskable icons to as little as the central 80% circle; the
+// slightly smaller mark keeps comfortable margin inside it.
+const maskableSvg = canvas(`${plate}<g transform="translate(96 96) scale(0.86) translate(-96 -96)">${mark}</g>`);
+// Legacy (pre-adaptive, API 24–25) Android launcher icons.
+const roundSvg = canvas(`<circle cx="96" cy="96" r="96" fill="#0b0e14" />${mark}`);
+const foregroundSvg = canvas(mark);
+
+const res = 'android/app/src/main/res';
+const densities = [['mdpi', 108], ['hdpi', 162], ['xhdpi', 216], ['xxhdpi', 324], ['xxxhdpi', 432]];
 
 const jobs = [
-  [192, 'public/icon-192.png'],
-  [512, 'public/icon-512.png'],
+  [svg, 192, 'public/icon-192.png'],
+  [svg, 512, 'public/icon-512.png'],
+  [maskableSvg, 512, 'public/icon-maskable-512.png'],
+  ...densities.flatMap(([density, foregroundSize]) => [
+    [svg, 512, `${res}/mipmap-${density}/ic_launcher.png`],
+    [roundSvg, 512, `${res}/mipmap-${density}/ic_launcher_round.png`],
+    [foregroundSvg, foregroundSize, `${res}/mipmap-${density}/ic_launcher_foreground.png`],
+  ]),
 ];
 
-for (const [size, out] of jobs) {
-  await sharp(Buffer.from(svg)).resize(size, size).png().toFile(out);
+for (const [source, size, out] of jobs) {
+  await sharp(Buffer.from(source)).resize(size, size).png().toFile(out);
   console.log(`wrote ${out} (${size}x${size})`);
 }

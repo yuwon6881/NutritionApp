@@ -9,7 +9,7 @@ Applies only to this independent repository; app-specific rules override the par
 
 ## Implemented feature index
 
-- FitnessAccount central sign-in and account profile/settings; consumer sessions and account-scoped data; Android Capacitor app with bundled offline interface and same-origin API routing, and app update notification with safe reload.
+- FitnessAccount central sign-in and account profile/settings; consumer sessions and account-scoped data; Android Capacitor app with bundled offline interface and same-origin API routing, and app update notification with safe reload. Mobile shell: Back (browser, PWA, Android hardware) unwinds popovers, dialog steps, selection mode, dialogs, then pages and exits only from the Dashboard; on-screen keyboard hides fixed chrome and keeps the focused field visible.
 - Optional per-device browser/PWA or Capacitor Android push subscriptions and an explicitly scheduled weekly coaching check-in reminder with generic notification text; dispatch is Firebase-config gated, sends only near the selected local time, and routes taps to Coach.
 - Food diary with instant dated cached rendering, quiet background revalidation with conditional 304, explicit logging-day decisions, batch entry, bulk selection (touch hold / toolbar select), bulk deletion, bulk move (same-day or date targets) with immediate coordinator projection, clipboard copy-and-paste across days and timeline slots, shared food search, saved/custom foods, recipes, barcode lookup/private mappings, and editable AI text/photo/label estimates.
 - Offline retained edits and image drafts, partitioned IndexedDB storage, bounded diary date-range queries, separate bootstrap and foods endpoints, automatic synchronization, retry and conflict review.

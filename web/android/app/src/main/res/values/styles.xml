@@ -17,8 +17,9 @@
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@color/nutrition_splash_background</item>
-        <item name="windowSplashScreenBackground">@color/nutrition_splash_background</item>
+        <!-- The window follows the system light/dark mode; the icon keeps its dark tile so the white mark stays visible. -->
+        <item name="android:background">@color/nutrition_splash_window</item>
+        <item name="windowSplashScreenBackground">@color/nutrition_splash_window</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/nutrition_launcher_foreground</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/nutrition_splash_background</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>

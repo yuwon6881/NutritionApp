@@ -6,6 +6,7 @@ import {displayPortion} from '../lib/portions';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {Button} from './ui/Button';
 import {FoodMacroSummary} from './FoodMacroSummary';
+import {isExpandedWindow} from '../lib/breakpoints';
 
 const reveal=166;
 export function BatchFoodRow({line,energyUnit,open,onOpen,onEdit,onRemove}:{line:BasketLine;energyUnit:EnergyUnit;open:boolean;onOpen:(open:boolean)=>void;onEdit:()=>void;onRemove:()=>void}){
@@ -15,7 +16,7 @@ export function BatchFoodRow({line,energyUnit,open,onOpen,onEdit,onRemove}:{line
   return <div className={`batch-food${open?' actions-open':''}${offset!==null?' dragging':''}`} style={{'--batch-offset':`${offset??(open?-reveal:0)}px`} as CSSProperties}>
     <div className="batch-food-summary"
       onPointerDown={event=>{
-        if(!event.isPrimary||event.button!==0||window.matchMedia('(min-width:1024px)').matches)return;
+        if(!event.isPrimary||event.button!==0||isExpandedWindow())return;
         suppressClick.current=false;
         gesture.current={id:event.pointerId,x:event.clientX,y:event.clientY,start:open?-reveal:0,dx:0};
       }}

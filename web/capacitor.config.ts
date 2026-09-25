@@ -15,6 +15,8 @@ const config:CapacitorConfig={
   },
   plugins:{
     PushNotifications:{presentationOptions:['alert']},
+    // Keep the web view resizing above the keyboard under Android 15 edge-to-edge.
+    Keyboard:{resizeOnFullScreen:true},
   },
 };
 

@@ -80,7 +80,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
     <Form onSubmit={save} className="dialog-form">
       <div className="form-grid">
         <DatePicker id="weight-entry-date" name="date" min="2000-01-01" label="Weigh-in date" value={values.date} max={current} required onChange={next=>setValues(previous=>({...previous,date:next,context:''}))}/>
-        <Field id="weight-entry-kg" name="kg" data-modal-autofocus label={`Weight (${weightLabel(units.weight)})`} type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.01" required value={values.kg} onChange={event=>setValues(previous=>({...previous,kg:event.target.value,context:''}))}/>
+        <Field id="weight-entry-kg" name="kg" data-modal-autofocus enterKeyHint="done" label={`Weight (${weightLabel(units.weight)})`} type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.01" required value={values.kg} onChange={event=>setValues(previous=>({...previous,kg:event.target.value,context:''}))}/>
       </div>
       {unusual&&<section className="weight-context-prompt" aria-labelledby="weight-context-heading">
         <h3 id="weight-context-heading">This differs from your recent weigh-ins</h3>

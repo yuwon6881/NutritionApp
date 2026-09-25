@@ -1,49 +1,38 @@
-import {Form} from './ui/Form';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Search,ScanBarcode,Sparkles,Plus,Star,ArrowLeft,ListChecks} from 'lucide-react';
 import type {Nourish} from '../useNourish';
-import type {AiEstimate,Entry,Food} from '../types';
+import type {Entry,Food} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {api,ApiError} from '../lib/api';
-import {createFoodScanDraft,foodScanDraftForAttempt,resumeFoodScanJob,type FoodScanDraft} from '../lib/foodScans';
-import {deleteFoodScanDraft,foodBasketDraftKey,readFoodScanDraft,saveFoodScanDraft} from '../lib/local';
+import {foodScanDraftForAttempt,resumeFoodScanJob,type FoodScanDraft} from '../lib/foodScans';
+import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,parseAiEstimate} from '../lib/logFood';
 import {lineFromPer100,lineKey} from '../lib/foodBasket';
 import {serializePortions,parsePortions} from '../lib/portions';
-import {FoodMacroSummary} from './FoodMacroSummary';
 import {Button} from './ui/Button';
-import {Field,SelectField,TextArea} from './ui/Field';
-import {FileInput} from './ui/FileInput';
 import {FoodEditor,type FoodDraft} from './FoodEditor';
-import {RecipeEditor,emptyRecipeDraft,emptyRecipeQuantity,type RecipeDraft,type RecipeQuantity} from './RecipeEditor';
+import {RecipeEditor} from './RecipeEditor';
+import {useRecipeDraft} from './useRecipeDraft';
 import {QuickAdd} from './QuickAdd';
 import {FoodPicker} from './FoodPicker';
 import {FoodBasket} from './FoodBasket';
 import {mealReadOnly,mealTime} from '../lib/foodDiary';
 import {useHistoryWindow} from '../useHistoryWindow';
 import {useFoodBasket} from '../useFoodBasket';
+import {useBackLayer} from '../lib/useBackLayer';
 import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
 import {useAsyncAction} from './ui/useAsyncAction';
-import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
-import {RecentFoodCard} from './RecentFoodCard';
+import {unitsFor} from '../lib/units';
+import {LogFoodSavedFoods,type SavedFilter} from './LogFoodSavedFoods';
+import {LogFoodBarcodeRecovery,type BarcodeRecovery} from './LogFoodBarcodeRecovery';
+import {LogFoodAiForm} from './LogFoodAiForm';
+import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
 
 type SearchResult=import('../types').FoodSearchResult;
 type FoodStep='selection'|'quick'|'editor'|'recipe'|'batch';
-type AiMode='photo'|'label'|'description';
 type AiJob={id:string;status:string;resultJson?:string|null;error?:string|null};
-type BarcodeRecovery={code:string;status:number;message:string};
-
-function isRecipe(food:Food):boolean{
-  if(!food.ingredientsJson)return false;
-  try{
-    const parsed=JSON.parse(food.ingredientsJson);
-    return Array.isArray(parsed)&&parsed.length>0;
-  }catch{
-    return false;
-  }
-}
 
 export function LogFood({
   open,
@@ -74,31 +63,20 @@ export function LogFood({
   const basket=useFoodBasket(open,store.state!.id,date);
   const [step,setStep]=useState<FoodStep>(editing?'editor':'selection');
   const [selectionPurpose,setSelectionPurpose]=useState<'log'|'recipe'>('log');
-  const [recipeDraft,setRecipeDraft]=useState<RecipeDraft>(()=>emptyRecipeDraft());
-  const [recipeSelected,setRecipeSelected]=useState<SearchResult>();
-  const [recipeQuantity,setRecipeQuantity]=useState<RecipeQuantity>(()=>emptyRecipeQuantity());
-  const recipeInitial=useRef(JSON.stringify({draft:emptyRecipeDraft(),selected:undefined,quantity:emptyRecipeQuantity()}));
+  const recipe=useRecipeDraft();
   const [barcodeRecovery,setBarcodeRecovery]=useState<BarcodeRecovery>();
-  const [pendingBarcode,setPendingBarcode]=useState<{code:string;purpose:'log'|'recipe'}>();
-  const [pendingLinkBarcode,setPendingLinkBarcode]=useState<{code:string;purpose:'log'|'recipe'}>();
+  const [pendingBarcode,setPendingBarcode]=useState<PendingBarcode>();
+  const [pendingLinkBarcode,setPendingLinkBarcode]=useState<PendingBarcode>();
   const [stepDirty,setStepDirty]=useState(false);
   const [tab,setTab]=useState(defaultTab);
   const [query,setQuery]=useState('');
-  const [savedFilter,setSavedFilter]=useState<'all'|'favourites'|'recipes'|'recent'>('all');
+  const [savedFilter,setSavedFilter]=useState<SavedFilter>('all');
   const selectionRequest=useRef(0);
   const [detail,setDetail]=useState<{food:SearchResult;error?:string}|null>(null);
   useEffect(()=>{selectionRequest.current++;setDetail(null);return()=>{selectionRequest.current++;};},[open,step,tab,query]);
   const [results,setResults]=useState<SearchResult[]>([]);
   const [draft,setDraft]=useState<Partial<Entry&Food>|undefined>(editing);
   const [saveFood,setSaveFood]=useState<Food|true|false>(false);
-  const [description,setDescription]=useState('');
-  const [mode,setMode]=useState<AiMode>('description');
-  const [photo,setPhoto]=useState<string|null>(null);
-  const [scanDraft,setScanDraft]=useState<FoodScanDraft|null>(null);
-  const scanDraftRef=useRef<FoodScanDraft|null>(null);
-  const [scanDraftLoadedKey,setScanDraftLoadedKey]=useState<string|null>(null);
-  const [scanDraftStorageError,setScanDraftStorageError]=useState('');
-  const scanDraftWrites=useRef<Promise<void>>(Promise.resolve());
   const [labelNote,setLabelNote]=useState('');
   const [error,setError]=useState('');
   const [batchTime,setBatchTime]=useState<string|undefined>(undefined);
@@ -113,10 +91,7 @@ export function LogFood({
     if(open&&!wasOpen.current){
       setStep(editing?'editor':'selection');
       setSelectionPurpose('log');
-      setRecipeDraft(emptyRecipeDraft());
-      setRecipeSelected(undefined);
-      setRecipeQuantity(emptyRecipeQuantity());
-      recipeInitial.current=JSON.stringify({draft:emptyRecipeDraft(),selected:undefined,quantity:emptyRecipeQuantity()});
+      recipe.reset();
       setBarcodeRecovery(undefined);
       setPendingBarcode(undefined);
       setPendingLinkBarcode(undefined);
@@ -127,9 +102,6 @@ export function LogFood({
       setResults([]);
       setDraft(editing);
       setSaveFood(false);
-      setDescription('');
-      setMode('description');
-      setPhoto(null);
       setLabelNote('');
       setError('');
       setCamera(false);
@@ -139,76 +111,14 @@ export function LogFood({
   },[open,editing?.id,date,defaultTab,basket]);
 
   const accountId=store.state!.id;
-  const persistScanDraft=(next:FoodScanDraft)=>{
-    const write=scanDraftWrites.current.catch(()=>undefined).then(()=>saveFoodScanDraft(accountId,next));
-    scanDraftWrites.current=write;
-    return write.then(()=>{
-      scanDraftRef.current=next;
-      setScanDraft(next);
-      setScanDraftStorageError('');
-    });
-  };
-  const removeScanDraft=async(targetDate=date)=>{
-    const write=scanDraftWrites.current.catch(()=>undefined).then(()=>deleteFoodScanDraft(accountId,targetDate));
-    scanDraftWrites.current=write;
-    await write;
-    if(targetDate===date){scanDraftRef.current=null;setScanDraft(null);setScanDraftStorageError('');}
-  };
-
-  useEffect(()=>{
-    if(!open)return;
-    let current=true;
-    const key=foodBasketDraftKey(accountId,date);
-    setScanDraftLoadedKey(null);
-    setScanDraft(null);
-    scanDraftRef.current=null;
-    setScanDraftStorageError('');
-    setDescription('');setMode('description');setPhoto(null);setPendingBarcode(undefined);
-    void readFoodScanDraft(accountId,date).then(saved=>{
-      if(!current)return;
-      if(saved){
-        scanDraftRef.current=saved;
-        setScanDraft(saved);
-        setDescription(saved.description);
-        setMode(saved.mode);
-        setPhoto(saved.imageBase64);
-        setPendingBarcode(saved.pendingBarcode);
-        setTab('ai');
-      }
-    }).catch(()=>{
-      if(current)setScanDraftStorageError('This device could not check for a saved scan. Keep this screen open until the scan has been reviewed.');
-    }).finally(()=>{
-      if(current)setScanDraftLoadedKey(key);
-    });
-    return()=>{current=false;};
-  },[open,accountId,date]);
-
-  useEffect(()=>{
-    if(!open||scanDraftLoadedKey!==foodBasketDraftKey(accountId,date))return;
-    const current=scanDraftRef.current;
-    const hasContent=!!photo||!!description.trim()||!!pendingBarcode;
-    const matchesSavedReview=current?.status==='review'&&current.date===date&&current.mode===mode&&
-      current.description===description&&current.imageBase64===(mode==='description'?null:photo)&&
-      JSON.stringify(current.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
-    if(matchesSavedReview)return;
-    if(!hasContent){
-      if(current?.status==='captured'){
-        const timer=window.setTimeout(()=>{void removeScanDraft(date).catch(()=>setScanDraftStorageError('The saved scan could not be cleared from this device.'));},250);
-        return()=>window.clearTimeout(timer);
-      }
-      return;
-    }
-    const sameInput=current?.date===date&&current.mode===mode&&current.description===description&&
-      current.imageBase64===(mode==='description'?null:photo)&&
-      JSON.stringify(current.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
-    const canContinueCaptured=current?.status==='captured'&&current.date===date;
-    const base=sameInput?current:canContinueCaptured?current:createFoodScanDraft({
-      date,mode,description,imageBase64:mode==='description'?null:photo,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined
-    });
-    const next={...base,mode,description,imageBase64:mode==='description'?null:photo,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined};
-    const timer=window.setTimeout(()=>{void persistScanDraft(next).catch(()=>setScanDraftStorageError('The scan draft could not be saved on this device. It will not upload until it can be saved.'));},250);
-    return()=>window.clearTimeout(timer);
-  },[open,scanDraftLoadedKey,accountId,date,mode,description,photo,pendingBarcode]);
+  const scan=useFoodScanDraft({open,accountId,date,pendingBarcode,onRestore:saved=>{
+    setPendingBarcode(saved?.pendingBarcode);
+    if(saved)setTab('ai');
+  }});
+  const {description,setDescription,mode,setMode,photo,setPhoto,scanDraft,scanDraftRef}=scan;
+  const persistScanDraft=scan.persist;
+  const removeScanDraft=scan.remove;
+  const setScanDraftStorageError=scan.setStorageError;
 
   useEffect(()=>{if(!open||tab!=='barcode'||step!=='selection')setCamera(false);},[open,tab,step]);
 
@@ -237,45 +147,43 @@ export function LogFood({
   };
   const startRecipe=()=>{
     setSelectionPurpose('log');
-    setRecipeDraft(emptyRecipeDraft());
-    setRecipeSelected(undefined);
-    setRecipeQuantity(emptyRecipeQuantity());
-    recipeInitial.current=JSON.stringify({draft:emptyRecipeDraft(),selected:undefined,quantity:emptyRecipeQuantity()});
+    recipe.reset();
     setStep('recipe');
   };
   const beginRecipeIngredient=()=>{
     setSelectionPurpose('recipe');
-    setRecipeSelected(undefined);
-    setRecipeQuantity(emptyRecipeQuantity());
+    recipe.clearIngredient();
     selectTab('search');
     setStep('selection');
   };
   const cancelRecipe=()=>{
     setSelectionPurpose('log');
-    setRecipeDraft(emptyRecipeDraft());
-    setRecipeSelected(undefined);
-    setRecipeQuantity(emptyRecipeQuantity());
-    recipeInitial.current=JSON.stringify({draft:emptyRecipeDraft(),selected:undefined,quantity:emptyRecipeQuantity()});
+    recipe.reset();
     setTab('saved');
     go('selection');
   };
   const cancelRecipeIngredient=()=>{
-    setRecipeSelected(undefined);
-    setRecipeQuantity(emptyRecipeQuantity());
+    recipe.clearIngredient();
     setStep('recipe');
   };
   const finishRecipe=()=>{
     setSelectionPurpose('log');
-    setRecipeDraft(emptyRecipeDraft());
-    setRecipeSelected(undefined);
-    setRecipeQuantity(emptyRecipeQuantity());
-    recipeInitial.current=JSON.stringify({draft:emptyRecipeDraft(),selected:undefined,quantity:emptyRecipeQuantity()});
+    recipe.reset();
     setTab('saved');
     go('selection');
   };
-  const recipeSnapshot=JSON.stringify({draft:recipeDraft,selected:recipeSelected,quantity:recipeQuantity});
-  const recipeDirty=recipeSnapshot!==recipeInitial.current;
+  const recipeDirty=recipe.dirty;
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
+  const leaveEditor=()=>{if(saveFood){setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setLabelNote('');}go('selection');};
+  // Back steps out of an inner step before it closes the sheet. A step with
+  // unsaved input falls through to the Modal's own discard confirmation.
+  const choosingIngredient=step==='selection'&&selectionPurpose==='recipe';
+  useBackLayer(open&&!editing&&!stepDirty&&!recipeDirty&&(step!=='selection'||choosingIngredient),()=>{
+    if(choosingIngredient)cancelRecipeIngredient();
+    else if(step==='recipe')cancelRecipe();
+    else if(step==='editor')leaveEditor();
+    else go('selection');
+  });
   const close=()=>{
     if(step!=='selection'&&!editing&&!basket.lines.length){
       go('selection');
@@ -284,7 +192,7 @@ export function LogFood({
     onClose();
   };
   const submitAiEstimate=async()=>{
-    if(scanDraftLoadedKey!==foodBasketDraftKey(accountId,date))throw new Error('Checking saved scan work on this device. Try again in a moment.');
+    if(!scan.ready)throw new Error('Checking saved scan work on this device. Try again in a moment.');
     if(mode!=='description'&&!photo)throw new Error('Choose a photo before continuing.');
     const input={date,mode,description,imageBase64:mode==='description'?null:photo,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined};
     const base=foodScanDraftForAttempt(scanDraftRef.current,input);
@@ -305,9 +213,7 @@ export function LogFood({
       await persistScanDraft({...requestDraft,status:job.status==='failed'?'failed':'submitted',error:message});
       throw new Error(message);
     }
-    let estimate:AiEstimate;
-    try{estimate=JSON.parse(job.resultJson) as AiEstimate;}catch{throw new Error('AI returned an invalid estimate. Try again.');}
-    if(!Array.isArray(estimate.foods))throw new Error('AI returned an invalid estimate. Try again.');
+    const estimate=parseAiEstimate(job.resultJson);
     const barcodeContext=pendingBarcode;
     if(!Array.isArray(estimate.foods)||estimate.foods.length===0){
       if(barcodeContext&&mode==='label')throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
@@ -317,30 +223,9 @@ export function LogFood({
     if(barcodeContext&&mode==='label'){
       if(estimate.foods.length!==1)throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
       const food=estimate.foods[0];
-      const declaredGrams=food.unit==='g'
-        ?food.quantity
-        :(food.portionGrams!=null?food.quantity*food.portionGrams:null);
-      const known=declaredGrams!=null&&Number.isFinite(declaredGrams)&&declaredGrams>0;
-      const ratio=known?100/declaredGrams:1;
-      const hasPortion=known&&food.unit==='serving'&&food.portionLabel&&food.portionGrams!=null;
       setLabelNote(food.notes||'');
       setSaveFood(true);
-      setDraft({
-        ...blankNutrients,
-        name:food.name,
-        source:'AI label estimate',
-        quantity:known?100:1,
-        unit:known?'g':'serving',
-        portionLabel:known&&hasPortion?food.portionLabel??null:null,
-        portionGrams:known&&hasPortion?food.portionGrams??null:null,
-        calories:food.calories*ratio,
-        protein:food.protein==null?null:food.protein*ratio,
-        carbs:food.carbs==null?null:food.carbs*ratio,
-        fat:food.fat==null?null:food.fat*ratio,
-        fiber:food.fiber==null?null:food.fiber*ratio,
-        portionsJson:hasPortion?serializePortions([{label:food.portionLabel!,grams:food.portionGrams!}]):'[]',
-        barcode:barcodeContext.code,
-      });
+      setDraft(labelFoodDraft(food,barcodeContext.code));
       setDescription('');setPhoto(null);go('editor');
       return;
     }
@@ -352,33 +237,7 @@ export function LogFood({
     if(saveFood){
       const barcodeContext=pendingBarcode;
       let savedData:FoodDraft={...data,barcode:data.barcode?.trim()||null};
-      if(barcodeContext){
-        if(data.unit==='serving'&&(!data.portionLabel||data.portionGrams==null))
-          throw new Error('Enter the serving label and weight in grams before saving this barcode food.');
-        const grams=data.unit==='g'
-          ?data.quantity
-          :(data.portionGrams!=null&&data.quantity>0?data.quantity*data.portionGrams:null);
-        if(grams==null||!Number.isFinite(grams)||grams<=0)
-          throw new Error('Enter the serving weight in grams before saving this barcode food.');
-        const ratio=100/grams;
-        const portions=data.unit==='serving'&&data.portionLabel&&data.portionGrams!=null
-          ?serializePortions([{label:data.portionLabel,grams:data.portionGrams}])
-          :data.portionsJson;
-        savedData={
-          ...data,
-          calories:data.calories*ratio,
-          protein:data.protein==null?null:data.protein*ratio,
-          carbs:data.carbs==null?null:data.carbs*ratio,
-          fat:data.fat==null?null:data.fat*ratio,
-          fiber:data.fiber==null?null:data.fiber*ratio,
-          quantity:100,
-          unit:'g',
-          portionLabel:null,
-          portionGrams:null,
-          portionsJson:portions,
-          barcode:barcodeContext.code,
-        };
-      }
+      if(barcodeContext)savedData=barcodeFoodPer100(data,barcodeContext.code);
       const scanFoodId=saveFood===true&&scanDraftRef.current?.status==='review'?scanDraftRef.current.id:null;
       const foodId=saveFood===true?(scanFoodId??crypto.randomUUID()):saveFood.id;
       const alreadySaved=!!scanFoodId&&store.state!.foods.some(food=>food.id===scanFoodId&&!food.deleted);
@@ -433,19 +292,6 @@ export function LogFood({
       go('batch');
     }
   };
-  const foodToSearchResult=(food:Food):SearchResult=>({
-    name:food.name,
-    calories:food.calories,
-    protein:food.protein,
-    fat:food.fat,
-    carbs:food.carbs,
-    fiber:food.fiber,
-    source:food.source,
-    servingGrams:food.servingGrams||100,
-    portions:parsePortions(food.portionsJson),
-    code:barcodeValue(food.barcode),
-    basis:'per100g',
-  });
   const resolveBarcode=async(code:string):Promise<SearchResult>=>{
     const normalized=code.trim();
     const local=store.state!.foods.find(food=>!food.deleted&&food.barcode?.trim()===normalized);
@@ -472,8 +318,7 @@ export function LogFood({
   const chooseRecipe=(food:SearchResult)=>{
     setDetail(null);
     setBarcodeRecovery(undefined);
-    setRecipeSelected(food);
-    setRecipeQuantity({grams:food.servingGrams||food.portions?.[0]?.grams||100,selectedPortionLabel:'g',portionMultiplier:1});
+    recipe.pickIngredient(food);
     setStep('recipe');
   };
   const chooseForPurpose=(food:SearchResult)=>selectionPurpose==='recipe'?chooseRecipe(food):choose(food);
@@ -488,8 +333,6 @@ export function LogFood({
     }catch(ex){if(id===selectionRequest.current)setDetail({food,error:(ex as Error).message});}
   };
   const allSavedFoods=store.state!.foods.filter(food=>!food.deleted);
-  const favoriteCount=allSavedFoods.filter(f=>f.favourite).length;
-  const recipeCount=allSavedFoods.filter(isRecipe).length;
   const recentEntries=Array.from(
     store.state!.entries
       .filter(entry=>!entry.deleted)
@@ -501,14 +344,6 @@ export function LogFood({
       },new Map<string,Entry>())
       .values()
   ).slice(0,8);
-  const foods=allSavedFoods.filter(food=>{
-    if((selectionPurpose==='recipe'||pendingLinkBarcode)&&isRecipe(food))return false;
-    const matchesQuery=!query.trim()||food.name.toLowerCase().includes(query.toLowerCase().trim());
-    if(!matchesQuery)return false;
-    if(savedFilter==='favourites')return food.favourite;
-    if(savedFilter==='recipes')return isRecipe(food);
-    return true;
-  }).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
   const beginBarcodeLink=()=>{
     if(!barcodeRecovery)return;
     setPendingLinkBarcode({code:barcodeRecovery.code,purpose:selectionPurpose});
@@ -545,8 +380,7 @@ export function LogFood({
   const selectionDirty=Boolean(basket.lines.length);
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(selectionPurpose==='recipe'?'Choose ingredient':initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
   const descriptionText=step==='selection'?`For ${date}`:undefined;
-  const hasSavedScanReview=scanDraft?.date===date&&scanDraft.mode===mode&&scanDraft.status==='review'&&!!scanDraft.resultJson&&
-    scanDraft.description===description&&JSON.stringify(scanDraft.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
+  const hasSavedScanReview=scan.hasSavedReview;
 
   const selection=<div ref={selectionRef} className="dialog-step food-selection">
     {selectionPurpose==='recipe'&&<div className="editor-back-nav"><Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={cancelRecipeIngredient}><ArrowLeft size={16} aria-hidden="true"/>Back to recipe</Button></div>}
@@ -561,128 +395,24 @@ export function LogFood({
       <p>{detail.error?`Serving details unavailable for ${detail.food.name}. ${detail.error}`:`Loading serving details for ${detail.food.name}…`}</p>
       <div className="actions">{detail.error&&<Button onClick={()=>void chooseSearch(detail.food)}>Retry serving lookup</Button>}<Button onClick={()=>chooseForPurpose(detail.food)}>Review using 100 g</Button></div>
     </div>}
-    {tab==='saved'&&<>
-      <div className="saved-foods-header section-heading">
-        <div><h3>Your foods</h3><p>{selectionPurpose==='recipe'?'Choose a saved food for this ingredient.':'Saved custom foods, recipes, and recent diary items.'}</p></div>
-        {selectionPurpose==='log'&&<div className="actions saved-foods-actions">
-          <Button variant="tertiary" onClick={()=>{setQuery('');setSavedFilter('all');window.requestAnimationFrame(()=>document.getElementById('log-food-search')?.focus());}}>Search</Button>
-          <Button variant="secondary" onClick={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}><Plus size={16}/>Custom food</Button>
-          <Button variant="secondary" onClick={startRecipe}><Plus size={16}/>New recipe</Button>
-        </div>}
-      </div>
-      {pendingLinkBarcode&&<div className="notice barcode-link-notice" role="status">
-        <p>Choose one saved non-recipe food to link to barcode {pendingLinkBarcode.code}.</p>
-        <Button variant="tertiary" onClick={()=>{setPendingLinkBarcode(undefined);setTab('barcode');}}>Cancel</Button>
-      </div>}
-      <div className="saved-foods-search">
-        <Field id="log-food-search" name="query" data-modal-autofocus label="Find your food" placeholder="Filter by food or recipe name…" value={query} onChange={event=>setQuery(event.target.value)}/>
-      </div>
-      <SegmentedControl<'all'|'favourites'|'recipes'|'recent'>
-        layout="wrap"
-        className="saved-filter-segments"
-        label="Filter your foods"
-        value={savedFilter}
-        options={[
-          {value:'all',label:`All (${allSavedFoods.length})`},
-          {value:'favourites',label:`Favourites (${favoriteCount})`},
-          ...(selectionPurpose==='log'&&!pendingLinkBarcode?[{value:'recipes' as const,label:`Recipes (${recipeCount})`},{value:'recent' as const,label:`Recent (${recentEntries.length})`}] : []),
-        ]}
-        onChange={setSavedFilter}
-      />
-      {selectionPurpose==='log'&&!pendingLinkBarcode&&savedFilter==='recent'?(
-        recentEntries.length>0?(
-          <div className="recent-foods-grid">
-            {recentEntries.map(entry=><RecentFoodCard
-              key={entry.id}
-              entry={entry}
-              energyUnit={energyUnit}
-              onSelect={selected=>{setSaveFood(false);setDraft({...selected,id:undefined});go('editor');}}
-            />)}
-          </div>
-        ):<p className="empty recent-empty">No recent diary items yet.</p>
-      ):(
-        <>
-          {selectionPurpose==='log'&&!pendingLinkBarcode&&savedFilter==='all'&&!query.trim()&&recentEntries.length>0&&<section className="recent-foods-section" aria-labelledby="recent-section-heading">
-            <div className="recent-foods-heading">
-              <h4 id="recent-section-heading">Recent items</h4>
-            </div>
-            <div className="recent-foods-grid">
-              {recentEntries.slice(0,4).map(entry=><RecentFoodCard
-                key={entry.id}
-                entry={entry}
-                energyUnit={energyUnit}
-                onSelect={selected=>{setSaveFood(false);setDraft({...selected,id:undefined});go('editor');}}
-              />)}
-            </div>
-          </section>}
-          {foods.length===0?(
-            <p className="empty">
-              {query.trim()
-                ?`No saved foods matching “${query}”.`
-                :savedFilter==='favourites'
-                ?'No favourite foods yet. Star foods to find them quickly here.'
-                :savedFilter==='recipes'
-                ?'No recipes yet. Create one with the New recipe button.'
-                :'No saved foods yet.'}
-            </p>
-          ):(
-            foods.map(food=><div
-              className="food-row interactive"
-              key={food.id}
-              role="button"
-              aria-label={food.name}
-              tabIndex={0}
-              onClick={()=>chooseSaved(food)}
-              onKeyDown={event=>{
-                if(event.target!==event.currentTarget)return;
-                if(event.key==='Enter'||event.key===' '){
-                  event.preventDefault();
-                  chooseSaved(food);
-                }
-              }}
-            >
-              <div className="food-description">
-                <div className="saved-food-title-row">
-                  <strong>{food.name}</strong>
-                  {isRecipe(food)&&<span className="food-badge recipe-badge">Recipe</span>}
-                </div>
-                <div className="saved-food-meta">
-                  <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g</span>
-                  {(food.protein!=null||food.carbs!=null||food.fat!=null)&&(
-                    <FoodMacroSummary protein={food.protein} carbs={food.carbs} fat={food.fat} className="food-macro-summary-inline"/>
-                  )}
-                </div>
-              </div>
-              <div className="food-row-actions">
-                <Button
-                  variant="tertiary"
-                  className={`food-row-star ${food.favourite?'starred':''}`}
-                  aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`}
-                  onClick={event=>{
-                    event.stopPropagation();
-                    void runAction(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite,barcode:food.barcode??null}}));
-                  }}
-                >
-                  <Star size={18} fill={food.favourite?'currentColor':'none'}/>
-                </Button>
-                {selectionPurpose==='log'&&<Button
-                  variant="tertiary"
-                  aria-label={`Edit ${food.name}`}
-                  onClick={event=>{
-                    event.stopPropagation();
-                    setSaveFood(food);
-                    setDraft({...food,quantity:100,unit:'g'});
-                    go('editor');
-                  }}
-                >
-                  Edit
-                </Button>}
-              </div>
-            </div>)
-          )}
-        </>
-      )}
-    </>}
+    {tab==='saved'&&<LogFoodSavedFoods
+      purpose={selectionPurpose}
+      linkBarcode={pendingLinkBarcode?.code}
+      onCancelLink={()=>{setPendingLinkBarcode(undefined);setTab('barcode');}}
+      query={query}
+      onQueryChange={setQuery}
+      filter={savedFilter}
+      onFilterChange={setSavedFilter}
+      savedFoods={allSavedFoods}
+      recentEntries={recentEntries}
+      energyUnit={energyUnit}
+      onPickRecent={selected=>{setSaveFood(false);setDraft({...selected,id:undefined});go('editor');}}
+      onChoose={chooseSaved}
+      onToggleFavourite={food=>void runAction(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite,barcode:food.barcode??null}}))}
+      onEdit={food=>{setSaveFood(food);setDraft({...food,quantity:100,unit:'g'});go('editor');}}
+      onCustomFood={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}
+      onNewRecipe={startRecipe}
+    />}
     {(tab==='search'||tab==='barcode')&&!pendingBarcode&&<FoodPicker
       tab={tab}
       searchLabel={selectionPurpose==='recipe'?'Search ingredients':'Search term'}
@@ -712,59 +442,38 @@ export function LogFood({
       step={step}
       energyUnit={energyUnit}
     />}
-    {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<section className="notice barcode-recovery" aria-labelledby="barcode-recovery-title">
-      <h4 id="barcode-recovery-title">{barcodeRecovery.status===404?'Barcode not found in Open Food Facts':barcodeRecovery.status===422?'Open Food Facts has incomplete product data':'Open Food Facts is temporarily unavailable'}</h4>
-      <p>{barcodeRecovery.status===404
-        ?`No catalogue entry was found for ${barcodeRecovery.code}. The camera decoded the barcode; choose how to recover this product.`
-        :barcodeRecovery.status===422
-        ?`The product at ${barcodeRecovery.code} is missing reliable nutrition details. You can provide the label or use one of your saved foods.`
-        :`The catalogue could not be reached for ${barcodeRecovery.code}. Retry when connected, or use a private saved-food or manual recovery.`}</p>
-      <div className="actions">
-        {barcodeRecovery.status!==404&&<Button variant="secondary" onClick={retryBarcode}>Retry lookup</Button>}
-        <Button onClick={beginBarcodeLink}>Link an existing food</Button>
-        <Button onClick={beginBarcodeLabel}>Scan nutrition label</Button>
-        <Button onClick={beginBarcodeManual}>Enter manually</Button>
-      </div>
-    </section>}
-    {(tab==='ai'||pendingBarcode)&&<Form onSubmit={()=>void run(submitAiEstimate)} className="ai-logging-form">
-      {pendingBarcode&&<div className="section-heading"><div><h3>Scan nutrition label</h3><p>Barcode {pendingBarcode.code} · review the extracted values before saving.</p></div><Button type="button" variant="tertiary" onClick={()=>{setPendingBarcode(undefined);setTab('barcode');}}>Back to barcode</Button></div>}
-      {!pendingBarcode&&<h3>AI logging</h3>}
-      {!pendingBarcode&&<SelectField id="ai-log-mode" name="mode" disabled={busy} label="How would you like to log?" value={mode} onChange={value=>{setMode(value as AiMode);setPhoto(null);}}><option value="description">Describe my meal</option><option value="photo">Meal photo</option><option value="label">Nutrition label</option></SelectField>}
-      {mode==='description'&&<TextArea id="ai-meal-description" name="description" disabled={busy} required label="Meal description and portions" maxLength={3000} value={description} onChange={event=>setDescription(event.target.value)} placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"/>}
-      {mode!=='description'&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo&&!hasSavedScanReview?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file){void run(async()=>{
-        const imageBase64=await prepareImage(file);
-        const current=scanDraftRef.current;
-        const next=current?.status==='captured'&&current.date===date&&current.mode===mode
-          ?{...current,description,imageBase64,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined}
-          :createFoodScanDraft({date,mode,description,imageBase64,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined});
-        await persistScanDraft(next);
-        setPhoto(imageBase64);
-      });}}}/>}
-      {photo&&mode!=='description'&&<p className="notice">Location metadata removed · deleted after processing.</p>}
-      {hasSavedScanReview&&<p className="notice" role="status">This scan is saved on this device and ready for review.</p>}
-      {scanDraft?.date===date&&scanDraft.status==='failed'&&scanDraft.error&&<p className="notice" role="status">{scanDraft.error==='Upload interrupted. Try again.'?'The photo is retained on this device. Retry will use the same scan identity.':'The previous scan failed. Try again to start a new scan; the failed request will not be duplicated.'}</p>}
-      {scanDraftStorageError&&<p className="error" role="alert">{scanDraftStorageError}</p>}
-      <div className="modal-actions"><Button variant="primary" disabled={busy||!!scanDraftStorageError} type="submit"><Sparkles size={18}/>{busy?'Estimating…':hasSavedScanReview?'Review saved estimate':scanDraft?.status==='failed'?scanDraft.error==='Upload interrupted. Try again.'?'Retry saved scan':'Try again':scanDraft?.status==='submitted'?'Resume saved scan':mode==='label'?'Read nutrition label':'Estimate my meal'}</Button></div>
-    </Form>}
+    {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
+    {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
+      date={date}
+      busy={busy}
+      pendingBarcode={pendingBarcode}
+      mode={mode}
+      onModeChange={value=>{setMode(value);setPhoto(null);}}
+      description={description}
+      onDescriptionChange={setDescription}
+      photo={photo}
+      onPhotoFile={file=>void run(async()=>{await scan.attachPhoto(await prepareImage(file));})}
+      hasSavedReview={hasSavedScanReview}
+      scanDraft={scanDraft}
+      storageError={scan.storageError}
+      onSubmit={()=>void run(submitAiEstimate)}
+      onBackToBarcode={()=>{setPendingBarcode(undefined);setTab('barcode');}}
+    />}
     {error&&<p className="error" role="alert">{error}</p>}
   </div>;
 
   const child=step==='batch'
     ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{if(tab==='ai'){go('selection');}else{selectTab('search');go('selection');}}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
-    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(saveFood){setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setLabelNote('');go('selection');}else if(editing){onClose();}else{go('selection');}}} onDirtyChange={setStepDirty}/>
+    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(editing)onClose();else leaveEditor();}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor
       store={store}
-      draft={recipeDraft}
-      onDraftChange={setRecipeDraft}
-      selected={recipeSelected}
-      quantity={recipeQuantity}
-      onQuantityChange={setRecipeQuantity}
-      onAddIngredient={(food,grams)=>{
-        setRecipeDraft(current=>({...current,items:[...current.items,{food,grams}]}));
-        setRecipeSelected(undefined);
-        setRecipeQuantity(emptyRecipeQuantity());
-      }}
+      draft={recipe.draft}
+      onDraftChange={recipe.setDraft}
+      selected={recipe.selected}
+      quantity={recipe.quantity}
+      onQuantityChange={recipe.setQuantity}
+      onAddIngredient={recipe.addIngredient}
       onBeginIngredient={beginRecipeIngredient}
       onCancelIngredient={cancelRecipeIngredient}
       onClose={cancelRecipe}
@@ -783,9 +492,4 @@ export function LogFood({
   return <>
     <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{resolvedContent}</Modal>
   </>;
-}
-
-function barcodeValue(code:string|null|undefined):string|null{
-  const normalized=code?.trim()??'';
-  return /^[0-9]{8,14}$/.test(normalized)?normalized:null;
 }

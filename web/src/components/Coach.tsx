@@ -344,6 +344,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
                     name="heightFeet"
                     aria-label="Height (feet)"
                     type="number"
+                    inputMode="numeric"
                     required
                     min="2"
                     max="8"
@@ -364,6 +365,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
                     name="heightInches"
                     aria-label="Height (inches)"
                     type="number"
+                    inputMode="numeric"
                     required
                     min="0"
                     max="11.9"

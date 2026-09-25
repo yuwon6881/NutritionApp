@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import {Check, ChevronDown} from 'lucide-react';
+import {useDismissablePopover} from './useDismissablePopover';
 
 export interface SelectOption {
   value: string;
@@ -74,17 +75,7 @@ export function Select({
 
   const selectedOption = options.find(o => o.value === value);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  useDismissablePopover(isOpen, [containerRef], () => setIsOpen(false));
 
   // Scroll focused option into view
   useEffect(() => {

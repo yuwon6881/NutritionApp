@@ -2,6 +2,7 @@ import {useId,useEffect,useState,type InputHTMLAttributes,type ReactNode,type Te
 import {Select} from './Select';
 import {TimePicker} from './TimePicker';
 import {FieldFrame} from './Form';
+import {numericInputMode} from '../../lib/inputMode';
 
 export function Field({
   label,
@@ -22,7 +23,7 @@ export function Field({
     if(props.type==='number')setRaw(previous=>Number(previous)===props.value?previous:String(props.value??''));
   },[props.value,props.type]);
   const inputEl = (
-    <input {...props} id={id} name={name} aria-describedby={[props['aria-describedby'],hint?`${id}-hint`:undefined].filter(Boolean).join(' ')||undefined}
+    <input {...props} inputMode={props.inputMode??numericInputMode(props)} id={id} name={name} aria-describedby={[props['aria-describedby'],hint?`${id}-hint`:undefined].filter(Boolean).join(' ')||undefined}
       value={props.type==='number'?raw:props.value} onChange={event=>{if(props.type==='number')setRaw(event.target.value);props.onChange?.(event);}}/>
   );
   const fieldInput = insideAction ? (

@@ -2,6 +2,7 @@ import {FieldFrame} from './Form';
 import {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Calendar, Check, ChevronDown, ChevronLeft, ChevronRight} from 'lucide-react';
+import {useDismissablePopover} from './useDismissablePopover';
 
 interface CalendarDropdownProps {
   label: string;
@@ -55,16 +56,7 @@ function CalendarDropdown({
     }
   }, [isOpen, selectedIndex]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
+  useDismissablePopover(isOpen, [containerRef], onClose);
 
   useEffect(() => {
     if (isOpen && focusedIndex >= 0 && listRef.current) {
@@ -294,19 +286,11 @@ export function DatePicker({
     }
   }, [value]);
 
-  // Click outside listener
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)&&!popoverRef.current?.contains(e.target as Node)) {
-        setActiveDropdown(null);
-        setIsOpen(false);
-        setPopoverPosition(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  useDismissablePopover(isOpen, [containerRef, popoverRef], () => {
+    setActiveDropdown(null);
+    setIsOpen(false);
+    setPopoverPosition(null);
+  });
 
   useEffect(()=>{
     if(!isOpen)return;

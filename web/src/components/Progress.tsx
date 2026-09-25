@@ -8,6 +8,7 @@ import {WeightChart} from './WeightChart';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
 import {WeightEntryDialog} from './WeightEntryDialog';
+import {DeleteWeightDialog} from './DeleteWeightDialog';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
 import {SelectField} from './ui/Field';
@@ -50,6 +51,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const [weightOpen,setWeightOpen]=useState(false);
   const [weightEdit,setWeightEdit]=useState<Weight>();
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
+  const [weightDeleting,setWeightDeleting]=useState<{weight:Weight;trigger:HTMLElement}|null>(null);
   const weight=useProgressSummary(store,weightPeriod,tab==='weight');
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
   const {state:ghState,loading:ghLoading}=useGoogleHealth();
@@ -84,7 +86,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
         action={{label:'Retry summary',onClick:()=>void retry(),disabled:loading}}
       />}
       {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2><p>Loading history…</p></section></div>}
-      {summary&&<WeightSummary summary={summary} units={units} pending={pending} onEdit={editWeight} onDelete={weight=>void store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}/>}
+      {summary&&<WeightSummary summary={summary} units={units} pending={pending} onEdit={editWeight} onDelete={(weight,trigger)=>setWeightDeleting({weight,trigger})}/>}
     </>}
     {tab==='energy'&&<>
       <EnergyBalance store={store} period={energyPeriod} summary={energy.summary} error={energy.error} onPeriodChange={setEnergyPeriod}/>
@@ -98,11 +100,18 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
     </div>}
     </div>
     </MotionPanel>
+    <DeleteWeightDialog
+      weight={weightDeleting?.weight??null}
+      valueLabel={weightDeleting?`${displayWeight(weightDeleting.weight.kg,units.weight,2)} ${weightLabel(units.weight)}`:''}
+      restoreFocus={weightDeleting?.trigger}
+      onClose={()=>setWeightDeleting(null)}
+      onDelete={weight=>store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}
+    />
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
   </>;
 }
 
-function WeightSummary({summary,units,pending,onEdit,onDelete}:{summary:ProgressSummary;units:ReturnType<typeof unitsFor>;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight)=>void}){
+function WeightSummary({summary,units,pending,onEdit,onDelete}:{summary:ProgressSummary;units:ReturnType<typeof unitsFor>;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void}){
   const stats=summary.weight.statistics;
   const editable=summary.weight.editableWeighIns;
   return <>
@@ -115,7 +124,7 @@ function WeightSummary({summary,units,pending,onEdit,onDelete}:{summary:Progress
     <WeightChart series={summary.weight.series} weightUnit={units.weight}/>
     <section className="panel weight-history-panel">
       <div className="section-heading"><div><h2>Latest weigh-ins</h2><p>Only recent retained weigh-ins can be edited. Older points remain in the chart.</p></div></div>
-      {editable.length?<div className="weight-history">{editable.map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>onEdit(weight,event.currentTarget)}>Edit</Button><Button variant="tertiary" size="md" onClick={()=>onDelete(weight)}>Delete</Button></div>)}</div>:<p className="empty">No weigh-ins in this period.</p>}
+      {editable.length?<div className="weight-history">{editable.map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>onEdit(weight,event.currentTarget)}>Edit</Button><Button variant="tertiary" size="md" onClick={event=>onDelete(weight,event.currentTarget)}>Delete</Button></div>)}</div>:<p className="empty">No weigh-ins in this period.</p>}
     </section>
   </>;
 }

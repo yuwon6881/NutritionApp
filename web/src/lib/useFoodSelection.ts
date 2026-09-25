@@ -1,4 +1,5 @@
 import {useState,useCallback,useEffect} from 'react';
+import {useBackLayer} from './useBackLayer';
 
 export interface FoodSelectionState {
   selectedIds:Set<string>;
@@ -53,6 +54,8 @@ export function useFoodSelection():FoodSelectionState{
   },[]);
 
   const isSelected=useCallback((id:string)=>selectedIds.has(id),[selectedIds]);
+
+  useBackLayer(isSelecting,exitSelection);
 
   useEffect(()=>{
     if(!isSelecting)return;
