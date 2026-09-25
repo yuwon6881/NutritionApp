@@ -2,6 +2,16 @@ import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn as signInPage} from './signIn';
 const headers={'Origin':(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088'),'X-Nutrition-Request':'1'};
+async function getMockAuthorization(request:APIRequestContext,url:string){
+  for(let attempt=0;;attempt++){
+    try{return await request.get(url,{maxRedirects:0});}
+    catch(error){
+      const isConnectionReset=error instanceof Error&&error.message.includes('ECONNRESET');
+      if(!isConnectionReset||attempt>=2)throw error;
+      await new Promise(resolve=>setTimeout(resolve,100*(attempt+1)));
+    }
+  }
+}
 async function signIn(request:APIRequestContext,username='test-alice'){
   const start=await request.get('/api/auth/central/start',{maxRedirects:0});
   const authUrl=start.headers()['location'];
@@ -9,7 +19,7 @@ async function signIn(request:APIRequestContext,username='test-alice'){
   const parsed=new URL(authUrl);
   parsed.searchParams.set('auto','true');
   parsed.searchParams.set('username',username);
-  const idp=await request.get(parsed.toString(),{maxRedirects:0});
+  const idp=await getMockAuthorization(request,parsed.toString());
   const callbackUrl=idp.headers()['location'];
   if(!callbackUrl)return idp;
   return await request.get(callbackUrl,{maxRedirects:0});
