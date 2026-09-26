@@ -28,6 +28,9 @@ import {unitsFor} from '../lib/units';
 import {LogFoodSavedFoods,type SavedFilter} from './LogFoodSavedFoods';
 import {LogFoodBarcodeRecovery,type BarcodeRecovery} from './LogFoodBarcodeRecovery';
 import {LogFoodAiForm} from './LogFoodAiForm';
+import {LogFoodRecents} from './LogFoodRecents';
+import {lineFromEntry,rankRecentFoods} from '../lib/recentFoods';
+import {today} from '../lib/format';
 import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
 
 type SearchResult=import('../types').FoodSearchResult;
@@ -44,6 +47,7 @@ export function LogFood({
   initialAi=false,
   initialTab,
   initialTime,
+  initialRecent,
   restoreFocus,
 }:{
   open:boolean;
@@ -55,6 +59,8 @@ export function LogFood({
   initialAi?:boolean;
   initialTab?:'search'|'saved'|'barcode'|'ai';
   initialTime?:string;
+  /** Opens straight into the batch review with this recent food already added. */
+  initialRecent?:Entry;
   restoreFocus?:HTMLElement|null;
 }){
   const defaultTab=initialTab??(initialAi?'ai':'search');
@@ -129,7 +135,8 @@ export function LogFood({
   useLayoutEffect(()=>{
     if(!open)return;
     const frame=window.requestAnimationFrame(()=>{
-      const target=document.querySelector<HTMLElement>('.food-modal [data-modal-autofocus],.food-modal [data-validation-focus]');
+      // The outgoing step can still be mounted during its fade, so the batch step names its own target.
+      const target=document.querySelector<HTMLElement>(step==='batch'?'.food-modal [data-step-focus]':'.food-modal [data-modal-autofocus],.food-modal [data-validation-focus]');
       if(target?.isConnected)target.focus({preventScroll:true});
     });
     return()=>window.cancelAnimationFrame(frame);
@@ -174,6 +181,10 @@ export function LogFood({
   };
   const recipeDirty=recipe.dirty;
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
+  // A recent food goes straight to the batch review at its last portion; the review step stays.
+  const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));setBatchTime(newTime());go('batch');});
+  const appliedRecent=useRef<string|null>(null);
+  useEffect(()=>{if(!open){appliedRecent.current=null;return;}if(initialRecent&&basket.ready&&appliedRecent.current!==initialRecent.id){appliedRecent.current=initialRecent.id;quickLogRecent(initialRecent);}});
   const leaveEditor=()=>{if(saveFood){setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setLabelNote('');}go('selection');};
   // Back steps out of an inner step before it closes the sheet. A step with
   // unsaved input falls through to the Modal's own discard confirmation.
@@ -333,17 +344,9 @@ export function LogFood({
     }catch(ex){if(id===selectionRequest.current)setDetail({food,error:(ex as Error).message});}
   };
   const allSavedFoods=store.state!.foods.filter(food=>!food.deleted);
-  const recentEntries=Array.from(
-    store.state!.entries
-      .filter(entry=>!entry.deleted)
-      .reverse()
-      .reduce((map,entry)=>{
-        const key=entry.name.toLowerCase().trim();
-        if(!map.has(key))map.set(key,entry);
-        return map;
-      },new Map<string,Entry>())
-      .values()
-  ).slice(0,8);
+  const zone=store.state!.profile?.timeZone;
+  const [nowHours,nowMinutes]=mealTime(zone).split(':').map(Number);
+  const recentEntries=rankRecentFoods(store.state!.entries,{date:today(zone),minutes:nowHours*60+nowMinutes});
   const beginBarcodeLink=()=>{
     if(!barcodeRecovery)return;
     setPendingLinkBarcode({code:barcodeRecovery.code,purpose:selectionPurpose});
@@ -406,7 +409,7 @@ export function LogFood({
       savedFoods={allSavedFoods}
       recentEntries={recentEntries}
       energyUnit={energyUnit}
-      onPickRecent={selected=>{setSaveFood(false);setDraft({...selected,id:undefined});go('editor');}}
+      onPickRecent={quickLogRecent}
       onChoose={chooseSaved}
       onToggleFavourite={food=>void runAction(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite,barcode:food.barcode??null}}))}
       onEdit={food=>{setSaveFood(food);setDraft({...food,quantity:100,unit:'g'});go('editor');}}
@@ -442,6 +445,7 @@ export function LogFood({
       step={step}
       energyUnit={energyUnit}
     />}
+    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents entries={recentEntries} energyUnit={energyUnit} onPick={quickLogRecent}/>}
     {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
       date={date}
@@ -463,7 +467,7 @@ export function LogFood({
   </div>;
 
   const child=step==='batch'
-    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{if(tab==='ai'){go('selection');}else{selectTab('search');go('selection');}}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime}/>
+    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{if(tab==='ai'){go('selection');}else{selectTab('search');go('selection');}}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime} onScanAnother={tab==='barcode'?()=>{selectTab('barcode');go('selection');setCamera(true);}:undefined}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(editing)onClose();else leaveEditor();}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor

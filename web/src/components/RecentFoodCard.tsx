@@ -6,16 +6,20 @@ import {Button} from './ui/Button';
 export function RecentFoodCard({
   entry,
   energyUnit,
+  disabled=false,
   onSelect
 }:{
   entry:Entry;
   energyUnit:EnergyUnit;
-  onSelect:(entry:Entry)=>void;
+  disabled?:boolean;
+  onSelect:(entry:Entry,trigger:HTMLElement)=>void;
 }){
   return <Button
     presentation="plain"
     className="recent-food-card"
-    onClick={()=>onSelect(entry)}
+    disabled={disabled}
+    aria-label={`${entry.name}, ${displayPortion(entry)}, ${displayEnergy(entry.calories,energyUnit)} ${energyLabel(energyUnit)}`}
+    onClick={event=>onSelect(entry,event.currentTarget)}
   >
     <div className="recent-food-info">
       <strong className="recent-food-name">{entry.name}</strong>

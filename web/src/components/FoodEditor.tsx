@@ -11,6 +11,7 @@ import {parsePortions,serializePortions,validatePortions} from '../lib/portions'
 import {energyLabel,inputEnergy,parseEnergy} from '../lib/units';
 import {number} from '../lib/format';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {PortionChips} from './PortionChips';
 
 export type FoodDraft=Nutrients&{
   quantity:number;
@@ -188,6 +189,7 @@ export function FoodEditor({
                 if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
               }
             }} options={unitOptions}/>
+            {draft.unit==='serving'&&<div className="form-grid-span-all"><PortionChips quantity={draft.quantity} unitLabel={draft.portionLabel??'serving'} onChange={quantity=>set('quantity',quantity)}/></div>}
             <TimePicker id="food-time" name="time" className="form-grid-span-all" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>
           </div>
         </>

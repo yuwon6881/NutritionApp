@@ -1,0 +1,18 @@
+/* Fast-logging surfaces: recents, Log again, portion shortcuts, and continuous scanning. */
+.recent-foods-heading small{font-size:.72rem}
+.food-selection>.recent-foods-section{margin-top:16px}
+
+.log-again-panel .section-heading{margin-bottom:12px}
+/* A single scrolling row keeps the Dashboard short on phones; overflow stays inside the strip. */
+.log-again-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,1fr);gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding-bottom:4px;scrollbar-width:thin}
+.log-again-strip>.recent-food-card{scroll-snap-align:start;min-height:var(--touch-target)}
+@media (min-width:1024px){
+  .log-again-strip{grid-auto-flow:row;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));overflow-x:visible}
+}
+
+.portion-chips{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 18px}
+.portion-chips>.button{min-width:var(--touch-target);min-height:var(--touch-target);font-variant-numeric:tabular-nums}
+@media (min-width:1024px){.portion-chips>.button{min-width:var(--touch-target-expanded);min-height:var(--touch-target-expanded)}}
+
+.barcode-camera-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.barcode-camera-status>p{margin:0}

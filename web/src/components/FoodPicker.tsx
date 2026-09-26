@@ -9,6 +9,8 @@ import {Form} from './ui/Form';
 import {BarcodeCamera} from './BarcodeCamera';
 import {Modal} from './ui/Modal';
 import {displayEnergy,energyLabel} from '../lib/units';
+import {useSearchAsYouType} from './useSearchAsYouType';
+import {scanWithNativeScanner} from '../lib/barcode/nativeScanner';
 
 type SearchResult = import('../types').FoodSearchResult;
 
@@ -79,6 +81,23 @@ export function FoodPicker({
 }:FoodPickerProps){
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
+  useSearchAsYouType({enabled:tab==='search'&&open&&step==='selection',query,onResults:setResults});
+  // The Android app hands the camera to ML Kit; the in-page camera remains the fallback.
+  const [nativeScanning,setNativeScanning]=useState(false);
+  const [inPageCamera,setInPageCamera]=useState(false);
+  useEffect(()=>{
+    if(!camera||tab!=='barcode'||inPageCamera)return;
+    let active=true;
+    setNativeScanning(true);
+    void scanWithNativeScanner().then(result=>{
+      if(!active)return;
+      setNativeScanning(false);
+      if(result.kind==='unavailable'){setInPageCamera(true);return;}
+      setCamera(false);
+      if(result.kind==='code'){setQuery(result.code);lookup(result.code);}
+    });
+    return()=>{active=false;};
+  },[camera,tab,inPageCamera]);
   const resolve=async(value:string)=>{
     if(customLookup)return customLookup(tab,value);
     return tab==='barcode'
@@ -148,7 +167,7 @@ export function FoodPicker({
       </div>
     </Form>
 
-    {tab==='barcode'&&camera&&open&&step==='selection'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode" closeLabel="Stop barcode camera">
+    {tab==='barcode'&&camera&&!nativeScanning&&inPageCamera&&open&&step==='selection'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode" closeLabel="Stop barcode camera">
       <div className="barcode-scanner-modal">
         <p className="source">Point your camera at a food barcode to scan it automatically.</p>
         <BarcodeCamera

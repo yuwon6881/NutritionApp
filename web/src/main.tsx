@@ -7,6 +7,7 @@ import App from './App';
 import {MobilePwaProvider} from './components/ui/MobilePwa';
 import './index.css';
 import './touch.css';
+import './logging.css';
 void registerAppServiceWorker().catch(()=>{});
 void initializeNativeApp().catch(()=>{});
 if(!isNativeApp())watchVirtualKeyboard();

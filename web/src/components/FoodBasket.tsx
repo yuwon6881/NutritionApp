@@ -1,4 +1,5 @@
 import {useLayoutEffect,useRef,useState,type FormEvent} from 'react';
+import {ScanBarcode} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import {number} from '../lib/format';
 import {mealTime} from '../lib/foodDiary';
@@ -21,6 +22,8 @@ export interface FoodBasketProps {
   onSaved:()=>void;
   initialTime?:string;
   onTimeChange?:(time:string)=>void;
+  /** Offered after a barcode item so a pantry of packages can be scanned one after another. */
+  onScanAnother?:()=>void;
 }
 
 export function FoodBasket({
@@ -31,6 +34,7 @@ export function FoodBasket({
   onSaved,
   initialTime,
   onTimeChange,
+  onScanAnother,
 }:FoodBasketProps){
   const [time,setTime]=useState(initialTime??(()=>mealTime(store.state!.profile?.timeZone)));
   const {busy,run}=useAsyncAction();
@@ -117,7 +121,8 @@ export function FoodBasket({
       {error&&<p className="error" role="alert">{error}</p>}
       <div className="modal-actions">
         <Button type="button" variant="secondary" onClick={onBack} disabled={busy}>Add more food</Button>
-        <Button type="submit" variant="primary" disabled={busy||!basket.lines.length}>
+        {onScanAnother&&<Button type="button" variant="secondary" onClick={onScanAnother} disabled={busy}><ScanBarcode size={17} aria-hidden="true"/>Scan another</Button>}
+        <Button type="submit" variant="primary" data-step-focus disabled={busy||!basket.lines.length}>
           {busy?'Logging…':`Log all ${basket.lines.length} ${basket.lines.length===1?'food':'foods'}`}
         </Button>
       </div>
