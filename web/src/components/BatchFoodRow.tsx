@@ -1,4 +1,4 @@
-import {useRef,useState,type CSSProperties} from 'react';
+import {memo,useRef,useState,type CSSProperties} from 'react';
 import {ArrowLeft,MoreHorizontal} from 'lucide-react';
 import type {BasketLine} from '../lib/foodBasket';
 import type {EnergyUnit} from '../types';
@@ -9,7 +9,7 @@ import {FoodMacroSummary} from './FoodMacroSummary';
 import {isExpandedWindow} from '../lib/breakpoints';
 
 const reveal=166;
-export function BatchFoodRow({line,energyUnit,open,onOpen,onEdit,onRemove}:{line:BasketLine;energyUnit:EnergyUnit;open:boolean;onOpen:(open:boolean)=>void;onEdit:()=>void;onRemove:()=>void}){
+export const BatchFoodRow=memo(function BatchFoodRow({line,energyUnit,open,onOpen,onEdit,onRemove}:{line:BasketLine;energyUnit:EnergyUnit;open:boolean;onOpen:(open:boolean)=>void;onEdit:()=>void;onRemove:()=>void}){
   const gesture=useRef<{id:number;x:number;y:number;start:number;axis?:'x'|'y';dx:number}|undefined>(undefined);
   const suppressClick=useRef(false);
   const [offset,setOffset]=useState<number|null>(null);
@@ -38,4 +38,4 @@ export function BatchFoodRow({line,energyUnit,open,onOpen,onEdit,onRemove}:{line
     </div>
     {open||offset!==null?<div className="batch-food-actions" inert={!open||undefined}><Button onClick={onEdit}>Edit</Button><Button variant="destructive" aria-label={'Remove '+line.name} onClick={onRemove}>Remove</Button></div>:null}
   </div>;
-}
+});

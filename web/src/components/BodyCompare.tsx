@@ -6,6 +6,8 @@ import {SegmentedControl} from './ui/SegmentedControl';
 import {SelectField} from './ui/Field';
 import {displayWeight,weightLabel} from '../lib/units';
 import {number} from '../lib/format';
+import {CompareOverlay} from './CompareOverlay';
+import {windowTier} from '../lib/breakpoints';
 
 const angles:PhysiqueAngle[]=['front','side','back'];
 const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
@@ -38,6 +40,8 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
   const defaultPastId=sorted[initialPastIndex??(sorted.length>1?sorted.length-1:0)]?.id??sorted[1]?.id??sorted[0]?.id??'';
 
   const [presentId,setPresentId]=useState(defaultPresentId);
+  // Phones default to the overlay: two stacked thumbnails are too far apart to compare.
+  const [photoLayout,setPhotoLayout]=useState<'overlay'|'side'>(()=>typeof window!=='undefined'&&windowTier(window.innerWidth)==='compact'?'overlay':'side');
   const [pastId,setPastId]=useState(defaultPastId);
   const [angle,setAngle]=useState<PhysiqueAngle>('front');
   const [mode,setMode]=useState<CompareMode>('all');
@@ -147,11 +151,13 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
 
     {(mode==='all'||mode==='photos')&&<div className="compare-photos-section">
       <div className="section-heading">
-        <div><h3>Physique comparison</h3><p>Side-by-side view for {angleLabel(angle)} angle.</p></div>
+        <div><h3>Physique comparison</h3><p>{pastPhoto&&presentPhoto&&photoLayout==='overlay'?'Move the divider':'Side-by-side view'} for {angleLabel(angle)} angle.</p></div>
         <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={angle} onChange={setAngle} options={angles.map(a=>({value:a,label:angleLabel(a)}))}/>
       </div>
+      {pastPhoto&&presentPhoto&&<SegmentedControl<'overlay'|'side'> className="section-segments compare-layout-segments" label="Photo layout" value={photoLayout} onChange={setPhotoLayout} options={[{value:'overlay',label:'Overlay'},{value:'side',label:'Side by side'}]}/>}
+      {pastPhoto&&presentPhoto&&photoLayout==='overlay'&&<CompareOverlay pastSrc={`/api/photos/${pastPhoto.id}/content`} presentSrc={`/api/photos/${presentPhoto.id}/content`} pastLabel={`Past ${angleLabel(angle)} physique from ${pastRecord.date}`} presentLabel={`Present ${angleLabel(angle)} physique from ${presentRecord.date}`}/>}
 
-      <div className="compare-photos-grid">
+      <div className="compare-photos-grid" hidden={Boolean(pastPhoto&&presentPhoto&&photoLayout==='overlay')}>
         <article className="compare-photo-card">
           <div className="compare-photo-card-head">
             <span className="tag past-tag">Past</span>

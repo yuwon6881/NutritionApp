@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {CheckCheck,ChevronLeft,ChevronRight,Plus} from 'lucide-react';
+import {CheckCheck,ChevronLeft,ChevronRight,Plus,Share2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
 import {useHistoryWindow} from '../useHistoryWindow';
@@ -17,7 +17,11 @@ import {CardFeedback} from './ui/CardFeedback';
 import {useFoodSelection} from '../lib/useFoodSelection';
 import {useFoodClipboard,createPasteMutations} from '../lib/useFoodClipboard';
 import {FoodSelectionBar} from './FoodSelectionBar';
-import {BulkDeleteFoodDialog} from './BulkDeleteFoodDialog';
+import {FoodWeekStrip} from './FoodWeekStrip';
+import {FoodDaySkeleton} from './ui/Skeleton';
+import {canShareText,daySummaryText,shareText} from '../lib/share';
+import {showUndo} from './ui/UndoToast';
+import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {FoodClipboardBanner} from './FoodClipboardBanner';
 import {MoveFoodDialog} from './MoveFoodDialog';
 
@@ -25,7 +29,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   const history=useHistoryWindow(store,date);
   const [error,setError]=useState('');
   const [timelineView,setTimelineView]=useState<TimelineView>('data');
-  const [bulkDeleting,setBulkDeleting]=useState<Entry[]|null>(null);
   const [bulkMoving,setBulkMoving]=useState<Entry[]|null>(null);
   const [selectionRestoreFocus,setSelectionRestoreFocus]=useState<HTMLElement|null>(null);
 
@@ -42,6 +45,12 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   const count=archived?day?.entryCount??0:entries.length;
   const total=archived?day?.calories??0:entries.reduce((sum,e)=>sum+e.calories,0);
   const energyUnit=unitsFor(store.state?.settings).energy;
+  const [shareStatus,setShareStatus]=useState('');
+  const shareDay=async()=>{
+    const outcome=await shareText(`Food log ${date}`,daySummaryText(date,entries,energyUnit));
+    setShareStatus(outcome==='copied'?'Day summary copied.':outcome==='unavailable'?'Sharing is not available here.':'');
+  };
+  const loggedDates=new Set([...(store.state?.entries??[]),...(history.state?.entries??[])].filter(entry=>!entry.deleted).map(entry=>entry.date));
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
 
   const act=async(action:()=>Promise<unknown>,rethrow=false)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);if(rethrow)throw ex;}};
@@ -58,21 +67,20 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   };
 
   const copy=async(entry:Entry,destinationDate:string,time:string|null)=>{await act(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...entry,date:destinationDate,time}}),true);};
-  const remove=async(entry:Entry)=>{await act(()=>store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:true,data:entry}),true);};
+  // Deletion is immediate and undoable: the request waits out the undo window before it is sent.
+  const removeEntries=async(removing:Entry[])=>{
+    const ids:string[]=[];
+    await act(async()=>{
+      for(const entry of removing)ids.push(await store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:true,data:entry},{holdMs:UNDO_WINDOW_MS}));
+    },true);
+    showUndo(removing.length===1?`Deleted ${removing[0].name}`:`Deleted ${removing.length} foods`,()=>store.undo(ids));
+  };
+  const remove=(entry:Entry)=>removeEntries([entry]);
 
   const selectedEntries=entries.filter(e=>selection.isSelected(e.id));
   const selectedCalories=selectedEntries.reduce((sum,e)=>sum+e.calories,0);
   const groups=timelineSlots(entries,0,23,timelineView);
 
-  const handleBulkDelete=async(deleting:Entry[])=>{
-    await act(async()=>{
-      for(const entry of deleting){
-        await store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:true,data:entry});
-      }
-      selection.exitSelection();
-      setBulkDeleting(null);
-    },true);
-  };
 
   const handlePasteAtTime=async(time:string)=>{
     if(!clipboard.clipboard)return;
@@ -107,6 +115,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
           {selection.isSelecting?'Done':'Select'}
         </Button>}
         {entries.length>0&&!readOnly&&!selection.isSelecting&&<Button variant="tertiary" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>Copy day</Button>}
+        {entries.length>0&&!selection.isSelecting&&canShareText()&&<Button variant="tertiary" onClick={()=>void shareDay()}><Share2 size={18} aria-hidden="true"/>Share</Button>}
         <Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button>
       </div>
     </header>
@@ -117,6 +126,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         <Button aria-label="Next food day" disabled={date>=current} onClick={()=>changeDate(shiftDate(date,1))}><ChevronRight size={18}/></Button>
         <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
       </div>
+      <FoodWeekStrip date={date} today={current} loggedDates={loggedDates} onChange={changeDate}/>
       {date<current&&<div className="food-diary-toolbar-right">
         <SelectField
           label="Logging status"
@@ -142,6 +152,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
     {!state&&!history.error&&<section className="panel food-day-summary skeleton" aria-busy="true">
       <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>Loading diary date…</p></div></div>
     </section>}
+    {!state&&!history.error&&<FoodDaySkeleton/>}
+    {shareStatus&&<p className="notice" role="status">{shareStatus}</p>}
     {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>
       <section className="panel food-day-summary">
@@ -184,9 +196,10 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
             setSelectionRestoreFocus(trigger);
             setBulkMoving(selectedEntries);
           }}
-          onDelete={trigger=>{
-            setSelectionRestoreFocus(trigger);
-            setBulkDeleting(selectedEntries);
+          onDelete={()=>{
+            const deleting=selectedEntries;
+            selection.exitSelection();
+            void removeEntries(deleting).catch(()=>{});
           }}
           onDone={selection.exitSelection}
         />}
@@ -212,14 +225,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         />
       </>}
     </>}
-    {bulkDeleting&&<BulkDeleteFoodDialog
-      open={Boolean(bulkDeleting)}
-      entries={bulkDeleting}
-      onClose={()=>setBulkDeleting(null)}
-      onDelete={handleBulkDelete}
-      restoreFocus={selectionRestoreFocus}
-      energyUnit={energyUnit}
-    />}
     {bulkMoving&&<MoveFoodDialog
       open={Boolean(bulkMoving)}
       onClose={()=>setBulkMoving(null)}

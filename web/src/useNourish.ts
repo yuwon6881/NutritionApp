@@ -6,6 +6,7 @@ import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import { today } from './lib/format';
 import { enqueueMutation, project, rebaseAfterOwnWrite, wireMutation } from './lib/projection';
 import { acknowledgeHistory } from './lib/history';
+import { dispatchWait, undoHeldMutations } from './lib/heldMutations';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
 import { normalizePhotoDraft, queueEntries, uploadPendingDrafts, type SyncKind, type SyncPhase, type SyncState } from './lib/nourishDrafts';
@@ -22,6 +23,7 @@ export function useNourish(user: string) {
   const processingDrafts = useRef(false);
   const alive = useRef(true);
   const drainRequested = useRef(false);
+  const heldDrainTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const windowDate = useRef<string | undefined>(undefined);
   const refreshSequence = useRef(0);
   const bootstrapEtag = useRef<string | undefined>(undefined);
@@ -251,14 +253,25 @@ export function useNourish(user: string) {
   const drain = useCallback(async () => {
     if (draining.current || !navigator.onLine || !ref.current) return;
     const hadQueue = ref.current.queue.length > 0;
+    let sent = false;
+    let held = false;
     draining.current = true;
     if (ref.current.queue.length) { beginSync(ref.current.queue[0]?.kind ?? 'entry'); setBusy(true); }
     try {
       while (alive.current && ref.current?.queue.length) {
+        // An undoable deletion at the head waits out its window; later work stays behind it in order.
+        const wait = dispatchWait(ref.current.queue, Date.now());
+        if (wait > 0) {
+          held = true;
+          clearTimeout(heldDrainTimer.current);
+          heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, wait + 20);
+          break;
+        }
         const op = ref.current.queue[0];
         if (op.error) break;
         try {
           const { revision } = await api<{ revision: number }>('/sync', wireMutation(op));
+          sent = true;
           await commit(current => {
             const state = project(current.state, [op]);
             state.revision = revision;
@@ -292,7 +305,7 @@ export function useNourish(user: string) {
       // A refresh is needed only when at least one operation was actually sent.
       // Empty drains are common on visibility/online wakes and should not repeat
       // the full bootstrap read.
-      if (alive.current && hadQueue) await refresh();
+      if (alive.current && hadQueue && (sent || !held)) await refresh();
       setError('');
     } catch (ex) {
       if (alive.current) setError(ex instanceof Error ? ex.message : 'Sync is waiting for a connection.');
@@ -306,8 +319,13 @@ export function useNourish(user: string) {
     }
   }, [beginSync, commit, finishSync, refresh]);
 
-  const mutate = useCallback(async (op: Omit<Mutation, 'id'>) => {
-    const fullOp: Mutation = { ...op, id: crypto.randomUUID() };
+  const drainRef = useRef(drain);
+  drainRef.current = drain;
+  useEffect(() => () => clearTimeout(heldDrainTimer.current), []);
+
+  /** Queues a mutation; `holdMs` makes it undoable for that long before it is sent. Returns its id. */
+  const mutate = useCallback(async (op: Omit<Mutation, 'id' | 'holdUntil'>, options?: { holdMs?: number }) => {
+    const fullOp: Mutation = { ...op, id: crypto.randomUUID(), ...(options?.holdMs ? { holdUntil: Date.now() + options.holdMs } : {}) };
     await commit(current => enqueueMutation(current,fullOp));
     if (op.kind === 'entry') {
       const entryData = op.data as any;
@@ -315,7 +333,20 @@ export function useNourish(user: string) {
     }
     markSyncQueued(op.kind);
     if (draining.current) drainRequested.current = true; else void drain();
+    return fullOp.id;
   }, [commit, drain, markSyncQueued]);
+
+  /** Removes still-held mutations before they are sent. Returns false once any window has closed. */
+  const undo = useCallback(async (ids: readonly string[]) => {
+    let undone: string[] = [];
+    await commit(current => {
+      const result = undoHeldMutations(current.queue, ids, Date.now());
+      undone = result.undone;
+      return undone.length ? { ...current, queue: result.queue } : current;
+    });
+    if (undone.length) void drain();
+    return undone.length === ids.length;
+  }, [commit, drain]);
 
   const runPendingDrafts = useCallback(async () => {
     if (processingDrafts.current || !navigator.onLine || !ref.current) return;
@@ -421,7 +452,7 @@ export function useNourish(user: string) {
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local]);
 
   return {
-    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, refresh, refreshHistory, refreshProgress, loadSavedFoods, loadTrainingSummaries, drain, calendarDate,
+    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, loadTrainingSummaries, drain, calendarDate,
     logEntries: async (entries: unknown[], options?: { retireFoodBasketDate?: string }) => {
       const persist = options?.retireFoodBasketDate
         ? (account: string, data: LocalData) => saveLocalAndRetireFoodBasketDraft(account, data, options.retireFoodBasketDate!)

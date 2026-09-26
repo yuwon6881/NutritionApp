@@ -1,9 +1,10 @@
+import {memo} from 'react';
 import type {EnergyUnit,Entry} from '../types';
 import {displayPortion} from '../lib/portions';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {Button} from './ui/Button';
 
-export function RecentFoodCard({
+export const RecentFoodCard=memo(function RecentFoodCard({
   entry,
   energyUnit,
   disabled=false,
@@ -29,4 +30,4 @@ export function RecentFoodCard({
       {displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small>
     </strong>
   </Button>;
-}
+});

@@ -35,7 +35,7 @@ export function project(state:AppState,queue:Mutation[]):AppState{
   result.weights.sort((a,b)=>a.date.localeCompare(b.date));result.foods.sort((a,b)=>a.name.localeCompare(b.name));
   return result;
 }
-export function wireMutation(op:Mutation){const {error:_,...wire}=op;return wire;}
+export function wireMutation(op:Mutation){const {error:_,holdUntil:_hold,...wire}=op;return wire;}
 export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision:number,newId=()=>crypto.randomUUID()):Mutation[]{
   // A settings edit can be coalesced while its request is in flight. The
   // queued object then has the same id but newer data; keep it as a fresh

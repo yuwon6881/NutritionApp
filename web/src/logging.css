@@ -1,5 +1,8 @@
 /* Fast-logging surfaces: recents, Log again, portion shortcuts, and continuous scanning. */
-.recent-foods-heading small{font-size:.72rem}
+.recent-foods-heading{flex-wrap:wrap;gap:2px 12px}
+.recent-foods-heading small{font-size:.72rem;min-width:0}
+.recent-food-card{min-width:0}
+.recent-food-name{overflow-wrap:anywhere}
 .food-selection>.recent-foods-section{margin-top:16px}
 
 .log-again-panel .section-heading{margin-bottom:12px}
@@ -16,3 +19,48 @@
 
 .barcode-camera-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .barcode-camera-status>p{margin:0}
+
+/* Food Log week strip: seven equal day chips, swipeable sideways to change day. */
+.food-week-strip{order:3;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;width:100%;touch-action:pan-y;flex-basis:100%}
+.food-week-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;padding:6px 0;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--foreground);cursor:pointer;font:inherit;transition:background-color var(--motion-control) ease,border-color var(--motion-control) ease}
+.food-week-day:disabled{opacity:.4;cursor:default}
+.food-week-day[aria-current='date']{background:var(--primary-tint);border-color:color-mix(in srgb,var(--primary) 40%,var(--border));color:var(--primary-ink)}
+.food-week-day:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+@media (hover:hover) and (pointer:fine){.food-week-day:not(:disabled):hover{background:var(--muted)}}
+.food-week-day-name{font-size:.72rem;color:var(--muted-foreground)}
+.food-week-day[aria-current='date'] .food-week-day-name{color:inherit}
+.food-week-day-number{font-size:.95rem;font-weight:600;font-variant-numeric:tabular-nums}
+.food-week-day-marker{width:5px;height:5px;border-radius:50%;background:transparent}
+.food-week-day-marker.logged{background:var(--primary)}
+@media (min-width:1024px){.food-week-day{min-height:48px}}
+
+/* Static skeletons (no shimmer): shapes of the content they replace. */
+.skeleton-block{display:block;background:var(--muted);max-width:100%}
+.skeleton-panel{display:grid;gap:12px;box-shadow:none}
+.dashboard-skeleton .skeleton-heading{margin:0 0 28px}
+.food-day-skeleton{display:grid;gap:14px}
+.food-day-skeleton-row{display:grid;grid-template-columns:72px minmax(0,1fr);gap:16px;align-items:start}
+.food-day-skeleton-row>.panel{margin:0;padding:14px}
+
+/* Chart readout: the selected date's values, set by touch, mouse, or arrow keys. */
+.chart-readout{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;min-height:var(--touch-target);margin:0 0 6px;padding:8px 12px;border-radius:10px;background:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--foreground)}
+.chart-readout strong{font-weight:600}
+.chart-scrub{border-radius:10px}
+.chart-scrub:focus-visible{outline:2px solid var(--ring);outline-offset:4px}
+.chart-scrub .weight-chart{touch-action:pan-y;cursor:crosshair}
+.chart-crosshair{stroke:var(--muted-foreground);stroke-width:1;stroke-dasharray:3 3;opacity:.7}
+.step-bar-chart{touch-action:pan-y}
+
+/* Before/after overlay: the present photo is clipped to the divider position. */
+.compare-overlay{display:grid;gap:12px;margin-bottom:16px}
+.compare-overlay-frame{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:3/4;overflow:hidden;border-radius:14px;background:var(--muted)}
+.compare-overlay-frame>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.compare-overlay-present{clip-path:inset(0 0 0 var(--split))}
+.compare-overlay-divider{position:absolute;top:0;bottom:0;left:var(--split);width:2px;margin-left:-1px;background:var(--background);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink-strong) 30%,transparent)}
+.compare-overlay-tag-past{position:absolute;top:10px;left:10px}
+.compare-overlay-tag-present{position:absolute;top:10px;right:10px}
+.compare-photos-grid[hidden]{display:none}
+
+/* Long lists skip rendering work for rows far off screen; layout keeps an estimated size. */
+.weight-history .history-row,.food-search-results>.food-row{content-visibility:auto;contain-intrinsic-size:auto 88px}
+.food-timeline>.food-time-row{content-visibility:auto;contain-intrinsic-size:auto 76px}

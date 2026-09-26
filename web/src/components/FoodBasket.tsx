@@ -12,6 +12,7 @@ import {Form,FieldFrame} from './ui/Form';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {FoodEditor} from './FoodEditor';
 import {parsePortions} from '../lib/portions';
+import {hapticTick} from '../lib/haptics';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface FoodBasketProps {
@@ -68,6 +69,7 @@ export function FoodBasket({
         const entries=basketEntries(basket.lines,{date,time});
         await basket.flush();
         await store.logEntries(entries,{retireFoodBasketDate:date});
+        hapticTick('success');
         basket.clearAfterOutboxCommit();
       });
       onSaved();

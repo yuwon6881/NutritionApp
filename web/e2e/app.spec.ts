@@ -126,7 +126,8 @@ test('responsive screens have no horizontal overflow and working touch targets',
         }));
         expect(Math.max(...boxes.map(box=>box.top))-Math.min(...boxes.map(box=>box.top))).toBeLessThanOrEqual(1);
         expect(Math.max(...boxes.map(box=>box.height))-Math.min(...boxes.map(box=>box.height))).toBeLessThanOrEqual(1);
-        expect(Math.min(...boxes.map(box=>box.height))).toBeGreaterThanOrEqual(44);
+        // getBoundingClientRect can leave a fractional-pixel residue on a 44px control.
+        expect(Math.min(...boxes.map(box=>box.height))).toBeGreaterThanOrEqual(43.99);
         if(await control.getAttribute('data-layout')==='equal')expect(Math.max(...boxes.map(box=>box.width))-Math.min(...boxes.map(box=>box.width))).toBeLessThanOrEqual(1);
       }
       if(width<1024){const small=await page.locator('button:visible').evaluateAll(buttons=>buttons.filter(b=>b.getBoundingClientRect().height<43).map(b=>b.textContent));expect(small).toEqual([]);}

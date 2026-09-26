@@ -267,5 +267,5 @@ function LazyPhoto({photo,label}:{photo:PhysiquePhoto;label:string}){
     const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setNear(true);observer.disconnect();}},{rootMargin:'240px'});
     observer.observe(ref.current);return()=>observer.disconnect();
   },[]);
-  return <div ref={ref} className="photo-lazy-frame">{near?<img loading="lazy" src={`/api/photos/${photo.id}/content`} alt={label}/>:<div className="photo-lazy-placeholder" aria-label={`Loading ${label}`}/>}</div>;
+  return <div ref={ref} className="photo-lazy-frame">{near?<img loading="lazy" decoding="async" src={`/api/photos/${photo.id}/content`} alt={label}/>:<div className="photo-lazy-placeholder" aria-label={`Loading ${label}`}/>}</div>;
 }

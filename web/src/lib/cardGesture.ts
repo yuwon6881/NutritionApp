@@ -3,14 +3,15 @@
  * press-and-hold drag never compete for the same touch.
  *
  * Touch: hold still for HOLD_MS to lift the card. Releasing without moving
- * selects it; moving after the lift drags it to another time. Moving before
- * the lift abandons the gesture so the page can scroll.
+ * selects it; moving after the lift drags it to another time. Moving mostly
+ * sideways before the lift swipes the card to reveal its actions; moving any
+ * other way before the lift abandons the gesture so the page can scroll.
  * Mouse/pen: moving past the tolerance begins a drag immediately.
  */
 export const CARD_HOLD_MS=400;
 export const CARD_MOVE_TOLERANCE_PX=8;
 
-export type CardGesturePhase='idle'|'pending'|'lifted'|'dragging';
+export type CardGesturePhase='idle'|'pending'|'lifted'|'dragging'|'swiping';
 
 export interface CardGestureState {
   phase:CardGesturePhase;
@@ -27,12 +28,17 @@ export type CardGestureEvent=
   |{type:'cancel'};
 
 /** Side effect the caller performs after a transition. */
-export type CardGestureEffect='none'|'start-hold-timer'|'lift'|'begin-drag'|'track'|'drop'|'select'|'abort';
+export type CardGestureEffect='none'|'start-hold-timer'|'lift'|'begin-drag'|'track'|'drop'|'select'|'abort'|'begin-swipe'|'swipe-track'|'swipe-end';
 
 export const idleCardGesture:CardGestureState={phase:'idle',touch:false,originX:0,originY:0};
 
 function movedBeyondTolerance(state:CardGestureState,x:number,y:number){
   return Math.hypot(x-state.originX,y-state.originY)>=CARD_MOVE_TOLERANCE_PX;
+}
+
+/** A swipe must be clearly horizontal so a slightly diagonal scroll still scrolls. */
+function mostlyHorizontal(state:CardGestureState,x:number,y:number){
+  return Math.abs(x-state.originX)>Math.abs(y-state.originY)*1.5;
 }
 
 export function stepCardGesture(state:CardGestureState,event:CardGestureEvent):{state:CardGestureState;effect:CardGestureEffect}{
@@ -52,9 +58,10 @@ export function stepCardGesture(state:CardGestureState,event:CardGestureEvent):{
     case 'pending':
       if(event.type==='hold'&&state.touch)return {state:{...state,phase:'lifted'},effect:'lift'};
       if(event.type==='move'&&movedBeyondTolerance(state,event.x,event.y)){
-        return state.touch
-          ?{state:idleCardGesture,effect:'abort'}
-          :{state:{...state,phase:'dragging'},effect:'begin-drag'};
+        if(!state.touch)return {state:{...state,phase:'dragging'},effect:'begin-drag'};
+        return mostlyHorizontal(state,event.x,event.y)
+          ?{state:{...state,phase:'swiping'},effect:'begin-swipe'}
+          :{state:idleCardGesture,effect:'abort'};
       }
       if(event.type==='up')return {state:idleCardGesture,effect:'abort'};
       return {state,effect:'none'};
@@ -67,6 +74,10 @@ export function stepCardGesture(state:CardGestureState,event:CardGestureEvent):{
     case 'dragging':
       if(event.type==='move')return {state,effect:'track'};
       if(event.type==='up')return {state:idleCardGesture,effect:'drop'};
+      return {state,effect:'none'};
+    case 'swiping':
+      if(event.type==='move')return {state,effect:'swipe-track'};
+      if(event.type==='up')return {state:idleCardGesture,effect:'swipe-end'};
       return {state,effect:'none'};
   }
 }

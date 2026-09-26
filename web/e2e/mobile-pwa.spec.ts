@@ -49,6 +49,21 @@ test('Settings renders without mobile app and offline data area',async({page})=>
   await expect(page.getByRole('heading',{name:'Local Nutrition data'})).toBeVisible();
 });
 
+test('Settings section links keep the chosen section current, even one near the page end',async({page})=>{
+  await page.setViewportSize({width:1440,height:1000});
+  await signInWithProfile(page);
+  await page.getByRole('button',{name:'Settings',exact:true}).first().click();
+  const nav=page.getByRole('navigation',{name:'Settings sections'});
+  for(const label of ['Connected Apps','Notifications','This device','General']){
+    await nav.getByRole('button',{name:label,exact:true}).click();
+    // Sample through the smooth scroll: the highlight must never pass through another section.
+    for(let sample=0;sample<12;sample++){
+      await expect(nav.locator('[aria-current="true"]')).toHaveText(label);
+      await page.waitForTimeout(80);
+    }
+  }
+});
+
 test('push permission is requested only from Enable and a denial does not register a token',async({page})=>{
   await page.addInitScript(()=>{
     const permissionWindow=window as typeof window&{pushPermissionRequests:number};

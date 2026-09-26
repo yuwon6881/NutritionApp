@@ -91,16 +91,31 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
     previousSceneKey.current=sceneKey;
     if(!transitioned)return;
     let clearOrigin:()=>void=()=>{};
-    if(heading){
+    let observer:MutationObserver|undefined;
+    const focusHeading=(target:HTMLElement)=>{
       const origin=lastNavigationInput==='keyboard'?'keyboard':'programmatic';
-      heading.dataset.focusOrigin=origin;
+      target.dataset.focusOrigin=origin;
       clearOrigin=()=>{
-        if(heading.dataset.focusOrigin===origin)delete heading.dataset.focusOrigin;
+        if(target.dataset.focusOrigin===origin)delete target.dataset.focusOrigin;
       };
-      heading.addEventListener('blur',clearOrigin,{once:true});
-      heading.focus({preventScroll:true});
+      target.addEventListener('blur',clearOrigin,{once:true});
+      target.focus({preventScroll:true});
+    };
+    if(heading){
+      focusHeading(heading);
+    }else{
+      observer=new MutationObserver(()=>{
+        const delayed=node.querySelector<HTMLElement>('[data-page-heading]');
+        if(delayed){
+          observer?.disconnect();
+          observer=undefined;
+          focusHeading(delayed);
+        }
+      });
+      observer.observe(node,{childList:true,subtree:true});
     }
     if(reduced)return()=>{
+      observer?.disconnect();
       clearOrigin();
       heading?.removeEventListener('blur',clearOrigin);
     };
@@ -116,6 +131,7 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
       node.style.removeProperty('transform');
     };
     return()=>{
+      observer?.disconnect();
       clearOrigin();
       heading?.removeEventListener('blur',clearOrigin);
       animation.cancel();

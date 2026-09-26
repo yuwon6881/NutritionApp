@@ -3,6 +3,10 @@ import type {Entry} from '../types';
 import {dropTarget,type DropRow} from '../lib/foodDiary';
 import {CARD_HOLD_MS,idleCardGesture,stepCardGesture,type CardGestureEvent,type CardGestureState} from '../lib/cardGesture';
 import {hapticTick} from '../lib/haptics';
+import {settlesOpen,swipeOffset} from '../lib/swipeReveal';
+
+/** Width of the Copy / Move / Delete actions revealed behind a swiped card. */
+export const CARD_REVEAL_WIDTH=204;
 
 interface ActiveGesture {
   entry:Entry;
@@ -37,8 +41,9 @@ function swallowNextClick(){
 }
 
 /**
- * Pointer handling for diary cards: touch hold selects or drags (see
- * lib/cardGesture), mouse drags after a short movement. All transient state
+ * Pointer handling for diary cards: touch hold selects or drags, a sideways
+ * touch swipe reveals actions (see lib/cardGesture), mouse drags after a
+ * short movement. All transient state
  * — hold timer, pointer capture, and the scroll lock — is released on every
  * exit path so the page can never stay unscrollable.
  */
@@ -54,6 +59,8 @@ export function useTimelineDrag({
   const [draggingEntry,setDraggingEntry]=useState<Entry|null>(null);
   const [dropOverTime,setDropOverTime]=useState<string|null>(null);
   const activeRef=useRef<ActiveGesture|null>(null);
+  const [swipe,setSwipe]=useState<{id:string;offset:number}|null>(null);
+  const [revealedId,setRevealedId]=useState<string|null>(null);
 
   const reset=useCallback(()=>{
     const current=activeRef.current;
@@ -66,7 +73,17 @@ export function useTimelineDrag({
     setDropOverTime(null);
   },[]);
 
-  useEffect(()=>{if(!enabled)reset();},[enabled,reset]);
+  useEffect(()=>{if(!enabled){reset();setRevealedId(null);setSwipe(null);}},[enabled,reset]);
+
+  // A revealed card closes when the person touches anything outside it.
+  useEffect(()=>{
+    if(!revealedId)return;
+    const close=(event:PointerEvent)=>{
+      if(!(event.target as Element|null)?.closest(`[data-swipe-id="${CSS.escape(revealedId)}"]`))setRevealedId(null);
+    };
+    document.addEventListener('pointerdown',close);
+    return()=>document.removeEventListener('pointerdown',close);
+  },[revealedId]);
   useEffect(()=>reset,[reset]);
 
   // Once a card is lifted the finger belongs to the card, not the page.
@@ -90,7 +107,7 @@ export function useTimelineDrag({
     setDropOverTime(target??null);
   };
 
-  const dispatch=(current:ActiveGesture,event:CardGestureEvent,clientY?:number)=>{
+  const dispatch=(current:ActiveGesture,event:CardGestureEvent,clientY?:number,clientX?:number)=>{
     const {state,effect}=stepCardGesture(current.gesture,event);
     current.gesture=state;
     switch(effect){
@@ -122,8 +139,25 @@ export function useTimelineDrag({
         onHoldSelect(entry);
         break;
       }
+      case 'begin-swipe':
+        if(current.holdTimer)clearTimeout(current.holdTimer);
+        // falls through to position the card under the finger
+      case 'swipe-track':
+        if(clientX!==undefined)setSwipe({id:current.entry.id,offset:swipeOffset(clientX-current.gesture.originX,revealedId===current.entry.id,CARD_REVEAL_WIDTH)});
+        break;
+      case 'swipe-end':{
+        const {entry}=current;
+        const open=swipe?.id===entry.id?settlesOpen(swipe.offset,CARD_REVEAL_WIDTH):revealedId===entry.id;
+        reset();
+        setSwipe(null);
+        // A moved touch produces no synthetic click, so nothing needs swallowing here.
+        if(open&&revealedId!==entry.id)hapticTick();
+        setRevealedId(open?entry.id:null);
+        break;
+      }
       case 'abort':
         reset();
+        setSwipe(null);
         break;
       case 'none':
         break;
@@ -149,9 +183,12 @@ export function useTimelineDrag({
   return {
     draggingEntry,
     dropOverTime,
+    /** Live swipe offset (px, ≤ 0) and whether the card's actions are open. */
+    swipeFor:(entry:Entry)=>({offset:swipe?.id===entry.id?swipe.offset:revealedId===entry.id?-CARD_REVEAL_WIDTH:0,dragging:swipe?.id===entry.id,revealed:revealedId===entry.id}),
+    closeReveal:()=>setRevealedId(null),
     bindDrag:(entry:Entry)=>({
       onPointerDown:(event:React.PointerEvent<HTMLElement>)=>onPointerDown(entry,event),
-      onPointerMove:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>dispatch(current,{type:'move',x:event.clientX,y:event.clientY},event.clientY)),
+      onPointerMove:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>dispatch(current,{type:'move',x:event.clientX,y:event.clientY},event.clientY,event.clientX)),
       onPointerUp:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>dispatch(current,{type:'up'})),
       onPointerCancel:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>dispatch(current,{type:'cancel'})),
       // Android would otherwise open its own long-press menu over the lifted card.

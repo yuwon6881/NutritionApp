@@ -1,4 +1,4 @@
-import {useEffect,useState,type ReactNode} from 'react';
+import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import type {LucideIcon} from 'lucide-react';
 import {Button} from './ui/Button';
 import {SelectionIndicator,useReducedMotion} from './ui/Motion';
@@ -29,15 +29,38 @@ export function SettingsSection({id,title,description,icon:Icon,layout='card',ch
 /**
  * Tracks the section nearest the top of the viewport. The observer band sits in the upper third so a
  * section becomes current once its heading is comfortably in view, not when its last pixel scrolls in.
+ *
+ * A chosen link pins its section until the person scrolls again themselves. Without the pin the smooth
+ * scroll re-picks every section it passes, and a section too near the page end to reach the top would
+ * lose to the last one once the scroll settles at the bottom.
  */
 function useActiveSection(ids:string[]){
   const [active,setActive]=useState(ids[0]??'');
+  const pinned=useRef(false);
   const key=ids.join('|');
+  const choose=useCallback((id:string)=>{pinned.current=true;setActive(id);},[]);
+  useEffect(()=>{
+    const release=()=>{pinned.current=false;};
+    const releaseOnScrollKey=(event:KeyboardEvent)=>{
+      if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key))release();
+    };
+    window.addEventListener('wheel',release,{passive:true});
+    window.addEventListener('touchstart',release,{passive:true});
+    window.addEventListener('pointerdown',release,{passive:true});
+    window.addEventListener('keydown',releaseOnScrollKey);
+    return()=>{
+      window.removeEventListener('wheel',release);
+      window.removeEventListener('touchstart',release);
+      window.removeEventListener('pointerdown',release);
+      window.removeEventListener('keydown',releaseOnScrollKey);
+    };
+  },[]);
   useEffect(()=>{
     const sections=key.split('|').map(id=>document.getElementById(id)).filter((node):node is HTMLElement=>Boolean(node));
     if(!sections.length||typeof IntersectionObserver==='undefined')return;
     const visible=new Set<string>();
     const pick=()=>{
+      if(pinned.current)return;
       const atBottom=window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-2;
       const next=atBottom?sections.at(-1)?.id:sections.find(section=>visible.has(section.id))?.id;
       if(next)setActive(next);
@@ -53,7 +76,7 @@ function useActiveSection(ids:string[]){
     window.addEventListener('scroll',pick,{passive:true});
     return()=>{observer.disconnect();window.removeEventListener('scroll',pick);};
   },[key]);
-  return [active,setActive] as const;
+  return [active,choose] as const;
 }
 
 /** Jump links for the expanded layout. Compact and medium layouts hide it and read top to bottom. */

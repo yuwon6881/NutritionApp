@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle} from 'lucide-react';
 import {api,ApiError} from './lib/api';
 import {getLocalDatabaseFailure,readLocal} from './lib/local';
@@ -12,16 +12,14 @@ import {ActionSheet,type ActionSheetOption} from './components/ui/ActionSheet';
 import {Auth} from './components/Auth';
 import {Today} from './components/Today';
 import {FoodDiary} from './components/FoodDiary';
-import {LogFood} from './components/LogFood';
 import {WeightEntryDialog} from './components/WeightEntryDialog';
 import {CopyDayDialog} from './components/CopyDayDialog';
-import {Progress} from './components/Progress';
-import {Coach} from './components/Coach';
-import {Settings} from './components/Settings';
 import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncConflictNotice} from './components/SyncConflictNotice';
 import {SyncStatus} from './components/ui/SyncStatus';
+import {UndoToastHost} from './components/ui/UndoToast';
+import {DashboardSkeleton} from './components/ui/Skeleton';
 import {ForegroundNotificationHandler,PwaUpdateNotice} from './components/ui/MobilePwa';
 import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
@@ -30,6 +28,14 @@ import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
 import {backCoordinator,isLayerEntry,readState,PAGE_KEY} from './lib/appHistory';
 import {BACK_TO_HOME_EVENT} from './lib/nativeApp';
 import {captureNutritionShortcut,clearPendingNutritionShortcut,consumeReadyNutritionShortcut} from './lib/nutritionShortcuts';
+
+// Dashboard and Food Log stay in the first bundle; the other views load on first visit and are precached for offline use.
+const Progress=lazy(()=>import('./components/Progress').then(module=>({default:module.Progress})));
+const Coach=lazy(()=>import('./components/Coach').then(module=>({default:module.Coach})));
+const Settings=lazy(()=>import('./components/Settings').then(module=>({default:module.Settings})));
+// The food dialog mounts on first use; its chunk is warmed once the app is idle.
+const loadLogFood=()=>import('./components/LogFood');
+const LogFood=lazy(()=>loadLogFood().then(module=>({default:module.LogFood})));
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 const PAGES:readonly Page[]=['today','food','progress','coach','settings'];
@@ -41,6 +47,14 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   const [page,setPage]=useState<Page>(initialPage);
   const [date,setDate]=useState(today());
   const [foodOpen,setFoodOpen]=useState(false);
+  const foodMounted=useRef(false);
+  if(foodOpen)foodMounted.current=true;
+  useEffect(()=>{
+    const warm=()=>{void loadLogFood().catch(()=>{});};
+    if(typeof window.requestIdleCallback==='function'){const id=window.requestIdleCallback(warm,{timeout:4000});return()=>window.cancelIdleCallback(id);}
+    const timer=window.setTimeout(warm,2000);
+    return()=>window.clearTimeout(timer);
+  },[]);
   const [foodDate,setFoodDate]=useState(today());
   const [foodInitialTime,setFoodInitialTime]=useState<string>();
   const [foodInitialRecent,setFoodInitialRecent]=useState<Entry>();
@@ -203,15 +217,16 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
         <Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button>
       </div>
       <SyncStatus store={store}/>
+      <UndoToastHost/>
       <PwaUpdateNotice/>
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
-      {!store.state?<section className="panel skeleton" aria-busy="true"><h1>Opening your diary…</h1><Button onClick={()=>void onLogout()}>Back to sign in</Button></section>:<MotionScene sceneKey={needsProfile?'coach':page}>
+      {!store.state?<><DashboardSkeleton label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<DashboardSkeleton label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
         {!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')} onLogAgain={(entry,trigger)=>{openFood(activeDate,undefined,'search',trigger);setFoodInitialRecent(entry);}}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
-      </MotionScene>}
+      </MotionScene></Suspense>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        <LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}:${foodInitialRecent?.id??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialRecent={foodInitialRecent} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/>
+        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}:${foodInitialRecent?.id??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialRecent={foodInitialRecent} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}

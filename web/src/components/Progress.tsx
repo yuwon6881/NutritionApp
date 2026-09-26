@@ -8,7 +8,8 @@ import {WeightChart} from './WeightChart';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
 import {WeightEntryDialog} from './WeightEntryDialog';
-import {DeleteWeightDialog} from './DeleteWeightDialog';
+import {showUndo} from './ui/UndoToast';
+import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
 import {SelectField} from './ui/Field';
@@ -51,7 +52,6 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const [weightOpen,setWeightOpen]=useState(false);
   const [weightEdit,setWeightEdit]=useState<Weight>();
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
-  const [weightDeleting,setWeightDeleting]=useState<{weight:Weight;trigger:HTMLElement}|null>(null);
   const weight=useProgressSummary(store,weightPeriod,tab==='weight');
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
   const {state:ghState,loading:ghLoading}=useGoogleHealth();
@@ -61,6 +61,12 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const loadTrainingSummaries=store.loadTrainingSummaries;
   useEffect(()=>{void loadTrainingSummaries?.();},[loadTrainingSummaries]);
   const units=unitsFor(state.settings);
+  // The weigh-in list comes from the server summary; queued deletions must disappear at once so Undo reads true.
+  const pendingWeightDeletes=new Set((store.local?.queue??[]).filter(op=>op.kind==='weight'&&op.delete).map(op=>op.recordId));
+  const deleteWeight=async(weight:Weight)=>{
+    const id=await store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true},{holdMs:UNDO_WINDOW_MS});
+    showUndo(`Deleted the ${displayWeight(weight.kg,units.weight,2)} ${weightLabel(units.weight)} weigh-in from ${weight.date}`,()=>store.undo([id]));
+  };
   const tabs=[['weight','Weight'],['energy','Energy'],['body','Body'],['activity','Activity']] as const;
   const tabDirection:1|-1=tab==='body'||tab==='activity'?-1:1;
   const pending=store.local?.queue.some(item=>progressKinds.has(item.kind))??false;
@@ -86,7 +92,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
         action={{label:'Retry summary',onClick:()=>void retry(),disabled:loading}}
       />}
       {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2><p>Loading history…</p></section></div>}
-      {summary&&<WeightSummary summary={summary} units={units} pending={pending} onEdit={editWeight} onDelete={(weight,trigger)=>setWeightDeleting({weight,trigger})}/>}
+      {summary&&<WeightSummary summary={summary} units={units} pending={pending} onEdit={editWeight} onDelete={weight=>void deleteWeight(weight)} pendingDeletes={pendingWeightDeletes}/>}
     </>}
     {tab==='energy'&&<>
       <EnergyBalance store={store} period={energyPeriod} summary={energy.summary} error={energy.error} onPeriodChange={setEnergyPeriod}/>
@@ -100,20 +106,13 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
     </div>}
     </div>
     </MotionPanel>
-    <DeleteWeightDialog
-      weight={weightDeleting?.weight??null}
-      valueLabel={weightDeleting?`${displayWeight(weightDeleting.weight.kg,units.weight,2)} ${weightLabel(units.weight)}`:''}
-      restoreFocus={weightDeleting?.trigger}
-      onClose={()=>setWeightDeleting(null)}
-      onDelete={weight=>store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true})}
-    />
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
   </>;
 }
 
-function WeightSummary({summary,units,pending,onEdit,onDelete}:{summary:ProgressSummary;units:ReturnType<typeof unitsFor>;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void}){
+function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:ReturnType<typeof unitsFor>;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight)=>void;pendingDeletes:ReadonlySet<string>}){
   const stats=summary.weight.statistics;
-  const editable=summary.weight.editableWeighIns;
+  const editable=summary.weight.editableWeighIns.filter(weight=>!pendingDeletes.has(weight.id));
   return <>
     {pending&&<p className="notice" role="status">Recent progress edits are retained locally and this summary will refresh after synchronization.</p>}
     <div className="stats-grid">
@@ -124,7 +123,7 @@ function WeightSummary({summary,units,pending,onEdit,onDelete}:{summary:Progress
     <WeightChart series={summary.weight.series} weightUnit={units.weight}/>
     <section className="panel weight-history-panel">
       <div className="section-heading"><div><h2>Latest weigh-ins</h2><p>Only recent retained weigh-ins can be edited. Older points remain in the chart.</p></div></div>
-      {editable.length?<div className="weight-history">{editable.map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>onEdit(weight,event.currentTarget)}>Edit</Button><Button variant="tertiary" size="md" onClick={event=>onDelete(weight,event.currentTarget)}>Delete</Button></div>)}</div>:<p className="empty">No weigh-ins in this period.</p>}
+      {editable.length?<div className="weight-history">{editable.map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>onEdit(weight,event.currentTarget)}>Edit</Button><Button variant="tertiary" size="md" onClick={()=>onDelete(weight)}>Delete</Button></div>)}</div>:<p className="empty">No weigh-ins in this period.</p>}
     </section>
   </>;
 }

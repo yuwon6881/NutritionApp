@@ -112,14 +112,20 @@ test('food timeline supports single-item move to custom time, move to existing t
   const row21=page.locator('[data-time-row="21:00"]');
   await expect(row21.getByText('Rolled oats')).toBeVisible();
 
-  // Delete is explicit and confirmed before the retained entry mutation is queued.
-  const reloadedCoffee=reloaded19.locator('.food-time-card').filter({hasText:'Black coffee'}).first();
-  await reloadedCoffee.getByRole('button',{name:'More actions for Black coffee',exact:true}).click();
+  // Delete is immediate and undoable; Undo restores the same entry before anything is sent.
+  const coffeeActions=()=>reloaded19.locator('.food-time-card').filter({hasText:'Black coffee'}).first().getByRole('button',{name:'More actions for Black coffee',exact:true});
+  await coffeeActions().click();
   await page.getByRole('dialog',{name:'Food actions'}).getByRole('button',{name:'Delete',exact:true}).click();
-  const deleteDialog=page.getByRole('dialog',{name:'Delete food'});
-  await expect(deleteDialog).toContainText('Black coffee');
-  await deleteDialog.getByRole('button',{name:'Delete',exact:true}).click();
+  const undo=page.locator('.undo-toast');
+  await expect(undo).toContainText('Deleted Black coffee');
   await expect(reloaded19.getByText('Black coffee')).toHaveCount(0);
+  await undo.getByRole('button',{name:'Undo',exact:true}).click();
+  await expect(reloaded19.getByText('Black coffee')).toBeVisible();
+  await coffeeActions().click();
+  await page.getByRole('dialog',{name:'Food actions'}).getByRole('button',{name:'Delete',exact:true}).click();
+  await expect(reloaded19.getByText('Black coffee')).toHaveCount(0);
+  // Once the undo window ends the deletion is sent.
+  await expect(undo).toBeHidden({timeout:10000});
 
   // The full diary is also available as its own page with visible hourly drop slots.
   await page.getByRole('button',{name:'Food Log',exact:true}).click();

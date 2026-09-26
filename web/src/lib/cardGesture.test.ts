@@ -34,6 +34,19 @@ describe('card gesture',()=>{
     expect(effects).toEqual(['start-hold-timer','abort','none','none']);
   });
 
+  it('swipes when a touch moves clearly sideways before the hold',()=>{
+    expect(run([touchDown,{type:'move',x:80,y:102},{type:'move',x:40,y:103},{type:'hold'},{type:'up'}]))
+      .toEqual(['start-hold-timer','begin-swipe','swipe-track','none','swipe-end']);
+  });
+
+  it('keeps a diagonal flick as a scroll rather than a swipe',()=>{
+    expect(run([touchDown,{type:'move',x:90,y:88}])).toEqual(['start-hold-timer','abort']);
+  });
+
+  it('never swipes with a mouse; sideways mouse movement drags',()=>{
+    expect(run([mouseDown,{type:'move',x:80,y:100}])).toEqual(['none','begin-drag']);
+  });
+
   it('treats a quick tap as no gesture',()=>{
     expect(run([touchDown,{type:'up'}])).toEqual(['start-hold-timer','abort']);
   });

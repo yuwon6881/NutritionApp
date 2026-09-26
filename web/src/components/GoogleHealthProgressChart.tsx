@@ -22,6 +22,13 @@ export function GoogleHealthProgressChart({
   onOpenSettings,
 }: GoogleHealthProgressChartProps) {
   const [activeDay, setActiveDay] = useState<GoogleHealthDay | null>(null);
+  // A finger anywhere over the chart picks the day beneath it; the 30 bars are too narrow to aim at on a phone.
+  const scrubToDay = (event: React.PointerEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !days.length) return;
+    const share = Math.min(0.9999, Math.max(0, (event.clientX - rect.left) / rect.width));
+    setActiveDay(days[Math.floor(share * days.length)]);
+  };
 
   if (status === 'disconnected') {
     return (
@@ -150,6 +157,8 @@ export function GoogleHealthProgressChart({
             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
             preserveAspectRatio="none"
             role="img"
+            onPointerDown={scrubToDay}
+            onPointerMove={event=>{if(event.pointerType==='mouse'||event.buttons)scrubToDay(event);}}
             aria-label={`Daily step counts over the last 30 days. Average is ${average !== null ? number(average) : 'unavailable'} steps per day.`}
           >
             {/* Horizontal guideline */}

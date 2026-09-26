@@ -1,4 +1,5 @@
-import {Check,MoreHorizontal} from 'lucide-react';
+import {memo,type CSSProperties} from 'react';
+import {Check,Copy,MoreHorizontal,MoveRight,Trash2} from 'lucide-react';
 import type {Entry} from '../types';
 import {Button} from './ui/Button';
 import {FoodMacroSummary} from './FoodMacroSummary';
@@ -19,9 +20,14 @@ export interface FoodTimeCardProps {
   onOpenActions:(entry:Entry,trigger:HTMLElement)=>void;
   onToggleSelect:(id:string)=>void;
   dragProps:Record<string,unknown>;
+  /** Touch swipe state from the timeline: offset in px (≤ 0) and whether actions are open. */
+  swipe?:{offset:number;dragging:boolean;revealed:boolean};
+  onCopy?:(entry:Entry,trigger:HTMLElement)=>void;
+  onMove?:(entry:Entry,trigger:HTMLElement)=>void;
+  onDelete?:(entry:Entry)=>void;
 }
 
-export function FoodTimeCard({
+export const FoodTimeCard=memo(function FoodTimeCard({
   entry,
   energyUnit,
   readOnly,
@@ -35,12 +41,27 @@ export function FoodTimeCard({
   onOpenActions,
   onToggleSelect,
   dragProps,
+  swipe,
+  onCopy,
+  onMove,
+  onDelete,
 }:FoodTimeCardProps){
   // Touch hold (select or drag) and mouse drag are one gesture owned by the
   // timeline; see useTimelineDrag. Nothing competes for the same pointer.
   const pointerProps=isSelecting?{}:dragProps;
 
-  return (
+  const showActions=Boolean(swipe&&(swipe.revealed||swipe.offset<0));
+  return <div
+    className={`food-card-swipe${swipe?.dragging?' swiping':''}`}
+    data-swipe-id={entry.id}
+    data-revealed={swipe?.revealed?true:undefined}
+    style={{'--swipe-x':`${swipe?.offset??0}px`} as CSSProperties}
+  >
+    {showActions&&!isSelecting&&!readOnly&&<div className="food-card-swipe-actions" inert={!swipe?.revealed||undefined}>
+      <Button variant="secondary" size="sm" onClick={event=>onCopy?.(entry,event.currentTarget)}><Copy size={16} aria-hidden="true"/>Copy</Button>
+      <Button variant="secondary" size="sm" onClick={event=>onMove?.(entry,event.currentTarget)}><MoveRight size={16} aria-hidden="true"/>Move</Button>
+      <Button variant="destructive" size="sm" aria-label={`Delete ${entry.name}`} onClick={()=>onDelete?.(entry)}><Trash2 size={16} aria-hidden="true"/>Delete</Button>
+    </div>}
     <article
       className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''}`.trim()}
       data-selected={isSelected?true:undefined}
@@ -98,5 +119,5 @@ export function FoodTimeCard({
       </div>
       {isPendingSync&&<small className="sync-label" role="status">{pendingError??'Pending sync'}</small>}
     </article>
-  );
-}
+  </div>;
+});

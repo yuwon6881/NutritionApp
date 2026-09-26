@@ -25,3 +25,30 @@
   html[data-keyboard='open'] .sync-status{display:none}
   html[data-keyboard='open'] .main-content{padding-bottom:16px}
 }
+
+/* Undo notice: thumb height, above the bottom navigation on compact and medium layouts. */
+.undo-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:150;display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(420px,calc(100vw - 32px));min-height:var(--touch-target);padding:6px 8px 6px 16px;background:var(--ink-strong);color:var(--background);border-radius:13px;box-shadow:0 14px 38px rgba(0,0,0,.2);font-size:.86rem}
+.undo-toast>.button{color:var(--background);flex-shrink:0}
+@media (hover:hover) and (pointer:fine){.undo-toast>.button:hover{background:color-mix(in srgb,var(--background) 14%,transparent)}}
+@media (max-width:1023px){
+  .undo-toast{bottom:calc(84px + env(safe-area-inset-bottom))}
+  html[data-keyboard='open'] .undo-toast{bottom:12px}
+}
+
+/* Diary card swipe: the card slides left over Copy / Move / Delete (width matches CARD_REVEAL_WIDTH). */
+.food-card-swipe{position:relative;min-width:0;border-radius:14px}
+.food-card-swipe>.food-time-card{position:relative;z-index:1}
+.food-card-swipe.swiping>.food-time-card,.food-card-swipe[data-revealed]>.food-time-card{transform:translateX(var(--swipe-x))}
+.food-card-swipe.swiping>.food-time-card{transition:none}
+.food-card-swipe-actions{position:absolute;top:0;right:0;bottom:0;width:204px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px 0 4px 4px}
+.food-card-swipe-actions>.button{flex-direction:column;gap:2px;padding:4px;min-height:var(--touch-target);font-size:.72rem;border-radius:10px}
+@media (pointer:coarse){
+  /* Horizontal movement stays with the card so a swipe is not taken as a page pan. */
+  .food-time-card[data-draggable]{touch-action:pan-y}
+}
+
+/* Bulk selection actions sit in the thumb zone on phones, just above the bottom navigation. */
+@media (max-width:639px){
+  .food-selection-bar{position:fixed;top:auto;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));width:auto;margin:0;z-index:120}
+  .food-log-page:has(.food-selection-bar){padding-bottom:180px}
+}

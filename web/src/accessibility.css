@@ -1,0 +1,32 @@
+/*
+ * Readability and system accessibility modes. Loaded last so these floors
+ * win over older per-feature sizes.
+ */
+
+/* Minimum text size: nothing smaller than about 11-12 px at the default root size. */
+.eyebrow,.stats-grid .eyebrow,.auth-story .eyebrow{font-size:.7rem!important}
+.topbar>span{font-size:.72rem}
+.nav-mobile-items .button,.sidebar nav .button{font-size:.72rem}
+.food-description small,.food-row>strong small,.recent-food-energy small,.check-in-orb-count small,.circular-slider-bound .bound-tag{font-size:.7rem}
+
+/* Windows High Contrast and other forced-colour modes: keep state visible without our palette. */
+@media (forced-colors:active){
+  .button,.food-week-day,.recent-food-card,.food-time-card.panel{border:1px solid ButtonText}
+  .food-time-card-selected,.food-time-card[data-dragging],.food-week-day[aria-current='date'],.nav-active{outline:3px solid Highlight;outline-offset:1px}
+  .food-card-select-checkbox.checked{background:Highlight;border-color:Highlight}
+  .trend-line,.ring-fill,.chart-crosshair{stroke:Highlight}
+  .scale-line{stroke:CanvasText}
+  .bar-rect,.energy-intake{fill:Highlight}
+  .energy-maintenance{fill:CanvasText}
+  .undo-toast{border:2px solid CanvasText}
+  :focus-visible{outline:3px solid Highlight!important}
+}
+
+/* People who ask for more contrast get firmer borders and full-strength secondary text. */
+@media (prefers-contrast:more){
+  :root{--border:color-mix(in srgb,var(--foreground) 55%,var(--background));--muted-foreground:var(--foreground)}
+}
+
+/* With very large text, bottom navigation labels shorten rather than spill into neighbours. */
+.nav-mobile-items .button{min-width:0}
+.nav-mobile-items .button>span{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

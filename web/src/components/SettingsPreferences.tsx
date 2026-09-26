@@ -1,4 +1,4 @@
-import {useMemo} from 'react';
+import {useMemo,useState} from 'react';
 import {Moon,Sun} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import {nextOccurrenceAfter} from '../lib/checkIn';
@@ -9,12 +9,25 @@ import type {CoachingSettings,EnergyUnit,HeightUnit,MissingDayAction,WeightGoalM
 import {SelectField} from './ui/Field';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {SettingRow} from './ui/SettingRow';
+import {hapticTick,hapticsEnabled,setHapticsEnabled} from '../lib/haptics';
 
 type SettingsData=Required<Omit<CoachingSettings,'revision'|'changedDate'>>;
 
 const weekdays=[
   ['1','Monday'],['2','Tuesday'],['3','Wednesday'],['4','Thursday'],['5','Friday'],['6','Saturday'],['0','Sunday']
 ] as const;
+
+/** Vibration on touch gestures and completed logs, remembered per device. */
+function TouchFeedbackSetting(){
+  const [enabled,setEnabled]=useState(hapticsEnabled);
+  return <SettingRow label="Touch feedback" description="Short vibrations when you select, move, or log food on this device.">
+    <SegmentedControl<'on'|'off'> id="settings-haptics" label="Touch feedback" className="settings-choice" value={enabled?'on':'off'} onChange={value=>{
+      setHapticsEnabled(value==='on');
+      setEnabled(value==='on');
+      if(value==='on')hapticTick();
+    }} options={[{value:'on',label:'On'},{value:'off',label:'Off'}]}/>
+  </SettingRow>;
+}
 
 /** One settings mutation path: every change sends the whole preference record at the current revision. */
 export function useSettingsSave(store:Nourish){
@@ -54,6 +67,7 @@ export function GeneralSettings({store,theme,onTheme}:{store:Nourish;theme:Theme
         {value:'dark',label:<><Moon size={15} aria-hidden="true"/>Dark</>}
       ]}/>
     </SettingRow>
+    <TouchFeedbackSetting/>
     <SettingRow label="Weight" description="Scale entries, goals, and weight charts.">
       <SegmentedControl<WeightUnit> id="settings-weight-unit" label="Weight unit" className="settings-choice" value={current.weightUnit} onChange={weightUnit=>void save({weightUnit})} options={[
         {value:'kg',label:'kg',ariaLabel:'Kilograms (kg)'},{value:'lb',label:'lb',ariaLabel:'Pounds (lb)'}

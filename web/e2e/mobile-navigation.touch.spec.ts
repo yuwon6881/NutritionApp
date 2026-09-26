@@ -73,20 +73,23 @@ test('Back closes an open date popover without leaving the page',async({page})=>
   await expect(heading(page,'Food Log')).toBeVisible();
 });
 
-test('a weigh-in is only deleted after confirmation',async({page})=>{
+test('a mis-tapped weigh-in delete can be undone, and an unchallenged delete persists',async({page})=>{
   await page.getByRole('button',{name:'Progress',exact:true}).click();
   const rows=page.locator('.weight-history .history-row');
   await expect(rows.first()).toBeVisible();
   const before=await rows.count();
 
   await rows.first().getByRole('button',{name:'Delete',exact:true}).click();
-  const confirm=page.getByRole('dialog',{name:'Delete weigh-in',exact:true});
-  await expect(confirm).toBeVisible();
-  await confirm.getByRole('button',{name:'Cancel',exact:true}).click();
-  await expect(confirm).toBeHidden();
+  const undo=page.locator('.undo-toast');
+  await expect(undo).toContainText('weigh-in');
+  await expect(rows).toHaveCount(before-1);
+  await undo.getByRole('button',{name:'Undo',exact:true}).click();
   await expect(rows).toHaveCount(before);
 
   await rows.first().getByRole('button',{name:'Delete',exact:true}).click();
-  await page.getByRole('dialog',{name:'Delete weigh-in',exact:true}).getByRole('button',{name:'Delete',exact:true}).click();
+  await expect(rows).toHaveCount(before-1);
+  await expect(undo).toBeHidden({timeout:10000});
+  await page.reload();
+  await page.getByRole('button',{name:'Progress',exact:true}).click();
   await expect(rows).toHaveCount(before-1);
 });
