@@ -1,5 +1,4 @@
 /// <reference lib="webworker" />
-import {getFirebaseConfig} from './lib/push/firebaseConfig';
 import {parseNutritionReminderPayload} from './lib/push/pushPayload';
 export {};
 declare const self:ServiceWorkerGlobalScope&{__WB_MANIFEST:{url:string;revision:string|null}[]};
@@ -11,18 +10,19 @@ const legacyCachePrefix='nourish-assets-';
 const assets=new Set(manifest.map(e=>new URL(e.url,self.location.origin).pathname));
 const precacheUrls=[...new Set([...manifest.map(e=>e.url),'/'])];
 const cacheable=(request:Request,url:URL)=>request.method==='GET'&&url.origin===self.location.origin&&!url.pathname.startsWith('/api/');
-let firebaseBackgroundReady=false;
 function safeRoute(value:unknown):string{return value==='/coach'?'/coach':'/';}
 self.addEventListener('push',(event:PushEvent)=>{
-  // Firebase registers its handler asynchronously after feature detection. This
-  // synchronous listener preserves a generic reminder if a cold-start push arrives
-  // before that module finishes loading; once ready, Firebase owns delivery.
-  if(firebaseBackgroundReady)return;
   event.waitUntil((async()=>{
     let payload:unknown;
     try{payload=event.data?.json();}catch{return;}
     const reminder=parseNutritionReminderPayload(payload,self.location.origin);
     if(!reminder)return;
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:false});
+    const foreground=windows.find(client=>(client as WindowClient).visibilityState==='visible');
+    if(foreground){
+      foreground.postMessage({type:'NUTRITION_FOREGROUND_REMINDER',payload});
+      return;
+    }
     await self.registration.showNotification('Nutrition check-in',{
       body:'Open Nutrition to review your check-in.',
       icon:'/icon-192.png',
@@ -52,33 +52,12 @@ self.addEventListener('notificationclick',event=>{
     await self.clients.openWindow(destination.href);
   })());
 });
-const firebaseConfig=getFirebaseConfig();
-if(firebaseConfig){
-  void (async()=>{
-    try{
-      const [{initializeApp},{getMessaging,onBackgroundMessage,isSupported}]=await Promise.all([
-        import('firebase/app'),
-        import('firebase/messaging/sw')
-      ]);
-      if(!await isSupported())return;
-      const messaging=getMessaging(initializeApp(firebaseConfig));
-      onBackgroundMessage(messaging,async payload=>{
-        const reminder=parseNutritionReminderPayload(payload,self.location.origin);
-        if(!reminder)return;
-        await self.registration.showNotification(payload.notification?.title??'Nutrition check-in',{
-          body:payload.notification?.body??'Open Nutrition to review your check-in.',
-          icon:'/icon-192.png',
-          badge:'/icon-192.png',
-          tag:'nutrition-check-in',
-          data:{route:reminder.route}
-        });
-      });
-      firebaseBackgroundReady=true;
-    }catch{
-      // Messaging is optional; unsupported browsers must keep the app worker operational.
-    }
-  })();
-}
+self.addEventListener('pushsubscriptionchange',event=>{
+  event.waitUntil((async()=>{
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    for(const client of windows)client.postMessage({type:'REFRESH_PUSH_SUBSCRIPTION'});
+  })());
+});
 self.addEventListener('install',event=>{
   // A failed precache never activates a partially installed release. Once cached, activate immediately.
   event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll(precacheUrls)).then(()=>self.skipWaiting()));

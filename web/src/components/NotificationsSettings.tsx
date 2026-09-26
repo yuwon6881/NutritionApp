@@ -1,8 +1,8 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Bell,BellOff} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {CheckInReminder,NotificationStatus} from '../lib/notifications';
-import {fetchCheckInReminder,fetchNotificationStatus,registerNotificationDevice,saveCheckInReminder} from '../lib/notifications';
+import {activateCheckInReminder,fetchCheckInReminder,fetchNotificationStatus,registerNotificationDevice,saveCheckInReminder} from '../lib/notifications';
 import type {NotificationPlatform} from '../lib/notifications';
 import {getOrCreatePushDeviceId} from '../lib/push/deviceId';
 import {getFcmToken} from '../lib/push/firebaseMessaging';
@@ -57,6 +57,9 @@ export function NotificationsSettings({store}:{store:Nourish}){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [message,setMessage]=useState('');
+  const enableReminderRequested=useRef(false);
+  const failedAction=useRef<'enable'|'disable'|'schedule'>('enable');
+  const reminderWrites=useRef<Promise<unknown>>(Promise.resolve());
   const [loadError,setLoadError]=useState('');
 
   useEffect(()=>{
@@ -109,41 +112,54 @@ export function NotificationsSettings({store}:{store:Nourish}){
   const canManageSchedule=status?.configured===true;
   const pushBuildConfigured=isNativeAndroid()?nativePushConfigured:isFirebasePushConfigured();
 
-  const enableThisDevice=async()=>{
+  const enableThisDevice=async(activateReminder=false)=>{
+    failedAction.current='enable';
+    enableReminderRequested.current=activateReminder;
+    if(activateReminder&&(!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.localTime)||!validTimeZone(reminder.timeZoneId))){setError('Choose a valid reminder time.');return;}
     setError('');setMessage('');setBusy(true);
     try{
-      const native=isNativeAndroid();
-      let granted=false;
-      let permissionValue='';
-      if(native){
-        if(!nativePushConfigured)throw new Error('Firebase push is not configured in this Android build yet.');
-        const current=await checkNativeNotificationPermission();
-        const next=current==='granted'?current:await requestNativeNotificationPermission();
-        setPermission(next);
-        permissionValue=next;
-        granted=next==='granted';
+      const subscribe=async()=>{
+        const native=isNativeAndroid();
+        let granted=false;
+        let permissionValue='';
+        if(native){
+          if(!nativePushConfigured)throw new Error('Firebase push is not configured in this Android build yet.');
+          const current=await checkNativeNotificationPermission();
+          const next=current==='granted'?current:await requestNativeNotificationPermission();
+          setPermission(next);
+          permissionValue=next;
+          granted=next==='granted';
+        }else{
+          if(typeof Notification==='undefined')throw new Error('Notifications are unavailable in this browser.');
+          granted=Notification.permission==='granted'||await Notification.requestPermission()==='granted';
+          setPermission(Notification.permission);
+          permissionValue=Notification.permission;
+        }
+        if(!granted)throw new Error(permissionValue==='denied'||permissionValue==='prompt-with-rationale'
+          ?'Notifications are blocked. Allow them for this app in your device settings.'
+          :'Notification permission was not granted.');
+        const token=native?await registerNativePushAndGetToken():await getFcmToken(await waitForAppServiceWorker());
+        if(!token)throw new Error('This app build does not have a push registration key.');
+        await savePushDeviceCredential(store.state!.id,deviceId,token);
+        const platform:NotificationPlatform=native?'android':'web';
+        await registerNotificationDevice(deviceId,token,platform);
+        setStatus(current=>current?{...current,thisDeviceSubscribed:true}:current);
+        window.dispatchEvent(new Event('nourish-push-enabled'));
+      };
+      if(activateReminder){
+        const saved=await activateCheckInReminder(reminder,subscribe);
+        setReminder(saved);setSavedReminder(saved);
+        setMessage('Weekly coaching reminders are on for this device.');
       }else{
-        if(typeof Notification==='undefined')throw new Error('Notifications are unavailable in this browser.');
-        granted=Notification.permission==='granted'||await Notification.requestPermission()==='granted';
-        setPermission(Notification.permission);
-        permissionValue=Notification.permission;
+        await subscribe();
+        setMessage('Notifications are enabled on this device. Lock-screen text is kept general.');
       }
-      if(!granted)throw new Error(permissionValue==='denied'||permissionValue==='prompt-with-rationale'
-        ?'Notifications are blocked. Allow them for this app in your device settings.'
-        :'Notification permission was not granted.');
-      const token=native?await registerNativePushAndGetToken():await getFcmToken(await waitForAppServiceWorker());
-      if(!token)throw new Error('This app build does not have a push registration key.');
-      await savePushDeviceCredential(store.state!.id,deviceId,token);
-      const platform:NotificationPlatform=native?'android':'web';
-      await registerNotificationDevice(deviceId,token,platform);
-      setStatus(current=>current?{...current,thisDeviceSubscribed:true}:current);
-      window.dispatchEvent(new Event('nourish-push-enabled'));
-      setMessage('Notifications are enabled on this device. Lock-screen text is kept general.');
     }catch(ex){setError((ex as Error).message||'Could not enable notifications on this device.');}
     finally{setBusy(false);}
   };
 
   const disableThisDevice=async()=>{
+    failedAction.current='disable';
     setError('');setMessage('');setBusy(true);
     try{
       const credential=await readPushDeviceCredential(store.state!.id,deviceId);
@@ -166,24 +182,39 @@ export function NotificationsSettings({store}:{store:Nourish}){
     finally{setBusy(false);}
   };
 
-  const saveReminder=async()=>{
-    setError('');setMessage('');
-    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.localTime)){
-      setError('Choose a valid reminder time.');return;
+  const saveReminder=(next=reminder)=>{
+    failedAction.current='schedule';
+    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(next.localTime)||!validTimeZone(next.timeZoneId)){
+      setError('Choose a valid reminder time.');return Promise.resolve();
     }
-    if(!validTimeZone(reminder.timeZoneId)){
-      setError('Enter a valid time zone such as Asia/Kuala_Lumpur.');return;
-    }
-    setBusy(true);
-    try{
-      const saved=await saveCheckInReminder(reminder);
-      setReminder(saved);
-      setSavedReminder(saved);
-      setStatus(current=>current?{...current,...saved}:current);
-      setMessage(saved.enabled?'Weekly coaching reminder saved.':'Weekly coaching reminder turned off.');
-    }catch(ex){setError((ex as Error).message||'Could not save the reminder.');}
-    finally{setBusy(false);}
+    const operation=reminderWrites.current.catch(()=>undefined).then(async()=>{
+      setBusy(true);setError('');setMessage('');
+      try{
+        const saved=await saveCheckInReminder(next);
+        setSavedReminder(saved);
+        setStatus(current=>current?{...current,...saved}:current);
+        setMessage(saved.enabled?'Weekly coaching reminder saved.':'Weekly coaching reminder turned off.');
+      }catch(ex){setError((ex as Error).message||'Could not save the reminder. Your changes have not been saved.');}
+      finally{setBusy(false);}
+    });
+    reminderWrites.current=operation;
+    return operation;
   };
+
+  const toggleReminder=(enabled:boolean)=>{
+    if(enabled&&!status?.thisDeviceSubscribed){void enableThisDevice(true);return;}
+    const next={...reminder,enabled};
+    setReminder(next);
+    void saveReminder(next);
+  };
+
+  useEffect(()=>{
+    if(busy||error||!scheduleLoaded||!savedReminder||reminder.enabled!==savedReminder.enabled)return;
+    if(reminder.localTime===savedReminder.localTime&&reminder.timeZoneId===savedReminder.timeZoneId&&reminder.weekday===savedReminder.weekday)return;
+    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.localTime)||!validTimeZone(reminder.timeZoneId))return;
+    const timer=window.setTimeout(()=>void saveReminder(reminder),600);
+    return()=>window.clearTimeout(timer);
+  },[reminder,scheduleLoaded,savedReminder,busy,error]);
 
   const reminderDirty=scheduleLoaded&&savedReminder!==null&&(
     reminder.enabled!==savedReminder.enabled||reminder.weekday!==savedReminder.weekday||
@@ -205,28 +236,31 @@ export function NotificationsSettings({store}:{store:Nourish}){
         </>}>
         {status.thisDeviceSubscribed
           ?<Button variant="secondary" disabled={busy} onClick={()=>void disableThisDevice()}><BellOff size={16} aria-hidden="true"/>Turn off on this device</Button>
-          :<Button disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16} aria-hidden="true"/>{busy?'Updating…':'Enable notifications on this device'}</Button>}
+          :<Button variant="secondary" disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16} aria-hidden="true"/>{busy?'Updating…':'Enable notifications on this device'}</Button>}
       </SettingRow>}
-      {pushBuildConfigured&&reminder.enabled&&!status.thisDeviceSubscribed&&<p className="notice settings-inline-notice" role="status">The account reminder is on, but this device is not subscribed. Enable device notifications to receive it here.</p>}
+      {pushBuildConfigured&&savedReminder?.enabled&&!status.thisDeviceSubscribed&&<CardFeedback tone="warning" title="Reminders are not enabled here" message="Your account reminder is on. Enable this device to receive it here." action={{label:"Enable on this device",onClick:()=>void enableThisDevice(),disabled:busy||!!supportError}}/>}
       {!scheduleLoaded&&<p className="settings-loading" role="status">Loading reminder settings…</p>}
       {scheduleLoaded&&<div className="setting-row-group">
-        <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Sent on your check-in day to every device with notifications turned on.">
-          <Checkbox id="nutrition-checkin-reminder-enabled" role="switch" aria-label="Send a reminder on my check-in day" checked={reminder.enabled} disabled={fieldsDisabled} onChange={enabled=>setReminder(current=>({...current,enabled}))}/>
+        <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Turning on subscribes this device and saves your schedule. Other subscribed devices also receive it.">
+          <Checkbox id="nutrition-checkin-reminder-enabled" role="switch" aria-label="Send a reminder on my check-in day" checked={reminder.enabled} disabled={fieldsDisabled||(!reminder.enabled&&!!supportError)} onChange={toggleReminder}/>
         </SettingRow>
         <div className="form-grid notification-schedule-fields">
           <SelectField id="nutrition-checkin-reminder-weekday" name="weekday" label="Day" value={String(reminder.weekday)} disabled={fieldsDisabled} onChange={value=>setReminder(current=>({...current,weekday:Number(value)}))}>
             {weekdays.map((day,index)=><option key={day} value={index}>{day}</option>)}
           </SelectField>
           <Field id="nutrition-checkin-reminder-time" name="localTime" type="time" step={60} label="Time" value={reminder.localTime} disabled={fieldsDisabled} onChange={event=>setReminder(current=>({...current,localTime:event.target.value}))}/>
-          <Field id="nutrition-checkin-reminder-zone" name="timeZoneId" type="text" label="Time zone" value={reminder.timeZoneId} disabled={fieldsDisabled} onChange={event=>setReminder(current=>({...current,timeZoneId:event.target.value}))} validate={()=>reminder.timeZoneId&&!validTimeZone(reminder.timeZoneId)?'Enter a valid IANA time zone.':undefined} hint="Use an IANA time zone, for example Asia/Kuala_Lumpur."/>
+
         </div>
         <div className="actions notification-save-actions">
-          {reminderDirty&&<span className="setting-row-status">Unsaved changes</span>}
-          <Button variant={reminderDirty?'primary':'secondary'} disabled={fieldsDisabled||!reminderDirty} onClick={()=>void saveReminder()}>{busy?'Saving…':'Save reminder settings'}</Button>
+          <span className="setting-row-status" role="status">{busy?'Saving…':reminderDirty?'Changes not yet saved':'Schedule saved automatically'}</span>
         </div>
       </div>}
     </>}
-    {error&&<CardFeedback title="Notification action failed" message={error}/>}
+    {error&&<CardFeedback title="Notification action failed" message={error} action={{
+      label:failedAction.current==='schedule'?'Retry saving schedule':'Retry notification action',
+      onClick:()=>void (failedAction.current==='schedule'?saveReminder():failedAction.current==='disable'?disableThisDevice():enableThisDevice(enableReminderRequested.current)),
+      disabled:busy
+    }}/>}
     {message&&<CardFeedback tone="success" message={message}/>}
   </div>;
 }

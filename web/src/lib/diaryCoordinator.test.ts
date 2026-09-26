@@ -1,12 +1,44 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DiaryCoordinator, getMonthRange } from './diaryCoordinator';
 import type { DatedDiaryDay, Entry, Mutation } from '../types';
+import {apiWithMeta} from './api';
+import {saveDatedDiaryBatch} from './local';
+
+vi.mock('./api',()=>({apiWithMeta:vi.fn()}));
+vi.mock('./local',()=>({readDatedDiary:vi.fn(),clearUserCache:vi.fn(),saveDatedDiaryBatch:vi.fn().mockResolvedValue(undefined)}));
 
 describe('DiaryCoordinator', () => {
   let coordinator: DiaryCoordinator;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     coordinator = new DiaryCoordinator('user-1');
+  });
+
+  it('caches empty dates throughout the bounded response and notifies other visible dates',async()=>{
+    vi.mocked(apiWithMeta).mockResolvedValueOnce({data:{entries:[],days:[],revision:3},notModified:false,etag:'range'});
+    const notified=vi.fn();
+    coordinator.subscribe(notified);
+    await coordinator.requestDate('2026-09-19','2026-09-19');
+    expect(coordinator.getCached('2026-09-01')?.entries).toEqual([]);
+    expect(coordinator.getCached('2026-09-18')?.entries).toEqual([]);
+    expect(coordinator.getCached('2026-09-20')).toBeUndefined();
+    expect(notified).toHaveBeenCalledWith(undefined);
+  });
+
+  it('ignores an old account background response after switching accounts',async()=>{
+    let release:()=>void=()=>{};
+    const held=new Promise<void>(resolve=>{release=resolve;});
+    vi.mocked(apiWithMeta).mockImplementationOnce(async()=>{
+      await held;
+      return {data:{entries:[],days:[],revision:3},notModified:false,etag:null};
+    });
+    const request=coordinator.requestDate('2026-09-19','2026-09-19');
+    coordinator.setUser('user-2');
+    release();
+    await request;
+    expect(coordinator.getCached('2026-09-19')).toBeUndefined();
+    expect(saveDatedDiaryBatch).not.toHaveBeenCalled();
   });
 
   it('calculates calendar month ranges correctly', () => {
@@ -108,5 +140,14 @@ describe('DiaryCoordinator', () => {
 
     coordinator.setUser('user-2');
     expect(coordinator.getCached('2026-09-18')).toBeUndefined();
+  });
+  it('retains an acknowledged entry and move after the outbox clears',async()=>{
+    const entry:Entry={id:'entry',date:'2026-09-18',name:'Oats',calories:500,quantity:100,unit:'g',source:'manual',revision:1,deleted:false,protein:null,carbs:null,fat:null,fiber:null};
+    const op:Mutation={id:'add',kind:'entry',recordId:entry.id,expectedRevision:0,delete:false,data:entry};
+    await coordinator.acknowledge(op,5);
+    expect(coordinator.projectDate(entry.date,[])?.entries[0]).toMatchObject({calories:500,revision:5});
+    await coordinator.acknowledge({...op,id:'move',expectedRevision:5,data:{...entry,date:'2026-09-19'}},6);
+    expect(coordinator.projectDate('2026-09-18',[])?.entries).toEqual([]);
+    expect(coordinator.projectDate('2026-09-19',[])?.entries[0]).toMatchObject({calories:500,revision:6});
   });
 });

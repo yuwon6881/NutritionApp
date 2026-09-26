@@ -26,6 +26,15 @@ export function saveCheckInReminder(reminder:CheckInReminder){
   return api<CheckInReminder>('/notifications/check-in-reminder',reminder,'POST');
 }
 
+/** Device consent must succeed before enabling the account reminder. */
+export async function activateCheckInReminder(reminder:CheckInReminder,subscribe:()=>Promise<void>){
+  await subscribe();
+  try{return await saveCheckInReminder({...reminder,enabled:true});}
+  catch(error){
+    throw new Error(`This device is subscribed, but the reminder could not be saved. ${error instanceof Error?error.message:'Try saving again.'}`);
+  }
+}
+
 export function registerNotificationDevice(deviceId:string,fcmToken:string,platform:NotificationPlatform='web'){
   return api<void>('/notifications/subscriptions',{deviceId,fcmToken,platform},'POST');
 }

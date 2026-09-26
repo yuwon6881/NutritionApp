@@ -9,6 +9,12 @@ import type {Mutation} from '../types';
  */
 export const UNDO_WINDOW_MS=5000;
 
+/** Conflicts stay retained; neither they nor later edits to their protected record dispatch. */
+export function nextDispatchableMutation(queue:readonly Mutation[]):Mutation|undefined{
+  const blocked=new Set(queue.filter(op=>op.error).map(op=>`${op.kind}:${op.recordId}`));
+  return queue.find(op=>!op.error&&!blocked.has(`${op.kind}:${op.recordId}`));
+}
+
 /** Milliseconds before the head of the queue may be sent; later work waits behind it to keep order. */
 export function dispatchWait(queue:readonly Mutation[],now:number):number{
   const head=queue[0];

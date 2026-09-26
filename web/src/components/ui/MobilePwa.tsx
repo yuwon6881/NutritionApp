@@ -12,11 +12,6 @@ import {listenForNativePushActions,isNativeAndroid} from '../../lib/push/nativeN
 import {parseNutritionReminderPayload} from '../../lib/push/pushPayload';
 import {Button} from './Button';
 
-interface InstallPromptEvent extends Event {
-  prompt:()=>Promise<void>;
-  userChoice:Promise<{outcome:'accepted'|'dismissed';platform:string}>;
-}
-
 interface StorageSnapshot {
   supported:boolean;
   persistent:boolean|null;
@@ -26,8 +21,6 @@ interface StorageSnapshot {
 
 interface MobilePwaContextValue {
   installed:boolean;
-  installAvailable:boolean;
-  install:()=>Promise<void>;
   online:boolean;
   waiting:boolean;
   editorOpen:boolean;
@@ -64,7 +57,6 @@ async function readStorage():Promise<StorageSnapshot>{
 }
 
 export function MobilePwaProvider({children}:{children:ReactNode}){
-  const [installPrompt,setInstallPrompt]=useState<InstallPromptEvent|null>(null);
   const [installed,setInstalled]=useState(()=>standaloneMode());
   const [online,setOnline]=useState(()=>navigator.onLine);
   const [waitingWorker,setWaitingWorker]=useState<ServiceWorker|null>(null);
@@ -86,11 +78,7 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
 
   useEffect(()=>{
     initialController.current=!!navigator.serviceWorker?.controller;
-    const onInstallPrompt=(event:Event)=>{
-      event.preventDefault();
-      setInstallPrompt(event as InstallPromptEvent);
-    };
-    const onInstalled=()=>{setInstalled(true);setInstallPrompt(null);};
+    const onInstalled=()=>setInstalled(true);
     const onOnline=()=>setOnline(true);
     const onOffline=()=>setOnline(false);
     const displayMode=window.matchMedia('(display-mode: standalone)');
@@ -127,7 +115,6 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
       registration.addEventListener('updatefound',onUpdateFound);
     };
 
-    window.addEventListener('beforeinstallprompt',onInstallPrompt);
     window.addEventListener('appinstalled',onInstalled);
     window.addEventListener('online',onOnline);
     window.addEventListener('offline',onOffline);
@@ -152,7 +139,6 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
 
     return()=>{
       observer.disconnect();
-      window.removeEventListener('beforeinstallprompt',onInstallPrompt);
       window.removeEventListener('appinstalled',onInstalled);
       window.removeEventListener('online',onOnline);
       window.removeEventListener('offline',onOffline);
@@ -160,16 +146,6 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
       navigator.serviceWorker?.removeEventListener('controllerchange',onControllerChange);
     };
   },[serviceWorkerRetry]);
-
-  const install=async()=>{
-    if(!installPrompt)return;
-    const prompt=installPrompt;
-    setInstallPrompt(null);
-    try{
-      await prompt.prompt();
-      await prompt.userChoice;
-    }catch{/* Browser install UI can be dismissed or unavailable without affecting app use. */}
-  };
 
   const retryServiceWorker=()=>setServiceWorkerRetry(value=>value+1);
 
@@ -200,7 +176,7 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
     window.location.reload();
   };
   const value:MobilePwaContextValue={
-    installed,installAvailable:!!installPrompt,install,online,waiting:!!waitingWorker,editorOpen,reloadPending,applyUpdate,reloadApp,
+    installed,online,waiting:!!waitingWorker,editorOpen,reloadPending,applyUpdate,reloadApp,
     storage,refreshStorage,requestPersistentStorage,storageBusy,storageMessage,
     serviceWorkerStatus,serviceWorkerError,retryServiceWorker,appVersion:__APP_VERSION__
   };
@@ -244,6 +220,16 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
   useEffect(()=>{
     let disposed=false;
     let stopListening:(()=>void)|undefined;
+    const foregroundReminder=(event:MessageEvent)=>{
+      if(event.data?.type!=='NUTRITION_FOREGROUND_REMINDER'||disposed)return;
+      const reminder=parseNutritionReminderPayload(event.data.payload,window.location.origin);
+      if(!reminder)return;
+      void waitForAppServiceWorker().then(registration=>registration.showNotification('Nutrition check-in',{
+        body:'Open Nutrition to review your check-in.',icon:'/icon-192.png',badge:'/icon-192.png',
+        tag:'nutrition-check-in',data:{route:reminder.route}
+      })).catch(()=>{});
+    };
+    navigator.serviceWorker?.addEventListener('message',foregroundReminder);
     if(isNativeAndroid()){
       void listenForNativePushActions(data=>{
         const reminder=parseNutritionReminderPayload({data},window.location.origin);
@@ -256,6 +242,7 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
       }).catch(()=>{});
       return()=>{
         disposed=true;
+        navigator.serviceWorker?.removeEventListener('message',foregroundReminder);
         stopListening?.();
       };
     }
@@ -284,6 +271,7 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
     void start();
     return()=>{
       disposed=true;
+      navigator.serviceWorker?.removeEventListener('message',foregroundReminder);
       stop();
       window.removeEventListener('focus',refresh);
       window.removeEventListener('nourish-push-enabled',refresh);
@@ -304,6 +292,8 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
       catch(error){console.warn('Could not refresh this device notification registration.',error);}
       finally{running=false;}
     };
+    const subscriptionChanged=(event:MessageEvent)=>{if(event.data?.type==='REFRESH_PUSH_SUBSCRIPTION')void run();};
+    navigator.serviceWorker?.addEventListener('message',subscriptionChanged);
     window.addEventListener('focus',run);
     window.addEventListener('online',run);
     void run();
@@ -316,6 +306,7 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
     return()=>{
       disposed=true;
       removeAppState?.();
+      navigator.serviceWorker?.removeEventListener('message',subscriptionChanged);
       window.removeEventListener('focus',run);
       window.removeEventListener('online',run);
     };

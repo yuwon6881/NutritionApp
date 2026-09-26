@@ -29,7 +29,6 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
   const [theme,setTheme]=useState<Theme>(storedTheme()??'light');
   const {saving,needsReview,savingLabel}=useSettingsSave(store);
   const state=store.state!;
-  const timeZone=state.profile?.timeZone??'Asia/Kuala_Lumpur';
 
   const signOut=()=>void (async()=>{
     setError('');
@@ -50,7 +49,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       <div className="settings-account-copy">
         <h2 id="account-title">Fitness Account</h2>
         <strong className="settings-account-name">{state.displayName}</strong>
-        <p>Sign-in, password, and security are managed by Fitness Account. Time zone: {timeZone}.</p>
+        <p>Sign-in, password, and security are managed by Fitness Account.</p>
       </div>
       <Button variant="secondary" onClick={signOut}><LogOut size={16} aria-hidden="true"/>Sign out</Button>
     </section>

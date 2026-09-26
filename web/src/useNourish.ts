@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, Food, LocalData, Mutation, PhysiqueAngle, PhysiqueDraft, ProgressSummary, BodyDraft, TrainingSummary } from './types';
+import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, LocalData, Mutation, PhysiqueAngle, PhysiqueDraft, ProgressSummary, BodyDraft, TrainingSummary } from './types';
 import { api, apiWithMeta, ApiError } from './lib/api';
 import { readLocal, saveLocal, saveLocalAndRetireFoodBasketDraft, readSavedFoods, saveSavedFoods, saveDatedDiaryBatch, stripLegacyScanDrafts } from './lib/local';
-import {isSavedFoodsCacheUsable} from './lib/savedFoods';
+import {favouriteMutation,isSavedFoodsCacheUsable} from './lib/savedFoods';
+import type {FoodSearchResult} from './types';
+import {useSavedFoods} from './useSavedFoods';
 import { today } from './lib/format';
 import { enqueueMutation, project, rebaseAfterOwnWrite, wireMutation } from './lib/projection';
 import { acknowledgeHistory } from './lib/history';
-import { dispatchWait, undoHeldMutations } from './lib/heldMutations';
+import { dispatchWait, nextDispatchableMutation, undoHeldMutations } from './lib/heldMutations';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
 import { normalizePhotoDraft, queueEntries, uploadPendingDrafts, type SyncKind, type SyncPhase, type SyncState } from './lib/nourishDrafts';
@@ -27,6 +29,7 @@ export function useNourish(user: string) {
   const windowDate = useRef<string | undefined>(undefined);
   const refreshSequence = useRef(0);
   const bootstrapEtag = useRef<string | undefined>(undefined);
+  const favouriteWrites = useRef<Promise<unknown>>(Promise.resolve());
   const foodsEtag = useRef<string | undefined>(undefined);
   const trainingEtag = useRef<string | undefined>(undefined);
   const revisionsEtag = useRef<string | undefined>(undefined);
@@ -197,27 +200,7 @@ export function useNourish(user: string) {
     const todayDate = today(ref.current?.state.profile?.timeZone);
     await sharedDiaryCoordinator.requestDate(key, todayDate, { isNavigation: true });
   }, []);
-  const loadSavedFoods = useCallback(async () => {
-    if (!user) return;
-    const cached = await readSavedFoods(user);
-    if (cached && ref.current && (!ref.current.state.foods || !ref.current.state.foods.length)) {
-      const cacheLoaded=cached.loaded===true||cached.foods.length>0||cached.revision===0;
-      await commit(current => ({ ...current, state: { ...current.state, foods: cached.foods }, foodsLoaded: cacheLoaded }));
-    }
-    const currentFoodRevision = ref.current?.state.foodRevision ?? ref.current?.state.revision ?? 0;
-    if (isSavedFoodsCacheUsable(cached,currentFoodRevision)||!navigator.onLine) return;
-    try {
-      const res = await apiWithMeta<{ foods: Food[]; revision: number; foodRevision?: number }>('/foods', {
-        headers: foodsEtag.current ? { 'If-None-Match': foodsEtag.current } : undefined
-      });
-      if (res.etag) foodsEtag.current = res.etag;
-      if (res.notModified) return;
-      if (res.data?.foods && alive.current) {
-        await saveSavedFoods(user, res.data.foods, res.data.foodRevision ?? res.data.revision);
-        await commit(current => ({ ...current, state: { ...current.state, foods: res.data!.foods, foodRevision: res.data!.foodRevision ?? res.data!.revision }, foodsLoaded:true }));
-      }
-    } catch { /* retain cached foods */ }
-  }, [commit, user]);
+  const loadSavedFoods=useSavedFoods(user,ref,alive,foodsEtag,commit);
   const loadTrainingSummaries = useCallback(async () => {
     if (!user || !navigator.onLine) return;
     try {
@@ -231,7 +214,7 @@ export function useNourish(user: string) {
       }
     } catch { /* retain existing workout state */ }
   }, [commit, user]);
-  const pollRevisions = useCallback(() => pollNutritionRevisions(user, ref, revisionsEtag, lastPeerRefresh, refresh, loadSavedFoods, loadTrainingSummaries).catch(() => undefined),
+  const pollRevisions = useCallback(() => pollNutritionRevisions(user, ref, revisionsEtag, lastPeerRefresh, refresh, async()=>{await loadSavedFoods();}, loadTrainingSummaries).catch(() => undefined),
     [loadSavedFoods, loadTrainingSummaries, refresh, user]);
   const refreshProgress = useCallback((period: string) => {
     const running = progressRequests.current.get(period);
@@ -254,21 +237,19 @@ export function useNourish(user: string) {
     if (draining.current || !navigator.onLine || !ref.current) return;
     const hadQueue = ref.current.queue.length > 0;
     let sent = false;
-    let held = false;
     draining.current = true;
     if (ref.current.queue.length) { beginSync(ref.current.queue[0]?.kind ?? 'entry'); setBusy(true); }
     try {
       while (alive.current && ref.current?.queue.length) {
+        const op=nextDispatchableMutation(ref.current.queue);
+        if(!op)break;
         // An undoable deletion at the head waits out its window; later work stays behind it in order.
-        const wait = dispatchWait(ref.current.queue, Date.now());
+        const wait = dispatchWait([op], Date.now());
         if (wait > 0) {
-          held = true;
           clearTimeout(heldDrainTimer.current);
           heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, wait + 20);
           break;
         }
-        const op = ref.current.queue[0];
-        if (op.error) break;
         try {
           const { revision } = await api<{ revision: number }>('/sync', wireMutation(op));
           sent = true;
@@ -295,6 +276,7 @@ export function useNourish(user: string) {
             const history = Object.fromEntries(Object.entries(current.history ?? {}).map(([k, saved]) => [k, acknowledgeHistory(saved, op, revision)]));
             return { ...current, state, queue, history, foodsLoaded: op.kind==='food'?true:current.foodsLoaded };
           });
+          await sharedDiaryCoordinator.acknowledge(op,revision);
         } catch (ex) {
           if (ex instanceof ApiError && [400, 409, 422].includes(ex.status)) {
             await commit(current => ({ ...current, queue: current.queue.map(q => q.id === op.id ? { ...q, error: ex.message } : q) }));
@@ -305,7 +287,7 @@ export function useNourish(user: string) {
       // A refresh is needed only when at least one operation was actually sent.
       // Empty drains are common on visibility/online wakes and should not repeat
       // the full bootstrap read.
-      if (alive.current && hadQueue && (sent || !held)) await refresh();
+      if (alive.current && hadQueue && sent) await refresh();
       setError('');
     } catch (ex) {
       if (alive.current) setError(ex instanceof Error ? ex.message : 'Sync is waiting for a connection.');
@@ -449,10 +431,22 @@ export function useNourish(user: string) {
     };
   }, [user, refresh, refreshProgress, drain, runPendingDrafts, pollRevisions]);
 
+  const toggleFoodFavourite=useCallback((candidate:FoodSearchResult)=>{
+    const accountId=ref.current?.state.id;
+    const operation=favouriteWrites.current.catch(()=>undefined).then(async()=>{
+      if(!accountId||ref.current?.state.id!==accountId)throw new Error('Sign in again before changing saved foods.');
+      const foods=await loadSavedFoods(true);
+      if(ref.current?.state.id!==accountId)throw new Error('The account changed while loading saved foods.');
+      await mutate(favouriteMutation(foods,candidate,ref.current?.queue??[]));
+    });
+    favouriteWrites.current=operation;
+    return operation;
+  },[loadSavedFoods,mutate]);
+
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local]);
 
   return {
-    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, loadTrainingSummaries, drain, calendarDate,
+    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, drain, calendarDate,
     logEntries: async (entries: unknown[], options?: { retireFoodBasketDate?: string }) => {
       const persist = options?.retireFoodBasketDate
         ? (account: string, data: LocalData) => saveLocalAndRetireFoodBasketDraft(account, data, options.retireFoodBasketDate!)

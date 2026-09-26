@@ -18,6 +18,7 @@ export class DiaryCoordinator {
   private inFlightRanges = new Map<string, Promise<void>>();
   private navigationAbort: AbortController | null = null;
   private listeners = new Set<(date?: string) => void>();
+  private generation=0;
 
   constructor(user?: string) {
     if (user) this.setUser(user);
@@ -30,6 +31,7 @@ export class DiaryCoordinator {
   }
 
   public reset() {
+    this.generation++;
     if (this.navigationAbort) {
       this.navigationAbort.abort();
       this.navigationAbort = null;
@@ -63,6 +65,33 @@ export class DiaryCoordinator {
 
   public getCached(date: string): DatedDiaryDay | undefined {
     return this.cachedDays.get(date);
+  }
+
+  /** Keep acknowledged edits visible when the outbox clears before revalidation finishes. */
+  public async acknowledge(op:Mutation,revision:number):Promise<void>{
+    if(op.kind!=='entry'&&op.kind!=='day')return;
+    const requestUser=this.user;
+    const generation=this.generation;
+    const dates=new Set<string>();
+    const updated:DatedDiaryDay[]=[];
+    const target=(op.data as {date?:string}).date;
+    if(target)dates.add(target);
+    if(op.kind==='entry')for(const [date,cached] of this.cachedDays){
+      if(cached.entries.some(entry=>entry.id===op.recordId))dates.add(date);
+    }
+    for(const date of dates){
+      if(!this.cachedDays.has(date))this.cachedDays.set(date,{date,entries:[],revision:0,fetchedAt:0});
+      const projected=this.projectDate(date,[op]);
+      if(!projected)continue;
+      const entry=projected.entries.find(item=>item.id===op.recordId);
+      if(entry)entry.revision=revision;
+      if(projected.day)projected.day.revision=revision;
+      const next={...projected,revision,fetchedAt:Date.now()};
+      this.cachedDays.set(date,next);
+      updated.push(next);
+    }
+    this.notify();
+    if(requestUser&&generation===this.generation)await saveDatedDiaryBatch(requestUser,updated).catch(()=>{});
   }
 
   public isFresh(date: string, todayDate: string): boolean {
@@ -163,6 +192,8 @@ export class DiaryCoordinator {
     options?: { isNavigation?: boolean; force?: boolean }
   ): Promise<void> {
     if (!this.user) return;
+    const requestUser=this.user;
+    const generation=this.generation;
     if (!options?.force && this.isFresh(date, todayDate)) {
       return;
     }
@@ -193,7 +224,7 @@ export class DiaryCoordinator {
           { headers, signal }
         );
 
-        if (signal?.aborted) return;
+        if (signal?.aborted||generation!==this.generation) return;
 
         if (res.notModified) {
           // 304: update fetchedAt timestamp
@@ -205,10 +236,10 @@ export class DiaryCoordinator {
               updated.push(cached);
             }
           }
-          if (this.user && updated.length) {
-            await saveDatedDiaryBatch(this.user, updated).catch(() => {});
+          if (updated.length) {
+            await saveDatedDiaryBatch(requestUser, updated).catch(() => {});
           }
-          this.notify(date);
+          if(generation===this.generation)this.notify();
           return;
         }
 
@@ -237,9 +268,12 @@ export class DiaryCoordinator {
             bucket.day = d;
           }
 
-          // Also ensure requested date has an empty bucket if no entries/days
-          if (!datesInResponse.has(date)) {
-            datesInResponse.set(date, { entries: [] });
+          // A range response is authoritative for empty dates too.
+          for(let cursor=from;cursor<=to;){
+            if(!datesInResponse.has(cursor))datesInResponse.set(cursor,{entries:[]});
+            const next=new Date(`${cursor}T12:00:00Z`);
+            next.setUTCDate(next.getUTCDate()+1);
+            cursor=next.toISOString().slice(0,10);
           }
 
           const toSave: DatedDiaryDay[] = [];
@@ -259,16 +293,16 @@ export class DiaryCoordinator {
             toSave.push(dayRecord);
           }
 
-          if (this.user && toSave.length) {
-            await saveDatedDiaryBatch(this.user, toSave).catch(() => {});
+          if (toSave.length) {
+            await saveDatedDiaryBatch(requestUser, toSave).catch(() => {});
           }
-          this.notify(date);
+          if(generation===this.generation)this.notify();
         }
       } catch (ex: any) {
         if (ex?.name === 'AbortError') return;
         throw ex;
       } finally {
-        this.inFlightRanges.delete(rangeKey);
+        if(generation===this.generation)this.inFlightRanges.delete(rangeKey);
       }
     })();
 

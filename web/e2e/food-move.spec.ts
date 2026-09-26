@@ -157,6 +157,6 @@ test('food timeline supports single-item move to custom time, move to existing t
   await dateMoveDialog.locator('#move-food-date').fill(yesterdayIso,{force:true});
   await dateMoveDialog.getByLabel('Move to time (optional)',{exact:true}).fill('21:30');
   await dateMoveDialog.getByRole('button',{name:'Move',exact:true}).click();
-  await page.getByRole('button',{name:'Previous food day',exact:true}).click();
+  await page.locator('.food-week-strip [aria-current="date"]').evaluate(element=>(element.previousElementSibling as HTMLElement).click());
   await expect(page.locator('[data-time-row="21:30"]')).toContainText('Rolled oats');
 });

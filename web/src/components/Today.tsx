@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import type {Nourish} from '../useNourish';
-import type {CoachResult,Entry} from '../types';
+import type {CoachResult} from '../types';
 import {number,today,trend} from '../lib/format';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {targetsForDate} from '../lib/dailyTargets';
@@ -12,11 +12,8 @@ import {displayEnergy,displayWeight,weightLabel,energyLabel,unitsFor} from '../l
 import {shouldShowDashboardSteps,useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
-import {LogAgainStrip} from './LogAgainStrip';
-import {rankRecentFoods} from '../lib/recentFoods';
-import {mealTime} from '../lib/foodDiary';
 
-export function Today({store,onCoach,onSettings,onLogAgain}:{store:Nourish;onCoach:()=>void;onSettings?:()=>void;onLogAgain?:(entry:Entry,trigger:HTMLElement)=>void}){
+export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
   const latestWeight=trend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted&&w.date<=date)]).at(-1);
@@ -46,8 +43,6 @@ export function Today({store,onCoach,onSettings,onLogAgain}:{store:Nourish;onCoa
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
   const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision,state.settings?.weightGoalMetric??'scale'),phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
-  const [nowHours,nowMinutes]=mealTime(state.profile?.timeZone).split(':').map(Number);
-  const logAgain=rankRecentFoods(state.entries,{date,minutes:nowHours*60+nowMinutes},5);
   const {state: ghState,loading: ghLoading}=useGoogleHealth();
   // Do not show an integration card while its first status request is unresolved.
   // Once a connection is known, keep the card visible during background refresh so
@@ -95,7 +90,6 @@ export function Today({store,onCoach,onSettings,onLogAgain}:{store:Nourish;onCoa
         </article>
       </section>
       {showGoogleHealthSteps && <GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} warningMessage={ghState.warningMessage} onOpenSettings={onSettings}/>}
-      {onLogAgain&&<LogAgainStrip entries={logAgain} energyUnit={energyUnit} disabled={false} onLog={onLogAgain}/>}
       {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
         <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
       </section>}

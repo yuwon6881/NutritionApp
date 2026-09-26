@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {seedMobileUser} from './helpers/seed';
 
 // Fast logging keeps the batch review: a recent food reaches "Log" in one tap
-// from the dialog and one tap from the Dashboard's Log again strip.
+// from the dialog. Dashboard stays focused on daily summaries.
 let session:Awaited<ReturnType<typeof seedMobileUser>>;
 
 test.beforeAll(async({request})=>{
@@ -41,18 +41,10 @@ test('a recent food goes straight to the batch review with its last portion',asy
   await expect(foodCards(page,'Porridge')).toHaveCount(before+1);
 });
 
-test('Log again on the Dashboard opens the review with that food added',async({page})=>{
+test('Dashboard omits Log again while recent foods remain in the picker',async({page})=>{
   await page.goto('/');
-  const strip=page.getByRole('region',{name:'Log again'});
-  await expect(strip).toBeVisible();
-  await strip.getByRole('button',{name:/^Chicken rice bowl,/}).click();
-  const batch=page.getByRole('dialog',{name:'Batch (1 food)',exact:true});
-  await expect(batch).toBeVisible();
-  await expect(batch.getByText('Chicken rice bowl')).toBeVisible();
-  // Dismissing keeps the unfinished batch on this device rather than logging it.
-  await batch.getByRole('button',{name:'Log all 1 food',exact:true}).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(strip).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Log again'})).toHaveCount(0);
 });
 
 test('search runs after a pause in typing and reuses a repeated query',async({page})=>{

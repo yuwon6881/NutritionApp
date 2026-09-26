@@ -24,33 +24,20 @@ test.beforeEach(async({context,page})=>{
 const card=(page:Page,name:string)=>page.locator('.food-time-card').filter({has:page.getByRole('heading',{name})});
 const dayHeading=(page:Page)=>page.locator('.food-day-summary h2');
 
-test('the week strip changes day by tap and by sideways swipe',async({page})=>{
-  const strip=page.getByRole('group',{name:'Choose a day this week'});
+test('calendar scrolling preserves selection and tapping changes day',async({page})=>{
+  const strip=page.getByRole('group',{name:'Choose a food day'});
   await expect(strip.locator('[aria-current="date"]')).toHaveAccessibleName(/today/);
   await expect(dayHeading(page)).toHaveText('Today');
-
-  // Past days add a status control above the strip, so measure it before every swipe.
-  const swipeStrip=async(fromShare:number,toShare:number)=>{
-    const center=await centerOf(strip);
-    const width=(await strip.boundingBox())!.width;
-    const left=center.x-width/2;
-    await swipe(page,{x:left+width*fromShare,y:center.y},{x:left+width*toShare,y:center.y});
-  };
-  await swipeStrip(0.3,0.8);
+  const before=await strip.evaluate(element=>element.scrollLeft);
+  const center=await centerOf(strip);
+  await swipe(page,{x:center.x-100,y:center.y},{x:center.x+100,y:center.y});
+  await expect.poll(()=>strip.evaluate(element=>element.scrollLeft)).toBeLessThan(before);
+  await expect(dayHeading(page)).toHaveText('Today');
+  const selectedDate=await strip.locator('[aria-current="date"]').getAttribute('data-date');
+  const yesterday=new Date(`${selectedDate}T12:00:00Z`);yesterday.setUTCDate(yesterday.getUTCDate()-1);
+  await strip.locator(`[data-date="${yesterday.toISOString().slice(0,10)}"]`).click();
   await expect(dayHeading(page)).toHaveText('Yesterday');
-
-  await swipeStrip(0.8,0.2);
-  await expect(dayHeading(page)).toHaveText('Today');
-  // Days after today stay unavailable.
-  await swipeStrip(0.8,0.2);
-  await expect(dayHeading(page)).toHaveText('Today');
-
-  // Tapping an earlier logged day of this week opens it (none exists on a Monday).
-  const earlierLogged=strip.getByRole('button',{name:/^\w{3} \d+, food logged$/});
-  if(await earlierLogged.count()){
-    await earlierLogged.first().click();
-    await expect(dayHeading(page)).not.toHaveText('Today');
-  }
+  await expect(strip.getByRole('button',{name:/future/}).first()).toBeDisabled();
 });
 
 test('swiping a card reveals its actions and Undo restores a deleted entry',async({page})=>{

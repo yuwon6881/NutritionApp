@@ -8,7 +8,7 @@ import { historyState } from './lib/history';
 export function useHistoryWindow(store: Nourish, key: string, enabled = true) {
   const [failure, setFailure] = useState<{ key: string; message: string }>();
   const [attempt, setAttempt] = useState(0);
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   const forceUpdate = () => setTick(n => n + 1);
 
   const todayDate = today(store.state?.profile?.timeZone);
@@ -94,7 +94,7 @@ export function useHistoryWindow(store: Nourish, key: string, enabled = true) {
       return historyState(store.local, key);
     }
     return undefined;
-  }, [enabled, key, queue, store.local, store.state]);
+  }, [enabled, key, queue, store.local, store.state, tick]);
 
   return {
     state,

@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import type {AppState,Mutation} from '../types';
 import {project,wireMutation} from './projection';
-import {dispatchWait,undoHeldMutations} from './heldMutations';
+import {dispatchWait,nextDispatchableMutation,undoHeldMutations} from './heldMutations';
 
 const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-03-01',
   entries:[
@@ -12,6 +12,15 @@ const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profil
 const held=(id:string,holdUntil:number,recordId='e'):Mutation=>({id,kind:'entry',recordId,expectedRevision:3,delete:true,data:{...state.entries[0]},holdUntil});
 
 describe('undoable (held) deletions',()=>{
+  it('stops at a conflict-only queue and permits other records without replaying protected edits',()=>{
+    const conflict={...held('conflict',0),error:'Needs review'};
+    const dependent=held('dependent',0);
+    const other=held('other',2000,'other');
+    expect(nextDispatchableMutation([conflict])).toBeUndefined();
+    expect(nextDispatchableMutation([conflict,dependent])).toBeUndefined();
+    expect(nextDispatchableMutation([conflict,dependent,other])).toBe(other);
+    expect(dispatchWait([other],1000)).toBe(1000);
+  });
   it('project the deletion immediately while the request waits',()=>{
     expect(project(state,[held('m',2000)]).entries[0].deleted).toBe(true);
   });

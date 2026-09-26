@@ -16,7 +16,7 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
   return (
     <main className="auth-layout">
       <section className="auth-story">
-        <div className="brand"><Brand size={34}/> Nutrition App</div>
+        <div className="brand"><Brand size={34}/> Nutrition</div>
         <h1>Nutrition diary</h1>
       </section>
       <section className="auth-panel">

@@ -1,17 +1,9 @@
-/* Fast-logging surfaces: recents, Log again, portion shortcuts, and continuous scanning. */
+/* Fast-logging surfaces: recents, portion shortcuts, and continuous scanning. */
 .recent-foods-heading{flex-wrap:wrap;gap:2px 12px}
 .recent-foods-heading small{font-size:.72rem;min-width:0}
 .recent-food-card{min-width:0}
 .recent-food-name{overflow-wrap:anywhere}
 .food-selection>.recent-foods-section{margin-top:16px}
-
-.log-again-panel .section-heading{margin-bottom:12px}
-/* A single scrolling row keeps the Dashboard short on phones; overflow stays inside the strip. */
-.log-again-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,1fr);gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding-bottom:4px;scrollbar-width:thin}
-.log-again-strip>.recent-food-card{scroll-snap-align:start;min-height:var(--touch-target)}
-@media (min-width:1024px){
-  .log-again-strip{grid-auto-flow:row;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));overflow-x:visible}
-}
 
 .portion-chips{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 18px}
 .portion-chips>.button{min-width:var(--touch-target);min-height:var(--touch-target);font-variant-numeric:tabular-nums}
@@ -20,19 +12,39 @@
 .barcode-camera-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .barcode-camera-status>p{margin:0}
 
-/* Food Log week strip: seven equal day chips, swipeable sideways to change day. */
-.food-week-strip{order:3;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;width:100%;touch-action:pan-y;flex-basis:100%}
-.food-week-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;padding:6px 0;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--foreground);cursor:pointer;font:inherit;transition:background-color var(--motion-control) ease,border-color var(--motion-control) ease}
+/* Day selection scrolls independently of the selected date. */
+.food-calendar{order:3;flex-basis:100%;width:100%;min-width:0}
+.food-calendar-navigation{display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px}
+.food-week-strip{display:flex;gap:4px;width:100%;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scroll-snap-type:x proximity;padding:4px 2px 8px;position:relative;scrollbar-width:thin}
+.food-week-day{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;flex:0 0 60px;width:60px;height:60px;padding:4px;border:0;border-radius:12px;scroll-snap-align:center;background:transparent;color:var(--foreground);font:inherit;cursor:pointer}
+.food-week-day[aria-current='date']{background:var(--primary-tint);color:var(--primary-ink);box-shadow:inset 0 0 0 3px var(--card)}
 .food-week-day:disabled{opacity:.4;cursor:default}
-.food-week-day[aria-current='date']{background:var(--primary-tint);border-color:color-mix(in srgb,var(--primary) 40%,var(--border));color:var(--primary-ink)}
 .food-week-day:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
-@media (hover:hover) and (pointer:fine){.food-week-day:not(:disabled):hover{background:var(--muted)}}
-.food-week-day-name{font-size:.72rem;color:var(--muted-foreground)}
-.food-week-day[aria-current='date'] .food-week-day-name{color:inherit}
+@media(hover:hover) and (pointer:fine){.food-week-day:not(:disabled):hover{background:var(--muted)}}
+.food-day-progress{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.food-day-progress path{fill:none;stroke-width:2}
+.food-day-progress-track{stroke:var(--border)}
+.food-day-progress-fill{stroke:var(--primary);stroke-linecap:butt}
+.food-week-day-name{font-size:.7rem;color:var(--muted-foreground)}
 .food-week-day-number{font-size:.95rem;font-weight:600;font-variant-numeric:tabular-nums}
-.food-week-day-marker{width:5px;height:5px;border-radius:50%;background:transparent}
-.food-week-day-marker.logged{background:var(--primary)}
-@media (min-width:1024px){.food-week-day{min-height:48px}}
+.food-week-day-month{font-size:.6rem;color:var(--muted-foreground)}
+.food-calendar-status{font-size:.75rem;margin:8px 0 0}
+.food-log-page .food-date-navigation{grid-template-columns:minmax(160px,260px) auto}
+.diary-empty-state{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 24px;background:var(--card)}
+.diary-empty-state h3,.diary-empty-state p{margin:0;max-width:380px}
+.diary-empty-state p{font-size:.85rem;color:var(--muted-foreground)}
+.diary-empty-state>.button{margin-left:0}
+.diary-empty-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--muted);color:var(--primary-ink)}
+.notification-settings>.card-feedback{margin-top:16px;margin-bottom:16px}
+.food-modal .section-segments .button{justify-content:center;padding-inline:4px;gap:6px}
+.saved-foods-actions .button{white-space:nowrap}
+@media(max-width:639px){
+  .food-calendar-navigation{display:none}
+  .food-log-page .food-date-navigation{grid-template-columns:minmax(0,1fr);width:100%}
+  .food-modal .saved-foods-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .food-modal .saved-foods-actions>.button:first-child{grid-column:1/-1}
+  .food-modal .saved-foods-actions .button{flex:none;padding-inline:8px;gap:6px}
+}
 
 /* Static skeletons (no shimmer): shapes of the content they replace. */
 .skeleton-block{display:block;background:var(--muted);max-width:100%}

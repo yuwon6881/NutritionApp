@@ -23,7 +23,7 @@ import {DashboardSkeleton} from './components/ui/Skeleton';
 import {ForegroundNotificationHandler,PwaUpdateNotice} from './components/ui/MobilePwa';
 import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
-import {retryPendingPushRevocations} from './lib/push/revocations';
+import {retryPendingPushRevocations, retryAllPendingPushRevocations} from './lib/push/revocations';
 import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
 import {backCoordinator,isLayerEntry,readState,PAGE_KEY} from './lib/appHistory';
 import {BACK_TO_HOME_EVENT} from './lib/nativeApp';
@@ -57,7 +57,6 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   },[]);
   const [foodDate,setFoodDate]=useState(today());
   const [foodInitialTime,setFoodInitialTime]=useState<string>();
-  const [foodInitialRecent,setFoodInitialRecent]=useState<Entry>();
   const [foodEditing,setFoodEditing]=useState<Entry>();
   const [foodInitialTab,setFoodInitialTab]=useState<'search'|'saved'|'barcode'|'ai'>('search');
   const [foodReturnFocus,setFoodReturnFocus]=useState<HTMLElement|null>(null);
@@ -130,7 +129,7 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
 
   const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string)=>{
     const initialSection=typeof tab==='string'?tab:tab?'barcode':'search';
-    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialTime(initialTime);setFoodInitialRecent(undefined);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
+    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialTime(initialTime);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
   };
   const openWeight=(selectedDate:string,entry?:Weight,restoreFocus?:HTMLElement|null)=>{
     setWeightDate(selectedDate);setWeightEditing(entry);setWeightReturnFocus(restoreFocus??null);setWeightOpen(true);
@@ -188,7 +187,7 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside className="sidebar">
-      <a className="brand" href="/" aria-label="Nutrition App home"><Brand/><span>Nutrition App</span></a>
+      <a className="brand" href="/" aria-label="Nutrition home"><Brand/><span>Nutrition</span></a>
       <nav aria-label="Main navigation">
         <SelectionIndicator active={page} className="nav-mobile-items nav-selection">
           <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><Utensils size={20}/><span>Dashboard</span></Button>
@@ -222,11 +221,11 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
       {!store.state?<><DashboardSkeleton label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<DashboardSkeleton label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
-        {!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')} onLogAgain={(entry,trigger)=>{openFood(activeDate,undefined,'search',trigger);setFoodInitialRecent(entry);}}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
+        {!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
       </MotionScene></Suspense>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}:${foodInitialRecent?.id??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialRecent={foodInitialRecent} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
+        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}
@@ -304,6 +303,6 @@ export default function App(){
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
     <ForegroundNotificationHandler userId={user} authReady={authReady}/>
-    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);}}/>}
+    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);void retryAllPendingPushRevocations().catch(()=>{});}}/>}
   </>;
 }

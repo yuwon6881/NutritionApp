@@ -1,4 +1,4 @@
-# Nutrition App
+# Nutrition
 
 A separate two-user, mobile-first nutrition PWA. React/TypeScript/Vite frontend, ASP.NET Core 10 API, PostgreSQL on Neon, Vercel hosting for the PWA and Cloud Run hosting for the API. FinancialApp is not a runtime dependency.
 
@@ -12,7 +12,7 @@ The Android app uses Capacitor 8 (`com.nutritionapp.mobile`) and packages the bu
 
 Building requires Android Studio, its Android SDK (API 36), and JDK 21. `android:run` also requires a connected device or configured emulator. This workspace currently has no Android SDK or JDK, so the native Gradle build and phone installation still need to be checked there. Camera scanning requests Android's camera permission. Hardware Back dismisses the active Nutrition dialog and exits from the main screen.
 
-Fitness Account sign-in remains a web authorization flow. Google Health consent must be completed in the browser/PWA because Google blocks OAuth in embedded WebViews; an Android browser session cannot reuse the app WebView's Nutrition cookie. Weekly coaching reminders can use browser/PWA Web Push or native Android FCM. Each device subscribes separately; the account reminder schedule remains in Settings. Android builds require the Nutrition Firebase app configuration for `com.nutritionapp.mobile` and must pass `npm.cmd run check:android-firebase` before Capacitor sync.
+Fitness Account sign-in remains a web authorization flow. Google Health consent must be completed in the browser/PWA because Google blocks OAuth in embedded WebViews; an Android browser session cannot reuse the app WebView's Nutrition cookie. Weekly coaching reminders can use browser/PWA Web Push or native Android FCM. Turning on the reminder in Settings requests permission, subscribes the current device, and saves the account schedule. Later schedule edits save automatically; device-only controls remain available. Android builds require the Nutrition Firebase app configuration for `com.nutritionapp.mobile` and must pass `npm.cmd run check:android-firebase` before Capacitor sync.
 
 For Vite hot reload, run the API on port 5088 with `PublicOrigin=http://127.0.0.1:5178`, then run `npm.cmd run dev` inside `web`. Use the Vite URL. Accounts are provisioned via central Fitness Account OIDC (`openid`, `profile`), capped at two users; no credentials or passwords are stored in NutritionApp.
 
@@ -84,3 +84,11 @@ Forms use the shared application validation layer (`Form` and `FieldFrame`): inl
 The barcode camera decodes only the pixels inside the displayed frame, accounting for centered video cropping and viewport resizing. A successful detection fills the barcode field for one lookup and stops the camera. Manual barcode entry remains available if camera access fails.
 
 Dashboard shows current-day energy, macros, coaching actions, and a compact trend-weight summary. Browse dates, edit meal entries, and copy days in Food Log. Food batches use compact rows with aligned energy and desktop actions; on mobile, swipe left or open the visible row menu to edit or remove a food. A compact batch button sits beside the Log food title. Fibre remains stored and editable but is omitted from compact previews. Search inputs reset when switching logging methods or returning to selection. Successful AI estimates enter the batch as editable best-effort lines and clear the description/photo input; logging the batch explicitly saves them. Recipes combine API-search or saved-food ingredients, gram quantities, cooked yield, and servings into one saved food while preserving unknown nutrients.
+
+## Food Log navigation and saved foods
+
+Time-zone fields and account-card labels are hidden. Stored account and reminder zones still determine day boundaries and scheduled delivery.
+
+The calendar scrolls through adjacent days on phones; desktop arrows scroll one week without selecting a different day. Tap a day, use the date picker, or return to Today to select a date. Each day has a perimeter border showing known intake as a percentage of that date’s accepted calorie target, capped at 100%. Unknown intake or targets do not imply zero progress. Archived summaries and retained edits use the same diary data projection.
+
+Recent and frequent foods remain in the food picker. Dashboard focuses on daily summaries. Starring resolves existing saved foods by barcode before name/source, preserves saved nutrition, and retains pending favourites while the library refreshes. Previously blocked barcode conflicts still require explicit review.

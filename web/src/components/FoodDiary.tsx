@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {CheckCheck,ChevronLeft,ChevronRight,Plus,Share2} from 'lucide-react';
+import {CheckCheck,Plus,Share2} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry} from '../types';
 import {useHistoryWindow} from '../useHistoryWindow';
@@ -18,6 +18,7 @@ import {useFoodSelection} from '../lib/useFoodSelection';
 import {useFoodClipboard,createPasteMutations} from '../lib/useFoodClipboard';
 import {FoodSelectionBar} from './FoodSelectionBar';
 import {FoodWeekStrip} from './FoodWeekStrip';
+import {DiaryEmptyState} from './DiaryEmptyState';
 import {FoodDaySkeleton} from './ui/Skeleton';
 import {canShareText,daySummaryText,shareText} from '../lib/share';
 import {showUndo} from './ui/UndoToast';
@@ -50,7 +51,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
     const outcome=await shareText(`Food log ${date}`,daySummaryText(date,entries,energyUnit));
     setShareStatus(outcome==='copied'?'Day summary copied.':outcome==='unavailable'?'Sharing is not available here.':'');
   };
-  const loggedDates=new Set([...(store.state?.entries??[]),...(history.state?.entries??[])].filter(entry=>!entry.deleted).map(entry=>entry.date));
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
 
   const act=async(action:()=>Promise<unknown>,rethrow=false)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);if(rethrow)throw ex;}};
@@ -121,12 +121,10 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
     </header>
     <div className="food-diary-toolbar">
       <div className="food-date-navigation">
-        <Button aria-label="Previous food day" disabled={date<='2000-01-01'} onClick={()=>changeDate(shiftDate(date,-1))}><ChevronLeft size={18}/></Button>
         <DatePicker label="Food date" value={date} min="2000-01-01" max={current} onChange={changeDate}/>
-        <Button aria-label="Next food day" disabled={date>=current} onClick={()=>changeDate(shiftDate(date,1))}><ChevronRight size={18}/></Button>
         <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
       </div>
-      <FoodWeekStrip date={date} today={current} loggedDates={loggedDates} onChange={changeDate}/>
+      <FoodWeekStrip date={date} today={current} store={store} onChange={changeDate}/>
       {date<current&&<div className="food-diary-toolbar-right">
         <SelectField
           label="Logging status"
@@ -148,6 +146,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
       message={`${state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} ${history.error}`}
       action={{label:'Retry history',onClick:history.retry}}
     />}
+    {!state&&history.error&&<DiaryEmptyState status="unavailable" unavailable/>}
     {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
     {!state&&!history.error&&<section className="panel food-day-summary skeleton" aria-busy="true">
       <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>Loading diary date…</p></div></div>
@@ -167,7 +166,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
           return <div key={key}><dt>{key[0].toUpperCase()+key.slice(1)}</dt><dd>{number(value)} g{partial?' · partial':''}</dd></div>;
         })}</dl>
       </section>
-      {readOnly?<section className="panel"><h2>Daily summary</h2><p>{count} food {count===1?'entry':'entries'}{count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}</p><p>Individual food details are no longer available. Detailed food history is kept for {state.detailDays??90} calendar days; previously summarized days remain read-only.</p></section>:<>
+      {readOnly?<DiaryEmptyState status={status} archived detailDays={state.detailDays} summary={`${count} food ${count===1?'entry':'entries'}${count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}`}/>:<>
         {clipboard.clipboard&&<FoodClipboardBanner
           clipboard={clipboard.clipboard}
           currentDate={current}
@@ -180,7 +179,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
           <div><h2>Food timeline</h2><p>Show only logged times or every hour from 12 AM through 11 PM.</p></div>
           <SegmentedControl<TimelineView> id="food-timeline-view" label="Food timeline hours" value={timelineView} onChange={setTimelineView} options={[{value:'data',label:'Hours with data'},{value:'full',label:'Full day'}]}/>
         </div>
-        {!entries.length&&timelineView==='data'&&<p className="empty">{currentUncached?'No food entries saved on this device for today.':status==='fasting'?'This day is marked as fasting.':status==='not_logged'?'This day is marked as not logging.':'No food entries for this day.'}</p>}
+        {!entries.length&&timelineView==='data'&&<DiaryEmptyState status={status} offline={currentUncached} onLog={()=>onLog()}/>}
         {selection.isSelecting&&<FoodSelectionBar
           selectedCount={selectedEntries.length}
           totalCount={entries.length}

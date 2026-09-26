@@ -2,7 +2,7 @@ import type {CapacitorConfig} from '@capacitor/cli';
 
 const config:CapacitorConfig={
   appId:'com.nutritionapp.mobile',
-  appName:'Nutrition App',
+  appName:'Nutrition',
   webDir:'dist',
   server:{
     hostname:'nutrition-diary-app.vercel.app',

@@ -31,6 +31,7 @@ import {LogFoodAiForm} from './LogFoodAiForm';
 import {LogFoodRecents} from './LogFoodRecents';
 import {lineFromEntry,rankRecentFoods} from '../lib/recentFoods';
 import {today} from '../lib/format';
+import {findSavedFood} from '../lib/savedFoods';
 import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
 
 type SearchResult=import('../types').FoodSearchResult;
@@ -47,7 +48,6 @@ export function LogFood({
   initialAi=false,
   initialTab,
   initialTime,
-  initialRecent,
   restoreFocus,
 }:{
   open:boolean;
@@ -59,13 +59,11 @@ export function LogFood({
   initialAi?:boolean;
   initialTab?:'search'|'saved'|'barcode'|'ai';
   initialTime?:string;
-  /** Opens straight into the batch review with this recent food already added. */
-  initialRecent?:Entry;
   restoreFocus?:HTMLElement|null;
 }){
   const defaultTab=initialTab??(initialAi?'ai':'search');
   const history=useHistoryWindow(store,date,open);
-  useEffect(()=>{if(open)void store.loadSavedFoods?.();},[open,store]);
+  useEffect(()=>{if(open)void store.loadSavedFoods();},[open,store.loadSavedFoods]);
   const basket=useFoodBasket(open,store.state!.id,date);
   const [step,setStep]=useState<FoodStep>(editing?'editor':'selection');
   const [selectionPurpose,setSelectionPurpose]=useState<'log'|'recipe'>('log');
@@ -143,6 +141,10 @@ export function LogFood({
   },[open,step,tab]);
 
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
+  const toggleFavourite=(food:SearchResult)=>{
+    setError('');
+    void store.toggleFoodFavourite(food).catch(error=>setError(error instanceof Error?error.message:'Could not change the favourite.'));
+  };
   const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
   const selectTab=(next:'search'|'saved'|'barcode'|'ai')=>{
     setSavedFilter('all');
@@ -183,8 +185,6 @@ export function LogFood({
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   // A recent food goes straight to the batch review at its last portion; the review step stays.
   const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));setBatchTime(newTime());go('batch');});
-  const appliedRecent=useRef<string|null>(null);
-  useEffect(()=>{if(!open){appliedRecent.current=null;return;}if(initialRecent&&basket.ready&&appliedRecent.current!==initialRecent.id){appliedRecent.current=initialRecent.id;quickLogRecent(initialRecent);}});
   const leaveEditor=()=>{if(saveFood){setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setLabelNote('');}go('selection');};
   // Back steps out of an inner step before it closes the sheet. A step with
   // unsaved input falls through to the Modal's own discard confirmation.
@@ -411,7 +411,7 @@ export function LogFood({
       energyUnit={energyUnit}
       onPickRecent={quickLogRecent}
       onChoose={chooseSaved}
-      onToggleFavourite={food=>void runAction(()=>store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,favourite:!food.favourite,barcode:food.barcode??null}}))}
+      onToggleFavourite={food=>toggleFavourite(foodToSearchResult(food))}
       onEdit={food=>{setSaveFood(food);setDraft({...food,quantity:100,unit:'g'});go('editor');}}
       onCustomFood={()=>{setSaveFood(true);setDraft({...blankNutrients,quantity:100,unit:'g'});go('editor');}}
       onNewRecipe={startRecipe}
@@ -431,15 +431,8 @@ export function LogFood({
       onChoose={food=>void chooseSearch(food)}
       lookup={async(kind,value)=>kind==='barcode'?resolveBarcode(value):api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value))}
       onBarcodeError={(code,problem)=>{setResults([]);setBarcodeRecovery({code,status:problem.status,message:problem.message});}}
-      isSaved={food=>store.state!.foods.some(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source&&f.favourite)}
-      onToggleSave={food=>void run(async()=>{
-        const existing=store.state!.foods.find(f=>!f.deleted&&f.name.toLowerCase()===food.name.toLowerCase()&&f.source===food.source);
-        if(existing){
-          await store.mutate({kind:'food',recordId:existing.id,expectedRevision:existing.revision,delete:false,data:{...existing,favourite:!existing.favourite,barcode:existing.barcode??barcodeValue(food.code)}});
-        }else{
-          await store.mutate({kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...food,barcode:barcodeValue(food.code),portionsJson:serializePortions(food.portions??[]),servingGrams:100,favourite:true,ingredientsJson:'[]',cookedYieldGrams:null}});
-        }
-      })}
+      isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
+      onToggleSave={toggleFavourite}
       run={run}
       open={open}
       step={step}
