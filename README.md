@@ -92,3 +92,13 @@ Time-zone fields and account-card labels are hidden. Stored account and reminder
 The calendar scrolls through adjacent days on phones; desktop arrows scroll one week without selecting a different day. Tap a day, use the date picker, or return to Today to select a date. Each day has a perimeter border showing known intake as a percentage of that date’s accepted calorie target, capped at 100%. Unknown intake or targets do not imply zero progress. Archived summaries and retained edits use the same diary data projection.
 
 Recent and frequent foods remain in the food picker. Dashboard focuses on daily summaries. Starring resolves existing saved foods by barcode before name/source, preserves saved nutrition, and retains pending favourites while the library refreshes. Previously blocked barcode conflicts still require explicit review.
+
+### Retained progress and integration resilience
+
+Progress shows locally retained scale weights and queued changes immediately, including All history. Unknown calculated trends stay pending in statistics, chart gaps, readouts, and tables until server synchronization. Explicit Close dismisses food logging after dirty confirmation; Back/Escape unwinds new-food steps but closes an existing entry editor.
+
+Workout summary refreshes use bounded deadlines and an in-process breaker for transient service failures, preserving each account's cached history and visible refresh feedback. Offline logout queues exact device-token revocations; an origin-protected capability endpoint can complete them while signed out or after account changes, without revoking a rotated token.
+
+Expensive API routes have configurable limits per instance and validated account: food lookups 60/minute, coaching and progress reads 30/minute each, and scans 10/minute. Device revocations allow 30/minute per connection IP; exports retain 5 requests per 5 minutes. Development defaults are higher. Rejections return 429 and Retry-After; the client retains drafts and suppresses requests in the affected policy until the retry time.
+
+For an exclusive browser run, set NUTRITION_TEST_MANAGED=1, NUTRITION_TEST_URL to a free local preview port (for example http://127.0.0.1:5688), NUTRITION_TEST_DATABASE to a dedicated file, and NUTRITION_TEST_AUTH_PATH to a dedicated session file. The managed API uses the preceding port and the mock identity server uses preview port minus three; Playwright refuses to reuse occupied servers. Run test:visual with separate report/output directories and serialize builds in this checkout.

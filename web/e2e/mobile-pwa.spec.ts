@@ -114,7 +114,7 @@ test('failed push revocation does not block sign-out and runs before session log
   await savePushCredential(page,state.id);
   const requests:string[]=[];
   await page.route('**/api/notifications/subscriptions/**',async route=>{
-    if(route.request().method()==='DELETE'){
+    if(route.request().method()==='POST'&&route.request().url().endsWith('/subscriptions/revoke')){
       requests.push('revoke');
       await route.fulfill({status:503,json:{message:'Temporarily unavailable.'}});
       return;

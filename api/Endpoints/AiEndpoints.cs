@@ -6,10 +6,10 @@ public static class AiEndpoints
 {
     public static void MapAi(this WebApplication app)
     {
-        app.MapGet("/api/foods/search",async(string q,FoodSearchService foods,AppDb db,CancellationToken ct)=>await foods.Search(q,db,ct));
+        app.MapGet("/api/foods/search",async(string q,FoodSearchService foods,AppDb db,CancellationToken ct)=>await foods.Search(q,db,ct)).RequireRateLimiting("food-lookup");
         app.MapGet("/api/foods/barcode/{code}",async(string code,FoodSearchService foods,AppDb db,CancellationToken ct)=>await foods.Barcode(code,db,ct));
-        app.MapPost("/api/scans",async(ScanInput input,ScanService scans,CancellationToken ct)=>await scans.Create(input,ct));
-        app.MapPost("/api/scans/{id:guid}/process",async(Guid id,ScanService scans,CancellationToken ct)=>await scans.Process(id,ct));
+        app.MapPost("/api/scans",async(ScanInput input,ScanService scans,CancellationToken ct)=>await scans.Create(input,ct)).RequireRateLimiting("scans");
+        app.MapPost("/api/scans/{id:guid}/process",async(Guid id,ScanService scans,CancellationToken ct)=>await scans.Process(id,ct)).RequireRateLimiting("scans");
         app.MapGet("/api/scans/{id:guid}",async(Guid id,AppDb db,CancellationToken ct)=>await db.Scans.SingleOrDefaultAsync(s=>s.Id==id,ct) is {} scan?Results.Ok(scan):Results.NotFound());
         app.MapGet("/api/storage",async(StorageService storage,CancellationToken ct)=>await storage.Overview(ct));
         // Photo cleanup must run before database tombstone purging. It keeps the

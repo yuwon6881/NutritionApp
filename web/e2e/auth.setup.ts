@@ -12,5 +12,5 @@ setup('sign in once and save the session', async ({ page, request }) => {
     throw new Error(`Could not reset the isolated end-to-end database: ${await reset.text()}`);
   }
   await signIn(page, 'test-alice');
-  await page.context().storageState({ path: 'e2e/.auth/user.json' });
+  await page.context().storageState({ path: process.env.NUTRITION_TEST_AUTH_PATH ?? 'e2e/.auth/user.json' });
 });

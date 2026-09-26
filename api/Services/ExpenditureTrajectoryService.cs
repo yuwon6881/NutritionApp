@@ -94,7 +94,7 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, ct, profileChanged);
         var days = await LoadDays(start.AddDays(-28), today, today, ct);
         var weights = await db.Weights
-            .Where(weight => !weight.Deleted && weight.Date >= start.AddDays(-56) && weight.Date <= today)
+            .Where(weight => !weight.Deleted && weight.Date >= start.AddDays(-120) && weight.Date <= today)
             .OrderBy(weight => weight.Date)
             .Select(weight => new WeightPoint(weight.Date, weight.Kg, weight.Context))
             .ToListAsync(ct);

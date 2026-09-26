@@ -185,7 +185,7 @@ export function LogFood({
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   // A recent food goes straight to the batch review at its last portion; the review step stays.
   const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));setBatchTime(newTime());go('batch');});
-  const leaveEditor=()=>{if(saveFood){setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setLabelNote('');}go('selection');};
+  const leaveEditor=()=>{if(saveFood){setSaveFood(false);setPendingBarcode(undefined);setLabelNote('');}setDraft(undefined);go('selection');};
   // Back steps out of an inner step before it closes the sheet. A step with
   // unsaved input falls through to the Modal's own discard confirmation.
   const choosingIngredient=step==='selection'&&selectionPurpose==='recipe';
@@ -195,11 +195,15 @@ export function LogFood({
     else if(step==='editor')leaveEditor();
     else go('selection');
   });
+  const cancel=()=>{
+    if(editing)onClose();
+    else if(choosingIngredient)cancelRecipeIngredient();
+    else if(step==='recipe')cancelRecipe();
+    else if(step==='editor')leaveEditor();
+    else if(step!=='selection')go('selection');
+    else onClose();
+  };
   const close=()=>{
-    if(step!=='selection'&&!editing&&!basket.lines.length){
-      go('selection');
-      return;
-    }
     onClose();
   };
   const submitAiEstimate=async()=>{
@@ -487,6 +491,6 @@ export function LogFood({
   const readyContent=!basket.ready?<div className="dialog-step"><p role="status" aria-busy="true">Restoring your unfinished food batch…</p></div>:basket.storageError?<div className="dialog-step"><p className="notice" role="alert">{basket.storageError}</p><Button variant="secondary" onClick={()=>void basket.retrySave().catch(()=>{})}>Retry saving this batch</Button>{animatedChild}</div>:animatedChild;
   const resolvedContent=history.state&& !mealReadOnly(history.state,date) ? readyContent : content;
   return <>
-    <Modal open={open} onClose={close} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{resolvedContent}</Modal>
+    <Modal open={open} onClose={close} onCancel={cancel} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{resolvedContent}</Modal>
   </>;
 }

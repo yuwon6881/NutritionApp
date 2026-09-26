@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Nutrition.Tests;
 
-public sealed class NutritionPushTests : IAsyncLifetime
+public sealed partial class NutritionPushTests : IAsyncLifetime
 {
     private readonly string dbPath = Path.Combine(Path.GetTempPath(), $"nutrition-push-{Guid.NewGuid():N}.db");
     private readonly Guid userId = Guid.NewGuid();

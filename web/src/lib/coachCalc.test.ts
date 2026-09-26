@@ -84,4 +84,26 @@ describe('coachCalc', ()=>{
     expect(getPaceStatus('gain', 0.15, false).tone).toBe('recommended');
     expect(getPaceStatus('gain', 0.4, false).tone).toBe('aggressive');
   });
+
+  it('flags carbsBlocked when protein and fat exceed the calorie target', ()=>{
+    // High protein override on a very low calorie target should trigger the block
+    const pace=calculateLivePace({...base,maintenance:1200,goal:'maintain',energyAdjustmentPercent:0,proteinGrams:300});
+    // protein*4 = 1200, fat*9 = 1200*0.3 = 360, total 1560 > 1200 target
+    expect(pace.carbsBlocked).toBe(true);
+    expect(pace.carbs).toBe(0);
+  });
+
+  it('does not flag carbsBlocked under normal conditions', ()=>{
+    const pace=calculateLivePace(base,20);
+    expect(pace.carbsBlocked).toBe(false);
+    expect(pace.carbs).toBeGreaterThan(0);
+  });
+
+  it('does not flag carbsBlocked at the boundary where remaining carb calories are exactly zero', ()=>{
+    // Target 1100 kcal with explicit pace: 192.5g protein = 770 kcal, default 30% fat = 330 kcal, remaining = 0 kcal
+    const pace=calculateLivePace({...base,maintenance:1100,goal:'maintain',goalRatePercent:0,proteinGrams:192.5});
+    expect(pace.target).toBe(1100);
+    expect(pace.carbsBlocked).toBe(false);
+    expect(pace.carbs).toBe(0);
+  });
 });

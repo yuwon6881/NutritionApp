@@ -14,7 +14,7 @@ public sealed record TrajectoryPoint(
 
 public static class ExpenditureTrajectory
 {
-    public const string AlgorithmVersion = "v4-weight-context";
+    public const string AlgorithmVersion = "v5-fasting-coverage";
 
     public static TrajectoryPoint Calculate(
         Profile profile,

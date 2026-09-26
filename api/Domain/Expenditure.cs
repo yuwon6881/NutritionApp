@@ -80,11 +80,11 @@ public static class Expenditure
     public static ExpenditureEstimate EstimateDaily(IReadOnlyList<NutritionDay> days,
         IReadOnlyList<WeightPoint> weights, double expenditure, DateOnly today)
     {
-        // A fasting decision records an intentional gap; it must not become a zero-intake
-        // observation in the continuous trajectory. The accepted-plan estimator keeps its
-        // historical fasting semantics, while daily recalibration waits for real intake evidence.
+        // A fasting decision is an intentional zero-intake day.  Keep the "fasting"
+        // status so IsLogged includes it in mean-intake and coverage (at 0 kcal),
+        // matching the accepted-plan estimator that never mutates the status.
         var trajectoryDays = days.Select(day => day.Status == "fasting"
-            ? day with { Status = "not_logged", Calories = 0 }
+            ? day with { Calories = 0 }
             : day).ToArray();
         var weekly = Estimate(trajectoryDays, weights, expenditure, today);
         if (!weekly.Adaptive || weekly.Observed is not {} observed)

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -73,14 +74,59 @@ builder.Services.AddHttpClient<GoogleHealthNutritionSyncService>(c=>c.Timeout=Ti
 builder.Services.AddHttpClient<GoogleHealthBodyFatSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+Func<int> foodLookupLimit = () => builder.Configuration.GetValue("RateLimits:FoodLookup:PermitLimit", builder.Environment.IsDevelopment() ? 1200 : 60);
+Func<int> coachingLimit = () => builder.Configuration.GetValue("RateLimits:Coaching:PermitLimit", builder.Environment.IsDevelopment() ? 600 : 30);
+Func<int> progressLimit = () => builder.Configuration.GetValue("RateLimits:Progress:PermitLimit", builder.Environment.IsDevelopment() ? 600 : 30);
+Func<int> scansLimit = () => builder.Configuration.GetValue("RateLimits:Scans:PermitLimit", builder.Environment.IsDevelopment() ? 200 : 10);
+Func<int> deviceRevocationLimit = () => builder.Configuration.GetValue("RateLimits:DeviceRevocation:PermitLimit", builder.Environment.IsDevelopment() ? 600 : 30);
+
+static string AccountOrIpKey(HttpContext http)
+{
+    var userId = http.RequestServices.GetRequiredService<AppDb>().CurrentUser;
+    if (userId is not null)
+    {
+        return $"account:{userId.Value:N}";
+    }
+    return http.Connection.RemoteIpAddress?.ToString() ?? "unauthenticated";
+}
+
 builder.Services.AddRateLimiter(o=>
 {
     o.RejectionStatusCode=429;
+    o.OnRejected = async (context, ct) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Max(1, Math.Ceiling(retryAfter.TotalSeconds))).ToString(CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            context.HttpContext.Response.Headers.RetryAfter = "60";
+        }
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            message = "Too many requests. Please wait a moment before trying again."
+        }, cancellationToken: ct);
+    };
     o.AddPolicy("export",http=>RateLimitPartition.GetFixedWindowLimiter(
-        string.IsNullOrEmpty(http.Request.Cookies[AuthService.Cookie])
-            ? "unauthenticated"
-            : AuthService.Hash(http.Request.Cookies[AuthService.Cookie]!),
+        AccountOrIpKey(http),
         _=>new FixedWindowRateLimiterOptions { PermitLimit=5,Window=TimeSpan.FromMinutes(5),QueueLimit=0 }));
+    o.AddPolicy("food-lookup",http=>RateLimitPartition.GetFixedWindowLimiter(
+        AccountOrIpKey(http),
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=foodLookupLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+    o.AddPolicy("coaching",http=>RateLimitPartition.GetFixedWindowLimiter(
+        AccountOrIpKey(http),
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=coachingLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+    o.AddPolicy("progress",http=>RateLimitPartition.GetFixedWindowLimiter(
+        AccountOrIpKey(http),
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=progressLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+    o.AddPolicy("scans",http=>RateLimitPartition.GetFixedWindowLimiter(
+        AccountOrIpKey(http),
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=scansLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+    o.AddPolicy("device-revocation",http=>RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unauthenticated",
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=deviceRevocationLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
 });
 var app=builder.Build();
 var requestMeter=new Meter("Fitness.Nutrition.Api","1.0");
@@ -123,7 +169,7 @@ app.Use(async(http,next)=>
             var supplied=http.Request.Headers["X-Cleanup-Token"].ToString();
             Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(supplied),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
         }
-        else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback"))
+        else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback" or "/api/notifications/subscriptions/revoke"))
         {
             var db=http.RequestServices.GetRequiredService<AppDb>();
             var token=http.Request.Cookies[AuthService.Cookie];

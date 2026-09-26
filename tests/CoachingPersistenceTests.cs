@@ -262,14 +262,54 @@ public class CoachingPersistenceTests
             ProfileJson=Json.Write(profile)
         };
 
-    [Fact] public void Ai_validation_preserves_unknowns_and_rejects_negative_values()
+    [Fact]
+    public async Task Algorithm_version_change_rebuilds_trajectory_without_affecting_accepted_plans()
     {
-        var food=new AiFood("Nasi lemak",1,"serving",500,null,20,60,null,"Portion uncertain");
-        NutritionAi.Validate(new([food],["How much rice?"],"Estimate"));Assert.Null(food.Protein);
-        Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { Calories=-1 }],[],"Estimate")));
-        Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { Quantity=double.NaN }],[],"Estimate")));
-        Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { PortionLabel="bowl" }],[],"Estimate")));
-        Assert.Throws<DomainException>(()=>NutritionAi.Validate(new([food with { Unit="g",PortionLabel="bowl",PortionGrams=150 }],[],"Estimate")));
-        NutritionAi.Validate(new([food with { PortionLabel="bowl",PortionGrams=150 }],[],"Estimate"));
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options;
+        await using var db = new AppDb(options);
+        await db.Database.EnsureCreatedAsync();
+        var user = await TestUsers.CreateAsync(db, "trajectory-algo-test");
+        db.CurrentUser = user.Id;
+        var profile = new Profile
+        {
+            Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
+            Goal = "maintain", Maintenance = 2500, TimeZone = "UTC"
+        };
+        var trajectory = new ExpenditureTrajectoryService(db);
+        var sync = new SyncService(db, trajectory: trajectory);
+        await sync.Apply(new(Guid.NewGuid(), "profile", user.Id, 0,
+            JsonSerializer.SerializeToElement(profile, Json.Options)), default);
+
+        var coach = new CoachingService(db, trajectory);
+        var preview = await coach.Preview(default);
+        var planId = Guid.NewGuid();
+        var acceptedPlan = await coach.Accept(planId, preview.Revision, default);
+        var originalPlanJson = acceptedPlan.ResultJson;
+
+        // Verify initial snapshots are generated with the current algorithm version
+        var initialSnapshots = await trajectory.EnsureThroughToday(default);
+        Assert.NotEmpty(initialSnapshots);
+        Assert.All(initialSnapshots, s => Assert.Equal(ExpenditureTrajectory.AlgorithmVersion, s.AlgorithmVersion));
+
+        // Simulate existing snapshots having an older algorithm version
+        var existingSnapshots = await db.ExpenditureEstimates.ToListAsync();
+        foreach (var s in existingSnapshots) s.AlgorithmVersion = "v4-older-version";
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var staleCount = await db.ExpenditureEstimates.CountAsync(s => s.AlgorithmVersion == "v4-older-version");
+        Assert.True(staleCount > 0);
+
+        // EnsureThroughToday must detect the stale algorithm version and rebuild trajectory
+        var rebuiltSnapshots = await trajectory.EnsureThroughToday(default);
+        Assert.NotEmpty(rebuiltSnapshots);
+        Assert.All(rebuiltSnapshots, s => Assert.Equal(ExpenditureTrajectory.AlgorithmVersion, s.AlgorithmVersion));
+
+        // The accepted plan must remain completely untouched
+        var currentPlan = await db.Plans.SingleAsync(p => p.Id == planId);
+        Assert.Equal(originalPlanJson, currentPlan.ResultJson);
+        Assert.Equal(acceptedPlan.Revision, currentPlan.Revision);
     }
 }

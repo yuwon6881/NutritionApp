@@ -51,4 +51,23 @@ describe('undoable (held) deletions',()=>{
   it('never sends the local hold to the server',()=>{
     expect(wireMutation(held('m',2000))).not.toHaveProperty('holdUntil');
   });
+
+  it('skips a terminal errored mutation and its dependent operations while continuing independent records in identical queue order', ()=>{
+    const rejected:Mutation={...held('m1',0,'rec-1'),error:'Invalid data (400)'};
+    const dependentOnRejected:Mutation={...held('m2',0,'rec-1')};
+    const independentFirst:Mutation={...held('m3',0,'rec-2')};
+    const independentSecond:Mutation={...held('m4',0,'rec-3')};
+
+    const queue=[rejected,dependentOnRejected,independentFirst,independentSecond];
+
+    // First dispatchable item must be independentFirst, without moving rejected or rotating the queue
+    expect(nextDispatchableMutation(queue)).toBe(independentFirst);
+
+    // After independentFirst completes (simulated by removing it), next is independentSecond
+    const remainingQueue=[rejected,dependentOnRejected,independentSecond];
+    expect(nextDispatchableMutation(remainingQueue)).toBe(independentSecond);
+
+    // After independentSecond completes, no more mutations can dispatch (rec-1 is blocked by error)
+    expect(nextDispatchableMutation([rejected,dependentOnRejected])).toBeUndefined();
+  });
 });

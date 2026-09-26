@@ -33,6 +33,7 @@ export interface LivePaceResult{
   target:number;
   safetyFloor:number;
   isFloored:boolean;
+  carbsBlocked:boolean;
   rawChange:number;
   protein:number;
   fat:number;
@@ -140,15 +141,21 @@ export function calculateLivePace(
   const change=isFloored?target-Math.round(expenditure):Math.round(rawChange);
 
   const chosen=storedSplit(p);
-  let protein:number;let fat:number;let carbs:number;
+  let protein:number;let fat:number;let carbs:number;let carbsBlocked=false;
   if(chosen){
     protein=Math.round(target*chosen.protein/100/4);
-    fat=Math.round((target*chosen.fat/100/9)*10)/10;
-    carbs=Math.round((target*chosen.carbs/100/4)*10)/10;
+    const rawFat=target*chosen.fat/100/9;
+    const rawCarbs=target*chosen.carbs/100/4;
+    fat=Math.round(rawFat*10)/10;
+    carbs=Math.round(rawCarbs*10)/10;
   }else{
     protein=p.proteinGrams??(p.weightKg>0?Math.round(p.weightKg*(p.resistanceTraining&&goal==='lose'?2:1.6)):120);
-    fat=Math.round((target*0.3/9)*10)/10;
-    carbs=Math.max(0,Math.round(((target-protein*4-fat*9)/4)*10)/10);
+    const rawFat=target*0.3/9;
+    const remainingCarbEnergy=target-protein*4-rawFat*9;
+    const rawCarbs=Math.abs(remainingCarbEnergy)<1e-9?0:remainingCarbEnergy/4;
+    carbsBlocked=rawCarbs<0;
+    fat=Math.round(rawFat*10)/10;
+    carbs=carbsBlocked?0:Math.round(rawCarbs*10)/10;
   }
 
   return {
@@ -158,6 +165,7 @@ export function calculateLivePace(
     target,
     safetyFloor,
     isFloored,
+    carbsBlocked,
     rawChange:Math.round(rawChange),
     protein,
     fat,

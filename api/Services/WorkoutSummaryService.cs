@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -19,8 +20,94 @@ public sealed record TrainingSummaryItem(
     double? SystemVolumeKg,
     double? AverageRpe);
 
+public sealed class WorkoutCircuitBreaker
+{
+    private readonly object _gate = new();
+    private int _consecutiveFailures;
+    private DateTimeOffset _openedAt;
+    private bool _halfOpenProbeInFlight;
+
+    public TimeSpan OpenDuration { get; init; } = TimeSpan.FromSeconds(30);
+    public int FailureThreshold { get; init; } = 3;
+
+    public bool TryExecute(DateTimeOffset now, out bool isProbe)
+    {
+        lock (_gate)
+        {
+            if (_consecutiveFailures < FailureThreshold)
+            {
+                isProbe = false;
+                return true;
+            }
+            if (now - _openedAt >= OpenDuration)
+            {
+                if (!_halfOpenProbeInFlight)
+                {
+                    _halfOpenProbeInFlight = true;
+                    isProbe = true;
+                    return true;
+                }
+            }
+            isProbe = false;
+            return false;
+        }
+    }
+
+    public void RecordSuccess()
+    {
+        lock (_gate)
+        {
+            _consecutiveFailures = 0;
+            _halfOpenProbeInFlight = false;
+        }
+    }
+
+    public void RecordFailure(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            _consecutiveFailures++;
+            _halfOpenProbeInFlight = false;
+            if (_consecutiveFailures >= FailureThreshold)
+            {
+                _openedAt = now;
+            }
+        }
+    }
+
+    public void ReleaseProbe()
+    {
+        lock (_gate)
+        {
+            _halfOpenProbeInFlight = false;
+        }
+    }
+
+    public bool IsOpen(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            return _consecutiveFailures >= FailureThreshold && (now - _openedAt < OpenDuration);
+        }
+    }
+
+    public void Reset()
+    {
+        lock (_gate)
+        {
+            _consecutiveFailures = 0;
+            _halfOpenProbeInFlight = false;
+        }
+    }
+}
+
 public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, IConfiguration config, IntegrationTokenService? peerTokens = null)
 {
+    private static readonly ConcurrentDictionary<string, WorkoutCircuitBreaker> Breakers = new(StringComparer.OrdinalIgnoreCase);
+
+    public static WorkoutCircuitBreaker GetBreaker(string endpoint) => Breakers.GetOrAdd(endpoint, _ => new WorkoutCircuitBreaker());
+    public static void ResetBreakers() => Breakers.Clear();
+
     /// Reads that block the main Nutrition state stay short so Workout never delays the diary.
     public static readonly TimeSpan InlineDeadline = TimeSpan.FromSeconds(2);
     /// Dedicated summary refreshes may wait out a scale-to-zero cold start of Workout, whose
@@ -43,50 +130,95 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     }
 
     public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, string? timeZone, CancellationToken ct,
-        TimeSpan? deadline = null)
+        TimeSpan? deadline = null, TimeProvider? timeProvider = null)
     {
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
         var url = config["Integrations:WorkoutTrainingSummaryUrl"];
         var connected = await IsConnected(ct);
+        var clock = timeProvider ?? TimeProvider.System;
+        var now = clock.GetUtcNow();
+
         if (connected)
         {
-            try
+            if (string.IsNullOrWhiteSpace(url))
             {
-                if (string.IsNullOrWhiteSpace(url))
-                    throw new InvalidOperationException("Workout summary endpoint is not configured.");
-                string? token;
-                if (peerTokens is null)
+                await Save(null, from, to, now.UtcDateTime, "Workout summary endpoint is not configured.", ct);
+            }
+            else
+            {
+                var breaker = GetBreaker(url);
+                if (!breaker.TryExecute(now, out var isProbe))
                 {
-                    token = config["Integrations:WorkoutAccessToken"];
+                    await Save(null, from, to, now.UtcDateTime, "Workout summaries are temporarily unavailable.", ct);
                 }
                 else
                 {
-                    using var tokenTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    tokenTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-                    token = await peerTokens.AccessToken("workout", "workout.training_summary.read", tokenTimeout.Token);
-                }
-                if (peerTokens is not null && string.IsNullOrWhiteSpace(token))
-                    throw new InvalidOperationException("Workout access is temporarily unavailable.");
+                    var effectiveDeadline = deadline ?? InlineDeadline;
+                    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    timeout.CancelAfter(effectiveDeadline);
 
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(deadline ?? InlineDeadline);
-                var separator = url.Contains('?') ? '&' : '?';
-                var tz = string.IsNullOrWhiteSpace(timeZone) ? "" : $"&timeZone={Uri.EscapeDataString(timeZone)}";
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"{url}{separator}from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}{tz}");
-                if (!string.IsNullOrWhiteSpace(token)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                var response = await clients.CreateClient("workout").SendAsync(request, timeout.Token);
-                response.EnsureSuccessStatusCode();
-                var items = (await response.Content.ReadFromJsonAsync<List<TrainingSummaryItem>>(cancellationToken: timeout.Token) ?? [])
-                    .Select(Canonical).ToList();
-                await Save(items, from, to, DateTime.UtcNow, null, ct);
-                return items;
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                await Save(null, from, to, DateTime.UtcNow, "Workout summaries are temporarily unavailable.", ct);
-            }
-            catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
-            {
-                await Save(null, from, to, DateTime.UtcNow, ex.Message, ct);
+                    try
+                    {
+                        string? token;
+                        if (peerTokens is null)
+                        {
+                            token = config["Integrations:WorkoutAccessToken"];
+                        }
+                        else
+                        {
+                            token = await peerTokens.AccessToken("workout", "workout.training_summary.read", timeout.Token);
+                        }
+
+                        if (peerTokens is not null && string.IsNullOrWhiteSpace(token))
+                            throw new DomainException("Workout access is temporarily unavailable.", 401);
+
+                        var separator = url.Contains('?') ? '&' : '?';
+                        var tz = string.IsNullOrWhiteSpace(timeZone) ? "" : $"&timeZone={Uri.EscapeDataString(timeZone)}";
+                        using var request = new HttpRequestMessage(HttpMethod.Get, $"{url}{separator}from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}{tz}");
+                        if (!string.IsNullOrWhiteSpace(token)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                        using var response = await clients.CreateClient("workout").SendAsync(request, timeout.Token);
+
+                        if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+                        {
+                            await Save(null, from, to, now.UtcDateTime, "Workout access is unauthorized.", ct);
+                        }
+                        else
+                        {
+                            response.EnsureSuccessStatusCode();
+                            var items = (await response.Content.ReadFromJsonAsync<List<TrainingSummaryItem>>(cancellationToken: timeout.Token) ?? [])
+                                .Select(Canonical).ToList();
+                            breaker.RecordSuccess();
+                            await Save(items, from, to, now.UtcDateTime, null, ct);
+                            return items;
+                        }
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        breaker.RecordFailure(clock.GetUtcNow());
+                        await Save(null, from, to, now.UtcDateTime, "Workout summaries are temporarily unavailable.", ct);
+                    }
+                    catch (HttpRequestException ex) when (ex.StatusCode is null || (int)ex.StatusCode >= 500)
+                    {
+                        breaker.RecordFailure(clock.GetUtcNow());
+                        await Save(null, from, to, now.UtcDateTime, ex.Message, ct);
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        await Save(null, from, to, now.UtcDateTime, ex.Message, ct);
+                    }
+                    catch (DomainException ex) when (ex.Status is 401 or 403)
+                    {
+                        await Save(null, from, to, now.UtcDateTime, "Workout access is temporarily unavailable.", ct);
+                    }
+                    catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+                    {
+                        await Save(null, from, to, now.UtcDateTime, ex.Message, ct);
+                    }
+                    finally
+                    {
+                        if (isProbe) breaker.ReleaseProbe();
+                    }
+                }
             }
         }
         if (cache is null || string.IsNullOrWhiteSpace(cache.SummaryJson)) return [];

@@ -7,6 +7,7 @@ namespace Nutrition.Api.Endpoints;
 public sealed record NutritionCheckInReminderInput(bool Enabled, int Weekday, string LocalTime, string TimeZoneId);
 public sealed record NutritionPushSubscriptionInput(string DeviceId, string FcmToken, string? Platform = null);
 public sealed record NutritionPushUnsubscribeInput(string FcmToken);
+public sealed record NutritionPushRevokeDeviceInput(Guid UserId, string DeviceId, string FcmToken);
 
 public static class NutritionNotificationEndpoints
 {
@@ -50,6 +51,18 @@ public static class NutritionNotificationEndpoints
             await notifications.UnsubscribeDeviceAsync(deviceId, input.FcmToken, ct);
             return Results.NoContent();
         });
+
+        app.MapPost("/api/notifications/subscriptions/revoke", async (
+            NutritionPushRevokeDeviceInput input,
+            NutritionNotificationService notifications,
+            CancellationToken ct) =>
+        {
+            Validation.Require(input.UserId != Guid.Empty, "A valid user id is required.");
+            Validation.Require(!string.IsNullOrWhiteSpace(input.DeviceId) && input.DeviceId.Length <= 200, "The device id is too long.");
+            Validation.Require(!string.IsNullOrWhiteSpace(input.FcmToken) && input.FcmToken.Length <= 4096, "A valid notification token is required.");
+            await notifications.RevokeDeviceCapabilityAsync(input.UserId, input.DeviceId, input.FcmToken, ct);
+            return Results.NoContent();
+        }).RequireRateLimiting("device-revocation");
 
         app.MapPost("/internal/nutrition-check-in-dispatch", async (
             NutritionNotificationService notifications,

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { testServers } from './e2e/servers';
 
-const signedIn = { storageState: 'e2e/.auth/user.json' };
+const signedIn = { storageState: process.env.NUTRITION_TEST_AUTH_PATH ?? 'e2e/.auth/user.json' };
 
 export default defineConfig({
   testDir: './e2e',
@@ -29,6 +29,6 @@ export default defineConfig({
       use: { ...devices['Pixel 7'], ...signedIn }
     }
   ],
-  webServer: process.env.NUTRITION_TEST_URL ? undefined : testServers,
+  webServer: process.env.NUTRITION_TEST_URL && process.env.NUTRITION_TEST_MANAGED !== '1' ? undefined : testServers,
   reporter: [['list'], ['html', { open: 'never' }]]
 });

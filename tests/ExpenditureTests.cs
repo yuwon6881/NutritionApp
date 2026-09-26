@@ -208,7 +208,7 @@ public sealed class ExpenditureTests
     }
 
     [Fact]
-    public void Daily_estimator_never_turns_fasting_into_zero_intake()
+    public void Daily_estimator_includes_fasting_days_as_zero_intake()
     {
         var days = Days().Select(day => day.Date > Today.AddDays(-16)
             ? day with { Status = "fasting", Calories = 0 }
@@ -216,10 +216,25 @@ public sealed class ExpenditureTests
 
         var estimate = Expenditure.EstimateDaily(days, Weights(), 2400, Today);
 
-        Assert.False(estimate.Adaptive);
-        Assert.Equal(2400, estimate.Expenditure);
-        Assert.Equal(13, estimate.Evidence.LoggedDays);
-        Assert.Equal(2500, estimate.Evidence.MeanIntake);
-        Assert.Contains("60% coverage", estimate.Reason);
+        // Fasting days are intentional zero-intake days. They count toward coverage
+        // and reduce mean intake proportionally, matching the accepted-plan estimator.
+        Assert.Equal(28, estimate.Evidence.LoggedDays);
+        Assert.Equal(1d, estimate.Evidence.Coverage, 10);
+        Assert.InRange(estimate.Evidence.MeanIntake, 1160, 1162);
+    }
+
+    [Fact]
+    public void Fasting_coverage_prevents_TDEE_inflation_from_excluding_zero_intake_days()
+    {
+        // With 5 eating days at 2500 kcal and 2 fasting days per week (14 eating + 14 fasting),
+        // mean intake must reflect the fasting, not exclude it.
+        var days = Days().Select((day, i) => i % 2 == 0
+            ? day with { Status = "fasting", Calories = 0 }
+            : day).ToArray();
+
+        var estimate = Expenditure.Estimate(days, Weights(), 2400, Today);
+
+        Assert.Equal(28, estimate.Evidence.LoggedDays);
+        Assert.InRange(estimate.Evidence.MeanIntake, 1249, 1251); // (14 * 2500) / 28 ≈ 1250
     }
 }

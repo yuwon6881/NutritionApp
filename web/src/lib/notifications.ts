@@ -42,3 +42,7 @@ export function registerNotificationDevice(deviceId:string,fcmToken:string,platf
 export function removeNotificationDevice(deviceId:string,fcmToken:string,options?:ApiFetchOptions){
   return api<void>(`/notifications/subscriptions/${encodeURIComponent(deviceId)}`,{fcmToken},'DELETE',options);
 }
+
+export function revokePushDeviceSubscription(userId:string,deviceId:string,fcmToken:string,options?:ApiFetchOptions){
+  return api<void>('/notifications/subscriptions/revoke',{userId,deviceId,fcmToken},'POST',options);
+}

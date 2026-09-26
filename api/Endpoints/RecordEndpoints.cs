@@ -191,9 +191,9 @@ public static class RecordEndpoints
             });
         });
         app.MapGet("/api/progress/summary",async(string? period,ProgressSummaryService progress,CancellationToken ct)
-            =>Results.Ok(await progress.Get(period,ct)));
+            =>Results.Ok(await progress.Get(period,ct))).RequireRateLimiting("progress");
         app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,CancellationToken ct)=>Results.Ok(new { revision=await sync.Apply(mutation,ct) }));
-        app.MapGet("/api/coach/preview",async(CoachingService coach,CancellationToken ct)=>await coach.Preview(ct));
+        app.MapGet("/api/coach/preview",async(CoachingService coach,CancellationToken ct)=>await coach.Preview(ct)).RequireRateLimiting("coaching");
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));
         app.MapPost("/api/coach/decline",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Decline(input.Id,input.Revision,ct));
         app.MapPost("/api/goal/complete",async(GoalDecisionInput input,CoachingService coach,CancellationToken ct)=>await coach.CompleteGoal(input.Id,input.Revision,input.Decision,ct));

@@ -1,6 +1,6 @@
 import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle} from 'lucide-react';
-import {api,ApiError} from './lib/api';
+import {api,ApiError,clearApiCooldowns} from './lib/api';
 import {getLocalDatabaseFailure,readLocal} from './lib/local';
 import {today} from './lib/format';
 import {watchTheme} from './lib/theme';
@@ -23,7 +23,7 @@ import {DashboardSkeleton} from './components/ui/Skeleton';
 import {ForegroundNotificationHandler,PwaUpdateNotice} from './components/ui/MobilePwa';
 import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
-import {retryPendingPushRevocations, retryAllPendingPushRevocations} from './lib/push/revocations';
+import {drainPendingPushRevocations} from './lib/push/revocations';
 import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
 import {backCoordinator,isLayerEntry,readState,PAGE_KEY} from './lib/appHistory';
 import {BACK_TO_HOME_EVENT} from './lib/nativeApp';
@@ -236,6 +236,7 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
 
 export default function App(){
   const [user,setUser]=useState<string|null>();
+  useEffect(()=>{clearApiCooldowns();},[user]);
   const [authReady,setAuthReady]=useState(false);
   const [localDatabaseError,setLocalDatabaseError]=useState(getLocalDatabaseFailure);
   useEffect(()=>{
@@ -245,16 +246,15 @@ export default function App(){
     return()=>window.removeEventListener('nutrition-local-database-error',onDatabaseFailure);
   },[]);
   useEffect(()=>{
-    if(!user||!authReady)return;
-    const retry=()=>{void retryPendingPushRevocations(user).catch(()=>{});};
-    retry();
-    window.addEventListener('online',retry);
-    window.addEventListener('focus',retry);
+    const drain=()=>{void drainPendingPushRevocations().catch(()=>{});};
+    drain();
+    window.addEventListener('online',drain);
+    window.addEventListener('focus',drain);
     return()=>{
-      window.removeEventListener('online',retry);
-      window.removeEventListener('focus',retry);
+      window.removeEventListener('online',drain);
+      window.removeEventListener('focus',drain);
     };
-  },[authReady,user]);
+  },[]);
   useEffect(()=>{
     const stopWatchingTheme=watchTheme();
     let active=true;
@@ -289,9 +289,9 @@ export default function App(){
         if(credential){
           await savePushRevocation(user,deviceId,credential.fcmToken);
           await disableLocalPushForPlatform().catch(()=>{});
-          await retryPendingPushRevocations(user,{signal:AbortSignal.timeout(3000)});
+          await drainPendingPushRevocations({signal:AbortSignal.timeout(3000)});
         }
-      }catch{/* Keep the exact account/device/token revocation for a later authenticated retry. */}
+      }catch{/* Keep the exact account/device/token revocation for a later retry. */}
     }
     try{clearPendingNutritionShortcut(window.localStorage);}catch{/* The action cannot be retained when browser storage is blocked. */}
     localStorage.setItem('nourish-signed-out','1');
@@ -303,6 +303,6 @@ export default function App(){
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
     <ForegroundNotificationHandler userId={user} authReady={authReady}/>
-    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);void retryAllPendingPushRevocations().catch(()=>{});}}/>}
+    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
   </>;
 }

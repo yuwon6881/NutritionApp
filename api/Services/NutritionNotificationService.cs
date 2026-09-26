@@ -131,11 +131,22 @@ public sealed partial class NutritionNotificationService(
     public async Task<bool> UnsubscribeDeviceAsync(string deviceId, string fcmToken, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(deviceId) || string.IsNullOrWhiteSpace(fcmToken)) return false;
-        var subscription = await db.NutritionPushSubscriptions.SingleOrDefaultAsync(x => x.DeviceId == deviceId.Trim(), ct);
-        if (subscription is null || !string.Equals(subscription.FcmToken, fcmToken.Trim(), StringComparison.Ordinal)) return false;
-        db.NutritionPushSubscriptions.Remove(subscription);
-        await db.SaveChangesAsync(ct);
-        return true;
+        var cleanDeviceId = deviceId.Trim();
+        var cleanToken = fcmToken.Trim();
+        // Match at deletion time so a concurrent token rotation cannot be revoked by an old token.
+        return await db.NutritionPushSubscriptions
+            .Where(x => x.UserId == db.CurrentUser && x.DeviceId == cleanDeviceId && x.FcmToken == cleanToken)
+            .ExecuteDeleteAsync(ct) > 0;
+    }
+
+    public async Task RevokeDeviceCapabilityAsync(Guid userId, string deviceId, string fcmToken, CancellationToken ct)
+    {
+        if (userId == Guid.Empty || string.IsNullOrWhiteSpace(deviceId) || string.IsNullOrWhiteSpace(fcmToken)) return;
+        var cleanDeviceId = deviceId.Trim();
+        var cleanToken = fcmToken.Trim();
+        await db.NutritionPushSubscriptions.IgnoreQueryFilters()
+            .Where(x => x.UserId == userId && x.DeviceId == cleanDeviceId && x.FcmToken == cleanToken)
+            .ExecuteDeleteAsync(ct);
     }
 
     public async Task<int> CleanupAsync(DateTime utcNow, CancellationToken ct)

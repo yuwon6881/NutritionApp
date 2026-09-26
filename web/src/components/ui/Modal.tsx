@@ -7,6 +7,7 @@ export type ModalWidth='sm'|'md'|'lg'|'xl';
 export interface ModalProps {
   open:boolean;
   onClose:()=>void;
+  onCancel?:()=>void;
   title:string;
   description?:string;
   ariaDescribedBy?:string;
@@ -37,6 +38,7 @@ function focusable(root:HTMLElement){
 export function Modal({
   open,
   onClose,
+  onCancel,
   title,
   description,
   ariaDescribedBy,
@@ -69,11 +71,14 @@ export function Modal({
   const [confirming,setConfirming]=useState(false);
   const reduceMotion=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const onCloseRef=useRef(onClose);
-  const requestCloseRef=useRef<()=>void>(()=>{});
+  const onCancelRef=useRef(onCancel);
+  const dismissSourceRef=useRef<'close'|'cancel'>('close');
+  const requestCloseRef=useRef<(source?:'close'|'cancel')=>void>(()=>{});
   const historyEntry=useRef(false);
 
   useEffect(()=>{onCloseCompleteRef.current=onCloseComplete;},[onCloseComplete]);
   useEffect(()=>{onCloseRef.current=onClose;},[onClose]);
+  useEffect(()=>{onCancelRef.current=onCancel;},[onCancel]);
 
   useEffect(()=>{
     if(open){
@@ -140,7 +145,8 @@ export function Modal({
     setConfirming(false);
   },[clearDismissIntent]);
 
-  const requestClose=useCallback(()=>{
+  const requestClose=useCallback((source:'close'|'cancel'='close')=>{
+    dismissSourceRef.current=source;
     if(dirty){
       const active=document.activeElement instanceof HTMLElement?document.activeElement:null;
       const isDismissControl=active?.closest('[data-modal-dismiss]')||active===dialog.current;
@@ -156,7 +162,11 @@ export function Modal({
       setConfirming(true);
       return;
     }
-    onClose();
+    if(source==='cancel'&&onCancelRef.current){
+      onCancelRef.current();
+    }else{
+      onClose();
+    }
   },[dirty,onClose]);
 
   requestCloseRef.current=requestClose;
@@ -180,7 +190,7 @@ export function Modal({
           ?window.history.state as Record<string,unknown>
           :{};
         window.history.pushState({...current,__nourishModal:historyToken},'');
-        if(!preventDismiss)requestCloseRef.current();
+        if(!preventDismiss)requestCloseRef.current('cancel');
         return;
       }
       historyEntry.current=false;
@@ -218,7 +228,7 @@ export function Modal({
     aria-labelledby={titleId}
     aria-describedby={ariaDescribedBy ?? (description ? descriptionId : undefined)}
     aria-modal="true"
-    onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else if(!preventDismiss)requestClose();}}
+    onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else if(!preventDismiss)requestClose('cancel');}}
     onPointerDownCapture={event=>{
       backdropPointer.current=null;backdropClick.current=false;clearDismissIntent();
       if(confirming||preventDismiss||!event.isPrimary||event.button!==0)return;
@@ -247,7 +257,7 @@ export function Modal({
       // controls inside the surface own their click actions.
       const dismiss=backdropClick.current&&event.target===event.currentTarget;
       backdropClick.current=false;clearDismissIntent();
-      if(dismiss)requestClose();
+      if(dismiss)requestClose('close');
     }}
   >
     <div className="modal-surface">
@@ -258,7 +268,7 @@ export function Modal({
             {description&&<p id={descriptionId}>{description}</p>}
           </div>
           {headerActions&&<div className="modal-header-actions">{headerActions}</div>}
-          {!hideCloseButton&&<Button data-modal-dismiss variant="tertiary" size="icon" aria-label={closeLabel} onClick={requestClose}><X size={19}/></Button>}
+          {!hideCloseButton&&<Button data-modal-dismiss variant="tertiary" size="icon" aria-label={closeLabel} onClick={()=>requestClose('close')}><X size={19}/></Button>}
         </header>
         <div className="modal-body">{children}</div>
       </div>
@@ -270,7 +280,7 @@ export function Modal({
           </div>
           <div className="actions">
             <Button ref={keepEditing} onClick={keepEditingAction}>Keep editing</Button>
-            <Button variant="destructive" onClick={()=>{clearDismissIntent();confirmationOrigin.current=null;wasConfirming.current=false;setConfirming(false);onClose();}}>Discard changes</Button>
+            <Button variant="destructive" onClick={()=>{clearDismissIntent();confirmationOrigin.current=null;wasConfirming.current=false;setConfirming(false);if(dismissSourceRef.current==='cancel'&&onCancelRef.current)onCancelRef.current();else onClose();}}>Discard changes</Button>
           </div>
         </div>
       </div>}

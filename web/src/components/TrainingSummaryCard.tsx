@@ -11,6 +11,8 @@ export function TrainingSummaryCard({
   timeZone,
   workoutConnected,
   warning,
+  loading = false,
+  error,
   onOpenSettings,
 }: {
   summaries?: TrainingSummary[];
@@ -18,6 +20,8 @@ export function TrainingSummaryCard({
   timeZone?: string | null;
   workoutConnected?: boolean;
   warning?: string | null;
+  loading?: boolean;
+  error?: string | null;
   onOpenSettings?: () => void;
 }) {
   const todayDate=today(timeZone??undefined);
@@ -35,6 +39,7 @@ export function TrainingSummaryCard({
     })
     .slice(0,8);
   const unit=unitsFor(settings).weight;
+  const feedbackMessage = error ?? warning;
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
     <div className="training-summary-header">
       <div>
@@ -45,8 +50,14 @@ export function TrainingSummaryCard({
         <Dumbbell size={22} />
       </div>
     </div>
-    {warning && <CardFeedback tone="warning" title="Workout sync needs attention" message={warning} />}
-    {!visible.length ? (
+    {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} />}
+    {loading && visible.length > 0 && <p className="source" role="status" aria-live="polite">Refreshing workouts… Saved summaries remain visible.</p>}
+    {loading && isConnected && !visible.length ? (
+      <div className="training-summary-list skeleton" aria-busy="true">
+        <div className="training-summary-row"><div style={{height:'18px',width:'160px',background:'var(--border)',borderRadius:'4px'}}/></div>
+        <div className="training-summary-row"><div style={{height:'18px',width:'130px',background:'var(--border)',borderRadius:'4px'}}/></div>
+      </div>
+    ) : !visible.length ? (
       <div className="training-empty-state">
         <div className="training-empty-icon" aria-hidden="true">
           <Dumbbell size={22} />

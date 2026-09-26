@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Nutrition.Tests;
 
-public sealed class TrainingSummaryEndpointTests
+public sealed partial class TrainingSummaryEndpointTests
 {
     private const string SummaryUrl = "https://workout.test/api/integrations/v1/training-summary";
 
@@ -102,6 +102,115 @@ public sealed class TrainingSummaryEndpointTests
         Assert.Equal(0, workout.Calls);
     }
 
+    [Fact]
+    public async Task Circuit_breaker_opens_after_three_transient_failures_and_serves_cached_summaries()
+    {
+        const string breakerUrl = "https://workout.test/api/integrations/v1/training-summary-trip-test";
+        WorkoutSummaryService.ResetBreakers();
+        await using var context = await ServiceContext.Create(connected: true, url: breakerUrl);
+        var today = new DateOnly(2026, 9, 14);
+        context.Db.WorkoutSummaries.Add(new WorkoutSummaryCache
+        {
+            UserId = context.User.Id,
+            SummaryJson = Json.Write(new[]
+            {
+                Item("cached-1", "completed", today.AddDays(-1))
+            })
+        });
+        await context.Db.SaveChangesAsync();
+
+        var workout = new CountingHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var service = new WorkoutSummaryService(context.Db, new StubFactory(workout), context.Config);
+
+        try
+        {
+            // 3 consecutive transient failures
+            for (int i = 0; i < 3; i++)
+            {
+                var result = await service.Get(today.AddDays(-7), today, null, CancellationToken.None);
+                Assert.NotEmpty(result);
+                Assert.Equal("cached-1", result[0].Id);
+            }
+            Assert.Equal(3, workout.Calls);
+
+            // 4th call should hit open circuit breaker and NOT invoke workout handler
+            var fourthResult = await service.Get(today.AddDays(-7), today, null, CancellationToken.None);
+            Assert.Equal(3, workout.Calls);
+            Assert.Equal("cached-1", fourthResult[0].Id);
+            var warning = await service.GetLastError(CancellationToken.None);
+            Assert.Contains("Workout training summaries are temporarily unavailable", warning);
+        }
+        finally
+        {
+            WorkoutSummaryService.ResetBreakers();
+        }
+    }
+
+    [Fact]
+    public async Task Circuit_breaker_excludes_caller_cancellation_and_unauthorized()
+    {
+        const string excludeUrl = "https://workout.test/api/integrations/v1/training-summary-exclude-test";
+        WorkoutSummaryService.ResetBreakers();
+        await using var context = await ServiceContext.Create(connected: true, url: excludeUrl);
+        var today = new DateOnly(2026, 9, 14);
+
+        var workout = new CountingHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var service = new WorkoutSummaryService(context.Db, new StubFactory(workout), context.Config);
+
+        try
+        {
+            // 3 401 Unauthorized responses do NOT trip circuit breaker
+            for (int i = 0; i < 3; i++)
+            {
+                await service.Get(today.AddDays(-7), today, null, CancellationToken.None);
+            }
+            Assert.Equal(3, workout.Calls);
+
+            // 4th call still calls workout because 401 is excluded from breaker
+            await service.Get(today.AddDays(-7), today, null, CancellationToken.None);
+            Assert.Equal(4, workout.Calls);
+        }
+        finally
+        {
+            WorkoutSummaryService.ResetBreakers();
+        }
+    }
+
+    [Fact]
+    public void Circuit_breaker_probe_recovers_on_success_and_resets()
+    {
+        var breaker = new WorkoutCircuitBreaker
+        {
+            FailureThreshold = 3,
+            OpenDuration = TimeSpan.FromSeconds(30)
+        };
+        var now = DateTimeOffset.UtcNow;
+
+        Assert.True(breaker.TryExecute(now, out var isProbe));
+        Assert.False(isProbe);
+
+        breaker.RecordFailure(now);
+        breaker.RecordFailure(now);
+        breaker.RecordFailure(now);
+
+        Assert.True(breaker.IsOpen(now));
+        Assert.False(breaker.TryExecute(now, out _));
+
+        // Advance past open duration
+        var future = now.AddSeconds(31);
+        Assert.True(breaker.TryExecute(future, out isProbe));
+        Assert.True(isProbe);
+
+        // While probe in flight, another request is rejected
+        Assert.False(breaker.TryExecute(future, out _));
+
+        // Probe succeeds -> breaker closes
+        breaker.RecordSuccess();
+        Assert.False(breaker.IsOpen(future));
+        Assert.True(breaker.TryExecute(future, out isProbe));
+        Assert.False(isProbe);
+    }
+
     private static TrainingSummaryItem Item(string id, string status, DateOnly date)
         => new(id, status, date, null, null, id, [], 0, null, null, null);
 
@@ -131,16 +240,14 @@ public sealed class TrainingSummaryEndpointTests
         private readonly SqliteConnection connection;
         public AppDb Db { get; }
         public AppUser User { get; }
-        public IConfiguration Config { get; } = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Integrations:WorkoutTrainingSummaryUrl"] = SummaryUrl })
-            .Build();
+        public IConfiguration Config { get; }
 
-        private ServiceContext(SqliteConnection connection, AppDb db, AppUser user)
+        private ServiceContext(SqliteConnection connection, AppDb db, AppUser user, IConfiguration config)
         {
-            this.connection = connection; Db = db; User = user;
+            this.connection = connection; Db = db; User = user; Config = config;
         }
 
-        public static async Task<ServiceContext> Create(bool connected)
+        public static async Task<ServiceContext> Create(bool connected, string? url = null)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
@@ -156,7 +263,10 @@ public sealed class TrainingSummaryEndpointTests
                 CentralConnectionId = Guid.NewGuid(), CentralGeneration = 1
             });
             await db.SaveChangesAsync();
-            return new ServiceContext(connection, db, user);
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Integrations:WorkoutTrainingSummaryUrl"] = url ?? SummaryUrl })
+                .Build();
+            return new ServiceContext(connection, db, user, config);
         }
 
         public async ValueTask DisposeAsync()

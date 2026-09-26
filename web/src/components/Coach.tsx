@@ -7,7 +7,7 @@ import {number,today} from '../lib/format';
 import {normalizeProfileSex,profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
 import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
-import {gramsFromSplit,macroKeys,macroLabels,macroPresets,normalise,type MacroSplit} from '../lib/macros';
+import {gramsFromSplit,macroKeys,macroLabels,macroPresets,normalise,splitFromGrams,type MacroSplit} from '../lib/macros';
 import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Field,SelectField} from './ui/Field';
@@ -62,12 +62,46 @@ export const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bu
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
 
 function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}){
+  const split=splitFromGrams(result.calories,{protein:result.protein,carbs:result.carbs,fat:result.fat});
   return <div className="target-figures">
-    <div><p>Daily energy</p><strong>{displayEnergy(result.calories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong></div>
-    <div><p>Maintenance</p><strong>{displayEnergy(result.expenditure,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong></div>
-    <div><p><span className="macro-dot protein" aria-hidden="true"/>Protein</p><strong>{number(result.protein)} <span className="unit">g</span></strong></div>
-    <div><p><span className="macro-dot carbs" aria-hidden="true"/>Carbohydrate</p><strong>{number(result.carbs)} <span className="unit">g</span></strong></div>
-    <div><p><span className="macro-dot fat" aria-hidden="true"/>Fat</p><strong>{number(result.fat)} <span className="unit">g</span></strong></div>
+    <div className="target-energy-figures">
+      <div>
+        <p>Daily energy</p>
+        <strong>{displayEnergy(result.calories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
+      </div>
+      <div>
+        <p>Maintenance</p>
+        <strong>{displayEnergy(result.expenditure,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
+      </div>
+    </div>
+    <div className="target-macros-section">
+      {split&&<div className="macro-summary-bar" aria-hidden="true">
+        <div className="macro-bar-segment protein" style={{width:`${split.protein}%`}}/>
+        <div className="macro-bar-segment carbs" style={{width:`${split.carbs}%`}}/>
+        <div className="macro-bar-segment fat" style={{width:`${split.fat}%`}}/>
+      </div>}
+      <div className="target-macros-figures">
+        <div>
+          <p><span className="macro-dot protein" aria-hidden="true"/>Protein</p>
+          <strong>{number(result.protein)} <span className="unit">g</span></strong>
+          {split&&<span className="target-macro-pct">{split.protein}%</span>}
+        </div>
+        <div>
+          <p>
+            <span className="macro-dot carbs" aria-hidden="true"/>
+            <span className="macro-label-full">Carbohydrate</span>
+            <span className="macro-label-short">Carbs</span>
+          </p>
+          <strong>{number(result.carbs)} <span className="unit">g</span></strong>
+          {split&&<span className="target-macro-pct">{split.carbs}%</span>}
+        </div>
+        <div>
+          <p><span className="macro-dot fat" aria-hidden="true"/>Fat</p>
+          <strong>{number(result.fat)} <span className="unit">g</span></strong>
+          {split&&<span className="target-macro-pct">{split.fat}%</span>}
+        </div>
+      </div>
+    </div>
     {result.dailyCalories?.length===7&&<div className="target-weekly-summary"><p>Weekly budget</p><strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong><small>{result.dailyCalories.map((calories,index)=><span key={index}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]} {displayEnergy(calories,units.energy)} {energyLabel(units.energy)}</span>)}</small></div>}
   </div>;
 }
@@ -197,6 +231,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
 
   const openPlan=(target:StepKey='body')=>{if(locked.current||acceptance.current)return;invalidate();setReview(false);setError('');setMessage('');setMainTab('plan');setStep(target);};
 
+  const CARBS_BLOCKED_MESSAGE='Protein and fat exceed the calorie target. Review your protein override.';
   const submitProfile=async()=>{
     if(locked.current||step!=='review')return;
     if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}
@@ -205,6 +240,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     if(!canAdvanceGoalDetails){setStep('goal-details');setError('Review your phase details.');return;}
     if(!canAdvancePace){setStep('pace');setError('Review your pace.');return;}
     if(!weeklyValid){setError(`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`);return;}
+    if(live.carbsBlocked){setError(CARBS_BLOCKED_MESSAGE);return;}
     locked.current=true;setError('');
     try{
     await runSave(()=>store.mutate({
@@ -245,6 +281,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     const targetIndex=steps.findIndex(item=>item.id===targetStep);
     if(targetIndex>=0&&targetIndex<activeStepIndex)return true;
     if(!validateFields(stage.current))return false;
+    if(live.carbsBlocked&&(targetStep==='distribution'||targetStep==='review')){setError(CARBS_BLOCKED_MESSAGE);return false;}
     if(targetStep==='review'&&!weeklyValid){setError(weeklyError);return false;}
     return true;
   };
@@ -302,7 +339,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
         <div><dt>{profile.phaseMode==='duration'?'Duration':profile.phaseMode==='weight'?'Target':'Phase'}</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${displayWeight(profile.targetWeightKg,units.weight,1)} ${weightLabel(units.weight)}`:'Ongoing'}</dd></div>
         <div><dt>Macros</dt><dd>{presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')}</dd></div>
         <div><dt>Body</dt><dd>{displayWeight(profile.weightKg,units.weight,1)} {weightLabel(units.weight)} · {displayHeight(profile.heightCm,units.height)}</dd></div>
-        <div><dt>Age</dt><dd>{derivedAge??profile.age}</dd></div>
+        <div><dt>Age</dt><dd>{derivedAge??(profile.age||'—')}</dd></div>
       </dl>
     </section>
   </>;
@@ -476,9 +513,13 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
           onChange={next=>setSplit(next,'custom')}
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
         />
+        {live.carbsBlocked&&<div className="macro-error-notice" style={{marginTop:'12px'}}><CardFeedback message={CARBS_BLOCKED_MESSAGE}/></div>}
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep(profile.goal==='maintain'?'goal-details':'pace')}><ArrowLeft size={16}/> Back</Button>
-          <Button type="button" size="md" variant="primary" onClick={()=>setStep(selectedPresetId==='custom'?'macro-adjustments':'distribution')}>
+          <Button type="button" size="md" variant="primary" disabled={live.carbsBlocked} onClick={()=>{
+            if(live.carbsBlocked){setError(CARBS_BLOCKED_MESSAGE);return;}
+            setStep(selectedPresetId==='custom'?'macro-adjustments':'distribution');
+          }}>
             Next: {selectedPresetId==='custom'?'Adjust':'Distribution'} <ArrowRight size={16}/>
           </Button>
         </div>
@@ -621,9 +662,10 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
             </div>
           </div>
         </section>
+        {live.carbsBlocked&&<div className="macro-error-notice" style={{marginTop:'16px'}}><CardFeedback message={CARBS_BLOCKED_MESSAGE}/></div>}
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('distribution')}><ArrowLeft size={16}/> Back</Button>
-          <Button variant="primary" size="md" type="submit" disabled={busy||!weeklyValid}>
+          <Button variant="primary" size="md" type="submit" disabled={busy||!weeklyValid||live.carbsBlocked}>
             {operation==='saving'?'Saving on this device…':isInitialSetup?'Create my starting estimate':'Save profile'}
           </Button>
         </div>

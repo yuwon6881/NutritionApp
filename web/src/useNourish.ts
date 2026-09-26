@@ -18,10 +18,13 @@ export function useNourish(user: string) {
   const [local, setLocal] = useState<LocalData>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [trainingLoading, setTrainingLoading] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
   const [sync, setSync] = useState<SyncState>({ phase: 'idle' });
   const ref = useRef<LocalData | undefined>(undefined);
   const writes = useRef(Promise.resolve());
   const draining = useRef(false);
+  const trainingRequest = useRef<Promise<void> | null>(null);
   const processingDrafts = useRef(false);
   const alive = useRef(true);
   const drainRequested = useRef(false);
@@ -203,16 +206,31 @@ export function useNourish(user: string) {
   const loadSavedFoods=useSavedFoods(user,ref,alive,foodsEtag,commit);
   const loadTrainingSummaries = useCallback(async () => {
     if (!user || !navigator.onLine) return;
-    try {
-      const res = await apiWithMeta<{ summaries: TrainingSummary[]; workoutConnected?: boolean; workoutWarning?: string | null }>('/training/summary', {
-        headers: trainingEtag.current ? { 'If-None-Match': trainingEtag.current } : undefined
-      });
-      if (res.etag) trainingEtag.current = res.etag;
-      lastPeerRefresh.current = Date.now();
-      if (res.data && alive.current) {
-        await commit(current => ({ ...current, state: { ...current.state, trainingSummaries: res.data!.summaries, workoutConnected: res.data!.workoutConnected, workoutWarning: res.data!.workoutWarning } }));
+    if (trainingRequest.current) return trainingRequest.current;
+    setTrainingLoading(true);
+    setTrainingError(null);
+    const task = (async () => {
+      try {
+        const res = await apiWithMeta<{ summaries: TrainingSummary[]; workoutConnected?: boolean; workoutWarning?: string | null }>('/training/summary', {
+          headers: trainingEtag.current ? { 'If-None-Match': trainingEtag.current } : undefined
+        });
+        if (res.etag) trainingEtag.current = res.etag;
+        lastPeerRefresh.current = Date.now();
+        if (res.data && alive.current) {
+          await commit(current => ({ ...current, state: { ...current.state, trainingSummaries: res.data!.summaries, workoutConnected: res.data!.workoutConnected, workoutWarning: res.data!.workoutWarning } }));
+        }
+      } catch (ex) {
+        if (alive.current) {
+          setTrainingError(ex instanceof Error ? ex.message : 'Workout training summaries are temporarily unavailable.');
+        }
+      } finally {
+        if (alive.current) setTrainingLoading(false);
       }
-    } catch { /* retain existing workout state */ }
+    })().finally(() => {
+      trainingRequest.current = null;
+    });
+    trainingRequest.current = task;
+    return task;
   }, [commit, user]);
   const pollRevisions = useCallback(() => pollNutritionRevisions(user, ref, revisionsEtag, lastPeerRefresh, refresh, async()=>{await loadSavedFoods();}, loadTrainingSummaries).catch(() => undefined),
     [loadSavedFoods, loadTrainingSummaries, refresh, user]);
@@ -280,6 +298,7 @@ export function useNourish(user: string) {
         } catch (ex) {
           if (ex instanceof ApiError && [400, 409, 422].includes(ex.status)) {
             await commit(current => ({ ...current, queue: current.queue.map(q => q.id === op.id ? { ...q, error: ex.message } : q) }));
+            continue;
           }
           throw ex;
         }
@@ -446,7 +465,7 @@ export function useNourish(user: string) {
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local]);
 
   return {
-    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, drain, calendarDate,
+    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, drain, calendarDate,
     logEntries: async (entries: unknown[], options?: { retireFoodBasketDate?: string }) => {
       const persist = options?.retireFoodBasketDate
         ? (account: string, data: LocalData) => saveLocalAndRetireFoodBasketDraft(account, data, options.retireFoodBasketDate!)
