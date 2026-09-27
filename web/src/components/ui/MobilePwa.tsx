@@ -172,7 +172,11 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
 
   const applyUpdate=()=>waitingWorker?.postMessage({type:'SKIP_WAITING'});
   const reloadApp=()=>{
-    if(hasUncommittedPwaWork(!!document.querySelector('dialog[open]'),!!document.querySelector('[data-pwa-dirty="true"]')))return;
+    const blocked=hasUncommittedPwaWork(!!document.querySelector('dialog[open]'),!!document.querySelector('[data-pwa-dirty="true"]'));
+    // Recheck at click time, and make a newly opened editor visible in the notice rather
+    // than silently ignoring an enabled reload action before the observer has run.
+    setEditorOpen(blocked);
+    if(blocked)return;
     window.location.reload();
   };
   const value:MobilePwaContextValue={

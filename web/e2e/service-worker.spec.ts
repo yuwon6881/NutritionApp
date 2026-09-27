@@ -1,4 +1,20 @@
 import {expect,test} from '@playwright/test';
+import {signIn} from './signIn';
+
+test('Reload app navigates after a service-worker update',async({page})=>{
+  await signIn(page);
+  await page.evaluate(async()=>{
+    if(!navigator.serviceWorker.controller){
+      await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
+    }
+    await navigator.serviceWorker.register(`/sw.js?update-test=${Date.now()}`,{scope:'/',type:'module'});
+  });
+  const reload=page.getByRole('button',{name:'Reload app',exact:true});
+  await expect(reload).toBeVisible();
+  await expect(reload).toBeEnabled();
+  await Promise.all([page.waitForEvent('framenavigated',frame=>frame===page.mainFrame()),reload.click()]);
+  await expect(reload).toBeHidden();
+});
 
 test('navigation reload after a worker update settles preload without console warnings',async({page,context})=>{
   const preloadWarnings:string[]=[];
