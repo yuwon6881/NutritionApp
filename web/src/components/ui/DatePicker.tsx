@@ -129,7 +129,6 @@ function CalendarDropdown({
         value={value}
         onChange={e => onChange(Number(e.target.value))}
         tabIndex={-1}
-        aria-hidden="true"
       >
         {options.map(opt => (
           <option key={opt.value} value={opt.value}>
@@ -378,7 +377,7 @@ export function DatePicker({
 
   return (
     <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef} onKeyDown={event=>{if(isOpen&&event.key==='Tab'){closeCalendar();return;}if(!activeDropdown&&isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();}}}>
-      <label htmlFor={id} className="date-picker-label">
+      <label htmlFor={id} className="date-picker-label" onClick={e => { e.preventDefault(); triggerRef.current?.focus(); setIsOpen(o => !o); }}>
         <span>{label}</span>
       </label>
 
@@ -413,7 +412,6 @@ export function DatePicker({
           disabled={disabled}
           className="accessible-native-date"
           tabIndex={-1}
-          aria-hidden="true"
         />
 
         {isOpen&&createPortal(

@@ -125,6 +125,8 @@ export function WeeklyProgramSetup({
       </div>
 
       <SegmentedControl<DistributionMode>
+        id="weekly-distribution-mode"
+        className="weekly-distribution-mode"
         label="Distribution mode"
         value={mode}
         size="sm"

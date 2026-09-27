@@ -106,11 +106,11 @@ export function MacroSetup({
     ):null}
     {mode!=='presets'&&<div className="macro-rows">
       {macroKeys.map(key=><div className="macro-row" key={key}>
-        <label className="macro-row-head" htmlFor={`macro-${key}`}>
+        <div className="macro-row-head">
           <span className={`macro-swatch ${key}`} aria-hidden="true"/>
           <span className="macro-row-label">{macroLabels[key]}</span>
           <strong className="macro-row-percent">{split[key]}%</strong>
-        </label>
+        </div>
         <div className="macro-row-controls">
           <Slider
             id={`macro-${key}`}

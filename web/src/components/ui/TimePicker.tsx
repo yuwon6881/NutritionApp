@@ -120,7 +120,7 @@ export function TimePicker({
       ref={containerRef}
       onKeyDown={handleKeyDown}
     >
-      <label htmlFor={timeId}>{label}</label>
+      <label htmlFor={timeId} onClick={e => { e.preventDefault(); triggerRef.current?.focus(); setIsOpen(prev => !prev); }}>{label}</label>
       <div className="custom-time-wrapper">
         <button
           ref={triggerRef}
@@ -148,7 +148,6 @@ export function TimePicker({
           onChange={e => onChange(e.target.value)}
           className="accessible-native-time"
           tabIndex={-1}
-          aria-hidden="true"
         />
 
         {isOpen && (

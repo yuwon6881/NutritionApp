@@ -144,6 +144,30 @@ public sealed class CentralAuthTests : IAsyncLifetime
         Assert.Contains("secret is not configured", ex.Message);
     }
 
+    [Theory]
+    [InlineData("light", "light")]
+    [InlineData("dark", "dark")]
+    [InlineData("sepia", null)]
+    public async Task Central_start_forwards_only_supported_presentation_themes(string requestedTheme, string? expectedTheme)
+    {
+        var tempDb = Path.Combine(Path.GetTempPath(), $"nutrition-theme-test-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var factory = new TestAppFactory(tempDb);
+            var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+            var response = await client.GetAsync($"/api/auth/central/start?theme={Uri.EscapeDataString(requestedTheme)}");
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(response.Headers.Location!.Query);
+            Assert.Equal(expectedTheme, query.TryGetValue("theme", out var forwarded) ? forwarded.ToString() : null);
+            Assert.Equal("S256", query["code_challenge_method"]);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            try { if (File.Exists(tempDb)) File.Delete(tempDb); } catch { /* best-effort cleanup */ }
+        }
+    }
+
     [Fact]
     public async Task Legacy_auth_routes_return_404()
     {
@@ -196,7 +220,11 @@ public sealed class CentralAuthTests : IAsyncLifetime
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Database:SqlitePath"] = dbPath,
-                    ["PublicOrigin"] = "https://localhost"
+                    ["PublicOrigin"] = "https://localhost",
+                    ["Identity:Authority"] = "https://fitness-account.example.invalid",
+                    ["Identity:ClientId"] = "nutrition-api",
+                    ["Identity:ClientSecret"] = "test-secret",
+                    ["Identity:RedirectUri"] = "https://localhost/api/auth/central/callback"
                 });
             });
         }

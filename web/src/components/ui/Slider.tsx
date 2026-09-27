@@ -149,7 +149,7 @@ export function Slider({
   return (
     <FieldFrame label={label} className={`field slider-field ${className}`.trim()}>
       {showLabel && <div className="field-label-row">
-        <label htmlFor={id}>{label}</label>
+        <span id={`${id}-label`} className="slider-label">{label}</span>
         <div className="slider-value-display">
           {valueDisplay ?? <span className="slider-current-badge">{formattedText}</span>}
         </div>
@@ -162,7 +162,8 @@ export function Slider({
         data-sliding={isSliding || undefined}
         role="slider"
         tabIndex={0}
-        aria-label={ariaLabel ?? label}
+        aria-labelledby={showLabel ? `${id}-label` : undefined}
+        aria-label={showLabel ? (ariaLabel ?? undefined) : (ariaLabel ?? label)}
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={value}
@@ -344,7 +345,7 @@ export function CircularSlider({
 
   return <FieldFrame label={label} validate={validate} className={`field circular-slider-field ${className}`.trim()}>
     <div className="field-label-row">
-      <label htmlFor={id}>{label}</label>
+      <span id={`${id}-label`} className="slider-label">{label}</span>
       <div className="slider-value-display">{valueDisplay??<span className="slider-current-badge">{formatted}</span>}</div>
     </div>
     <div className={`circular-slider-wrap ${isDragging?'is-dragging':''}`}><svg
@@ -354,6 +355,7 @@ export function CircularSlider({
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
       role="slider"
       tabIndex={0}
+      aria-labelledby={`${id}-label`}
       aria-label={ariaLabel??label}
       aria-valuemin={min}
       aria-valuemax={max}

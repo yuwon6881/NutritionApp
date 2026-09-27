@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {Nourish} from '../useNourish';
 import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
 import {today} from '../lib/format';
@@ -32,13 +32,16 @@ function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean)
   },[cached]);
   const activeSummary=cached??retained;
   const [loading,setLoading]=useState(!cached&&enabled);
+  const cachedRef=useRef(cached);
+  cachedRef.current=cached;
+  const refreshProgress=store.refreshProgress;
   const load=useCallback(async()=>{
     if(!enabled)return;
-    if(!cached)setLoading(true);
+    if(!cachedRef.current)setLoading(true);
     setError('');
-    try{await store.refreshProgress(period);}catch(ex){setError((ex as Error).message);}
+    try{await refreshProgress(period);}catch(ex){setError((ex as Error).message);}
     finally{setLoading(false);}
-  },[cached,enabled,period,store.refreshProgress]);
+  },[enabled,period,refreshProgress]);
   const revision=store.local?.state.revision;
   const queueKey=store.local?.queue.filter(item=>progressKinds.has(item.kind)).map(item=>item.id+item.error).join('|')??'';
   useEffect(()=>{void load();},[load,revision,queueKey,store.calendarDate]);

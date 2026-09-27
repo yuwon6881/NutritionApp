@@ -14,8 +14,8 @@
 
 /* Day selection scrolls independently of the selected date. */
 .food-calendar{order:3;flex-basis:100%;width:100%;min-width:0}
-.food-calendar-navigation{display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px}
-.food-week-strip{display:flex;gap:4px;width:100%;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scroll-snap-type:x proximity;padding:4px 2px 8px;position:relative;scrollbar-width:thin}
+.food-week-strip{display:flex;gap:4px;width:100%;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scroll-snap-type:x proximity;padding:4px 2px 8px;position:relative;scrollbar-width:none;-ms-overflow-style:none}
+.food-week-strip::-webkit-scrollbar{display:none}
 .food-week-day{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;flex:0 0 60px;width:60px;height:60px;padding:4px;border:0;border-radius:12px;scroll-snap-align:center;background:transparent;color:var(--foreground);font:inherit;cursor:pointer}
 .food-week-day[aria-current='date']{background:var(--primary-tint);color:var(--primary-ink);box-shadow:inset 0 0 0 3px var(--card)}
 .food-week-day:disabled{opacity:.4;cursor:default}
@@ -59,7 +59,7 @@
 .chart-readout strong{font-weight:600}
 .chart-scrub{border-radius:10px}
 .chart-scrub:focus-visible{outline:2px solid var(--ring);outline-offset:4px}
-.chart-scrub .weight-chart{touch-action:pan-y;cursor:crosshair}
+.chart-scrub .weight-chart{touch-action:pan-y;cursor:default}
 .chart-crosshair{stroke:var(--muted-foreground);stroke-width:1;stroke-dasharray:3 3;opacity:.7}
 .step-bar-chart{touch-action:pan-y}
 

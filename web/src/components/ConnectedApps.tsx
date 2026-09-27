@@ -5,6 +5,7 @@ import type {Nourish} from '../useNourish';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {CardFeedback} from './ui/CardFeedback';
+import {activeTheme} from '../lib/theme';
 
 type Grant = {
   peer: string;
@@ -62,7 +63,7 @@ export function ConnectedApps({store}: {store?: Nourish}) {
     setError('');
     // The backend performs the authorization-code exchange and stores the durable consent
     // reference. Access tokens remain server-side and short-lived.
-    window.location.href = '/api/auth/central/connect';
+    window.location.href = `/api/auth/central/connect?theme=${activeTheme()}`;
   };
 
   const handleConfirmDisconnect = async () => {

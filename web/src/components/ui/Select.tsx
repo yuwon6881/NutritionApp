@@ -144,7 +144,7 @@ export function Select({
 
   return (
     <FieldFrame label={label} validate={validate} className={`field select-field ${className}`.trim()} ref={containerRef}>
-      <label htmlFor={selectId} className="select-label">
+      <label htmlFor={selectId} className="select-label" onClick={e => { e.preventDefault(); triggerRef.current?.focus(); setIsOpen(open => !open); }}>
         <span>{label}</span>
       </label>
 
@@ -176,6 +176,7 @@ export function Select({
           name={selectName}
           value={value}
           onChange={e => onChange(e.target.value)}
+          onFocus={() => triggerRef.current?.focus()}
           disabled={disabled}
           required={required}
           className="accessible-native-select"

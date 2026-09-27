@@ -245,6 +245,7 @@ export function useNourish(user: string) {
       await commit(current => {
         const previous = current.progress?.[period];
         if (previous && summary.revision < previous.revision) return current;
+        if (previous && previous.revision === summary.revision && JSON.stringify(previous) === JSON.stringify(summary)) return current;
         return { ...current, progress: { ...(current.progress ?? {}), [period]: summary } };
       });
     })().finally(() => { progressRequests.current.delete(period); });
