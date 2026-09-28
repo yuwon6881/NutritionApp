@@ -21,7 +21,6 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if(retention!=null&&op.Kind == "entry")
         {
             if(op.Data.TryGetProperty("date",out var date)) retention.RequireEditable(date.Deserialize<DateOnly>(),user.ProfileJson);
-            if(op.Kind=="entry"&&await db.Entries.SingleOrDefaultAsync(e=>e.Id==op.RecordId,ct) is {} existingEntry) retention.RequireEditable(existingEntry.Date,user.ProfileJson);
         }
         // A dated record is read before the write replaces it: a move or a delete has to rebuild the
         // trajectory from the earliest date it touches, which the incoming payload alone cannot name.
@@ -38,6 +37,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             else if(op.Kind=="entry")
             {
                 previousEntry=await db.Entries.SingleOrDefaultAsync(e=>e.Id==op.RecordId,ct);
+                if(previousEntry!=null)retention?.RequireEditable(previousEntry.Date,user.ProfileJson);
                 storedDate=previousEntry?.Date;
             }
             else
@@ -167,7 +167,8 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
 
     private async Task Upsert<T>(Mutation op, long revision, Action<T> validate, CancellationToken ct) where T : OwnedRecord, new()
     {
-        var existing = await db.Set<T>().SingleOrDefaultAsync(x => x.Id == op.RecordId, ct);
+        var existing = db.Set<T>().Local.FirstOrDefault(x => x.Id == op.RecordId)
+            ?? await db.Set<T>().SingleOrDefaultAsync(x => x.Id == op.RecordId, ct);
         Validation.Require((existing?.Revision ?? 0) == op.ExpectedRevision, "This record changed on another device. Review the conflict.", 409);
         Validation.Require(!op.Delete || existing != null, "Record no longer exists.", 409);
         if (op.Delete)

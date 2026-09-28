@@ -15,7 +15,7 @@ export function useHistoryWindow(store: Nourish, key: string, enabled = true) {
   const queue = store.local?.queue ?? [];
 
   // Check if date is cached in coordinator or local state
-  const cached = sharedDiaryCoordinator.projectDate(key, queue);
+  const cached = enabled?sharedDiaryCoordinator.projectDate(key, queue):undefined;
   const isCached = cached !== undefined || (store.local?.state ? historyState(store.local, key) !== undefined : false);
   const [loading, setLoading] = useState(!isCached && enabled);
 

@@ -4,6 +4,7 @@ import type { BasketLine } from './foodBasket';
 import type { FoodScanDraft } from './foodScans';
 import { idbDelete, idbGet, idbGetAllKeys, idbPut } from './idb';
 import { migrateV1ToV2 } from './localMigration';
+import {compactAccountSnapshot,writeLocalSnapshot} from './localSnapshot';
 
 export { idbDelete, idbGet, idbGetAllKeys, idbPut };
 export * from './localMigration';
@@ -161,20 +162,13 @@ export async function saveDatedDiaryBatch(user: string, days: DatedDiaryDay[]): 
 
 export async function readDatedDiaryRange(user: string, from: string, to: string): Promise<DatedDiaryDay[]> {
   const db = await database();
-  const allKeys = await idbGetAllKeys(db, 'diary_days');
-  const userPrefix = `${user}:`;
-  const matchingKeys = allKeys
-    .filter((k): k is string => typeof k === 'string' && k.startsWith(userPrefix))
-    .map(k => k.slice(userPrefix.length))
-    .filter(date => date >= from && date <= to)
-    .sort();
-
-  const results: DatedDiaryDay[] = [];
-  for (const date of matchingKeys) {
-    const day = await idbGet<DatedDiaryDay>(db, 'diary_days', `${user}:${date}`);
-    if (day) results.push(day);
-  }
-  return results;
+  if(from>to)return [];
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('diary_days','readonly');
+    const request=tx.objectStore('diary_days').getAll(IDBKeyRange.bound(`${user}:${from}`,`${user}:${to}`));
+    request.onsuccess=()=>resolve(request.result as DatedDiaryDay[]);
+    request.onerror=()=>reject(request.error);
+  });
 }
 
 export async function readSavedFoods(user: string): Promise<SavedFoodsCache | undefined> {
@@ -294,64 +288,40 @@ export async function readLocal(user: string): Promise<LocalData | undefined> {
   const raw = await idbGet<LocalData>(db, 'accounts', user);
   if (!raw) return undefined;
 
-  const queue = await readMutations(user).catch(() => raw.queue ?? []);
-  const drafts = await readDrafts(user).catch(() => ({ photoDrafts: raw.photoDrafts, bodyDrafts: raw.bodyDrafts }));
-  const foodsRecord = await readSavedFoods(user).catch(() => undefined);
+  if(raw.state.foods?.length)await compactAccountSnapshot(db,user).catch(()=>{
+    // Keep the original snapshot readable if atomic compaction cannot finish.
+  });
+
+  const [queue,drafts,foodsRecord] = await Promise.all([
+    readMutations(user).catch(() => raw.queue ?? []),
+    readDrafts(user).catch(() => ({ photoDrafts: raw.photoDrafts, bodyDrafts: raw.bodyDrafts })),
+    readSavedFoods(user).catch(() => undefined)
+  ]);
 
   const state: AppState = {
     ...raw.state,
     foods: foodsRecord?.foods ?? raw.state?.foods ?? []
   };
 
-  const cacheHasLoadedData = Boolean(foodsRecord && (foodsRecord.loaded === true || foodsRecord.foods.length > 0 || foodsRecord.revision === 0));
+  const cacheHasLoadedData = Boolean(foodsRecord && foodsRecord.revision===(raw.state.foodRevision??raw.state.revision) &&
+    (foodsRecord.loaded === true || foodsRecord.foods.length > 0 || foodsRecord.revision === 0));
 
   return {
     ...raw,
     state,
-    foodsLoaded: raw.foodsLoaded === true || cacheHasLoadedData || (!foodsRecord && Boolean(raw.state?.foods?.length)),
+    foodsLoaded: foodsRecord?cacheHasLoadedData:raw.foodsLoaded===true||Boolean(raw.state?.foods?.length),
     queue,
     photoDrafts: drafts.photoDrafts ?? raw.photoDrafts,
     bodyDrafts: drafts.bodyDrafts ?? raw.bodyDrafts
   };
 }
 
-export async function saveLocal(user: string, data: LocalData): Promise<void> {
+export async function saveLocal(user: string, data: LocalData, previous?: LocalData): Promise<void> {
   const db = await database();
-  return writeLocalSnapshot(db, user, data);
+  return writeLocalSnapshot(db, user, data, previous);
 }
 
-export async function saveLocalAndRetireFoodBasketDraft(user: string, data: LocalData, date: string): Promise<void> {
+export async function saveLocalAndRetireFoodBasketDraft(user: string, data: LocalData, date: string, previous?: LocalData): Promise<void> {
   const db = await database();
-  return writeLocalSnapshot(db, user, data, date);
-}
-
-async function writeLocalSnapshot(db: IDBDatabase, user: string, data: LocalData, retireFoodBasketDate?: string): Promise<void> {
-  // Keep the canonical account, queue, drafts, and saved-food snapshot in one
-  // transaction. The old implementation opened four transactions for every
-  // optimistic update and could leave the stores at different revisions after
-  // an interruption. Empty collections are written deliberately: an empty
-  // server response is an authoritative deletion, not a reason to retain stale
-  // local rows.
-  const stores = ['accounts', 'mutations', 'drafts'];
-  if (Array.isArray(data.state?.foods) && data.foodsLoaded !== false) stores.push('saved_foods');
-  if (retireFoodBasketDate !== undefined) stores.push('food_drafts');
-  await new Promise<void>((resolve, reject) => {
-    try {
-      const tx = db.transaction(stores, 'readwrite');
-      tx.objectStore('accounts').put({ state: data.state, progress: data.progress }, user);
-      tx.objectStore('mutations').put({ queue: data.queue ?? [] }, user);
-      tx.objectStore('drafts').put({ photoDrafts: data.photoDrafts, bodyDrafts: data.bodyDrafts }, user);
-      if (stores.includes('saved_foods')) {
-        tx.objectStore('saved_foods').put({ foods: data.state.foods, revision: data.state.foodRevision ?? data.state.revision ?? 0, fetchedAt: Date.now(), loaded: true }, user);
-      }
-      if (retireFoodBasketDate !== undefined) {
-        tx.objectStore('food_drafts').delete(foodBasketDraftKey(user, retireFoodBasketDate));
-      }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error ?? new Error('Local data transaction aborted'));
-    } catch (ex) {
-      reject(ex);
-    }
-  });
+  return writeLocalSnapshot(db, user, data, previous, date);
 }

@@ -81,7 +81,7 @@ export function FoodPicker({
 }:FoodPickerProps){
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
-  useSearchAsYouType({enabled:tab==='search'&&open&&step==='selection',query,onResults:setResults});
+  const search=useSearchAsYouType({enabled:tab==='search'&&open&&step==='selection',query,onResults:setResults});
   // The Android app hands the camera to ML Kit; the in-page camera remains the fallback.
   const [nativeScanning,setNativeScanning]=useState(false);
   const [inPageCamera,setInPageCamera]=useState(false);
@@ -99,6 +99,7 @@ export function FoodPicker({
     return()=>{active=false;};
   },[camera,tab,inPageCamera]);
   const resolve=async(value:string)=>{
+    if(tab==='search')return search(value);
     if(customLookup)return customLookup(tab,value);
     return tab==='barcode'
       ?await api<SearchResult>('/foods/barcode/'+encodeURIComponent(value))

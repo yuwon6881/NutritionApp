@@ -1,7 +1,7 @@
 import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {useReducedMotion} from './Motion';
 
-/** One live form: navigation animates out before replacing its contents. */
+/** Commit the next live form immediately; animation never gates its controls or focus. */
 export function useCoachSteps<T extends string>(initial:T,order:readonly T[],scene:string){
   const reduceMotion=useReducedMotion();
   const [step,setStep]=useState(initial);
@@ -10,12 +10,9 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
   const current=useRef(initial);
   const direction=useRef(1);
   const animation=useRef<Animation|undefined>(undefined);
-  const sequence=useRef(0);
   const navigated=useRef(false);
   const go=(next:T)=>{
     if(next===desired.current){
-      // A quick second navigation can cancel the previous exit before its
-      // promise settles. Do not leave the visual step behind the requested one.
       if(next===current.current)return;
       animation.current?.cancel();
       navigated.current=true;
@@ -24,21 +21,12 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
       return;
     }
     desired.current=next;
-    const token=++sequence.current;
     direction.current=Math.sign(order.indexOf(next)-order.indexOf(current.current));
     animation.current?.cancel();
-    // Returning to the still-visible step during its exit must not leave it transparent.
     if(next===current.current)return;
-    const finish=()=>{
-      if(token!==sequence.current)return;
-      navigated.current=true;
-      current.current=next;
-      setStep(next);
-    };
-    if(!stage.current||reduceMotion){finish();return;}
-    const exit=stage.current.animate([{opacity:1,transform:'translateX(0)'},{opacity:0,transform:`translateX(${-direction.current*12}px)`}],{duration:80,easing:'ease-in',fill:'forwards'});
-    animation.current=exit;
-    void exit.finished.then(finish,()=>{});
+    navigated.current=true;
+    current.current=next;
+    setStep(next);
   };
   useLayoutEffect(()=>{
     animation.current?.cancel();
@@ -61,7 +49,7 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
       if(desired.current!==current.current){navigated.current=true;current.current=desired.current;setStep(desired.current);}
     }
   },[reduceMotion]);
-  useEffect(()=>()=>{++sequence.current;animation.current?.cancel();},[]);
+  useEffect(()=>()=>{animation.current?.cancel();},[]);
   return {step,go,stage};
 }
 

@@ -1,5 +1,4 @@
 using System.Data.Common;
-using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -13,35 +12,49 @@ public sealed class DatabaseMetricsInterceptor : DbCommandInterceptor
     private static readonly Meter Meter = new("Fitness.Nutrition.Database", "1.0");
     private static readonly Counter<long> CommandCount = Meter.CreateCounter<long>("db.command.count");
     private static readonly Histogram<double> CommandDuration = Meter.CreateHistogram<double>("db.command.duration", "ms");
+    private static readonly Histogram<double> ReaderDuration = Meter.CreateHistogram<double>("db.reader.duration", "ms");
 
-    public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
-        DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
-        CancellationToken cancellationToken = default)
+    public override DbDataReader ReaderExecuted(DbCommand command, CommandExecutedEventData eventData, DbDataReader result)
+    { Record(command, eventData.Duration, "success"); return result; }
+
+    public override ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData,
+        DbDataReader result, CancellationToken cancellationToken = default)
+    { Record(command, eventData.Duration, "success"); return ValueTask.FromResult(result); }
+
+    public override object? ScalarExecuted(DbCommand command, CommandExecutedEventData eventData, object? result)
+    { Record(command, eventData.Duration, "success"); return result; }
+
+    public override ValueTask<object?> ScalarExecutedAsync(DbCommand command, CommandExecutedEventData eventData,
+        object? result, CancellationToken cancellationToken = default)
+    { Record(command, eventData.Duration, "success"); return ValueTask.FromResult(result); }
+
+    public override int NonQueryExecuted(DbCommand command, CommandExecutedEventData eventData, int result)
+    { Record(command, eventData.Duration, "success"); return result; }
+
+    public override ValueTask<int> NonQueryExecutedAsync(DbCommand command, CommandExecutedEventData eventData,
+        int result, CancellationToken cancellationToken = default)
+    { Record(command, eventData.Duration, "success"); return ValueTask.FromResult(result); }
+
+    public override void CommandFailed(DbCommand command, CommandErrorEventData eventData)
+        => Record(command, eventData.Duration, "failed");
+
+    public override Task CommandFailedAsync(DbCommand command, CommandErrorEventData eventData, CancellationToken cancellationToken = default)
+    { Record(command, eventData.Duration, "failed"); return Task.CompletedTask; }
+
+    public override void CommandCanceled(DbCommand command, CommandEndEventData eventData)
+        => Record(command, eventData.Duration, "canceled");
+
+    public override Task CommandCanceledAsync(DbCommand command, CommandEndEventData eventData, CancellationToken cancellationToken = default)
+    { Record(command, eventData.Duration, "canceled"); return Task.CompletedTask; }
+
+    public override InterceptionResult DataReaderDisposing(DbCommand command, DataReaderDisposingEventData eventData, InterceptionResult result)
     {
-        var started = Stopwatch.GetTimestamp();
-        try { return await base.ReaderExecutingAsync(command, eventData, result, cancellationToken); }
-        finally { Record(command, started); }
+        // EF measures this from reader creation to disposal, separately from SQL execution.
+        ReaderDuration.Record(eventData.Duration.TotalMilliseconds);
+        return result;
     }
 
-    public override async ValueTask<InterceptionResult<object>> ScalarExecutingAsync(
-        DbCommand command, CommandEventData eventData, InterceptionResult<object> result,
-        CancellationToken cancellationToken = default)
-    {
-        var started = Stopwatch.GetTimestamp();
-        try { return await base.ScalarExecutingAsync(command, eventData, result, cancellationToken); }
-        finally { Record(command, started); }
-    }
-
-    public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
-        DbCommand command, CommandEventData eventData, InterceptionResult<int> result,
-        CancellationToken cancellationToken = default)
-    {
-        var started = Stopwatch.GetTimestamp();
-        try { return await base.NonQueryExecutingAsync(command, eventData, result, cancellationToken); }
-        finally { Record(command, started); }
-    }
-
-    private static void Record(DbCommand command, long started)
+    private static void Record(DbCommand command, TimeSpan duration, string outcome)
     {
         var operation = command.CommandText.TrimStart() switch
         {
@@ -51,8 +64,8 @@ public sealed class DatabaseMetricsInterceptor : DbCommandInterceptor
             ['D', 'E', 'L', 'E', 'T', 'E', ..] or ['d', 'e', 'l', 'e', 't', 'e', ..] => "delete",
             _ => "other"
         };
-        var tag = new KeyValuePair<string, object?>("operation", operation);
-        CommandCount.Add(1, tag);
-        CommandDuration.Record(Stopwatch.GetElapsedTime(started).TotalMilliseconds, tag);
+        var tags = new System.Diagnostics.TagList { { "operation", operation }, { "outcome", outcome } };
+        CommandCount.Add(1, tags);
+        CommandDuration.Record(duration.TotalMilliseconds, tags);
     }
 }

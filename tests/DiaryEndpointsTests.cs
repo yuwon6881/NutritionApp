@@ -204,6 +204,18 @@ public class DiaryEndpointsTests
         {
             var today = RetentionService.Today(userA.ProfileJson);
 
+            var progress = await client.GetAsync("/api/progress/summary?period=month");
+            Assert.Equal(HttpStatusCode.OK, progress.StatusCode);
+            Assert.NotNull(progress.Headers.ETag);
+            using var progressRequest = new HttpRequestMessage(HttpMethod.Get, "/api/progress/summary?period=recent");
+            progressRequest.Headers.IfNoneMatch.Add(progress.Headers.ETag!);
+            Assert.Equal(HttpStatusCode.NotModified, (await client.SendAsync(progressRequest)).StatusCode);
+            userA.TrajectoryRevision++;
+            await db.SaveChangesAsync();
+            using var invalidatedRequest = new HttpRequestMessage(HttpMethod.Get, "/api/progress/summary?period=month");
+            invalidatedRequest.Headers.IfNoneMatch.Add(progress.Headers.ETag!);
+            Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(invalidatedRequest)).StatusCode);
+
             // 1. /api/diary
             var diaryUrl = $"/api/diary?from={today:yyyy-MM-dd}&to={today:yyyy-MM-dd}";
             var res1 = await client.GetAsync(diaryUrl);

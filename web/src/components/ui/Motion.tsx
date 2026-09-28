@@ -78,6 +78,7 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
         motionTiming('--motion-panel',240)
       );
       landingAnimation.onfinish=()=>{
+        landingAnimation.cancel();
         node.style.removeProperty('opacity');
         node.style.removeProperty('transform');
       };
@@ -124,6 +125,7 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
       motionTiming('--motion-panel',240)
     );
     animation.onfinish=()=>{
+      animation.cancel();
       // Do not leave a transform on the scene after the entrance settles. A
       // persistent transform creates a stacking context and can put anchored
       // date/select popovers behind the mobile navigation.
@@ -158,6 +160,7 @@ export function MotionPanel({motionKey,direction=1,axis='horizontal',children,cl
       :[{opacity:0},{opacity:1}];
     const animation=node.animate(keyframes,motionTiming('--motion-exit',180));
     animation.onfinish=()=>{
+      animation.cancel();
       node.style.removeProperty('opacity');
       node.style.removeProperty('transform');
     };
@@ -185,15 +188,18 @@ export function SelectionIndicator({active,className='',dataLayout,style,id,role
         .find(element=>element.dataset.selectionKey===active);
       indicator.hidden=!selected;
       if(!selected)return;
-      indicator.style.width=`${selected.offsetWidth}px`;
-      indicator.style.height=`${selected.offsetHeight}px`;
-      indicator.style.transform=`translate(${selected.offsetLeft}px,${selected.offsetTop}px)`;
+      const width=selected.offsetWidth,height=selected.offsetHeight,left=selected.offsetLeft,top=selected.offsetTop;
+      indicator.style.width=`${width}px`;
+      indicator.style.height=`${height}px`;
+      indicator.style.transform=`translate(${left}px,${top}px)`;
     };
     measure();
-    const observer=new ResizeObserver(measure);
+    let frame:number|undefined;
+    const schedule=()=>{if(frame===undefined)frame=requestAnimationFrame(()=>{frame=undefined;measure();});};
+    const observer=new ResizeObserver(schedule);
     observer.observe(container);
-    window.addEventListener('resize',measure);
-    return()=>{observer.disconnect();window.removeEventListener('resize',measure);};
+    window.addEventListener('resize',schedule);
+    return()=>{if(frame!==undefined)cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('resize',schedule);};
   },[active]);
 
   return <div ref={root} id={id} role={role} aria-label={ariaLabel} className={`selection-indicator ${className}`.trim()} data-layout={dataLayout} data-motion-reduced={reduced||undefined} style={style}>

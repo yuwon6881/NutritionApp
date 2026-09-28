@@ -21,6 +21,21 @@ test.beforeEach(async({page,context})=>{
 async function settled(page:Page){
   await page.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
 }
+test('Coach destination controls and focus do not wait for animation completion',async({page})=>{
+  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await settled(page);
+  await page.evaluate(()=>{
+    const original=Element.prototype.animate;
+    Element.prototype.animate=function(...args:Parameters<Element['animate']>){
+      const animation=original.apply(this,args);animation.pause();return animation;
+    };
+  });
+  await page.getByRole('button',{name:/^Next: Activity/}).click();
+  await expect(page.locator('[data-step-heading]')).toHaveText('Activity');
+  await expect(page.locator('[data-step-heading]')).toBeFocused();
+  await expect(page.getByLabel('Resistance training',{exact:true})).toBeEnabled();
+  await page.evaluate(()=>document.getAnimations().forEach(animation=>animation.cancel()));
+});
 async function step(page:Page,name:string){
   const order=['Body','Activity','Goal','Goal details','Pace','Macros','Adjust','Distribution','Review'];
   const heading=page.locator('[data-step-heading]');

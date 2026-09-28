@@ -84,6 +84,10 @@ test('status request failure does not appear as disconnected',async({page})=>{
 });
 
 test('dashboard loads Workout summaries once instead of re-fetching after each response',async({page})=>{
+  await page.route('**/api/bootstrap',async route=>{
+    const response=await route.fetch();
+    await route.fulfill({response,json:{...await response.json(),workoutConnected:true}});
+  });
   let requests=0;
   // Each response carries a new payload and no validator, exactly what a refreshed cache returns.
   await page.route('**/api/training/summary',route=>{

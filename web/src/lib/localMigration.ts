@@ -16,17 +16,17 @@ export async function migrateV1ToV2(db: IDBDatabase, user: string): Promise<bool
 
   try {
     // 1. Separate mutation queue if present
-    if (raw.queue && raw.queue.length > 0) {
+    if (raw.queue && raw.queue.length > 0 && !await idbGet(db,'mutations',user)) {
       await idbPut(db, 'mutations', { queue: raw.queue }, user);
     }
 
     // 2. Separate drafts if present
-    if ((raw.photoDrafts && raw.photoDrafts.length > 0) || (raw.bodyDrafts && raw.bodyDrafts.length > 0)) {
+    if (((raw.photoDrafts && raw.photoDrafts.length > 0) || (raw.bodyDrafts && raw.bodyDrafts.length > 0)) && !await idbGet(db,'drafts',user)) {
       await idbPut(db, 'drafts', { photoDrafts: raw.photoDrafts ?? [], bodyDrafts: raw.bodyDrafts ?? [] }, user);
     }
 
     // 3. Separate foods if present
-    if (raw.state?.foods && raw.state.foods.length > 0) {
+    if (raw.state?.foods && raw.state.foods.length > 0 && !await idbGet(db,'saved_foods',user)) {
       await idbPut(db, 'saved_foods', { foods: raw.state.foods, revision: raw.state.foodRevision ?? raw.state.revision ?? 0, fetchedAt: Date.now() }, user);
     }
 

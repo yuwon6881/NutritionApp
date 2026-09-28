@@ -4,6 +4,22 @@ import {trend} from './format';
 import type {AppState,Mutation} from '../types';
 const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-03-01',entries:[],foods:[],weights:[],days:[{id:'d',revision:1,deleted:false,date:'2026-02-01',status:'complete'}],plans:[]};
 describe('offline projection',()=>{
+it('reuses an empty queue and only copies collections affected by a weight edit',()=>{
+  expect(project(state,[])).toBe(state);
+  const result=project(state,[{id:'w',kind:'weight',recordId:'w',expectedRevision:0,delete:false,data:{date:'2026-02-01',kg:80}}]);
+  expect(result.weights).not.toBe(state.weights);
+  expect(result.entries).toBe(state.entries);
+  expect(result.foods).toBe(state.foods);
+  expect(result.days).toBe(state.days);
+  expect(result.plans).toBe(state.plans);
+  expect(state.weights).toHaveLength(0);
+});
+it('isolates touched day records even when their status was already incomplete',()=>{
+  const original={...state,days:[{...state.days[0],status:'incomplete' as const}]};
+  const result=project(original,[{id:'m',kind:'entry',recordId:'e',expectedRevision:0,delete:false,data:{date:'2026-02-01',calories:130}}]);
+  result.days[0].revision=99;
+  expect(original.days[0].revision).toBe(1);
+});
 it('marks edited days incomplete before sync and preserves unknown nutrients',()=>{const op:Mutation={id:'m',kind:'entry',recordId:'e',expectedRevision:0,delete:false,data:{date:'2026-02-01',name:'Rice',calories:130,protein:null}};const result=project(state,[op]);expect(result.days[0].status).toBe('incomplete');expect(result.entries[0].protein).toBeNull();expect(state.days[0].status).toBe('complete');});
 it('retains weigh-in context in the offline projection and replay payload',()=>{
   const op:Mutation={id:'weight',kind:'weight',recordId:'w',expectedRevision:0,delete:false,data:{date:'2026-02-01',kg:82,context:'stress'}};

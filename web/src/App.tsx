@@ -1,7 +1,9 @@
-import {lazy,Suspense,useEffect,useRef,useState} from 'react';
+import {lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
 import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle} from 'lucide-react';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
-import {getLocalDatabaseFailure,readLocal} from './lib/local';
+import {getLocalDatabaseFailure} from './lib/local';
+import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
+import {measurePerformance} from './lib/performance';
 import {today} from './lib/format';
 import {watchTheme} from './lib/theme';
 import {useNourish} from './useNourish';
@@ -41,20 +43,31 @@ type Page='today'|'food'|'progress'|'coach'|'settings';
 const PAGES:readonly Page[]=['today','food','progress','coach','settings'];
 const asPage=(value:unknown):Page|undefined=>PAGES.find(page=>page===value);
 
-function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLogout:()=>Promise<void>}){
+function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boolean;onLogout:()=>Promise<void>;onUsable?:()=>void}){
+  const firstUsable=useRef<(()=>void)|undefined>(undefined);
+  if(!firstUsable.current)firstUsable.current=measurePerformance('dashboard.usable');
   const store=useNourish(user);
+  const dashboardMarked=useRef(false);
+  useEffect(()=>{
+    if(!store.state||dashboardMarked.current)return;
+    dashboardMarked.current=true;
+    const frame=requestAnimationFrame(()=>{firstUsable.current?.();onUsable?.();});
+    return()=>cancelAnimationFrame(frame);
+  },[!!store.state]);
   const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
   const [date,setDate]=useState(today());
   const [foodOpen,setFoodOpen]=useState(false);
+  const foodOpening=useRef<(()=>void)|undefined>(undefined);
   const foodMounted=useRef(false);
   if(foodOpen)foodMounted.current=true;
   useEffect(()=>{
+    if(!store.state)return;
     const warm=()=>{void loadLogFood().catch(()=>{});};
     if(typeof window.requestIdleCallback==='function'){const id=window.requestIdleCallback(warm,{timeout:4000});return()=>window.cancelIdleCallback(id);}
     const timer=window.setTimeout(warm,2000);
     return()=>window.clearTimeout(timer);
-  },[]);
+  },[!!store.state]);
   const [foodDate,setFoodDate]=useState(today());
   const [foodInitialTime,setFoodInitialTime]=useState<string>();
   const [foodEditing,setFoodEditing]=useState<Entry>();
@@ -79,7 +92,11 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   // A page change requested while a dialog is closing waits for that dialog's
   // history entry to unwind, then records itself on top of the page below.
   const pendingPage=useRef<Page|null>(null);
-  const showPage=(next:Page)=>{setPage(next);window.scrollTo({top:0,behavior:'instant'});};
+  const showPage=(next:Page)=>{
+    const finish=measurePerformance('navigation');
+    setPage(next);window.scrollTo({top:0,behavior:'instant'});
+    window.requestAnimationFrame(finish);
+  };
   const requestPage=(next:Page)=>{
     if(next===pageRef.current)return;
     if(!isLayerEntry(readState(window.history))){backCoordinator().pushPage(next);showPage(next);return;}
@@ -128,6 +145,8 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setDate(current);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
   const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string)=>{
+    foodOpening.current?.();
+    foodOpening.current=measurePerformance('food.open');
     const initialSection=typeof tab==='string'?tab:tab?'barcode':'search';
     setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialTime(initialTime);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
   };
@@ -184,6 +203,9 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
     {id:'settings',label:'Settings',icon:SettingsIcon},
   ] as const;
 
+  // Background sync indicators update independently of the live page's data.
+  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingError,store.calendarDate,foodDate,date,onLogout]);
+
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside className="sidebar">
@@ -221,11 +243,11 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
       {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       <SyncConflictNotice store={store}/>
       {!store.state?<><DashboardSkeleton label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<DashboardSkeleton label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
-        {!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>}
+        {pageContent}
       </MotionScene></Suspense>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
+        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}
@@ -234,7 +256,7 @@ function Workspace({user,authReady,onLogout}:{user:string;authReady:boolean;onLo
   </div>;
 }
 
-export default function App(){
+export default function App({onUsable}:{onUsable?:()=>void}={}){
   const [user,setUser]=useState<string|null>();
   useEffect(()=>{clearApiCooldowns();},[user]);
   const [authReady,setAuthReady]=useState(false);
@@ -271,10 +293,15 @@ export default function App(){
       }
       if(localStorage.getItem('nourish-signed-out')==='1'){setUser(null);setAuthReady(true);return;}
       const previous=localStorage.getItem('nourish-account');let cached=false;
-      try{cached=!!previous&&!!await readLocal(previous);}catch{/* Try the server if local storage is unavailable. */}
+      const finishHydration=measurePerformance('startup.hydration');
+      const validation=api<{id:string;displayName?:string}>('/auth/me');
+      // Attach a rejection handler while local storage is opening; validation proceeds in parallel.
+      void validation.catch(()=>{});
+      try{cached=!!previous&&!!await hydrateAccount(previous);}catch{/* Try the server if local storage is unavailable. */}
+      finally{finishHydration();}
       if(active&&cached)setUser(previous);
       try{
-        const account=await api<{id:string;displayName?:string}>('/auth/me');
+        const account=await validation;
         if(active&&localStorage.getItem('nourish-signed-out')!=='1'){localStorage.setItem('nourish-account',account.id);setUser(account.id);setAuthReady(true);}
       }catch(ex){if(active){if(!cached||(ex instanceof ApiError&&ex.status===401))setUser(null);setAuthReady(true);}}
     })();
@@ -282,6 +309,7 @@ export default function App(){
   },[]);
 
   const logout=async()=>{
+    clearAccountHydration();
     if(user){
       try{
         const deviceId=getOrCreatePushDeviceId();
@@ -303,6 +331,6 @@ export default function App(){
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
     <ForegroundNotificationHandler userId={user} authReady={authReady}/>
-    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
+    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout} onUsable={onUsable}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
   </>;
 }

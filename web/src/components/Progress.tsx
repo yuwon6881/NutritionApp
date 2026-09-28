@@ -1,9 +1,9 @@
-import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {Nourish} from '../useNourish';
 import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
-import {PhysiquePhotos} from './PhysiquePhotos';
+import {SkeletonBlock} from './ui/Skeleton';
 import {WeightChart} from './WeightChart';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
@@ -19,8 +19,10 @@ import {useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {CardFeedback} from './ui/CardFeedback';
+import {progressDataKey} from '../lib/progressFreshness';
 
 type Tab='weight'|'energy'|'body'|'activity';
+const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
 const progressKinds=new Set(['entry','weight','day','profile','settings']);
 
 function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean){
@@ -42,9 +44,8 @@ function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean)
     try{await refreshProgress(period);}catch(ex){setError((ex as Error).message);}
     finally{setLoading(false);}
   },[enabled,period,refreshProgress]);
-  const revision=store.local?.state.revision;
-  const queueKey=store.local?.queue.filter(item=>progressKinds.has(item.kind)).map(item=>item.id+item.error).join('|')??'';
-  useEffect(()=>{void load();},[load,revision,queueKey,store.calendarDate]);
+  const revision=progressDataKey(store.local?.state);
+  useEffect(()=>{void load();},[load,revision,store.calendarDate]);
   return {summary:activeSummary,error,loading,retry:load};
 }
 
@@ -57,12 +58,12 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
   const weight=useProgressSummary(store,weightPeriod,tab==='weight');
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
-  const {state:ghState,loading:ghLoading}=useGoogleHealth();
+  const {state:ghState,loading:ghLoading}=useGoogleHealth(tab==='activity');
   const state=store.state!;
   // Depend on the stable loader, not the store object: every commit returns a new store, so a
   // store dependency re-fetched after each response in an endless loop.
   const loadTrainingSummaries=store.loadTrainingSummaries;
-  useEffect(()=>{void loadTrainingSummaries?.();},[loadTrainingSummaries]);
+  useEffect(()=>{if(tab==='activity')void loadTrainingSummaries?.();},[loadTrainingSummaries,tab]);
   const units=unitsFor(state.settings);
   // The weigh-in list comes from the server summary; queued deletions must disappear at once so Undo reads true.
   const pendingWeightDeletes=new Set((store.local?.queue??[]).filter(op=>op.kind==='weight'&&op.delete).map(op=>op.recordId));
@@ -157,7 +158,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
       {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading the selected energy period…</p>}
       <CoachingProgress store={store}/>
     </>}
-    {tab==='body'&&<PhysiquePhotos store={store}/>}
+    {tab==='body'&&<Suspense fallback={<section className="panel" aria-busy="true"><p className="sr-only" role="status">Opening body records…</p><SkeletonBlock width="45%" height={28}/><SkeletonBlock height={180}/></section>}><PhysiquePhotos store={store}/></Suspense>}
     {tab==='activity'&&<div className="activity-progress-hub">
       <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
       <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} error={store.trainingError} onOpenSettings={onSettings}/>

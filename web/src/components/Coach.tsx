@@ -360,7 +360,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       <div className="coach-step-progress" aria-label={`Plan progress: step ${activeStepIndex+1} of ${steps.length}, ${currentStepDef.label}`}>
         <div className="coach-step-progress-label"><span>Step {activeStepIndex+1} of {steps.length}</span><h3 tabIndex={-1} data-step-heading className="coach-step-heading">{currentStepDef.label}</h3></div>
         <div className="coach-step-progress-track" role="progressbar" aria-label="Plan completion" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={activeStepIndex+1}>
-          <span style={{width:`${((activeStepIndex+1)/steps.length)*100}%`}}/>
+          <span style={{transform:`scaleX(${(activeStepIndex+1)/steps.length})`}}/>
         </div>
       </div>
       {step==='body'&&<div className="step-content">

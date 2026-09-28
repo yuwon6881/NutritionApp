@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Nutrition.Api.Services;
 
 namespace Nutrition.Api.Data;
 
@@ -11,6 +12,7 @@ public sealed class MutationLock : IAsyncDisposable
     private bool local;
     public static async Task<MutationLock> Acquire(AppDb db, Guid? user, CancellationToken ct)
     {
+        using var timing = PerformanceMetrics.Measure("mutation.lock_wait");
         var result = new MutationLock();
         result.local = db.Database.IsSqlite();
         if (result.local) await LocalGate.WaitAsync(ct);

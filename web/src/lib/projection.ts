@@ -11,7 +11,14 @@ export function enqueueMutation(current:LocalData,op:Mutation):LocalData{
   return {...current,queue:[...current.queue,op]};
 }
 export function project(state:AppState,queue:Mutation[]):AppState{
-  const result=structuredClone(state);
+  if(queue.length===0)return state;
+  const result={...state};
+  const copied=new Set<'entries'|'foods'|'weights'|'days'>();
+  const copy=(key:'entries'|'foods'|'weights'|'days')=>{
+    if(copied.has(key))return;
+    Object.assign(result,{[key]:[...result[key]]});
+    copied.add(key);
+  };
   for(const op of queue){
     if(op.kind==='profile'){result.profile=op.data as Profile;continue;}
     if(op.kind==='settings'){
@@ -25,14 +32,22 @@ export function project(state:AppState,queue:Mutation[]):AppState{
       if(result.days.some(day=>day.archived&&dates.includes(day.date)))continue;
     }
     const key=collection[op.kind];
+    copy(key);
     const values=result[key] as Array<{id:string;revision:number;deleted:boolean;date?:string;status?:string}>;
     const i=values.findIndex(v=>v.id===op.recordId);
     const old=values[i];const next={...(op.kind==='day'?old:{}),...(op.delete?old:op.data as object),id:op.recordId,revision:op.expectedRevision,deleted:op.delete};
     if(i<0)values.push(next);else values[i]=next;
-    if(op.kind==='entry')for(const d of result.days)if(d.date===(next as {date?:string}).date||d.date===old?.date)d.status='incomplete';
+    if(op.kind==='entry'){
+      const changed=result.days.some(d=>d.date===(next as {date?:string}).date||d.date===old?.date);
+      if(changed){
+        copy('days');
+        result.days=result.days.map(d=>d.date===(next as {date?:string}).date||d.date===old?.date?{...d,status:'incomplete'}:d);
+      }
+    }
   }
-  result.entries.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
-  result.weights.sort((a,b)=>a.date.localeCompare(b.date));result.foods.sort((a,b)=>a.name.localeCompare(b.name));
+  if(copied.has('entries'))result.entries.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+  if(copied.has('weights'))result.weights.sort((a,b)=>a.date.localeCompare(b.date));
+  if(copied.has('foods'))result.foods.sort((a,b)=>a.name.localeCompare(b.name));
   return result;
 }
 export function wireMutation(op:Mutation){const {error:_,holdUntil:_hold,...wire}=op;return wire;}

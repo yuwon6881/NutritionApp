@@ -22,10 +22,11 @@ export async function pollNutritionRevisions(
   lastPeerRefresh: Ref<number>,
   refresh: () => Promise<void>,
   loadSavedFoods: () => Promise<void>,
-  loadTrainingSummaries: () => Promise<void>
+  loadTrainingSummaries: () => Promise<void>,
+  signal?:AbortSignal
 ) {
   if (!user || !navigator.onLine || !local.current) return;
-  const response = await apiWithMeta<NutritionRevisions>('/revisions', { headers: etag.current ? { 'If-None-Match': etag.current } : undefined });
+  const response = await apiWithMeta<NutritionRevisions>('/revisions', { headers: etag.current ? { 'If-None-Match': etag.current } : undefined,signal });
   if (response.etag) etag.current = response.etag;
   if (response.data) {
     const current = local.current.state;

@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult} from '../types';
 import {number,today,trend} from '../lib/format';
@@ -16,7 +16,7 @@ import {TrainingSummaryCard} from './TrainingSummaryCard';
 export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
-  const latestWeight=trend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted&&w.date<=date)]).at(-1);
+  const latestWeight=useMemo(()=>trend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted&&w.date<=date)]).at(-1),[state.weightTrendSeed,state.weights,date]);
   const energyUnit=unitsFor(state.settings).energy;
   const [checkInOpen,setCheckInOpen]=useState(false);
   const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
@@ -41,7 +41,8 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
   const targets=targetsForDate(plan,date);
   const ratio=targets.calories?Math.min(total/targets.calories,1):0;
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
-  const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],today(state.profile?.timeZone),phaseDecision,state.settings?.weightGoalMetric??'scale'),phaseDecision);
+  const liveProgress=useMemo(()=>liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date,phaseDecision,state.settings?.weightGoalMetric??'scale'),[state.profile,state.weightTrendSeed,state.weights,date,phaseDecision,state.settings?.weightGoalMetric]);
+  const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveProgress,phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
   const {state: ghState,loading: ghLoading}=useGoogleHealth();
   // Do not show an integration card while its first status request is unresolved.
@@ -51,7 +52,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
   // Depend on the stable loader, not the store object: every commit returns a new store, so a
   // store dependency re-fetched after each response in an endless loop.
   const loadTrainingSummaries=store.loadTrainingSummaries;
-  useEffect(()=>{void loadTrainingSummaries?.();},[loadTrainingSummaries]);
+  useEffect(()=>{if(state.workoutConnected!==false)void loadTrainingSummaries?.();},[loadTrainingSummaries,state.workoutConnected]);
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"

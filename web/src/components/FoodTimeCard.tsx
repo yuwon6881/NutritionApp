@@ -50,7 +50,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   // timeline; see useTimelineDrag. Nothing competes for the same pointer.
   const pointerProps=isSelecting?{}:dragProps;
 
-  const showActions=Boolean(swipe&&(swipe.revealed||swipe.offset<0));
+  const showActions=Boolean(swipe&&(swipe.revealed||swipe.dragging||swipe.offset<0));
   return <div
     className={`food-card-swipe${swipe?.dragging?' swiping':''}`}
     data-swipe-id={entry.id}

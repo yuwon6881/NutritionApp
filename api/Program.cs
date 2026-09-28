@@ -40,6 +40,7 @@ builder.Services.AddScoped<ScanService>();builder.Services.AddScoped<StorageServ
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSummaryService>();
+builder.Services.AddScoped<BootstrapReadService>();
 builder.Services.AddScoped<BodyRecordService>();
 builder.Services.AddScoped<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<ISharedAccessTokenValidator>(sp=>sp.GetRequiredService<OpenIddictAccessTokenService>());builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
 builder.Services.AddScoped<WorkoutSummaryService>();
@@ -185,7 +186,10 @@ app.Use(async(http,next)=>
     catch(System.Text.Json.JsonException) { http.Response.StatusCode=400;await http.Response.WriteAsJsonAsync(new { message="Invalid data format." }); }
 });
 app.UseRateLimiter();
-app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> { if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache"; } });
+app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse=c=> {
+    if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache";
+    else if(c.Context.Request.Path.StartsWithSegments("/assets")) c.Context.Response.Headers.CacheControl="public,max-age=31536000,immutable";
+} });
 app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapNutritionNotifications();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>

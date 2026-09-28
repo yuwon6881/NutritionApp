@@ -1,5 +1,11 @@
 # NutritionApp enhancement plan
 
+## Android-first performance delivery — 2026-09-28
+
+The authorized performance implementation and its measurement boundaries are recorded in [the performance report](docs/PERFORMANCE_2026-09-28.md). It preserves the existing Ayu interface, nutrition calculations, offline edits, sequential synchronization, infrastructure capacity, and provider pacing. Physical Android, production PostgreSQL query plans, and live-provider measurements remain pending.
+
+## Earlier source review
+
 Source review: 2026-09-16. This is proposed work, not implemented fixes or a browser/accessibility certification. File sizes are review-time snapshots. The guidance pair was already present; this review adds explicit code standards and feature-index maintenance.
 
 ## Findings and recommended sequence

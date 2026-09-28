@@ -52,6 +52,8 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
         // search rows cached under the old (possibly serving-labelled-as-100 g) basis.
         var key="search:hydrated-v3:"+query.ToLowerInvariant();
         if(cache.TryGetValue<IReadOnlyList<FoodResult>>(key,out var saved)) return saved!;
+        using var searchGate=await ReadGate.Enter(key,ct);
+        if(cache.TryGetValue(key,out saved))return saved!;
         var claimed=DateTime.MinValue; var released=DateTime.MinValue; var wait=TimeSpan.Zero;
         await RateGate.WaitAsync(ct);
         try
@@ -146,6 +148,8 @@ public sealed class FoodSearchService(HttpClient http,IMemoryCache cache)
             return new FoodResult(local.Name,local.Calories,local.Protein,local.Fat,local.Carbs,local.Fiber,local.Source,local.ServingGrams,portions,code,ServingCalories(local.Calories,portions),"per100g");
         }
         if(cache.TryGetValue<FoodResult>("barcode:"+code,out var saved)) return saved!;
+        using var barcodeGate=await ReadGate.Enter("barcode:"+code,ct);
+        if(cache.TryGetValue("barcode:"+code,out saved))return saved!;
         var durable=await db.PublicFoodProducts.AsNoTracking()
             .SingleOrDefaultAsync(product=>product.Code==code&&product.ExpiresAt>DateTime.UtcNow,ct);
         if(durable is not null&&TryReadCached(durable.ResultJson) is { } durableResult)

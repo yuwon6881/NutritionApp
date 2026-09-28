@@ -67,6 +67,21 @@ function createMockIdb(initialData: Record<string, Map<string, any>> = {}) {
 }
 
 describe('local storage migration and recovery', () => {
+  it('preserves authoritative empty partitions when a legacy migration is retried',async()=>{
+    const user='retry-user';
+    const state:AppState={id:user,displayName:'Retry',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-01-02',entries:[],weights:[],days:[],plans:[],foods:[{id:'old',name:'Old food'} as AppState['foods'][number]]};
+    const db=createMockIdb({
+      accounts:new Map([[user,{state,queue:[{id:'stale'}],photoDrafts:[{id:'stale-photo'}]}]]),
+      saved_foods:new Map([[user,{foods:[],revision:2,loaded:true}]]),
+      mutations:new Map([[user,{queue:[]}]]),
+      drafts:new Map([[user,{photoDrafts:[],bodyDrafts:[]}]])
+    });
+    await migrateV1ToV2(db,user);
+    const {idbGet}=await import('./idb');
+    expect(await idbGet(db,'saved_foods',user)).toEqual({foods:[],revision:2,loaded:true});
+    expect(await idbGet(db,'mutations',user)).toEqual({queue:[]});
+    expect(await idbGet(db,'drafts',user)).toEqual({photoDrafts:[],bodyDrafts:[]});
+  });
   it('migrates v1 LocalData into partitioned stores and separates queue/drafts', async () => {
     const user = 'test-user-v1';
     const mockState: AppState = {

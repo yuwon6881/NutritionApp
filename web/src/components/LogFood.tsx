@@ -1,4 +1,4 @@
-import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {Search,ScanBarcode,Sparkles,Plus,Star,ArrowLeft,ListChecks} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry,Food} from '../types';
@@ -23,6 +23,8 @@ import {useBackLayer} from '../lib/useBackLayer';
 import {Modal} from './ui/Modal';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
+import {useOpeningFrame} from './ui/useOpeningFrame';
+import {useFoodStepFocus} from './useFoodStepFocus';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {unitsFor} from '../lib/units';
 import {LogFoodSavedFoods,type SavedFilter} from './LogFoodSavedFoods';
@@ -45,6 +47,7 @@ export function LogFood({
   editing,
   onClose,
   onSaved,
+  onReady,
   initialAi=false,
   initialTab,
   initialTime,
@@ -56,12 +59,14 @@ export function LogFood({
   editing?:Entry;
   onClose:()=>void;
   onSaved:()=>void;
+  onReady?:()=>void;
   initialAi?:boolean;
   initialTab?:'search'|'saved'|'barcode'|'ai';
   initialTime?:string;
   restoreFocus?:HTMLElement|null;
 }){
   const defaultTab=initialTab??(initialAi?'ai':'search');
+  useOpeningFrame(open,onReady);
   const history=useHistoryWindow(store,date,open);
   useEffect(()=>{if(open)void store.loadSavedFoods();},[open,store.loadSavedFoods]);
   const basket=useFoodBasket(open,store.state!.id,date);
@@ -130,15 +135,7 @@ export function LogFood({
     if(step==='selection')selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'});
   },[step,tab]);
 
-  useLayoutEffect(()=>{
-    if(!open)return;
-    const frame=window.requestAnimationFrame(()=>{
-      // The outgoing step can still be mounted during its fade, so the batch step names its own target.
-      const target=document.querySelector<HTMLElement>(step==='batch'?'.food-modal [data-step-focus]':'.food-modal [data-modal-autofocus],.food-modal [data-validation-focus]');
-      if(target?.isConnected)target.focus({preventScroll:true});
-    });
-    return()=>window.cancelAnimationFrame(frame);
-  },[open,step,tab]);
+  useFoodStepFocus(open,step,tab);
 
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
   const toggleFavourite=(food:SearchResult)=>{
@@ -347,10 +344,11 @@ export function LogFood({
       if(id===selectionRequest.current)chooseForPurpose(resolved);
     }catch(ex){if(id===selectionRequest.current)setDetail({food,error:(ex as Error).message});}
   };
-  const allSavedFoods=store.state!.foods.filter(food=>!food.deleted);
+  const allSavedFoods=useMemo(()=>open?store.state!.foods.filter(food=>!food.deleted):[],[open,store.state!.foods]);
   const zone=store.state!.profile?.timeZone;
   const [nowHours,nowMinutes]=mealTime(zone).split(':').map(Number);
-  const recentEntries=rankRecentFoods(store.state!.entries,{date:today(zone),minutes:nowHours*60+nowMinutes});
+  const recentEntries=useMemo(()=>open?rankRecentFoods(store.state!.entries,{date:today(zone),minutes:nowHours*60+nowMinutes}):[],
+    [open,store.state!.entries,zone,nowHours,nowMinutes]);
   const beginBarcodeLink=()=>{
     if(!barcodeRecovery)return;
     setPendingLinkBarcode({code:barcodeRecovery.code,purpose:selectionPurpose});

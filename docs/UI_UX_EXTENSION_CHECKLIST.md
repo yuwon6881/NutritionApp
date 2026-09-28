@@ -112,3 +112,5 @@ If the change adds or changes a reusable component, breakpoint, motion rule, dat
 5. keep the two instruction files identical when editing their shared repository guidance.
 
 Do not merge a new visual convention that exists only in a component file. The instruction, implementation, and tests are one contract.
+
+For gesture or motion changes, verify final release values, pointer cancellation, scroll/resize geometry invalidation, immediate Coach destination interaction and focus, and no completed animation retaining a transform. Keep pointer visuals coalesced per frame and promote layers only during active motion. Keep photo size/quality limits and metadata stripping while using asynchronous encoding.

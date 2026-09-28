@@ -19,6 +19,7 @@
       "headers": { "Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "no-store" }
     },
     { "src": "/health", "dest": "https://nutrition-api-396431756440.asia-southeast1.run.app/health", "headers": { "Cache-Control": "no-store" } },
+    { "src": "/assets/(.*)", "headers": { "Cache-Control": "public, max-age=31536000, immutable" }, "continue": true },
     { "src": "/(?:sw\\.js|index\\.html|manifest\\.webmanifest|)", "headers": { "Cache-Control": "no-cache" }, "continue": true },
     { "handle": "filesystem" },
     { "src": "/coach", "dest": "/index.html" },

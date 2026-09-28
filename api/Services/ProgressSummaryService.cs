@@ -25,6 +25,7 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
 
     public async Task<ProgressSummaryResponse> Get(string? requestedPeriod, CancellationToken ct)
     {
+        using var timing = PerformanceMetrics.Measure("progress.read");
         var user = await db.Users.AsNoTracking().SingleAsync(item => item.Id == db.CurrentUser, ct);
         var profile = string.IsNullOrWhiteSpace(user.ProfileJson) ? null : Json.Read<Profile>(user.ProfileJson);
         var current = RetentionService.Today(user.ProfileJson);
@@ -33,6 +34,8 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
         var (start, end) = ResolveRange(period, current, earliest);
         var key = $"progress:{user.Id:N}:{period}:{start:yyyyMMdd}:{end:yyyyMMdd}:{user.Revision}:{user.TrajectoryRevision}";
         if (cache.TryGetValue(key, out ProgressSummaryResponse? cached) && cached is not null) return cached;
+        using var gate = await ReadGate.Enter(key,ct);
+        if (cache.TryGetValue(key, out cached) && cached is not null) return cached;
 
         var snapshots = profile is null ? [] : await trajectory.EnsureThroughToday(ct);
         var weight = await BuildWeightSummary(start, end, ct);
@@ -114,7 +117,9 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
             .Select(item => new WeightRow(item.Date, item.Kg))
             .ToListAsync(ct);
         var rows = history.Where(item => item.Date >= start).ToList();
-        var smoothed = Coach.Trend(history.Select(item => new WeightPoint(item.Date, item.Kg)).ToList());
+        IReadOnlyList<WeightPoint> smoothed;
+        using (PerformanceMetrics.Measure("progress.trend"))
+            smoothed = Coach.Trend(history.Select(item => new WeightPoint(item.Date, item.Kg)).ToList());
         var trendByDate = smoothed.ToDictionary(item => item.Date, item => item.Kg);
         var points = rows.Select(item => new ProgressWeightPoint(item.Date, item.Kg, trendByDate[item.Date])).ToList();
         var values = rows.Select(item => item.Kg).ToArray();

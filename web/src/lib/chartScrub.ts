@@ -1,12 +1,14 @@
-/** Index of the point whose x position is closest to `x`; ties go to the earlier point. */
+/** Nearest point in sorted chart positions; distance and duplicate ties go to the earlier point. */
 export function nearestIndex(positions:readonly number[],x:number):number{
-  let best=-1;
-  let bestDistance=Infinity;
-  positions.forEach((position,index)=>{
-    const distance=Math.abs(position-x);
-    if(distance<bestDistance){best=index;bestDistance=distance;}
-  });
-  return best;
+  if(!positions.length)return -1;
+  let low=0,high=positions.length;
+  while(low<high){const mid=(low+high)>>>1;if(positions[mid]<x)low=mid+1;else high=mid;}
+  if(low===0)return 0;
+  const selected=low===positions.length||x-positions[low-1]<=positions[low]-x?low-1:low;
+  const value=positions[selected];
+  high=selected;low=0;
+  while(low<high){const mid=(low+high)>>>1;if(positions[mid]<value)low=mid+1;else high=mid;}
+  return low;
 }
 
 /** Arrow-key stepping that stays inside the series; Home and End jump to its ends. */

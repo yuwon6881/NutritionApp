@@ -48,48 +48,7 @@ public static class RecordEndpoints
             });
         });
 
-        app.MapGet("/api/bootstrap", async (HttpContext http, AppDb db, RetentionService retention, ExpenditureTrajectoryService trajectory, WorkoutSummaryService training, CancellationToken ct) =>
-        {
-            var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
-            var etag = $"\"{user.Revision}\"";
-            if (http.Request.Headers.IfNoneMatch == etag)
-            {
-                http.Response.Headers.ETag = etag;
-                return Results.StatusCode(StatusCodes.Status304NotModified);
-            }
-            var snapshots = await trajectory.EnsureThroughToday(ct);
-            var today = RetentionService.Today(user.ProfileJson);
-            var end = today;
-            var start = end.AddDays(-89);
-            var energySnapshots = snapshots.Where(snapshot => snapshot.Date >= start && snapshot.Date <= end).ToList();
-            var precedingSnapshot = snapshots.Where(snapshot => snapshot.Date < start).OrderByDescending(snapshot => snapshot.Date).FirstOrDefault();
-            if (precedingSnapshot != null) energySnapshots.Insert(0, precedingSnapshot);
-            var orderedPlans = await db.Plans.OrderBy(plan => plan.Date).ThenBy(plan => plan.Revision).ToListAsync(ct);
-            var acceptedTargetIntervals = BuildAcceptedTargetIntervals(orderedPlans, today);
-            var workoutConnected = await training.IsConnected(ct);
-            var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
-            http.Response.Headers.ETag = etag;
-            return Results.Ok(new {
-                user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
-                diaryRevision = user.DiaryRevision, trajectoryRevision = user.TrajectoryRevision, bodyRevision = user.BodyRevision, foodRevision = user.FoodRevision,
-                settings = new { checkInWeekday = user.CheckInWeekday, revision = user.CoachingSettingsRevision, changedDate = user.CoachingSettingsChangedDate, weightUnit = user.WeightUnit, energyUnit = user.EnergyUnit, heightUnit = user.HeightUnit, missingDayAction = user.MissingDayAction ?? "ask", weightGoalMetric = user.WeightGoalMetric ?? "scale" },
-                profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson),
-                start, end,
-                detailCutoff = RetentionService.Cutoff(today, retention.DetailDays),
-                detailDays = retention.DetailDays,
-                energyEstimates = energySnapshots.Select(snapshot => new { date = snapshot.Date, revision = snapshot.SourceRevision, expenditure = snapshot.Expenditure, suggestedCalories = snapshot.SuggestedCalories, confidence = snapshot.Confidence, holdReason = snapshot.HoldReason, algorithmVersion = snapshot.AlgorithmVersion, trendWeightKg = snapshot.TrendWeightKg }),
-                acceptedTargetIntervals,
-                entries = await db.Entries.Where(e => e.Date >= start && e.Date <= end).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct),
-                weights = await db.Weights.Where(w => w.Date >= start && w.Date <= end).OrderBy(w => w.Date).ToListAsync(ct),
-                weightTrendSeed = await db.Weights.Where(w => w.Date >= start.AddDays(-56) && w.Date < start && !w.Deleted).OrderBy(w => w.Date).ToListAsync(ct),
-                days = await db.Days.Where(d => d.Date >= start && d.Date <= end).ToListAsync(ct),
-                plans = await db.Plans.OrderByDescending(p => p.Revision).Take(12).ToListAsync(ct),
-                checkIns = await db.CheckIns.OrderByDescending(c => c.Revision).Take(12).ToListAsync(ct),
-                phaseDecisions = await db.PhaseDecisions.OrderByDescending(d => d.Revision).Take(12).ToListAsync(ct),
-                workoutConnected,
-                workoutWarning
-            });
-        });
+        app.MapGet("/api/bootstrap", (HttpContext http, BootstrapReadService read, CancellationToken ct) => read.Get(http, ct));
 
         app.MapGet("/api/diary", async (HttpContext http, AppDb db, RetentionService retention, DateOnly? from, DateOnly? to, CancellationToken ct) =>
         {
@@ -111,8 +70,8 @@ public static class RecordEndpoints
                 return Results.StatusCode(StatusCodes.Status304NotModified);
             }
 
-            var entries = await db.Entries.Where(e => e.Date >= startDate && e.Date <= endDate).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct);
-            var days = await db.Days.Where(d => d.Date >= startDate && d.Date <= endDate).OrderBy(d => d.Date).ToListAsync(ct);
+            var entries = await db.Entries.AsNoTracking().Where(e => e.Date >= startDate && e.Date <= endDate).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct);
+            var days = await db.Days.AsNoTracking().Where(d => d.Date >= startDate && d.Date <= endDate).OrderBy(d => d.Date).ToListAsync(ct);
             var cutoff = RetentionService.Cutoff(today, retention.DetailDays);
 
             http.Response.Headers.ETag = etag;
@@ -136,7 +95,7 @@ public static class RecordEndpoints
                 http.Response.Headers.ETag = etag;
                 return Results.StatusCode(StatusCodes.Status304NotModified);
             }
-            var foods = await db.Foods.Where(f => !f.Deleted).OrderBy(f => f.Name).Take(1000).ToListAsync(ct);
+            var foods = await db.Foods.AsNoTracking().Where(f => !f.Deleted).OrderBy(f => f.Name).Take(1000).ToListAsync(ct);
             http.Response.Headers.ETag = etag;
             return Results.Ok(new {
                 foods,
@@ -177,11 +136,11 @@ public static class RecordEndpoints
                 detailCutoff=RetentionService.Cutoff(RetentionService.Today(user.ProfileJson),retention.DetailDays),detailDays=retention.DetailDays,
                 energyEstimates=energySnapshots.Select(snapshot=>new { date=snapshot.Date,revision=snapshot.SourceRevision,expenditure=snapshot.Expenditure,suggestedCalories=snapshot.SuggestedCalories,confidence=snapshot.Confidence,holdReason=snapshot.HoldReason,algorithmVersion=snapshot.AlgorithmVersion,trendWeightKg=snapshot.TrendWeightKg }),
                 acceptedTargetIntervals,
-                entries=await db.Entries.Where(e=>e.Date>=start&&e.Date<=end).OrderBy(e=>e.Date).ThenBy(e=>e.Id).ToListAsync(ct),
-                foods=await db.Foods.Where(f=>!f.Deleted).OrderBy(f=>f.Name).Take(1000).ToListAsync(ct),
+                entries=await db.Entries.AsNoTracking().Where(e=>e.Date>=start&&e.Date<=end).OrderBy(e=>e.Date).ThenBy(e=>e.Id).ToListAsync(ct),
+                foods=await db.Foods.AsNoTracking().Where(f=>!f.Deleted).OrderBy(f=>f.Name).Take(1000).ToListAsync(ct),
                 weights=await db.Weights.Where(w=>w.Date>=start&&w.Date<=end).OrderBy(w=>w.Date).ToListAsync(ct),
                 weightTrendSeed=await db.Weights.Where(w=>w.Date>=start.AddDays(-56)&&w.Date<start&&!w.Deleted).OrderBy(w=>w.Date).ToListAsync(ct),
-                days=await db.Days.Where(d=>d.Date>=start&&d.Date<=end).ToListAsync(ct),
+                days=await db.Days.AsNoTracking().Where(d=>d.Date>=start&&d.Date<=end).ToListAsync(ct),
                 plans=await db.Plans.OrderByDescending(p=>p.Revision).Take(12).ToListAsync(ct),
                 checkIns=await db.CheckIns.OrderByDescending(c=>c.Revision).Take(12).ToListAsync(ct),
                 phaseDecisions=await db.PhaseDecisions.OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct),
@@ -190,8 +149,18 @@ public static class RecordEndpoints
                 workoutWarning
             });
         });
-        app.MapGet("/api/progress/summary",async(string? period,ProgressSummaryService progress,CancellationToken ct)
-            =>Results.Ok(await progress.Get(period,ct))).RequireRateLimiting("progress");
+        app.MapGet("/api/progress/summary",async(HttpContext http,AppDb db,string? period,ProgressSummaryService progress,CancellationToken ct) =>
+        {
+            var user=await db.Users.AsNoTracking().SingleAsync(u=>u.Id==db.CurrentUser,ct);
+            var normalized=ProgressSummaryService.NormalizePeriod(period);
+            var day=RetentionService.Today(user.ProfileJson);
+            var etag=ReadValidators.Progress(user,normalized,day);
+            if(http.Request.Headers.IfNoneMatch==etag){http.Response.Headers.ETag=etag;return Results.StatusCode(304);}
+            var summary=await progress.Get(normalized,ct);
+            var finalRevision=await db.Users.AsNoTracking().Where(u=>u.Id==user.Id).Select(u=>u.Revision).SingleAsync(ct);
+            if(summary.Revision==user.Revision&&finalRevision==user.Revision)http.Response.Headers.ETag=etag;
+            return Results.Ok(summary);
+        }).RequireRateLimiting("progress");
         app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,CancellationToken ct)=>Results.Ok(new { revision=await sync.Apply(mutation,ct) }));
         app.MapGet("/api/coach/preview",async(CoachingService coach,CancellationToken ct)=>await coach.Preview(ct)).RequireRateLimiting("coaching");
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));

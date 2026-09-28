@@ -1,4 +1,4 @@
-import {useEffect,useRef} from 'react';
+import {useCallback,useEffect,useRef} from 'react';
 import type {FoodSearchResult} from '../types';
 import {api} from '../lib/api';
 
@@ -22,24 +22,47 @@ export function useSearchAsYouType({enabled,query,onResults}:{
   onResults:(results:FoodSearchResult[])=>void;
 }){
   const cache=useRef(new Map<string,FoodSearchResult[]>());
+  const requests=useRef(new Map<string,{controller:AbortController;promise:Promise<FoodSearchResult[]>}>());
+  const search=useCallback((value:string)=>{
+    const key=value.trim().toLowerCase();
+    const cached=cache.current.get(key);
+    if(cached)return Promise.resolve(cached);
+    const existing=requests.current.get(key);
+    if(existing)return existing.promise;
+    const controller=new AbortController();
+    const promise=api<FoodSearchResult[]>('/foods/search?q='+encodeURIComponent(value.trim()),undefined,'GET',{signal:controller.signal})
+      .then(results=>{
+        if(!controller.signal.aborted){
+          cache.current.set(key,results);
+          if(cache.current.size>64)cache.current.delete(cache.current.keys().next().value!);
+        }
+        return results;
+      }).finally(()=>{if(requests.current.get(key)?.promise===promise)requests.current.delete(key);});
+    requests.current.set(key,{controller,promise});
+    return promise;
+  },[]);
   const onResultsRef=useRef(onResults);
   useEffect(()=>{onResultsRef.current=onResults;});
 
   useEffect(()=>{
+    const key=query.trim().toLowerCase();
+    for(const [pending,request] of requests.current){
+      if(!enabled||pending!==key){request.controller.abort();requests.current.delete(pending);}
+    }
     const value=enabled?typeaheadQuery(query):null;
     if(!value)return;
-    const key=value.toLowerCase();
     const cached=cache.current.get(key);
     if(cached){onResultsRef.current(cached);return;}
-    const controller=new AbortController();
+    let active=true;
     const timer=window.setTimeout(()=>{
-      void api<FoodSearchResult[]>('/foods/search?q='+encodeURIComponent(value),undefined,'GET',{signal:controller.signal})
+      void search(value)
         .then(results=>{
-          cache.current.set(key,results);
-          if(!controller.signal.aborted)onResultsRef.current(results);
+          if(active)onResultsRef.current(results);
         })
         .catch(()=>{/* Typeahead is best-effort; an explicit search reports errors. */});
     },TYPEAHEAD_DELAY_MS);
-    return()=>{window.clearTimeout(timer);controller.abort();};
-  },[enabled,query]);
+    return()=>{active=false;window.clearTimeout(timer);};
+  },[enabled,query,search]);
+  useEffect(()=>()=>{for(const request of requests.current.values())request.controller.abort();requests.current.clear();},[]);
+  return search;
 }

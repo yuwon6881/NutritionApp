@@ -89,6 +89,12 @@ test('a new terminal rejection permits the next independent write in the same dr
 });
 
 test('cached training remains visible while a refresh is pending',async({page})=>{
+  // Dashboard only requests training for a known connection; model that consent in bootstrap.
+  await page.route('**/api/bootstrap',async route=>{
+    const response=await route.fetch();
+    const state=await response.json();
+    await route.fulfill({response,json:{...state,workoutConnected:true}});
+  });
   const summary={id:'cached',status:'completed',localDate:current,startedAt:null,finishedAt:null,workoutName:'Cached training',muscleGroups:[],workingSetCount:4,externalVolumeKg:null,systemVolumeKg:null,averageRpe:null};
   let requests=0;
   let complete:()=>void=()=>{};

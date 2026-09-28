@@ -29,12 +29,12 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         var today = Today(profile);
         var start = today.AddDays(-(BackfillDays - 1));
         var sourceRevision = SourceRevision(user);
-        var existing = await db.ExpenditureEstimates.AsNoTracking().OrderBy(item => item.Date).ToListAsync(ct);
+        var existing = await ReadWindow(start, today, ct);
         var expected = Enumerable.Range(0, BackfillDays).Select(offset => start.AddDays(offset)).ToArray();
         var complete = existing.Count >= BackfillDays
             && existing.First().Date <= start
             && existing.Last().Date >= today
-            && expected.All(date => existing.Any(item => item.Date == date))
+            && expected.All(existing.Select(item => item.Date).ToHashSet().Contains)
             && existing.Where(item => item.Date >= start && item.Date <= today)
                 .All(item => item.SourceRevision == sourceRevision && item.AlgorithmVersion == ExpenditureTrajectory.AlgorithmVersion);
         return complete ? Retained(existing, start) : null;
@@ -48,12 +48,12 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         var today = Today(profile);
         var start = today.AddDays(-(BackfillDays - 1));
         var sourceRevision = SourceRevision(user);
-        var existing = await db.ExpenditureEstimates.AsNoTracking().OrderBy(item => item.Date).ToListAsync(ct);
+        var existing = await ReadWindow(start, today, ct);
         var expected = Enumerable.Range(0, BackfillDays).Select(offset => start.AddDays(offset)).ToArray();
         var complete = existing.Count >= BackfillDays
             && existing.First().Date <= start
             && existing.Last().Date >= today
-            && expected.All(date => existing.Any(item => item.Date == date))
+            && expected.All(existing.Select(item => item.Date).ToHashSet().Contains)
             && existing.Where(item => item.Date >= start && item.Date <= today)
                 .All(item => item.SourceRevision == sourceRevision && item.AlgorithmVersion == ExpenditureTrajectory.AlgorithmVersion);
         if (!complete)
@@ -61,12 +61,22 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
             await RebuildFromUnderLock(start, sourceRevision, ct);
             await db.SaveChangesAsync(ct);
         }
-        var retained = await db.ExpenditureEstimates.AsNoTracking().Where(item => item.Date >= start)
+        var retained = await db.ExpenditureEstimates.AsNoTracking().Where(item => item.Date >= start && item.Date <= today)
             .OrderBy(item => item.Date).ToListAsync(ct);
         var preceding = await db.ExpenditureEstimates.AsNoTracking().Where(item => item.Date < start)
             .OrderByDescending(item => item.Date).FirstOrDefaultAsync(ct);
         if (preceding is not null) retained.Insert(0, preceding);
         return retained;
+    }
+
+    private async Task<List<DailyExpenditureEstimate>> ReadWindow(DateOnly start, DateOnly end, CancellationToken ct)
+    {
+        var rows = await db.ExpenditureEstimates.AsNoTracking().Where(item => item.Date >= start && item.Date <= end)
+            .OrderBy(item => item.Date).ToListAsync(ct);
+        var seed = await db.ExpenditureEstimates.AsNoTracking().Where(item => item.Date < start)
+            .OrderByDescending(item => item.Date).FirstOrDefaultAsync(ct);
+        if (seed is not null) rows.Insert(0,seed);
+        return rows;
     }
 
     public async Task RebuildFrom(DateOnly from, long sourceRevision, CancellationToken ct)
