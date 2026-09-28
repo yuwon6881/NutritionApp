@@ -48,6 +48,21 @@ public sealed partial class NutritionPushTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task New_reminder_defaults_to_eight_am_without_changing_a_saved_schedule()
+    {
+        await using var db = Open();
+        var service = new NutritionNotificationService(db, Config(), clock);
+
+        var initial = await service.GetSettingsAsync(default);
+        Assert.False(initial.Enabled);
+        Assert.Equal("08:00", initial.LocalTime);
+        Assert.Equal("Asia/Kuala_Lumpur", initial.TimeZoneId);
+
+        await service.SetSettingsAsync(false, initial.Weekday, "10:30", initial.TimeZoneId, default);
+        Assert.Equal("10:30", (await service.GetSettingsAsync(default)).LocalTime);
+    }
+
+    [Fact]
     public async Task Dispatch_sends_one_generic_reminder_per_device_and_local_date()
     {
         var sender = new FakeSender();
@@ -298,6 +313,15 @@ public sealed partial class NutritionPushTests : IAsyncLifetime
     [Fact]
     public void Due_window_uses_the_selected_timezone_and_skips_dst_gaps()
     {
+        Assert.True(NutritionNotificationService.TryGetDueDate(
+            1, new TimeOnly(8, 0), "Asia/Kuala_Lumpur",
+            new DateTimeOffset(2026, 9, 21, 0, 1, 0, TimeSpan.Zero), out var morningDate, out var morningTtl));
+        Assert.Equal(new DateOnly(2026, 9, 21), morningDate);
+        Assert.Equal(TimeSpan.FromMinutes(29), morningTtl);
+        Assert.False(NutritionNotificationService.TryGetDueDate(
+            1, new TimeOnly(8, 0), "Asia/Kuala_Lumpur",
+            new DateTimeOffset(2026, 9, 21, 11, 0, 0, TimeSpan.Zero), out _, out _));
+
         Assert.True(NutritionNotificationService.TryGetDueDate(
             1, new TimeOnly(20, 0), "Asia/Kuala_Lumpur",
             new DateTimeOffset(2026, 9, 21, 12, 1, 0, TimeSpan.Zero), out var date, out var remainingTtl));

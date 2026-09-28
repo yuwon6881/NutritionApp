@@ -47,7 +47,7 @@ public sealed class NutritionCheckInReminderPreference
     public Guid UserId { get; set; }
     public bool Enabled { get; set; }
     public int Weekday { get; set; } = 1;
-    public TimeOnly LocalTime { get; set; } = new(19, 0);
+    public TimeOnly LocalTime { get; set; } = new(8, 0);
     public string TimeZoneId { get; set; } = "Asia/Kuala_Lumpur";
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

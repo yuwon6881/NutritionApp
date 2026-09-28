@@ -47,7 +47,7 @@ export function NotificationsSettings({store}:{store:Nourish}){
   const [reminder,setReminder]=useState<CheckInReminder>(()=>({
     enabled:false,
     weekday:store.state!.settings?.checkInWeekday??1,
-    localTime:'09:00',
+    localTime:'08:00',
     timeZoneId:store.state!.profile?.timeZone||Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'
   }));
   const [permission,setPermission]=useState(()=>isNativeAndroid()?'prompt':typeof Notification==='undefined'?'unsupported':Notification.permission);

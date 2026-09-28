@@ -42,7 +42,7 @@ public sealed partial class NutritionNotificationService(
         if (!string.IsNullOrWhiteSpace(user.ProfileJson))
             timeZoneId = Json.Read<Profile>(user.ProfileJson).TimeZone;
 
-        return new(Configured, false, 1, "19:00", timeZoneId);
+        return new(Configured, false, 1, "08:00", timeZoneId);
     }
 
     public async Task<NutritionNotificationStatus> GetStatusAsync(string? deviceId, CancellationToken ct)
