@@ -45,6 +45,19 @@ public static class GoogleHealthOutboundSync
         return new(weight.Result, nutrition.Result, bodyFat.Result);
     }
 
+    /// Sends one user's queued uploads right after their own request queued them (or when they open
+    /// the app), best effort. Whatever a bounded pass leaves waits for the next visit or the daily
+    /// maintenance sweep; it must never fail the request that triggered it.
+    public static async Task FlushForActiveUserAsync(IServiceScopeFactory scopes, Guid? userId, ILogger logger, CancellationToken ct)
+    {
+        if (userId is null) return;
+        try { await RunAsync(scopes, userId, ActiveUserBudget, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning("Google Health uploads were left queued for the next visit or daily sweep: {FailureType}.", ex.GetType().Name);
+        }
+    }
+
     private static async Task<TResult> InScope<TService, TResult>(IServiceScopeFactory scopes, Func<TService, Task<TResult>> process)
         where TService : notnull
     {

@@ -1,3 +1,4 @@
+using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
 
@@ -16,8 +17,13 @@ public static class BodyRecordEndpoints
             =>Results.Ok(await estimates.Estimate(input,ct))).RequireRateLimiting("scans");
         app.MapGet("/api/body-records/{id:guid}",async(Guid id,BodyRecordService body,CancellationToken ct)
             =>Results.Ok(await body.Detail(id,ct)));
-        app.MapPost("/api/body-records/{id:guid}",async(Guid id,BodyMutation input,BodyRecordService body,CancellationToken ct)
-            =>Results.Ok(await body.Apply(id,input,ct)));
+        app.MapPost("/api/body-records/{id:guid}",async(Guid id,BodyMutation input,BodyRecordService body,AppDb db,IServiceScopeFactory scopes,ILogger<BodyRecordService> logger,CancellationToken ct)=>
+        {
+            var detail=await body.Apply(id,input,ct);
+            // A body-fat change queues a Google Health upload; send it now, while the API is awake.
+            await GoogleHealthOutboundSync.FlushForActiveUserAsync(scopes,db.CurrentUser,logger,ct);
+            return Results.Ok(detail);
+        });
         app.MapPost("/api/body-records/{id:guid}/photos",async(Guid id,PhotoSetInput input,PhotoService photos,BodyRecordService body,CancellationToken ct)=>
         {
             Validation.Require(id==input.Id&&input.MutationId!=null&&input.ExpectedRevision!=null,"A revisioned photo mutation is required.");

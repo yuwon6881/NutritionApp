@@ -161,7 +161,13 @@ public static class RecordEndpoints
             if(summary.Revision==user.Revision&&finalRevision==user.Revision)http.Response.Headers.ETag=etag;
             return Results.Ok(summary);
         }).RequireRateLimiting("progress");
-        app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,CancellationToken ct)=>Results.Ok(new { revision=await sync.Apply(mutation,ct) }));
+        app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,AppDb db,IServiceScopeFactory scopes,ILogger<SyncService> logger,CancellationToken ct)=>
+        {
+            var revision=await sync.Apply(mutation,ct);
+            // Weight and meal changes queue a Google Health upload; send it now, while the API is awake.
+            if(mutation.Kind is "weight" or "entry")await GoogleHealthOutboundSync.FlushForActiveUserAsync(scopes,db.CurrentUser,logger,ct);
+            return Results.Ok(new { revision });
+        });
         app.MapGet("/api/coach/preview",async(CoachingService coach,CancellationToken ct)=>await coach.Preview(ct)).RequireRateLimiting("coaching");
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));
         app.MapPost("/api/coach/decline",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Decline(input.Id,input.Revision,ct));
