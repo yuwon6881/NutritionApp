@@ -14,7 +14,7 @@ internal sealed class GoogleHealthBodyFatProviderException(
     bool transient = false,
     bool unknownCreate = false,
     TimeSpan? retryAfter = null,
-    bool authenticationFailure = false) : Exception(message)
+    bool authenticationFailure = false) : Exception(message), IGoogleHealthProviderFailure
 {
     public string Category { get; } = category;
     public bool Transient { get; } = transient;

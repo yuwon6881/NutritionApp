@@ -24,7 +24,8 @@ public sealed class GoogleHealthNutritionSyncService(
     AppDb db,
     GoogleHealthService google,
     HttpClient http,
-    ILogger<GoogleHealthNutritionSyncService>? logger = null)
+    ILogger<GoogleHealthNutritionSyncService>? logger = null,
+    Func<TimeSpan, CancellationToken, Task>? retryDelay = null)
 {
     public const string NutritionScope = "https://www.googleapis.com/auth/googlehealth.nutrition.writeonly";
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(2);
@@ -329,15 +330,18 @@ public sealed class GoogleHealthNutritionSyncService(
             var timeZone = await ProfileTimeZoneAsync(lease.UserId, ct);
             var dataPoint = BuildDataPoint(lease.Date, lease.Time, lease.Name, lease.Calories, lease.Protein, lease.Fat, lease.Carbs, lease.Fiber, timeZone);
 
-            GoogleHealthOperationResult result;
-            if (!string.IsNullOrWhiteSpace(lease.OperationName))
-                result = await GoogleHealthNutritionProvider.PollAsync(http, accessToken, lease.OperationName, ct);
-            else if (lease.Deleted)
-                result = await GoogleHealthNutritionProvider.DeleteAsync(http, accessToken, lease.ResourceName, ct);
-            else if (!string.IsNullOrWhiteSpace(lease.ResourceName))
-                result = await GoogleHealthNutritionProvider.UpdateAsync(http, accessToken, lease.ResourceName, dataPoint, ct);
-            else
-                result = await GoogleHealthNutritionProvider.CreateAsync(http, accessToken, dataPoint, ct);
+            // A transient Google or network failure is retried at once (bounded); see GoogleHealthImmediateRetry.
+            var result = await GoogleHealthImmediateRetry.RunAsync(async () =>
+            {
+                if (!string.IsNullOrWhiteSpace(lease.OperationName))
+                    return await GoogleHealthNutritionProvider.PollAsync(http, accessToken, lease.OperationName, ct);
+                else if (lease.Deleted)
+                    return await GoogleHealthNutritionProvider.DeleteAsync(http, accessToken, lease.ResourceName, ct);
+                else if (!string.IsNullOrWhiteSpace(lease.ResourceName))
+                    return await GoogleHealthNutritionProvider.UpdateAsync(http, accessToken, lease.ResourceName, dataPoint, ct);
+                else
+                    return await GoogleHealthNutritionProvider.CreateAsync(http, accessToken, dataPoint, ct);
+            }, ct, retryDelay);
 
             if (!result.Done)
             {

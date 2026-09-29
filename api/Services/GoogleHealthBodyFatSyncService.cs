@@ -24,7 +24,8 @@ public sealed class GoogleHealthBodyFatSyncService(
     AppDb db,
     GoogleHealthService google,
     HttpClient http,
-    ILogger<GoogleHealthBodyFatSyncService>? logger = null)
+    ILogger<GoogleHealthBodyFatSyncService>? logger = null,
+    Func<TimeSpan, CancellationToken, Task>? retryDelay = null)
 {
     public const string BodyFatScope = "https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.writeonly";
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(2);
@@ -291,15 +292,18 @@ public sealed class GoogleHealthBodyFatSyncService(
                 return "retry";
             }
 
-            GoogleHealthOperationResult result;
-            if (!string.IsNullOrWhiteSpace(lease.OperationName))
-                result = await GoogleHealthBodyFatProvider.PollAsync(http, accessToken, lease.OperationName, ct);
-            else if (lease.Deleted)
-                result = await GoogleHealthBodyFatProvider.DeleteAsync(http, accessToken, lease.ResourceName, ct);
-            else if (!string.IsNullOrWhiteSpace(lease.ResourceName))
-                result = await GoogleHealthBodyFatProvider.UpdateAsync(http, accessToken, lease.ResourceName, BuildDataPoint(lease.Date, lease.Percentage, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
-            else
-                result = await GoogleHealthBodyFatProvider.CreateAsync(http, accessToken, BuildDataPoint(lease.Date, lease.Percentage, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
+            // A transient Google or network failure is retried at once (bounded); see GoogleHealthImmediateRetry.
+            var result = await GoogleHealthImmediateRetry.RunAsync(async () =>
+            {
+                if (!string.IsNullOrWhiteSpace(lease.OperationName))
+                    return await GoogleHealthBodyFatProvider.PollAsync(http, accessToken, lease.OperationName, ct);
+                else if (lease.Deleted)
+                    return await GoogleHealthBodyFatProvider.DeleteAsync(http, accessToken, lease.ResourceName, ct);
+                else if (!string.IsNullOrWhiteSpace(lease.ResourceName))
+                    return await GoogleHealthBodyFatProvider.UpdateAsync(http, accessToken, lease.ResourceName, BuildDataPoint(lease.Date, lease.Percentage, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
+                else
+                    return await GoogleHealthBodyFatProvider.CreateAsync(http, accessToken, BuildDataPoint(lease.Date, lease.Percentage, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
+            }, ct, retryDelay);
 
             if (!result.Done)
             {

@@ -26,7 +26,8 @@ public sealed class GoogleHealthWeightSyncService(
     AppDb db,
     GoogleHealthService google,
     HttpClient http,
-    ILogger<GoogleHealthWeightSyncService>? logger = null)
+    ILogger<GoogleHealthWeightSyncService>? logger = null,
+    Func<TimeSpan, CancellationToken, Task>? retryDelay = null)
 {
     public const string WeightScope = "https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.writeonly";
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(2);
@@ -300,15 +301,18 @@ public sealed class GoogleHealthWeightSyncService(
                 return "retry";
             }
 
-            GoogleHealthOperationResult result;
-            if (!string.IsNullOrWhiteSpace(lease.OperationName))
-                result = await GoogleHealthWeightProvider.PollAsync(http, accessToken, lease.OperationName, ct);
-            else if (lease.Deleted)
-                result = await GoogleHealthWeightProvider.DeleteAsync(http, accessToken, lease.ResourceName, ct);
-            else if (!string.IsNullOrWhiteSpace(lease.ResourceName))
-                result = await GoogleHealthWeightProvider.UpdateAsync(http, accessToken, lease.ResourceName, BuildDataPoint(lease.Date, lease.Kg, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
-            else
-                result = await GoogleHealthWeightProvider.CreateAsync(http, accessToken, BuildDataPoint(lease.Date, lease.Kg, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
+            // A transient Google or network failure is retried at once (bounded); see GoogleHealthImmediateRetry.
+            var result = await GoogleHealthImmediateRetry.RunAsync(async () =>
+            {
+                if (!string.IsNullOrWhiteSpace(lease.OperationName))
+                    return await GoogleHealthWeightProvider.PollAsync(http, accessToken, lease.OperationName, ct);
+                else if (lease.Deleted)
+                    return await GoogleHealthWeightProvider.DeleteAsync(http, accessToken, lease.ResourceName, ct);
+                else if (!string.IsNullOrWhiteSpace(lease.ResourceName))
+                    return await GoogleHealthWeightProvider.UpdateAsync(http, accessToken, lease.ResourceName, BuildDataPoint(lease.Date, lease.Kg, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
+                else
+                    return await GoogleHealthWeightProvider.CreateAsync(http, accessToken, BuildDataPoint(lease.Date, lease.Kg, await ProfileTimeZoneAsync(lease.UserId, ct)), ct);
+            }, ct, retryDelay);
 
             if (!result.Done)
             {
