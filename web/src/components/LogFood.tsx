@@ -1,5 +1,5 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {Search,ScanBarcode,Sparkles,Plus,Star,ArrowLeft,ListChecks} from 'lucide-react';
+import {Search,ScanBarcode,Sparkles,Zap,PencilLine,Star,ArrowLeft,ListChecks} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import type {Entry,Food} from '../types';
 import {blankNutrients} from '../types';
@@ -32,7 +32,9 @@ import {LogFoodBarcodeRecovery,type BarcodeRecovery} from './LogFoodBarcodeRecov
 import {LogFoodAiForm} from './LogFoodAiForm';
 import {LogFoodRecents} from './LogFoodRecents';
 import {lineFromEntry,rankRecentFoods} from '../lib/recentFoods';
-import {today} from '../lib/format';
+import {longDate,today} from '../lib/format';
+import {hapticTick} from '../lib/haptics';
+import './logfood.css';
 import {findSavedFood} from '../lib/savedFoods';
 import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
 
@@ -137,13 +139,14 @@ export function LogFood({
 
   useFoodStepFocus(open,step,tab);
 
-  const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){setError((ex as Error).message);}};
+  const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){hapticTick('warning');setError((ex as Error).message);}};
   const toggleFavourite=(food:SearchResult)=>{
     setError('');
     void store.toggleFoodFavourite(food).catch(error=>setError(error instanceof Error?error.message:'Could not change the favourite.'));
   };
   const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
   const selectTab=(next:'search'|'saved'|'barcode'|'ai')=>{
+    if(next!==tab)hapticTick('selection');
     setSavedFilter('all');
     setQuery('');setResults([]);setError('');setCamera(false);setTab(next);
     setBarcodeRecovery(undefined);
@@ -181,7 +184,7 @@ export function LogFood({
   const recipeDirty=recipe.dirty;
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   // A recent food goes straight to the batch review at its last portion; the review step stays.
-  const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));setBatchTime(newTime());go('batch');});
+  const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));hapticTick('selection');setBatchTime(newTime());go('batch');});
   const leaveEditor=()=>{if(saveFood){setSaveFood(false);setPendingBarcode(undefined);setLabelNote('');}setDraft(undefined);go('selection');};
   // Back steps out of an inner step before it closes the sheet. A step with
   // unsaved input falls through to the Modal's own discard confirmation.
@@ -384,18 +387,19 @@ export function LogFood({
   };
   const selectionDirty=Boolean(basket.lines.length);
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(selectionPurpose==='recipe'?'Choose ingredient':initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
-  const descriptionText=step==='selection'?`For ${date}`:undefined;
+  const descriptionText=step==='selection'?(date===today(zone)?`Today · ${longDate(date)}`:longDate(date)):undefined;
   const hasSavedScanReview=scan.hasSavedReview;
 
   const selection=<div ref={selectionRef} className="dialog-step food-selection">
     {selectionPurpose==='recipe'&&<div className="editor-back-nav"><Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={cancelRecipeIngredient}><ArrowLeft size={16} aria-hidden="true"/>Back to recipe</Button></div>}
-    {selectionPurpose==='log'&&!editing&&<div className="dialog-toolbar"><Button variant="primary" onClick={()=>go('quick')}><Plus size={17}/>Quick add</Button><Button onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}>Manual entry</Button></div>}
-    <SegmentedControl<'search'|'saved'|'barcode'|'ai'> layout="equal" className="section-segments" label="Food logging method" value={tab} options={[
+    {selectionPurpose==='log'&&!editing&&<div className="dialog-toolbar food-entry-shortcuts"><Button variant="secondary" size="sm" onClick={()=>go('quick')}><Zap size={16} aria-hidden="true"/>Quick add</Button><Button variant="secondary" size="sm" onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}><PencilLine size={16} aria-hidden="true"/>Manual entry</Button></div>}
+    <SegmentedControl<'search'|'saved'|'barcode'|'ai'> layout="equal" className="section-segments food-methods" label="Food logging method" value={tab} options={[
       {value:'search',label:<><Search size={16}/><span>Search</span></>,ariaLabel:'Search'},
       {value:'saved',label:<><Star size={16}/><span className="tab-label-full">Your foods</span><span className="tab-label-short">Saved</span></>,ariaLabel:'Your foods'},
       {value:'barcode',label:<><ScanBarcode size={16}/><span className="tab-label-full">Barcode</span><span className="tab-label-short">Scan</span></>,ariaLabel:'Barcode'},
       ...(selectionPurpose==='log'?[{value:'ai' as const,label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}]:[]),
     ]} onChange={selectTab}/>
+    <MotionPanel motionKey={tab} axis="fade" className="food-method-panel">
     {detail&&<div className="food-detail-status" role="status" aria-busy={!detail.error}>
       <p>{detail.error?`Serving details unavailable for ${detail.food.name}. ${detail.error}`:`Loading serving details for ${detail.food.name}…`}</p>
       <div className="actions">{detail.error&&<Button onClick={()=>void chooseSearch(detail.food)}>Retry serving lookup</Button>}<Button onClick={()=>chooseForPurpose(detail.food)}>Review using 100 g</Button></div>
@@ -455,10 +459,11 @@ export function LogFood({
       hasSavedReview={hasSavedScanReview}
       scanDraft={scanDraft}
       storageError={scan.storageError}
-      onSubmit={()=>void run(submitAiEstimate)}
+      onSubmit={()=>void run(async()=>{await submitAiEstimate();hapticTick('success');})}
       onBackToBarcode={()=>{setPendingBarcode(undefined);setTab('barcode');}}
     />}
     {error&&<p className="error" role="alert">{error}</p>}
+    </MotionPanel>
   </div>;
 
   const child=step==='batch'

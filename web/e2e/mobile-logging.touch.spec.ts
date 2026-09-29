@@ -85,3 +85,28 @@ test('serving shortcuts rescale a reviewed food without the keyboard',async({pag
   await expect(page.locator('.live-calorie-value')).toContainText('155');
   await expect(chips.getByRole('button',{name:'Two servings',exact:true})).toHaveAttribute('aria-pressed','true');
 });
+
+// Earlier tests in this file log food today, so read the true total from the ring's accessible name.
+async function ringRemaining(page:Page){
+  const ring=page.getByRole('img',{name:/^[\d,]+ of [\d,]+ kcal logged$/});
+  await expect(ring).toBeVisible();
+  const [logged,target]=(await ring.getAttribute('aria-label'))!.match(/[\d,]+/g)!.map(value=>Number(value.replace(/,/g,'')));
+  expect(logged).toBeGreaterThanOrEqual(1030);
+  return {ring,expected:(target-logged).toLocaleString('en-MY')};
+}
+
+test('the Dashboard ring shows its true remaining value at once with reduced motion',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/');
+  const {ring,expected}=await ringRemaining(page);
+  await expect(ring.locator('text').first()).toHaveText(expected,{timeout:100});
+});
+
+test('the Dashboard landing count settles on the true remaining value',async({page})=>{
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.goto('/');
+  const {ring,expected}=await ringRemaining(page);
+  await expect(ring.locator('text').first()).toHaveText(expected,{timeout:3000});
+  // The cascade leaves no transform behind on the cards once it finishes.
+  await expect.poll(()=>page.locator('.dashboard-intro .panel').first().evaluate(el=>getComputedStyle(el).transform)).toBe('none');
+});

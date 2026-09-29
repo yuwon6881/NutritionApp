@@ -10,7 +10,7 @@ export function LogFoodRecents({entries,energyUnit,onPick}:{entries:Entry[];ener
       <small>Tap to review with your last portion</small>
     </div>
     <div className="recent-foods-grid">
-      {entries.map(entry=><RecentFoodCard key={entry.id} entry={entry} energyUnit={energyUnit} onSelect={onPick}/>)}
+      {entries.map((entry,index)=><RecentFoodCard key={entry.id} index={index} entry={entry} energyUnit={energyUnit} onSelect={onPick}/>)}
     </div>
   </section>;
 }

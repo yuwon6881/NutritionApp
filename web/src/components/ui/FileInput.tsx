@@ -1,6 +1,7 @@
 import {FieldFrame} from './Form';
 import {useId, useRef, useState, type ChangeEvent, type DragEvent, type InputHTMLAttributes} from 'react';
-import {UploadCloud, FileImage, X} from 'lucide-react';
+import {UploadCloud, FileImage, Images, X} from 'lucide-react';
+import {Button} from './Button';
 
 export interface FileInputProps {
   label: string;
@@ -16,6 +17,11 @@ export interface FileInputProps {
   className?: string;
   /** The size photos are compressed to on this device before upload. */
   maxSizeLabel?: string;
+  /**
+   * With `capture`, Android opens the camera directly and offers no library.
+   * This adds a gallery choice so an earlier photo can still be used.
+   */
+  libraryOption?: boolean;
 }
 
 export function FileInput({
@@ -31,6 +37,7 @@ export function FileInput({
   name: nameProp,
   className = '',
   maxSizeLabel = '750 KB',
+  libraryOption = false,
 }: FileInputProps) {
   const generatedId = useId();
   const id = idProp ?? generatedId;
@@ -71,6 +78,14 @@ export function FileInput({
       const event = new Event('change', {bubbles: true});
       inputRef.current.dispatchEvent(event);
     }
+  };
+
+  // One input keeps one validation target; capture is lifted only while the chooser opens.
+  const chooseFromLibrary = () => {
+    const input = inputRef.current;
+    if (!input || disabled) return;
+    input.removeAttribute('capture');
+    try { input.click(); } finally { if (capture) input.setAttribute('capture', String(capture)); }
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -148,12 +163,17 @@ export function FileInput({
         ) : (
           <div className="dropzone-prompt">
             <UploadCloud size={24} className="dropzone-icon" />
-            <span className="dropzone-main-text">{touchFirst ? 'Take or choose a photo' : 'Choose a photo or drag & drop'}</span>
+            <span className="dropzone-main-text">{touchFirst ? (capture ? 'Take a photo' : 'Take or choose a photo') : 'Choose a photo or drag & drop'}</span>
             <small className="dropzone-subtext">JPEG or PNG · compressed on this device to {maxSizeLabel} or less</small>
           </div>
         )}
       </div>
 
+      {libraryOption && capture && touchFirst && (
+        <Button type="button" variant="tertiary" size="sm" className="file-input-library" disabled={disabled} onClick={chooseFromLibrary}>
+          <Images size={16} aria-hidden="true"/>Choose from gallery
+        </Button>
+      )}
       {hint && <small id={`${id}-hint`}>{hint}</small>}
     </FieldFrame>
   );

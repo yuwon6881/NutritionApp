@@ -14,22 +14,12 @@ import {Field} from './ui/Field';
 import {FileInput} from './ui/FileInput';
 import {prepareImage} from '../lib/image';
 import {unitsFor} from '../lib/units';
+import {allMeasurementKeys,angleLabel,angles,measurementGroups,measurementLabel,toCentimetres} from '../lib/bodyMeasurements';
+import {buildEstimateRequest} from '../lib/bodyFatEstimate';
+import {BodyFatEstimate} from './body/BodyFatEstimate';
+import {useOnlineStatus} from './ui/useOnlineStatus';
 
-export const angles:PhysiqueAngle[]=['front','side','back'];
-export const angleLabel=(angle:PhysiqueAngle)=>angle[0].toUpperCase()+angle.slice(1);
-export const measurementGroups:[string,BodyMeasurementKey[]][]=[
-  ['Core',['neckCm','shouldersCm','chestCm','waistCm','hipsCm']],
-  ['Arms',['leftBicepsCm','rightBicepsCm','leftForearmCm','rightForearmCm']],
-  ['Legs',['leftThighCm','rightThighCm','leftCalfCm','rightCalfCm']]
-];
-export const measurementLabel=(key:BodyMeasurementKey)=>({
-  neckCm:'Neck',shouldersCm:'Shoulders',chestCm:'Chest',waistCm:'Waist',hipsCm:'Hips',
-  leftBicepsCm:'Left biceps',rightBicepsCm:'Right biceps',leftForearmCm:'Left forearm',rightForearmCm:'Right forearm',
-  leftThighCm:'Left thigh',rightThighCm:'Right thigh',leftCalfCm:'Left calf',rightCalfCm:'Right calf',bodyFatPercent:'Body fat'
-}[key]);
-export const allMeasurementKeys:BodyMeasurementKey[]=measurementGroups.flatMap(([,keys])=>keys).concat('bodyFatPercent');
-
-export async function captureBodyContext(store:Nourish,date:string):Promise<BodyWeightContext>{
+async function captureBodyContext(store:Nourish,date:string):Promise<BodyWeightContext>{
   if(navigator.onLine){
     try{return await api<BodyWeightContext>('/body-records/weight-context?date='+encodeURIComponent(date));}
     catch{/* Fall back to retained local values */}
@@ -41,9 +31,9 @@ export async function captureBodyContext(store:Nourish,date:string):Promise<Body
   return {scaleKg:scale?.kg??null,scaleDate:scale?.date??null,trendKg:trend?.trendKg??null,trendDate:trend?.date??null,capturedAt:new Date().toISOString(),calculationVersion:'coach-trend-half-life-7d-v1',provenance:'cached'};
 }
 
-export type BodySlot={angle:PhysiqueAngle;id:string;existing?:PhysiquePhoto;imageBase64?:string;changed:boolean;deleted:boolean;fileKey:number};
+type BodySlot={angle:PhysiqueAngle;id:string;existing?:PhysiquePhoto;imageBase64?:string;changed:boolean;deleted:boolean;fileKey:number};
 
-export function makeBodySlots(record?:BodyRecord):BodySlot[]{
+function makeBodySlots(record?:BodyRecord):BodySlot[]{
   return angles.map(angle=>{
     const existing=record?.photos.find(photo=>photo.angle===angle&&photo.status!=='deleted');
     return {angle,id:existing?.id??crypto.randomUUID(),existing,changed:false,deleted:false,fileKey:0};
@@ -70,6 +60,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
   const [confirmDelete,setConfirmDelete]=useState(false);
   const [error,setError]=useState('');
   const {busy,run,reset}=useAsyncAction();
+  const online=useOnlineStatus();
   const initialRef=useRef({date,values,slots});
 
   useEffect(()=>{
@@ -141,11 +132,8 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
         const num=Number(raw);
         if(!Number.isFinite(num)){
           measurements[key]=null;
-        }else if(key==='bodyFatPercent'||unit==='cm'){
-          measurements[key]=Math.round(num*10)/10;
         }else{
-          // Convert inches to cm for storage
-          measurements[key]=Math.round((num*2.54)*10)/10;
+          measurements[key]=key==='bodyFatPercent'?Math.round(num*10)/10:toCentimetres(num,unit);
         }
       }
     }
@@ -196,28 +184,6 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
         </div>
       </div>
 
-      {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
-        <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
-        <div className="body-field-grid">
-          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;setValues(cv=>({...cv,[key]:val}));}}/>)}
-        </div>
-      </section>)}
-
-      <section className="body-form-section">
-        <div className="body-form-section-header"><h3>Composition</h3><span className="unit-indicator">%</span></div>
-        <div className="body-field-grid body-composition-grid">
-          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>setValues(cv=>({...cv,bodyFatPercent:e.currentTarget.value}))}/>
-        </div>
-      </section>
-
-      <section className="body-form-section body-context-section">
-        <div className="body-form-section-header"><h3>Weight context</h3><p className="source">Captured when this record is saved. Missing values stay unavailable.</p></div>
-        <div className="body-context-switches">
-          <Checkbox id="body-omit-scale" role="switch" checked={omitScale} onChange={setOmitScale}>Omit scale snapshot</Checkbox>
-          <Checkbox id="body-omit-trend" role="switch" checked={omitTrend} onChange={setOmitTrend}>Omit trend snapshot</Checkbox>
-        </div>
-      </section>
-
       <section className="body-form-section body-photo-section">
         <div className="body-form-section-header"><h3>Photos</h3><p className="source">Optional. Replace or remove one view without changing the other angles.</p></div>
         <div className="physique-upload-grid">
@@ -232,6 +198,29 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
               <FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busy} label={angleLabel(slot.angle)+' photo'} accept="image/*" hint="JPEG or PNG; ≤750 KB." onChange={e=>void selectPhoto(slot.angle,e)}/>
             </section>;
           })}
+        </div>
+      </section>
+
+      <section className="body-form-section body-composition-section">
+        <div className="body-form-section-header"><h3>Body fat</h3><span className="unit-indicator">%</span></div>
+        <div className="body-field-grid body-composition-grid">
+          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>setValues(cv=>({...cv,bodyFatPercent:e.currentTarget.value}))}/>
+          <BodyFatEstimate slots={slots} online={online} disabled={busy} request={buildEstimateRequest(date,slots,values,unit)} onUse={percent=>setValues(cv=>({...cv,bodyFatPercent:String(percent)}))}/>
+        </div>
+      </section>
+
+      {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
+        <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
+        <div className="body-field-grid">
+          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;setValues(cv=>({...cv,[key]:val}));}}/>)}
+        </div>
+      </section>)}
+
+      <section className="body-form-section body-context-section">
+        <div className="body-form-section-header"><h3>Weight context</h3><p className="source">Captured when this record is saved. Missing values stay unavailable.</p></div>
+        <div className="body-context-switches">
+          <Checkbox id="body-omit-scale" role="switch" checked={omitScale} onChange={setOmitScale}>Omit scale snapshot</Checkbox>
+          <Checkbox id="body-omit-trend" role="switch" checked={omitTrend} onChange={setOmitTrend}>Omit trend snapshot</Checkbox>
         </div>
       </section>
 

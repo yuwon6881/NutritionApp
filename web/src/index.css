@@ -125,7 +125,7 @@ html{overflow-x:clip;scrollbar-gutter:stable;max-width:100%}body{max-width:100%}
 
 form>.button,.panel>.button{display:flex;margin-left:auto}.copy-day{justify-content:flex-end}
 .goal-setup{border:1px solid var(--border);border-radius:12px;padding:20px;margin:20px 0}.goal-setup legend{font-weight:600;padding:0 8px}.goal-summary{margin:18px 0;padding:16px;border:1px solid var(--border);border-radius:12px}.goal-summary progress{appearance:none;width:100%;height:8px;border:none;border-radius:8px;background:var(--track)}.goal-summary p{margin-bottom:8px;font-size:.82rem}.goal-summary p:last-child{margin-bottom:0}.goal-summary-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}.goal-summary-head h3{margin:0}.goal-percent{font-size:1.5rem;font-weight:600;letter-spacing:-.03em;color:var(--ink-strong)}.goal-scale{margin:6px 0 12px!important;font-size:.76rem}.goal-figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:14px 0 0;padding:0}.goal-figures dt{font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-foreground);margin-bottom:4px}.goal-figures dd{margin:0;font-size:.95rem;font-weight:600;color:var(--ink-strong);white-space:nowrap}.goal-summary.goal-reached{border-color:var(--success)}.goal-summary.goal-reached .goal-percent{color:var(--success)}.goal-summary.goal-reached progress::-webkit-progress-value{background:var(--success)}.goal-reached-banner{display:flex;align-items:center;gap:20px;border-color:var(--success)}.goal-reached-banner h2{margin-bottom:6px}.goal-reached-banner p{margin-bottom:6px;font-size:.84rem}.goal-reached-banner p:last-child{margin-bottom:0}.goal-reached-banner .eyebrow{margin-bottom:8px!important;color:var(--success)}.goal-reached-banner>div:not(.goal-reached-mark){flex:1;min-width:0}.goal-reached-banner>.button{flex-shrink:0}.goal-reached-mark{width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;border-radius:13px;background:var(--muted);color:var(--success)}.field input[type=range]{padding:0;accent-color:var(--primary);cursor:pointer}.scale-dot{fill:var(--muted-foreground)}.trend-dot{fill:var(--primary)}
-.check-in-card{display:flex;align-items:center;gap:16px;border-color:var(--border);background:var(--muted)}.check-in-card.is-ready{border-color:var(--primary);background:var(--primary-tint)}.check-in-copy{flex:1;min-width:0}.check-in-copy .eyebrow{margin-bottom:6px!important}.check-in-copy h2{margin-bottom:4px}.check-in-copy p{margin-bottom:0}.check-in-orb{position:relative;width:96px;height:96px;display:grid;place-items:center;flex:0 0 auto}.check-in-orb-ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible;transform:rotate(-90deg)}.check-in-orb-ring circle{fill:none;stroke-width:5}.check-in-orb-track{stroke:var(--track)}.check-in-orb-progress{stroke:var(--muted-foreground);stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease),stroke var(--motion-control) ease}.check-in-orb.is-actionable .check-in-orb-progress{stroke:var(--primary)}.check-in-orb.is-blocked .check-in-orb-progress{stroke:var(--muted-foreground)}.check-in-orb-button{position:relative;z-index:1;width:68px;min-width:68px;height:68px;min-height:68px;padding:0;border-radius:50%;display:grid;place-items:center;line-height:1}.section-heading .actions .check-in-orb-button{width:68px;min-width:68px;padding:0}.check-in-orb-button:disabled{opacity:1}.check-in-orb.is-waiting .check-in-orb-button,.check-in-orb.is-blocked .check-in-orb-button{background:var(--card);border-color:var(--border);color:var(--muted-foreground);cursor:default}.check-in-orb.is-waiting .check-in-orb-button{background:var(--muted)}.check-in-orb-count{display:grid;justify-items:center;gap:2px}.check-in-orb-count strong{font-size:1.35rem;line-height:1;font-variant-numeric:tabular-nums}.check-in-orb-count small{font-size:.62rem;line-height:1;color:inherit}.check-in-loading{display:grid;justify-items:center;gap:12px;padding:34px 12px;text-align:center}.check-in-loading p{margin:0}.goal-reached-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex:0 0 auto!important}.goal-reached-actions>.button{min-width:150px}.goal-awaiting-trend{margin-bottom:24px}.goal-progress-path{padding:12px 14px;margin:14px 0 0;border:1px solid var(--border);border-radius:11px;background:var(--muted);font-size:.8rem;line-height:1.55}.goal-progress-path strong{font-variant-numeric:tabular-nums}.goal-history-panel .goal-summary,.dashboard-goal-panel .goal-summary{margin:0;border:0;padding:0;background:transparent;box-shadow:none}
+.goal-reached-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex:0 0 auto!important}.goal-reached-actions>.button{min-width:150px}.goal-awaiting-trend{margin-bottom:24px}.goal-progress-path{padding:12px 14px;margin:14px 0 0;border:1px solid var(--border);border-radius:11px;background:var(--muted);font-size:.8rem;line-height:1.55}.goal-progress-path strong{font-variant-numeric:tabular-nums}.goal-history-panel .goal-summary,.dashboard-goal-panel .goal-summary{margin:0;border:0;padding:0;background:transparent;box-shadow:none}
 
 .energy-intake{fill:var(--primary);transition:height var(--motion-panel) var(--motion-ease),y var(--motion-panel) var(--motion-ease),fill var(--motion-control) ease,opacity var(--motion-control) ease}.energy-maintenance{fill:var(--muted-foreground);opacity:.5;transition:height var(--motion-panel) var(--motion-ease),y var(--motion-panel) var(--motion-ease),fill var(--motion-control) ease,opacity var(--motion-control) ease}.energy-surplus{fill:var(--carbs);transition:height var(--motion-panel) var(--motion-ease),y var(--motion-panel) var(--motion-ease),fill var(--motion-control) ease}.energy-deficit{fill:var(--protein);transition:height var(--motion-panel) var(--motion-ease),y var(--motion-panel) var(--motion-ease),fill var(--motion-control) ease}@media (hover:hover) and (pointer:fine){.energy-intake:hover,.energy-maintenance:hover{filter:brightness(1.08);opacity:.95}}@media (hover:hover) and (pointer:fine){.energy-surplus:hover,.energy-deficit:hover{filter:brightness(1.08)}}.partial-bar{opacity:.45}.energy-history .weight-chart{margin-bottom:0}
 
@@ -266,7 +266,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* Shared typography and compact review surface. */
 .sidebar nav{margin-top:32px}.topbar>span{letter-spacing:0;font-size:.8rem;font-weight:500}.auth-story .brand{margin-bottom:32px}@media(max-width:1023px){.sidebar nav{margin-top:0}}
 @media(max-width:899px){.goal-reached-banner{flex-direction:column;align-items:stretch;gap:14px}.goal-reached-actions{width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.goal-reached-banner>.button,.goal-reached-actions>.button{width:100%}}
-@media(max-width:639px){.goal-reached-actions{grid-template-columns:1fr}.goal-figures{grid-template-columns:repeat(2,minmax(0,1fr))}.goal-percent{font-size:1.3rem}.check-in-card{align-items:center;flex-wrap:nowrap;gap:12px}.check-in-card .check-in-orb{width:84px;height:84px}.check-in-card .check-in-orb-button{width:60px;min-width:60px;height:60px;min-height:60px}.check-in-copy{min-width:0}.goal-progress-path{font-size:.76rem}}
+@media(max-width:639px){.goal-reached-actions{grid-template-columns:1fr}.goal-figures{grid-template-columns:repeat(2,minmax(0,1fr))}.goal-percent{font-size:1.3rem}.goal-progress-path{font-size:.76rem}}
 
 /* Pointer feedback for every disclosure control. */
 summary{cursor:pointer}
@@ -728,17 +728,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .custom-time-footer{margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
 .custom-time-done-btn{width:100%;min-height:38px;padding:6px 12px}
 
-.barcode-camera{margin-top:16px}
-.barcode-viewport{position:relative;overflow:hidden;isolation:isolate;border-radius:14px;background:#0b0e14;aspect-ratio:4/3;max-height:420px}
-.barcode-video{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
-.barcode-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:84%;max-width:420px;aspect-ratio:2.8;border:1px solid #ffffffa6;border-radius:12px;box-shadow:0 0 0 100vmax #0007;pointer-events:none}
-.barcode-frame>i{position:absolute;width:24px;height:24px;border:3px solid #fff}
-.barcode-frame>i:nth-child(1){left:-2px;top:-2px;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
-.barcode-frame>i:nth-child(2){right:-2px;top:-2px;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
-.barcode-frame>i:nth-child(3){right:-2px;bottom:-2px;border-left:0;border-top:0;border-radius:0 0 12px 0}
-.barcode-frame>i:nth-child(4){left:-2px;bottom:-2px;border-right:0;border-top:0;border-radius:0 0 0 12px}
-.barcode-camera>p{margin:10px 0 0;font-size:.8rem}
-
 /* Continuous coaching and weekly program surfaces. */
 .target-weekly-summary{grid-column:1/-1;border-top:1px solid var(--border);padding-top:14px}
 .target-weekly-summary small{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:8px;font-variant-numeric:tabular-nums}
@@ -1180,6 +1169,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .weight-context-prompt h3{margin:0;font-size:.95rem;font-weight:600;color:var(--ink-strong)}
 .weight-context-prompt p{margin:0;font-size:.84rem;color:var(--muted-foreground)}
 .weight-context-prompt .field{margin:0}
+.weight-context-prompt .weight-context-evidence{color:var(--ink-strong);font-variant-numeric:tabular-nums}
 .body-record-form-top{display:grid;grid-template-columns:1.2fr 1fr;gap:16px;align-items:start}
 .body-record-form-top>.field{margin:0}
 .body-unit-toggle-field{margin-bottom:0}
@@ -1320,34 +1310,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 
 .ai-logging-form .modal-actions{margin-top:4px;padding-top:0;border-top:0}
 
-.check-in-calorie{display:grid;justify-items:center;gap:12px;padding:34px 14px 20px;text-align:center;position:relative;border-radius:var(--radius);transition:background var(--motion-fade) ease}
-.check-in-calorie.is-revealed.direction-positive{background:radial-gradient(ellipse at center,color-mix(in srgb,var(--destructive) 6%,transparent),transparent 70%)}
-.check-in-calorie.is-revealed.direction-negative{background:radial-gradient(ellipse at center,color-mix(in srgb,var(--success) 6%,transparent),transparent 70%)}
-.check-in-calorie.is-revealed.direction-neutral{background:radial-gradient(ellipse at center,color-mix(in srgb,var(--muted) 35%,transparent),transparent 70%)}
-.check-in-calorie-label{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);transition:color var(--motion-fade) ease}
-.check-in-calorie-value{display:flex;align-items:baseline;gap:8px;color:var(--ink-strong);font-size:clamp(2.2rem,7vw,4.2rem);font-weight:650;line-height:1;font-variant-numeric:tabular-nums}
-.check-in-calorie-value .coach-number{display:inline-block}
-.check-in-calorie-value .unit{font-size:1rem}
-.check-in-calorie-delta{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.84rem;font-weight:650;box-shadow:0 2px 8px rgba(0,0,0,.04);transition:transform var(--motion-control) cubic-bezier(.2,.8,.2,1),opacity var(--motion-fade) ease}
-.check-in-calorie-delta.positive{color:var(--destructive);background:color-mix(in srgb,var(--destructive) 10%,var(--card));border-color:color-mix(in srgb,var(--destructive) 25%,var(--border))}
-.check-in-calorie-delta.negative{color:var(--success);background:color-mix(in srgb,var(--success) 10%,var(--card));border-color:color-mix(in srgb,var(--success) 25%,var(--border))}
-.check-in-calorie-delta.neutral{color:var(--muted-foreground);background:var(--muted)}
-.check-in-calorie-delta.pending{visibility:hidden}
-.check-in-delta-icon{display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem;line-height:1;font-weight:700}
-.check-in-calorie.is-revealed .check-in-calorie-delta.positive .check-in-delta-icon{animation:checkInArrowUp 1.2s ease-in-out infinite}
-.check-in-calorie.is-revealed .check-in-calorie-delta.negative .check-in-delta-icon{animation:checkInArrowDown 1.2s ease-in-out infinite}
-@keyframes checkInCalorieReveal{0%{opacity:.6;transform:scale(.96)}65%{transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
-@keyframes checkInDeltaReveal{0%{opacity:0;transform:translateY(8px) scale(.92)}70%{transform:translateY(-2px) scale(1.03)}100%{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes checkInArrowUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes checkInArrowDown{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
-.check-in-calorie.is-revealed .check-in-calorie-value{animation:checkInCalorieReveal 260ms cubic-bezier(.2,.8,.2,1)}
-.check-in-calorie.is-revealed .check-in-calorie-delta:not(.pending){animation:checkInDeltaReveal 280ms cubic-bezier(.2,.8,.2,1)}
-@media(prefers-reduced-motion:reduce){
-  .check-in-calorie.is-revealed .check-in-calorie-value,
-  .check-in-calorie.is-revealed .check-in-calorie-delta:not(.pending),
-  .check-in-calorie.is-revealed .check-in-calorie-delta.positive .check-in-delta-icon,
-  .check-in-calorie.is-revealed .check-in-calorie-delta.negative .check-in-delta-icon{animation:none}
-}
 @media(max-width:639px){
   .sync-conflict-notice{padding:16px}
   .sync-conflict-heading{grid-template-columns:auto minmax(0,1fr)}
@@ -1771,3 +1733,26 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 @media(max-height:560px){.auth-page{place-items:start center;padding-block:20px}.auth-header{margin-bottom:14px}.auth-card.panel{padding-block:22px}}
 
 .food-card-swipe.swiping>.food-time-card{will-change:transform}
+
+/*
+ * Dashboard landing cascade: once per launch, cards rise in reading order while
+ * the calorie ring draws and macro bars grow. Backwards fill only, so no
+ * transform outlives the animation; the global reduced-motion rule removes it.
+ */
+.dashboard-cards{display:contents}
+@keyframes dashboardRise{from{opacity:0;transform:translateY(14px) scale(.985)}}
+@keyframes dashboardBar{from{transform:scaleX(0)}}
+.dashboard-intro .panel{animation:dashboardRise 560ms var(--motion-ease) backwards}
+.dashboard-intro .daily-grid>.panel:nth-child(2){animation-delay:80ms}
+.dashboard-intro>:nth-child(2){animation-delay:160ms}
+.dashboard-intro>:nth-child(3){animation-delay:220ms}
+.dashboard-intro>:nth-child(4){animation-delay:280ms}
+.dashboard-intro>:nth-child(n+5){animation-delay:340ms}
+.dashboard-intro .macro progress::-webkit-progress-value{transform-origin:left center;animation:dashboardBar 900ms var(--motion-ease) 240ms backwards}
+.dashboard-intro .macro progress::-moz-progress-bar{transform-origin:left center;animation:dashboardBar 900ms var(--motion-ease) 240ms backwards}
+/* Vendor progress pseudo-elements stay in separate rules: one unknown selector drops a whole list. */
+.dashboard-intro .macro:nth-of-type(2) progress::-webkit-progress-value{animation-delay:320ms}
+.dashboard-intro .macro:nth-of-type(2) progress::-moz-progress-bar{animation-delay:320ms}
+.dashboard-intro .macro:nth-of-type(3) progress::-webkit-progress-value{animation-delay:400ms}
+.dashboard-intro .macro:nth-of-type(3) progress::-moz-progress-bar{animation-delay:400ms}
+.energy-ring-intro .ring-fill{transition:none}

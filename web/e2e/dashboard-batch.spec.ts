@@ -101,10 +101,11 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
   const ingredientSearch=page.getByLabel('Search ingredients');
   await expect(ingredientSearch).toHaveAttribute('autocomplete','off');
-  await expect(page.locator('.food-modal .motion-panel')).toHaveCSS('overflow-x','visible');
+  // Nested method panels must not clip focus rings either.
+  expect(await page.locator('.food-modal .motion-panel').evaluateAll(panels=>panels.every(panel=>getComputedStyle(panel).overflowX==='visible'))).toBe(true);
   await ingredientSearch.focus();
   await expect(ingredientSearch).toHaveCSS('outline-offset','3px');
-  const horizontalMotion=await page.locator('.food-modal .motion-panel').evaluate(element=>element.getAnimations().some(animation=>animation.effect?.getKeyframes().some(frame=>String(frame.transform??'').includes('translateX(')&&frame.transform!=='translateX(0)')));
+  const horizontalMotion=await page.locator('.food-modal .motion-panel').evaluateAll(panels=>panels.some(element=>element.getAnimations().some(animation=>animation.effect?.getKeyframes().some(frame=>String(frame.transform??'').includes('translateX(')&&frame.transform!=='translateX(0)'))));
   expect(horizontalMotion).toBe(false);
   await ingredientSearch.fill('oats');
   await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();

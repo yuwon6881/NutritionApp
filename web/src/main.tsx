@@ -9,6 +9,8 @@ import {activeTheme,applyTheme} from './lib/theme';
 import './index.css';
 import './touch.css';
 import './logging.css';
+import './check-in.css';
+import './barcode.css';
 import './accessibility.css';
 import {measurePerformance} from './lib/performance';
 const startupFinished=measurePerformance('startup.usable');

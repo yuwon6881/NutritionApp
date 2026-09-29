@@ -28,17 +28,16 @@ export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:Nourish
     }catch(ex){setError((ex as Error).message);}
   };
 
-  return <div className="dialog-step editor"><Form onSubmit={save}>
-    {onBack&&<div style={{marginBottom: 12}}>
+  return <div className="dialog-step editor quick-add"><Form onSubmit={save}>
+    {onBack&&<div className="editor-back-nav">
       <Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={onBack}>
         <ArrowLeft size={16} aria-hidden="true"/>Back
       </Button>
     </div>}
-    <Field id="quick-add-calories" name="calories" data-modal-autofocus label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={calories} onChange={event=>setCalories(event.target.value)}/>
+    <Field id="quick-add-calories" name="calories" className="quick-add-calories" placeholder="0" enterKeyHint="done" data-modal-autofocus label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={calories} onChange={event=>setCalories(event.target.value)}/>
     <TimePicker id="quick-add-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="modal-actions">
-      {onBack&&<Button type="button" variant="secondary" onClick={onBack}>Back</Button>}
       <Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':'Add calories'}</Button>
     </div>
   </Form></div>;

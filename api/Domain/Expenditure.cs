@@ -2,78 +2,21 @@ namespace Nutrition.Api.Domain;
 
 public record EnergyEvidence(int WindowDays, int LoggedDays, double Coverage, int WeighIns,
     int WeighInSpanDays, double MeanIntake, double SlopeKgPerDay, double NoiseKg,
-    int WaterFlaggedDays, double Confidence);
+    int WaterFlaggedDays, double Confidence)
+{
+    public int ContextExcluded { get; init; }
+    public int ContextReinstated { get; init; }
+    public int ContextSettling { get; init; }
+}
 
 public record ExpenditureEstimate(bool Adaptive, double Expenditure, double? Observed,
     double Gain, EnergyEvidence Evidence, string Reason);
 
-public record WeightSignalResult(IReadOnlyList<WeightPoint> Retained, double NoiseKg,
-    int WaterFlaggedDays, double? TheilSenSlopeKgPerDay, double? EndpointSlopeKgPerDay);
-
-public static class WeightContextPolicy
-{
-    private static readonly HashSet<string> ValidCodes = [
-        "stress", "bloating", "menstrual_cycle", "illness", "travel", "other_temporary", "genuine_change", "unsure"
-    ];
-
-    private static readonly HashSet<string> TemporaryCodes = [
-        "stress", "bloating", "menstrual_cycle", "illness", "travel", "other_temporary"
-    ];
-
-    public static bool IsValid(string? context) => context is null || ValidCodes.Contains(context);
-
-    public static bool IsTemporary(string? context) => context is not null && TemporaryCodes.Contains(context);
-
-    public static IReadOnlyList<WeightPoint> ForCalorieEstimation(IEnumerable<WeightPoint> weights)
-        => weights.Where(weight => !IsTemporary(weight.Context)).ToArray();
-}
-
-public static class WeightSignal
-{
-    public static WeightSignalResult Analyze(IReadOnlyList<WeightPoint> weights, DateOnly today, int windowDays = 28)
-    {
-        var start = today.AddDays(-windowDays);
-        var points = weights.Where(w => !WeightContextPolicy.IsTemporary(w.Context) && w.Date >= start && w.Date < today)
-            .OrderBy(w => w.Date).ToArray();
-        var all = weights.Where(w => !WeightContextPolicy.IsTemporary(w.Context) && w.Date <= today)
-            .OrderBy(w => w.Date).ToArray();
-        var trends = Coach.Trend(all).ToDictionary(w => w.Date, w => w.Kg);
-        var residuals = points.Select(w => w.Kg - trends[w.Date]).ToArray();
-        var noise = MedianAbsoluteDeviation(residuals);
-        var threshold = 3 * Math.Max(noise, .3);
-        var flagged = points.Where((w, i) => Math.Abs(residuals[i]) > threshold).ToArray();
-        var flaggedDates = flagged.Select(w => w.Date).ToHashSet();
-        var retained = points.Where(w => !flaggedDates.Contains(w.Date))
-            .Select(w => new WeightPoint(w.Date, trends[w.Date])).ToArray();
-
-        var first = retained.Where(w => w.Date >= start && w.Date < start.AddDays(7)).Select(w => w.Kg).ToArray();
-        var last = retained.Where(w => w.Date >= today.AddDays(-7) && w.Date < today).Select(w => w.Kg).ToArray();
-        var endpoint = first.Length > 0 && last.Length > 0
-            ? (double?)(Median(last) - Median(first)) / 21d
-            : (double?)null;
-        var theil = retained.Length >= 2 ? (double?)Coach.Slope(retained) : null;
-        return new(retained, noise, flagged.Length, theil, endpoint);
-    }
-
-    private static double MedianAbsoluteDeviation(IReadOnlyList<double> values)
-    {
-        if (values.Count == 0) return 0;
-        var center = Median(values);
-        return Median(values.Select(value => Math.Abs(value - center)).ToArray());
-    }
-
-    private static double Median(IReadOnlyList<double> values)
-    {
-        var sorted = values.OrderBy(value => value).ToArray();
-        if (sorted.Length == 0) return 0;
-        return sorted.Length % 2 == 1
-            ? sorted[sorted.Length / 2]
-            : (sorted[sorted.Length / 2 - 1] + sorted[sorted.Length / 2]) / 2;
-    }
-}
-
 public static class Expenditure
 {
+    public const int WindowDays = 28;
+    private const int MinimumSettledWindowDays = 14;
+
     public static double DailyGain(double weeklyGain)
         => 1 - Math.Pow(1 - Math.Clamp(weeklyGain, 0, .999999999), 1d / 7);
 
@@ -93,54 +36,93 @@ public static class Expenditure
         return weekly with { Gain = gain, Expenditure = expenditure + gain * (observed - expenditure) };
     }
 
+    /// <summary>
+    /// Uses the full 28-day window unless intake changed inside it. After a change, only the days after water and
+    /// glycogen settled are used, because a constant 7,700 kcal/kg would read that shift as tissue.
+    /// </summary>
     public static ExpenditureEstimate Estimate(IReadOnlyList<NutritionDay> days,
         IReadOnlyList<WeightPoint> weights, double expenditure, DateOnly today, bool allowAdaptation = true)
     {
-        const int windowDays = 28;
+        var start = today.AddDays(-WindowDays);
+        var step = IntakeStep.Largest(days.Where(IsLogged), start, today);
+        var settledFrom = step?.Date.AddDays(IntakeStep.SettleDays);
+        if (step is null || settledFrom <= start)
+            return EstimateWindow(days, weights, expenditure, today, allowAdaptation, WindowDays, "");
+
+        var settled = today.DayNumber - settledFrom!.Value.DayNumber;
+        var change = $"your intake changed by about {Math.Round(Math.Abs(step.ChangeKcal) / 10) * 10:0} kcal/day around {step.Date:MMM d}";
+        if (settled >= MinimumSettledWindowDays)
+            return EstimateWindow(days, weights, expenditure, today, allowAdaptation, settled,
+                $" Using the {settled} days since {change} and water and glycogen settled.");
+        var held = EstimateWindow(days, weights, expenditure, today, false, WindowDays, "");
+        return held with
+        {
+            Reason = held.Reason.Replace(HoldAccepted, "")
+                + $" Holding: {change}. Water and glycogen shift for about a week after that, so the estimate waits for {MinimumSettledWindowDays} settled days."
+        };
+    }
+
+    private const string HoldAccepted = " Holding the accepted estimate until the next check-in.";
+
+    private static ExpenditureEstimate EstimateWindow(IReadOnlyList<NutritionDay> days,
+        IReadOnlyList<WeightPoint> weights, double expenditure, DateOnly today, bool allowAdaptation, int windowDays, string windowNote)
+    {
         var start = today.AddDays(-windowDays);
+        var scale = windowDays / (double)WindowDays;
         var window = days.Where(d => d.Date >= start && d.Date < today)
             .GroupBy(d => d.Date).Select(group => group.Last()).ToArray();
         var logged = window.Where(IsLogged).ToArray();
         var coverage = logged.Length / (double)windowDays;
-        var contextExcluded = weights.Count(weight => WeightContextPolicy.IsTemporary(weight.Context)
-            && weight.Date >= start && weight.Date < today);
         var signal = WeightSignal.Analyze(weights, today, windowDays);
         var retained = signal.Retained;
         var span = retained.Count < 2 ? 0 : retained[^1].Date.DayNumber - retained[0].Date.DayNumber;
         var firstHalf = retained.Count(w => w.Date < start.AddDays(windowDays / 2));
         var secondHalf = retained.Count(w => w.Date >= start.AddDays(windowDays / 2));
         var mostRecent = retained.LastOrDefault()?.Date;
+        var minimumLogged = (int)Math.Ceiling(14 * scale);
+        var minimumWeighIns = Math.Max(5, (int)Math.Ceiling(8 * scale));
+        var minimumSpan = (int)Math.Ceiling(21 * scale);
         var coverageFactor = Math.Clamp(coverage / .85, 0, 1);
-        var densityFactor = Math.Clamp(retained.Count / 14d, 0, 1);
+        var densityFactor = Math.Clamp(retained.Count / (windowDays / 2d), 0, 1);
         var precisionFactor = Math.Clamp(1 - signal.NoiseKg / .8, .5, 1);
-        var confidence = coverageFactor * densityFactor * precisionFactor;
+        // A shorter settled window carries less evidence than the full four weeks.
+        var confidence = coverageFactor * densityFactor * precisionFactor * scale;
         var gain = Math.Clamp(.25 * confidence, .08, .30);
         var evidence = new EnergyEvidence(windowDays, logged.Length, coverage, retained.Count, span,
             logged.Length == 0 ? 0 : logged.Average(d => d.Calories), signal.TheilSenSlopeKgPerDay ?? 0,
-            signal.NoiseKg, signal.WaterFlaggedDays, confidence);
+            signal.NoiseKg, signal.WaterFlaggedDays, confidence)
+        {
+            ContextExcluded = signal.ContextExcluded,
+            ContextReinstated = signal.ContextReinstated,
+            ContextSettling = signal.ContextSettling,
+        };
 
-        var prefix = $"{logged.Length} of {windowDays} days logged; unlogged days are excluded and may bias this estimate. " +
-            "The 28-day window spans a full menstrual cycle.";
-        if (contextExcluded > 0)
-            prefix += $" Excluded {contextExcluded} weigh-in day{(contextExcluded == 1 ? "" : "s")} you marked as a possible temporary fluctuation from the calorie trend.";
+        var prefix = $"{logged.Length} of {windowDays} days logged; unlogged days are excluded and may bias this estimate." +
+            (windowDays == WindowDays ? " The 28-day window spans a full menstrual cycle." : windowNote);
+        if (signal.ContextExcluded > 0)
+            prefix += $" Excluded {Plural(signal.ContextExcluded, "weigh-in day")} you marked as a possible temporary fluctuation from the calorie trend.";
+        if (signal.ContextSettling > 0)
+            prefix += $" Counted {Plural(signal.ContextSettling, "later weigh-in")} at reduced weight while water settled.";
+        if (signal.ContextReinstated > 0)
+            prefix += $" Counted {Plural(signal.ContextReinstated, "marked weigh-in day")} again because later weigh-ins stayed at that level.";
         if (signal.WaterFlaggedDays > 0)
-            prefix += $" Flagged {signal.WaterFlaggedDays} possible water or level-shift weigh-in day{(signal.WaterFlaggedDays == 1 ? "" : "s")} and excluded them from the slope.";
+            prefix += $" Flagged {Plural(signal.WaterFlaggedDays, "possible water or level-shift weigh-in day")} and excluded {(signal.WaterFlaggedDays == 1 ? "it" : "them")} from the slope.";
 
         if (!allowAdaptation)
-            return new(false, expenditure, null, 0, evidence, prefix + " Holding the accepted estimate until the next check-in.");
-        if (logged.Length < 14 || coverage < .60 || window.Count(d => IsLogged(d) && d.Date >= today.AddDays(-7)) < 4)
+            return new(false, expenditure, null, 0, evidence, prefix + HoldAccepted);
+        if (logged.Length < minimumLogged || coverage < .60 || window.Count(d => IsLogged(d) && d.Date >= today.AddDays(-7)) < 4)
             return new(false, expenditure, null, 0, evidence,
-                prefix + " Holding: need at least 14 logged days, 60% coverage, and four logged days in the most recent seven.");
-        if (retained.Count < 8 || span < 21 || firstHalf < 3 || secondHalf < 3 ||
+                prefix + $" Holding: need at least {minimumLogged} logged days, 60% coverage, and four logged days in the most recent seven.");
+        if (retained.Count < minimumWeighIns || span < minimumSpan || firstHalf < 3 || secondHalf < 3 ||
             mostRecent is not {} recent || recent < today.AddDays(-4))
             return new(false, expenditure, null, 0, evidence,
-                prefix + $" Holding: need eight retained weigh-ins spanning 21 days, with three in each half and one within four days. Current evidence: {retained.Count} weigh-ins spanning {span} days.");
+                prefix + $" Holding: need {Words(minimumWeighIns)} retained weigh-ins spanning {minimumSpan} days, with three in each half and one within four days. Current evidence: {retained.Count} weigh-ins spanning {span} days.");
         if (signal.EndpointSlopeKgPerDay is not {} endpoint || signal.TheilSenSlopeKgPerDay is not {} theil)
             return new(false, expenditure, null, 0, evidence,
                 prefix + " Holding: the retained weights do not cover both ends of the window.");
-        if (Math.Abs(theil - endpoint) * 7 > .15)
+        if (Math.Abs(theil - endpoint) > signal.EndpointLimitKgPerDay)
             return new(false, expenditure, null, 0, evidence,
-                prefix + " Holding: the trend and endpoint slopes disagree by more than 0.15 kg per week, so a level shift may still be inside the window.");
+                prefix + $" Holding: the trend and endpoint slopes disagree by more than {signal.EndpointLimitKgPerDay * 7:0.##} kg per week, so a level shift may still be inside the window.");
 
         var observed = evidence.MeanIntake - 7700 * theil;
         if (observed < 1000 || observed > 7000)
@@ -150,6 +132,10 @@ public static class Expenditure
         return new(true, updated, observed, gain, evidence,
             prefix + $" Based on {retained.Count} retained weigh-ins. The expenditure estimate moves {gain:P0} toward the observed intake/weight relationship. This is a provisional estimate, not a metabolic measurement.");
     }
+
+    private static string Plural(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
+
+    private static string Words(int count) => count switch { 5 => "five", 6 => "six", 7 => "seven", 8 => "eight", _ => count.ToString() };
 
     private static bool IsLogged(NutritionDay day) => day.Status is "complete" or "fasting";
 }

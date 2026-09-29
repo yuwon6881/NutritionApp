@@ -1,3 +1,4 @@
+import type {CSSProperties} from 'react';
 import {Plus,Star} from 'lucide-react';
 import type {EnergyUnit,Entry,Food} from '../types';
 import {isRecipe} from '../lib/logFood';
@@ -59,7 +60,7 @@ export function LogFoodSavedFoods({
     return true;
   }).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
   const recentGrid=(entries:Entry[])=><div className="recent-foods-grid">
-    {entries.map(entry=><RecentFoodCard key={entry.id} entry={entry} energyUnit={energyUnit} onSelect={onPickRecent}/>)}
+    {entries.map((entry,index)=><RecentFoodCard key={entry.id} index={index} entry={entry} energyUnit={energyUnit} onSelect={onPickRecent}/>)}
   </div>;
 
   return <>
@@ -107,8 +108,9 @@ export function LogFoodSavedFoods({
               ?'No recipes yet. Create one with the New recipe button.'
               :'No saved foods yet.'}
           </p>
-          :foods.map(food=><div
+          :foods.map((food,index)=><div
             className="food-row interactive"
+            style={{'--i':Math.min(index,8)} as CSSProperties}
             key={food.id}
             role="button"
             aria-label={food.name}

@@ -1,4 +1,4 @@
-import {memo} from 'react';
+import {memo,type CSSProperties} from 'react';
 import type {EnergyUnit,Entry} from '../types';
 import {displayPortion} from '../lib/portions';
 import {displayEnergy,energyLabel} from '../lib/units';
@@ -8,16 +8,20 @@ export const RecentFoodCard=memo(function RecentFoodCard({
   entry,
   energyUnit,
   disabled=false,
+  index,
   onSelect
 }:{
   entry:Entry;
   energyUnit:EnergyUnit;
   disabled?:boolean;
+  /** Position in its list; staggers the entrance of the first few cards. */
+  index?:number;
   onSelect:(entry:Entry,trigger:HTMLElement)=>void;
 }){
   return <Button
     presentation="plain"
     className="recent-food-card"
+    style={index==null?undefined:{'--i':Math.min(index,8)} as CSSProperties}
     disabled={disabled}
     aria-label={`${entry.name}, ${displayPortion(entry)}, ${displayEnergy(entry.calories,energyUnit)} ${energyLabel(energyUnit)}`}
     onClick={event=>onSelect(entry,event.currentTarget)}

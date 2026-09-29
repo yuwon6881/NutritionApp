@@ -1,6 +1,6 @@
 # NutritionApp UI/UX design principles
 
-This is the living UI contract for NutritionApp. It records the patterns already present in the application so future work extends the system instead of creating a parallel visual or interaction system. Read it with `docs/UI_UX_EXTENSION_CHECKLIST.md` before adding or changing a screen, control, search result, dialog, or animation.
+This is the living UI contract for NutritionApp. It records the patterns already present in the application so future work extends the system instead of creating a parallel visual or interaction system. Read it with `docs/UI_UX_EXTENSION_CHECKLIST.md` before adding or changing a screen, control, search result, dialog, or animation. Compact and medium (phone-first, Android reference) behavior — thumb-zone primary actions, platform features, and landing motion — is owned by `docs/MOBILE_DESIGN_PRINCIPLES.md`.
 
 ## Product direction
 
@@ -55,7 +55,8 @@ Reuse these components and hooks before writing local equivalents:
 | Food logging | `LogFood.tsx`, `FoodPicker.tsx`, `FoodBasket.tsx`, `BatchFoodRow.tsx`, and `useFoodBasket.ts` | Extend the existing selection, review, batch, swipe/menu, serving, and AI-draft flows. Recent foods (`lib/recentFoods.ts`) go straight to the batch review with their last portion, whose Log button takes focus; there is no path that logs without that review. Search-as-you-type waits for a pause and three characters because the provider quota is shared; explicit Search still reports errors. Serving shortcuts (`PortionChips`) only multiply servings and never invent a gram weight. Search results are hydrated and ranked by `FoodSearchService`; do not add a second client-side ranking contract. |
 | Units and display formatting | `web/src/lib/units.ts`, `format.ts`, `types.ts`, `MiniUnitToggle.tsx` | Use the account's energy, weight, and height preferences and the shared display/input helpers. Onboarding and measurement inputs prefer compact system presets (`Metric` / `Imperial`) and contextual in-situ `MiniUnitToggle` switches in field headers rather than heavy multi-select fieldsets. |
 | Chart scrubbing | `components/ui/useChartScrub.ts`, `lib/chartScrub.ts` | Pointer and touch scrubbing with a vertical indicator line and a fixed value card showing date, value, and source; keyboard arrow stepping stays available. |
-| Tactile feedback | `web/src/lib/haptics.ts` | Short tactile confirmation (`hapticTick`) for card lift, selection, log success, barcode hit, and swipe threshold. Native Haptics on Android, vibration on web; silent when reduced motion is on or user disabled haptics in Settings. |
+| Dated record stepping and physique photos | `components/body/RecordNavigator.tsx`, `PhotoFrame.tsx`, `useRecordSwipe.ts`, `lib/bodyMeasurements.ts` | Lists are newest first; Older sits on the leading edge and Newer on the trailing edge, with the date and "N of M" between (icon-only steps below 1024 px keep their accessible names). The photo is a fixed 3:4 frame so stepping never shifts layout; the focused frame takes Left/Right arrows and a touch swipe (finger right = older), never a mouse drag. Keep the selected angle while stepping and preload the neighbour's photo. |
+| Tactile feedback | `web/src/lib/haptics.ts` | Short tactile confirmation (`hapticTick`): `selection` for card lift, method tabs, recent-food add, barcode hit, and swipe threshold; `success` for a completed log or AI estimate; `warning` for a failed logging action. Native Haptics on Android, vibration on web; silent when reduced motion is on or user disabled haptics in Settings. |
 
 Before adding a component, search `web/src/components/ui`, `web/src/index.css`, and the nearest feature component for the behavior. If a pattern is likely to be used twice, extend the shared component and update this inventory instead of copying it.
 
@@ -77,6 +78,7 @@ Motion is bounded, purposeful, and optional.
 - The destination content must be committed and usable immediately; animation only adds hierarchy or continuity. Never delay a save, error, focus target, or data value until an animation completes.
 - Every new animation must work with `prefers-reduced-motion: reduce`. The global reduced-motion rule disables CSS transitions/animations, while JS motion uses `useReducedMotion`.
 - Do not add looping or attention-seeking motion to ordinary sync or idle states. Delayed loading indicators are preferable to layout flashes.
+- The Dashboard landing cascade runs once per launch: cards rise in order, `EnergyRing` draws while its remaining figure counts down (`useIntroProgress`), and macro bars grow. Headline values render immediately and accessible names carry true values. Log food lists rise with a capped stagger and method panels cross-fade. Entrance animations use backwards fill so no transform persists.
 
 ## Food search and serving presentation
 

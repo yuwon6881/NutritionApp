@@ -33,6 +33,9 @@ async function responseError(path:string,response:Response):Promise<never>{
   throw new ApiError(message,429,retryAfterMs,retryAt);
 }
 
+// AI work (scan processing, body-fat estimates) outlives the ordinary request budget.
+const requestTimeoutMs=(path:string)=>path.includes('/process')||path.endsWith('/body-fat-estimate')?120000:20000;
+
 export interface ApiFetchOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
@@ -42,7 +45,7 @@ export interface ApiFetchOptions {
 export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DELETE',options?:ApiFetchOptions):Promise<T>{
   checkCooldown(path);
   const selectedMethod=method??(body===undefined?'GET':'POST');
-  const timeoutSignal=AbortSignal.timeout(path.includes('/process')?120000:20000);
+  const timeoutSignal=AbortSignal.timeout(requestTimeoutMs(path));
   const signal=options?.signal?(typeof AbortSignal.any==='function'?AbortSignal.any([options.signal,timeoutSignal]):options.signal):timeoutSignal;
   const customHeaders=options?.headers??{};
   const response=await fetch('/api'+path,{
@@ -63,7 +66,7 @@ export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DEL
 export async function apiWithMeta<T>(path:string,options?:ApiFetchOptions & { body?: unknown; method?: 'GET'|'POST'|'DELETE' }):Promise<{ data: T | null; notModified: boolean; etag: string | null }>{
   checkCooldown(path);
   const selectedMethod=options?.method??(options?.body===undefined?'GET':'POST');
-  const timeoutSignal=AbortSignal.timeout(path.includes('/process')?120000:20000);
+  const timeoutSignal=AbortSignal.timeout(requestTimeoutMs(path));
   const signal=options?.signal?(typeof AbortSignal.any==='function'?AbortSignal.any([options.signal,timeoutSignal]):options.signal):timeoutSignal;
   const customHeaders=options?.headers??{};
   const response=await fetch('/api'+path,{

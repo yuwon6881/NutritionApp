@@ -1,45 +1,97 @@
-import {Capacitor} from '@capacitor/core';
+import {Capacitor,type PluginListenerHandle} from '@capacitor/core';
+import {productCodeFromScan,type ScannedFormat} from './productCode';
 
 /**
- * The Android app scans with Google's ML Kit code scanner: faster, better in
- * low light, and no camera permission because Play services owns the camera.
- * Anything unavailable falls back to the in-page camera.
+ * The Android app scans with the bundled ML Kit barcode model. The camera
+ * preview is drawn behind the web view so the app keeps its own viewfinder,
+ * torch control, and Back behaviour. Anything unavailable falls back to the
+ * in-page camera.
  */
-export type NativeScanResult={kind:'code';code:string}|{kind:'cancelled'}|{kind:'unavailable'};
+export type NativeScanStart=
+  |{kind:'started';session:NativeScanSession}
+  |{kind:'denied'}
+  |{kind:'unavailable'};
+
+export interface NativeScanSession {
+  torchAvailable:boolean;
+  setTorch(on:boolean):Promise<void>;
+  stop():Promise<void>;
+}
+
+/** Root class that makes the web view transparent over the camera preview. */
+export const NATIVE_SCAN_CLASS='native-barcode-scan-active';
+
+const FORMATS:Record<string,ScannedFormat>={EAN_13:'ean_13',EAN_8:'ean_8',UPC_A:'upc_a',UPC_E:'upc_e',QR_CODE:'qr_code'};
 
 let availability:Promise<boolean>|null=null;
 
-async function loadScanner(){
-  return (await import('@capacitor-mlkit/barcode-scanning')).BarcodeScanner;
+async function loadPlugin(){
+  return import('@capacitor-mlkit/barcode-scanning');
 }
 
 export function nativeBarcodeScannerAvailable():Promise<boolean>{
   if(!Capacitor.isNativePlatform()||Capacitor.getPlatform()!=='android')return Promise.resolve(false);
   availability??=(async()=>{
-    try{
-      const scanner=await loadScanner();
-      if(!(await scanner.isSupported()).supported)return false;
-      if((await scanner.isGoogleBarcodeScannerModuleAvailable()).available)return true;
-      // Play services downloads the module in the background; use the in-page camera until then.
-      void scanner.installGoogleBarcodeScannerModule().then(()=>{availability=null;}).catch(()=>{});
-      return false;
-    }catch{
-      return false;
-    }
+    try{return (await (await loadPlugin()).BarcodeScanner.isSupported()).supported;}
+    catch{return false;}
   })();
   return availability;
 }
 
-export async function scanWithNativeScanner():Promise<NativeScanResult>{
+/** Product code from one ML Kit detection batch, ignoring codes that are not product numbers. */
+export function productCodeFromDetections(barcodes:{rawValue?:string;format?:string}[]):string|null{
+  for(const barcode of barcodes){
+    const code=barcode.rawValue?productCodeFromScan(barcode.rawValue,FORMATS[barcode.format??'']??'unknown'):null;
+    if(code)return code;
+  }
+  return null;
+}
+
+export async function startNativeScan({onCode,onError}:{
+  onCode:(code:string)=>void;
+  onError:(message:string)=>void;
+}):Promise<NativeScanStart>{
   if(!(await nativeBarcodeScannerAvailable()))return {kind:'unavailable'};
+  const {BarcodeScanner,BarcodeFormat,LensFacing}=await loadPlugin();
   try{
-    const {BarcodeFormat}=await import('@capacitor-mlkit/barcode-scanning');
-    const scanner=await loadScanner();
-    const {barcodes}=await scanner.scan({formats:[BarcodeFormat.Ean13,BarcodeFormat.Ean8,BarcodeFormat.UpcA,BarcodeFormat.UpcE],autoZoom:true});
-    const code=barcodes.find(barcode=>barcode.rawValue)?.rawValue;
-    return code?{kind:'code',code}:{kind:'cancelled'};
-  }catch(error){
-    // The Google scanner reports a closed scanner as an error.
-    return /cancel/i.test((error as Error)?.message??'')?{kind:'cancelled'}:{kind:'unavailable'};
+    let permission=(await BarcodeScanner.checkPermissions()).camera;
+    if(permission!=='granted'&&permission!=='limited')permission=(await BarcodeScanner.requestPermissions()).camera;
+    if(permission!=='granted'&&permission!=='limited')return {kind:'denied'};
+  }catch{
+    return {kind:'unavailable'};
+  }
+
+  const listeners:PluginListenerHandle[]=[];
+  let stopped=false;
+  const stop=async()=>{
+    if(stopped)return;
+    stopped=true;
+    document.documentElement.classList.remove(NATIVE_SCAN_CLASS);
+    await Promise.allSettled(listeners.map(listener=>listener.remove()));
+    await BarcodeScanner.stopScan().catch(()=>undefined);
+  };
+  try{
+    listeners.push(await BarcodeScanner.addListener('barcodesScanned',event=>{
+      if(stopped)return;
+      const code=productCodeFromDetections(event.barcodes);
+      if(code)void stop().then(()=>onCode(code));
+    }));
+    listeners.push(await BarcodeScanner.addListener('scanError',()=>{
+      if(!stopped)void stop().then(()=>onError('Camera scanning failed. Try again or enter the barcode digits.'));
+    }));
+    document.documentElement.classList.add(NATIVE_SCAN_CLASS);
+    await BarcodeScanner.startScan({
+      formats:[BarcodeFormat.Ean13,BarcodeFormat.Ean8,BarcodeFormat.UpcA,BarcodeFormat.UpcE,BarcodeFormat.QrCode],
+      lensFacing:LensFacing.Back,
+    });
+    const torchAvailable=await BarcodeScanner.isTorchAvailable().then(result=>result.available,()=>false);
+    return {kind:'started',session:{
+      torchAvailable,
+      setTorch:on=>on?BarcodeScanner.enableTorch():BarcodeScanner.disableTorch(),
+      stop,
+    }};
+  }catch{
+    await stop();
+    return {kind:'unavailable'};
   }
 }

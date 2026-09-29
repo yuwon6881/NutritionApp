@@ -3,10 +3,17 @@ import {Flashlight,FlashlightOff} from 'lucide-react';
 import {barcodeCrop} from '../lib/barcode';
 import {createFrameDecoder} from '../lib/barcode/frameDecoder';
 import {hapticTick} from '../lib/haptics';
+import {BarcodeViewfinder} from './BarcodeViewfinder';
 import {Button} from './ui/Button';
 
 // Torch is a Chromium camera capability not yet in the DOM typings.
-type TorchTrack=Omit<MediaStreamTrack,"getCapabilities">&{getCapabilities?:()=>MediaTrackCapabilities&{torch?:boolean}};
+type TorchTrack=Omit<MediaStreamTrack,"getCapabilities">&{getCapabilities?:()=>MediaTrackCapabilities&{torch?:boolean;focusMode?:string[]}};
+
+/** The barcode-shaped frame is too short for a QR code; decode a taller band around it. */
+function decodeRegion(frame:DOMRect){
+  const extra=Math.max(0,frame.width*.6-frame.height)/2;
+  return {left:frame.left,top:frame.top-extra,width:frame.width,height:frame.height+extra*2};
+}
 
 export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>void;onError:(message:string)=>void}){
   const video=useRef<HTMLVideoElement>(null);
@@ -35,7 +42,10 @@ export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>vo
         if(cancelled)return;
         const videoTrack=stream.getVideoTracks()[0] as TorchTrack|undefined;
         track.current=videoTrack??null;
-        setTorchAvailable(Boolean(videoTrack?.getCapabilities?.().torch));
+        const capabilities=videoTrack?.getCapabilities?.();
+        setTorchAvailable(Boolean(capabilities?.torch));
+        // Phone cameras often start in a fixed focus that blurs a close barcode.
+        if(capabilities?.focusMode?.includes('continuous'))void videoTrack!.applyConstraints({advanced:[{focusMode:'continuous'} as MediaTrackConstraintSet]}).catch(()=>undefined);
         setReady(true);
         const canvas=document.createElement('canvas');
         const context=canvas.getContext('2d',{willReadFrequently:true});
@@ -43,7 +53,7 @@ export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>vo
         const scan=async()=>{
           if(cancelled)return;
           if(preview.readyState>=2&&frame.current){
-            const crop=barcodeCrop(preview.videoWidth,preview.videoHeight,preview.getBoundingClientRect(),frame.current.getBoundingClientRect());
+            const crop=barcodeCrop(preview.videoWidth,preview.videoHeight,preview.getBoundingClientRect(),decodeRegion(frame.current.getBoundingClientRect()));
             if(crop){
               const scale=Math.min(1,960/crop.width);
               canvas.width=Math.max(1,Math.round(crop.width*scale));canvas.height=Math.max(1,Math.round(crop.height*scale));
@@ -80,10 +90,10 @@ export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>vo
   return <div className="barcode-camera">
     <div className="barcode-viewport">
       <video ref={video} className="barcode-video" muted playsInline autoPlay aria-label="Barcode camera preview"/>
-      <div ref={frame} className="barcode-frame" aria-hidden="true"><i/><i/><i/><i/></div>
+      <BarcodeViewfinder ref={frame}/>
     </div>
     <div className="barcode-camera-status">
-      <p role="status">{ready?'Place the barcode inside the frame.':'Starting camera…'}</p>
+      <p role="status">{ready?'Line up the barcode or QR code inside the frame.':'Starting camera…'}</p>
       {torchAvailable&&<Button type="button" variant="secondary" size="sm" aria-pressed={torchOn} onClick={toggleTorch}>
         {torchOn?<FlashlightOff size={16} aria-hidden="true"/>:<Flashlight size={16} aria-hidden="true"/>}
         {torchOn?'Torch off':'Torch on'}

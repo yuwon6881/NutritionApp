@@ -105,7 +105,6 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
           </svg>
           <span className="food-week-day-name" aria-hidden="true">{weekday}</span>
           <span className="food-week-day-number" aria-hidden="true">{Number(day.slice(8,10))}</span>
-          <span className="food-week-day-month" aria-hidden="true">{day.slice(5,7)}/{day.slice(2,4)}</span>
         </Button>;
       })}
     </div>

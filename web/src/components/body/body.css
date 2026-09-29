@@ -1,0 +1,96 @@
+/* Body tracking: record/photo viewers, compare, and the AI body-fat estimate.
+   Loaded with the lazy Body page, after index.css, so these rules extend the shared ones. */
+
+/* One fixed 3:4 frame for every physique photo so stepping records never shifts layout. */
+.body-photo-frame{position:relative;display:grid;place-items:center;width:min(100%,calc(min(70vh,720px)*3/4));aspect-ratio:3/4;margin-inline:auto;border-radius:14px;background:var(--muted);overflow:hidden;touch-action:pan-y}
+.body-photo-frame[data-navigable]:focus-visible{outline:2px solid var(--ring);outline-offset:3px}
+.body-photo-frame .photo-slot-empty{width:100%;height:100%;border:0}
+.body-photo-frame-image{display:block;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;animation:body-photo-in var(--motion-exit) var(--motion-ease) backwards}
+.compare-photo-frame .body-photo-frame-image{object-fit:contain}
+@keyframes body-photo-in{from{opacity:0}}
+
+/* Older on the leading edge, newer on the trailing edge; the position readout sits between. */
+.record-navigator{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin-top:12px}
+.record-navigator-step{min-height:44px;gap:4px;padding-inline:12px}
+.record-navigator-position{display:grid;justify-items:center;gap:2px;margin:0;text-align:center;min-width:0}
+.record-navigator-position strong{white-space:nowrap;font-size:.95rem;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.record-navigator-position span{font-size:.76rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+/* Below the expanded tier the photo column is narrow: icon steps keep their accessible names. */
+@media(max-width:1023px){.record-navigator-step{min-width:44px;padding-inline:10px}.record-navigator-step-label{display:none}}
+.photo-viewer-panel .photo-angle-selector,.body-viewer-photo-column .photo-angle-selector{margin-inline:auto}
+
+/* Photo and measurements sit side by side from the medium tier. */
+@media(min-width:640px){
+  .body-viewer-layout{grid-template-columns:minmax(0,1fr) minmax(220px,300px);gap:22px}
+}
+@media(min-width:1024px){
+  .body-viewer-layout{grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr)}
+}
+.body-measurement-value{display:inline-flex;align-items:baseline;gap:8px}
+.body-measurement-value .body-measurement-difference{display:inline}
+
+/* Loading placeholders shaped like history rows and gallery sets. */
+.body-list-skeleton{display:grid;gap:10px}
+.body-skeleton-row{pointer-events:none}
+.body-skeleton-lines{display:grid;gap:8px;min-width:0}
+.body-skeleton-photo{display:block;aspect-ratio:3/4;height:auto!important}
+
+/* Compare pickers: a select with one-step buttons on each side. */
+.compare-picker-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:8px}
+.compare-picker-row .field{margin:0;min-width:0}
+.compare-picker-step{min-width:44px;min-height:44px}
+.body-compare-header-actions .button{min-width:44px}
+
+@media(max-width:639px){
+  /* index.css declares these phone rules before their base rules, so the base rules won and
+     the phone layouts never applied. Restate them here, where they load later. */
+  .photo-view-heading .physique-hub-actions{display:grid;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .physique-hub-actions>.button{min-width:0;width:100%;justify-content:center}
+  .body-compare-selectors-bar{grid-template-columns:1fr;gap:10px;padding:14px}
+  .compare-photos-grid{grid-template-columns:1fr;gap:16px}
+
+
+  /* The measurement table becomes one card-like row per measurement: label and change on the
+     first line, past and present values on the second. Dates are already in the pickers. */
+  .compare-table-wrap{overflow:visible}
+  .compare-table thead{display:none}
+  .compare-table tbody tr:not(.compare-table-group-header){display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label change" "past present";column-gap:12px;row-gap:2px;padding:10px 14px;border-bottom:1px solid var(--border)}
+  .compare-table tbody tr:not(.compare-table-group-header)>*{padding:0;border:0}
+  .compare-table tbody th[scope=row]{grid-area:label;font-weight:600;color:var(--ink-strong)}
+  .compare-table td[data-label=Past]{grid-area:past}
+  .compare-table td[data-label=Present]{grid-area:present;justify-self:end}
+  .compare-table td[data-label=Change]{grid-area:change;justify-self:end}
+  .compare-table td[data-label=Past]::before,.compare-table td[data-label=Present]::before{content:attr(data-label) " ";font-size:.72rem;color:var(--muted-foreground)}
+  .compare-table-group-header,.compare-table-group-header th{display:block}
+
+  /* Two short numeric fields per row keep the dialog scannable on phones. */
+  .body-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.body-field-grid.body-composition-grid{grid-template-columns:1fr}
+
+/* AI body-fat estimate, beside the body-fat field. */
+.body-fat-estimate{display:grid;gap:10px}
+.body-fat-estimate-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.body-fat-estimate-action>.button{min-height:44px;gap:6px}
+.body-fat-estimate-note{flex:1 1 240px;margin:0;font-size:.78rem;line-height:1.45}
+.body-fat-estimate-result{display:grid;gap:8px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card)}
+.body-fat-estimate-result[data-stale]{border-style:dashed}
+.body-fat-estimate-headline{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
+.body-fat-estimate-headline h4{margin:0;font-size:1.05rem;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.body-fat-estimate-headline h4:focus{outline:none}
+.body-fat-estimate-headline h4:focus-visible{outline:2px solid var(--ring);outline-offset:3px;border-radius:4px}
+.body-fat-estimate-range{font-size:.8rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.body-fat-estimate-stale{margin:0}
+.body-fat-estimate-explanation{margin:0;font-size:.86rem;line-height:1.5}
+.body-fat-estimate-cues{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.body-fat-estimate-cues li{padding:3px 8px;border-radius:6px;background:var(--muted);font-size:.76rem;color:var(--foreground)}
+.body-fat-estimate-inputs{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;margin:0;font-size:.78rem}
+.body-fat-estimate-inputs dt{color:var(--muted-foreground)}
+.body-fat-estimate-inputs dd{margin:0;overflow-wrap:anywhere}
+.body-fat-estimate-actions{margin-top:4px}
+
+@media(max-width:639px){
+  .body-fat-estimate-action>.button{width:100%;justify-content:center}
+  .body-fat-estimate-inputs{grid-template-columns:1fr}
+  .body-fat-estimate-inputs dd{margin-bottom:4px}
+}

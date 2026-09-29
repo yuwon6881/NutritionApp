@@ -1,0 +1,107 @@
+/*
+ * Log food sheet. Loaded with the lazy LogFood chunk, after the global sheets,
+ * so these rules refine the shared primitives only inside `.food-modal`.
+ * Compact first: see docs/MOBILE_DESIGN_PRINCIPLES.md.
+ */
+
+/* Entrance for list items: a short rise, staggered by --i (capped at 8 by the caller). */
+@keyframes logFoodRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes logFoodPop{0%{transform:scale(.94);opacity:.6}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
+
+/* Quick add and Manual entry are shortcuts, not the primary path: calm, equal, one row. */
+.food-modal .food-entry-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.food-modal .food-entry-shortcuts>.button{width:100%;min-height:44px;gap:8px;font-size:.84rem;background:var(--muted);border-color:transparent;color:var(--ink-strong)}
+.food-modal .food-entry-shortcuts>.button svg{color:var(--primary-ink)}
+@media (hover:hover) and (pointer:fine){.food-modal .food-entry-shortcuts>.button:hover{border-color:var(--border)}}
+@media (min-width:1024px){.food-modal .food-entry-shortcuts{display:flex;justify-content:flex-end}.food-modal .food-entry-shortcuts>.button{width:auto;min-height:36px}}
+
+/* Method choices sit in a sunken track; the raised card slides between them. */
+.food-selection .segmented-control.food-methods,
+.ai-logging-form .segmented-control.ai-mode-choice{gap:2px;margin:0 0 20px;padding:4px;border-radius:14px;background:var(--muted);border:1px solid var(--border)}
+.food-methods .selection-indicator-marker,
+.ai-mode-choice .selection-indicator-marker{border-radius:11px;background:var(--card);box-shadow:0 0 0 1px var(--border),var(--shadow)}
+.food-methods .selection-indicator-marker::after,
+.ai-mode-choice .selection-indicator-marker::after{display:none}
+.food-selection .segmented-control.food-methods>.button,
+.ai-logging-form .segmented-control.ai-mode-choice>.button{border-radius:11px;color:var(--muted-foreground);font-weight:550}
+.food-selection .segmented-control.food-methods>.button.segment-active,
+.ai-logging-form .segmented-control.ai-mode-choice>.button.segment-active{color:var(--ink-strong)}
+.food-methods>.button.segment-active svg,
+.ai-mode-choice>.button.segment-active svg{color:var(--primary-ink)}
+@media (max-width:1023px){
+  /* Icon over label reads like Android navigation and keeps each label whole at 360 px. */
+  .food-selection .segmented-control.food-methods>.button,
+  .ai-logging-form .segmented-control.ai-mode-choice>.button{flex-direction:column;gap:3px;height:58px;min-height:58px;padding:6px 2px;font-size:.74rem;line-height:1.1}
+}
+
+/* Search and barcode panels. */
+.food-method-panel{min-width:0}
+.food-modal .search-line .field>label{font-size:.79rem}
+.food-modal .food-search-results{gap:8px;margin-top:14px}
+.food-modal .food-row.interactive{padding:12px 8px 12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--card);animation:logFoodRise var(--motion-panel) var(--motion-ease) both;animation-delay:calc(var(--i,0) * 28ms)}
+.food-modal .food-row.interactive .food-description strong{display:block;font-size:.9rem;line-height:1.35}
+.food-modal .food-row.interactive .food-description small{margin-top:3px;font-size:.74rem;line-height:1.45}
+.food-modal .food-row.interactive:active{transform:scale(.985);background:var(--muted)}
+
+/* Barcode: the camera is the main path on phones, so it gets the thumb-sized action. */
+.barcode-scan-hero{display:none}
+@media (max-width:1023px){
+  .barcode-scan-hero{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px 14px;margin:0 0 18px;padding:16px;border-radius:16px;background:var(--primary-tint);border:1px solid color-mix(in srgb,var(--primary) 22%,var(--border))}
+  .barcode-scan-hero-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--card);color:var(--primary-ink);box-shadow:var(--shadow)}
+  .barcode-scan-hero-text{display:grid;gap:2px;min-width:0}
+  .barcode-scan-hero-text strong{font-size:.95rem}
+  .barcode-scan-hero-text small{font-size:.78rem}
+  .barcode-scan-hero-action{grid-column:1/-1;width:100%;min-height:48px}
+  /* The hero replaces the in-field camera icon at these widths; one control, one name. */
+  .food-modal .search-line .field-inside-action:has(.barcode-camera-btn){display:none}
+}
+
+/* Recent foods: the fastest path, one tap from review. */
+.food-modal .recent-foods-heading{flex-direction:column;align-items:flex-start;gap:2px}
+.food-modal .recent-food-card{min-height:60px;padding:10px 14px;border-radius:14px;animation:logFoodRise var(--motion-panel) var(--motion-ease) both;animation-delay:calc(var(--i,0) * 28ms)}
+.food-modal .recent-food-name{font-size:.88rem}
+.food-modal .recent-food-portion{font-size:.74rem}
+.food-modal .recent-food-energy{font-size:.9rem}
+.food-modal .recent-food-card:active{transform:scale(.985);background:var(--muted)}
+
+/* Your foods. */
+@media (max-width:639px){
+  .food-modal .saved-foods-header p{display:none}
+  .food-modal .saved-filter-segments{margin-bottom:12px}
+}
+
+/* AI logging. */
+.ai-logging-form>h3{margin-bottom:14px}
+.ai-photo-preview{margin:-4px 0 18px;display:grid;gap:8px}
+.ai-photo-preview img{display:block;width:100%;max-height:240px;object-fit:cover;border-radius:14px;border:1px solid var(--border);background:var(--muted);animation:logFoodRise var(--motion-panel) var(--motion-ease) both}
+.ai-photo-preview figcaption{font-size:.74rem;color:var(--muted-foreground)}
+.ai-busy-status{margin:0 0 12px;font-size:.8rem}
+.file-input-library{margin-top:8px;align-self:flex-start}
+@media (max-width:1023px){.file-input-library{min-height:44px}}
+.spin-icon{animation:spin 900ms linear infinite}
+
+/* Quick add: one number, read at a glance. */
+.quick-add-calories input{min-height:72px;font-size:2.2rem;font-weight:600;letter-spacing:-.02em;text-align:center;color:var(--ink-strong)}
+.quick-add-calories input::placeholder{color:var(--border)}
+
+/* Batch review: the total responds when a food joins or leaves. */
+.food-basket .live-calorie-value{animation:logFoodPop var(--motion-layout) var(--motion-ease) both}
+
+/*
+ * Compact and medium: the step's commit action stays in the thumb zone while
+ * long forms scroll. It returns to the flow while the keyboard is open so it
+ * never covers the focused field.
+ */
+@media (max-width:1023px){
+  .food-modal .modal-actions{position:sticky;bottom:0;z-index:3;margin-inline:-18px;padding:12px 18px calc(12px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--border)}
+  .food-modal .modal-body:has(.modal-actions){padding-bottom:0}
+  html[data-keyboard='open'] .food-modal .modal-actions{position:static;padding-bottom:12px}
+  html[data-keyboard='open'] .food-modal .modal-body:has(.modal-actions){padding-bottom:22px}
+  /* Secondary actions share a row; the commit action takes the full bottom row, nearest the thumb. */
+  .food-modal .modal-actions{display:flex;flex-wrap:wrap;gap:8px}
+  .food-modal .modal-actions>.button{flex:1 1 0;min-width:0}
+  .food-modal .modal-actions>.button.primary{flex:1 1 100%;order:1;min-height:50px;font-size:.92rem}
+}
+@media (min-width:640px) and (max-width:1023px){
+  .food-modal .modal-actions{margin-inline:-24px;padding-inline:24px}
+}

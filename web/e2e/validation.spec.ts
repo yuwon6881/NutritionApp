@@ -67,7 +67,7 @@ test('food, recipe and image actions explain invalid drafts without queuing writ
   await expect(page.getByText('Enter recipe name.')).toBeVisible();await expect(page.getByText('Add at least one ingredient.')).toBeVisible();expect(writes).toBe(1);
   await page.reload();await food(page);await page.getByRole('button',{name:'AI logging',exact:true}).click();
   await page.getByRole('button',{name:'Estimate my meal'}).click();await expect(page.getByText('Enter meal description and portions.')).toBeVisible();
-  await page.getByLabel('How would you like to log?',{exact:true}).selectOption('label');await page.getByRole('button',{name:'Read nutrition label'}).click();
+  await page.getByRole('group',{name:'How would you like to log?',exact:true}).getByRole('button',{name:'Nutrition label',exact:true}).click();await page.getByRole('button',{name:'Read nutrition label'}).click();
   await expect(page.getByText('Choose a photo before continuing.')).toBeVisible();
 });
 
@@ -122,7 +122,7 @@ test('real decoding ignores barcodes outside the frame and stops every camera se
     }});
   });
   await page.goto('/');await food(page);await page.getByRole('button',{name:'Barcode',exact:true}).click();
-  await page.getByRole('button',{name:'Scan barcode with camera'}).click();await expect(page.getByText('Place the barcode inside the frame.')).toBeVisible();
+  await page.getByRole('button',{name:'Scan barcode with camera'}).click();await expect(page.getByText('Line up the barcode or QR code inside the frame.')).toBeVisible();
   await page.waitForTimeout(800);await expect(page.getByLabel('Barcode digits',{exact:true})).toHaveValue('');
   for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
@@ -134,7 +134,7 @@ test('real decoding ignores barcodes outside the frame and stops every camera se
   await expect(page.locator('video')).toHaveCount(0);
   expect(await page.evaluate(()=>(window as any).barcodeTest.streams.every((stream:MediaStream)=>stream.getTracks().every(track=>track.readyState==='ended')))).toBe(true);
   await page.evaluate(()=>{(window as any).barcodeTest.inside=false;});
-  await page.getByRole('button',{name:'Scan barcode with camera'}).click();await expect(page.getByText('Place the barcode inside the frame.')).toBeVisible();
+  await page.getByRole('button',{name:'Scan barcode with camera'}).click();await expect(page.getByText('Line up the barcode or QR code inside the frame.')).toBeVisible();
   await page.getByRole('dialog',{name:'Scan barcode'}).getByRole('button',{name:'Stop barcode camera'}).click();
   await expect(page.locator('video')).toHaveCount(0);
   expect(await page.evaluate(()=>(window as any).barcodeTest.streams.every((stream:MediaStream)=>stream.getTracks().every(track=>track.readyState==='ended')))).toBe(true);

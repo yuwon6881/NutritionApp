@@ -48,7 +48,7 @@ public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double
 
 public static class Coach
 {
-    public const string Version = "2.1.0";
+    public const string Version = "2.2.0";
     public static double Resting(Profile p) => 10 * p.WeightKg + 6.25 * p.HeightCm - 5 * p.Age + (p.Sex == "male" ? 5 : -161);
 
     /// A stored date of birth is authoritative so age advances with the calendar; Age remains the fallback for profiles saved before it existed.
@@ -70,7 +70,7 @@ public static class Coach
             return Blocked("Automated targets are unavailable for this profile. You can still keep a food and weight diary.");
         var calorieWeights = WeightContextPolicy.ForCalorieEstimation(weights);
         var progress = GoalPolicy.Evaluate(p, calorieWeights, today, phaseDecision, weightGoalMetric);
-        var currentWeight = Trend(calorieWeights.Where(w => w.Date <= today).ToArray()).LastOrDefault()?.Kg ?? p.WeightKg;
+        var currentWeight = WeightSignal.CleanTrend(weights, today).LastOrDefault()?.Kg ?? p.WeightKg;
         p = p with { WeightKg = currentWeight };
         var effectiveGoal = progress.Complete ? "maintain" : p.Goal;
         if (effectiveGoal == "lose" && p.WeightKg / Math.Pow(p.HeightCm / 100, 2) < 18.5)

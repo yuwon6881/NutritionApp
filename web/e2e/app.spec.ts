@@ -245,10 +245,13 @@ test('photo gallery paginates complete sets and keeps missing angles explicit',a
   await page.goto('/');await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Open gallery',exact:true}).click();await expect(page.getByRole('heading',{name:'Gallery',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'2026-09-12',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Load more',exact:true})).toBeVisible();
-  await expect(page.getByText('Side · Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Load more',exact:true}).click();await expect(page.getByRole('heading',{name:'2026-09-01',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Compare',exact:true}).click();await expect(page.getByRole('heading',{name:'Compare photos',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'2026-09-12',exact:true})).toBeVisible();
+  await expect(page.locator('.photo-gallery-row').first().getByText('Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Load more',exact:true}).click();await expect(page.getByRole('heading',{name:'2026-09-01',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Step through sets',exact:true}).click();await expect(page.getByRole('heading',{name:'Photo sets',exact:true})).toBeVisible();
+  const setNavigation=page.getByRole('navigation',{name:'Set navigation'});await expect(setNavigation).toContainText('2026-09-12');await expect(setNavigation).toContainText('Set 1 of 2');
   await page.getByRole('button',{name:'Side',exact:true}).click();await expect(page.getByText('Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Older set',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'2026-09-01',exact:true})).toBeVisible();await expect(page.getByRole('img',{name:'Side physique photo from 2026-09-01'})).toBeVisible();await page.getByRole('button',{name:'Back to Gallery',exact:true}).click();
+  await expect(setNavigation).toContainText('2026-09-01');await expect(page.getByRole('img',{name:'Side physique photo from 2026-09-01'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Older set',exact:true})).toBeDisabled();await page.getByRole('button',{name:'Newer set',exact:true}).click();await expect(setNavigation).toContainText('2026-09-12');
+  await page.getByRole('button',{name:'Back to Gallery',exact:true}).click();
   await page.getByRole('button',{name:'Edit',exact:true}).first().click();await expect(page.getByRole('dialog',{name:'Edit physique photo set'})).toBeVisible();await page.getByRole('button',{name:'Delete',exact:true}).first().click();
   const deleteDialog=page.getByRole('dialog',{name:'Delete front photo?'});await expect(deleteDialog).toBeVisible();await deleteDialog.getByRole('button',{name:'Keep view',exact:true}).click();await expect(deleteDialog).not.toBeVisible();
   await page.getByRole('button',{name:'Delete',exact:true}).first().click();await page.getByRole('dialog',{name:'Delete front photo?'}).getByRole('button',{name:'Delete view',exact:true}).click();await expect(page.getByRole('dialog',{name:/Delete .*photo\?/})).not.toBeVisible();await page.getByRole('dialog',{name:'Edit physique photo set'}).getByRole('button',{name:'Close dialog',exact:true}).click();
@@ -452,10 +455,12 @@ test('mobile scan shortcut supports food photos and label autofill before review
     await route.fulfill({contentType:'application/json',body:JSON.stringify({id:input.id,status:'complete',resultJson:JSON.stringify({foods:[{name:input.mode==='label'?'Label yoghurt':'Photo meal',quantity:100,unit:'g',calories:120,protein:6,carbs:15,fat:4,fiber:null,notes:'Per 100 g'}],questions:[],explanation:'Review the quantity and nutrients.'})})});
   });
   for(const mode of ['photo','label']){
-  await page.getByLabel('How would you like to log?',{exact:true}).selectOption(mode);
+  await page.getByRole('group',{name:'How would you like to log?',exact:true}).getByRole('button',{name:mode==='label'?'Nutrition label':'Meal photo',exact:true}).click();
     await expect(page.locator('.custom-file-dropzone')).toBeVisible();
     await expect(page.locator('input[type="file"]')).toHaveAttribute('capture','environment');
     await page.locator('input[type="file"]').setInputFiles('public/icon-512.png');
+    // The preview must decode, not just exist: the prepared photo is bare base64.
+    await expect.poll(()=>page.locator('.ai-photo-preview img').evaluate((img:HTMLImageElement)=>img.complete?img.naturalWidth:0)).toBeGreaterThan(0);
     await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
     const foodName=mode==='label'?'Label yoghurt':'Photo meal';
     await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();

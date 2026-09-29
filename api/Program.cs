@@ -41,7 +41,7 @@ builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSummaryService>();
 builder.Services.AddScoped<BootstrapReadService>();
-builder.Services.AddScoped<BodyRecordService>();
+builder.Services.AddScoped<BodyRecordService>();builder.Services.AddScoped<BodyFatEstimateService>();
 builder.Services.AddScoped<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<ISharedAccessTokenValidator>(sp=>sp.GetRequiredService<OpenIddictAccessTokenService>());builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
 builder.Services.AddScoped<WorkoutSummaryService>();
 builder.Services.AddAuthentication(options =>
@@ -68,6 +68,7 @@ builder.Services.AddHttpClient<FoodSearchService>(c=>{
 }).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSeconds(30)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<BodyCompositionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<IGoogleHealthKms, GoogleCloudKmsService>(c=>c.Timeout=TimeSpan.FromSeconds(30)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<GoogleHealthService>(c=>c.Timeout=TimeSpan.FromSeconds(30)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<GoogleHealthWeightSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();

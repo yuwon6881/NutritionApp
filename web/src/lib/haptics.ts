@@ -7,7 +7,7 @@ import {Haptics,ImpactStyle,NotificationType} from '@capacitor/haptics';
  * person turned it off on this device, prefers reduced motion, or the
  * platform has no vibration.
  */
-export type HapticKind='selection'|'success';
+export type HapticKind='selection'|'success'|'warning';
 
 const KEY='nourish-haptics';
 
@@ -29,10 +29,10 @@ function reducedMotion(){
 export function hapticTick(kind:HapticKind='selection'){
   if(!hapticsEnabled()||reducedMotion())return;
   if(Capacitor.isNativePlatform()){
-    const feedback=kind==='success'?Haptics.notification({type:NotificationType.Success}):Haptics.impact({style:ImpactStyle.Light});
+    const feedback=kind==='selection'?Haptics.impact({style:ImpactStyle.Light}):Haptics.notification({type:kind==='success'?NotificationType.Success:NotificationType.Warning});
     void feedback.catch(()=>{});
     return;
   }
   if(typeof navigator==='undefined'||!('vibrate' in navigator))return;
-  try{navigator.vibrate(kind==='success'?[20,40,20]:35);}catch{/* Vibration is optional feedback. */}
+  try{navigator.vibrate(kind==='selection'?35:kind==='success'?[20,40,20]:[40,60,40]);}catch{/* Vibration is optional feedback. */}
 }

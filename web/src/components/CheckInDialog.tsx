@@ -1,13 +1,13 @@
 import {useEffect,useRef,useState} from 'react';
-import type {EnergyUnit} from '../types';
 import type {Nourish} from '../useNourish';
 import {api} from '../lib/api';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
-import {CoachNumber,CoachWait} from './ui/CoachMotion';
-import {useReducedMotion} from './ui/Motion';
+import {CoachWait} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
-import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {unitsFor} from '../lib/units';
+import {CheckInCalorieChange} from './CheckInCalorieChange';
+import {contextAdjustmentSummary} from '../lib/weighInEvidence';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface CheckInDialogProps {
@@ -15,72 +15,6 @@ export interface CheckInDialogProps {
   store:Nourish;
   onClose:()=>void;
   restoreFocus?:HTMLElement|null;
-}
-
-function CalorieChange({previous,proposed,unit}:{previous:number|null|undefined;proposed:number|null|undefined;unit:EnergyUnit}){
-  const reduced=useReducedMotion();
-  const hasValues=previous!=null&&proposed!=null;
-  const delta=hasValues?proposed-previous:0;
-  const [revealed,setRevealed]=useState(!hasValues||reduced);
-  const [currentDisplay,setCurrentDisplay]=useState(previous??proposed??0);
-
-  useEffect(()=>{
-    if(!hasValues||reduced){
-      setCurrentDisplay(proposed??previous??0);
-      setRevealed(true);
-      return;
-    }
-    setRevealed(false);
-    setCurrentDisplay(previous);
-
-    let frame:number;
-    const startDelay=200;
-    const duration=380;
-    const startVal=previous;
-    const endVal=proposed;
-    let startTime:number|null=null;
-
-    const timer=window.setTimeout(()=>{
-      const step=(timestamp:number)=>{
-        if(startTime==null)startTime=timestamp;
-        const elapsed=timestamp-startTime;
-        const progress=Math.min(1,elapsed/duration);
-        const ease=1-Math.pow(1-progress,3);
-        const interpolated=Math.round(startVal+(endVal-startVal)*ease);
-        setCurrentDisplay(interpolated);
-        if(progress<1){
-          frame=window.requestAnimationFrame(step);
-        }else{
-          setCurrentDisplay(endVal);
-          setRevealed(true);
-        }
-      };
-      frame=window.requestAnimationFrame(step);
-    },startDelay);
-
-    return ()=>{
-      window.clearTimeout(timer);
-      window.cancelAnimationFrame(frame);
-    };
-  },[hasValues,previous,proposed,reduced]);
-
-  const value=revealed?(proposed??previous):(hasValues?currentDisplay:(previous??proposed));
-  const direction=delta>0?'positive':delta<0?'negative':'neutral';
-  const copy=delta>0
-    ?`Add ${displayEnergy(delta,unit)} ${energyLabel(unit)}`
-    :delta<0
-    ?`Deduct ${displayEnergy(Math.abs(delta),unit)} ${energyLabel(unit)}`
-    :'Unchanged';
-  return <div className={`check-in-calorie ${revealed?'is-revealed':''} direction-${direction}`} data-check-in-calorie aria-live="polite">
-    <span className="check-in-calorie-label">{revealed?'New daily calories':'Current daily calories'}</span>
-    <div className="check-in-calorie-value" aria-label={`${displayEnergy(value,unit)} ${energyLabel(unit)}`}>
-      <CoachNumber>{displayEnergy(value,unit)}</CoachNumber><span className="unit">{energyLabel(unit)}</span>
-    </div>
-    {hasValues&&<span className={`check-in-calorie-delta ${revealed?direction:'pending'}`} aria-hidden={!revealed}>
-      <span className="check-in-delta-icon" aria-hidden="true">{delta>0?'↑':delta<0?'↓':'→'}</span>
-      <span className="check-in-delta-text">{revealed?copy:''}</span>
-    </span>}
-  </div>;
 }
 
 export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogProps){
@@ -113,6 +47,7 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
   const result=proposal?.result;
   const changes=proposal?.changes;
   const units=unitsFor(store.state?.settings);
+  const adjusted=contextAdjustmentSummary(proposal?.evidence??result?.evidence);
   const busy=['calculating','updating','accepting','refreshing'].includes(operation)||declining;
   return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} width="md" title="Weekly check-in">
     {!proposal?<div className="check-in-loading" role={error?'alert':'status'}>
@@ -121,7 +56,8 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
       {operation==='refreshing'&&<CoachWait label="Refreshing calories…" active/>}
       {error&&<Button onClick={()=>void loadProposal()} disabled={!online||pending}>Retry</Button>}
     </div>:<div className="check-in-dialog-content">
-      <CalorieChange previous={changes?.previousCalories} proposed={changes?.proposedCalories??result?.calories} unit={units.energy}/>
+      <CheckInCalorieChange previous={changes?.previousCalories} proposed={changes?.proposedCalories??result?.calories} unit={units.energy}/>
+      {adjusted&&<p className="check-in-context source">{adjusted}</p>}
       {(error||declineError)&&<p className="error" role="alert">{error||declineError}</p>}
       <div className="modal-actions">
         <Button variant="primary" disabled={busy||!online||pending||!proposal.canAccept||!!acceptance.current} onClick={()=>void acceptProposal()}>

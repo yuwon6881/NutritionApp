@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "about": "Shared weigh-in context contract. The server WeightContextPolicy and the web prompt must both match this file; tests on each side load it. A temporary context excludes its own day from calorie estimation, then the following settleDays days return to full weight linearly (day d of n counts d/(n+1)). direction says which unusual movement the option explains: up, down, or either.",
+  "policy": {
+    "confirmationDays": 7,
+    "confirmingWeighIns": 3,
+    "confirmationToleranceKg": 0.5,
+    "maxAdjustedShare": 0.3,
+    "outlierHalfWindowDays": 3,
+    "outlierWideHalfWindowDays": 7,
+    "outlierMinNeighbours": 3,
+    "outlierThresholdSigma": 3,
+    "outlierNoiseFloorKg": 0.3,
+    "madScale": 1.4826
+  },
+  "contexts": [
+    { "code": "high_sodium", "label": "Salty food", "direction": "up", "temporary": true, "settleDays": 2 },
+    { "code": "high_carb", "label": "High-carb day or refeed", "direction": "up", "temporary": true, "settleDays": 3 },
+    { "code": "alcohol", "label": "Alcohol", "direction": "up", "temporary": true, "settleDays": 2 },
+    { "code": "poor_sleep", "label": "Poor sleep", "direction": "up", "temporary": true, "settleDays": 1 },
+    { "code": "stress", "label": "Stress", "direction": "up", "temporary": true, "settleDays": 1 },
+    { "code": "hard_training", "label": "Hard training or soreness", "direction": "up", "temporary": true, "settleDays": 2 },
+    { "code": "bloating", "label": "Bloating or water retention", "direction": "up", "temporary": true, "settleDays": 1 },
+    { "code": "menstrual_cycle", "label": "Menstrual cycle", "direction": "up", "temporary": true, "settleDays": 5 },
+    { "code": "digestion", "label": "Digestion or a late large meal", "direction": "either", "temporary": true, "settleDays": 1 },
+    { "code": "dehydration", "label": "Heavy sweating or dehydration", "direction": "down", "temporary": true, "settleDays": 1 },
+    { "code": "low_carb", "label": "Low-carb day or glycogen drop", "direction": "down", "temporary": true, "settleDays": 3 },
+    { "code": "illness", "label": "Illness", "direction": "either", "temporary": true, "settleDays": 3 },
+    { "code": "travel", "label": "Travel", "direction": "either", "temporary": true, "settleDays": 2 },
+    { "code": "other_temporary", "label": "Another temporary factor", "direction": "either", "temporary": true, "settleDays": 1 },
+    { "code": "genuine_change", "label": "A genuine change", "direction": "either", "temporary": false, "settleDays": 0 },
+    { "code": "unsure", "label": "Unsure", "direction": "either", "temporary": false, "settleDays": 0 }
+  ],
+  "trendCases": [
+    {
+      "name": "steady loss with an unconfirmed marked spike, a confirmed marked day, and an unmarked outlier",
+      "today": "2026-09-08",
+      "weights": [
+        { "date": "2026-08-11", "kg": 80 },
+        { "date": "2026-08-12", "kg": 79.95 },
+        { "date": "2026-08-13", "kg": 79.9 },
+        { "date": "2026-08-14", "kg": 79.85 },
+        { "date": "2026-08-15", "kg": 79.8 },
+        { "date": "2026-08-16", "kg": 79.75 },
+        { "date": "2026-08-17", "kg": 79.7 },
+        { "date": "2026-08-18", "kg": 79.65 },
+        { "date": "2026-08-19", "kg": 79.6 },
+        { "date": "2026-08-20", "kg": 79.55 },
+        { "date": "2026-08-21", "kg": 81, "context": "stress" },
+        { "date": "2026-08-22", "kg": 79.45 },
+        { "date": "2026-08-23", "kg": 79.4 },
+        { "date": "2026-08-24", "kg": 79.35 },
+        { "date": "2026-08-25", "kg": 79.3, "context": "poor_sleep" },
+        { "date": "2026-08-26", "kg": 79.25 },
+        { "date": "2026-08-27", "kg": 79.2 },
+        { "date": "2026-08-28", "kg": 79.15 },
+        { "date": "2026-08-29", "kg": 79.1 },
+        { "date": "2026-08-30", "kg": 79.05 },
+        { "date": "2026-08-31", "kg": 81 },
+        { "date": "2026-09-01", "kg": 78.95 },
+        { "date": "2026-09-02", "kg": 78.9 },
+        { "date": "2026-09-03", "kg": 78.85 },
+        { "date": "2026-09-04", "kg": 78.8 },
+        { "date": "2026-09-05", "kg": 78.75 },
+        { "date": "2026-09-06", "kg": 78.7 },
+        { "date": "2026-09-07", "kg": 78.65 }
+      ],
+      "excludedDates": [
+        "2026-08-21"
+      ],
+      "outlierDates": [
+        "2026-08-31"
+      ],
+      "finalTrendKg": 79.093976051
+    }
+  ]
+}

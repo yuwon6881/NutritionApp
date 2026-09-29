@@ -1,16 +1,18 @@
 import {Form} from './ui/Form';
 import {useEffect,useState,type FormEvent} from 'react';
 import type {Nourish} from '../useNourish';
-import type {Weight} from '../types';
+import type {CoachResult,Weight} from '../types';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {Select} from './ui/Select';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
-import {parseWeight,unitsFor,weightLabel} from '../lib/units';
+import {displayEnergy,displayWeight,energyLabel,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {weightEntryDirty,weightEntryValues} from '../lib/weightEntry';
-import {unusualWeightDifference,weightContextOptions} from '../lib/weightContext';
+import {unusualWeightDifference,weightContextOptionsFor} from '../lib/weightContext';
+import {recentIntake} from '../lib/weighInEvidence';
+import {targetsForDate} from '../lib/dailyTargets';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface WeightEntryDialogProps {
@@ -43,6 +45,9 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
 
   const existing=state.weights.find(weight=>!weight.deleted&&weight.date===values.date);
   const unusual=unusualWeightDifference(values.kg,units.weight,values.date,state.weights,initial?.id);
+  const intake=unusual?recentIntake(state.entries,state.days,values.date):null;
+  const accepted=state.plans.find(plan=>!plan.deleted);
+  const target=accepted?targetsForDate(JSON.parse(accepted.resultJson) as CoachResult,values.date).calories:null;
   const dirty=weightEntryDirty(values,baseline);
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busy)return;
@@ -84,13 +89,17 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
       </div>
       {unusual&&<section className="weight-context-prompt" aria-labelledby="weight-context-heading">
         <h3 id="weight-context-heading">This differs from your recent weigh-ins</h3>
-        <p>A selected temporary factor keeps this scale value in history but excludes it from calorie-estimation trends. Other answers use the existing statistical filter; a reason never adds or subtracts calories directly.</p>
+        <p className="weight-context-evidence">
+          {unusual.direction==='up'?'Up':'Down'} {displayWeight(unusual.differenceKg,units.weight,1)} {weightLabel(units.weight)} from the expected {displayWeight(unusual.expectedKg,units.weight,1)} {weightLabel(units.weight)}.
+          {intake&&<> Your last {intake.days} logged days averaged {displayEnergy(intake.averageKcal,units.energy)} {energyLabel(units.energy)}{target?<> against a {displayEnergy(target,units.energy)} {energyLabel(units.energy)} target</>:null}.</>}
+        </p>
+        <p>A temporary factor keeps this scale value in history but leaves it out of calorie-estimation trends, and the next few days count less while water settles. If later weigh-ins stay at this level, it counts again. A reason never adds or subtracts calories directly.</p>
         <Select
           id="weight-entry-context"
           label="Possible temporary context"
           value={values.context}
           placeholder="Choose an optional context"
-          options={[{value:'',label:'No context'},...weightContextOptions]}
+          options={[{value:'',label:'No context'},...weightContextOptionsFor(unusual.direction)]}
           onChange={context=>setValues(previous=>({...previous,context:context as typeof previous.context}))}
         />
       </section>}

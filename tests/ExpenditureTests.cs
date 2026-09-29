@@ -68,15 +68,18 @@ public sealed class ExpenditureTests
     [Fact]
     public void Temporary_context_can_leave_too_little_evidence_to_recalibrate()
     {
-        var weights = Weights().Select((weight, index) => weight with
-        {
-            Context = index < 22 ? "stress" : null
-        }).ToArray();
+        // Ten sparse weigh-ins; three unconfirmed spikes are marked, which stays within the capped share.
+        int[] days = [0, 3, 6, 9, 12, 15, 18, 21, 24, 27];
+        var weights = Weights(i => i is 9 or 15 or 21 ? 81.5 : 80)
+            .Where((_, index) => days.Contains(index))
+            .Select(weight => weight with { Context = weight.Kg > 81 ? "stress" : null })
+            .ToArray();
 
         var estimate = Expenditure.Estimate(Days(), weights, 2500, Today);
 
         Assert.False(estimate.Adaptive);
-        Assert.Equal(6, estimate.Evidence.WeighIns);
+        Assert.Equal(7, estimate.Evidence.WeighIns);
+        Assert.Equal(3, estimate.Evidence.ContextExcluded);
         Assert.Contains("need eight retained weigh-ins", estimate.Reason);
     }
 

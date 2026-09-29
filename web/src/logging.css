@@ -3,7 +3,7 @@
 .recent-foods-heading small{font-size:.72rem;min-width:0}
 .recent-food-card{min-width:0}
 .recent-food-name{overflow-wrap:anywhere}
-.food-selection>.recent-foods-section{margin-top:16px}
+.food-selection .food-method-panel>.recent-foods-section{margin-top:18px}
 
 .portion-chips{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 18px}
 .portion-chips>.button{min-width:var(--touch-target);min-height:var(--touch-target);font-variant-numeric:tabular-nums}
@@ -27,7 +27,6 @@
 .food-day-progress-fill{stroke:var(--primary);stroke-linecap:butt}
 .food-week-day-name{font-size:.7rem;color:var(--muted-foreground)}
 .food-week-day-number{font-size:.95rem;font-weight:600;font-variant-numeric:tabular-nums}
-.food-week-day-month{font-size:.6rem;color:var(--muted-foreground)}
 .food-calendar-status{font-size:.75rem;margin:8px 0 0}
 .food-log-page .food-date-navigation{grid-template-columns:minmax(160px,260px) auto}
 .diary-empty-state{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 24px;background:var(--card)}

@@ -279,6 +279,28 @@ test('offline profile retention and acceptance refresh failure recover without d
   expect(accepts).toBe(1);
 });
 
+test('weekly check-in counts a changed target from the current value to the proposal',async({page,context})=>{
+  const state=await (await context.request.get('/api/state')).json();
+  const edit=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:state.profile}});
+  expect(edit.ok(),await edit.text()).toBeTruthy();
+  await page.route('**/api/coach/preview',async route=>{
+    const response=await route.fetch();const body=await response.json();
+    const previous=body.changes?.previousCalories??body.result?.calories??2000;
+    body.changes={...(body.changes??{}),previousCalories:previous,proposedCalories:previous+150};
+    await route.fulfill({response,json:body});
+  });
+  await page.reload();await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await page.getByRole('button',{name:'Review this week',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Weekly check-in'});
+  await expect(dialog.getByText('Current daily calories',{exact:true})).toBeVisible();
+  await expect(dialog.locator('.check-in-calorie')).toHaveClass(/is-revealed/,{timeout:1500});
+  await expect(dialog.getByText('New daily calories',{exact:true})).toBeVisible();
+  await expect(dialog.locator('.check-in-calorie-delta')).toContainText('Up 150 kcal');
+  await expect(dialog.getByText(/^Was [0-9,]+ kcal$/)).toBeVisible();
+  await expect(dialog.getByRole('status').filter({hasText:'New daily calories'})).toContainText('Up 150 kcal');
+  await page.screenshot({path:'artifacts/check-in-changed-dialog.png'});
+});
+
 test('weekly check-in card and dialog settle across themes and responsive widths',async({page,context})=>{
   const state=await (await context.request.get('/api/state')).json();
   const edit=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:state.profile}});
@@ -291,8 +313,8 @@ test('weekly check-in card and dialog settle across themes and responsive widths
     await page.screenshot({path:`artifacts/check-in-${theme}-${width}-card.png`,fullPage:true});
     const launcher=page.getByRole('button',{name:'Review this week',exact:true});await launcher.click();
     const dialog=page.getByRole('dialog',{name:'Weekly check-in'});await expect(dialog).toBeVisible();await settled(page);
-    await expect(dialog.getByText('Current daily calories',{exact:true})).toBeVisible();
-    await expect(dialog.locator('.check-in-calorie')).toHaveClass(/is-revealed/, {timeout:1500});
+    // An unchanged target settles immediately; only a real change counts.
+    await expect(dialog.locator('.check-in-calorie')).toHaveClass(/is-revealed/);
     await expect(dialog.getByText('New daily calories',{exact:true})).toBeVisible();
     await expect(dialog.locator('.check-in-calorie-delta')).toContainText('Unchanged');
     await page.screenshot({path:`artifacts/check-in-${theme}-${width}-dialog.png`,fullPage:true});

@@ -50,12 +50,14 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   const dialog=page.getByRole('dialog',{name:'Log weight',exact:true});
   await dialog.getByLabel('Weight (kg)',{exact:true}).fill('82');
   await expect(dialog.getByRole('heading',{name:'This differs from your recent weigh-ins'})).toBeVisible();
+  // A spike offers retention causes first; not-logging days never appear as intake evidence.
+  await expect(dialog.locator('.weight-context-evidence')).toHaveText('Up 2 kg from the expected 80 kg.');
   const contextChoice=dialog.getByRole('button',{name:'Choose possible temporary context'});
   await contextChoice.focus();
   await page.keyboard.press('Space');
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-  await expect(contextChoice).toHaveText('Stress');
+  await expect(contextChoice).toHaveText('Salty food');
 
   for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});
@@ -68,7 +70,7 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
     const state=await (await context.request.get('/api/state')).json();
     return state.weights.find((weight:{date:string})=>weight.date===todayDate);
   };
-  await expect.poll(savedWeight).toMatchObject({kg:82,context:'stress'});
+  await expect.poll(savedWeight).toMatchObject({kg:82,context:'high_sodium'});
 
   const row=page.locator('.weight-history .history-row').filter({hasText:todayDate});
   await expect(row.getByRole('button',{name:'Edit',exact:true})).toBeVisible();

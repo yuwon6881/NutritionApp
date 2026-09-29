@@ -64,25 +64,14 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
 
     public async Task<ScanJob> Process(Guid id,CancellationToken ct)
     {
-        ScanJob scan; AiUsage usage;
+        ScanJob scan; DateOnly usageDay;
         var lease=DateTime.UtcNow.AddMinutes(3);
         await using(var gate=await MutationLock.Acquire(db,null,ct))
         {
             scan=await db.Scans.SingleOrDefaultAsync(s=>s.Id==id,ct)??throw new DomainException("Scan not found.",404);
             if(scan.Status is "complete" or "failed" or "uploading"||scan.LeaseUntil>DateTime.UtcNow) return scan;
-            var day=DateOnly.FromDateTime(DateTime.UtcNow);
-            usage=await db.Usage.SingleOrDefaultAsync(u=>u.Date==day,ct)??new AiUsage { UserId=db.CurrentUser!.Value,Date=day };
-            Validation.Require(usage.Requests<config.GetValue("OpenAi:DailyRequestsPerUser",20),"Today's AI allowance is used. Manual logging is available.",429);
-            var cap=config.GetValue<double?>("OpenAi:MonthlyBudgetUsd");
-            if(cap!=null)
-            {
-                // Reserve worst-case request cost across both users before making a paid call.
-                var month=new DateOnly(day.Year,day.Month,1);
-                var total=await db.Usage.IgnoreQueryFilters().Where(u=>u.Date>=month).SumAsync(u=>u.Requests,ct);
-                Validation.Require((total+1)*config.GetValue("OpenAi:ReservedCostPerRequestUsd",0.25)<=cap,"Monthly AI allowance is used.",429);
-            }
-            if(db.Entry(usage).State==EntityState.Detached) db.Usage.Add(usage);
-            usage.Requests++;scan.Status="processing";scan.LeaseUntil=lease;
+            usageDay=await AiAllowance.ReserveUnderLock(db,config,ct);
+            scan.Status="processing";scan.LeaseUntil=lease;
             await db.SaveChangesAsync(ct); await gate.Commit(ct);
         }
         try
@@ -90,10 +79,7 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
             var bytes=scan.ObjectPath==null?null:await images.Get(scan.ObjectPath,ct);
             var result=await ai.Analyze(scan.Mode,scan.Description,bytes,ct);
             scan.ResultJson=Json.Write(result.Estimate);scan.Status="complete";scan.Error=null;
-            await db.Usage.Where(u=>u.Date==usage.Date).ExecuteUpdateAsync(s=>s
-                .SetProperty(u=>u.InputTokens,u=>u.InputTokens+result.InputTokens)
-                .SetProperty(u=>u.CachedInputTokens,u=>u.CachedInputTokens+result.CachedInputTokens)
-                .SetProperty(u=>u.OutputTokens,u=>u.OutputTokens+result.OutputTokens),CancellationToken.None);
+            await AiAllowance.RecordTokens(db,usageDay,result.InputTokens,result.CachedInputTokens,result.OutputTokens);
         }
         catch(Exception ex) when(ex is DomainException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or FormatException or InvalidOperationException or KeyNotFoundException)
         { scan.Status="failed";scan.Error=ex is DomainException?ex.Message:"AI processing was interrupted. Try again."; }

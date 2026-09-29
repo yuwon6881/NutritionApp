@@ -94,10 +94,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         var prepared=new List<PreparedPhoto>();
         foreach(var part in parts)
         {
-            Validation.Require(!string.IsNullOrWhiteSpace(part.ImageBase64)&&part.ImageBase64.Length<=1_000_000,"Compress the physique photo below 750 KB.");
-            byte[] bytes;
-            try{bytes=Convert.FromBase64String(part.ImageBase64!);}catch{throw new DomainException("Invalid photo data.");}
-            Validation.Require(bytes.Length is >4 and <=750000&&bytes[0]==0xff&&bytes[1]==0xd8&&bytes[^2]==0xff&&bytes[^1]==0xd9,"Upload a processed JPEG photo.");
+            var bytes=DecodeJpeg(part.ImageBase64);
             prepared.Add(new PreparedPhoto(part,bytes,AuthService.Hash(Json.Write(new {SetId=input.Id,input.Date,PhotoId=part.Id,part.Angle,part.ImageBase64}))));
         }
 
@@ -292,6 +289,16 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         }
         await db.PhotoObjectDeletions.IgnoreQueryFilters().Where(item=>item.Status=="completed"&&item.CompletedAt<DateTime.UtcNow.AddDays(-7)).ExecuteDeleteAsync(ct);
         await db.SaveChangesAsync(ct);return count;
+    }
+
+    /// The browser prepares, resizes, and strips photos to JPEG; accept nothing else.
+    public static byte[] DecodeJpeg(string? imageBase64)
+    {
+        Validation.Require(!string.IsNullOrWhiteSpace(imageBase64)&&imageBase64.Length<=1_000_000,"Compress the physique photo below 750 KB.");
+        byte[] bytes;
+        try{bytes=Convert.FromBase64String(imageBase64!);}catch{throw new DomainException("Invalid photo data.");}
+        Validation.Require(bytes.Length is >4 and <=750000&&bytes[0]==0xff&&bytes[1]==0xd8&&bytes[^2]==0xff&&bytes[^1]==0xd9,"Upload a processed JPEG photo.");
+        return bytes;
     }
 
     public static PhotoView View(PhysiquePhoto photo)=>new(photo.Id,photo.SetId,photo.Date,photo.Angle,photo.Bytes,photo.Status);

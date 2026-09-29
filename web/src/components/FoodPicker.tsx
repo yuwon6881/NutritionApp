@@ -1,5 +1,5 @@
-import {useEffect,useRef,useState} from 'react';
-import {Camera, Star} from 'lucide-react';
+import {useEffect,useRef,useState,type CSSProperties} from 'react';
+import {Camera, ScanBarcode, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api,ApiError} from '../lib/api';
 import {number} from '../lib/format';
@@ -10,7 +10,8 @@ import {BarcodeCamera} from './BarcodeCamera';
 import {Modal} from './ui/Modal';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {useSearchAsYouType} from './useSearchAsYouType';
-import {scanWithNativeScanner} from '../lib/barcode/nativeScanner';
+import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScanner';
+import {NativeBarcodeScanner} from './NativeBarcodeScanner';
 
 type SearchResult = import('../types').FoodSearchResult;
 
@@ -82,22 +83,23 @@ export function FoodPicker({
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
   const search=useSearchAsYouType({enabled:tab==='search'&&open&&step==='selection',query,onResults:setResults});
-  // The Android app hands the camera to ML Kit; the in-page camera remains the fallback.
-  const [nativeScanning,setNativeScanning]=useState(false);
-  const [inPageCamera,setInPageCamera]=useState(false);
+  // The Android app scans with ML Kit behind its own viewfinder; the in-page camera remains the fallback.
+  const [scanner,setScanner]=useState<'checking'|'native'|'in-page'>('checking');
   useEffect(()=>{
-    if(!camera||tab!=='barcode'||inPageCamera)return;
     let active=true;
-    setNativeScanning(true);
-    void scanWithNativeScanner().then(result=>{
-      if(!active)return;
-      setNativeScanning(false);
-      if(result.kind==='unavailable'){setInPageCamera(true);return;}
-      setCamera(false);
-      if(result.kind==='code'){setQuery(result.code);lookup(result.code);}
-    });
+    void nativeBarcodeScannerAvailable().then(available=>{if(active)setScanner(available?'native':'in-page');});
     return()=>{active=false;};
-  },[camera,tab,inPageCamera]);
+  },[]);
+  const scanning=tab==='barcode'&&camera&&open&&step==='selection';
+  const detected=(code:string)=>{
+    setCamera(false);
+    setQuery(code);
+    lookup(code);
+  };
+  const cameraFailed=(message:string)=>{
+    setError(message);
+    setCamera(false);
+  };
   const resolve=async(value:string)=>{
     if(tab==='search')return search(value);
     if(customLookup)return customLookup(tab,value);
@@ -117,7 +119,18 @@ export function FoodPicker({
   };
 
   return <>
-    <h3 className="food-search-heading">{tab==='barcode'?'Packaged food':'Food search'}</h3>
+    {/* The method tab already names this panel; the heading remains for screen-reader structure. */}
+    <h3 className="food-search-heading sr-only">{tab==='barcode'?'Packaged food':'Food search'}</h3>
+    {tab==='barcode'&&<div className="barcode-scan-hero">
+      <span className="barcode-scan-hero-icon" aria-hidden="true"><ScanBarcode size={28}/></span>
+      <div className="barcode-scan-hero-text">
+        <strong>Scan a barcode or QR code</strong>
+        <small>Or type the digits below.</small>
+      </div>
+      <Button type="button" variant="primary" className="barcode-scan-hero-action" aria-label={camera?'Stop barcode camera':'Scan barcode with camera'} onClick={()=>setCamera(value=>!value)}>
+        <Camera size={18} aria-hidden="true"/>{camera?'Stop':'Scan barcode'}
+      </Button>
+    </div>}
     <Form onSubmit={event=>{
       event.preventDefault();
       const id=++requestId.current;
@@ -146,7 +159,7 @@ export function FoodPicker({
           data-modal-autofocus
           autoComplete="off"
           label={tab==='barcode'?'Barcode digits':searchLabel}
-          hint={tab==='barcode'?'Enter 8–14 digits or tap the camera icon to scan.':undefined}
+          hint={tab==='barcode'?'Enter 8–14 digits or scan with the camera.':undefined}
           required
           value={query}
           onChange={event=>{requestId.current++;setQuery(event.target.value);}}
@@ -168,20 +181,16 @@ export function FoodPicker({
       </div>
     </Form>
 
-    {tab==='barcode'&&camera&&!nativeScanning&&inPageCamera&&open&&step==='selection'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode" closeLabel="Stop barcode camera">
+    {scanning&&scanner==='native'&&<NativeBarcodeScanner
+      onDetected={detected}
+      onClose={()=>setCamera(false)}
+      onUnavailable={()=>setScanner('in-page')}
+      onError={cameraFailed}
+    />}
+    {scanning&&scanner==='in-page'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode" closeLabel="Stop barcode camera">
       <div className="barcode-scanner-modal">
-        <p className="source">Point your camera at a food barcode to scan it automatically.</p>
-        <BarcodeCamera
-          onDetected={code=>{
-            setCamera(false);
-            setQuery(code);
-            lookup(code);
-          }}
-          onError={message=>{
-            setError(message);
-            setCamera(false);
-          }}
-        />
+        <p className="source">Point your camera at a food barcode or product QR code to scan it automatically.</p>
+        <BarcodeCamera onDetected={detected} onError={cameraFailed}/>
       </div>
     </Modal>}
 
@@ -190,6 +199,7 @@ export function FoodPicker({
         const starred=isSaved?isSaved(result):false;
         return <div
           className="food-row interactive"
+          style={{'--i':Math.min(index,8)} as CSSProperties}
           key={`${result.source}|${result.name}|${index}`}
           role="button"
           aria-label={result.name}

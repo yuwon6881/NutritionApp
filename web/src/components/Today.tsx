@@ -1,7 +1,8 @@
 import {useEffect,useMemo,useState} from 'react';
 import type {Nourish} from '../useNourish';
 import type {CoachResult} from '../types';
-import {number,today,trend} from '../lib/format';
+import {number,today} from '../lib/format';
+import {cleanTrend} from '../lib/weightSignal';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
@@ -12,13 +13,20 @@ import {displayEnergy,displayWeight,weightLabel,energyLabel,unitsFor} from '../l
 import {shouldShowDashboardSteps,useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
+import {EnergyRing} from './EnergyRing';
+
+// The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
+let dashboardIntroPlayed=false;
 
 export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
-  const latestWeight=useMemo(()=>trend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted&&w.date<=date)]).at(-1),[state.weightTrendSeed,state.weights,date]);
+  // The same cleaned trend the coach uses: marked temporary days and statistical outliers stay out.
+  const latestWeight=useMemo(()=>cleanTrend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date).at(-1),[state.weightTrendSeed,state.weights,date]);
   const energyUnit=unitsFor(state.settings).energy;
   const [checkInOpen,setCheckInOpen]=useState(false);
+  const [intro]=useState(()=>!dashboardIntroPlayed);
+  useEffect(()=>{dashboardIntroPlayed=true;},[]);
   const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
   const entries=state.entries.filter(e=>!e.deleted&&e.date===date);
   const savedDay=state.days.find(d=>d.date===date&&!d.deleted);
@@ -39,7 +47,6 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
       proteinFixed:historicalInterval.proteinFixed!==undefined?historicalInterval.proteinFixed:latestPlan?.proteinFixed}
     :latestPlan;
   const targets=targetsForDate(plan,date);
-  const ratio=targets.calories?Math.min(total/targets.calories,1):0;
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
   const liveProgress=useMemo(()=>liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date,phaseDecision,state.settings?.weightGoalMetric??'scale'),[state.profile,state.weightTrendSeed,state.weights,date,phaseDecision,state.settings?.weightGoalMetric]);
   const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveProgress,phaseDecision);
@@ -62,6 +69,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
       <h2>Not stored on this device</h2>
       <p>Connect to load this date.</p>
     </section>:<>
+      <div className={intro?'dashboard-cards dashboard-intro':'dashboard-cards'}>
       <section className="daily-grid">
         <article className="panel energy-panel">
           <div>
@@ -69,12 +77,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
             <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
             <p>{targets.calories?`${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} target`:'Set up your coach'}</p>
           </div>
-          <svg className="energy-ring" viewBox="0 0 120 120" role="img" aria-label={targets.calories?`${displayEnergy(total,energyUnit)} of ${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} logged`:`${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)} logged`}>
-            <circle className="ring-track" cx="60" cy="60" r="48"/>
-            <circle className="ring-fill" cx="60" cy="60" r="48" strokeDasharray={`${ratio*301.59} 301.59`} transform="rotate(-90 60 60)"/>
-            <text x="60" y="58" textAnchor="middle">{targets.calories?displayEnergy(Math.max(targets.calories-total,0),energyUnit):'—'}</text>
-            <text className="ring-label" x="60" y="76" textAnchor="middle">{total>(targets.calories??Infinity)?'target reached':'remaining'}</text>
-          </svg>
+          <EnergyRing total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>
         </article>
         <article className="panel macros">
           <p className="eyebrow">MACRONUTRIENTS</p>
@@ -96,6 +99,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
       </section>}
       <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latestWeight?.kg,unitsFor(state.settings).weight,1)} <span className="unit">{weightLabel(unitsFor(state.settings).weight)}</span></h2><small>{latestWeight?`As of ${latestWeight.date}`:"No weigh-in yet"}</small></section>
       <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} error={store.trainingError} onOpenSettings={onSettings}/>
+      </div>
     </>}
     <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>
   </>;

@@ -14,7 +14,7 @@ public sealed record TrajectoryPoint(
 
 public static class ExpenditureTrajectory
 {
-    public const string AlgorithmVersion = "v5-fasting-coverage";
+    public const string AlgorithmVersion = "v6-robust-signal";
 
     public static TrajectoryPoint Calculate(
         Profile profile,
@@ -24,9 +24,7 @@ public static class ExpenditureTrajectory
         double previousExpenditure)
     {
         var estimate = Expenditure.EstimateDaily(days, weights, previousExpenditure, date);
-        var trendWeight = Coach.Trend(WeightContextPolicy.ForCalorieEstimation(weights)
-                .Where(weight => weight.Date <= date).OrderBy(weight => weight.Date).ToArray())
-            .LastOrDefault()?.Kg ?? profile.WeightKg;
+        var trendWeight = WeightSignal.CleanTrend(weights, date).LastOrDefault()?.Kg ?? profile.WeightKg;
         int? suggested = estimate.Adaptive
             ? SuggestedCalories(profile, estimate.Expenditure, trendWeight)
             : null;

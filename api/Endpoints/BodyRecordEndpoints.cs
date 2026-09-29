@@ -11,6 +11,9 @@ public static class BodyRecordEndpoints
             =>Results.Ok(await body.Page(cursor,photosOnly??false,ct)));
         app.MapGet("/api/body-records/weight-context",async(BodyRecordService body,DateOnly date,CancellationToken ct)
             =>Results.Ok(await body.Capture(date,ct)));
+        // A paid provider call: shares the scan rate limit and the daily AI allowance.
+        app.MapPost("/api/body-records/body-fat-estimate",async(BodyFatEstimateInput input,BodyFatEstimateService estimates,CancellationToken ct)
+            =>Results.Ok(await estimates.Estimate(input,ct))).RequireRateLimiting("scans");
         app.MapGet("/api/body-records/{id:guid}",async(Guid id,BodyRecordService body,CancellationToken ct)
             =>Results.Ok(await body.Detail(id,ct)));
         app.MapPost("/api/body-records/{id:guid}",async(Guid id,BodyMutation input,BodyRecordService body,CancellationToken ct)
