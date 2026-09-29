@@ -115,6 +115,10 @@ public sealed partial class NutritionNotificationService
             }
         }
 
+        // A failed send is retried by the next dispatch, which nothing polls for any more: wake once
+        // just after the delivery retry delay, and always arm the next week's reminder.
+        if (failed > 0 && wakes is not null) await wakes.EnsureWakeAsync(now.Add(DeliveryRetry).AddSeconds(30), ct);
+        await ArmWakesAsync(ct);
         return new(sent, skipped, disabled, failed, true);
     }
 
@@ -242,12 +246,7 @@ public sealed partial class NutritionNotificationService
         reminderDate = DateOnly.FromDateTime(localNow.DateTime);
         if ((int)localNow.DayOfWeek != weekday) return false;
 
-        var localScheduled = DateTime.SpecifyKind(reminderDate.ToDateTime(localTime), DateTimeKind.Unspecified);
-        if (zone.IsInvalidTime(localScheduled)) return false;
-        var offset = zone.IsAmbiguousTime(localScheduled)
-            ? zone.GetAmbiguousTimeOffsets(localScheduled).Max()
-            : zone.GetUtcOffset(localScheduled);
-        var scheduledUtc = new DateTimeOffset(localScheduled, offset).ToUniversalTime();
+        if (NutritionReminderSchedule.ScheduledUtc(zone, reminderDate, localTime) is not { } scheduledUtc) return false;
         var lateness = utcNow - scheduledUtc;
         if (lateness < TimeSpan.Zero || lateness > DeliveryWindow) return false;
         remainingTtl = DeliveryWindow - lateness;

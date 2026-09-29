@@ -49,6 +49,20 @@ public sealed class DeploymentContractTests
         }
     }
 
+    /// Reminders and Google Health uploads must not depend on a job that polls, or the API and the
+    /// database could never sleep between visits.
+    [Fact]
+    public void Reminder_wakeups_and_uploads_need_no_polling_scheduler_job()
+    {
+        var root = RepositoryRoot();
+        var build = File.ReadAllText(Path.Combine(root, "deploy", "cloudbuild.yaml"));
+        Assert.Contains("CloudTasks__Queue=nutrition-check-in", build);
+        Assert.Contains("CloudTasks__TargetUrl=${_NUTRITION_API_ORIGIN}/internal/nutrition-check-in-dispatch", build);
+        Assert.False(File.Exists(Path.Combine(root, "deploy", "setup-nutrition-check-in-push.ps1")));
+        Assert.False(File.Exists(Path.Combine(root, "deploy", "setup-google-health-sync.ps1")));
+        Assert.True(File.Exists(Path.Combine(root, "deploy", "setup-nutrition-check-in-queue.ps1")));
+    }
+
     private static string RepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)

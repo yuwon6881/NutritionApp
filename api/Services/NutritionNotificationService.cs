@@ -25,7 +25,8 @@ public sealed record NutritionPushDispatchSummary(int Sent, int Skipped, int Dis
 public sealed partial class NutritionNotificationService(
     AppDb db,
     IConfiguration configuration,
-    TimeProvider? timeProvider = null)
+    TimeProvider? timeProvider = null,
+    INutritionWakeQueue? wakes = null)
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
@@ -88,6 +89,7 @@ public sealed partial class NutritionNotificationService(
         preference.TimeZoneId = timeZoneId.Trim();
         preference.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
+        if (enabled) await ArmWakesAsync(ct);
         return ToSettings(preference);
     }
 
@@ -156,6 +158,7 @@ public sealed partial class NutritionNotificationService(
             .OrderBy(delivery => delivery.ExpiresAt)
             .Take(1000)
             .ExecuteDeleteAsync(ct);
+        await ArmWakesAsync(ct);
         return oldDeliveries;
     }
 

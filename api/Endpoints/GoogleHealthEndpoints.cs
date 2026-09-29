@@ -62,7 +62,7 @@ public static class GoogleHealthEndpoints
             IServiceScopeFactory scopes, ILogger<GoogleHealthService> logger, CancellationToken ct) =>
         {
             // The app calls this while its user is active, so their queued uploads go now at no
-            // extra wake-up cost. The hourly sweep retries anything this bounded pass leaves.
+            // extra wake-up cost. The daily cleanup sweep retries anything this bounded pass leaves.
             try { await GoogleHealthOutboundSync.RunAsync(scopes, db.CurrentUser!.Value, GoogleHealthOutboundSync.ActiveUserBudget, ct); }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
@@ -97,7 +97,7 @@ public static class GoogleHealthEndpoints
             Results.Ok(await service.RecoverAsync(input.BodyRecordId, ct)));
 
         // The single scheduled sweep for all outbound queues. Active users are served by the
-        // steps sync above, so this runs hourly and lets the API and database scale to zero.
+        // steps sync above and the flush after each save, so this manual sweep is only a backstop.
         app.MapPost("/internal/google-health-sync", async (IServiceScopeFactory scopes, CancellationToken ct) =>
             Results.Ok(await GoogleHealthOutboundSync.RunAsync(scopes, null, null, ct)));
     }
