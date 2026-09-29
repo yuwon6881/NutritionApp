@@ -12,6 +12,8 @@ import {displayEnergy,energyLabel} from '../lib/units';
 import {useSearchAsYouType} from './useSearchAsYouType';
 import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScanner';
 import {NativeBarcodeScanner} from './NativeBarcodeScanner';
+import {FatSecretAttribution} from './FatSecretAttribution';
+import {isFatSecretSource} from '../lib/foodSources';
 
 type SearchResult = import('../types').FoodSearchResult;
 
@@ -231,5 +233,6 @@ export function FoodPicker({
         </div>;
       })}
     </div>}
+    {results.some(result=>isFatSecretSource(result.source))&&<p className="source food-search-attribution"><FatSecretAttribution/></p>}
   </>;
 }

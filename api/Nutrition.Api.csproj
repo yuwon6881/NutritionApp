@@ -13,4 +13,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Nutrition.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Services/Food/Data/usda-generic.json.gz" LogicalName="usda-generic.json.gz" />
+  </ItemGroup>
 </Project>

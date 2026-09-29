@@ -683,6 +683,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .food-row.interactive:hover{background:var(--muted);border-color:var(--border)}}
 .food-row.interactive:active{transform:scale(0.995);background:color-mix(in srgb,var(--muted) 80%,var(--card))}
 .food-search-results{display:grid;gap:8px;margin-top:10px}
+.food-search-attribution{margin:4px 0 0;text-align:right}a[href="https://platform.fatsecret.com"]{display:inline-flex;align-items:center;min-height:44px}
 .food-row.interactive:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .food-row-star{width:40px;height:40px;min-height:40px!important;padding:0!important;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:var(--muted-foreground);transition:color var(--motion-control) ease,transform 120ms ease;flex-shrink:0}
 @media (hover:hover) and (pointer:fine){

@@ -12,6 +12,8 @@ import {energyLabel,inputEnergy,parseEnergy} from '../lib/units';
 import {number} from '../lib/format';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {PortionChips} from './PortionChips';
+import {FatSecretAttribution} from './FatSecretAttribution';
+import {isFatSecretSource} from '../lib/foodSources';
 
 export type FoodDraft=Nutrients&{
   quantity:number;
@@ -162,7 +164,7 @@ export function FoodEditor({
         <>
           <div className="review-food-heading">
             <h3>{draft.name}</h3>
-            <small className="source">{draft.source}</small>
+            <small className="source">{isFatSecretSource(draft.source)?<FatSecretAttribution/>:draft.source}</small>
           </div>
 
           <div className="live-calorie-card">

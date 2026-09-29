@@ -3,6 +3,7 @@ using System.Text.Json;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
+using Nutrition.Api.Services.FoodLookup;
 using Xunit;
 
 namespace Nutrition.Tests;
@@ -25,7 +26,7 @@ public sealed class FoodSearchTests
              "nutriments":{"energy-kcal_100g":102,"proteins_100g":3.4,"fat_100g":2.1,"carbohydrates_100g":13.5,"fiber_100g":1.2}}
             """);
 
-        var result=FoodSearchService.ReadProduct(hit,null)!;
+        var result=OpenFoodFactsParser.ReadProduct(hit,null)!;
 
         Assert.Equal("unverified",result.Basis);
         Assert.Equal("Culinea Nasi Goreng · Chef Select",result.Name);
@@ -45,24 +46,24 @@ public sealed class FoodSearchTests
              "nutriments":{"energy-kcal_100g":101,"proteins_100g":5.7}}
             """);
 
-        Assert.Empty(FoodSearchService.ReadProduct(hit,null)!.Portions!);
+        Assert.Empty(OpenFoodFactsParser.ReadProduct(hit,null)!.Portions!);
     }
 
     [Fact]
     public void Bulk_hydration_replaces_serving_labelled_search_nutrients_with_product_basis()
     {
-        var search=FoodSearchService.ReadProduct(Product("""
+        var search=OpenFoodFactsParser.ReadProduct(Product("""
             {"code":"0748927065725","product_name":"Optimum nutrition whey protein",
              "nutriments":{"energy-kcal_100g":117,"proteins_100g":24,"fat_100g":1,"carbohydrates_100g":3}}
             """),null)!;
-        var product=FoodSearchService.ReadProduct(Product("""
+        var product=OpenFoodFactsParser.ReadProduct(Product("""
             {"code":"0748927065725","product_name":"Optimum nutrition whey protein","serving_size":"30.4g",
              "serving_quantity":30.4,"serving_quantity_unit":"g",
              "nutriments":{"energy-kcal_100g":384.868421052632,"energy-kcal_serving":117,
              "proteins_100g":78.9473684210526,"fat_100g":3.28947368421053,"carbohydrates_100g":9.86842105263158}}
             """),"0748927065725")!;
 
-        var merged=FoodSearchService.ApplyHydratedProduct(search,product);
+        var merged=OpenFoodFactsParser.ApplyHydratedProduct(search,product);
 
         Assert.Equal("unverified",search.Basis);
         Assert.Equal("per100g",product.Basis);
@@ -80,7 +81,7 @@ public sealed class FoodSearchTests
              "nutriments":{"energy-kcal_100g":384.87,"proteins_100g":78.95,"fat_100g":3.29,"carbohydrates_100g":9.87}}
             """);
 
-        var result=FoodSearchService.ReadProduct(product,"0748927065725")!;
+        var result=OpenFoodFactsParser.ReadProduct(product,"0748927065725")!;
 
         Assert.Equal("per100g",result.Basis);
         Assert.Empty(result.Portions!);
@@ -93,7 +94,7 @@ public sealed class FoodSearchTests
     {
         var hit=Product("""{"code":"1","product_name_en":"Fried rice","nutriments":{"energy-kcal_100g":150}}""");
 
-        Assert.Equal("Fried rice",FoodSearchService.ReadProduct(hit,null)!.Name);
+        Assert.Equal("Fried rice",OpenFoodFactsParser.ReadProduct(hit,null)!.Name);
     }
 
     [Theory]
@@ -104,7 +105,7 @@ public sealed class FoodSearchTests
     [InlineData("""{"brands":null}""",null)]
     [InlineData("""{}""",null)]
     public void Both_brand_shapes_reduce_to_the_leading_brand(string json,string? expected)
-        => Assert.Equal(expected,FoodSearchService.Brand(Product(json)));
+        => Assert.Equal(expected,OpenFoodFactsParser.Brand(Product(json)));
 
     [Fact]
     public void A_scanned_product_still_reads_its_comma_separated_brands()
@@ -114,7 +115,7 @@ public sealed class FoodSearchTests
              "serving_quantity":"375","serving_quantity_unit":"g","nutriments":{"energy-kcal_100g":102}}
             """);
 
-        var result=FoodSearchService.ReadProduct(product,"4056489127277")!;
+        var result=OpenFoodFactsParser.ReadProduct(product,"4056489127277")!;
 
         Assert.Equal("Nasi Goreng · Chef Select",result.Name);
         var portion=Assert.Single(result.Portions!);
@@ -128,7 +129,7 @@ public sealed class FoodSearchTests
     {
         var hit=Product("""{"code":"8716425003183","product_name":"nasi","nutriments":{"proteins_100g":3}}""");
 
-        Assert.Null(FoodSearchService.ReadProduct(hit,null));
+        Assert.Null(OpenFoodFactsParser.ReadProduct(hit,null));
     }
 
     [Fact]
@@ -136,7 +137,7 @@ public sealed class FoodSearchTests
     {
         var hit=Product("""{"code":"1","nutriments":{"energy-kcal_100g":120}}""");
 
-        Assert.Null(FoodSearchService.ReadProduct(hit,null));
+        Assert.Null(OpenFoodFactsParser.ReadProduct(hit,null));
     }
 
     [Fact]
@@ -144,7 +145,7 @@ public sealed class FoodSearchTests
     {
         var product=Product("""{"nutriments":{"energy-kcal_100g":467},"serving_quantity":"30","serving_quantity_unit":"g","serving_size":"2 COOKIES (30 g)"}""");
 
-        var result=FoodSearchService.ReadProduct(product,"0072417201882")!;
+        var result=OpenFoodFactsParser.ReadProduct(product,"0072417201882")!;
 
         Assert.Equal("Packaged food",result.Name);
         Assert.Equal("Open Food Facts / ODbL / 0072417201882",result.Source);
@@ -157,12 +158,12 @@ public sealed class FoodSearchTests
     [InlineData("Nasi Goreng","","Nasi Goreng")]
     [InlineData("Lidl Nasi Goreng","Lidl","Lidl Nasi Goreng")]
     public void The_leading_brand_disambiguates_repeated_product_names(string name,string? brands,string expected)
-        => Assert.Equal(expected,FoodSearchService.Label(name,brands));
+        => Assert.Equal(expected,FoodResults.Label(name,brands));
 
     [Fact]
     public void A_label_stays_within_the_name_length_a_saved_food_accepts()
     {
-        var label=FoodSearchService.Label(new string('a',150),new string('b',80));
+        var label=FoodResults.Label(new string('a',150),new string('b',80));
 
         Assert.Equal(160,label.Length);
         Validation.Nutrients(new Food{Name=label,Calories=100,Source="Open Food Facts / ODbL"});
@@ -173,7 +174,7 @@ public sealed class FoodSearchTests
     {
         var product=Product("""{"serving_quantity":1000,"serving_quantity_unit":"ml","serving_size":"1l"}""");
 
-        Assert.Empty(FoodSearchService.MapPortions(product));
+        Assert.Empty(OpenFoodFactsParser.MapPortions(product));
     }
 
     [Fact]
@@ -181,7 +182,7 @@ public sealed class FoodSearchTests
     {
         var product=Product("""{"serving_quantity":30,"serving_size":"1 biscuit (30 g)"}""");
 
-        Assert.Equal(30,Assert.Single(FoodSearchService.MapPortions(product)).Grams);
+        Assert.Equal(30,Assert.Single(OpenFoodFactsParser.MapPortions(product)).Grams);
     }
 
     [Theory]
@@ -192,7 +193,7 @@ public sealed class FoodSearchTests
     public void An_ambiguous_or_conflicting_serving_weight_is_not_assumed_to_be_grams(string label)
     {
         var product=Product(JsonSerializer.Serialize(new {serving_quantity=30,serving_size=label}));
-        Assert.Empty(FoodSearchService.MapPortions(product));
+        Assert.Empty(OpenFoodFactsParser.MapPortions(product));
     }
 
     [Fact]
@@ -200,7 +201,7 @@ public sealed class FoodSearchTests
     {
         var product=Product("""{"serving_quantity":45,"serving_quantity_unit":"g"}""");
 
-        Assert.Equal("serving",Assert.Single(FoodSearchService.MapPortions(product)).Label);
+        Assert.Equal("serving",Assert.Single(OpenFoodFactsParser.MapPortions(product)).Label);
     }
 
     [Fact]
@@ -208,7 +209,7 @@ public sealed class FoodSearchTests
     {
         var product=Product("""{"product_name":"Nasi Goreng","nutriments":{"energy-kcal_100g":92}}""");
 
-        Assert.Empty(FoodSearchService.ReadProduct(product,null)!.Portions!);
+        Assert.Empty(OpenFoodFactsParser.ReadProduct(product,null)!.Portions!);
     }
 
     [Fact]
@@ -218,7 +219,7 @@ public sealed class FoodSearchTests
         var withServing=Result("Nasi Goreng · Brand",[new FoodPortion("serving",250)]);
         var weakerName=Result("Chicken nasi goreng",[new FoodPortion("serving",300)]);
 
-        var ranked=FoodSearchService.PrioritizeResults([weakerName,noServing,withServing],"nasi goreng");
+        var ranked=FoodRanking.PrioritizeResults([weakerName,noServing,withServing],"nasi goreng");
 
         Assert.Equal([withServing.Name,noServing.Name,weakerName.Name],ranked.Select(result=>result.Name));
     }
@@ -230,7 +231,7 @@ public sealed class FoodSearchTests
     [InlineData(HttpStatusCode.BadGateway,503,"temporarily unavailable")]
     public void Upstream_failures_keep_their_own_status_and_remedy(HttpStatusCode upstream,int status,string remedy)
     {
-        var error=FoodSearchService.SearchUnavailable(upstream);
+        var error=FoodLookupErrors.Search("Open Food Facts",OpenFoodFactsProvider.SearchFailure(upstream));
 
         Assert.Equal(status,error.Status);
         Assert.Contains(remedy,error.Message);
@@ -240,14 +241,14 @@ public sealed class FoodSearchTests
     public void A_shed_search_is_not_reported_as_a_rate_limit()
     {
         Assert.NotEqual(
-            FoodSearchService.SearchUnavailable(HttpStatusCode.ServiceUnavailable).Message,
-            FoodSearchService.SearchUnavailable(HttpStatusCode.TooManyRequests).Message);
+            FoodLookupErrors.Search("Open Food Facts",OpenFoodFactsProvider.SearchFailure(HttpStatusCode.ServiceUnavailable)).Message,
+            FoodLookupErrors.Search("Open Food Facts",OpenFoodFactsProvider.SearchFailure(HttpStatusCode.TooManyRequests)).Message);
     }
 
     [Fact]
     public void Portions_stay_within_the_stored_limits()
     {
-        var portions=FoodSearchService.LimitPortions([
+        var portions=FoodResults.LimitPortions([
             new("serving",30),
             new("SERVING",40),
             new(new string('x',25),50),

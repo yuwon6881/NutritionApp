@@ -8,5 +8,6 @@
   <Folder Name="/tools/">
     <Project Path="tools/DatabaseAdmin/DatabaseAdmin.csproj" />
     <Project Path="tools/StorageBenchmark/StorageBenchmark.csproj" />
+    <Project Path="tools/usda-import/UsdaImport.csproj" />
   </Folder>
 </Solution>

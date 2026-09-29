@@ -108,10 +108,12 @@ public class Food : NutrientRecord
     /// legacy rows without a timestamp are handled conservatively by maintenance.
     public DateTime? DeletedAt { get; set; }
 }
-/// Compact, account-independent Open Food Facts product data. It contains only the fields needed
+/// Compact, account-independent public product data from one food provider. It contains only the fields needed
 /// for barcode and serving hydration and can be rebuilt from the provider when it expires.
 public class PublicFoodProduct
 {
+    /// Food provider id ("off", "usda-branded"); the same barcode can be cached once per provider.
+    public string ProviderId { get; set; } = "off";
     public string Code { get; set; } = "";
     public string ResultJson { get; set; } = "";
     public DateTime ExpiresAt { get; set; }

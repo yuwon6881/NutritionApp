@@ -279,7 +279,7 @@ test('barcode misses can link a private food and repeat offline from the local m
   await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await page.getByLabel('Barcode digits').fill('9559876543210');
   await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Barcode not found in Open Food Facts',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Barcode not found in the food databases',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Link an existing food',exact:true}).click();
   await expect(page.getByText(/Choose one saved non-recipe food/)).toBeVisible();
   await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();

@@ -48,6 +48,8 @@ public sealed class ExternalCallMetricsHandler : DelegatingHandler
         if (host.Contains("storage", StringComparison.OrdinalIgnoreCase) || host.Contains("gcs", StringComparison.OrdinalIgnoreCase)) return "gcs";
         if (host.Contains("googleapis", StringComparison.OrdinalIgnoreCase) || host.Contains("google", StringComparison.OrdinalIgnoreCase)) return "google";
         if (host.Contains("openfoodfacts", StringComparison.OrdinalIgnoreCase)) return "open_food_facts";
+        if (host.Contains("fatsecret", StringComparison.OrdinalIgnoreCase)) return "fatsecret";
+        if (host.Contains("api.nal.usda.gov", StringComparison.OrdinalIgnoreCase)) return "usda_fdc";
         if (host.Contains("fitness", StringComparison.OrdinalIgnoreCase)) return "fitness_account";
         if (host.Contains("workout", StringComparison.OrdinalIgnoreCase)) return "workout";
         return "other";

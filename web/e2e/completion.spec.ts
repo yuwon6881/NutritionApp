@@ -71,7 +71,9 @@ test('a new terminal rejection permits the next independent write in the same dr
   await expect(retry).toBeEnabled();
   const frozenTime=new Date(Date.now()+10000);
   await page.clock.install({time:frozenTime});
-  await page.clock.pauseAt(frozenTime);
+  // The installed clock keeps running until paused, so pausing at the install instant races real
+  // time ("Cannot fast-forward to the past"); pause one second ahead instead.
+  await page.clock.pauseAt(new Date(frozenTime.getTime()+1000));
   await page.route('**/api/sync',async route=>{
     if(route.request().postDataJSON().kind!=='weight'){await route.continue();return;}
     calls.push(route.request().postDataJSON().recordId);

@@ -8,6 +8,7 @@ using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Endpoints;
 using Nutrition.Api.Services;
+using Nutrition.Api.Services.FoodLookup;
 using OpenIddict.Validation.AspNetCore;
 
 var builder=WebApplication.CreateBuilder(args);
@@ -61,12 +62,7 @@ builder.Services.AddOpenIddict().AddValidation(options =>
 });
 builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
-// Open Food Facts asks every read to identify its caller or risk being served as a bot, and both
-// food search and barcode lookup now go there, so the identity belongs on the shared client.
-builder.Services.AddHttpClient<FoodSearchService>(c=>{
-  c.Timeout=TimeSpan.FromSeconds(20);
-  c.DefaultRequestHeaders.UserAgent.ParseAdd("NutritionCoach/1.0 (two-user personal nutrition tracker)");
-}).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+var skippedFoodProviders=builder.Services.AddFoodProviders(builder.Configuration,builder.Environment.IsDevelopment());
 builder.Services.AddHttpClient<TemporaryImageStore>(c=>c.Timeout=TimeSpan.FromSeconds(30)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<NutritionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<BodyCompositionAi>(c=>c.Timeout=TimeSpan.FromSeconds(90)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
@@ -132,6 +128,7 @@ builder.Services.AddRateLimiter(o=>
         _=>new FixedWindowRateLimiterOptions { PermitLimit=deviceRevocationLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
 });
 var app=builder.Build();
+foreach(var skipped in skippedFoodProviders)app.Logger.LogInformation("Food provider skipped: {Reason}",skipped);
 var requestMeter=new Meter("Fitness.Nutrition.Api","1.0");
 var requestCount=requestMeter.CreateCounter<long>("http.server.request.count");
 var requestDuration=requestMeter.CreateHistogram<double>("http.server.request.duration", "ms");

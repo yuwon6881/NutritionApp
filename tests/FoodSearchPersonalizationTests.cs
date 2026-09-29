@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Nutrition.Api.Data;
 using Nutrition.Api.Services;
+using Nutrition.Api.Services.FoodLookup;
 using Xunit;
 
 namespace Nutrition.Tests;
@@ -13,12 +14,12 @@ public sealed class FoodSearchPersonalizationTests
     {
         var exact=new FoodResult("Banana",100,null,null,null,null,"test");
         var frequentWeak=new FoodResult("Banana smoothie",100,null,null,null,null,"test");
-        var ranked=FoodSearchService.PrioritizeResults(
+        var ranked=FoodRanking.PrioritizeResults(
             [exact,frequentWeak],
             "banana",
             new Dictionary<string,int>(StringComparer.Ordinal)
             {
-                [FoodSearchService.UsageKey(frequentWeak)]=20,
+                [FoodRanking.UsageKey(frequentWeak)]=20,
             });
 
         Assert.Equal([exact.Name,frequentWeak.Name],ranked.Select(result=>result.Name));
@@ -43,9 +44,6 @@ public sealed class FoodSearchPersonalizationTests
         await db.SaveChangesAsync();
         db.MaintenanceAccess=false;
 
-        var service=new FoodSearchService(
-            new HttpClient(new HttpClientHandler()),
-            new MemoryCache(new MemoryCacheOptions {SizeLimit=256}));
         IReadOnlyList<FoodResult> results=[
             new("Banana · Alpha",89,null,null,null,null,"Open Food Facts / ODbL"),
             new("Banana · Beta",90,null,null,null,null,"Open Food Facts / ODbL"),
@@ -53,9 +51,9 @@ public sealed class FoodSearchPersonalizationTests
         ];
 
         db.CurrentUser=alice.Id;
-        var aliceResults=await service.RankForUser(results,"banana",db,default);
+        var aliceResults=await FoodRanking.RankForUser(results,"banana",db,default);
         db.CurrentUser=bob.Id;
-        var bobResults=await service.RankForUser(results,"banana",db,default);
+        var bobResults=await FoodRanking.RankForUser(results,"banana",db,default);
 
         Assert.Equal("Banana · Gamma",aliceResults[0].Name);
         Assert.Equal("Banana · Alpha",bobResults[0].Name);

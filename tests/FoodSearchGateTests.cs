@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Extensions.Caching.Memory;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
+using Nutrition.Api.Services.FoodLookup;
 using Xunit;
 
 namespace Nutrition.Tests;
@@ -22,8 +23,8 @@ public sealed class FoodSearchGateTests
         }
     }
 
-    private static FoodSearchService Service(Stub stub)
-        => new(new HttpClient(stub), new MemoryCache(new MemoryCacheOptions { SizeLimit = 256 }));
+    private static FoodCatalog Service(Stub stub)
+        => new([new OpenFoodFactsProvider(new HttpClient(stub))], new MemoryCache(new MemoryCacheOptions { SizeLimit = 256 }));
 
     [Fact]
     public async Task A_shed_search_returns_its_slot_but_a_busy_one_holds_the_wait()

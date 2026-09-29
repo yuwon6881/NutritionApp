@@ -5,6 +5,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Services;
+using Nutrition.Api.Services.FoodLookup;
 using Xunit;
 
 namespace Nutrition.Tests;
@@ -43,7 +44,7 @@ public sealed class FoodBarcodeTests : IAsyncLifetime
         }
 
         var handler=new FailHandler();
-        var service=new FoodSearchService(new HttpClient(handler),new MemoryCache(new MemoryCacheOptions{SizeLimit=256}));
+        var service=new FoodCatalog([new OpenFoodFactsProvider(new HttpClient(handler))],new MemoryCache(new MemoryCacheOptions{SizeLimit=256}));
         await using var db=Open(user);
         var result=await service.Barcode("9551234567890",db,default);
 

@@ -3,6 +3,7 @@ import {ArrowRight} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Brand} from './ui/Brand';
 import {SegmentedControl} from './ui/SegmentedControl';
+import {FatSecretAttribution} from './FatSecretAttribution';
 import {centralAuthError} from '../lib/centralAuthError';
 import {activeTheme,chooseTheme,type Theme} from '../lib/theme';
 
@@ -50,7 +51,7 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
           {starting&&<p className="auth-status" role="status">Starting secure sign-in…</p>}
           <p className="auth-registration">New to Nutrition? You can create an account on the next screen.</p>
         </section>
-        <footer className="auth-footer">Food diary <span aria-hidden="true">·</span> Nutrition targets <span aria-hidden="true">·</span> Progress</footer>
+        <footer className="auth-footer">Food diary <span aria-hidden="true">·</span> Nutrition targets <span aria-hidden="true">·</span> Progress <span aria-hidden="true">·</span> <FatSecretAttribution/></footer>
       </div>
     </main>
   );
