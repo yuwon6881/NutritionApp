@@ -10,6 +10,7 @@ import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
 import {Activity, CheckCircle2, AlertTriangle, RefreshCw, Unlink} from 'lucide-react';
 import {CardFeedback} from './ui/CardFeedback';
 import {Checkbox} from './ui/Checkbox';
+import {googleHealthRequiresBrowser,openGoogleHealthSettingsInBrowser} from '../lib/googleHealthBrowser';
 
 export function GoogleHealthSettings() {
   const {state, loading, error: syncError, refresh, connect, disconnect} = useGoogleHealth();
@@ -121,6 +122,11 @@ export function GoogleHealthSettings() {
     setConnecting(true);
     setActionError('');
     try {
+      if(await openGoogleHealthSettingsInBrowser()){
+        setDisclosureOpen(false);
+        setConnecting(false);
+        return;
+      }
       const {authUrl} = await connect({
         syncWeight: requestDataSync,
         syncNutrition: requestDataSync,
@@ -206,6 +212,7 @@ export function GoogleHealthSettings() {
         </span>
       </header>
 
+      {googleHealthRequiresBrowser()&&<p className="source">Connect in your browser using the same FitnessAccount account, then return here. Google consent cannot run inside this app.</p>}
       {bannerNotice && (
         <CardFeedback
           tone={bannerNotice.type}

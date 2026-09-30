@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {NativeBuildInfo} from './NativeBuildInfo';
 import {Bell,Compass,HardDrive,Link2,LogOut,SlidersHorizontal} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import {activeTheme,chooseTheme,type Theme} from '../lib/theme';
@@ -73,6 +74,7 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
         </SettingsSection>
         <SettingsSection {...device} title="This device" description="Data kept in this browser for offline use.">
           <LocalDataSettings accountId={state.id} onLogout={onLogout}/>
+          <NativeBuildInfo/>
         </SettingsSection>
       </div>
     </div>

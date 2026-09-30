@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useState, useSyncExternalStore} from 'react';
 import {api} from './api';
+import {consumeGoogleHealthHandoff} from './googleHealthBrowser';
 
 export type GoogleHealthStatus = 'disconnected' | 'connected' | 'reconnect_required';
 export type GoogleHealthFreshness = 'fresh' | 'stale' | 'unavailable';
@@ -293,7 +294,7 @@ export function useGoogleHealth(enabled = true) {
     // Refresh on foreground resume
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        void refresh(false);
+        void refresh(consumeGoogleHealthHandoff());
       }
     };
 

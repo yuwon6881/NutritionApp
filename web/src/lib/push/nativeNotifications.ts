@@ -68,10 +68,15 @@ export async function registerNativePushAndGetToken(timeoutMs=20000):Promise<str
 
     void (async()=>{
       try{
-        registrationListener=await PushNotifications.addListener('registration',registration=>
+        const registrationHandle=await PushNotifications.addListener('registration',registration=>
           finish(undefined,registration.value));
-        errorListener=await PushNotifications.addListener('registrationError',error=>
+        // Android may deliver a retained token before addListener returns its handle.
+        if(settled){void registrationHandle.remove();return;}
+        registrationListener=registrationHandle;
+        const errorHandle=await PushNotifications.addListener('registrationError',error=>
           finish(new Error(error.error||'Native push registration failed.')));
+        if(settled){void errorHandle.remove();return;}
+        errorListener=errorHandle;
         timeout=setTimeout(()=>finish(new Error('Native push registration timed out. Try again.')),timeoutMs);
         await PushNotifications.register();
       }catch(error){

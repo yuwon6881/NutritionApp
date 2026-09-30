@@ -12,10 +12,14 @@ export function isNativeApp(){
   return Capacitor.isNativePlatform();
 }
 
+export function statusBarStyleForTheme(dark:boolean){
+  return dark?Style.Dark:Style.Light;
+}
+
 function syncStatusBar(){
   const dark=document.documentElement.dataset.theme==='dark';
   const background=getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
-  void StatusBar.setStyle({style:dark?Style.Light:Style.Dark}).catch(()=>{});
+  void StatusBar.setStyle({style:statusBarStyleForTheme(dark)}).catch(()=>{});
   if(background)void StatusBar.setBackgroundColor({color:background}).catch(()=>{});
 }
 

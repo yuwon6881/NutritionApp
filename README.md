@@ -8,9 +8,15 @@ Requirements: Node 24 and .NET 10. run `npm.cmd install` and `npm.cmd run build`
 
 ## Android app
 
+Android Settings → This device shows the installed version and build. The interface is bundled in the APK: a website deployment does not update it. Install a newer APK with the same signing key to update in place and preserve retained data; do not uninstall to refresh the UI. Local builds now use version 0.1.1/build 2. Android CI uses `1000 + GITHUB_RUN_NUMBER` for increasing version codes; release tooling can override `ANDROID_VERSION_CODE`, which must exceed the previously distributed code. Keep the workflow run counter or choose an explicit higher code when replacing the workflow.
+
+Native WebView credentials, diary drafts, images, and preferences are excluded from Android cloud backup and device transfer. Sync retained edits before moving devices; unsynced local work stays on its original installation. Android CI runs lint as well as unit tests and APK assembly.
+
+Google Health Connect opens Settings in the system browser. Sign in there with the same FitnessAccount account, complete consent there, and return to the app. The native app refreshes connection status on return; it never copies its session cookie into the browser or attempts consent inside the WebView.
+
 The Android app uses Capacitor 8 (`com.nutritionapp.mobile`) and packages the built web interface in the APK. API requests use the production Nutrition origin so the existing session cookie and Vercel API proxy continue to work. From `web/`, run `npm.cmd run android:sync` after web changes, then `npm.cmd run android:open` to open the project in Android Studio. Connect an Android phone with USB debugging enabled and use Run, or build a debug APK with `cd android; .\gradlew.bat assembleDebug`; the APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-Building requires Android Studio, its Android SDK (API 36), and JDK 21. `android:run` also requires a connected device or configured emulator. This workspace currently has no Android SDK or JDK, so the native Gradle build and phone installation still need to be checked there. Camera scanning requests Android's camera permission. Hardware Back dismisses the active Nutrition dialog and exits from the main screen.
+Building requires Android Studio, its Android SDK (API 36), and JDK 21. `android:run` also requires a connected device or configured emulator. Camera scanning requests Android's camera permission. Hardware Back dismisses the active Nutrition dialog and exits only from the Dashboard root.
 
 Fitness Account sign-in remains a web authorization flow. Google Health consent must be completed in the browser/PWA because Google blocks OAuth in embedded WebViews; an Android browser session cannot reuse the app WebView's Nutrition cookie. Weekly coaching reminders can use browser/PWA Web Push or native Android FCM. Turning on the reminder in Settings requests permission, subscribes the current device, and saves the account schedule. Later schedule edits save automatically; device-only controls remain available. Android builds require the Nutrition Firebase app configuration for `com.nutritionapp.mobile` and must pass `npm.cmd run check:android-firebase` before Capacitor sync.
 
