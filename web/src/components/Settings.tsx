@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {Bell,Compass,HardDrive,Link2,LogOut,SlidersHorizontal} from 'lucide-react';
 import type {Nourish} from '../useNourish';
-import {chooseTheme,storedTheme,type Theme} from '../lib/theme';
+import {activeTheme,chooseTheme,type Theme} from '../lib/theme';
 import {Button} from './ui/Button';
 import {CardFeedback} from './ui/CardFeedback';
 import {GoogleHealthSettings} from './GoogleHealthSettings';
@@ -26,7 +26,7 @@ function initials(name:string){
 
 export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');
-  const [theme,setTheme]=useState<Theme>(storedTheme()??'light');
+  const [theme,setTheme]=useState<Theme>(activeTheme);
   const {saving,needsReview,savingLabel}=useSettingsSave(store);
   const state=store.state!;
 

@@ -2,14 +2,11 @@ import {useEffect,useRef,useState} from 'react';
 import {ArrowRight} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Brand} from './ui/Brand';
-import {SegmentedControl} from './ui/SegmentedControl';
 import {FatSecretAttribution} from './FatSecretAttribution';
 import {centralAuthError} from '../lib/centralAuthError';
-import {activeTheme,chooseTheme,type Theme} from '../lib/theme';
 
 export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
   const [error,setError]=useState('');
-  const [theme,setTheme]=useState<Theme>(activeTheme);
   const [starting,setStarting]=useState(false);
   const navigationStarted=useRef(false);
 
@@ -27,12 +24,6 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
       <div className="auth-shell">
         <header className="auth-header">
           <div className="brand"><Brand size={32}/> Nutrition</div>
-          <SegmentedControl id="auth-theme" label="Appearance" className="auth-theme-toggle" value={theme}
-            onChange={next=>{setTheme(next);chooseTheme(next);}}
-            options={[
-              {value:'light',label:'Light'},
-              {value:'dark',label:'Dark'},
-            ]}/>
         </header>
         <section className="panel auth-card" aria-labelledby="auth-heading">
           <p className="eyebrow">YOUR FOOD DIARY</p>
@@ -44,7 +35,7 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
             navigationStarted.current=true;
             try{localStorage.removeItem('nourish-signed-out');}catch{}
             setStarting(true);
-            window.setTimeout(()=>window.location.assign(`/api/auth/central/start?theme=${activeTheme()}`),120);
+            window.setTimeout(()=>window.location.assign('/api/auth/central/start'),120);
           }}>
             {starting?'Opening Fitness Account…':'Sign in with Fitness Account'}{!starting&&<ArrowRight size={18}/>}
           </Button>

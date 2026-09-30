@@ -311,7 +311,6 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
     };
   },[]);
   useEffect(()=>{
-    const stopWatchingTheme=watchTheme();
     let active=true;
     void (async()=>{
       try{
@@ -338,8 +337,12 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
         if(active&&localStorage.getItem('nourish-signed-out')!=='1'){localStorage.setItem('nourish-account',account.id);setUser(account.id);setAuthReady(true);}
       }catch(ex){if(active){if(!cached||(ex instanceof ApiError&&ex.status===401))setUser(null);setAuthReady(true);}}
     })();
-    return()=>{active=false;stopWatchingTheme();};
+    return()=>{active=false;};
   },[]);
+  useEffect(()=>{
+    if(user===undefined)return;
+    return watchTheme(!!user);
+  },[user]);
 
   const logout=async()=>{
     clearAccountHydration();
