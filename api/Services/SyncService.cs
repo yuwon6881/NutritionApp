@@ -230,5 +230,5 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);
     }
-    private static void Date(DateOnly date) => Validation.Require(date >= new DateOnly(2000,1,1) && date <= DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1), "Choose a date from 2000 through today.");
+    private static void Date(DateOnly date) => Validation.Require(date >= new DateOnly(2000,1,1) && date <= DateOnly.FromDateTime(DateTime.UtcNow).AddDays(2), "Choose a date from 2000 through tomorrow.");
 }

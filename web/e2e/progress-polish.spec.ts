@@ -50,3 +50,18 @@ test('Ask AI opens settled and focused on desktop',async({page})=>{
   await expect.poll(()=>dialog.locator('.modal-surface').evaluate(element=>getComputedStyle(element).opacity)).toBe('1');
   await expect(dialog.getByLabel('Message',{exact:true})).toBeFocused();
 });
+
+test('the day after today can be opened from the strip and arrow keys, without past-day controls',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/');
+  await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  const strip=page.getByRole('group',{name:'Choose a food day'});
+  const tomorrow=new Date(`${todayInTestZone()}T12:00:00Z`);tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
+  const dayAfter=new Date(tomorrow);dayAfter.setUTCDate(dayAfter.getUTCDate()+1);
+  await strip.locator(`[data-date="${tomorrow.toISOString().slice(0,10)}"]`).click();
+  await expect(page.locator('.food-day-summary h2')).toHaveText('Tomorrow');
+  await expect(page.getByLabel('Logging status')).toHaveCount(0);
+  await expect(strip.locator(`[data-date="${dayAfter.toISOString().slice(0,10)}"]`)).toBeDisabled();
+  await strip.locator(`[data-date="${todayInTestZone()}"]`).click();
+  await expect(page.locator('.food-day-summary h2')).toHaveText('Today');
+});

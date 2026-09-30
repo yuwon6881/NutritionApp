@@ -59,7 +59,7 @@ public static class RecordEndpoints
             Validation.Require(endDate.DayNumber - startDate.DayNumber + 1 <= 31, "Diary range cannot exceed 31 days.");
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
             var today = RetentionService.Today(user.ProfileJson);
-            Validation.Require(startDate >= new DateOnly(2000, 1, 1) && endDate <= today, "Choose a supported diary date.");
+            Validation.Require(startDate >= new DateOnly(2000, 1, 1) && endDate <= today.AddDays(1), "Choose a supported diary date.");
 
             // Diary reads depend on diary mutations and the local-day retention boundary. Profile,
             // food, or training changes do not invalidate an unchanged historical range.

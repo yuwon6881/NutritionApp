@@ -95,8 +95,8 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
         const target=calendarTarget(store.state!,day);
         const progress=calorieProgress(intake,target);
         const weekday=weekdays[new Date(`${day}T12:00:00Z`).getUTCDay()];
-        const label=`${day}, ${weekday}${day===today?', today':''}${day>today?', future':progress==null?', calorie progress unavailable':`, ${displayEnergy(intake!,energyUnit)} of ${displayEnergy(target!,energyUnit)} ${energyLabel(energyUnit)}, ${Math.round(progress*100)}% of target`}`;
-        return <Button key={day} data-date={day} variant="tertiary" presentation="plain" className="food-week-day" disabled={day>today} aria-current={day===date?'date':undefined} aria-label={label} onClick={()=>onChange(day)} onKeyDown={event=>{
+        const label=`${day}, ${weekday}${day===today?', today':''}${day===shiftDate(today,1)?', tomorrow':day>today?', future':progress==null?', calorie progress unavailable':`, ${displayEnergy(intake!,energyUnit)} of ${displayEnergy(target!,energyUnit)} ${energyLabel(energyUnit)}, ${Math.round(progress*100)}% of target`}`;
+        return <Button key={day} data-date={day} variant="tertiary" presentation="plain" className="food-week-day" disabled={day>shiftDate(today,1)} aria-current={day===date?'date':undefined} aria-label={label} onClick={()=>onChange(day)} onKeyDown={event=>{
           if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
           const next=(event.key==='ArrowLeft'?event.currentTarget.previousElementSibling:event.currentTarget.nextElementSibling) as HTMLButtonElement|null;
           if(next&&!next.disabled){event.preventDefault();next.focus();}

@@ -54,7 +54,9 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
 
   const act=async(action:()=>Promise<unknown>,rethrow=false)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);if(rethrow)throw ex;}};
-  const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=current){setError('');selection.exitSelection();setDate(value);}};
+  // The day after today can be opened to plan ahead; nothing further out can.
+  const latest=shiftDate(current,1);
+  const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=latest){setError('');selection.exitSelection();setDate(value);}};
 
   const move=async(moving:Entry[],destinationDate:string,time?:string|null)=>{
     await act(async()=>{
@@ -121,7 +123,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
     </header>
     <div className="food-diary-toolbar">
       <div className="food-date-navigation">
-        <DatePicker label="Food date" value={date} min="2000-01-01" max={current} onChange={changeDate}/>
+        <DatePicker label="Food date" value={date} min="2000-01-01" max={latest} onChange={changeDate}/>
         <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
       </div>
       <FoodWeekStrip date={date} today={current} store={store} onChange={changeDate}/>
@@ -149,14 +151,14 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
     {!state&&history.error&&<DiaryEmptyState status="unavailable" unavailable/>}
     {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
     {!state&&!history.error&&<section className="panel food-day-summary skeleton" aria-busy="true">
-      <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>Loading diary date…</p></div></div>
+      <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':date}</h2><p>Loading diary date…</p></div></div>
     </section>}
     {!state&&!history.error&&<FoodDaySkeleton/>}
     {shareStatus&&<p className="notice" role="status">{shareStatus}</p>}
     {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>
       <section className="panel food-day-summary">
-        <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date}</h2><p>{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':'No food logged'}</p></div>
+        <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':date}</h2><p>{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':date===latest?'Planning ahead':'No food logged'}</p></div>
           <strong className="figure-inline">{count||status==='fasting'?displayEnergy(total,energyUnit):'—'} <span className="unit">{energyLabel(energyUnit)}</span></strong>
         </div>
         <dl className="food-day-nutrients">{(['protein','carbs','fat'] as const).map(key=>{

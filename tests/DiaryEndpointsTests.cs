@@ -91,9 +91,10 @@ public class DiaryEndpointsTests
             // Prior to 2000-01-01
             var res4 = await client.GetAsync("/api/diary?from=1999-12-31&to=2000-01-05");
             Assert.Equal(HttpStatusCode.BadRequest, res4.StatusCode);
-
-            // Future date beyond today
-            var res5 = await client.GetAsync($"/api/diary?from={today:yyyy-MM-dd}&to={today.AddDays(1):yyyy-MM-dd}");
+            // Tomorrow is readable so the day after today can be planned; two days out is not
+            var tomorrowRange = await client.GetAsync($"/api/diary?from={today:yyyy-MM-dd}&to={today.AddDays(1):yyyy-MM-dd}");
+            Assert.Equal(HttpStatusCode.OK, tomorrowRange.StatusCode);
+            var res5 = await client.GetAsync($"/api/diary?from={today:yyyy-MM-dd}&to={today.AddDays(2):yyyy-MM-dd}");
             Assert.Equal(HttpStatusCode.BadRequest, res5.StatusCode);
 
             // Exactly 31 days passes

@@ -199,7 +199,7 @@ export class DiaryCoordinator {
     }
 
     // Determine calendar month range for older history or single range
-    const { from, to } = getMonthRange(date, todayDate);
+    const { from, to } = getMonthRange(date, date > todayDate ? date : todayDate);
     const rangeKey = `${from}:${to}`;
 
     if (options?.isNavigation) {
