@@ -6,6 +6,7 @@ import {BAR_AXIS_WIDTH,BarChartFrame} from './ui/BarChartFrame';
 import type {BarViewport} from './ui/useBarViewport';
 
 const HEIGHT=206;
+const pagerNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const TOP=12;
 const BASE=164;
 const LABEL_Y=182;
@@ -41,7 +42,7 @@ export function IntakeChart({rows,grouping,energyUnit,viewport,selected,plotProp
   const {slot,contentWidth}=viewport;
   const bar=barWidth(slot);
   const axis=ticks.map(value=><text key={value} x={BAR_AXIS_WIDTH-8} y={y(value)+4} textAnchor="end">{displayEnergy(value,energyUnit)}</text>);
-  return <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={plotProps}
+  return <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={plotProps} pager={pagerNoun[grouping]}
     label={`Energy intake bars with the estimated maintenance line, grouped ${grouping}. ${rows.filter(row=>row.intake!=null).length} of ${rows.length} groups have logged intake.`}>
     {ticks.map(value=><line key={value} className={value===0?'chart-baseline':'chart-grid'} x1={0} x2={contentWidth} y1={y(value)} y2={y(value)}/>)}
     <SlotDecor rows={rows} grouping={grouping} slot={slot} selected={selected}/>
@@ -70,7 +71,7 @@ export function BalanceChart({rows,grouping,energyUnit,viewport,selected,plotPro
   const ticks=[limit,limit/2,0,-limit/2,-limit];
   const signed=(value:number)=>value===0?'0':`${value>0?'+':'−'}${displayEnergy(Math.abs(value),energyUnit)}`;
   const axis=ticks.map(value=><text key={value} x={BAR_AXIS_WIDTH-8} y={y(value)+4} textAnchor="end">{signed(value)}</text>);
-  return <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={plotProps}
+  return <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={plotProps} pager={pagerNoun[grouping]}
     label={`Surplus or deficit by ${grouping==='daily'?'day':grouping==='weekly'?'week':'month'}. Bars above zero are a surplus, below zero a deficit. Groups that are not fully logged or have no maintenance estimate have no bar.`}>
     {ticks.map(value=><line key={value} className={value===0?'chart-baseline':'chart-grid'} x1={0} x2={contentWidth} y1={y(value)} y2={y(value)}/>)}
     <SlotDecor rows={rows} grouping={grouping} slot={slot} selected={selected}/>

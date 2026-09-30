@@ -37,8 +37,8 @@ export function CoachingProgress({store}:{store:Nourish}){
     return interval.dailyCalories?.[mondayIndex(date)]??interval.calories??null;
   };
   return <section className="panel coaching-progress">
-    <div className="section-heading"><div><h2>Continuous coaching guidance</h2><p>These estimates can move as evidence changes. Accepted targets stay active until you accept a check-in.</p></div></div>
-    {!points.length?<p className="notice">No trajectory points are available yet. Log complete days and weigh regularly to build the 28-day evidence window.</p>:<>
+    <div className="section-heading"><div><h2>Coaching guidance</h2></div></div>
+    {!points.length?<p className="notice">Not enough data yet.</p>:<>
       <svg ref={chart.ref} viewBox={`0 0 ${chart.width} 245`} className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
         <line x1={chart.left} y1="185" x2={chart.right} y2="185" className="chart-grid"/>
         {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);return target==null?null:<line key={interval.start} x1={x(interval.start)} x2={x(interval.end>end?end:interval.end)} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{interval.start} to {interval.end}: accepted target {displayEnergy(target,units.energy)} {energyUnit}/day</title></line>;})}

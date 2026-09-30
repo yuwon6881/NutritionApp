@@ -35,7 +35,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'] as const){
     await page.getByLabel('Weight (kg)',{exact:true}).fill('80.2');
     await page.getByRole('button',{name:'Update weigh-in',exact:true}).click();
     await expect(page.locator('.weigh-in-list').getByText('80.2 kg')).toBeVisible();
-    await expect(page.getByText('Pending synchronization').first()).toBeVisible();
+    await expect(page.getByText('Pending sync').first()).toBeVisible();
     await expect(page.locator(`.weigh-in-list time[datetime="${shifted(-45)}"]`)).toBeVisible();
     await context.setOffline(false);
     await page.getByRole('button',{name:'Food Log',exact:true}).click();
@@ -111,9 +111,9 @@ test('cached training remains visible while a refresh is pending',async({page})=
   await expect(page.getByText('Cached training',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await page.getByRole('button',{name:'Dashboard',exact:true}).click();
-  await expect(page.getByRole('status').filter({hasText:'Refreshing workouts'})).toBeVisible();
+  await expect(page.getByRole('status').filter({hasText:'Refreshing…'})).toBeVisible();
   complete();
-  await expect(page.getByText('Refreshing workouts… Saved summaries remain visible.',{exact:true})).not.toBeVisible();
+  await expect(page.getByText('Refreshing…',{exact:true})).not.toBeVisible();
 });
 
 test('a protein override exceeding the energy budget blocks plan progression',async({page})=>{

@@ -85,7 +85,7 @@ test('AI body-fat estimate needs three photos and fills the field only when used
   await dialog.getByRole('button',{name:'Use 17.5%',exact:true}).click();
   await expect(dialog.getByLabel('Body fat (%)',{exact:true})).toHaveValue('17.5');
   await dialog.getByLabel('Waist (cm)',{exact:true}).fill('80');
-  await expect(dialog.getByText(/Based on earlier photos or measurements/)).toBeVisible();
+  await expect(dialog.getByText(/Based on earlier data/)).toBeVisible();
 });
 
 test('AI body-fat estimate errors stay beside the action and keep manual entry available',async({page})=>{

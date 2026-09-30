@@ -85,6 +85,7 @@ builder.Services.AddScoped<IAiTool, GetCoachingRecommendationTool>();
 builder.Services.AddScoped<IAiTool, GetBodyFatHistoryTool>();
 builder.Services.AddScoped<IAiTool, SearchFoodDatabaseTool>();
 builder.Services.AddScoped<IAiTool, GetWorkoutSummaryTool>();
+builder.Services.AddScoped<IAiTool, GetStepsTool>();
 builder.Services.AddScoped<AiToolRegistry>();
 builder.Services.AddScoped<AiToolExecutor>();
 builder.Services.AddScoped<AiBaselineSnapshotBuilder>();

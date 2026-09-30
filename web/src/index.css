@@ -193,6 +193,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .calendar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .calendar-title{flex:1;min-width:0;text-align:center;font-weight:650;font-size:.84rem;line-height:1.2;color:var(--ink-strong);overflow-wrap:anywhere}
 .calendar-nav-btn{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;border:1px solid var(--border);background:var(--muted);color:var(--foreground);cursor:pointer}
+.calendar-nav-btn:disabled{opacity:.4;cursor:default}
 @media (hover:hover) and (pointer:fine){
 .calendar-nav-btn:hover{background:var(--primary-tint);color:var(--primary-ink)}}
 .calendar-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.72rem;font-weight:650;color:var(--muted-foreground);margin-bottom:6px}
@@ -1575,9 +1576,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .steps-panel-compact .steps-provenance{grid-column:1/-1;margin-top:4px}
 .steps-provenance .source{margin-bottom:0}
 .steps-panel-compact>.card-feedback{grid-column:1/-1;margin-top:8px}
-/* Steps-for-energy calculator: a disclosure inside the steps card, a panel on Activity. */
-.steps-panel-compact>.step-calculator-inline{grid-column:1/-1;margin-top:8px;border-top:1px solid var(--border);padding-top:4px}
-.step-calculator-inline summary{min-height:44px;align-content:center;cursor:pointer;font-size:.8rem;font-weight:600;color:var(--primary-ink)}
+/* Steps-for-energy calculator: a button that opens a dialog, in the steps card and on Activity. */
+.steps-panel-compact>.step-calculator-open{grid-column:1/-1;justify-self:end;margin-top:8px;font-size:.8rem;color:var(--primary-ink)}
+.step-calculator-panel .eyebrow{margin-bottom:12px!important}
 .step-calculator-body{display:grid;gap:8px}
 .step-calculator-result .source,.step-calculator-basis{margin:0}
 .step-calculator-value{margin:0;font-size:1.45rem;font-weight:600;color:var(--ink-strong);line-height:1.2}

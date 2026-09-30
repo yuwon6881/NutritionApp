@@ -42,7 +42,7 @@ export function BodyFatEstimate({slots,online,disabled,request,onUse}:BodyFatEst
         <h4 id="body-fat-estimate-heading" ref={heading} tabIndex={-1}>AI estimate: {number(result.estimate.estimatePercent,1)}%</h4>
         <span className="body-fat-estimate-range">Likely {formatRange(result.estimate.lowPercent,result.estimate.highPercent)} · {confidenceLabel(result.estimate.confidence)}</span>
       </div>
-      {stale&&<p className="source body-fat-estimate-stale">Based on earlier photos or measurements. Estimate again to include your changes.</p>}
+      {stale&&<p className="source body-fat-estimate-stale">Based on earlier data. Estimate again to update.</p>}
       <p className="body-fat-estimate-explanation">{result.estimate.explanation}</p>
       {result.estimate.cues.length>0&&<ul className="body-fat-estimate-cues">{result.estimate.cues.map(cue=><li key={cue}>{cue}</li>)}</ul>}
       <dl className="body-fat-estimate-inputs">

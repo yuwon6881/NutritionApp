@@ -49,7 +49,7 @@ export function WeightChart({series,weightUnit='kg'}:{series:ProgressWeightPoint
     :series.map(point=>point.date);
   const dateLabel=duration>200*DAY?monthYear:shortDate;
   const viewName=view==='both'?'Scale and trend':view==='scale'?'Scale':'Trend';
-  return <section className="panel weight-chart-panel"><div className="section-heading"><div><h2>Weight</h2><p>Scale weigh-ins bounce with water and food; the trend smooths them to show real change.</p></div>
+  return <section className="panel weight-chart-panel"><div className="section-heading"><div><h2>Weight</h2></div>
     <SegmentedControl<View> layout="equal" className="chart-view-toggle" label="Weight chart display" value={view} onChange={setView} options={[
       {value:'both',label:'Both',ariaLabel:'Both'},
       {value:'scale',label:<><span className="tab-label-full">Scale weight</span><span className="tab-label-short">Scale</span></>,ariaLabel:'Scale weight'},
@@ -82,8 +82,8 @@ export function WeightChart({series,weightUnit='kg'}:{series:ProgressWeightPoint
     </svg></div>
     <ul className="chart-legend" aria-label="Weight chart key">
       {view!=='trend'&&<li><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale weigh-in</li>}
-      {view!=='scale'&&<li><span className="legend-line swatch-trend" aria-hidden="true"/>Trend (smoothed)</li>}
+      {view!=='scale'&&<li><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</li>}
       <li>{unit}</li>
-    </ul></>:<div className="empty"><h3>No weigh-ins yet</h3><p>Add a weigh-in to start your scale and trend lines.</p></div>}
+    </ul></>:<div className="empty"><h3>No weigh-ins yet</h3></div>}
   </section>;
 }

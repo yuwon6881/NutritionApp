@@ -143,15 +143,15 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
       </SelectField></div>
       {error&&<CardFeedback
         title={summary?'Progress summary needs attention':'Progress summary unavailable'}
-        message={`${summary?'Saved summary shown.':'This summary is not available on this device.'} ${error}`}
-        action={{label:'Retry summary',onClick:()=>void retry(),disabled:loading}}
+        message={`${summary?'Showing saved data.':'Not available offline.'} ${error}`}
+        action={{label:'Retry',onClick:()=>void retry(),disabled:loading}}
       />}
       {summary?.weight.historyUnavailable&&!error&&<CardFeedback
         tone="info"
         title="History unavailable offline"
-        message="Detailed trend history is not cached for this period. Showing local retained weigh-ins; server-derived trends will refresh after synchronization."
+        message="Showing weigh-ins saved on this device."
       />}
-      {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2><p>Loading history…</p></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2><p>Loading history…</p></section></div>}
+      {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2></section></div>}
       {summary&&<WeightSummary summary={summary} units={units} pending={pending||Boolean(summary.awaitingSynchronization)} onEdit={editWeight} onDelete={weight=>void deleteWeight(weight)} pendingDeletes={pendingWeightDeletes}/>}
     </>}
     {tab==='energy'&&<>
@@ -159,7 +159,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
         {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
       </SelectField></div>
       <EnergyBalance store={store} period={energyPeriod} summary={energy.summary} error={energy.error}/>
-      {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading the selected energy period…</p>}
+      {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading…</p>}
       <CoachingProgress store={store}/>
     </>}
     {tab==='body'&&<Suspense fallback={<section className="panel" aria-busy="true"><p className="sr-only" role="status">Opening body records…</p><SkeletonBlock width="45%" height={28}/><SkeletonBlock height={180}/></section>}><PhysiquePhotos store={store}/></Suspense>}

@@ -297,7 +297,7 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   expect(result.expenditure).toBeCloseTo(2029.95,2);expect(result.calories).toBe(1725);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
-  await expect(page.getByText('No complete days with an accepted maintenance estimate.',{exact:true})).toBeVisible();
+  await expect(page.getByText('No complete days to compare.',{exact:true})).toBeVisible();
 
   const shift=(date:string,days:number)=>new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
   let latest=await (await context.request.get('/api/state')).json();
@@ -361,7 +361,7 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   await expect(page.locator('.check-in-card')).toHaveCount(0);
   expect(activeDaily).toBeGreaterThan(0);
   await resolveMissingDays(page);
-  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();await expect(page.getByRole('heading',{name:'Continuous coaching guidance',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();await expect(page.getByRole('heading',{name:'Coaching guidance',exact:true})).toBeVisible();
   const acceptedResponse=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:proposal.revision}});expect(acceptedResponse.ok(),await acceptedResponse.text()).toBeTruthy();
   state=await (await context.request.get('/api/state')).json();const nextResult=JSON.parse(state.plans[0].resultJson) as {calories:number;weeklyCalories:number;dailyCalories:number[]};expect(state.plans[0].id).not.toBe(active.id);expect(nextResult.dailyCalories).toEqual(proposal.result.dailyCalories);expect(nextResult.dailyCalories.reduce((sum,value)=>sum+value,0)).toBe(nextResult.weeklyCalories);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await context.setOffline(true);

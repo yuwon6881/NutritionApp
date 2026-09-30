@@ -47,9 +47,6 @@ export function GoogleHealthProgressChart({
             <h2 id="gh-progress-title">Google Health steps · Last 30 days</h2>
           </div>
         </div>
-        <p className="description">
-          Track your daily step history alongside your nutrition progress.
-        </p>
         {onOpenSettings && (
           <Button presentation="plain" className="inline-link" onClick={onOpenSettings}>
             Connect Google Health in Settings <ArrowUpRight size={13} aria-hidden="true" />
@@ -63,7 +60,6 @@ export function GoogleHealthProgressChart({
   const average = calculateKnownDayAverage(completedDays);
   const knownCount = completedDays.filter(d => d.count !== null && d.count !== undefined).length;
   const hasRenderableHistory = days.some(d => d.count !== null && d.count !== undefined);
-  const hasExcludedToday = Boolean(todayDate && days.some(d => d.date === todayDate));
   const selected = days[scrub.index];
   const selectedCount = selected?.count ?? null;
 
@@ -91,28 +87,28 @@ export function GoogleHealthProgressChart({
 
       <div className="stats-grid google-health-stats">
         <div className="stat-card">
-          <p className="eyebrow">KNOWN-DAY AVERAGE</p>
+          <p className="eyebrow">AVERAGE</p>
           <h2>
             <span className="tabular-num">{average !== null ? number(average) : '—'}</span>{' '}
             <span className="unit">steps / day</span>
           </h2>
           <p className="source">
             {knownCount > 0
-              ? `${knownCount} of ${completedDays.length} days recorded · ${hasExcludedToday ? 'Incomplete today excluded' : 'Missing days excluded'}`
-              : 'No recorded steps in this period'}
+              ? `${knownCount} of ${completedDays.length} days`
+              : 'No steps recorded'}
           </p>
         </div>
       </div>
 
       {loading && days.length === 0 ? (
         <div className="chart-skeleton" aria-busy="true">
-          Loading step history…
+          Loading…
         </div>
       ) : !hasRenderableHistory ? (
         <div className="chart-empty-state" role="status">
           {freshness === 'unavailable'
-            ? 'Daily step history is unavailable right now.'
-            : 'No daily step totals are available for this period.'}
+            ? 'Step history unavailable.'
+            : 'No steps recorded.'}
         </div>
       ) : (
         <div className="chart-scrub step-chart" role="group" aria-label="Step chart. Tap a bar or use the left and right arrow keys to read a day." aria-describedby={readoutId} {...scrub.groupProps}>
@@ -121,11 +117,11 @@ export function GoogleHealthProgressChart({
             <strong className="chart-readout-date">{selected ? bucketReadoutLabel(selected.date, selected.date, 'daily') : '—'}</strong>
             <dl>
               <div><dt>Steps</dt><dd>{selectedCount === null ? 'Not recorded' : <>{number(selectedCount)}{selected?.date === todayDate && <small> so far today</small>}</>}</dd></div>
-              <div><dt>Against average</dt><dd>{selectedCount === null || average === null || selected?.date === todayDate ? '—' : `${selectedCount >= average ? '+' : '−'}${number(Math.abs(selectedCount - average))}`}</dd></div>
+              <div><dt>Vs average</dt><dd>{selectedCount === null || average === null || selected?.date === todayDate ? '—' : `${selectedCount >= average ? '+' : '−'}${number(Math.abs(selectedCount - average))}`}</dd></div>
             </dl>
           </div>
-          <BarChartNav viewport={viewport} range={visibleSpan} noun="days"/>
-          <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={scrub.svgProps}
+          <BarChartNav viewport={viewport} range={visibleSpan}/>
+          <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={scrub.svgProps} pager="days"
             label={`Daily step counts over the last 30 days. Average is ${average !== null ? number(average) : 'unavailable'} steps per day.`}>
             {ticks.map(value => <line key={value} className={value === 0 ? 'chart-baseline' : 'chart-grid'} x1={0} x2={contentWidth} y1={y(value)} y2={y(value)}/>)}
             {selected && <rect className="bar-slot-selected" x={scrub.index * slot + 1} y={TOP - 6} width={Math.max(0, slot - 2)} height={BASE - TOP + 10} rx={6}/>}
@@ -148,7 +144,7 @@ export function GoogleHealthProgressChart({
           <ul className="chart-legend" aria-label="Step chart key">
             <li><span className="legend-swatch swatch-steps" aria-hidden="true"/>Recorded steps</li>
             <li><span className="legend-swatch swatch-steps-partial" aria-hidden="true"/>Today so far</li>
-            <li><span className="legend-line swatch-average" aria-hidden="true"/>Known-day average</li>
+            <li><span className="legend-line swatch-average" aria-hidden="true"/>Average</li>
             <li><span className="legend-swatch swatch-missing" aria-hidden="true"/>Not recorded</li>
           </ul>
         </div>

@@ -17,9 +17,12 @@
 .bar-missing{fill:var(--border)}
 .maintenance-line{fill:none;stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.75}
 .average-line{stroke:var(--ink-strong);stroke-width:1.5;stroke-dasharray:5 4;opacity:.55}
-.bar-chart-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;margin:4px 0}
+.bar-chart-nav{display:flex;align-items:center;justify-content:center;min-height:28px;margin:4px 0}
 .bar-chart-range{flex:1;margin:0;text-align:center;font-size:.76rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
 .bar-chart-hint{display:none}
+/* Mouse users page earlier and later from buttons over the plot edges; touch windows scroll by finger. */
+.bar-chart-frame{position:relative}
+.button.bar-chart-edge{display:none}
 
 /* Readout: the selected date's values in fixed cells, so a new selection never moves the chart. */
 .chart-readout.chart-readout-grid{display:grid;gap:6px;align-items:start;padding:10px 14px;margin-bottom:4px}
@@ -78,9 +81,7 @@
 .weigh-in-actions .weigh-in-delete{color:var(--destructive)}
 
 @media(max-width:639px){
-  .bar-chart-page{display:none}
   .bar-chart-hint{display:inline}
-  .bar-chart-nav{min-height:28px}
   .chart-readout-grid dl{gap:8px}
   /* Two lines are reserved for every value, so a longer one never pushes the chart down. */
   .chart-readout-grid dd{min-height:2.6em;font-size:.8rem;line-height:1.3}
@@ -90,3 +91,9 @@
   .weigh-in-row{gap:12px}
 }
 .weigh-in-more{display:flex;justify-content:center;margin-top:12px}
+@media(min-width:1024px){
+  .button.bar-chart-edge{display:inline-flex;position:absolute;z-index:2;width:36px;min-width:36px;height:36px;min-height:36px;padding:0;border-radius:999px;background:var(--card);box-shadow:var(--shadow);transition:opacity var(--motion-control) ease,background-color var(--motion-control) ease}
+  .bar-chart-edge-back{left:calc(52px + 6px)}
+  .bar-chart-edge-forward{right:6px}
+  .button.bar-chart-edge:disabled{opacity:0;pointer-events:none}
+}

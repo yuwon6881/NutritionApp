@@ -47,7 +47,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
       <div className="body-compare-empty">
         <Scale size={32} className="empty-icon" aria-hidden="true"/>
         <h3>At least 2 records required</h3>
-        <p>Add another body record with measurements or photos to compare changes over time.</p>
+        <p>Add another record to compare.</p>
         <Button variant="secondary" onClick={onBack}>Return to records</Button>
       </div>
     </section>;

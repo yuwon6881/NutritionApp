@@ -66,6 +66,6 @@ test('queued weigh-ins project locally without another Progress request',async({
   await page.getByLabel('Weight (kg)',{exact:true}).fill('80.2');
   await page.getByRole('button',{name:/Update weigh-in|Save weigh-in/,exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Log weight',exact:true})).not.toBeVisible();
-  await expect(page.getByText('Recent progress edits are retained locally and this summary will refresh after synchronization.')).toBeVisible();
+  await expect(page.getByText('Recent edits will update after sync.')).toBeVisible();
   expect(progressReads).toBe(1);
 });

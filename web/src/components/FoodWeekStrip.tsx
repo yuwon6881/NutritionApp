@@ -11,10 +11,12 @@ import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 const earliest='2000-01-01';
 const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const dayWidth=64;
+// Wide windows fit over 16 days, so a fixed fortnight would leave nothing to scroll back into.
+const initialDaysBack=30;
 const outline='M30 1 H47 A12 12 0 0 1 59 13 V47 A12 12 0 0 1 47 59 H13 A12 12 0 0 1 1 47 V13 A12 12 0 0 1 13 1 Z';
 
 export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:string;store:Nourish;onChange:(date:string)=>void}){
-  const [range,setRange]=useState(()=>({from:shiftDate(date,-14)<earliest?earliest:shiftDate(date,-14),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)}));
+  const [range,setRange]=useState(()=>({from:shiftDate(date,-initialDaysBack)<earliest?earliest:shiftDate(date,-initialDaysBack),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)}));
   const [failure,setFailure]=useState('');
   const [,update]=useState(0);
   const track=useRef<HTMLDivElement>(null);
@@ -24,7 +26,7 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
   useEffect(()=>sharedDiaryCoordinator.subscribe(()=>update(value=>value+1)),[]);
   useEffect(()=>{
     reveal.current=true;
-    if(date<range.from||date>range.to)setRange({from:shiftDate(date,-14)<earliest?earliest:shiftDate(date,-14),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)});
+    if(date<range.from||date>range.to)setRange({from:shiftDate(date,-initialDaysBack)<earliest?earliest:shiftDate(date,-initialDaysBack),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)});
     else {
       track.current?.querySelector<HTMLElement>(`[data-date="${date}"]`)?.scrollIntoView({block:'nearest',inline:'center',behavior:'instant'});
       reveal.current=false;

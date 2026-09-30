@@ -43,15 +43,15 @@ export function TrainingSummaryCard({
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
     <div className="training-summary-header">
       <div>
-        <p className="eyebrow" id="training-summary-title">TRAINING CONTEXT</p>
-        <h2>Recent and upcoming workouts</h2>
+        <p className="eyebrow" id="training-summary-title">WORKOUTS</p>
+        <h2>Recent and upcoming</h2>
       </div>
       <div className="training-icon-badge" aria-hidden="true">
         <Dumbbell size={22} />
       </div>
     </div>
     {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} />}
-    {loading && visible.length > 0 && <p className="source" role="status" aria-live="polite">Refreshing workouts… Saved summaries remain visible.</p>}
+    {loading && visible.length > 0 && <p className="source" role="status" aria-live="polite">Refreshing…</p>}
     {loading && isConnected && !visible.length ? (
       <div className="training-summary-list skeleton" aria-busy="true">
         <div className="training-summary-row"><div style={{height:'18px',width:'160px',background:'var(--border)',borderRadius:'4px'}}/></div>
@@ -64,12 +64,12 @@ export function TrainingSummaryCard({
         </div>
         <div className="training-empty-content">
           <p className="training-empty-title">
-            {isConnected ? 'No workouts scheduled' : 'No connected workout schedule'}
+            {isConnected ? 'No workouts' : 'Workout not connected'}
           </p>
           <p className="training-empty-description">
             {isConnected
-              ? 'No workouts scheduled or recorded in the past 7 days. Nutrition targets remain unchanged.'
-              : 'Workout training summaries provide training context alongside your diary. Nutrition targets remain unchanged.'}
+              ? 'Nothing scheduled or recorded in the past 7 days.'
+              : 'Connect Workout to see training here.'}
           </p>
           {!isConnected && onOpenSettings && (
             <p className="source">

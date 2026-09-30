@@ -115,7 +115,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
       <header className="page-heading photo-view-heading"><div className="subpage-header-title">{back('Back to Body',()=>setPage('home'))}<h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
       {bodyError&&<CardFeedback title="Body history unavailable" message={bodyError} action={{label:'Retry history',onClick:()=>void loadBodyPage(!bodyRecords.length),disabled:busy}}/>}
       <section className="panel body-history-panel">
-        <div className="section-heading"><div><h2>Measurements and photos</h2><p>Newest first. Weight is the snapshot taken when each record was saved.</p></div><Button variant="secondary" disabled={bodyRecords.length<2} onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare</Button></div>
+        <div className="section-heading"><div><h2>Measurements and photos</h2><p>Newest first.</p></div><Button variant="secondary" disabled={bodyRecords.length<2} onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare</Button></div>
         {!bodyRecords.length&&!bodyError&&(bodyLoaded?<p className="empty">No Body records yet.</p>:<BodyListSkeleton kind="history" label="Loading Body history…"/>)}
         <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
         {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
@@ -133,7 +133,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
       <header className="page-heading photo-view-heading"><div className="subpage-header-title">{back('Back to Body',closeGallery)}<h2>Gallery</h2></div><Button variant="primary" onClick={event=>openUpload(undefined,event.currentTarget)}>Add photo set</Button></header>
       {error&&<CardFeedback title="Photo gallery unavailable" message={error} action={{label:'Retry gallery',onClick:()=>void loadPage(!sets.length),disabled:busy}}/>}
       <section className="panel physique-gallery-panel">
-        <div className="section-heading"><div><h2>Photo sets</h2><p>Newest first. Missing views stay missing.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}><ArrowLeftRight size={16} aria-hidden="true"/>Step through sets</Button></div>
+        <div className="section-heading"><div><h2>Photo sets</h2><p>Newest first.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}><ArrowLeftRight size={16} aria-hidden="true"/>Step through sets</Button></div>
         {!sets.length&&!error&&(loaded?<p className="empty">No photo sets yet.</p>:<BodyListSkeleton kind="gallery" label="Loading gallery…"/>)}
         <div className="photo-gallery-list">{sets.map(set=><PhotoSetRow key={set.id} set={set} onEdit={openUpload}/>)}</div>
         {hasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
@@ -147,14 +147,14 @@ export function PhysiquePhotos({store}:{store:Nourish}){
     </>;
   }else{
     view=<>
-      <section className="panel physique physique-photo-home"><div className="section-heading"><div><h2>Body tracking & progress</h2><p>Measurements, body fat, weight snapshots, and private physique photos.</p></div></div>
+      <section className="panel physique physique-photo-home"><div className="section-heading"><div><h2>Body</h2></div></div>
         <div className="body-hub-grid">
           <article className="body-hub-card">
             <div className="body-hub-card-header">
               <div className="body-hub-icon-wrap" aria-hidden="true"><Scale size={20}/></div>
               <div>
                 <h3>Measurements & records</h3>
-                <p>Circumferences, body fat, front, side, and back photos, and the weight on that day.</p>
+                <p>Measurements, body fat, photos, and weight.</p>
               </div>
             </div>
             <div className="body-hub-card-footer">
@@ -167,7 +167,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
               <div className="body-hub-icon-wrap" aria-hidden="true"><Camera size={20}/></div>
               <div>
                 <h3>Photo gallery</h3>
-                <p>Private front, side, and back photo sets, newest first.</p>
+                <p>Private front, side, and back photos.</p>
               </div>
             </div>
             <div className="body-hub-card-footer">
@@ -179,7 +179,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
         <div className="body-hub-compare-cta">
           <Button variant="secondary" size="md" onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare past & present</Button>
         </div>
-        {retained>0&&<p className="source body-hub-status">{retained} {retained===1?'change is':'changes are'} saved on this device and will upload when connected.</p>}
+        {retained>0&&<p className="source body-hub-status">{retained} {retained===1?'change':'changes'} waiting to sync.</p>}
       </section>
       {drafts.map(draft=><PhotoDraftNotice key={draft.id} draft={draft} store={store}/>)}
       {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}

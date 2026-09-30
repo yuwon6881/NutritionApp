@@ -23,15 +23,15 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
   const [showAll,setShowAll]=useState(false);
   const shown=showAll?editable:editable.slice(0,INITIAL_ROWS);
   return <>
-    {pending&&<p className="notice" role="status">Recent progress edits are retained locally and this summary will refresh after synchronization.</p>}
+    {pending&&<p className="notice" role="status">Recent edits will update after sync.</p>}
     <div className="stats-grid">
-      <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{isTrendPending?'—':displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending synchronization':'Smoothed from your scale weigh-ins'}</p></section>
+      <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{isTrendPending?'—':displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{unit}</span></h2>{isTrendPending&&<p>Pending sync</p>}</section>
       <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{stats.count} {stats.count===1?'weigh-in':'weigh-ins'}</p></section>
-      <section className="panel"><p className="eyebrow">CHANGE IN TREND</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending synchronization':dateSpan(summary.start,summary.end)}</p></section>
+      <section className="panel"><p className="eyebrow">CHANGE IN TREND</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending sync':dateSpan(summary.start,summary.end)}</p></section>
     </div>
     <WeightChart series={summary.weight.series} weightUnit={units.weight}/>
     <section className="panel weight-history-panel" aria-labelledby="latest-weigh-ins-title">
-      <div className="section-heading"><div><h2 id="latest-weigh-ins-title">Latest weigh-ins</h2><p>Recent weigh-ins can be edited or deleted. Older ones stay in the chart.</p></div></div>
+      <div className="section-heading"><div><h2 id="latest-weigh-ins-title">Latest weigh-ins</h2></div></div>
       {editable.length?<><ul className="weigh-in-list">{shown.map(weight=>{
         const change=changeSincePrevious(summary.weight.series,weight.date,weight.kg);
         const context=weightContextLabel(weight.context);

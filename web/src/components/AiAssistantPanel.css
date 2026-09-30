@@ -387,3 +387,47 @@
     padding-inline: 14px;
   }
 }
+
+/* Desktop entrance. The base modal transition can be skipped when the dialog first paints, so the
+   open state is a keyframe animation that always runs, with the backdrop fading in beside it. */
+@media (min-width: 640px) and (prefers-reduced-motion: no-preference) {
+  .ai-assistant-modal.modal-shell[open]:not(.modal-closing)::backdrop {
+    animation: ai-backdrop-in 260ms ease-out both;
+  }
+
+  .ai-assistant-modal.modal-shell.modal-closing::backdrop {
+    opacity: 0;
+    transition: opacity 160ms ease-in;
+  }
+
+  .ai-assistant-modal.modal-shell[open]:not(.modal-closing) .modal-surface {
+    transform-origin: 50% 100%;
+    animation: ai-surface-in 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .ai-assistant-modal.modal-shell[open]:not(.modal-closing) .ai-chat-empty > :not(.ai-chat-prompts),
+  .ai-assistant-modal.modal-shell[open]:not(.modal-closing) .ai-chat-prompts li {
+    animation: ai-content-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .ai-assistant-modal.modal-shell[open] .ai-chat-empty > :nth-child(2) { animation-delay: 60ms; }
+  .ai-assistant-modal.modal-shell[open] .ai-chat-empty > :nth-child(3) { animation-delay: 100ms; }
+  .ai-assistant-modal.modal-shell[open] .ai-chat-prompts li:nth-child(1) { animation-delay: 160ms; }
+  .ai-assistant-modal.modal-shell[open] .ai-chat-prompts li:nth-child(2) { animation-delay: 210ms; }
+  .ai-assistant-modal.modal-shell[open] .ai-chat-prompts li:nth-child(3) { animation-delay: 260ms; }
+}
+
+@keyframes ai-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ai-surface-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ai-content-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

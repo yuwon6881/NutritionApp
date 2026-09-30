@@ -105,7 +105,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   await page.getByRole('button',{name:'Progress',exact:true}).click();
   await page.getByRole('button',{name:'Activity',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Google Health steps · Last 30 days',exact:true})).toBeVisible();
-  await expect(page.getByText('Daily step history is unavailable right now.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Step history unavailable.',{exact:true})).toBeVisible();
   await expect(page.locator('.chart-date-axis')).toHaveCount(0);
   const accessibleSummary=page.locator('.google-health-progress-section .sr-only');
   await expect(accessibleSummary).toHaveCSS('position','absolute');

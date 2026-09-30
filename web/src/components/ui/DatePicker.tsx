@@ -308,6 +308,10 @@ export function DatePicker({
   const monthOptions = MONTHS.map((month, index) => ({value: index, label: month}));
   const yearOptions = calendarYears.map(year => ({value: year, label: String(year)}));
 
+  // A month wholly outside min/max has no selectable day, so its arrow is disabled instead of leading nowhere.
+  const prevDisabled = Boolean(min && toIso(new Date(viewYear, viewMonth, 0)) < min);
+  const nextDisabled = Boolean(max && toIso(new Date(viewYear, viewMonth + 1, 1)) > max);
+
   const prevMonth = () => {
     setActiveDropdown(null);
     if (viewMonth === 0) {
@@ -419,7 +423,7 @@ export function DatePicker({
             style={{left:popoverPosition?.left??0,top:popoverPosition?.top??0,visibility:popoverPosition?'visible':'hidden'}}>
             <div className="calendar-header">
               <div className="calendar-nav-group">
-                <button type="button" className="calendar-nav-btn" onClick={prevMonth} aria-label="Previous month">
+                <button type="button" className="calendar-nav-btn" onClick={prevMonth} disabled={prevDisabled} aria-label="Previous month">
                   <ChevronLeft size={16} />
                 </button>
               </div>
@@ -451,7 +455,7 @@ export function DatePicker({
                 />
               </div>
               <div className="calendar-nav-group">
-                <button type="button" className="calendar-nav-btn" onClick={nextMonth} aria-label="Next month">
+                <button type="button" className="calendar-nav-btn" onClick={nextMonth} disabled={nextDisabled} aria-label="Next month">
                   <ChevronRight size={16} />
                 </button>
               </div>
