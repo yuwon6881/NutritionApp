@@ -22,15 +22,14 @@ describe('saved food cache freshness',()=>{
 });
 
 describe('saved food identity and late responses',()=>{
-  it('updates mapped nutrition in place and blocks a record needing conflict review',()=>{
+  it('updates mapped nutrition in place',()=>{
     const mapped={...food,barcode:'12345678'};
     const candidate={...foodToSearchResult(mapped),name:'Provider product',source:'provider',calories:999};
-    const op=favouriteMutation([mapped],candidate,[]);
+    const op=favouriteMutation([mapped],candidate);
     expect(op.recordId).toBe(mapped.id);
     expect((op.data as Food).calories).toBe(100);
     expect((op.data as Food).favourite).toBe(true);
-    expect(()=>favouriteMutation([mapped],candidate,[{...op,id:'blocked',error:'Revision conflict'}])).toThrow(/Review the saved edit/);
-    const second=favouriteMutation([op.data as Food],candidate,[]);
+    const second=favouriteMutation([op.data as Food],candidate);
     expect((second.data as Food).favourite).toBe(false);
   });
   it('matches an existing barcode before a different provider name or source',()=>{

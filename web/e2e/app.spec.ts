@@ -378,7 +378,7 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('#settings-weight-unit-kg').click();await page.locator('#settings-energy-unit-kcal').click();await page.locator('#settings-height-unit-cm').click();await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.weightUnit==='kg'&&latest.settings?.energyUnit==='kcal'&&latest.settings?.heightUnit==='cm';}).toBeTruthy();
 });
 
-test('conflicting retained edits explain the saved record and can be discarded',async({page,context})=>{
+test('a stale retained day decision keeps the saved record without asking for review',async({page,context})=>{
   await signIn(context.request);
   let state=await (await context.request.get('/api/state')).json();
   const date=new Date(`${state.end}T00:00:00Z`);date.setUTCDate(date.getUTCDate()-1);const previousDate=date.toISOString().slice(0,10);
@@ -388,8 +388,8 @@ test('conflicting retained edits explain the saved record and can be discarded',
   await page.goto('/');await resolveMissingDays(page);await page.getByRole('button',{name:'Food Log',exact:true}).click();await page.locator('.food-week-strip [aria-current="date"]').evaluate(element=>(element.previousElementSibling as HTMLElement).click());await page.getByRole('dialog').getByRole('button',{name:'Close dialog',exact:true}).click({timeout:5000}).catch(()=>{});await expect(page.getByLabel('Logging status',{exact:true})).toHaveValue('not_logged');
   await context.setOffline(true);await page.getByLabel('Logging status',{exact:true}).selectOption('incomplete');await expect(page.getByRole('button',{name:'Discard local edit',exact:true})).toHaveCount(0);
   const changed=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:day.id,kind:'day',expectedRevision:day.revision,data:{date:previousDate,status:'complete'}}});expect(changed.ok(),await changed.text()).toBeTruthy();
-  await context.setOffline(false);await expect(page.getByRole('heading',{name:'A saved edit needs review',exact:true})).toBeVisible();await expect(page.getByText(`Daily logging decision · ${previousDate}`,{exact:true})).toBeVisible();await expect(page.getByText('Queued choice',{exact:true})).toBeVisible();await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
-  await expect(page.getByRole('dialog',{name:/^No food logged for /})).toHaveCount(0);await page.getByRole('button',{name:'Discard local edit',exact:true}).click();await expect(page.getByRole('heading',{name:'A saved edit needs review',exact:true})).toHaveCount(0);
+  await context.setOffline(false);await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.days.find((item:{date:string;deleted:boolean})=>item.date===previousDate&&!item.deleted).revision;}).toBeGreaterThan((await changed.json()).revision);
+  await expect(page.locator('.sync-status')).toHaveCount(0);await expect(page.getByText(/needs review/)).toHaveCount(0);await expect(page.getByRole('button',{name:'Discard local edit',exact:true})).toHaveCount(0);
   const saved=await (await context.request.get('/api/state')).json();expect(saved.days.find((item:{date:string;deleted:boolean})=>item.date===previousDate&&!item.deleted).status).toBe('complete');
 });
 

@@ -10,7 +10,7 @@ export function useFoodFavourite(ref:RefObject<LocalData|undefined>,loadSavedFoo
       if(!accountId||ref.current?.state.id!==accountId)throw new Error('Sign in again before changing saved foods.');
       const foods=await loadSavedFoods(true);
       if(ref.current?.state.id!==accountId)throw new Error('The account changed while loading saved foods.');
-      await mutate(favouriteMutation(foods,candidate,ref.current?.queue??[]));
+      await mutate(favouriteMutation(foods,candidate));
     });
     favouriteWrites.current=operation;
     return operation;

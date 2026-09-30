@@ -194,7 +194,6 @@ export function FoodTimeline({
               isSelected={Boolean(selectedIds?.has(entry.id))}
               isMoved={movedIds.has(entry.id)}
               isAdded={addedIds.has(entry.id)}
-              pendingError={pending.find(op=>op.error)?.error}
               isPendingSync={pending.length>0}
               onEdit={onEdit}
               onOpenActions={openActions}

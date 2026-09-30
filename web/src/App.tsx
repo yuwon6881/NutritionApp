@@ -19,7 +19,6 @@ import {WeightEntryDialog} from './components/WeightEntryDialog';
 import {CopyDayDialog} from './components/CopyDayDialog';
 import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
-import {SyncConflictNotice} from './components/SyncConflictNotice';
 import {SyncStatus} from './components/ui/SyncStatus';
 import {UndoToastHost} from './components/ui/UndoToast';
 import {DashboardSkeleton} from './components/ui/Skeleton';
@@ -115,7 +114,6 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
     }
   };
   const needsProfile=!!store.state&&!store.state.profile;
-  const conflictCount=store.local?.queue.filter(queue=>queue.error).length??0;
 
   const pageRef=useRef(page);
   pageRef.current=page;
@@ -272,8 +270,7 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
       <SyncStatus store={store}/>
       <UndoToastHost/>
       <PwaUpdateNotice/>
-      {store.error&&!conflictCount&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
-      <SyncConflictNotice store={store}/>
+      {store.error&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
       {!store.state?<><DashboardSkeleton label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<DashboardSkeleton label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
         {pageContent}
       </MotionScene></Suspense>}

@@ -1,4 +1,4 @@
-import {AlertTriangle,CloudOff,LoaderCircle} from 'lucide-react';
+import {CloudOff,LoaderCircle} from 'lucide-react';
 import {useEffect,useState} from 'react';
 import type {Nourish} from '../../useNourish';
 
@@ -17,23 +17,16 @@ export function SyncStatus({store}:{store:Nourish}){
     return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};
   },[]);
 
-  const conflicts=store.local?.queue.filter(operation=>operation.error).length??0;
   const pending=pendingWork(store);
   const meaningfulSync=store.sync.phase==='syncing'&&(store.sync.kind==='photo'||store.sync.kind==='body');
   const retainedOffline=pending>0&&!online;
-  const attention=conflicts>0;
-  if(!meaningfulSync&&!retainedOffline&&!attention)return null;
+  if(!meaningfulSync&&!retainedOffline)return null;
 
   let title='Saved on this device';
   let detail='Will sync when you reconnect.';
   let tone='pending';
   let Icon=CloudOff;
-  if(attention){
-    title=`${conflicts} saved edit${conflicts===1?'':'s'} needs review`;
-    detail='The server record is protected until you review the queued change.';
-    tone='attention';
-    Icon=AlertTriangle;
-  }else if(meaningfulSync){
+  if(meaningfulSync){
     title=store.sync.kind==='body'?'Saving Body record…':'Uploading photo set…';
     detail='Your latest changes are being sent to the server.';
     tone='syncing';

@@ -17,6 +17,8 @@ import {singleFlight} from './lib/singleFlight';
 import {useNourishActions} from './useNourishActions';
 import {useFoodFavourite} from './useFoodFavourite';
 import {useProgressReads} from './useProgressReads';
+import {rejectedEditMessage} from './lib/rejectedEdit';
+import {showNotice} from './components/ui/UndoToast';
 export type { SyncKind, SyncPhase, SyncState };
 export function useNourish(user: string) {
   const [calendarDate, setCalendarDate] = useState(today());
@@ -275,7 +277,12 @@ export function useNourish(user: string) {
           await sharedDiaryCoordinator.acknowledge(op,revision);
         } catch (ex) {
           if (ex instanceof ApiError && [400, 409, 422].includes(ex.status)) {
-            await commit(current => ({ ...current, queue: current.queue.map(q => q.id === op.id ? { ...q, error: ex.message } : q) }));
+            // A terminal rejection leaves the saved server record in place. Retaining the edit for
+            // review could never change that outcome, so the device drops it, refreshes onto the
+            // saved value, and says so without blocking later work.
+            await commit(current => ({ ...current, queue: current.queue.filter(q => q.id !== op.id) }));
+            sent = true;
+            showNotice(rejectedEditMessage(op));
             continue;
           }
           throw ex;

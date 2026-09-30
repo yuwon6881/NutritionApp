@@ -28,7 +28,7 @@ function initials(name:string){
 export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');
   const [theme,setTheme]=useState<Theme>(activeTheme);
-  const {saving,needsReview,savingLabel}=useSettingsSave(store);
+  const {saving,savingLabel}=useSettingsSave(store);
   const state=store.state!;
 
   const signOut=()=>void (async()=>{
@@ -43,7 +43,6 @@ export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<vo
       <h1 data-page-heading tabIndex={-1}>Settings</h1>
       {saving&&<p className="settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
     </header>
-    {needsReview&&<CardFeedback tone="warning" title="Settings need review" message="This settings change is waiting for review in the saved edit notice above."/>}
 
     <section className="panel settings-account" aria-labelledby="account-title">
       <span className="settings-avatar" aria-hidden="true">{initials(state.displayName)}</span>

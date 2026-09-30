@@ -87,7 +87,9 @@ test('a new terminal rejection permits the next independent write in the same dr
   // Allow only event-loop ticks, far short of a foreground or periodic retry.
   expect(elapsed).toBeLessThan(100);
   expect(calls[1]).not.toBe(calls[0]);
-  await expect(page.getByText('Test terminal rejection',{exact:true})).toBeVisible();
+  // The rejected edit is dropped with a brief notice; nothing waits for review.
+  await expect(page.getByText(/^Couldn’t apply the weigh-in for .+ The saved version was kept\.$/)).toBeVisible();
+  await expect(page.getByText(/needs review/)).toHaveCount(0);
 });
 
 test('cached training remains visible while a refresh is pending',async({page})=>{

@@ -14,11 +14,10 @@ export function MissedDays({store}:{store:Nourish}){
   const date=dates[0];
   const missingDayAction=store.state?.settings?.missingDayAction??'ask';
   const automaticDates=automaticMissingDays(store.state!,undefined,missingDayAction);
-  const hasConflict=store.local?.queue.some(operation=>Boolean(operation.error))??false;
 
   // Automatically apply default action when configured to fasting or not logging
   useEffect(()=>{
-    if(hasConflict||missingDayAction==='ask'||automaticDates.length===0||busy)return;
+    if(missingDayAction==='ask'||automaticDates.length===0||busy)return;
     void run(async()=>{
       for(const d of automaticDates){
         const day=store.state!.days.find(item=>item.date===d);
@@ -31,16 +30,14 @@ export function MissedDays({store}:{store:Nourish}){
         });
       }
     });
-  },[hasConflict,missingDayAction,automaticDates,busy,run,store]);
+  },[missingDayAction,automaticDates,busy,run,store]);
 
   // Reset toggle when date changes
   useEffect(()=>{
     setRemember(false);
   },[date]);
 
-  // Conflict review owns the next user decision. Do not open another blocking
-  // modal that could enqueue a second edit for the same protected record.
-  if(hasConflict||missingDayAction!=='ask')return null;
+  if(missingDayAction!=='ask')return null;
 
   const save=async(status:'fasting'|'not_logged')=>{
     setError('');

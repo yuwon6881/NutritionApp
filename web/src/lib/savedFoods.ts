@@ -2,11 +2,9 @@ import type {Food,FoodSearchResult,Mutation} from '../types';
 import {barcodeValue} from './logFood';
 import {serializePortions} from './portions';
 
-export function favouriteMutation(foods:Food[],candidate:FoodSearchResult,queue:Mutation[]):Omit<Mutation,'id'|'holdUntil'>{
+export function favouriteMutation(foods:Food[],candidate:FoodSearchResult):Omit<Mutation,'id'|'holdUntil'>{
   const existing=findSavedFood(foods,candidate);
   if(existing){
-    if(queue.some(op=>op.kind==='food'&&op.recordId===existing.id&&op.error))
-      throw new Error('Review the saved edit for this food before changing its favourite status.');
     return {kind:'food',recordId:existing.id,expectedRevision:existing.revision,delete:false,data:{...existing,favourite:!existing.favourite}};
   }
   return {kind:'food',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...candidate,

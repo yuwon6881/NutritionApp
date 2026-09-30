@@ -9,10 +9,12 @@ import type {Mutation} from '../types';
  */
 export const UNDO_WINDOW_MS=5000;
 
-/** Conflicts stay retained; neither they nor later edits to their protected record dispatch. */
+/**
+ * Queue order is dispatch order. A rejected edit is dropped rather than retained, so nothing blocks
+ * the head. Queues saved by older builds may still carry a review marker; those edits simply retry.
+ */
 export function nextDispatchableMutation(queue:readonly Mutation[]):Mutation|undefined{
-  const blocked=new Set(queue.filter(op=>op.error).map(op=>`${op.kind}:${op.recordId}`));
-  return queue.find(op=>!op.error&&!blocked.has(`${op.kind}:${op.recordId}`));
+  return queue[0];
 }
 
 /** Milliseconds before the head of the queue may be sent; later work waits behind it to keep order. */

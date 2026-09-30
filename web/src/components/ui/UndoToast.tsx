@@ -12,7 +12,8 @@ interface UndoNotice {
   id:number;
   message:string;
   expiresAt:number;
-  onUndo:()=>Promise<boolean>|boolean;
+  /** Absent for a plain notice, which offers nothing to undo. */
+  onUndo?:()=>Promise<boolean>|boolean;
 }
 
 let current:UndoNotice|null=null;
@@ -22,6 +23,11 @@ const publish=(notice:UndoNotice|null)=>{current=notice;listeners.forEach(listen
 
 export function showUndo(message:string,onUndo:()=>Promise<boolean>|boolean,durationMs=UNDO_WINDOW_MS){
   publish({id:nextId++,message,expiresAt:Date.now()+durationMs,onUndo});
+}
+
+/** A brief non-blocking notice in the same slot, for outcomes that need no action. */
+export function showNotice(message:string,durationMs=6000){
+  publish({id:nextId++,message,expiresAt:Date.now()+durationMs});
 }
 
 export function UndoToastHost(){
@@ -44,7 +50,7 @@ export function UndoToastHost(){
   },[result]);
 
   const undo=async()=>{
-    if(!notice)return;
+    if(!notice?.onUndo)return;
     const restored=await notice.onUndo();
     if(current?.id===notice.id)publish(null);
     setResult(restored?'Restored.':'Too late to undo; the deletion was already sent.');
@@ -53,6 +59,6 @@ export function UndoToastHost(){
   if(!notice&&!result)return null;
   return <div className="undo-toast" role="status" aria-live="polite">
     <span>{notice?notice.message:result}</span>
-    {notice&&<Button variant="tertiary" size="sm" onClick={()=>void undo()}><Undo2 size={16} aria-hidden="true"/>Undo</Button>}
+    {notice?.onUndo&&<Button variant="tertiary" size="sm" onClick={()=>void undo()}><Undo2 size={16} aria-hidden="true"/>Undo</Button>}
   </div>;
 }

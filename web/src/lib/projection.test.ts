@@ -45,7 +45,7 @@ it('coalesces settings data without changing the in-flight revision',()=>{
   const op:Mutation={...queued,id:'next',data:{heightUnit:'cm'}};
   expect(enqueueMutation(current,op).queue).toEqual([{...queued,data:{weightUnit:'kg',heightUnit:'cm'}}]);
 });
-it('never sends local error metadata as mutation content',()=>{const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'};expect(wireMutation(op)).not.toHaveProperty('error');});
+it('never sends a legacy review marker as mutation content',()=>{const op={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'} as Mutation;expect(wireMutation(op)).not.toHaveProperty('error');});
 it('projects cadence edits without changing the active profile revision',()=>{
   const withPlan={...state,profileRevision:7,settings:{checkInWeekday:1,revision:4}};
   const op:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:4,delete:false,data:{checkInWeekday:5,missingDayAction:'fasting'}};

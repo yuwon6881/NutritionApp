@@ -14,7 +14,6 @@ export interface FoodTimeCardProps {
   isSelected:boolean;
   isMoved:boolean;
   isAdded?:boolean;
-  pendingError?:string;
   isPendingSync:boolean;
   onEdit:(entry:Entry)=>void;
   onOpenActions:(entry:Entry,trigger:HTMLElement)=>void;
@@ -35,7 +34,6 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   isSelected,
   isMoved,
   isAdded=false,
-  pendingError,
   isPendingSync,
   onEdit,
   onOpenActions,
@@ -117,7 +115,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
         <span className="food-time-card-dot" aria-hidden="true">·</span>
         <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat}/>
       </div>
-      {isPendingSync&&<small className="sync-label" role="status">{pendingError??'Pending sync'}</small>}
+      {isPendingSync&&<small className="sync-label" role="status">Pending sync</small>}
     </article>
   </div>;
 });

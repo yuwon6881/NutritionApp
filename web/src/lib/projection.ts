@@ -2,7 +2,7 @@ import type { AppState, CoachingSettings, LocalData, Mutation, Profile } from '.
 const collection={entry:'entries',food:'foods',weight:'weights',day:'days'} as const;
 export function enqueueMutation(current:LocalData,op:Mutation):LocalData{
   if(op.kind==='settings'){
-    const queued=current.queue.find(item=>item.kind==='settings'&&!item.error);
+    const queued=current.queue.find(item=>item.kind==='settings');
     if(queued)return {...current,queue:current.queue.map(item=>item.id===queued.id?{...item,data:{...(item.data as object),...(op.data as object)}}:item)};
     // A control can change again before React receives the preceding acknowledgement.
     const expectedRevision=current.state.settings?.revision??op.expectedRevision;
@@ -50,7 +50,8 @@ export function project(state:AppState,queue:Mutation[]):AppState{
   if(copied.has('foods'))result.foods.sort((a,b)=>a.name.localeCompare(b.name));
   return result;
 }
-export function wireMutation(op:Mutation){const {error:_,holdUntil:_hold,...wire}=op;return wire;}
+// Queues saved before rejected edits were dropped may still carry a legacy review marker.
+export function wireMutation(op:Mutation){const {error:_legacy,holdUntil:_hold,...wire}=op as Mutation&{error?:string};return wire;}
 export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision:number,newId=()=>crypto.randomUUID()):Mutation[]{
   // A settings edit can be coalesced while its request is in flight. The
   // queued object then has the same id but newer data; keep it as a fresh

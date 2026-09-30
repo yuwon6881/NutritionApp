@@ -61,9 +61,9 @@ it('selects fresher covered history and retains archived unknown totals',()=>{
   const selected=historyState(local,'2026-09-01')!;
   expect(selected.days[0].calories).toBe(450);expect(selected.days[0].protein).toBeNull();
 });
-it('retains a conflicting entry edit without projecting it over an archived summary',()=>{
+it('does not project a queued entry edit over an archived summary',()=>{
   const archived:AppState={...state,days:[{id:'d',date:'2026-09-09',archived:true,calories:450,entryCount:1,status:'not_logged',revision:2,deleted:false}]};
-  const op:Mutation={id:'m',recordId:'e',kind:'entry',expectedRevision:0,delete:false,data:entry('e','12:00'),error:'Already summarized'};
+  const op:Mutation={id:'m',recordId:'e',kind:'entry',expectedRevision:0,delete:false,data:entry('e','12:00')};
   const local:LocalData={state:archived,queue:[op]};
   const selected=historyState(local,'2026-09-09')!;
   expect(selected.entries).toEqual([]);expect(selected.days[0].status).toBe('not_logged');

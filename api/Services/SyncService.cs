@@ -49,9 +49,10 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         {
             var requestedDate=mutatedDate??storedDate;
             Validation.Require(!await db.Days.AnyAsync(d=>d.Archived&&(d.Date==requestedDate||d.Date==storedDate),ct),
-                "This day has already been summarized. Meal details are read-only. Your unsynced edit is retained locally for review.",409);
+                "This day has already been summarized. Meal details are read-only.",409);
         }
         var revision = user.Revision + 1;
+        var keptSavedDay = false;
         DateOnly? trajectoryFrom = null;
         switch (op.Kind)
         {
@@ -118,6 +119,13 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             case "day":
                 var savedDay=await db.Days.SingleOrDefaultAsync(d=>d.Id==op.RecordId,ct);
                 Validation.Require(!(op.Delete && savedDay?.Archived == true),"Daily summaries cannot be deleted.",409);
+                if(await ResolveStaleDayDecision(op,savedDay,revision,ct) is {} resolved)
+                {
+                    keptSavedDay=resolved.Kept;
+                    if(resolved.Kept)break;
+                    op=op with { RecordId=resolved.Day.Id, ExpectedRevision=resolved.Day.Revision };
+                    savedDay=resolved.Day;
+                }
                 await Upsert<DayStatus>(op,revision,d=>
                 {
                     Date(d.Date);
@@ -145,7 +153,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 if (day != null) { day.Status = "incomplete"; day.Revision = revision; }
             }
         }
-        if (op.Kind == "day" && !op.Delete)
+        if (op.Kind == "day" && !op.Delete && !keptSavedDay)
         {
             var day = db.ChangeTracker.Entries<DayStatus>().Single().Entity;
             if (day.Status == "fasting") Validation.Require(day.Calories == 0 && !await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
@@ -164,6 +172,30 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         }
         db.Receipts.Add(new MutationReceipt { Id = op.Id, UserId = uid, Hash = hash, Revision = revision });
         await db.SaveChangesAsync(ct); await gate.Commit(ct); return revision;
+    }
+
+    /// <summary>
+    /// A day decision is one row per date, so a decision queued without seeing the saved one (another
+    /// device decided first, or this device's cached diary was stale) is reconciled rather than rejected.
+    /// A saved decision is never replaced by one made without seeing it: the saved row is re-stamped so the
+    /// queuing device's refresh returns it. A removed row for the date adopts the new decision instead.
+    /// Returns null when the mutation targets the current saved row and applies normally.
+    /// </summary>
+    private async Task<(DayStatus Day,bool Kept)?> ResolveStaleDayDecision(Mutation op,DayStatus? savedById,long revision,CancellationToken ct)
+    {
+        if(op.Delete)return null;
+        var saved=savedById;
+        if(saved==null)
+        {
+            if(op.Data.ValueKind!=JsonValueKind.Object||!op.Data.TryGetProperty("date",out var value)||value.ValueKind!=JsonValueKind.String
+                ||!DateOnly.TryParse(value.GetString(),System.Globalization.CultureInfo.InvariantCulture,out var date))return null;
+            saved=await db.Days.SingleOrDefaultAsync(d=>d.Date==date,ct);
+            if(saved==null)return null;
+        }
+        else if(saved.Revision==op.ExpectedRevision)return null;
+        if(saved.Deleted)return (saved,false);
+        saved.Revision=revision;
+        return (saved,true);
     }
 
     private async Task Upsert<T>(Mutation op, long revision, Action<T> validate, CancellationToken ct) where T : OwnedRecord, new()

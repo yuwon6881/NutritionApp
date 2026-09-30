@@ -12,14 +12,8 @@ const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profil
 const held=(id:string,holdUntil:number,recordId='e'):Mutation=>({id,kind:'entry',recordId,expectedRevision:3,delete:true,data:{...state.entries[0]},holdUntil});
 
 describe('undoable (held) deletions',()=>{
-  it('stops at a conflict-only queue and permits other records without replaying protected edits',()=>{
-    const conflict={...held('conflict',0),error:'Needs review'};
-    const dependent=held('dependent',0);
-    const other=held('other',2000,'other');
-    expect(nextDispatchableMutation([conflict])).toBeUndefined();
-    expect(nextDispatchableMutation([conflict,dependent])).toBeUndefined();
-    expect(nextDispatchableMutation([conflict,dependent,other])).toBe(other);
-    expect(dispatchWait([other],1000)).toBe(1000);
+  it('waits out the hold at the head of the queue',()=>{
+    expect(dispatchWait([held('other',2000,'other')],1000)).toBe(1000);
   });
   it('project the deletion immediately while the request waits',()=>{
     expect(project(state,[held('m',2000)]).entries[0].deleted).toBe(true);
@@ -52,22 +46,11 @@ describe('undoable (held) deletions',()=>{
     expect(wireMutation(held('m',2000))).not.toHaveProperty('holdUntil');
   });
 
-  it('skips a terminal errored mutation and its dependent operations while continuing independent records in identical queue order', ()=>{
-    const rejected:Mutation={...held('m1',0,'rec-1'),error:'Invalid data (400)'};
-    const dependentOnRejected:Mutation={...held('m2',0,'rec-1')};
-    const independentFirst:Mutation={...held('m3',0,'rec-2')};
-    const independentSecond:Mutation={...held('m4',0,'rec-3')};
-
-    const queue=[rejected,dependentOnRejected,independentFirst,independentSecond];
-
-    // First dispatchable item must be independentFirst, without moving rejected or rotating the queue
-    expect(nextDispatchableMutation(queue)).toBe(independentFirst);
-
-    // After independentFirst completes (simulated by removing it), next is independentSecond
-    const remainingQueue=[rejected,dependentOnRejected,independentSecond];
-    expect(nextDispatchableMutation(remainingQueue)).toBe(independentSecond);
-
-    // After independentSecond completes, no more mutations can dispatch (rec-1 is blocked by error)
-    expect(nextDispatchableMutation([rejected,dependentOnRejected])).toBeUndefined();
+  it('dispatches in queue order, retrying an edit an older build held for review', ()=>{
+    const legacy={...held('m1',0,'rec-1'),error:'Invalid data (400)'} as Mutation;
+    const later:Mutation={...held('m2',0,'rec-2')};
+    expect(nextDispatchableMutation([legacy,later])).toBe(legacy);
+    expect(nextDispatchableMutation([later])).toBe(later);
+    expect(nextDispatchableMutation([])).toBeUndefined();
   });
 });

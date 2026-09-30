@@ -289,9 +289,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     return true;
   };
 
-  const queueError=store.local!.queue.find(op=>op.error)?.error;
   const waitingLabel=!online?'Profile retained on this device. Waiting for a connection.'
-    :queueError?'Resolve the retained edit conflict to calculate targets.'
     :changed&&!pending?'Your profile changed. Return to edit before calculating targets.'
     :store.error?'Profile retained. Waiting for the connection to recover.'
     :'Profile retained. Waiting for synchronization…';
@@ -310,7 +308,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
     {proposal.holdReason&&<p className="notice">{proposal.holdReason}</p>}
     {!proposal.canAccept&&!proposal.holdReason&&<p className="notice">{proposal.result.explanation}</p>}
     </>:<h2>{message?'Active plan':'Review plan'}</h2>}
-    {(busy||operation==='waiting')&&<CoachWait label={operationLabel} active={operation!=='waiting'||(online&&!queueError&&!store.error)}/>}
+    {(busy||operation==='waiting')&&<CoachWait label={operationLabel} active={operation!=='waiting'||(online&&!store.error)}/>}
     {operation==='error'&&(proposal?<CardFeedback message={error}/>:<CardFeedback title="Target calculation failed" message={error??'Targets could not be calculated.'} action={{label:'Retry calculation',onClick:()=>void loadProposal(),disabled:!online||pending||changed}}/>)}
     {operation==='refresh-error'&&<CardFeedback title="Active targets unavailable" message={error??'The active targets could not be loaded.'} action={{label:'Retry loading targets',onClick:()=>void retryRefresh()}}/>}
     <div className="coach-review-actions"><Button variant="tertiary" disabled={!!acceptance.current||operation==='saving'||operation==='accepting'||operation==='updating'||operation==='refreshing'} onClick={()=>openPlan('macros')}><ArrowLeft size={16}/>Back to edit</Button></div>

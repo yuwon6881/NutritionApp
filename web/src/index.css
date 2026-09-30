@@ -284,27 +284,6 @@ summary{cursor:pointer}
 .pwa-update-notice>span{min-width:0;color:var(--foreground)}
 .pwa-update-notice>small{flex:0 0 auto}
 @media(max-width:639px){.pwa-update-notice{align-items:flex-start;flex-direction:column}.pwa-update-notice>.button{align-self:flex-end}}
-.sync-conflict-notice{margin:0 0 24px;padding:20px;background:var(--muted);border:1px solid var(--border);border-left:3px solid var(--destructive);border-radius:var(--radius);box-shadow:var(--shadow)}
-.sync-conflict-heading{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:12px}
-.sync-conflict-heading .eyebrow{margin:0 0 5px!important;color:var(--destructive)}
-.sync-conflict-heading h2{margin-bottom:6px;font-size:1.08rem}
-.sync-conflict-heading p:last-child{margin:0;font-size:.8rem;max-width:70ch}
-.sync-conflict-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;color:var(--destructive);background:var(--card)}
-.sync-conflict-count,.sync-conflict-item-heading>span{padding:5px 9px;border-radius:999px;background:var(--card);color:var(--muted-foreground);font-size:.68rem;font-weight:600;white-space:nowrap}
-.sync-conflict-list{display:grid;gap:12px;margin-top:18px}
-.sync-conflict-item{padding:16px;background:var(--card);border:1px solid var(--border);border-radius:13px}
-.sync-conflict-item-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.sync-conflict-item-heading h3{margin:0 0 5px;font-size:.9rem}
-.sync-conflict-item-heading p{margin:0;font-size:.78rem}
-.sync-conflict-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin:15px 0 0}
-.sync-conflict-details>div{padding:10px;border-radius:10px;background:var(--muted)}
-.sync-conflict-details dt{font-size:.65rem;color:var(--muted-foreground);margin-bottom:3px}
-.sync-conflict-details dd{margin:0;color:var(--ink-strong);font-size:.78rem;font-weight:600;font-variant-numeric:tabular-nums}
-.sync-conflict-error{margin:12px 0 0;color:var(--destructive)}
-.sync-conflict-technical{margin:12px 0}
-.sync-conflict-technical summary{min-height:44px;align-content:center;cursor:pointer;font-size:.76rem;font-weight:600;color:var(--foreground)}
-.sync-conflict-technical pre{margin:0;padding:10px;border-radius:9px;background:var(--muted);font-size:.7rem}
-.sync-conflict-item>.source{margin:12px 0;font-size:.73rem}
 
 /* Compact figure rows replace prose summaries. */
 .target-figures{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px;align-items:stretch}
@@ -1317,14 +1296,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 
 .ai-logging-form .modal-actions{margin-top:4px;padding-top:0;border-top:0}
 
-@media(max-width:639px){
-  .sync-conflict-notice{padding:16px}
-  .sync-conflict-heading{grid-template-columns:auto minmax(0,1fr)}
-  .sync-conflict-count{grid-column:2;justify-self:start}
-  .sync-conflict-item-heading{display:grid}
-  .sync-conflict-item-heading>span{justify-self:start}
-  .sync-conflict-item>.button{width:100%}
-}
 
 /* Server feedback is deliberately stable: fast requests still get a readable state transition. */
 .sync-status{position:fixed;right:24px;bottom:24px;z-index:140;display:flex;align-items:center;gap:11px;width:min(420px,calc(100vw - 48px));min-height:64px;margin:0;padding:12px 16px;background:var(--primary-tint);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:13px;color:var(--foreground);box-shadow:0 14px 38px rgba(0,0,0,.16);animation:syncStatusIn 180ms var(--motion-ease, cubic-bezier(.2,.8,.2,1)) both}
@@ -1335,8 +1306,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .sync-status-syncing .sync-status-icon svg{animation:syncStatusSpin 900ms linear infinite}
 .sync-status-synced{background:var(--muted);border-left-color:var(--success)}
 .sync-status-synced .sync-status-icon{color:var(--success)}
-.sync-status-attention{background:var(--muted);border-left-color:var(--destructive)}
-.sync-status-attention .sync-status-icon{color:var(--destructive)}
 .loading-status{display:flex;align-items:center;min-height:58px;margin-bottom:20px}
 @keyframes syncStatusIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 @keyframes syncStatusSpin{to{transform:rotate(360deg)}}

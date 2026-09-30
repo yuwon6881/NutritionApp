@@ -49,7 +49,7 @@ For each new interaction, define and render the states that apply:
 - offline/retained/pending work;
 - retryable error and conflict;
 - card-level errors and warnings use `CardFeedback` with a clear recovery action when one is available;
-- conflict review taking precedence over secondary prompts that could enqueue another edit for the same protected record;
+- a terminally rejected edit dropped with a brief non-blocking notice, never a blocking review surface;
 - compact protein/carbohydrate/fat values in food batch and diary rows at every responsive width, with unknown nutrients still visible;
 - recipe ingredient selection displaying live calorie/macro contribution cards, portion selection synchronized with grams, and live recipe-level nutrition preview cards;
 - an explicit past-date `No food logged` choice that is not overwritten by an account-level missing-day default;

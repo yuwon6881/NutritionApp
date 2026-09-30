@@ -13,7 +13,7 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
         var zone=string.IsNullOrEmpty(profileJson)?"Asia/Kuala_Lumpur":Json.Read<Profile>(profileJson).TimeZone;
         return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,TimeZoneInfo.FindSystemTimeZoneById(zone)));
     }
-    public void RequireEditable(DateOnly date,string profileJson) => Validation.Require(date>=Cutoff(Today(profileJson),DetailDays),$"Meal details older than {DetailDays} days are summarized and read-only. This unsynced edit is retained locally for review.",409);
+    public void RequireEditable(DateOnly date,string profileJson) => Validation.Require(date>=Cutoff(Today(profileJson),DetailDays),$"Meal details older than {DetailDays} days are summarized and read-only.",409);
 
     public async Task<int> CompactUser(Guid userId,DateOnly today,CancellationToken ct)
     {

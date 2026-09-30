@@ -22,10 +22,6 @@ export function useNourishActions(
       markSyncQueued('entry');
       void drain();
     },
-    discardConflict: async (id: string) => {
-      await commit(current => ({...current, queue: current.queue.filter(item => item.id !== id)}));
-      await drain();
-    },
     addPhoto: async (draft: PhysiqueDraft) => {
       await commit(current => ({
         ...current,

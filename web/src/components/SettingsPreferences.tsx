@@ -48,14 +48,14 @@ export function useSettingsSave(store:Nourish){
   const saved=store.local?.state.settings;
   const queuedData=queued?.data as Partial<CoachingSettings>|undefined;
   const differs=<K extends keyof SettingsData>(key:K,fallback:SettingsData[K])=>queuedData?.[key]!==undefined&&queuedData[key]!==(saved?.[key]??fallback);
-  const changes=queued&&!queued.error?[
+  const changes=queued?[
     differs('checkInWeekday',1)?'check-in day':null,
     differs('weightUnit','kg')||differs('energyUnit','kcal')||differs('heightUnit','cm')?'unit preferences':null,
     differs('missingDayAction','ask')?'unlogged day preference':null,
     differs('weightGoalMetric','scale')?'weight goal basis':null
   ].filter((value):value is string=>value!==null):[];
   const savingLabel=changes.length?`Saving your ${changes.join(' and ')}...`:'Saving your coaching settings...';
-  return {current,save,saving:Boolean(queued&&!queued.error),needsReview:Boolean(queued?.error),savingLabel};
+  return {current,save,saving:Boolean(queued),savingLabel};
 }
 
 export function GeneralSettings({store,theme,onTheme}:{store:Nourish;theme:Theme;onTheme:(theme:Theme)=>void}){
