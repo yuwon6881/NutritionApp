@@ -34,6 +34,35 @@ public sealed class CheckInTests
         Assert.Equal(DateOnly.Parse(expectedNext), CheckInWeek.NextOccurrenceAfter(date, weekday));
     }
 
+    [Theory]
+    [InlineData("2026-09-06", "2026-09-14")] // Sunday activation: not the next day, the Monday after
+    [InlineData("2026-09-07", "2026-09-14")] // Monday activation: one week later
+    [InlineData("2026-09-09", "2026-09-21")] // Wednesday activation: the first Monday a full week on
+    public void The_first_check_in_waits_a_full_week_after_a_plan(string planDate, string expected)
+        => Assert.Equal(DateOnly.Parse(expected), CheckInWeek.NextCheckIn(DateOnly.Parse(planDate), CheckInWeek.Monday));
+
+    [Fact]
+    public async Task A_plan_activated_the_day_before_check_in_day_is_not_proposed_again_next_day()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = await NewUser(db);
+        var today = RetentionService.Today(user.ProfileJson);
+        var yesterday = today.AddDays(-1);
+        db.Plans.Add(AddPlan(user, yesterday));
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        db.CurrentUser = user.Id;
+
+        var preview = await new CoachingService(db, new ExpenditureTrajectoryService(db)).Preview(default);
+
+        Assert.False(preview.CanAccept);
+        Assert.Equal(CheckInWeek.NextCheckIn(yesterday), preview.NextCheckIn);
+        Assert.True(preview.NextCheckIn >= yesterday.AddDays(7));
+    }
+
     [Fact]
     public async Task Monday_check_in_is_available_and_a_decline_hides_it_until_the_next_week()
     {
@@ -43,7 +72,8 @@ public sealed class CheckInTests
         await db.Database.EnsureCreatedAsync();
         var user = await NewUser(db);
         var today = RetentionService.Today(user.ProfileJson);
-        var plan = AddPlan(user, today.AddDays(-7));
+        // Accepted on the previous check-in day, so this week's check-in is exactly due.
+        var plan = AddPlan(user, CheckInWeek.WeekStart(today).AddDays(-7));
         db.Plans.Add(plan);
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
@@ -77,7 +107,7 @@ public sealed class CheckInTests
         await db.Database.EnsureCreatedAsync();
         var user = await NewUser(db);
         var today = RetentionService.Today(user.ProfileJson);
-        db.Plans.Add(AddPlan(user, today.AddDays(-7)));
+        db.Plans.Add(AddPlan(user, CheckInWeek.WeekStart(today).AddDays(-7)));
         await db.SaveChangesAsync();
         db.CurrentUser = user.Id;
         var coach = new CoachingService(db, new ExpenditureTrajectoryService(db));

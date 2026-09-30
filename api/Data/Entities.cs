@@ -223,6 +223,14 @@ public class AiUsage
     public long InputTokens { get; set; }
     public long CachedInputTokens { get; set; }
     public long OutputTokens { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    // Ask AI chat token accounting
+    public long ChatInputTokens { get; set; }
+    public long ChatCachedTokens { get; set; }
+    public long ChatOutputTokens { get; set; }
+    public long ChatReasoningTokens { get; set; }
+    public int ChatCalls { get; set; }
 }
 
 public class DailyExpenditureEstimate

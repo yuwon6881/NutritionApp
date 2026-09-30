@@ -560,6 +560,9 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .coach-goals{padding:0;border:0;margin:0 0 22px;min-width:0}
 .coach-goals legend{padding:0;margin-bottom:10px;font-size:.79rem;font-weight:550}
 .coach-goal-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.coach-goal-options.coach-activity-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+.coach-activity-text{display:grid;gap:2px;min-width:0}
+.coach-activity-text small{color:var(--muted);font-size:.75rem;line-height:1.35}
 .coach-goal-option{position:relative;display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:52px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--card);font-size:.82rem;cursor:pointer;transition:background var(--coach-short),border-color var(--coach-short),transform 120ms ease}
 .coach-goal-option.selected{background:var(--primary-tint);border-color:var(--primary);color:var(--primary-ink)}
 .coach-goal-option:active{transform:scale(.985)}
@@ -587,6 +590,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 @keyframes coachReveal{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes coachSpin{to{transform:rotate(360deg)}}
 @media(max-width:639px){.coach-goal-option{flex-direction:column;justify-content:center;gap:6px;padding:12px 4px;font-size:.77rem}.coach-goal-option:not(.selected) svg{display:none}.coach-goal-option svg{width:14px;height:14px}}
+/* Activity choices carry a description, so on a phone they stay full-width rows. */
+@media(max-width:639px){.coach-goal-options.coach-activity-options{grid-template-columns:minmax(0,1fr)}.coach-goal-option.coach-activity-option{flex-direction:row;justify-content:space-between;padding:12px;text-align:start}}
 @media(prefers-reduced-motion:reduce){.coach-goal-option:active{transform:none}.coach-wait-arc{display:none}}
 
 /* Shared selection and action rows: consistent heights without clipping labels. */
@@ -1133,7 +1138,8 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .body-hub-icon-wrap{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;border-radius:12px;background:var(--primary-tint);color:var(--primary-ink)}
 .body-hub-card h3{margin:0 0 6px;font-size:1.05rem;letter-spacing:-.02em;color:var(--ink-strong)}
 .body-hub-card p{margin:0;font-size:.84rem;line-height:1.55;color:var(--muted-foreground)}
-.body-hub-card-footer{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:auto}
+/* Stretch so a wrapped label never leaves its neighbour shorter. */
+.body-hub-card-footer{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin-top:auto}
 .body-hub-card-footer>.button{min-height:44px;padding-inline:16px}
 .body-hub-compare-cta{margin-top:16px;display:flex;justify-content:flex-end}
 .body-hub-status{margin-top:14px;color:var(--muted-foreground)}
@@ -1600,6 +1606,14 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .steps-panel-compact .steps-provenance{grid-column:1/-1;margin-top:4px}
 .steps-provenance .source{margin-bottom:0}
 .steps-panel-compact>.card-feedback{grid-column:1/-1;margin-top:8px}
+/* Steps-for-energy calculator: a disclosure inside the steps card, a panel on Activity. */
+.steps-panel-compact>.step-calculator-inline{grid-column:1/-1;margin-top:8px;border-top:1px solid var(--border);padding-top:4px}
+.step-calculator-inline summary{min-height:44px;align-content:center;cursor:pointer;font-size:.8rem;font-weight:600;color:var(--primary-ink)}
+.step-calculator-body{display:grid;gap:8px}
+.step-calculator-result .source,.step-calculator-basis{margin:0}
+.step-calculator-value{margin:0;font-size:1.45rem;font-weight:600;color:var(--ink-strong);line-height:1.2}
+.step-calculator-value .unit{font-size:.8rem;font-weight:500;color:var(--muted-foreground)}
+.step-calculator-basis{font-size:.72rem;line-height:1.45}
 .inline-link{display:inline-flex;align-items:center;gap:3px;background:transparent;border:0;padding:0;color:var(--primary-ink);font-weight:600;font-size:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 @media (hover:hover) and (pointer:fine){
 .inline-link:hover{color:var(--foreground)}}

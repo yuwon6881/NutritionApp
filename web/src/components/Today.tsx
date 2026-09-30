@@ -8,10 +8,13 @@ import {targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {GoalSummary} from './GoalSummary';
 import {CheckInCard} from './CheckInCard';
+import {CheckInButton} from './CheckInButton';
+import {checkInSchedule} from '../lib/checkIn';
 import {CheckInDialog} from './CheckInDialog';
 import {displayEnergy,displayWeight,weightLabel,energyLabel,unitsFor} from '../lib/units';
 import {shouldShowDashboardSteps,useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
+import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {EnergyRing} from './EnergyRing';
 
@@ -51,6 +54,11 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
   const liveProgress=useMemo(()=>liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date,phaseDecision,state.settings?.weightGoalMetric??'scale'),[state.profile,state.weightTrendSeed,state.weights,date,phaseDecision,state.settings?.weightGoalMetric]);
   const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveProgress,phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
+  // A due check-in takes the ring's place: the target may change, so remaining calories stay
+  // hidden until the check-in is accepted or declined, which recomputes the schedule.
+  const checkIn=state.profile?checkInSchedule(state,date):undefined;
+  const checkInReady=Boolean(checkIn?.due)&&loaded;
+  const openCheckIn=(trigger:HTMLElement)=>{setCheckInRestore(trigger);setCheckInOpen(true);};
   const {state: ghState,loading: ghLoading}=useGoogleHealth();
   // Do not show an integration card while its first status request is unresolved.
   // Once a connection is known, keep the card visible during background refresh so
@@ -63,8 +71,8 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
-      onComplete={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
-    <CheckInCard store={store} onReview={trigger=>{setCheckInRestore(trigger);setCheckInOpen(true);}}/>
+      onComplete={openCheckIn}/>
+    {!checkInReady&&<CheckInCard store={store} onReview={openCheckIn}/>}
     {!loaded?<section className="panel">
       <h2>Not stored on this device</h2>
       <p>Connect to load this date.</p>
@@ -75,9 +83,11 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
           <div>
             <p className="eyebrow">ENERGY</p>
             <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
-            <p>{targets.calories?`${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} target`:'Set up your coach'}</p>
+            <p>{checkInReady?"Review your check-in to see today's target":targets.calories?`${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} target`:'Set up your coach'}</p>
           </div>
-          <EnergyRing total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>
+          {checkInReady&&checkIn
+            ?<div className="energy-check-in"><CheckInButton schedule={checkIn} label="Review this week" onClick={openCheckIn}/><p className="energy-check-in-label">Check-in ready</p></div>
+            :<EnergyRing total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>}
         </article>
         <article className="panel macros">
           <p className="eyebrow">MACRONUTRIENTS</p>
@@ -93,7 +103,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
           })}
         </article>
       </section>
-      {showGoogleHealthSteps && <GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} warningMessage={ghState.warningMessage} onOpenSettings={onSettings}/>}
+      {showGoogleHealthSteps && <GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} warningMessage={ghState.warningMessage} onOpenSettings={onSettings}><StepCalorieCalculator store={store} variant="inline"/></GoogleHealthStepsCard>}
       {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
         <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
       </section>}

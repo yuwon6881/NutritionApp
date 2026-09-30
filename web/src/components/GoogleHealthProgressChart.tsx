@@ -1,8 +1,13 @@
-import {useState} from 'react';
+import {useId} from 'react';
+import {Footprints, ArrowUpRight} from 'lucide-react';
 import {number} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, calculateKnownDayAverage} from '../lib/googleHealth';
-import {Footprints, ArrowUpRight} from 'lucide-react';
+import {niceTicks} from '../lib/barChart';
+import {bucketAxisLabel, bucketReadoutLabel, dateSpan} from '../lib/chartLabels';
 import {Button} from './ui/Button';
+import {BAR_AXIS_WIDTH, BarChartFrame, BarChartNav} from './ui/BarChartFrame';
+import {useBarViewport, useRevealBar} from './ui/useBarViewport';
+import {useChartScrub} from './ui/useChartScrub';
 
 interface GoogleHealthProgressChartProps {
   days: GoogleHealthDay[];
@@ -13,6 +18,13 @@ interface GoogleHealthProgressChartProps {
   onOpenSettings?: () => void;
 }
 
+const HEIGHT = 196;
+const TOP = 12;
+const BASE = 154;
+const LABEL_Y = 172;
+
+const compactSteps = (value: number) => value >= 1000 ? `${number(value / 1000, 1)}k` : number(value);
+
 export function GoogleHealthProgressChart({
   days,
   status,
@@ -21,14 +33,10 @@ export function GoogleHealthProgressChart({
   loading = false,
   onOpenSettings,
 }: GoogleHealthProgressChartProps) {
-  const [activeDay, setActiveDay] = useState<GoogleHealthDay | null>(null);
-  // A finger anywhere over the chart picks the day beneath it; the 30 bars are too narrow to aim at on a phone.
-  const scrubToDay = (event: React.PointerEvent<SVGSVGElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width || !days.length) return;
-    const share = Math.min(0.9999, Math.max(0, (event.clientX - rect.left) / rect.width));
-    setActiveDay(days[Math.floor(share * days.length)]);
-  };
+  const viewport = useBarViewport(days.length);
+  const scrub = useChartScrub(days.map((_, index) => viewport.slot * (index + .5)), {tapToSelect: true});
+  useRevealBar(viewport, scrub.index);
+  const readoutId = useId();
 
   if (status === 'disconnected') {
     return (
@@ -56,27 +64,16 @@ export function GoogleHealthProgressChart({
   const knownCount = completedDays.filter(d => d.count !== null && d.count !== undefined).length;
   const hasRenderableHistory = days.some(d => d.count !== null && d.count !== undefined);
   const hasExcludedToday = Boolean(todayDate && days.some(d => d.date === todayDate));
+  const selected = days[scrub.index];
+  const selectedCount = selected?.count ?? null;
 
-  // Compute SVG chart dimensions
-  const chartHeight = 120;
-  const barWidth = 7;
-  const barGap = 3;
-  const totalBars = Math.max(days.length, 1);
-  const chartWidth = totalBars * (barWidth + barGap);
-
-  const maxCount = Math.max(1000, ...days.map(d => d.count ?? 0));
-
-  const formatShortDate = (dateStr: string) => {
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        return `${parts[1]}/${parts[2]}`;
-      }
-      return dateStr;
-    } catch {
-      return dateStr;
-    }
-  };
+  const ticks = niceTicks(0, Math.max(1000, ...days.map(d => d.count ?? 0)), 3);
+  const ceiling = ticks.at(-1)!;
+  const y = (value: number) => BASE - value / ceiling * (BASE - TOP);
+  const {slot, contentWidth} = viewport;
+  const bar = Math.max(6, Math.min(26, slot * .56));
+  const axis = ticks.map(value => <text key={value} x={BAR_AXIS_WIDTH - 8} y={y(value) + 4} textAnchor="end">{compactSteps(value)}</text>);
+  const visibleSpan = days.length ? dateSpan(days[viewport.edges.first]?.date ?? days[0].date, days[viewport.edges.last]?.date ?? days.at(-1)!.date) : '';
 
   return (
     <section className="panel google-health-progress-section" aria-labelledby="gh-progress-title">
@@ -96,16 +93,8 @@ export function GoogleHealthProgressChart({
         <div className="stat-card">
           <p className="eyebrow">KNOWN-DAY AVERAGE</p>
           <h2>
-            {average !== null ? (
-              <>
-                <span className="tabular-num">{number(average)}</span>{' '}
-                <span className="unit">steps / day</span>
-              </>
-            ) : (
-              <>
-                <span>—</span> <span className="unit">steps / day</span>
-              </>
-            )}
+            <span className="tabular-num">{average !== null ? number(average) : '—'}</span>{' '}
+            <span className="unit">steps / day</span>
           </h2>
           <p className="source">
             {knownCount > 0
@@ -113,31 +102,6 @@ export function GoogleHealthProgressChart({
               : 'No recorded steps in this period'}
           </p>
         </div>
-
-        {activeDay && (
-          <div className="stat-card active-day-preview">
-            <p className="eyebrow">{activeDay.date}</p>
-            <h2>
-              {activeDay.count !== null ? (
-                <>
-                  <span className="tabular-num">{number(activeDay.count)}</span>{' '}
-                  <span className="unit">steps</span>
-                </>
-              ) : (
-                <>
-                  <span>—</span> <span className="unit">not recorded</span>
-                </>
-              )}
-            </h2>
-            <p className="source">
-              {activeDay.count !== null
-                ? activeDay.count === 0
-                  ? 'Zero steps recorded'
-                  : 'Recorded total'
-                : 'No activity data for this day'}
-            </p>
-          </div>
-        )}
       </div>
 
       {loading && days.length === 0 ? (
@@ -151,98 +115,42 @@ export function GoogleHealthProgressChart({
             : 'No daily step totals are available for this period.'}
         </div>
       ) : (
-        <div className="step-chart-container">
-          <svg
-            className="step-bar-chart"
-            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-            preserveAspectRatio="none"
-            role="img"
-            onPointerDown={scrubToDay}
-            onPointerMove={event=>{if(event.pointerType==='mouse'||event.buttons)scrubToDay(event);}}
-            aria-label={`Daily step counts over the last 30 days. Average is ${average !== null ? number(average) : 'unavailable'} steps per day.`}
-          >
-            {/* Horizontal guideline */}
-            <line
-              x1="0"
-              y1={chartHeight - 1}
-              x2={chartWidth}
-              y2={chartHeight - 1}
-              className="chart-baseline"
-            />
-
-            {days.map((day, idx) => {
-              const x = idx * (barWidth + barGap);
-              const count = day.count;
-              const hasData = count !== null && count !== undefined;
-              const height = hasData
-                ? Math.max(count === 0 ? 1 : Math.round((count / maxCount) * (chartHeight - 15)), 2)
-                : 0;
-              const y = chartHeight - height - 1;
-              const isSelected = activeDay?.date === day.date;
-
-              if (!hasData) {
-                // Render empty gap marker
-                return (
-                  <g key={day.date} className="bar-group gap-group">
-                    <rect
-                      x={x}
-                      y={chartHeight - 6}
-                      width={barWidth}
-                      height={4}
-                      rx={1}
-                      className="bar-gap-marker"
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`${day.date}: No step data`}
-                      onFocus={() => setActiveDay(day)}
-                      onMouseEnter={() => setActiveDay(day)}
-                      onClick={() => setActiveDay(day)}
-                      onKeyDown={event => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setActiveDay(day);
-                        }
-                      }}
-                    />
-                  </g>
-                );
+        <div className="chart-scrub step-chart" role="group" aria-label="Step chart. Tap a bar or use the left and right arrow keys to read a day." aria-describedby={readoutId} {...scrub.groupProps}>
+          {/* The readout always holds a day, so selecting a bar never moves the chart. */}
+          <div id={readoutId} className="chart-readout chart-readout-grid" aria-live="polite">
+            <strong className="chart-readout-date">{selected ? bucketReadoutLabel(selected.date, selected.date, 'daily') : '—'}</strong>
+            <dl>
+              <div><dt>Steps</dt><dd>{selectedCount === null ? 'Not recorded' : <>{number(selectedCount)}{selected?.date === todayDate && <small> so far today</small>}</>}</dd></div>
+              <div><dt>Against average</dt><dd>{selectedCount === null || average === null || selected?.date === todayDate ? '—' : `${selectedCount >= average ? '+' : '−'}${number(Math.abs(selectedCount - average))}`}</dd></div>
+            </dl>
+          </div>
+          <BarChartNav viewport={viewport} range={visibleSpan} noun="days"/>
+          <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={scrub.svgProps}
+            label={`Daily step counts over the last 30 days. Average is ${average !== null ? number(average) : 'unavailable'} steps per day.`}>
+            {ticks.map(value => <line key={value} className={value === 0 ? 'chart-baseline' : 'chart-grid'} x1={0} x2={contentWidth} y1={y(value)} y2={y(value)}/>)}
+            {selected && <rect className="bar-slot-selected" x={scrub.index * slot + 1} y={TOP - 6} width={Math.max(0, slot - 2)} height={BASE - TOP + 10} rx={6}/>}
+            {days.map((day, index) => {
+              const x = slot * (index + .5) - bar / 2;
+              const [weekday, date] = bucketAxisLabel(day.date, 'daily');
+              const center = slot * (index + .5);
+              const label = <text className={index === scrub.index ? 'bar-axis-label is-selected' : 'bar-axis-label'} x={center} y={LABEL_Y} textAnchor="middle"><tspan x={center}>{weekday}</tspan><tspan x={center} dy="14">{date}</tspan></text>;
+              if (day.count === null || day.count === undefined) {
+                return <g key={day.date}><rect className="bar-missing" x={x} y={BASE - 3} width={bar} height={3} rx={1.5}/>{label}</g>;
               }
-
-              return (
-                <g key={day.date} className={`bar-group ${isSelected ? 'selected' : ''}`}>
-                  <rect
-                    x={x}
-                    y={y}
-                    width={barWidth}
-                    height={height}
-                    rx={2}
-                    className={`bar-rect ${count === 0 ? 'zero-bar' : ''}`}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`${day.date}: ${number(count)} steps`}
-                    onFocus={() => setActiveDay(day)}
-                    onMouseEnter={() => setActiveDay(day)}
-                    onClick={() => setActiveDay(day)}
-                    onKeyDown={event => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setActiveDay(day);
-                      }
-                    }}
-                  />
-                </g>
-              );
+              const top = y(day.count);
+              return <g key={day.date}>
+                <rect className={`bar-rect${day.count === 0 ? ' zero-bar' : ''}${day.date === todayDate ? ' partial-bar' : ''}`} x={x} y={Math.min(top, BASE - 2)} width={bar} height={Math.max(2, BASE - top)} rx={Math.min(4, bar / 3)}/>
+                {label}
+              </g>;
             })}
-          </svg>
-
-          {/* Date range axis labels */}
-          {days.length > 0 && (
-            <div className="chart-date-axis">
-              <span>{formatShortDate(days[0].date)}</span>
-              <span>{formatShortDate(days[Math.floor(days.length / 2)].date)}</span>
-              <span>{formatShortDate(days[days.length - 1].date)}</span>
-            </div>
-          )}
+            {average !== null && <line className="average-line" x1={0} x2={contentWidth} y1={y(average)} y2={y(average)}/>}
+          </BarChartFrame>
+          <ul className="chart-legend" aria-label="Step chart key">
+            <li><span className="legend-swatch swatch-steps" aria-hidden="true"/>Recorded steps</li>
+            <li><span className="legend-swatch swatch-steps-partial" aria-hidden="true"/>Today so far</li>
+            <li><span className="legend-line swatch-average" aria-hidden="true"/>Known-day average</li>
+            <li><span className="legend-swatch swatch-missing" aria-hidden="true"/>Not recorded</li>
+          </ul>
         </div>
       )}
 

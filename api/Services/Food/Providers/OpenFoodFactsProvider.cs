@@ -26,7 +26,7 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider
     private static readonly TimeSpan BatchProductInterval=TimeSpan.FromSeconds(6.1);
     // Search-a-licious does not index the serving fields; the bulk product request fills them.
     private const string SearchFields="code,product_name,product_name_en,brands,nutriments";
-    private const string ProductFields="code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit";
+    private const string ProductFields="code,product_name,product_name_en,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit";
     private static readonly ProviderGate SearchGate=new();
     private static readonly ProviderGate BarcodeGate=new();
     private static readonly ProviderGate BatchProductGate=new();

@@ -56,7 +56,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       expect(Math.abs(add!.x+add!.width/2-width/2)).toBeLessThanOrEqual(1);
       expect(Math.abs(sidebar!.y+sidebar!.height-900)).toBeLessThanOrEqual(1);
     }else{
-      await expect(nav.locator('button:visible')).toHaveCount(6);
+      // Add entry, five pages, and Ask AI.
+      await expect(nav.locator('button:visible')).toHaveCount(7);
       expect(sidebar!.x).toBe(0);
       expect(sidebar!.height).toBe(900);
       expect(sidebar!.width).toBe(width<1024?88:228);

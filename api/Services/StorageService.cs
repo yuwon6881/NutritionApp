@@ -60,6 +60,11 @@ public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageSto
             catch(DomainException) { /* Keep the durable path so the next scheduler call retries. */ }
         }
         await db.SaveChangesAsync(ct);
+        var aiTurnCutoff = now.AddDays(-Math.Max(1, config?.GetValue("Retention:AiTurnRetentionDays", 90) ?? 90));
+        var pendingCutoffAi = now.AddMinutes(-10);
+        await db.AiConversationTurns.IgnoreQueryFilters()
+            .Where(t => t.CreatedAt < aiTurnCutoff || (t.Status == "Pending" && t.CreatedAt < pendingCutoffAi))
+            .ExecuteDeleteAsync(ct);
         var aiUsageMonths = Math.Max(1, config?.GetValue("Retention:AiUsageMonths", 2) ?? 2);
         await db.Scans.IgnoreQueryFilters().Where(s=>s.Created<now.AddDays(-7)&&s.ObjectPath==null).ExecuteDeleteAsync(ct);
         await db.Sessions.Where(s=>s.Expires<now).ExecuteDeleteAsync(ct);

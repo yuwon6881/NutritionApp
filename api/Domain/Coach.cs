@@ -10,6 +10,8 @@ public sealed record Profile
     public double WeightKg { get; init; }
     public string Sex { get; init; } = "";
     public double Activity { get; init; }
+    /// One of ActivityLevels; when set it decides Activity and ResistanceTraining.
+    public string? ActivityLevel { get; init; }
     public string Goal { get; init; } = "";
     public double? Maintenance { get; init; }
     public double? ProteinGrams { get; init; }
@@ -80,7 +82,7 @@ public static class Coach
         var adaptive = adaptiveOverride ?? estimate.Adaptive;
         var reason = p.Maintenance is not null
             ? "Starting from your supplied maintenance estimate. Log complete days and weigh regularly to calibrate it."
-            : $"Estimated resting energy: {Math.Round(Resting(p))} kcal/day using Mifflin–St Jeor. Your approximate activity multiplier is {p.Activity}. This is a starting estimate, not a metabolic measurement. Log complete days and weigh regularly to calibrate it.";
+            : $"Estimated resting energy: {Math.Round(Resting(p))} kcal/day using Mifflin–St Jeor. {(p.ActivityLevel is { } level ? $"Activity: {ActivityLevels.Label(level)} (multiplier {p.Activity})." : $"Your approximate activity multiplier is {p.Activity}.")} This is a starting estimate, not a metabolic measurement. Log complete days and weigh regularly to calibrate it.";
         if(startingExpenditure!=null)reason="Carrying your learned maintenance estimate into this phase, scaled only for an explicit activity change. Your selected pace sets the new target.";
         if (adaptive || previous != null || startingExpenditure != null) reason = estimate.Reason;
         if (adaptive) expenditure = estimate.Expenditure;

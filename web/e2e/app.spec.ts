@@ -44,7 +44,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByLabel('Starting weight (kg)').fill('81');
   await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('female');
   await page.getByRole('button',{name:/^Next: Activity/}).click();
-  await page.getByLabel('Usual activity (approximate)',{exact:true}).selectOption('1.4');
+  await page.getByRole('radio',{name:/^None or relaxed activity\b/}).check();
   await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
   await page.getByRole('radio',{name:'Maintenance',exact:true}).check();
@@ -68,7 +68,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Progress',exact:true}).click();await expect(page.locator('[data-page-heading]')).toHaveText('Progress');await page.waitForTimeout(400);await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
   await expect(page.getByText('80.8 kg',{exact:true}).first()).toBeVisible();
-  await page.getByRole('button',{name:'Daily weight',exact:true}).click();await expect(page.getByRole('img',{name:/Daily scale weight chart/})).toBeVisible();
+  await page.getByRole('button',{name:'Scale weight',exact:true}).click();await expect(page.getByRole('img',{name:/^Scale weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Trend weight',exact:true}).click();await expect(page.getByRole('img',{name:/Trend weight chart/})).toBeVisible();
   await page.getByRole('button',{name:'Energy',exact:true}).click();
   const energyPeriod=page.getByLabel('Energy history period',{exact:true});
@@ -293,7 +293,8 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
   expect((await (await context.request.get('/api/state')).json()).plans).toHaveLength(2);
   const state=await (await context.request.get('/api/state')).json();const result=JSON.parse(state.plans[0].resultJson);
-  expect(result.expenditure).toBe(2186.1);expect(result.calories).toBe(1875);expect(state.profile.goalRatePercent).toBe(-0.35);
+  // Onboarding chose "None or relaxed activity", the ×1.3 multiplier.
+  expect(result.expenditure).toBeCloseTo(2029.95,2);expect(result.calories).toBe(1725);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
   await expect(page.getByText('No complete days with an accepted maintenance estimate.',{exact:true})).toBeVisible();
@@ -352,7 +353,13 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   const changed=await (await context.request.get('/api/state')).json();expect(changed.plans[0].id).toBe(active.id);
   const proposal=await (await context.request.get('/api/coach/preview')).json();expect(proposal.canAccept).toBeTruthy();expect(proposal.result.dailyCalories).toHaveLength(7);expect(proposal.result.dailyCalories.reduce((sum:number,value:number)=>sum+value,0)).toBe(proposal.result.weeklyCalories);
   await page.goto('/');
-  const target=page.locator('.energy-panel p').filter({hasText:'kcal target'});await expect(target).toBeVisible();expect((await target.textContent())!.replaceAll(',','')).toContain(String(activeDaily));
+  // The waiting proposal makes a check-in due: it replaces the ring, and no target is shown until it is reviewed.
+  const energyPanel=page.locator('.energy-panel');
+  await expect(energyPanel.getByRole('button',{name:'Review this week',exact:true})).toBeVisible();
+  await expect(energyPanel.locator('.energy-ring')).toHaveCount(0);
+  await expect(energyPanel.getByText('kcal target')).toHaveCount(0);
+  await expect(page.locator('.check-in-card')).toHaveCount(0);
+  expect(activeDaily).toBeGreaterThan(0);
   await resolveMissingDays(page);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();await expect(page.getByRole('heading',{name:'Continuous coaching guidance',exact:true})).toBeVisible();
   const acceptedResponse=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:proposal.revision}});expect(acceptedResponse.ok(),await acceptedResponse.text()).toBeTruthy();

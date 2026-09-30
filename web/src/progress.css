@@ -1,0 +1,92 @@
+/* Progress charts: scrolling bar charts, fixed readouts, legends, and the weigh-in list. */
+
+/* A fixed value axis beside a plot that scrolls by finger, trackpad, or the page buttons. */
+.bar-chart-frame{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:start}
+.bar-chart-axis{display:block;overflow:visible}
+.bar-chart-axis text,.bar-chart-plot text{fill:var(--muted-foreground);font-size:11px;font-variant-numeric:tabular-nums}
+.bar-chart-scroller{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scrollbar-width:none;border-radius:8px}
+.bar-chart-scroller::-webkit-scrollbar{display:none}
+/* Faded edges say more bars wait off screen. Masks use alpha only, so no theme colour is involved. */
+.bar-chart-scroller.can-back{mask-image:linear-gradient(to right,transparent,black 28px)}
+.bar-chart-scroller.can-forward{mask-image:linear-gradient(to left,transparent,black 28px)}
+.bar-chart-scroller.can-back.can-forward{mask-image:linear-gradient(to right,transparent,black 28px,black calc(100% - 28px),transparent)}
+.bar-chart-plot{display:block;touch-action:pan-x pan-y;cursor:default}
+.bar-axis-label{font-size:10.5px}
+.bar-chart-plot .bar-axis-label.is-selected{fill:var(--ink-strong);font-weight:600}
+.bar-slot-selected{fill:var(--muted)}
+.bar-missing{fill:var(--border)}
+.maintenance-line{fill:none;stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.75}
+.average-line{stroke:var(--ink-strong);stroke-width:1.5;stroke-dasharray:5 4;opacity:.55}
+.bar-chart-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;margin:4px 0}
+.bar-chart-range{flex:1;margin:0;text-align:center;font-size:.76rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.bar-chart-hint{display:none}
+
+/* Readout: the selected date's values in fixed cells, so a new selection never moves the chart. */
+.chart-readout.chart-readout-grid{display:grid;gap:6px;align-items:start;padding:10px 14px;margin-bottom:4px}
+.chart-readout-date{font-size:.84rem}
+.chart-readout-grid dl{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px;margin:0}
+.chart-readout-grid dl>div{min-width:0}
+.chart-readout-grid dt{display:flex;align-items:center;gap:6px;font-size:.68rem;letter-spacing:.02em;color:var(--muted-foreground)}
+.chart-readout-grid dd{margin:2px 0 0;font-size:.86rem;font-weight:600;color:var(--ink-strong)}
+.chart-readout-grid dd small{font-weight:400;color:var(--muted-foreground)}
+.chart-readout-grid dd.is-surplus{color:var(--carbs)}
+.chart-readout-grid dd.is-deficit{color:var(--protein)}
+
+/* Legends show the mark itself next to its meaning. */
+.chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;list-style:none;margin:10px 0 0;padding:0;font-size:.74rem;line-height:1.4;color:var(--muted-foreground)}
+.chart-legend li{display:inline-flex;align-items:center;gap:6px}
+.legend-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.legend-line{display:inline-block;width:16px;height:0;border-top:2px solid;flex-shrink:0}
+.swatch-intake,.swatch-steps{background:var(--primary)}
+.swatch-partial,.swatch-steps-partial{background:var(--primary);opacity:.45}
+.swatch-missing{background:var(--border)}
+.swatch-maintenance,.swatch-average{border-top-style:dashed;border-color:var(--ink-strong)}
+.swatch-surplus{background:var(--carbs)}
+.swatch-deficit{background:var(--protein)}
+.swatch-scale{background:var(--muted-foreground)}
+.swatch-trend{border-color:var(--primary);border-top-width:3px}
+
+/* Energy: two charts of one period, one scroll position. */
+.chart-block{margin-top:6px}
+.chart-block+.chart-block{margin-top:28px;padding-top:24px;border-top:1px solid var(--border)}
+.chart-block>h3{margin:0 0 4px;font-size:.95rem}
+.chart-description{margin:0 0 12px;font-size:.78rem;line-height:1.5;max-width:62ch}
+
+/* Weight chart. */
+.weight-chart-panel .section-heading>div>p{max-width:52ch}
+.trend-fill-start{stop-color:var(--primary);stop-opacity:.2}
+.trend-fill-end{stop-color:var(--primary);stop-opacity:0}
+.trend-area{pointer-events:none}
+.scale-dot.is-selected,.trend-dot.is-selected{stroke:var(--card);stroke-width:2}
+.weight-chart-panel .chart-readout{margin-bottom:10px}
+
+/* Latest weigh-ins: a date badge, the value with its change, and icon actions. */
+.weigh-in-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.weigh-in-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:8px 8px 8px 8px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.weigh-in-date{display:grid;justify-items:center;align-content:center;gap:1px;width:52px;min-height:58px;border-radius:10px;background:var(--muted);line-height:1.15}
+.weigh-in-month{font-size:.6rem;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-ink)}
+.weigh-in-day{font-size:1.2rem;font-weight:650;color:var(--ink-strong)}
+.weigh-in-weekday{font-size:.62rem;color:var(--muted-foreground)}
+.weigh-in-value{min-width:0}
+.weigh-in-value p{margin:0}
+.weigh-in-kg{font-size:1.05rem;line-height:1.3;color:var(--ink-strong)}
+.weigh-in-kg .figure{font-weight:600}
+.weigh-in-meta{font-size:.74rem;line-height:1.4;color:var(--muted-foreground)}
+.weigh-in-actions{display:flex;gap:2px}
+.weigh-in-actions .button{color:var(--muted-foreground)}
+.weigh-in-actions .weigh-in-delete{color:var(--destructive)}
+
+@media(max-width:639px){
+  .bar-chart-page{display:none}
+  .bar-chart-hint{display:inline}
+  .bar-chart-nav{min-height:28px}
+  .chart-readout-grid dl{gap:8px}
+  /* Two lines are reserved for every value, so a longer one never pushes the chart down. */
+  .chart-readout-grid dd{min-height:2.6em;font-size:.8rem;line-height:1.3}
+  .chart-readout-grid dd small{display:block}
+  .chart-legend{justify-content:flex-start;gap:6px 12px}
+  .chart-block+.chart-block{margin-top:24px;padding-top:20px}
+  .weigh-in-row{gap:12px}
+}
+.weigh-in-more{display:flex;justify-content:center;margin-top:12px}

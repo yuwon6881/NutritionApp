@@ -26,31 +26,15 @@ public sealed class BodyFatEstimateTests
     }
 
     [Fact]
-    public async Task Ai_allowance_is_shared_and_stops_at_the_daily_cap()
+    public async Task Ai_allowance_records_usage_without_restrictions()
     {
         var (db,_)=await CreateDbAsync();
         await using(db)
         {
-            var config=Config(new() {["OpenAi:DailyRequestsPerUser"]="2"});
-            await AiAllowance.Reserve(db,config,default);
-            await AiAllowance.Reserve(db,config,default);
-            var denied=await Assert.ThrowsAsync<DomainException>(()=>AiAllowance.Reserve(db,config,default));
-            Assert.Equal(429,denied.Status);
-            Assert.Equal(2,(await db.Usage.SingleAsync()).Requests);
-        }
-    }
-
-    [Fact]
-    public async Task Ai_allowance_reserves_worst_case_cost_against_the_monthly_budget()
-    {
-        var (db,_)=await CreateDbAsync();
-        await using(db)
-        {
-            var config=Config(new() {["OpenAi:MonthlyBudgetUsd"]="0.5",["OpenAi:ReservedCostPerRequestUsd"]="0.25"});
-            await AiAllowance.Reserve(db,config,default);
-            await AiAllowance.Reserve(db,config,default);
-            var denied=await Assert.ThrowsAsync<DomainException>(()=>AiAllowance.Reserve(db,config,default));
-            Assert.Equal(429,denied.Status);
+            await AiAllowance.Reserve(db,default);
+            await AiAllowance.Reserve(db,default);
+            await AiAllowance.Reserve(db,default);
+            Assert.Equal(3,(await db.Usage.SingleAsync()).Requests);
         }
     }
 
@@ -217,7 +201,7 @@ public sealed class BodyFatEstimateTests
         var config=Config();
         var store=new GcsPhotoStore(new HttpClient(storage),config,_=>Task.FromResult("token"));
         var ai=new BodyCompositionAi(new HttpClient(new ProviderHandler(provider)),config);
-        return new BodyFatEstimateService(db,store,new BodyRecordService(db,store,config),ai,config);
+        return new BodyFatEstimateService(db,store,new BodyRecordService(db,store,config),ai);
     }
 
     private static async Task<(AppDb Db,AppUser User)> CreateDbAsync(Profile? profile=null)

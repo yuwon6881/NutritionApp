@@ -171,13 +171,28 @@ test('Google Health step chart selects a day by click and keyboard',async({page}
   await page.getByRole('button',{name:'Activity',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Google Health steps · Last 30 days',exact:true})).toBeVisible();
 
-  const missingDay=page.getByRole('button',{name:'2026-08-19: No step data',exact:true});
-  await missingDay.click();
-  await expect(page.locator('.active-day-preview')).toContainText('2026-08-19');
-  await expect(page.locator('.active-day-preview')).toContainText('not recorded');
+  // The readout always holds a day (the latest first), so selecting never moves the chart.
+  const readout=page.locator('.step-chart .chart-readout');
+  await expect(readout).toContainText('Sep 18, 2026');
+  await expect(readout).toContainText('6,500');
+  const readoutBox=await readout.boundingBox();
 
-  const recordedDay=page.getByRole('button',{name:'2026-09-18: 6,500 steps',exact:true});
-  await recordedDay.focus();
-  await page.keyboard.press('Enter');
-  await expect(page.locator('.active-day-preview')).toContainText('6,500');
+  const chart=page.getByRole('group',{name:/Step chart\. Tap a bar/});
+  await chart.focus();
+  await page.keyboard.press('Home');
+  await expect(readout).toContainText('Aug 19, 2026');
+  await expect(readout).toContainText('Not recorded');
+
+  // Home scrolled the first days into view; a click on the second slot selects that day.
+  const plot=page.getByRole('img',{name:/Daily step counts/});
+  const scroller=page.locator('.step-chart .bar-chart-scroller');
+  const slot=(await plot.boundingBox())!.width/31;
+  const view=(await scroller.boundingBox())!;
+  await page.mouse.click(view.x+slot*1.5,view.y+60);
+  await expect(readout).toContainText('Aug 20, 2026');
+
+  await page.keyboard.press('End');
+  await expect(readout).toContainText('6,500');
+  // Page scrolling may move it; its height must not change with the selected day.
+  expect((await readout.boundingBox())!.height).toBe(readoutBox!.height);
 });

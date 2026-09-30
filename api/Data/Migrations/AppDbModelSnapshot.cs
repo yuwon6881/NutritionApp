@@ -69,6 +69,120 @@ namespace Nutrition.Api.Data.Migrations
                     b.ToTable("Plans");
                 });
 
+            modelBuilder.Entity("Nutrition.Api.Data.AiConversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StateJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("AiConversations");
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.AiConversationTurn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ActionsDismissedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ActionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ActionsResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AssistantReply")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClientTurnId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("CloseChat")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ConversationVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FacetsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Intent")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("KeywordsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ToolTraceJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Topic")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserMessage")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ConversationId", "ClientTurnId")
+                        .IsUnique();
+
+                    b.HasIndex("ConversationId", "CreatedAt");
+
+                    b.ToTable("AiConversationTurns");
+                });
+
             modelBuilder.Entity("Nutrition.Api.Data.AiUsage", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -80,6 +194,21 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<long>("CachedInputTokens")
                         .HasColumnType("bigint");
 
+                    b.Property<long>("ChatCachedTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ChatCalls")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ChatInputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ChatOutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ChatReasoningTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("InputTokens")
                         .HasColumnType("bigint");
 
@@ -89,7 +218,12 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<int>("Requests")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("UserId", "Date");
+
+                    b.HasIndex("Date");
 
                     b.ToTable("Usage");
                 });
@@ -1455,6 +1589,32 @@ namespace Nutrition.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Nutrition.Api.Data.AiConversation", b =>
+                {
+                    b.HasOne("Nutrition.Api.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.AiConversationTurn", b =>
+                {
+                    b.HasOne("Nutrition.Api.Data.AiConversation", "Conversation")
+                        .WithMany("Turns")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Nutrition.Api.Data.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
             modelBuilder.Entity("Nutrition.Api.Data.AiUsage", b =>
                 {
                     b.HasOne("Nutrition.Api.Data.AppUser", null)
@@ -1744,6 +1904,11 @@ namespace Nutrition.Api.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Nutrition.Api.Data.AiConversation", b =>
+                {
+                    b.Navigation("Turns");
                 });
 #pragma warning restore 612, 618
         }

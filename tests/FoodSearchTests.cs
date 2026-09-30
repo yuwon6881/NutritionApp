@@ -97,6 +97,55 @@ public sealed class FoodSearchTests
         Assert.Equal("Fried rice",OpenFoodFactsParser.ReadProduct(hit,null)!.Name);
     }
 
+    [Fact]
+    public void An_open_food_facts_hit_prefers_its_english_name()
+    {
+        var hit=Product("""
+            {"code":"1","product_name":"Чёрные оливки без косточек","product_name_en":"Pitted black olives",
+             "nutriments":{"energy-kcal_100g":131}}
+            """);
+
+        Assert.Equal("Pitted black olives",OpenFoodFactsParser.ReadProduct(hit,null)!.Name);
+    }
+
+    [Fact]
+    public void Hydration_can_supply_an_english_name_when_search_only_has_a_non_Latin_name()
+    {
+        var search=OpenFoodFactsParser.ReadProduct(Product("""
+            {"code":"1","product_name":"Чёрные оливки","nutriments":{"energy-kcal_100g":131}}
+            """),null)!;
+        var hydrated=OpenFoodFactsParser.ReadProduct(Product("""
+            {"code":"1","product_name":"Чёрные оливки","product_name_en":"Black olives",
+             "nutriments":{"energy-kcal_100g":131}}
+            """),"1")!;
+
+        Assert.Equal("Black olives",OpenFoodFactsParser.ApplyHydratedProduct(search,hydrated).Name);
+    }
+
+    [Fact]
+    public void Hydration_preserves_the_english_search_name_when_another_english_label_is_returned()
+    {
+        var search=OpenFoodFactsParser.ReadProduct(Product("""
+            {"code":"1","product_name":"Olives noires","product_name_en":"Pitted black olives",
+             "nutriments":{"energy-kcal_100g":131}}
+            """),null)!;
+        var hydrated=OpenFoodFactsParser.ReadProduct(Product("""
+            {"code":"1","product_name":"Olives noires","product_name_en":"Black olives",
+             "nutriments":{"energy-kcal_100g":131}}
+            """),"1")!;
+
+        Assert.Equal("Pitted black olives",OpenFoodFactsParser.ApplyHydratedProduct(search,hydrated).Name);
+    }
+
+    [Theory]
+    [InlineData("Pitted black olives",true)]
+    [InlineData("Café crème",true)]
+    [InlineData("Чёрные оливки",false)]
+    [InlineData("黑橄榄",false)]
+    [InlineData("12345",false)]
+    public void Public_food_search_names_require_latin_letters(string name,bool expected)
+        =>Assert.Equal(expected,FoodResults.HasOnlyLatinLetters(name));
+
     [Theory]
     [InlineData("""{"brands":"Lidl, Toque du Chef"}""","Lidl, Toque du Chef")]
     [InlineData("""{"brands":["Chef Select","Lidl"]}""","Chef Select")]

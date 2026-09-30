@@ -65,6 +65,9 @@ public sealed partial class NutritionNotificationService
                     .ToListAsync(ct);
                 alreadyResolved = acceptedPlans.Any(item => CheckInWeek.PeriodStart(item.Date, item.CheckInWeekday) == checkInWeek);
             }
+            // A plan needs a full week before its first check-in, so none is due yet.
+            if (!alreadyResolved)
+                alreadyResolved = await db.Plans.AnyAsync(item => !item.Deleted && item.Date > today.AddDays(-7), ct);
             if (alreadyResolved)
             {
                 skipped++;

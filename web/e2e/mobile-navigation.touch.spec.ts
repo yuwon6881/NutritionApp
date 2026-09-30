@@ -75,18 +75,18 @@ test('Back closes an open date popover without leaving the page',async({page})=>
 
 test('a mis-tapped weigh-in delete can be undone, and an unchallenged delete persists',async({page})=>{
   await page.getByRole('button',{name:'Progress',exact:true}).click();
-  const rows=page.locator('.weight-history .history-row');
+  const rows=page.locator('.weigh-in-list .weigh-in-row');
   await expect(rows.first()).toBeVisible();
   const before=await rows.count();
 
-  await rows.first().getByRole('button',{name:'Delete',exact:true}).click();
+  await rows.first().getByRole('button',{name:/^Delete weigh-in from /}).click();
   const undo=page.locator('.undo-toast');
   await expect(undo).toContainText('weigh-in');
   await expect(rows).toHaveCount(before-1);
   await undo.getByRole('button',{name:'Undo',exact:true}).click();
   await expect(rows).toHaveCount(before);
 
-  await rows.first().getByRole('button',{name:'Delete',exact:true}).click();
+  await rows.first().getByRole('button',{name:/^Delete weigh-in from /}).click();
   await expect(rows).toHaveCount(before-1);
   await expect(undo).toBeHidden({timeout:10000});
   await page.reload();

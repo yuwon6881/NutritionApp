@@ -10,6 +10,7 @@ import './index.css';
 import './touch.css';
 import './logging.css';
 import './check-in.css';
+import './progress.css';
 import './barcode.css';
 import './accessibility.css';
 import {measurePerformance} from './lib/performance';

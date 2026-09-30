@@ -14,20 +14,21 @@ test('touching the weight chart reads the nearest date, and arrow keys step thro
   await page.getByRole('button',{name:'Progress',exact:true}).click();
   const readout=page.locator('.chart-readout').first();
   // The readout starts on the latest weigh-in instead of waiting for a hover.
-  await expect(readout).toContainText(todayInTestZone());
+  const readoutDate=readout.locator('time');
+  await expect(readoutDate).toHaveAttribute('datetime',todayInTestZone());
   await expect(readout).toContainText('Trend');
 
   const chart=page.getByRole('img',{name:/weight chart across/});
   await chart.scrollIntoViewIfNeeded();
   const box=(await chart.boundingBox())!;
   await page.touchscreen.tap(box.x+60,box.y+box.height/2);
-  await expect(readout).not.toContainText(todayInTestZone());
-  const firstDate=(await readout.locator('strong').textContent())!;
+  await expect(readoutDate).not.toHaveAttribute('datetime',todayInTestZone());
+  const firstDate=(await readoutDate.getAttribute('datetime'))!;
 
   const group=page.getByRole('group',{name:/Weight chart\. Touch the chart/});
   await group.focus();
   await page.keyboard.press('ArrowRight');
-  await expect(readout.locator('strong')).not.toHaveText(firstDate);
+  await expect(readoutDate).not.toHaveAttribute('datetime',firstDate);
   await page.keyboard.press('End');
-  await expect(readout).toContainText(todayInTestZone());
+  await expect(readoutDate).toHaveAttribute('datetime',todayInTestZone());
 });

@@ -8,6 +8,9 @@ using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Endpoints;
 using Nutrition.Api.Services;
+using Nutrition.Api.Services.AI;
+using Nutrition.Api.Services.AI.Agent;
+using Nutrition.Api.Services.AI.Tools;
 using Nutrition.Api.Services.FoodLookup;
 using OpenIddict.Validation.AspNetCore;
 
@@ -73,6 +76,23 @@ builder.Services.AddHttpClient<GoogleHealthNutritionSyncService>(c=>c.Timeout=Ti
 builder.Services.AddHttpClient<GoogleHealthBodyFatSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<AiChatClient>(c=>c.Timeout=TimeSpan.FromSeconds(45)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddScoped<IAiTool, GetDailySummaryTool>();
+builder.Services.AddScoped<IAiTool, GetFoodLogTool>();
+builder.Services.AddScoped<IAiTool, GetWeightTrendTool>();
+builder.Services.AddScoped<IAiTool, GetExpenditureTrendTool>();
+builder.Services.AddScoped<IAiTool, GetCoachingRecommendationTool>();
+builder.Services.AddScoped<IAiTool, GetBodyFatHistoryTool>();
+builder.Services.AddScoped<IAiTool, SearchFoodDatabaseTool>();
+builder.Services.AddScoped<IAiTool, GetWorkoutSummaryTool>();
+builder.Services.AddScoped<AiToolRegistry>();
+builder.Services.AddScoped<AiToolExecutor>();
+builder.Services.AddScoped<AiBaselineSnapshotBuilder>();
+builder.Services.AddScoped<AiAgentEngine>();
+builder.Services.AddScoped<AiChatUsageMeter>();
+builder.Services.AddScoped<AiAgentServices>();
+builder.Services.AddScoped<AiConversationMemoryService>();
+builder.Services.AddScoped<AiAssistantService>();
 Func<int> foodLookupLimit = () => builder.Configuration.GetValue("RateLimits:FoodLookup:PermitLimit", builder.Environment.IsDevelopment() ? 1200 : 60);
 Func<int> coachingLimit = () => builder.Configuration.GetValue("RateLimits:Coaching:PermitLimit", builder.Environment.IsDevelopment() ? 600 : 30);
 Func<int> progressLimit = () => builder.Configuration.GetValue("RateLimits:Progress:PermitLimit", builder.Environment.IsDevelopment() ? 600 : 30);
@@ -126,6 +146,9 @@ builder.Services.AddRateLimiter(o=>
     o.AddPolicy("device-revocation",http=>RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unauthenticated",
         _=>new FixedWindowRateLimiterOptions { PermitLimit=deviceRevocationLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+    o.AddPolicy("ai-chat",http=>RateLimitPartition.GetFixedWindowLimiter(
+        AccountOrIpKey(http),
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=20,Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
 });
 var app=builder.Build();
 foreach(var skipped in skippedFoodProviders)app.Logger.LogInformation("Food provider skipped: {Reason}",skipped);
@@ -189,7 +212,7 @@ app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareRespon
     if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache";
     else if(c.Context.Request.Path.StartsWithSegments("/assets")) c.Context.Response.Headers.CacheControl="public,max-age=31536000,immutable";
 } });
-app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapNutritionNotifications();
+app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapAiChat();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapNutritionNotifications();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>
 {

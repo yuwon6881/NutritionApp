@@ -12,9 +12,9 @@ namespace Nutrition.Api.Services.FoodLookup;
 /// </summary>
 public sealed class FoodCatalog
 {
-    // Bump when a provider's basis mapping or the merge changes, so a process does not keep serving
-    // rows cached under the old shape.
-    private const string SearchCacheVersion="search:v5:";
+    // Bump when provider mapping, display filtering, or merging changes so a process does not keep
+    // serving rows cached under the old shape.
+    private const string SearchCacheVersion="search:v6:";
     private static readonly TimeSpan CompleteSearchLifetime=TimeSpan.FromHours(6);
     // A merge missing a provider is still worth reusing briefly, but not for hours.
     private static readonly TimeSpan PartialSearchLifetime=TimeSpan.FromMinutes(1);
@@ -110,7 +110,9 @@ public sealed class FoodCatalog
         deadline.CancelAfter(provider.SearchTimeout);
         try
         {
-            var results=await provider.Search(query,durable,deadline.Token);
+            var results=(await provider.Search(query,durable,deadline.Token))
+                .Where(result=>FoodResults.HasOnlyLatinLetters(result.Name))
+                .ToArray();
             breaker.Succeeded();
             return new SearchOutcome(provider,results,null);
         }

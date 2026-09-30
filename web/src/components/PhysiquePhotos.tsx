@@ -158,7 +158,7 @@ export function PhysiquePhotos({store}:{store:Nourish}){
               </div>
             </div>
             <div className="body-hub-card-footer">
-              <Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button>
+              <Button variant="primary" aria-label="Add body record" onClick={event=>openBodyEditor(undefined,event.currentTarget)}><span className="tab-label-full">Add body record</span><span className="tab-label-short">Add record</span></Button>
               <Button variant="secondary" onClick={openHistory}>Open history</Button>
             </div>
           </article>

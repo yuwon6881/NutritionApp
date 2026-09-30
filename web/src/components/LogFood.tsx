@@ -1,6 +1,6 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {Search,ScanBarcode,Sparkles,Zap,PencilLine,Star,ArrowLeft,ListChecks} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {LogFoodProps} from './LogFoodProps';
 import type {Entry,Food} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
@@ -53,20 +53,9 @@ export function LogFood({
   initialAi=false,
   initialTab,
   initialTime,
+  initialQuery,
   restoreFocus,
-}:{
-  open:boolean;
-  store:Nourish;
-  date:string;
-  editing?:Entry;
-  onClose:()=>void;
-  onSaved:()=>void;
-  onReady?:()=>void;
-  initialAi?:boolean;
-  initialTab?:'search'|'saved'|'barcode'|'ai';
-  initialTime?:string;
-  restoreFocus?:HTMLElement|null;
-}){
+}:LogFoodProps){
   const defaultTab=initialTab??(initialAi?'ai':'search');
   useOpeningFrame(open,onReady);
   const history=useHistoryWindow(store,date,open);
@@ -108,7 +97,7 @@ export function LogFood({
       setPendingLinkBarcode(undefined);
       setStepDirty(false);
       setTab(defaultTab);
-      setQuery('');
+      setQuery(initialQuery??'');
       setSavedFilter('all');
       setResults([]);
       setDraft(editing);

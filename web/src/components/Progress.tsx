@@ -4,7 +4,6 @@ import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
 import {SkeletonBlock} from './ui/Skeleton';
-import {WeightChart} from './WeightChart';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
 import {WeightEntryDialog} from './WeightEntryDialog';
@@ -13,13 +12,15 @@ import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel} from './ui/Motion';
 import {SelectField} from './ui/Field';
-import {displayEnergy,displayWeight,energyLabel,unitsFor,weightLabel} from '../lib/units';
+import {displayWeight,unitsFor,weightLabel} from '../lib/units';
 import {projectProgressWeightSummary,progressPeriodOptions,projectedProgressRange} from '../lib/progress';
 import {useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {CardFeedback} from './ui/CardFeedback';
+import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {progressDataKey} from '../lib/progressFreshness';
+import {WeightSummary} from './WeightSummary';
 
 type Tab='weight'|'energy'|'body'|'activity';
 const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
@@ -154,36 +155,21 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
       {summary&&<WeightSummary summary={summary} units={units} pending={pending||Boolean(summary.awaitingSynchronization)} onEdit={editWeight} onDelete={weight=>void deleteWeight(weight)} pendingDeletes={pendingWeightDeletes}/>}
     </>}
     {tab==='energy'&&<>
-      <EnergyBalance store={store} period={energyPeriod} summary={energy.summary} error={energy.error} onPeriodChange={setEnergyPeriod}/>
+      <div className="history-filter"><SelectField label="Energy history period" value={energyPeriod} onChange={value=>setEnergyPeriod(value as ProgressPeriod)}>
+        {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+      </SelectField></div>
+      <EnergyBalance store={store} period={energyPeriod} summary={energy.summary} error={energy.error}/>
       {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading the selected energy period…</p>}
       <CoachingProgress store={store}/>
     </>}
     {tab==='body'&&<Suspense fallback={<section className="panel" aria-busy="true"><p className="sr-only" role="status">Opening body records…</p><SkeletonBlock width="45%" height={28}/><SkeletonBlock height={180}/></section>}><PhysiquePhotos store={store}/></Suspense>}
     {tab==='activity'&&<div className="activity-progress-hub">
       <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
+      <StepCalorieCalculator store={store} variant="panel"/>
       <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} error={store.trainingError} onOpenSettings={onSettings}/>
     </div>}
     </div>
     </MotionPanel>
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
-  </>;
-}
-
-function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:ReturnType<typeof unitsFor>;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight)=>void;pendingDeletes:ReadonlySet<string>}){
-  const stats=summary.weight.statistics;
-  const isTrendPending=Boolean(stats.trendPending);
-  const editable=summary.weight.editableWeighIns.filter(weight=>!pendingDeletes.has(weight.id));
-  return <>
-    {pending&&<p className="notice" role="status">Recent progress edits are retained locally and this summary will refresh after synchronization.</p>}
-    <div className="stats-grid">
-      <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{isTrendPending?'—':displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{isTrendPending?'Pending synchronization':<><span className="nowrap">{summary.start}</span> to <span className="nowrap">{summary.end}</span></>}</p></section>
-      <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{stats.count} weigh-ins</p></section>
-      <section className="panel"><p className="eyebrow">CHANGE IN TREND</p><h2>{isTrendPending||stats.trendChangeKg==null?'—':`${stats.trendChangeKg>0?'+':''}${displayWeight(stats.trendChangeKg,units.weight,1)}`} <span className="unit">{weightLabel(units.weight)}</span></h2><p>{isTrendPending?'Pending synchronization':'From first to latest point'}</p></section>
-    </div>
-    <WeightChart series={summary.weight.series} weightUnit={units.weight}/>
-    <section className="panel weight-history-panel">
-      <div className="section-heading"><div><h2>Latest weigh-ins</h2><p>Only recent retained weigh-ins can be edited. Older points remain in the chart.</p></div></div>
-      {editable.length?<div className="weight-history">{editable.map(weight=><div className="history-row" key={weight.id}><span>{weight.date}</span><strong>{displayWeight(weight.kg,units.weight,2)} {weightLabel(units.weight)}</strong><Button variant="tertiary" size="md" onClick={event=>onEdit(weight,event.currentTarget)}>Edit</Button><Button variant="tertiary" size="md" onClick={()=>onDelete(weight)}>Delete</Button></div>)}</div>:<p className="empty">No weigh-ins in this period.</p>}
-    </section>
   </>;
 }

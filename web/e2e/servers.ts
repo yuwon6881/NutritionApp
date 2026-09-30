@@ -8,11 +8,12 @@ const port = Number(new URL(origin).port || 5088);
 const apiOrigin = `http://127.0.0.1:${port - 1}`;
 const identityOrigin = `http://127.0.0.1:${port - 3}`;
 const database = resolve(process.env.NUTRITION_TEST_DATABASE ?? 'e2e/.e2e.db');
+const apiArtifacts = process.env.NUTRITION_TEST_API_ARTIFACTS;
 
 export const testServers = [
   { command: `node e2e/mock-idp.mjs ${port - 3}`, url: `${identityOrigin}/.well-known/openid-configuration`, reuseExistingServer: !managed, timeout: 30000 },
   {
-    command: `dotnet run --project ../api/Nutrition.Api.csproj --urls ${apiOrigin}`,
+    command: `dotnet run --project ../api/Nutrition.Api.csproj${apiArtifacts ? ` --artifacts-path "${apiArtifacts}"` : ''} --urls ${apiOrigin}`,
     url: `${apiOrigin}/health`,
     reuseExistingServer: !managed,
     timeout: 180000,

@@ -33,6 +33,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<NutritionPushSubscription> NutritionPushSubscriptions => Set<NutritionPushSubscription>();
     public DbSet<NutritionCheckInReminderPreference> NutritionCheckInReminderPreferences => Set<NutritionCheckInReminderPreference>();
     public DbSet<NutritionPushReminderDelivery> NutritionPushReminderDeliveries => Set<NutritionPushReminderDelivery>();
+    public DbSet<AiConversation> AiConversations => Set<AiConversation>();
+    public DbSet<AiConversationTurn> AiConversationTurns => Set<AiConversationTurn>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
@@ -147,6 +149,21 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
             table.HasCheckConstraint("CK_DailyExpenditureEstimates_Expenditure", "\"Expenditure\" IS NULL OR \"Expenditure\" >= 0");
             table.HasCheckConstraint("CK_DailyExpenditureEstimates_SuggestedCalories", "\"SuggestedCalories\" IS NULL OR \"SuggestedCalories\" >= 0");
         });
+
+        m.Entity<AiConversation>().HasKey(x => x.Id);
+        m.Entity<AiConversation>().Property(x => x.Version).IsConcurrencyToken();
+        m.Entity<AiConversation>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<AiConversation>().HasIndex(x => x.UserId).IsUnique();
+        m.Entity<AiConversation>().HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        m.Entity<AiConversationTurn>().HasKey(x => x.Id);
+        m.Entity<AiConversationTurn>().HasIndex(x => x.CreatedAt);
+        m.Entity<AiUsage>().HasIndex(x => x.Date);
+        m.Entity<AiConversationTurn>().HasQueryFilter(x => x.UserId == CurrentUser);
+        m.Entity<AiConversationTurn>().HasIndex(x => new { x.ConversationId, x.ClientTurnId }).IsUnique();
+        m.Entity<AiConversationTurn>().HasIndex(x => new { x.ConversationId, x.CreatedAt });
+        m.Entity<AiConversationTurn>().HasOne(x => x.Conversation).WithMany(x => x.Turns).HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        m.Entity<AiConversationTurn>().HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
     private static void OwnedByUser<T>(ModelBuilder m) where T : class
         => m.Entity<T>().HasOne<AppUser>().WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade);
@@ -185,6 +202,10 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Nutrition reminder preference ownership violation.");
         foreach(var entry in ChangeTracker.Entries<NutritionPushReminderDelivery>().Where(e=>e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
             if(!MaintenanceAccess&&entry.Entity.UserId!=CurrentUser) throw new InvalidOperationException("Nutrition push delivery ownership violation.");
+        foreach (var entry in ChangeTracker.Entries<AiConversation>().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if (!MaintenanceAccess && (CurrentUser == null || entry.Entity.UserId != CurrentUser)) throw new InvalidOperationException("Conversation ownership violation.");
+        foreach (var entry in ChangeTracker.Entries<AiConversationTurn>().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+            if (!MaintenanceAccess && (CurrentUser == null || entry.Entity.UserId != CurrentUser)) throw new InvalidOperationException("Turn ownership violation.");
         return base.SaveChangesAsync(cancellationToken);
     }
 }

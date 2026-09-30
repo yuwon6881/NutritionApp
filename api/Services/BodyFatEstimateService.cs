@@ -13,7 +13,7 @@ public sealed record BodyFatEstimateView(double EstimatePercent,double LowPercen
 
 /// A transient suggestion: nothing is stored except the shared AI allowance counter.
 /// Inline images stay in memory and are never written to photo storage.
-public sealed class BodyFatEstimateService(AppDb db,GcsPhotoStore store,BodyRecordService body,BodyCompositionAi ai,IConfiguration config)
+public sealed class BodyFatEstimateService(AppDb db,GcsPhotoStore store,BodyRecordService body,BodyCompositionAi ai)
 {
     private static readonly string[] Angles=["front","side","back"];
 
@@ -48,7 +48,7 @@ public sealed class BodyFatEstimateService(AppDb db,GcsPhotoStore store,BodyReco
         var formula=BodyFatFormulas.Navy(sex,height,measurements.NeckCm,measurements.WaistCm,measurements.HipsCm);
         var context=new BodyCompositionContext(sex,age,height,weight.ScaleKg,weight.TrendKg,formula,recorded);
 
-        var day=await AiAllowance.Reserve(db,config,ct);
+        var day=await AiAllowance.Reserve(db,ct);
         var result=await ai.Estimate(new BodyCompositionPhotos(images["front"],images["side"],images["back"]),context,ct);
         await AiAllowance.RecordTokens(db,day,result.InputTokens,result.CachedInputTokens,result.OutputTokens);
         var estimate=result.Estimate;

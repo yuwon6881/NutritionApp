@@ -20,7 +20,7 @@ public static partial class OpenFoodFactsParser
     /// </summary>
     public static FoodResult? ReadProduct(JsonElement product,string? scanned,string? basis=null)
     {
-        var name=FoodResults.Text(product,"product_name")??FoodResults.Text(product,"product_name_en");
+        var name=FoodResults.Text(product,"product_name_en")??FoodResults.Text(product,"product_name");
         if(name is null&&scanned is null)return null;
         if(Calories(product) is not {} calories)return null;
         var code=scanned??Code(product);
@@ -42,6 +42,9 @@ public static partial class OpenFoodFactsParser
     public static FoodResult ApplyHydratedProduct(FoodResult searchResult,FoodResult hydrated)
         =>searchResult with
         {
+            Name=FoodResults.HasOnlyLatinLetters(searchResult.Name)||!FoodResults.HasOnlyLatinLetters(hydrated.Name)
+                ?searchResult.Name
+                :hydrated.Name,
             Calories=hydrated.Calories,
             Protein=hydrated.Protein,
             Fat=hydrated.Fat,

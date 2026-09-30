@@ -1,5 +1,6 @@
 import {lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
-import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle} from 'lucide-react';
+import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles} from 'lucide-react';
+import type {AiUiAction} from './lib/api/ai';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
 import {getLocalDatabaseFailure} from './lib/local';
 import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
@@ -38,6 +39,7 @@ const Settings=lazy(()=>import('./components/Settings').then(module=>({default:m
 // The food dialog mounts on first use; its chunk is warmed once the app is idle.
 const loadLogFood=()=>import('./components/LogFood');
 const LogFood=lazy(()=>loadLogFood().then(module=>({default:module.LogFood})));
+const AiAssistantPanel=lazy(()=>import('./components/AiAssistantPanel').then(module=>({default:module.AiAssistantPanel})));
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 const PAGES:readonly Page[]=['today','food','progress','coach','settings'];
@@ -70,6 +72,7 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
   },[!!store.state]);
   const [foodDate,setFoodDate]=useState(today());
   const [foodInitialTime,setFoodInitialTime]=useState<string>();
+  const [foodInitialQuery,setFoodInitialQuery]=useState<string>();
   const [foodEditing,setFoodEditing]=useState<Entry>();
   const [foodInitialTab,setFoodInitialTab]=useState<'search'|'saved'|'barcode'|'ai'>('search');
   const [foodReturnFocus,setFoodReturnFocus]=useState<HTMLElement|null>(null);
@@ -84,6 +87,33 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
   const [copyReturnFocus,setCopyReturnFocus]=useState<HTMLElement|null>(null);
   const [showAddSheet,setShowAddSheet]=useState(false);
   const [addReturnFocus,setAddReturnFocus]=useState<HTMLElement|null>(null);
+  const [aiOpen,setAiOpen]=useState(false);
+
+  const handleAiActions=async(actions:AiUiAction[])=>{
+    for(const action of actions){
+      switch(action.type){
+        case 'openFoodLog':
+          if(typeof action.payload.date==='string'){setDate(action.payload.date);setFoodDate(action.payload.date);}
+          requestPage('food');
+          break;
+        case 'openAddFoodDraft':
+          openFood(typeof action.payload.date==='string'?action.payload.date:selectedEntryDate,undefined,'search',null,typeof action.payload.time==='string'?action.payload.time:undefined,typeof action.payload.query==='string'?action.payload.query:undefined);
+          break;
+        case 'openWeightEntry':
+          openWeight((action.payload.date as string)||activeDate);
+          break;
+        case 'openCoaching':
+          requestPage('coach');
+          break;
+        case 'openExpenditure':
+          requestPage('progress');
+          break;
+        case 'openBarcodeScanner':
+          openFood(selectedEntryDate,undefined,'barcode');
+          break;
+      }
+    }
+  };
   const needsProfile=!!store.state&&!store.state.profile;
   const conflictCount=store.local?.queue.filter(queue=>queue.error).length??0;
 
@@ -144,11 +174,11 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
   },[]);
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setDate(current);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
-  const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string)=>{
+  const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string,initialQuery?:string)=>{
     foodOpening.current?.();
     foodOpening.current=measurePerformance('food.open');
     const initialSection=typeof tab==='string'?tab:tab?'barcode':'search';
-    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialTime(initialTime);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
+    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialTime(initialTime);setFoodInitialQuery(initialQuery);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
   };
   const openWeight=(selectedDate:string,entry?:Weight,restoreFocus?:HTMLElement|null)=>{
     setWeightDate(selectedDate);setWeightEditing(entry);setWeightReturnFocus(restoreFocus??null);setWeightOpen(true);
@@ -221,6 +251,7 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
         <SelectionIndicator active={page} className="nav-desktop-items nav-selection">
           <Button disabled={needsProfile} variant="primary" className="nav-add-desktop" aria-label="Add entry" title="Add entry" onClick={event=>{setAddReturnFocus(event.currentTarget);setShowAddSheet(true);}}><Plus size={19}/><span>Add entry</span></Button>
           {nav.map(item=>{const Icon=item.icon;return <Button data-selection-key={item.id} key={item.id} disabled={needsProfile&&item.id!=='coach'} variant="tertiary" className={page===item.id?'nav-active':''} aria-current={page===item.id?'page':undefined} onClick={()=>navigate(item.id)}><Icon size={21}/><span>{item.label}</span></Button>;})}
+          <Button disabled={needsProfile} variant="tertiary" className="nav-ai-button" aria-label="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={21}/><span>Ask AI</span></Button>
         </SelectionIndicator>
       </nav>
     </aside>
@@ -235,6 +266,7 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
           )}
         </div>
         {needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}
+        <Button disabled={needsProfile} variant="tertiary" size="icon" aria-label="Ask AI" title="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={20}/></Button>
         <Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button>
       </div>
       <SyncStatus store={store}/>
@@ -247,10 +279,11 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
       </MotionScene></Suspense>}
       {store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
+        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}
+      {aiOpen&&<Suspense fallback={null}><AiAssistantPanel isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page}/></Suspense>}
     </main>
     <ActionSheet isOpen={showAddSheet} onClose={()=>setShowAddSheet(false)} restoreFocus={addReturnFocus} title="Add" subtitle={`${selectedEntryDate===activeDate?'Today · ':''}${selectedEntryDate}`} options={addOptions}/>
   </div>;

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -17,6 +18,45 @@ public record FoodResult(string Name,double Calories,double? Protein,double? Fat
 public static class FoodResults
 {
     private const int MaxNameLength=160;
+
+    /// <summary>
+    /// Public catalogue names have no dependable language metadata. Keep names that use Latin
+    /// letters and reject names containing letters from other scripts; this catches obvious cases
+    /// such as Cyrillic without claiming to identify every language written in Latin script.
+    /// </summary>
+    public static bool HasOnlyLatinLetters(string name)
+    {
+        if(string.IsNullOrWhiteSpace(name))return false;
+        var foundLetter=false;
+        foreach(var rune in name.EnumerateRunes())
+        {
+            var category=Rune.GetUnicodeCategory(rune);
+            if(category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)continue;
+            if(category is not (UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter or UnicodeCategory.TitlecaseLetter or UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter))continue;
+            foundLetter=true;
+            if(!IsLatinLetter(rune.Value))return false;
+        }
+        return foundLetter;
+    }
+
+    private static bool IsLatinLetter(int value)
+        =>value is >=0x0041 and <=0x005A
+            or >=0x0061 and <=0x007A
+            or >=0x00C0 and <=0x02C1
+            or >=0x02C6 and <=0x02D1
+            or >=0x02E0 and <=0x02E4
+            or >=0x1D00 and <=0x1D7F
+            or >=0x1D80 and <=0x1DBF
+            or >=0x1E00 and <=0x1EFF
+            or 0x2071 or 0x207F or >=0x2090 and <=0x209C
+            or >=0x212A and <=0x212B or 0x2132 or 0x214E
+            or >=0x2C60 and <=0x2C7F
+            or >=0xA722 and <=0xA7FF
+            or >=0xAB30 and <=0xAB6F
+            or >=0xFB00 and <=0xFB06
+            or >=0xFF21 and <=0xFF3A or >=0xFF41 and <=0xFF5A
+            or >=0x10780 and <=0x107BF
+            or >=0x1DF00 and <=0x1DFFF;
 
     /// <summary>
     /// Food names repeat heavily across brands—one query returns three products called

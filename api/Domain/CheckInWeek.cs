@@ -29,6 +29,8 @@ public static class CheckInWeek
         return occurrence > date ? occurrence : occurrence.AddDays(7);
     }
 
+    /// The first check-in weekday at least a full week after a plan was accepted. A plan accepted
+    /// the day before check-in day therefore waits eight days instead of being re-proposed at once.
     public static DateOnly NextCheckIn(DateOnly lastPlan, int weekday = Monday)
-        => PeriodStart(lastPlan, weekday).AddDays(7);
+        => NextOccurrence(lastPlan.AddDays(7), weekday);
 }

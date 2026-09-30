@@ -33,7 +33,7 @@ test('Coach destination controls and focus do not wait for animation completion'
   await page.getByRole('button',{name:/^Next: Activity/}).click();
   await expect(page.locator('[data-step-heading]')).toHaveText('Activity');
   await expect(page.locator('[data-step-heading]')).toBeFocused();
-  await expect(page.getByLabel('Resistance training',{exact:true})).toBeEnabled();
+  await expect(page.getByRole('radio',{name:/^Lifting\b/})).toBeEnabled();
   await page.evaluate(()=>document.getAnimations().forEach(animation=>animation.cancel()));
 });
 async function step(page:Page,name:string){
@@ -74,17 +74,21 @@ async function changeGoal(page:Page){
   await savePlan(page);
 }
 
-test('activity step preserves resistance training and omits removed controls',async({page,context})=>{
+test('activity step offers the four activity choices and omits removed controls',async({page,context})=>{
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   await step(page,'Activity');
-  await expect(page.getByLabel('Resistance training',{exact:true})).toBeVisible();
+  for(const name of [/^None or relaxed activity\b/,/^Lifting\b/,/^Cardio\b(?! &)/,/^Cardio & Lifting\b/])
+    await expect(page.getByRole('radio',{name})).toBeVisible();
+  await expect(page.getByLabel('Resistance training',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Usual activity (approximate)',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Pregnant or breastfeeding',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Medically managed nutrition',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Known maintenance calories (optional)',{exact:true})).toHaveCount(0);
   await step(page,'Body');
   await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('male');
   await step(page,'Activity');
-  await expect(page.getByLabel('Resistance training',{exact:true})).toBeVisible();
+  await page.getByRole('radio',{name:/^Cardio & Lifting\b/}).check();
+  await expect(page.getByRole('radio',{name:/^Cardio & Lifting\b/})).toBeChecked();
   await expect(page.getByLabel('Pregnant or breastfeeding',{exact:true})).toHaveCount(0);
 });
 async function transitionFrames(page:Page,name:string){

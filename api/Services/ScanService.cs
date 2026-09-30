@@ -4,7 +4,7 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
 public record ScanInput(Guid Id,string Mode,string Description,string? ImageBase64);
-public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi ai,StorageService storage,IConfiguration config)
+public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi ai,StorageService storage)
 {
     public async Task<ScanJob> Create(ScanInput input,CancellationToken ct)
     {
@@ -70,7 +70,7 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
         {
             scan=await db.Scans.SingleOrDefaultAsync(s=>s.Id==id,ct)??throw new DomainException("Scan not found.",404);
             if(scan.Status is "complete" or "failed" or "uploading"||scan.LeaseUntil>DateTime.UtcNow) return scan;
-            usageDay=await AiAllowance.ReserveUnderLock(db,config,ct);
+            usageDay=await AiAllowance.ReserveUnderLock(db,ct);
             scan.Status="processing";scan.LeaseUntil=lease;
             await db.SaveChangesAsync(ct); await gate.Commit(ct);
         }

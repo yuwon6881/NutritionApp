@@ -39,7 +39,9 @@
 .saved-foods-actions .button{white-space:nowrap}
 @media(max-width:639px){
   .food-calendar-navigation{display:none}
-  .food-log-page .food-date-navigation{grid-template-columns:minmax(0,1fr);width:100%}
+  /* Today takes only its own width beside the date picker; the picker keeps the rest. */
+  .food-log-page .food-date-navigation{grid-template-columns:minmax(0,1fr) auto;width:100%}
+  .food-log-page .food-date-navigation>.button:last-child{grid-column:auto;width:auto;min-height:44px;padding-inline:16px}
   .food-modal .saved-foods-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .food-modal .saved-foods-actions>.button:first-child{grid-column:1/-1}
   .food-modal .saved-foods-actions .button{flex:none;padding-inline:8px;gap:6px}

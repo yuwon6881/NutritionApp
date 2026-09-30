@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import {Footprints, ArrowUpRight} from 'lucide-react';
 import {number} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, getTodayStepCount} from '../lib/googleHealth';
@@ -12,6 +13,8 @@ interface GoogleHealthStepsCardProps {
   todayDate: string;
   warningMessage?: string | null;
   onOpenSettings?: () => void;
+  /** Extra content under the provenance, such as the steps-for-energy calculator. */
+  children?: ReactNode;
 }
 
 export function GoogleHealthStepsCard({
@@ -22,6 +25,7 @@ export function GoogleHealthStepsCard({
   todayDate,
   warningMessage,
   onOpenSettings,
+  children,
 }: GoogleHealthStepsCardProps) {
   const count = getTodayStepCount(days, todayDate);
 
@@ -99,6 +103,7 @@ export function GoogleHealthStepsCard({
           action={onOpenSettings ? {label: 'Open Settings', onClick: onOpenSettings} : undefined}
         />
       )}
+      {children}
     </article>
   );
 }

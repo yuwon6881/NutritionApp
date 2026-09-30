@@ -12,8 +12,9 @@ describe('Monday check-ins',()=>{
     expect(weekStart('2026-09-06')).toBe('2026-08-31');
     expect(weekStart('2026-09-07')).toBe('2026-09-07');
   });
-  it('is due on a later Monday and after a profile edit',()=>{
-    expect(checkInDue(state(),'2026-09-07')).toBe(true);
+  it('is due on the first Monday a full week after the plan, and after a profile edit',()=>{
+    expect(checkInDue(state(),'2026-09-07')).toBe(false);
+    expect(checkInDue(state(),'2026-09-14')).toBe(true);
     expect(checkInDue(state({profileRevision:4}),'2026-09-02')).toBe(true);
   });
   it('hides a declined week until the following Monday',()=>{
@@ -28,6 +29,14 @@ describe('Monday check-ins',()=>{
     });
     expect(checkInSchedule(scheduled,'2026-09-10')).toEqual({due:false,nextDate:'2026-09-14',daysUntil:4,declined:false});
     expect(checkInSchedule(scheduled,'2026-09-14')).toEqual({due:true,nextDate:'2026-09-14',daysUntil:0,declined:false});
+  });
+  it('does not offer a check-in the day after a plan activated on Sunday',()=>{
+    const sunday=state({
+      plans:[{...state().plans[0],date:'2026-09-06',checkInWeekday:1,coachingSettingsRevision:0}],
+      settings:{checkInWeekday:1,revision:0}
+    });
+    expect(checkInSchedule(sunday,'2026-09-07')).toEqual({due:false,nextDate:'2026-09-14',daysUntil:7,declined:false});
+    expect(checkInDue(sunday,'2026-09-14')).toBe(true);
   });
   it('starts the next countdown after an explicit decline',()=>{
     const declined=state({

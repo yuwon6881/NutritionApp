@@ -72,9 +72,9 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   };
   await expect.poll(savedWeight).toMatchObject({kg:82,context:'high_sodium'});
 
-  const row=page.locator('.weight-history .history-row').filter({hasText:todayDate});
-  await expect(row.getByRole('button',{name:'Edit',exact:true})).toBeVisible();
-  await row.getByRole('button',{name:'Edit',exact:true}).click();
+  const row=page.locator('.weigh-in-list .weigh-in-row').filter({has:page.locator(`time[datetime="${todayDate}"]`)});
+  await expect(row.getByRole('button',{name:/^Edit weigh-in from /})).toBeVisible();
+  await row.getByRole('button',{name:/^Edit weigh-in from /}).click();
   const edit=page.getByRole('dialog',{name:'Edit weigh-in',exact:true});
   await edit.getByLabel('Weight (kg)',{exact:true}).fill('82.2');
   const editedChoice=edit.getByRole('button',{name:'Choose possible temporary context'});

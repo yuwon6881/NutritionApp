@@ -14,6 +14,11 @@ test('Reload app navigates after a service-worker update',async({page})=>{
   await expect(reload).toBeEnabled();
   await Promise.all([page.waitForEvent('framenavigated',frame=>frame===page.mainFrame()),reload.click()]);
   await expect(reload).toBeHidden();
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(async()=>{
+    const registrations=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(r=>r.unregister()));
+  });
 });
 
 test('navigation reload after a worker update settles preload without console warnings',async({page,context})=>{
@@ -42,4 +47,8 @@ test('navigation reload after a worker update settles preload without console wa
   expect(preloadEnabled).toBe(false);
   expect(preloadWarnings).toEqual([]);
   expect(workerWarnings).toEqual([]);
+  await page.evaluate(async()=>{
+    const registrations=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(r=>r.unregister()));
+  });
 });

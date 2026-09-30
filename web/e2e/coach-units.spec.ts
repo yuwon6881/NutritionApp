@@ -98,7 +98,7 @@ test.describe('Coach unit selection', () => {
     await page.getByRole('button', {name: /^Next: Activity/}).click();
 
     // Fill Step 2: Activity
-    await page.getByLabel('Usual activity (approximate)', {exact: true}).selectOption('1.4');
+    await page.getByRole('radio', {name: /^None or relaxed activity\b/}).check();
     await page.getByRole('button', {name: /^Next: Goal/}).click();
 
     // Step 3: Goal

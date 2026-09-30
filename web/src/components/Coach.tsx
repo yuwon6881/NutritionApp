@@ -24,6 +24,8 @@ import {useAsyncAction} from './ui/useAsyncAction';
 import {resolveGoalStartWeight} from '../lib/goalPhase';
 import {CardFeedback} from './ui/CardFeedback';
 import {MotionPanel} from './ui/Motion';
+import {ActivitySelection} from './ActivitySelection';
+import {activityFields} from '../lib/activityLevels';
 
 const defaults:ProfileDraft={
   age:0,
@@ -166,6 +168,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       [key]:value,
       // The stored age mirrors the date of birth so an older record stays consistent offline.
       ...(key==='dateOfBirth'?{age:ageOn(value as string,current)??p.age}:{}),
+      ...(key==='activityLevel'?activityFields(value as NonNullable<Profile['activityLevel']>):{}),
       ...(key==='goal'?{
         goalRatePercent:value==='lose'?-0.5:value==='gain'?0.15:0,
         energyAdjustmentPercent:value==='lose'?15:value==='gain'?5:0,
@@ -435,20 +438,7 @@ export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolea
       </div>}
 
       {step==='activity'&&<div className="step-content">
-        <SelectField id="coach-activity" name="activity" required label="Usual activity (approximate)" value={profile.activity?String(profile.activity):''} onChange={v=>set('activity',Number(v))}>
-          <option value="" disabled>Choose your usual activity</option>
-          <option value="1.2">Very little activity · 1.2</option>
-          <option value="1.4">Mostly sitting, some walking · 1.4</option>
-          <option value="1.6">Moderately active · 1.6</option>
-          <option value="1.8">Active most days · 1.8</option>
-          <option value="2.0">Very active · 2.0</option>
-        </SelectField>
-        <div className="checks">
-          <label htmlFor="coach-resistance-training">
-            <input id="coach-resistance-training" name="resistanceTraining" type="checkbox" role="switch" aria-checked={profile.resistanceTraining} checked={profile.resistanceTraining} onChange={e=>set('resistanceTraining',e.target.checked)}/>
-            Resistance training
-          </label>
-        </div>
+        <ActivitySelection profile={profile} onChange={level=>set('activityLevel',level)}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('body')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('goal');}}>

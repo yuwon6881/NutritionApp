@@ -10,8 +10,12 @@ import {useGestureRect} from './useGestureRect';
  * always states a real value instead of relying on hover tooltips, which
  * never appear on touch screens. Vertical page scrolling stays available
  * because the chart only claims horizontal movement (`touch-action: pan-y`).
+ *
+ * A chart inside a horizontal scroller passes `tapToSelect`: the finger then
+ * scrolls the bars, and only a tap (a touch the browser did not take over for
+ * scrolling) selects one. The mouse still follows the pointer.
  */
-export function useChartScrub(positions:readonly number[]){
+export function useChartScrub(positions:readonly number[],{tapToSelect=false}:{tapToSelect?:boolean}={}){
   const count=positions.length;
   const [index,setIndex]=useState(Math.max(0,count-1));
   const target=useRef<SVGSVGElement|null>(null);
@@ -34,10 +38,14 @@ export function useChartScrub(positions:readonly number[]){
   return {
     index:Math.min(index,Math.max(0,count-1)),
     svgProps:{
-      onPointerDown:(event:React.PointerEvent<SVGSVGElement>)=>{geometry.invalidate();pick(event);selection.flush();},
+      onPointerDown:(event:React.PointerEvent<SVGSVGElement>)=>{
+        geometry.invalidate();
+        if(tapToSelect&&event.pointerType!=='mouse')return;
+        pick(event);selection.flush();
+      },
       onPointerMove:(event:React.PointerEvent<SVGSVGElement>)=>{
-        // Mouse follows the pointer; touch and pen follow while pressed.
-        if(event.pointerType==='mouse'||event.buttons)pick(event);
+        // Mouse follows the pointer; touch and pen follow while pressed, unless the finger scrolls the bars.
+        if(event.pointerType==='mouse'||event.buttons&&!tapToSelect)pick(event);
       },
       onPointerUp:(event:React.PointerEvent<SVGSVGElement>)=>{pick(event);selection.flush();},
       onPointerCancel:()=>{selection.cancel();geometry.invalidate();},

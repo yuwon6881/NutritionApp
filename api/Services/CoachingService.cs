@@ -55,7 +55,8 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         var weekday = user.CheckInWeekday is >= 0 and <= 6 ? user.CheckInWeekday : CheckInWeek.Monday;
         var weekStart = CheckInWeek.PeriodStart(today, weekday);
         var declined = await db.CheckIns.AnyAsync(d => d.WeekStart == weekStart && d.CheckInWeekday == weekday && d.Decision == "declined" && !d.Deleted, ct);
-        var newWeek = last != null && weekStart > CheckInWeek.PeriodStart(last.Date, weekday);
+        // A check-in needs a full week of data after the plan it would replace.
+        var newWeek = last != null && today >= CheckInWeek.NextCheckIn(last.Date, weekday);
         var adaptationDue = last == null || last.ProfileRevision != user.ProfileRevision || newWeek;
         var result = Coach.Calculate(profile, days, weights,
             previous?.Calories is {} calories && previous.Expenditure is {} expenditure

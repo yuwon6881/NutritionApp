@@ -31,10 +31,12 @@ public sealed class FatSecretProviderTests
     private sealed class Api(Func<HttpRequestMessage,(HttpStatusCode Status,string Body)> respond):HttpMessageHandler
     {
         public List<string> Paths { get; }=[];
+        public List<string> Queries { get; }=[];
         public int TokenRequests=>Paths.Count(path=>path.EndsWith("/connect/token",StringComparison.Ordinal));
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
             Paths.Add(request.RequestUri!.AbsolutePath);
+            Queries.Add(request.RequestUri.Query);
             var (status,body)=request.RequestUri.AbsolutePath.EndsWith("/connect/token",StringComparison.Ordinal)
                 ?(HttpStatusCode.OK,"""{"access_token":"token-1","token_type":"Bearer","expires_in":86400}""")
                 :respond(request);
@@ -52,8 +54,8 @@ public sealed class FatSecretProviderTests
     }
 
     // Each test gets its own client id: the token cache is process-wide by design.
-    private static FatSecretProvider Provider(Api api,bool barcode=false,int dailyLimit=5000)
-        =>new(new HttpClient(api),new FatSecretOptions{ClientId="client-"+Guid.NewGuid(),ClientSecret="secret",Barcode=barcode,DailyLimit=dailyLimit});
+    private static FatSecretProvider Provider(Api api,bool barcode=false,int dailyLimit=5000,string? region=null)
+        =>new(new HttpClient(api),new FatSecretOptions{ClientId="client-"+Guid.NewGuid(),ClientSecret="secret",Barcode=barcode,DailyLimit=dailyLimit,Region=region});
 
     [Fact]
     public async Task Search_converts_gram_servings_to_per_100g_and_keeps_portions()
@@ -76,6 +78,16 @@ public sealed class FatSecretProviderTests
         Assert.Equal(15*100/119.0,burger.Protein!.Value,6);
         Assert.Null(burger.Fiber);
         Assert.Equal([new FoodPortion("1 burger",119)],burger.Portions);
+    }
+
+    [Fact]
+    public async Task A_configured_region_requests_English_localization()
+    {
+        var api=new Api(Catalogue);
+
+        await Provider(api,region:"MY").Search("banana",null,default);
+
+        Assert.Contains(api.Queries,query=>query.Contains("region=MY",StringComparison.Ordinal)&&query.Contains("language=en",StringComparison.Ordinal));
     }
 
     [Fact]

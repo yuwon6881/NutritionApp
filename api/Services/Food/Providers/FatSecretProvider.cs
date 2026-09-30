@@ -13,7 +13,6 @@ public sealed class FatSecretOptions
     public string ClientSecret { get; init; }="";
     /// <summary>Premier localization (for example "MY"); empty on Basic, which serves the US dataset.</summary>
     public string? Region { get; init; }
-    public string? Language { get; init; }
     /// <summary>Barcode lookup is a Premier method; enable only when the key's edition includes it.</summary>
     public bool Barcode { get; init; }
     /// <summary>Basic allows 5,000 calls a day; the provider stops before the platform refuses.</summary>
@@ -29,7 +28,6 @@ public sealed class FatSecretOptions
         {
             ClientId=id,ClientSecret=secret,
             Region=section["Region"]?.Trim() is {Length:>0} region?region:null,
-            Language=section["Language"]?.Trim() is {Length:>0} language?language:null,
             Barcode=section.GetValue("Barcode",false),
             DailyLimit=section.GetValue("DailyLimit",5000),
         };
@@ -106,8 +104,9 @@ public sealed class FatSecretProvider(HttpClient http,FatSecretOptions options):
     }
 
     private string Locale()
-        =>(options.Region is { } region?"&region="+Uri.EscapeDataString(region):"")
-            +(options.Language is { } language?"&language="+Uri.EscapeDataString(language):"");
+        =>options.Region is { } region
+            ?"&region="+Uri.EscapeDataString(region)+"&language=en"
+            :"";
 
     private async Task<JsonDocument> Get(string url,CancellationToken ct)
     {

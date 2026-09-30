@@ -37,6 +37,25 @@ public sealed class FoodCatalogTests : IAsyncLifetime
     }
 
     [Theory]
+    [InlineData("usda")]
+    [InlineData("fatsecret")]
+    [InlineData("off")]
+    public async Task Public_search_providers_drop_names_with_non_Latin_letters(string providerId)
+    {
+        var provider=new FakeFoodProvider(providerId)
+        {
+            OnSearch=_=>[
+                Generic("Чёрные оливки без косточек"),
+                Generic("Pitted black olives"),
+            ],
+        };
+
+        var results=await Catalog(provider).Search("olives",default);
+
+        Assert.Equal("Pitted black olives",Assert.Single(results).Name);
+    }
+
+    [Theory]
     [InlineData(FoodProviderFailure.Unavailable,503,"temporarily unavailable")]
     [InlineData(FoodProviderFailure.TimedOut,503,"temporarily unavailable")]
     [InlineData(FoodProviderFailure.Busy,429,"busy at Provider off")]
@@ -95,6 +114,20 @@ public sealed class FoodCatalogTests : IAsyncLifetime
         Assert.Equal("Milo · Nestlé",result.Name);
         Assert.Single(first.BarcodeCalls);
         Assert.Empty(third.BarcodeCalls);
+    }
+
+    [Fact]
+    public async Task Barcode_keeps_the_original_non_Latin_package_name_for_review()
+    {
+        var provider=new FakeFoodProvider("off")
+        {
+            OnBarcode=code=>Branded("Чёрные оливки · Goodday",code),
+        };
+        await using var db=Db();
+
+        var result=await Catalog(provider).Barcode("9556001000000",db,default);
+
+        Assert.Equal("Чёрные оливки · Goodday",result.Name);
     }
 
     [Fact]
