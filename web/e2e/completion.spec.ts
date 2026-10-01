@@ -95,7 +95,10 @@ test('a new terminal rejection permits the next independent write in the same dr
 test('cached training remains visible while a refresh is pending',async({page})=>{
   // Dashboard only requests training for a known connection; model that consent in bootstrap.
   await page.route('**/api/bootstrap',async route=>{
-    const response=await route.fetch();
+    // This fixture changes the JSON, so it needs a full response on conditional refreshes too.
+    const requestHeaders={...route.request().headers()};
+    delete requestHeaders['if-none-match'];
+    const response=await route.fetch({headers:requestHeaders});
     const state=await response.json();
     await route.fulfill({response,json:{...state,workoutConnected:true}});
   });
@@ -107,13 +110,20 @@ test('cached training remains visible while a refresh is pending',async({page})=
     if(++requests>1)await waiting;
     await route.fulfill({status:200,json:{summaries:[summary],workoutConnected:true,workoutWarning:null}});
   });
-  await seed(page);
-  await expect(page.getByText('Cached training',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Food Log',exact:true}).click();
-  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
-  await expect(page.getByRole('status').filter({hasText:'Refreshing…'})).toBeVisible();
-  complete();
-  await expect(page.getByText('Refreshing…',{exact:true})).not.toBeVisible();
+  try{
+    await seed(page);
+    await expect(page.getByText('Cached training',{exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Food Log',exact:true}).click();
+    await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'Refreshing…'})).toBeVisible();
+    complete();
+    await expect(page.getByText('Refreshing…',{exact:true})).not.toBeVisible();
+  }finally{
+    // Release a held summary even after an assertion fails, then finish route callbacks before
+    // Playwright closes this page. Otherwise a late route.fetch error can fail the next test.
+    complete();
+    await page.unrouteAll({behavior:'wait'});
+  }
 });
 
 test('a protein override exceeding the energy budget blocks plan progression',async({page})=>{
