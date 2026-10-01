@@ -196,3 +196,125 @@ test('Google Health step chart selects a day by click and keyboard',async({page}
   // Page scrolling may move it; its height must not change with the selected day.
   expect((await readout.boundingBox())!.height).toBe(readoutBox!.height);
 });
+
+for (const width of [390,768,1440]) for (const theme of ['light','dark']) {
+  test(`delayed steps reveal remains usable at ${width}px in ${theme}`,async({page},testInfo)=>{
+    await page.setViewportSize({width,height:900});
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.addInitScript(()=>{
+      const original=Element.prototype.animate;
+      (window as unknown as {stepReveals:number}).stepReveals=0;
+      Element.prototype.animate=function(...args:Parameters<typeof original>){
+        if((this as HTMLElement).dataset.motionPanel==='dashboard-steps')
+          (window as unknown as {stepReveals:number}).stepReveals++;
+        return original.apply(this,args);
+      };
+    });
+    await page.route('**/api/integrations/google-health/sync',async route=>{
+      await new Promise(resolve=>setTimeout(resolve,250));
+      await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[]}});
+    });
+    await signIn(page,'test-alice');
+    await page.goto('/');
+    await expect(page.locator('.steps-panel')).toBeVisible();
+    await expect.poll(()=>page.evaluate(()=>(window as unknown as {stepReveals:number}).stepReveals)).toBe(1);
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const panel=page.locator('.dashboard-steps-reveal');
+    await expect.poll(()=>panel.evaluate(node=>node.getAnimations().length)).toBe(0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+    const calculator=page.locator('.steps-panel').getByRole('button',{name:/Steps calculator/i});
+    await calculator.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(calculator).toBeFocused();
+    await page.screenshot({path:testInfo.outputPath(`steps-${width}-${theme}.png`),fullPage:true});
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.reload();
+    await expect(page.locator('.steps-panel')).toBeVisible();
+    expect(await page.evaluate(()=>(window as unknown as {stepReveals:number}).stepReveals)).toBe(0);
+  });
+}
+
+test('Google Health recovers after a gateway 429 on reload',async({page})=>{
+  let requests=0;
+  await page.route('**/api/integrations/google-health/sync',async route=>{
+    requests++;
+    if(requests===1){await route.fulfill({status:429,body:'No available instance'});return;}
+    await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[]}});
+  });
+  await signIn(page,'test-alice');
+  await expect(page.locator('.steps-panel')).toBeVisible();
+  expect(requests).toBe(2);
+});
+
+test('connection feedback retries bootstrap with an empty outbox',async({page},testInfo)=>{
+  await signIn(page,'test-alice');
+  const saved=await (await page.request.get('/api/bootstrap')).json();
+  let available=false;
+  let reads=0;
+  await page.route('**/api/bootstrap',async route=>{
+    reads++;
+    await route.fulfill(available?{json:saved}:{status:503,body:'Service unavailable'});
+  });
+  await page.reload();
+  const feedback=page.locator('.card-feedback').filter({hasText:'Connection needs attention'});
+  await expect(feedback).toBeVisible();
+  for(const width of [390,768,1440])for(const theme of ['light','dark']){
+    await page.setViewportSize({width,height:900});
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const retry=feedback.getByRole('button',{name:'Retry connection',exact:true});
+    await retry.scrollIntoViewIfNeeded();
+    const box=(await retry.boundingBox())!;
+    if(width<1024)expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(await retry.evaluate(node=>{const box=node.getBoundingClientRect();return node.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));})).toBeTruthy();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+    await page.screenshot({path:testInfo.outputPath(`connection-${width}-${theme}.png`),fullPage:true});
+  }
+  const before=reads;
+  available=true;
+  await feedback.getByRole('button',{name:'Retry connection',exact:true}).click();
+  await expect.poll(()=>reads).toBeGreaterThan(before);
+  await expect(feedback).toHaveCount(0);
+});
+
+test('a failed manual step refresh keeps the previous step total visible',async({page})=>{
+  let failing=false;
+  await page.route('**/api/integrations/google-health/sync',async route=>{
+    if(failing){await route.fulfill({status:503,body:'Service unavailable'});return;}
+    const date=new Date().toISOString().slice(0,10);
+    await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[{date,count:5300}]}});
+  });
+  await signIn(page,'test-alice');
+  await expect(page.locator('.steps-panel')).toContainText('5,300');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  failing=true;
+  await page.getByRole('button',{name:'Sync now',exact:true}).click();
+  await expect(page.getByText('Step sync unavailable',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await expect(page.locator('.steps-panel')).toContainText('5,300');
+  await expect(page.locator('.steps-panel')).toContainText('Stale');
+});
+
+test('Retry sync immediately dispatches requeued health uploads',async({page})=>{
+  let recovered=false;
+  let forced=0;
+  const item={enabled:true,permissionGranted:true,state:'idle',pendingCount:0,lastSuccessfulSyncAt:null,revision:1};
+  await page.route('**/api/integrations/google-health/sync',async route=>{
+    if(route.request().postDataJSON().force)forced++;
+    await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[],
+      weightSync:recovered?{...item,lastSuccessfulSyncAt:'2026-10-01T08:00:00Z'}:{...item,state:'failed',failureMessage:'Weight upload was interrupted.'},
+      nutritionSync:item,bodyFatSync:item}});
+  });
+  await page.route('**/api/integrations/google-health/weight-sync/recover',async route=>{
+    recovered=true;
+    await route.fulfill({json:{...item,state:'pending',pendingCount:1}});
+  });
+  await signIn(page,'test-alice');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  const feedback=page.locator('.card-feedback').filter({hasText:'Weight upload was interrupted.'});
+  await expect(feedback).toBeVisible();
+  await feedback.getByRole('button',{name:'Retry sync',exact:true}).click();
+  await expect.poll(()=>forced).toBe(1);
+  await expect(page.locator('.google-health-weight-sync')).toContainText('Last sync:');
+  await expect(feedback).toHaveCount(0);
+});

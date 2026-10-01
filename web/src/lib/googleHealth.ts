@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useState, useSyncExternalStore} from 'react';
-import {api} from './api';
+import {api, ApiError} from './api';
 import {consumeGoogleHealthHandoff} from './googleHealthBrowser';
 
 export type GoogleHealthStatus = 'disconnected' | 'connected' | 'reconnect_required';
@@ -219,10 +219,11 @@ export async function syncGoogleHealth(force = false): Promise<GoogleHealthSyncS
           ...memoryState,
           freshness: 'stale',
           warningCode: 'sync_failed',
-          warningMessage: 'Could not connect to Google Health. Showing saved steps.',
+          warningMessage: err instanceof ApiError && err.status === 429
+            ? 'The service is temporarily busy. Showing saved steps; try syncing again shortly.'
+            : 'Could not connect to Google Health. Showing saved steps.',
         };
         notify();
-        return memoryState;
       }
       throw err;
     } finally {

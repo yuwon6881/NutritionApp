@@ -17,10 +17,12 @@ export function CardFeedback({
   const Icon = tone === 'success' ? CheckCircle2 : tone === 'info' ? Info : AlertTriangle;
   return (
     <div className={`card-feedback ${tone}`} role={tone === 'success' || tone === 'info' ? 'status' : 'alert'}>
-      <Icon size={17} aria-hidden="true" />
+      <span className="card-feedback-icon" aria-hidden="true"><Icon size={18} /></span>
       <div className="card-feedback-content">
-        {title && <strong>{title}</strong>}
-        <p>{message}</p>
+        <div className="card-feedback-copy">
+          {title && <strong>{title}</strong>}
+          <p>{message}</p>
+        </div>
         {action && (
           <Button type="button" size="sm" variant={tone === 'error' ? 'secondary' : 'tertiary'} onClick={action.onClick} disabled={action.disabled}>
             {action.label}

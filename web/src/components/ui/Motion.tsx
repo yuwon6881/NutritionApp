@@ -146,19 +146,21 @@ export function MotionScene({sceneKey,children,className=''}:{sceneKey:string;ch
 }
 
 /** A bounded tab/panel transition. The content is committed immediately; only its entrance moves. */
-export function MotionPanel({motionKey,direction=1,axis='horizontal',children,className=''}:{motionKey:string;direction?:1|-1;axis?:'horizontal'|'fade';children:ReactNode;className?:string}){
+export function MotionPanel({motionKey,direction=1,axis='horizontal',animateOnMount=false,children,className=''}:{motionKey:string;direction?:1|-1;axis?:'horizontal'|'fade'|'reveal';animateOnMount?:boolean;children:ReactNode;className?:string}){
   const panel=useRef<HTMLDivElement>(null);
   const reduced=useReducedMotion();
   const first=useRef(true);
   useLayoutEffect(()=>{
     const node=panel.current;
     if(!node)return;
-    if(first.current){first.current=false;return;}
+    if(first.current){first.current=false;if(!animateOnMount)return;}
     if(reduced)return;
-    const keyframes=axis==='horizontal'
+    const keyframes=axis==='reveal'
+      ?[{height:'0px',opacity:0,overflow:'clip',transform:'translateY(10px)'},{height:node.scrollHeight+'px',opacity:1,overflow:'clip',transform:'translateY(0)'}]
+      :axis==='horizontal'
       ?[{opacity:0,transform:'translateX('+direction*20+'px)'},{opacity:1,transform:'translateX(0)'}]
       :[{opacity:0},{opacity:1}];
-    const animation=node.animate(keyframes,motionTiming('--motion-exit',180));
+    const animation=node.animate(keyframes,motionTiming(axis==='reveal'?'--motion-panel':'--motion-exit',axis==='reveal'?240:180));
     animation.onfinish=()=>{
       animation.cancel();
       node.style.removeProperty('opacity');
@@ -169,7 +171,7 @@ export function MotionPanel({motionKey,direction=1,axis='horizontal',children,cl
       node.style.removeProperty('opacity');
       node.style.removeProperty('transform');
     };
-  },[motionKey,direction,axis,reduced]);
+  },[motionKey,direction,axis,reduced,animateOnMount]);
   return <div ref={panel} className={`motion-panel ${className}`.trim()} data-motion-panel={motionKey}>{children}</div>;
 }
 

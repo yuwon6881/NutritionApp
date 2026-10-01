@@ -116,3 +116,5 @@ If the change adds or changes a reusable component, breakpoint, motion rule, dat
 Do not merge a new visual convention that exists only in a component file. The instruction, implementation, and tests are one contract.
 
 For gesture or motion changes, verify final release values, pointer cancellation, scroll/resize geometry invalidation, immediate Coach destination interaction and focus, and no completed animation retaining a transform. Keep pointer visuals coalesced per frame and promote layers only during active motion. Keep photo size/quality limits and metadata stripping while using asynchronous encoding.
+
+For feedback changes, verify long error text wraps, tone remains visible without tinting the whole card, recovery targets stay at least 44 px below 1024 px, and a retry sends the failed read even when the outbox is empty.

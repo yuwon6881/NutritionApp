@@ -221,7 +221,7 @@ describe('googleHealth sync manager', () => {
     expect(apiSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('transitions to stale state on sync failure when previously connected', async () => {
+  it('surfaces failure when previously connected and allows an explicit retry', async () => {
     const connectedState: GoogleHealthSyncState = {
       status: 'connected',
       connectedAt: '2026-09-14T08:00:00Z',
@@ -237,12 +237,11 @@ describe('googleHealth sync manager', () => {
 
     // Now fail subsequent forced sync
     apiSpy.mockRejectedValueOnce(new Error('Network error'));
-    const staleState = await syncGoogleHealth(true);
-
-    expect(staleState.status).toBe('connected');
-    expect(staleState.freshness).toBe('stale');
-    expect(staleState.warningCode).toBe('sync_failed');
-    expect(staleState.days[0].count).toBe(3000);
+    await expect(syncGoogleHealth(true)).rejects.toThrow('Network error');
+    apiSpy.mockResolvedValueOnce(connectedState);
+    const recovered = await syncGoogleHealth(true);
+    expect(recovered.freshness).toBe('fresh');
+    expect(recovered.days[0].count).toBe(3000);
   });
 
   it('disconnectGoogleHealth calls disconnect endpoint and resets to disconnected', async () => {

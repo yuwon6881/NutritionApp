@@ -58,7 +58,7 @@ export function GoogleHealthSettings() {
 
   const statusLabel = loading && state.status === 'disconnected'
     ? 'Checking…'
-    : state.status === 'connected' ? 'Connected' : state.status === 'reconnect_required' ? 'Reconnect required' : 'Not connected';
+    : state.status === 'connected' ? 'Connected' : state.status === 'reconnect_required' ? 'Reconnect required' : syncError ? 'Unavailable' : 'Not connected';
   const statusTone = state.status === 'connected' ? 'success' : state.status === 'reconnect_required' ? 'warning' : 'neutral';
 
   const openDisclosure = () => {
@@ -161,6 +161,7 @@ export function GoogleHealthSettings() {
     setActionError('');
     try {
       await recoverGoogleHealthBundledSync();
+      await refresh(true);
     } catch (ex) {
       setActionError((ex as Error).message || 'Could not recover data synchronization');
     } finally {
@@ -232,6 +233,7 @@ export function GoogleHealthSettings() {
 
       {syncError && (
         <CardFeedback
+          tone="warning"
           title="Step sync unavailable"
           message={syncError}
           action={{label: 'Retry sync', onClick: () => void refresh(true), disabled: loading}}
@@ -284,7 +286,7 @@ export function GoogleHealthSettings() {
             </div>
           </dl>
 
-          {state.warningMessage && (
+          {state.warningMessage && !syncError && (
             <CardFeedback
               tone="warning"
               title="Step sync needs attention"

@@ -141,14 +141,17 @@ form>.button,.panel>.button{display:flex;margin-left:auto}.copy-day{justify-cont
 .panel.card-elevated{box-shadow:0 14px 44px rgba(0,0,0,0.12);border-color:var(--border)}
 .panel.card-tint{background:var(--primary-tint);border-color:var(--border)}
 .panel.card-accent{border:2px solid var(--primary)}
-.card-feedback{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;margin:12px 0;border:1px solid var(--border);border-left:4px solid var(--destructive);border-radius:10px;background:var(--muted);color:var(--destructive)}
-.card-feedback.warning{border-left-color:var(--carbs);color:var(--carbs)}
-.card-feedback.success{border-left-color:var(--success);color:var(--success)}
-.card-feedback.info{border-left-color:var(--primary);color:var(--primary-ink)}
-.card-feedback-content{display:grid;gap:4px;min-width:0;flex:1}
-.card-feedback strong{color:var(--ink-strong);font-size:.82rem}
-.card-feedback p{margin:0;color:var(--foreground);font-size:.8rem;line-height:1.5}
-.card-feedback .button{justify-self:start;margin-top:3px}
+.card-feedback{display:flex;align-items:flex-start;gap:12px;padding:16px;margin:16px 0;border:1px solid var(--border);border-radius:13px;background:var(--card);color:var(--destructive);overflow-wrap:anywhere}
+.card-feedback.warning{color:var(--carbs)}
+.card-feedback.success{color:var(--success)}
+.card-feedback.info{color:var(--primary-ink)}
+.card-feedback-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:color-mix(in srgb,currentColor 10%,transparent)}
+.card-feedback-content{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;min-width:0;flex:1}
+.card-feedback-copy{display:grid;gap:5px;min-width:0}
+.card-feedback strong{color:var(--ink-strong);font-size:.84rem;font-weight:650}
+.card-feedback p{margin:0;color:var(--muted-foreground);font-size:.8rem;line-height:1.6}
+.card-feedback .button{justify-self:end;margin:0;white-space:normal;text-align:center}
+@media(max-width:639px){.card-feedback-content{grid-template-columns:minmax(0,1fr);gap:12px}.card-feedback .button{justify-self:end;min-height:44px}}
 
 /* Custom Select */
 .select-field{position:relative}
@@ -1751,3 +1754,5 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 .dashboard-intro .macro:nth-of-type(3) progress::-webkit-progress-value{animation-delay:400ms}
 .dashboard-intro .macro:nth-of-type(3) progress::-moz-progress-bar{animation-delay:400ms}
 .energy-ring-intro .ring-fill{transition:none}
+
+.dashboard-intro .dashboard-steps-reveal .steps-panel{animation:none}

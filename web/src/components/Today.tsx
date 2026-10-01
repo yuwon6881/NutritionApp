@@ -17,6 +17,7 @@ import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
 import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {EnergyRing} from './EnergyRing';
+import {MotionPanel} from './ui/Motion';
 
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
@@ -103,7 +104,7 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
           })}
         </article>
       </section>
-      {showGoogleHealthSteps && <GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} warningMessage={ghState.warningMessage} onOpenSettings={onSettings}><StepCalorieCalculator store={store} variant="inline"/></GoogleHealthStepsCard>}
+      {showGoogleHealthSteps && <MotionPanel motionKey="dashboard-steps" axis="reveal" animateOnMount={intro} className="dashboard-steps-reveal"><GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} warningMessage={ghState.warningMessage} onOpenSettings={onSettings}><StepCalorieCalculator store={store} variant="inline"/></GoogleHealthStepsCard></MotionPanel>}
       {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
         <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
       </section>}

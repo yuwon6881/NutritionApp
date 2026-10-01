@@ -11,6 +11,7 @@ import {useNourish} from './useNourish';
 import type {Entry,Weight} from './types';
 import {Button} from './components/ui/Button';
 import {Brand} from './components/ui/Brand';
+import {ConnectionFeedback} from './components/ui/ConnectionFeedback';
 import {ActionSheet,type ActionSheetOption} from './components/ui/ActionSheet';
 import {Auth} from './components/Auth';
 import {Today} from './components/Today';
@@ -270,7 +271,7 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
       <SyncStatus store={store}/>
       <UndoToastHost/>
       <PwaUpdateNotice/>
-      {store.error&&<div className="notice" role="status">{store.error}<Button variant="tertiary" onClick={()=>void store.drain()} disabled={store.busy}>Retry connection</Button></div>}
+      <ConnectionFeedback message={store.error} drain={store.drain} refresh={store.refresh}/>
       {!store.state?<><DashboardSkeleton label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<DashboardSkeleton label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
         {pageContent}
       </MotionScene></Suspense>}
