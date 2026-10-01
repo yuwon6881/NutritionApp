@@ -358,7 +358,6 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   await expect(energyPanel.getByRole('button',{name:'Review this week',exact:true})).toBeVisible();
   await expect(energyPanel.locator('.energy-ring')).toHaveCount(0);
   await expect(energyPanel.getByText('kcal target')).toHaveCount(0);
-  await expect(page.locator('.check-in-card')).toHaveCount(0);
   expect(activeDaily).toBeGreaterThan(0);
   await resolveMissingDays(page);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();await expect(page.getByRole('heading',{name:'Coaching guidance',exact:true})).toBeVisible();

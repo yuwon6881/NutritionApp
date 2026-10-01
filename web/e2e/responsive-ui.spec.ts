@@ -86,8 +86,9 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
         await page.keyboard.press('Escape');await expect(calendar).toHaveCount(0);await expect(trigger).toBeFocused();
       }
       if(name==='Progress'){
-        const chart=page.locator('.weight-chart').first();
-        await expect.poll(()=>chart.evaluate(element=>Math.abs(element.getBoundingClientRect().width-(element as SVGSVGElement).viewBox.baseVal.width))).toBeLessThanOrEqual(1);
+        // The weight plot scrolls inside its frame, so the frame (not the plot) must fit the window.
+        const chart=page.locator('.weight-chart-panel .bar-chart-scroller').first();
+        await expect.poll(()=>chart.evaluate(element=>element.getBoundingClientRect().right)).toBeLessThanOrEqual(width);
       }
       if(name==='Food Log'&&width<640){
         const firstMeal=page.locator('[data-time-row="08:00"]');

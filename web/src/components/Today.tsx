@@ -7,7 +7,6 @@ import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {GoalSummary} from './GoalSummary';
-import {CheckInCard} from './CheckInCard';
 import {CheckInButton} from './CheckInButton';
 import {checkInSchedule} from '../lib/checkIn';
 import {CheckInDialog} from './CheckInDialog';
@@ -73,7 +72,6 @@ export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
       onComplete={openCheckIn}/>
-    {!checkInReady&&<CheckInCard store={store} onReview={openCheckIn}/>}
     {!loaded?<section className="panel">
       <h2>Not stored on this device</h2>
       <p>Connect to load this date.</p>

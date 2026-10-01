@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn} from './signIn';
+import {todayInTestZone} from './helpers/seed';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
@@ -92,6 +93,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   await expect.poll(()=>forcedSyncs).toBe(1);
   await expect(syncNow).toHaveText('Sync now');
 
+  await page.getByRole('button',{name:/Sync options/}).click();
   const weightSyncRow=page.locator('.google-health-weight-sync .check-row').first();
   const weightSyncTitle=weightSyncRow.locator('strong');
   const weightSyncDescription=weightSyncRow.locator('small');
@@ -281,7 +283,7 @@ test('a failed manual step refresh keeps the previous step total visible',async(
   let failing=false;
   await page.route('**/api/integrations/google-health/sync',async route=>{
     if(failing){await route.fulfill({status:503,body:'Service unavailable'});return;}
-    const date=new Date().toISOString().slice(0,10);
+    const date=todayInTestZone();
     await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[{date,count:5300}]}});
   });
   await signIn(page,'test-alice');
@@ -344,6 +346,7 @@ test('weigh-in import is offered at connect and turning it off keeps imported we
   status='connected';
   await page.reload();
   await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByRole('button',{name:/Sync options/}).click();
   const section=page.locator('.google-health-weight-import');
   const importSwitch=section.getByRole('switch',{name:'Import weigh-ins from Google Health'});
   await expect(importSwitch).toBeChecked();

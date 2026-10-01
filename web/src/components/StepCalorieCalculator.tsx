@@ -45,8 +45,11 @@ export function StepCalorieCalculator({store,variant}:{store:Nourish;variant:'in
   const opener=variant==='inline'
     ?<Button variant="tertiary" className="step-calculator-open" onClick={()=>setOpen(true)}><Calculator size={16} aria-hidden="true"/>Steps calculator</Button>
     :<section className="panel step-calculator-panel" aria-labelledby={headingId}>
-      <p className="eyebrow" id={headingId}>STEPS CALCULATOR</p>
-      <div className="actions"><Button variant="secondary" onClick={()=>setOpen(true)}><Calculator size={16} aria-hidden="true"/>Steps for an energy target</Button></div>
+      <div className="step-calculator-copy">
+        <p className="eyebrow" id={headingId}>STEPS CALCULATOR</p>
+        <p className="source">Find the extra walking that burns a calorie target, from your own weight and height.</p>
+      </div>
+      <Button variant="secondary" className="step-calculator-action" onClick={()=>setOpen(true)}><Calculator size={16} aria-hidden="true"/>Steps for an energy target</Button>
     </section>;
 
   return <>

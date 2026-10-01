@@ -57,21 +57,4 @@ export function checkInDue(state:Pick<AppState,'plans'|'profileRevision'|'checkI
   return checkInSchedule(state,current).due;
 }
 
-export function checkInWindowEvidence(state:Pick<AppState,'days'|'entries'|'weights'>,current:string){
-  const start=shift(current,-28);
-  const logged=new Set<string>();
-  const days=new Map(state.days.filter(day=>!day.deleted).map(day=>[day.date,day]));
-  for(const day of state.days){
-    if(day.deleted||day.date<start||day.date>=current)continue;
-    if(day.status==='complete'||day.status==='fasting')logged.add(day.date);
-  }
-  for(const entry of state.entries){
-    if(entry.deleted||entry.date<start||entry.date>=current)continue;
-    if(days.get(entry.date)?.status==='not_logged')continue;
-    logged.add(entry.date);
-  }
-  const weighIns=state.weights.filter(weight=>!weight.deleted&&weight.date>=start&&weight.date<current).length;
-  return {loggedDays:logged.size,weighIns};
-}
-
 export {weekStart as mondayWeekStart};

@@ -73,3 +73,22 @@ export function steppedPath(values:readonly (number|null)[],slot:number,y:(value
   });
   return path;
 }
+
+const DAY_STEPS=[1,2,3,7,14,28,91,182,365];
+
+/** Whole days between date labels, the smallest step that keeps neighbouring labels 72 px apart at the given pixels per day. */
+export function dateAxisStep(slot:number,minGap=72){
+  const needed=slot>0?minGap/slot:Infinity;
+  return DAY_STEPS.find(step=>step>=needed)??365;
+}
+
+/** Day offsets that carry a date label: every step from the first day, plus the last day when it has room. */
+export function dateAxisOffsets(totalDays:number,slot:number,minGap=72){
+  const days=Math.max(0,Math.round(totalDays));
+  const step=dateAxisStep(slot,minGap);
+  const offsets:number[]=[];
+  for(let day=0;day<=days;day+=step)offsets.push(day);
+  const last=offsets.at(-1)!;
+  if(last!==days&&(days-last)*slot>=minGap)offsets.push(days);
+  return offsets;
+}

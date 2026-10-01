@@ -305,14 +305,10 @@
   transition: border-color var(--motion-control) ease, box-shadow var(--motion-control) ease;
 }
 
+/* One focus outline: the box's own border, thickened in place, so no second ring sits beside it. */
 .ai-chat-composer-box:focus-within {
   border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent);
-}
-
-.ai-chat-composer-box:has(textarea:focus-visible) {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--ring);
 }
 
 .ai-chat-composer-box .field {

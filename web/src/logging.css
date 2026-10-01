@@ -76,4 +76,5 @@
 
 /* Long lists skip rendering work for rows far off screen; layout keeps an estimated size. */
 .weight-history .history-row,.food-search-results>.food-row{content-visibility:auto;contain-intrinsic-size:auto 88px}
-.food-timeline>.food-time-row{content-visibility:auto;contain-intrinsic-size:auto 76px}
+/* Paint containment clips a row to its box, and cards sit flush at the top and lift on hover. The padding and the equal negative margin widen the clip upward without moving content. */
+.food-timeline>.food-time-row{content-visibility:auto;contain-intrinsic-size:auto 76px;padding-top:3px;margin-top:-3px}

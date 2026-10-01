@@ -1362,7 +1362,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Field input insideAction and embedded button */
 .field-input-wrapper{position:relative;display:flex;align-items:center;width:100%;min-width:0;flex:1}
 .field-input-wrapper>input{width:100%;padding-right:44px}
-.field-input-wrapper:has(.barcode-camera-btn)>input{padding-right:58px}
+.field-input-wrapper:has(.barcode-camera-btn)>input{padding-right:52px}
 .field-inside-action{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;z-index:2;margin:0!important}
 .field-inside-action>.button{min-height:32px!important;height:32px!important;width:32px!important;min-width:32px!important;padding:0!important;margin:0!important;border:none!important;background:transparent!important;color:var(--muted-foreground);border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
 .search-line .field-inside-action>.button{margin-top:0!important}
@@ -1372,9 +1372,17 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .field-input-row>.field-input-wrapper{flex:1;min-width:0}
 
 /* Barcode embedded camera button */
-.field-inside-action>.barcode-camera-btn{min-height:44.5px!important;height:44.5px!important;width:44.5px!important;min-width:44.5px!important;border-radius:10px}
-.barcode-camera-btn{transition:color var(--motion-control) ease,background var(--motion-control) ease}
-.barcode-camera-btn.active{color:var(--primary)!important;background:var(--primary-tint)!important}
+/* The button is the input's full height (a 44 px target) but only paints a chip inset inside the field, so hover never spills past its border. */
+.field-inside-action:has(>.barcode-camera-btn){top:0;bottom:0;right:0;transform:none}
+.field-inside-action>.barcode-camera-btn{position:relative;isolation:isolate;min-height:0!important;height:100%!important;width:44px!important;min-width:44px!important;border-radius:11px}
+.field-inside-action>.barcode-camera-btn,.field-inside-action>.barcode-camera-btn.active{background:transparent!important}
+.barcode-camera-btn::before{content:"";position:absolute;inset:5px;z-index:-1;border-radius:8px;background:transparent;transition:background var(--motion-control) ease}
+@media (hover:hover) and (pointer:fine){
+.field-inside-action>.barcode-camera-btn:hover{background:transparent!important}
+.barcode-camera-btn:hover::before{background:var(--muted)}}
+.barcode-camera-btn{transition:color var(--motion-control) ease}
+.barcode-camera-btn.active{color:var(--primary)!important}
+.barcode-camera-btn.active::before{background:var(--primary-tint)}
 .barcode-scanner-modal{display:flex;flex-direction:column;gap:14px}
 .barcode-scanner-modal .source{margin:0}
 
@@ -1397,7 +1405,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .recent-foods-section{margin-bottom:20px}
 .recent-foods-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .recent-foods-heading h4{margin:0;font-size:.8rem;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.06em}
-.recent-foods-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr));gap:8px}
+.recent-foods-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:8px}
 .recent-food-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer;text-align:left;transition:background var(--motion-control) ease,border-color var(--motion-control) ease,transform 100ms ease;min-height:44px}
 @media (hover:hover) and (pointer:fine){
 .recent-food-card:hover{background:var(--muted);border-color:var(--primary)}}
@@ -1523,6 +1531,15 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .freshness-note{margin:0 0 12px;color:var(--carbs)}
 .google-health-weight-sync,.google-health-weight-import{margin:0 0 16px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--muted)}
 .google-health-weight-sync>.source,.google-health-weight-import>.source{margin:8px 0 0}
+.google-health-options{margin:0 0 16px;border:1px solid var(--border);border-radius:14px;background:var(--muted)}
+.google-health-options-toggle{display:flex;width:100%;min-height:56px;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border:0;border-radius:14px;background:transparent;color:var(--foreground);text-align:left;cursor:pointer}
+.google-health-options-toggle>span{display:flex;min-width:0;flex-direction:column;gap:2px}
+.google-health-options-toggle strong{font-size:.86rem}
+.google-health-options-toggle small{line-height:1.45;overflow-wrap:anywhere}
+.google-health-options-toggle>svg{color:var(--muted-foreground);transition:transform var(--motion-control) ease}
+.google-health-options-toggle[aria-expanded=true]>svg{transform:rotate(180deg)}
+.google-health-options-body{display:grid;gap:12px;padding:0 12px 12px}
+.google-health-options-body .google-health-weight-sync,.google-health-options-body .google-health-weight-import{margin:0;background:var(--card)}
 .local-data-dialog p{margin:0 0 14px;font-size:.85rem;line-height:1.55}
 .local-data-counts{display:grid;gap:6px;margin:0 0 16px;padding:12px 14px;border-radius:12px;background:var(--muted)}
 .local-data-counts>div{display:flex;justify-content:space-between;gap:12px;font-size:.82rem}
@@ -1593,7 +1610,11 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .steps-panel-compact>.card-feedback{grid-column:1/-1;margin-top:8px}
 /* Steps-for-energy calculator: a button that opens a dialog, in the steps card and on Activity. */
 .steps-panel-compact>.step-calculator-open{grid-column:1/-1;justify-self:end;margin-top:8px;font-size:.8rem;color:var(--primary-ink)}
-.step-calculator-panel .eyebrow{margin-bottom:12px!important}
+.step-calculator-panel{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap}
+.step-calculator-copy{flex:1 1 260px;min-width:0}
+.step-calculator-copy .eyebrow{margin-bottom:6px!important}
+.step-calculator-copy .source{margin:0}
+@media(max-width:639px){.step-calculator-action{width:100%}}
 .step-calculator-body{display:grid;gap:8px}
 .step-calculator-result .source,.step-calculator-basis{margin:0}
 .step-calculator-value{margin:0;font-size:1.45rem;font-weight:600;color:var(--ink-strong);line-height:1.2}
@@ -1614,6 +1635,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .training-empty-title{font-size:.88rem;font-weight:600;color:var(--ink-strong);margin:0 0 4px}
 .training-empty-description{font-size:.8rem;line-height:1.5;color:var(--muted-foreground);margin:0 0 8px}
 .training-empty-state .source{font-size:.78rem;margin:0}
+.training-pending-lines{display:grid;gap:8px;margin-top:10px}
 .training-summary-list{display:grid;gap:10px}
 .training-summary-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--muted)}
 .training-summary-row strong{display:block;font-size:.86rem;color:var(--ink-strong)}

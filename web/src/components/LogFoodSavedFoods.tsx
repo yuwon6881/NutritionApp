@@ -62,6 +62,60 @@ export function LogFoodSavedFoods({
   const recentGrid=(entries:Entry[])=><div className="recent-foods-grid">
     {entries.map((entry,index)=><RecentFoodCard key={entry.id} index={index} entry={entry} energyUnit={energyUnit} onSelect={onPickRecent}/>)}
   </div>;
+  const foodRow=(food:Food,index:number)=><div
+    className="food-row interactive"
+    style={{'--i':Math.min(index,8)} as CSSProperties}
+    key={food.id}
+    role="button"
+    aria-label={food.name}
+    tabIndex={0}
+    onClick={()=>onChoose(food)}
+    onKeyDown={event=>{
+      if(event.target!==event.currentTarget)return;
+      if(event.key==='Enter'||event.key===' '){
+        event.preventDefault();
+        onChoose(food);
+      }
+    }}
+  >
+    <div className="food-description">
+      <div className="saved-food-title-row">
+        <strong>{food.name}</strong>
+        {isRecipe(food)&&<span className="food-badge recipe-badge">Recipe</span>}
+      </div>
+      <div className="saved-food-meta">
+        <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g</span>
+        {(food.protein!=null||food.carbs!=null||food.fat!=null)&&(
+          <FoodMacroSummary protein={food.protein} carbs={food.carbs} fat={food.fat} className="food-macro-summary-inline"/>
+        )}
+      </div>
+    </div>
+    <div className="food-row-actions">
+      <Button
+        variant="tertiary"
+        className={`food-row-star ${food.favourite?'starred':''}`}
+        aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`}
+        onClick={event=>{event.stopPropagation();onToggleFavourite(food);}}
+      >
+        <Star size={18} fill={food.favourite?'currentColor':'none'}/>
+      </Button>
+      {logging&&<Button
+        variant="tertiary"
+        aria-label={`Edit ${food.name}`}
+        onClick={event=>{event.stopPropagation();onEdit(food);}}
+      >
+        Edit
+      </Button>}
+    </div>
+  </div>;
+  // The overview is split into labelled groups, favourites first, so a starred food is not buried in one long list.
+  const sectioned=logging&&!linking&&filter==='all'&&!query.trim();
+  const favourites=sectioned?foods.filter(food=>food.favourite):[];
+  const others=sectioned?foods.filter(food=>!food.favourite):[];
+  const group=(id:string,title:string,count:number|null,items:Food[])=>items.length>0&&<section className="recent-foods-section" aria-labelledby={id} key={id}>
+    <div className="recent-foods-heading"><h4 id={id}>{title}{count!=null&&` (${count})`}</h4></div>
+    {items.map(foodRow)}
+  </section>;
 
   return <>
     <div className="saved-foods-header section-heading">
@@ -95,7 +149,7 @@ export function LogFoodSavedFoods({
       ?(recentEntries.length>0?recentGrid(recentEntries):<p className="empty recent-empty">No recent diary items yet.</p>)
       :<>
         {logging&&!linking&&filter==='all'&&!query.trim()&&recentEntries.length>0&&<section className="recent-foods-section" aria-labelledby="recent-section-heading">
-          <div className="recent-foods-heading"><h4 id="recent-section-heading">Recent items</h4></div>
+          <div className="recent-foods-heading"><h4 id="recent-section-heading">Recent items</h4>{recentEntries.length>4&&<Button variant="tertiary" size="sm" onClick={()=>onFilterChange('recent')}>See all {recentEntries.length}</Button>}</div>
           {recentGrid(recentEntries.slice(0,4))}
         </section>}
         {foods.length===0
@@ -108,52 +162,12 @@ export function LogFoodSavedFoods({
               ?'No recipes yet. Create one with the New recipe button.'
               :'No saved foods yet.'}
           </p>
-          :foods.map((food,index)=><div
-            className="food-row interactive"
-            style={{'--i':Math.min(index,8)} as CSSProperties}
-            key={food.id}
-            role="button"
-            aria-label={food.name}
-            tabIndex={0}
-            onClick={()=>onChoose(food)}
-            onKeyDown={event=>{
-              if(event.target!==event.currentTarget)return;
-              if(event.key==='Enter'||event.key===' '){
-                event.preventDefault();
-                onChoose(food);
-              }
-            }}
-          >
-            <div className="food-description">
-              <div className="saved-food-title-row">
-                <strong>{food.name}</strong>
-                {isRecipe(food)&&<span className="food-badge recipe-badge">Recipe</span>}
-              </div>
-              <div className="saved-food-meta">
-                <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g</span>
-                {(food.protein!=null||food.carbs!=null||food.fat!=null)&&(
-                  <FoodMacroSummary protein={food.protein} carbs={food.carbs} fat={food.fat} className="food-macro-summary-inline"/>
-                )}
-              </div>
-            </div>
-            <div className="food-row-actions">
-              <Button
-                variant="tertiary"
-                className={`food-row-star ${food.favourite?'starred':''}`}
-                aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`}
-                onClick={event=>{event.stopPropagation();onToggleFavourite(food);}}
-              >
-                <Star size={18} fill={food.favourite?'currentColor':'none'}/>
-              </Button>
-              {logging&&<Button
-                variant="tertiary"
-                aria-label={`Edit ${food.name}`}
-                onClick={event=>{event.stopPropagation();onEdit(food);}}
-              >
-                Edit
-              </Button>}
-            </div>
-          </div>)}
+          :sectioned
+          ?<>
+            {group('favourite-foods-heading','Favourites',null,favourites)}
+            {group('saved-foods-heading',favourites.length>0?'Other saved foods':'Saved foods',null,others)}
+          </>
+          :foods.map(foodRow)}
       </>}
   </>;
 }

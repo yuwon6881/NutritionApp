@@ -43,6 +43,15 @@ describe('projectProgressWeightSummary',()=>{
     expect(projectProgressWeightSummary(range,baseSummary,[])).toBe(baseSummary);
   });
 
+  it('keeps the saved trend when only the day has rolled over',()=>{
+    const rolled={start:'2026-03-12',end:'2026-04-01'};
+    const projected=projectProgressWeightSummary(rolled,baseSummary,[])!;
+    expect(projected.series).toEqual([{date:'2026-03-20',scaleKg:80.5,trendKg:80.2}]);
+    expect(projected.editableWeighIns.map(weight=>weight.id)).toEqual(['w2']);
+    expect(projected.statistics.trendPending).toBeUndefined();
+    expect(projected.statistics.latestTrendKg).toBe(80.2);
+  });
+
   it('preserves acknowledged edits and deletions until the ranged summary refreshes',()=>{
     const acknowledged={...baseSummary.editableWeighIns[1],kg:78,revision:2};
     const edited=projectProgressWeightSummary(range,baseSummary,[],[acknowledged])!;

@@ -57,7 +57,11 @@ for(const theme of ['light','dark'])test(`${theme} large barcode controls stay a
   const cameraBox=(await camera.boundingBox())!;
   expect(cameraBox.x).toBeGreaterThanOrEqual(0);
   expect(cameraBox.x+cameraBox.width).toBeLessThanOrEqual(1440);
-  expect(cameraBox.height).toBeGreaterThanOrEqual(44);
+  // The button fills the field without spilling past its border, so hover cannot exceed the input.
+  const inputBox=(await page.locator('#food-search-input').boundingBox())!;
+  expect(cameraBox.height).toBeGreaterThanOrEqual(36);
+  expect(cameraBox.height).toBeLessThanOrEqual(inputBox.height+.5);
+  expect(cameraBox.y).toBeGreaterThanOrEqual(inputBox.y-.5);
   await page.screenshot({animations:'disabled',path:`artifacts/food-review/${theme}-1440-barcode.png`});
 });
 test('search results show declared serving calories and reuse them in review',async({page,context})=>{

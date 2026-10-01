@@ -138,7 +138,13 @@ export function projectProgressWeightSummary(
     }
   }
 
-  if (weightMutations.length === 0 && !hasRetainedAdditions && base.series.every(p => p.date >= range.start && p.date <= range.end)) return base;
+  if (weightMutations.length === 0 && !hasRetainedAdditions) {
+    const inRange = (date: string) => date >= range.start && date <= range.end;
+    if (base.series.every(p => inRange(p.date))) return base;
+    // The day rolled over after this summary was read: no edit is waiting, so the saved trend stays
+    // valid and only days that left the range are dropped until the refresh arrives.
+    return {...base, series: base.series.filter(p => inRange(p.date)), editableWeighIns: base.editableWeighIns.filter(w => inRange(w.date))};
+  }
 
   for (const op of weightMutations) {
     const data = op.data as Partial<Weight>;

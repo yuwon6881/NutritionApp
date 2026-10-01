@@ -1,9 +1,10 @@
-import {Dumbbell, ArrowUpRight} from 'lucide-react';
+import {Dumbbell, ArrowUpRight, LoaderCircle} from 'lucide-react';
 import type {TrainingSummary, CoachingSettings} from '../types';
 import {today} from '../lib/format';
 import {displayWeight, unitsFor, weightLabel} from '../lib/units';
 import {Button} from './ui/Button';
 import {CardFeedback} from './ui/CardFeedback';
+import {SkeletonBlock} from './ui/Skeleton';
 
 export function TrainingSummaryCard({
   summaries,
@@ -40,6 +41,8 @@ export function TrainingSummaryCard({
     .slice(0,8);
   const unit=unitsFor(settings).weight;
   const feedbackMessage = error ?? warning;
+  // Until the first answer arrives the connection itself is unknown, so say so rather than claim "not connected".
+  const pending = loading && !visible.length && workoutConnected !== false;
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
     <div className="training-summary-header">
       <div>
@@ -52,10 +55,21 @@ export function TrainingSummaryCard({
     </div>
     {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} />}
     {loading && visible.length > 0 && <p className="source" role="status" aria-live="polite">Refreshing…</p>}
-    {loading && isConnected && !visible.length ? (
-      <div className="training-summary-list skeleton" aria-busy="true">
-        <div className="training-summary-row"><div style={{height:'18px',width:'160px',background:'var(--border)',borderRadius:'4px'}}/></div>
-        <div className="training-summary-row"><div style={{height:'18px',width:'130px',background:'var(--border)',borderRadius:'4px'}}/></div>
+    {pending ? (
+      <div className="training-empty-state training-pending" role="status" aria-live="polite" aria-busy="true">
+        <div className="training-empty-icon" aria-hidden="true">
+          <LoaderCircle size={22} className="spin" />
+        </div>
+        <div className="training-empty-content">
+          <p className="training-empty-title">{isConnected ? 'Loading workouts' : 'Checking Workout connection'}</p>
+          <p className="training-empty-description">
+            {isConnected ? 'Fetching your recent and upcoming sessions.' : 'This usually takes a few seconds.'}
+          </p>
+          <div className="training-pending-lines" aria-hidden="true">
+            <SkeletonBlock width="70%" height={10} />
+            <SkeletonBlock width="45%" height={10} />
+          </div>
+        </div>
       </div>
     ) : !visible.length ? (
       <div className="training-empty-state">

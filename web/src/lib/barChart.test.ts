@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {barSlotWidth,niceStep,niceTicks,revealScrollLeft,steppedPath,visibleBarCount,visibleRange} from './barChart';
+import {barSlotWidth,dateAxisOffsets,dateAxisStep,niceStep,niceTicks,revealScrollLeft,steppedPath,visibleBarCount,visibleRange} from './barChart';
 
 describe('scrollable bar chart geometry',()=>{
   it('shows fewer bars on narrower window tiers',()=>{
@@ -51,5 +51,27 @@ describe('stepped maintenance line',()=>{
 
   it('draws nothing when every value is unknown',()=>{
     expect(steppedPath([null,null],10,value=>value)).toBe('');
+  });
+});
+
+describe('date axis labels',()=>{
+  it('labels every day when each day is wide, and thins out as days narrow',()=>{
+    expect(dateAxisStep(150)).toBe(1);
+    expect(dateAxisStep(40)).toBe(2);
+    expect(dateAxisStep(20)).toBe(7);
+    expect(dateAxisStep(4)).toBe(28);
+    expect(dateAxisStep(0)).toBe(365);
+  });
+
+  it('places labels on whole days from the first day, never repeating one',()=>{
+    expect(dateAxisOffsets(4,150)).toEqual([0,1,2,3,4]);
+    expect(dateAxisOffsets(10,40)).toEqual([0,2,4,6,8,10]);
+    expect(dateAxisOffsets(0,150)).toEqual([0]);
+  });
+
+  it('adds the last day only when it clears the previous label',()=>{
+    expect(dateAxisOffsets(30,20)).toEqual([0,7,14,21,28]);
+    expect(dateAxisOffsets(31,20)).toEqual([0,7,14,21,28]);
+    expect(dateAxisOffsets(34,20)).toEqual([0,7,14,21,28,34]);
   });
 });

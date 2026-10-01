@@ -9,6 +9,7 @@ import {
 } from '../lib/googleHealth';
 import {GoogleHealthWeightImportSetting} from './GoogleHealthWeightImportSetting';
 import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
+import {GoogleHealthSyncOptions} from './GoogleHealthSyncOptions';
 import {Activity, CheckCircle2, AlertTriangle, RefreshCw, Unlink} from 'lucide-react';
 import {CardFeedback} from './ui/CardFeedback';
 import {Checkbox} from './ui/Checkbox';
@@ -58,6 +59,8 @@ export function GoogleHealthSettings() {
     state.nutritionSync.failureMessage ||
     state.bodyFatSync.failureMessage ||
     'Google Health rejected an upload.';
+
+  const optionsSummary = `${bundledSyncEnabled ? 'Uploading weight, nutrition & body fat' : 'Uploads off'} · ${state.weightImport.enabled ? 'Weigh-in import on' : 'Weigh-in import off'}${totalPending > 0 ? ` · ${totalPending} pending` : ''}`;
 
   const statusLabel = loading && state.status === 'disconnected'
     ? 'Checking…'
@@ -289,51 +292,53 @@ export function GoogleHealthSettings() {
             />
           )}
 
-          {/* Bundled Health Data Sync Stream */}
-          <div className="google-health-weight-sync">
-            <Checkbox
-              id="google-health-sync-setting"
-              role="switch"
-              aria-label="Sync health & nutrition data"
-              checked={bundledSyncEnabled}
-              disabled={actionLoading}
-              onChange={checked => void handleBundledSyncChange(checked)}
-            >
-              <span>
-                <strong>Sync health & nutrition data</strong>
-                <small>
-                  {allPermissionsGranted
-                    ? 'Syncs weight, nutrition, and body fat.'
-                    : 'Reconnect to grant sync permissions.'}
-                </small>
-              </span>
-            </Checkbox>
-            {totalPending > 0 && (
-              <p className="source">{totalPending} {totalPending === 1 ? 'upload' : 'uploads'} pending.</p>
-            )}
-            {latestSyncAt && (
-              <p className="source">Last sync: {formatTimestamp(latestSyncAt)}.</p>
-            )}
-            {(hasFailed || hasUnknown) && (
-              <CardFeedback
-                tone={hasUnknown ? 'warning' : 'error'}
-                title={hasUnknown ? 'Upload status unknown' : 'Sync needs attention'}
-                message={failureMessage}
-                action={{
-                  label: hasUnknown ? 'Check Google copy and retry' : 'Retry sync',
-                  onClick: () => void handleBundledRecovery(),
-                  disabled: actionLoading,
-                }}
-              />
-            )}
-          </div>
+          <GoogleHealthSyncOptions summary={optionsSummary} attention={hasFailed||hasUnknown||state.weightImport.state==='failed'}>
+            {/* Bundled Health Data Sync Stream */}
+            <div className="google-health-weight-sync">
+              <Checkbox
+                id="google-health-sync-setting"
+                role="switch"
+                aria-label="Sync health & nutrition data"
+                checked={bundledSyncEnabled}
+                disabled={actionLoading}
+                onChange={checked => void handleBundledSyncChange(checked)}
+              >
+                <span>
+                  <strong>Sync health & nutrition data</strong>
+                  <small>
+                    {allPermissionsGranted
+                      ? 'Syncs weight, nutrition, and body fat.'
+                      : 'Reconnect to grant sync permissions.'}
+                  </small>
+                </span>
+              </Checkbox>
+              {totalPending > 0 && (
+                <p className="source">{totalPending} {totalPending === 1 ? 'upload' : 'uploads'} pending.</p>
+              )}
+              {latestSyncAt && (
+                <p className="source">Last sync: {formatTimestamp(latestSyncAt)}.</p>
+              )}
+              {(hasFailed || hasUnknown) && (
+                <CardFeedback
+                  tone={hasUnknown ? 'warning' : 'error'}
+                  title={hasUnknown ? 'Upload status unknown' : 'Sync needs attention'}
+                  message={failureMessage}
+                  action={{
+                    label: hasUnknown ? 'Check Google copy and retry' : 'Retry sync',
+                    onClick: () => void handleBundledRecovery(),
+                    disabled: actionLoading,
+                  }}
+                />
+              )}
+            </div>
 
-          <GoogleHealthWeightImportSetting
-            status={state.weightImport}
-            onRequestPermission={() => openDisclosure(true)}
-            onRetry={() => void refresh(true)}
-            retrying={loading}
-          />
+            <GoogleHealthWeightImportSetting
+              status={state.weightImport}
+              onRequestPermission={() => openDisclosure(true)}
+              onRetry={() => void refresh(true)}
+              retrying={loading}
+            />
+          </GoogleHealthSyncOptions>
 
           <div className="actions">
             <Button variant="tertiary" onClick={() => void refresh(true)} disabled={loading}>

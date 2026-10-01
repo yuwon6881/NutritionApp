@@ -1,10 +1,4 @@
-/* Weekly check-in: dashboard card, orb control, and the calorie-change dialog. */
-
-.check-in-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 20px 20px;text-align:center;background:var(--muted);border-color:var(--border)}
-.check-in-card.is-ready{background:var(--primary-tint);border-color:color-mix(in srgb,var(--primary) 55%,var(--border))}
-.check-in-copy{display:grid;justify-items:center;gap:2px;min-width:0}
-.check-in-copy h2{margin:0;font-size:.95rem;line-height:1.35;letter-spacing:-.02em}
-.check-in-copy p{margin:0;font-size:.75rem;line-height:1.45;font-variant-numeric:tabular-nums}
+/* Weekly check-in: orb control and the calorie-change dialog. */
 
 .check-in-orb{position:relative;width:88px;height:88px;display:grid;place-items:center;flex:0 0 auto}
 .check-in-orb-ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible;transform:rotate(-90deg)}

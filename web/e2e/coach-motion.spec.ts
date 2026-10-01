@@ -109,8 +109,8 @@ async function transitionFrames(page:Page,name:string){
 test('directional navigation, interrupted exits, focus, layouts and reduced motion',async({page})=>{
   test.setTimeout(300000);
   await page.getByRole('button',{name:'Dashboard',exact:true}).click();
-  await expect(page.getByRole('button',{name:/^Review this week available in \d+ day/})).toBeDisabled();
-  await expect(page.locator('.check-in-orb[data-check-in-state="waiting"]').first()).toBeVisible();
+  // Between check-ins the Dashboard shows no check-in card; only a due check-in replaces the calorie ring.
+  await expect(page.locator('.check-in-orb[data-check-in-state="waiting"]')).toHaveCount(0);
   await page.getByRole('button',{name:'Coach',exact:true}).click();
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){

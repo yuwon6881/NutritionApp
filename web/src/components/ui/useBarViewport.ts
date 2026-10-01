@@ -14,10 +14,13 @@ const reducedMotion=()=>typeof window!=='undefined'&&!!window.matchMedia?.('(pre
  * the same series — and they stay aligned. A new series opens on its latest
  * bar; `useRevealBar` keeps the selected bar in view.
  */
-export function useBarViewport(count:number){
-  const visible=visibleBarCount(useWindowTier());
+export function useBarViewport(count:number,visibleOverride?:(base:number)=>number){
+  const base=visibleBarCount(useWindowTier());
+  const visible=Math.max(1,Math.round(visibleOverride?visibleOverride(base):base));
   const [width,setWidth]=useState(0);
   const scrollers=useRef(new Set<HTMLDivElement>());
+  // Positions this hook wrote to a follower: its echoed scroll event must not be mirrored back.
+  const driven=useRef(new Map<HTMLDivElement,number>());
   const anchored=useRef('');
   const revealed=useRef(Math.max(0,count-1));
   const [edges,setEdges]=useState<BarViewportEdges>({back:false,forward:false,first:0,last:Math.max(0,count-1)});
@@ -69,8 +72,17 @@ export function useBarViewport(count:number){
 
   const onScroll=(event:React.UIEvent<HTMLDivElement>)=>{
     const source=event.currentTarget;
+    const expected=driven.current.get(source);
+    if(expected!==undefined){
+      driven.current.delete(source);
+      // Mirroring this echo back would rewrite the scroller the person or a smooth page-scroll is driving, and cancel its animation.
+      if(Math.abs(source.scrollLeft-expected)<=.5){readEdges.schedule(source);return;}
+    }
     for(const element of scrollers.current){
-      if(element!==source&&Math.abs(element.scrollLeft-source.scrollLeft)>.5)element.scrollLeft=source.scrollLeft;
+      if(element!==source&&Math.abs(element.scrollLeft-source.scrollLeft)>.5){
+        driven.current.set(element,source.scrollLeft);
+        element.scrollLeft=source.scrollLeft;
+      }
     }
     readEdges.schedule(source);
   };

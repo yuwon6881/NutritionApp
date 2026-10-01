@@ -81,7 +81,7 @@
 .spin-icon{animation:spin 900ms linear infinite}
 
 /* Quick add: one number, read at a glance. */
-.quick-add-calories input{min-height:72px;font-size:2.2rem;font-weight:600;letter-spacing:-.02em;text-align:center;color:var(--ink-strong)}
+.quick-add-calories input{min-height:52px;font-size:1.5rem;font-weight:600;letter-spacing:-.02em;text-align:center;color:var(--ink-strong)}
 .quick-add-calories input::placeholder{color:var(--border)}
 
 /* Batch review: the total responds when a food joins or leaves. */

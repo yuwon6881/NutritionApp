@@ -2,9 +2,11 @@ import {useId,useState} from 'react';
 import {SegmentedControl} from './ui/SegmentedControl';
 import type {ProgressWeightPoint,WeightUnit} from '../types';
 import {displayWeight,weightLabel,weightValue} from '../lib/units';
-import {niceTicks} from '../lib/barChart';
+import {dateAxisOffsets,niceTicks} from '../lib/barChart';
+import {dateSpan} from '../lib/chartLabels';
 import {monthYear,readoutDate,shortDate} from '../lib/format';
-import {useChartLayout} from './ui/useChartLayout';
+import {BAR_AXIS_WIDTH,BarChartFrame,BarChartNav} from './ui/BarChartFrame';
+import {useBarViewport,useRevealBar} from './ui/useBarViewport';
 import {useChartScrub} from './ui/useChartScrub';
 
 type View='both'|'scale'|'trend';
@@ -12,20 +14,27 @@ const TOP=16;
 const BASE=184;
 const HEIGHT=214;
 const DAY=86400000;
+/** A window shows this many calendar days per bar-chart slot before the rest is reached by scrolling or the page buttons. */
+const DAYS_PER_BAR_SLOT=2;
+const MAX_SCREENS=4;
+const isoDay=(time:number)=>new Date(time).toISOString().slice(0,10);
 
 export function WeightChart({series,weightUnit='kg'}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit}){
   const [view,setView]=useState<View>('both');
-  const chart=useChartLayout();
   const readoutId=useId();
   const gradientId=`trend-fill-${useId().replace(/[^\w-]/g,'')}`;
   const unit=weightLabel(weightUnit);
+  const start=series.length?Date.parse(series[0].date):0;
+  const totalDays=series.length?Math.max(0,Math.round((Date.parse(series.at(-1)!.date)-start)/DAY)):0;
+  // One slot per calendar day, so weigh-ins keep their true spacing. A long period never needs more than a few screens of scrolling.
+  const viewport=useBarViewport(totalDays+1,base=>Math.max(base*DAYS_PER_BAR_SLOT,Math.ceil((totalDays+1)/MAX_SCREENS)));
+  const {slot,contentWidth,edges}=viewport;
+  const dayOf=(date:string)=>Math.round((Date.parse(date)-start)/DAY);
+  const x=(date:string)=>slot*(dayOf(date)+.5);
   // Ticks are chosen in the display unit so the axis reads 170, 171 lb rather than converted kilograms.
   const shown=series.flatMap(point=>view==='scale'?[point.scaleKg]:view==='trend'?[point.trendKg]:[point.scaleKg,point.trendKg]).filter((value):value is number=>value!==null).map(kg=>weightValue(kg,weightUnit)!);
   const ticks=shown.length?niceTicks(Math.min(...shown),Math.max(...shown),4):[0,1];
   const low=ticks[0],high=ticks.at(-1)!;
-  const start=series.length?Date.parse(series[0].date):0;
-  const duration=Math.max(DAY,series.length?Date.parse(series.at(-1)!.date)-start:0);
-  const x=(date:string)=>chart.left+(Date.parse(date)-start)/duration*chart.plotWidth;
   const valueY=(value:number)=>BASE-(value-low)/Math.max(1e-9,high-low)*(BASE-TOP);
   const y=(kg:number)=>valueY(weightValue(kg,weightUnit)!);
   const segments=(field:'scaleKg'|'trendKg')=>{
@@ -40,15 +49,17 @@ export function WeightChart({series,weightUnit='kg'}:{series:ProgressWeightPoint
   };
   const line=(points:ProgressWeightPoint[],field:'scaleKg'|'trendKg')=>points.map(point=>`${x(point.date)},${y(point[field]!)}`).join(' ');
   const area=(points:ProgressWeightPoint[])=>`M${x(points[0].date)} ${BASE} ${points.map(point=>`L${x(point.date)} ${y(point.trendKg!)}`).join(' ')} L${x(points.at(-1)!.date)} ${BASE} Z`;
-  const scrub=useChartScrub(series.map(point=>x(point.date)));
+  const scrub=useChartScrub(series.map(point=>x(point.date)),{tapToSelect:true});
   const selected=series[scrub.index];
-  // About one date label per 110 px; long periods label months instead of days.
-  const tickCount=Math.max(2,Math.min(6,Math.floor(chart.plotWidth/110)+1));
-  const dateTicks:string[]=series.length>1
-    ?Array.from({length:tickCount},(_,index)=>new Date(start+duration*index/(tickCount-1)).toISOString().slice(0,10))
-    :series.map(point=>point.date);
-  const dateLabel=duration>200*DAY?monthYear:shortDate;
+  useRevealBar(viewport,selected?dayOf(selected.date):0);
+  // Labels sit on whole days and stay apart; long periods label months instead of days, and a month shows once.
+  const dateLabel=totalDays>200?monthYear:shortDate;
+  const labelDates=series.length?dateAxisOffsets(totalDays,slot)
+    .map(offset=>isoDay(start+offset*DAY))
+    .filter((date,index,all)=>index===0||dateLabel(date)!==dateLabel(all[index-1])):[];
+  const visibleSpan=series.length?dateSpan(isoDay(start+Math.min(edges.first,totalDays)*DAY),isoDay(start+Math.min(edges.last,totalDays)*DAY)):'';
   const viewName=view==='both'?'Scale and trend':view==='scale'?'Scale':'Trend';
+  const axis=ticks.map(value=><text key={value} x={BAR_AXIS_WIDTH-8} y={valueY(value)+4} textAnchor="end">{value.toLocaleString('en-MY',{maximumFractionDigits:1})}</text>);
   return <section className="panel weight-chart-panel"><div className="section-heading"><div><h2>Weight</h2></div>
     <SegmentedControl<View> layout="equal" className="chart-view-toggle" label="Weight chart display" value={view} onChange={setView} options={[
       {value:'both',label:'Both',ariaLabel:'Both'},
@@ -65,9 +76,11 @@ export function WeightChart({series,weightUnit='kg'}:{series:ProgressWeightPoint
       </dl>
     </div>
     <div className="chart-scrub" role="group" aria-label="Weight chart. Touch the chart or use the left and right arrow keys to read a date." aria-describedby={readoutId} {...scrub.groupProps}>
-    <svg ref={chart.ref} viewBox={`0 0 ${chart.width} ${HEIGHT}`} className="weight-chart" role="img" aria-label={`${viewName} weight chart across ${series.length} weigh-ins.`} {...scrub.svgProps}>
+    <BarChartNav viewport={viewport} range={visibleSpan}/>
+    <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={scrub.svgProps} pager="days"
+      label={`${viewName} weight chart across ${series.length} weigh-ins.`}>
       <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" className="trend-fill-start"/><stop offset="100%" className="trend-fill-end"/></linearGradient></defs>
-      {ticks.map(value=><g key={value}><line x1={chart.left} y1={valueY(value)} x2={chart.right} y2={valueY(value)} className="chart-grid"/><text x={chart.left-8} y={valueY(value)+4} textAnchor="end">{value.toLocaleString('en-MY',{maximumFractionDigits:1})}</text></g>)}
+      {ticks.map(value=><line key={value} x1={0} y1={valueY(value)} x2={contentWidth} y2={valueY(value)} className="chart-grid"/>)}
       {view!=='scale'&&segments('trendKg').filter(points=>points.length>1).map((points,index)=><path key={`area-${index}`} d={area(points)} fill={`url(#${gradientId})`} className="trend-area"/>)}
       <line x1={x(selected.date)} x2={x(selected.date)} y1={TOP-6} y2={BASE} className="chart-crosshair"/>
       {view!=='trend'&&<>
@@ -78,8 +91,11 @@ export function WeightChart({series,weightUnit='kg'}:{series:ProgressWeightPoint
         {segments('trendKg').map((points,index)=><polyline key={index} points={line(points,'trendKg')} className="trend-line"/>)}
         {selected.trendKg!==null&&<circle cx={x(selected.date)} cy={y(selected.trendKg)} r={5.5} className="trend-dot is-selected"><title>{selected.date}: {displayWeight(selected.trendKg,weightUnit,2)} {unit} trend</title></circle>}
       </>}
-      {dateTicks.map((date,index)=><text key={date} x={x(date)} y={HEIGHT-6} textAnchor={index===0?'start':index===dateTicks.length-1?'end':'middle'}>{dateLabel(date)}</text>)}
-    </svg></div>
+      {labelDates.map(date=>{
+        const at=x(date);
+        return <text key={date} x={at} y={HEIGHT-6} textAnchor={at<26?'start':at>contentWidth-26?'end':'middle'}>{dateLabel(date)}</text>;
+      })}
+    </BarChartFrame></div>
     <ul className="chart-legend" aria-label="Weight chart key">
       {view!=='trend'&&<li><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale weigh-in</li>}
       {view!=='scale'&&<li><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</li>}
