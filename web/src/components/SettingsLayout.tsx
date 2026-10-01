@@ -79,16 +79,29 @@ function useActiveSection(ids:string[]){
   return [active,choose] as const;
 }
 
-/** Jump links for the expanded layout. Compact and medium layouts hide it and read top to bottom. */
+/** Jump links: a side list on expanded layouts, and a floating horizontal sticky row on compact and medium layouts. */
 export function SettingsNav({links}:{links:SettingsSectionLink[]}){
   const [active,setActive]=useActiveSection(links.map(link=>link.id));
+  const navRef=useRef<HTMLElement|null>(null);
   const reduced=useReducedMotion();
+
+  useEffect(()=>{
+    const nav=navRef.current;
+    if(!nav)return;
+    const list=nav.querySelector<HTMLElement>('.settings-nav-list');
+    if(!list||list.scrollWidth<=list.clientWidth)return;
+    const button=list.querySelector<HTMLElement>(`[data-selection-key="${active}"]`);
+    if(!button)return;
+    const targetLeft=Math.max(0,button.offsetLeft-(list.clientWidth-button.offsetWidth)/2);
+    list.scrollTo({left:targetLeft,behavior:reduced?'auto':'smooth'});
+  },[active,reduced]);
+
   const go=(id:string)=>{
     setActive(id);
     document.getElementById(id)?.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});
     document.getElementById(`${id}-title`)?.focus({preventScroll:true});
   };
-  return <nav className="settings-nav" aria-label="Settings sections">
+  return <nav ref={navRef} className="settings-nav" aria-label="Settings sections">
     <SelectionIndicator active={active} className="settings-nav-list">
       {links.map(({id,label,icon:Icon})=><Button key={id} variant="tertiary" data-selection-key={id}
         className={active===id?'is-current':undefined} aria-current={active===id?'true':undefined} onClick={()=>go(id)}>

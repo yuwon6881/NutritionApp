@@ -1527,7 +1527,19 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 @media(min-width:1024px){
   .settings-shell{grid-template-columns:184px minmax(0,1fr);align-items:start}
   .settings-nav{display:block;position:sticky;top:24px}
-  .settings-section{scroll-margin-top:24px}
+}
+@media(max-width:1023px){
+  .settings-nav{display:block;position:sticky;top:calc(64px + env(safe-area-inset-top, 0px));z-index:8;margin:0 -4px 16px;padding:6px 4px;background:var(--background);min-width:0;max-width:100%;overflow:hidden}
+  .settings-nav-list{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;min-width:0;max-width:100%}
+  .settings-nav-list::-webkit-scrollbar{display:none}
+  .settings-nav-list>.button{flex:0 0 auto;min-height:44px;padding:0 11px;gap:6px;border:1px solid var(--border);border-radius:999px;white-space:nowrap}
+  .settings-nav-list>.button.is-current{border-color:color-mix(in srgb,var(--primary) 32%,var(--border));background:var(--primary-tint);color:var(--primary-ink);font-weight:600}
+  .settings-nav-list>.selection-indicator-marker{display:none}
+  .settings-section{scroll-margin-top:calc(130px + env(safe-area-inset-top, 0px))}
+}
+@media(min-width:640px) and (max-width:1023px){
+  .settings-nav{top:calc(76px + env(safe-area-inset-top, 0px))}
+  .settings-section{scroll-margin-top:calc(142px + env(safe-area-inset-top, 0px))}
 }
 @media(max-width:639px){
   .settings-heading{align-items:stretch}
