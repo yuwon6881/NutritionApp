@@ -63,7 +63,8 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
           kind:'weight',
           recordId:target?.id??crypto.randomUUID(),
           expectedRevision:target?.revision??0,
-          data:{date:values.date,kg:parseWeight(values.kg,units.weight),context:values.context||null},
+          // The server records every user write as manual; projecting it keeps the label honest before sync.
+          data:{date:values.date,kg:parseWeight(values.kg,units.weight),context:values.context||null,source:'manual'},
           delete:false,
         });
         if(moved&&target?.id!==moved.id)
@@ -103,6 +104,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
           onChange={context=>setValues(previous=>({...previous,context:context as typeof previous.context}))}
         />
       </section>}
+      {initial?.source==='google_health'&&<p className="source">Imported from Google Health. Saving a change makes it your own entry; Google keeps its copy.</p>}
       <p className="source">{initial?'Changing the date moves this weigh-in. A date that already has one is updated instead.':'A date with an existing weigh-in is updated.'}</p>
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':existing||initial?'Update weigh-in':'Save weigh-in'}</Button></div>

@@ -9,6 +9,7 @@ import {
   recoverGoogleHealthBundledSync,
   resetGoogleHealthState,
   setGoogleHealthBundledSync,
+  setGoogleHealthWeightImport,
   shouldShowDashboardSteps,
   syncGoogleHealth,
   GoogleHealthSyncState,
@@ -87,8 +88,47 @@ describe('googleHealth sync manager', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     resetGoogleHealthState();
+  });
+
+  it('returns steps while an independent upload request is still blocked', async () => {
+    vi.useFakeTimers();
+    const saved = {...initialGoogleHealthState, status: 'connected' as const, freshness: 'fresh' as const,
+      days: [{date: '2026-10-01', count: 4321}],
+      weightSync: {...initialGoogleHealthState.weightSync, enabled: true, pendingCount: 1}};
+    let finishUploads!: (state: GoogleHealthSyncState) => void;
+    apiSpy.mockResolvedValueOnce(saved).mockReturnValueOnce(new Promise(resolve => { finishUploads = resolve; }));
+    expect((await syncGoogleHealth()).days[0].count).toBe(4321);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(apiSpy).toHaveBeenNthCalledWith(2, '/integrations/google-health/sync-data', {force: false});
+    expect((await syncGoogleHealth()).days[0].count).toBe(4321);
+    finishUploads(saved);
+    await vi.advanceTimersByTimeAsync(1);
+  });
+
+  it('runs an explicit provider refresh after a cached read already in flight', async () => {
+    let finish!: (state: GoogleHealthSyncState) => void;
+    apiSpy.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    apiSpy.mockResolvedValueOnce(initialGoogleHealthState);
+    const cached = syncGoogleHealth();
+    const forced = syncGoogleHealth(true);
+    finish(initialGoogleHealthState);
+    await Promise.all([cached, forced]);
+    expect(apiSpy).toHaveBeenNthCalledWith(2, '/integrations/google-health/sync', {force: true, cacheOnly: false});
+  });
+
+  it('ignores a late read after the account cache is reset', async () => {
+    let finish!: (state: GoogleHealthSyncState) => void;
+    apiSpy.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    const pending = syncGoogleHealth();
+    const rejected = expect(pending).rejects.toMatchObject({name: 'AbortError'});
+    resetGoogleHealthState();
+    finish({...initialGoogleHealthState, status: 'connected', freshness: 'fresh'});
+    await rejected;
+    apiSpy.mockResolvedValueOnce(initialGoogleHealthState);
+    expect((await syncGoogleHealth()).status).toBe('disconnected');
   });
 
   it('connectGoogleHealth calls connect endpoint with bundled write sync by default', async () => {
@@ -124,6 +164,35 @@ describe('googleHealth sync manager', () => {
     expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/body-fat-sync/preference', {enabled: true, revision: 0});
   });
 
+  it('connect requests weigh-in import only when chosen', async () => {
+    apiSpy.mockResolvedValue({authUrl: 'https://accounts.google.com/x'});
+    await connectGoogleHealth({syncWeight: true, importWeight: true});
+    expect(apiSpy).toHaveBeenLastCalledWith('/integrations/google-health/connect', {syncWeight: true, importWeight: true});
+    await connectGoogleHealth({syncWeight: true});
+    expect(apiSpy).toHaveBeenLastCalledWith('/integrations/google-health/connect', {syncWeight: true});
+  });
+
+  it('setGoogleHealthWeightImport sends the revision and stores the returned status', async () => {
+    const status = {...initialGoogleHealthState.weightImport, enabled: false, permissionGranted: true, revision: 4};
+    apiSpy.mockResolvedValueOnce(status);
+    const result = await setGoogleHealthWeightImport(false, 3);
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/weight-import/preference', {enabled: false, revision: 3});
+    expect(result).toEqual(status);
+  });
+
+  it('defaults the weigh-in import status when an older server omits it', async () => {
+    const {weightImport: _omitted, ...legacy} = {
+      ...initialGoogleHealthState,
+      status: 'connected' as const,
+      connectedAt: '2026-09-14T08:00:00Z',
+      lastSyncedAt: '2026-09-14T08:00:00Z',
+      freshness: 'fresh' as const,
+    };
+    apiSpy.mockResolvedValueOnce(legacy);
+    const state = await syncGoogleHealth(true);
+    expect(state.weightImport).toEqual(initialGoogleHealthState.weightImport);
+  });
+
   it('recoverGoogleHealthBundledSync recovers failed or unknown streams', async () => {
     const mockSync: GoogleHealthSyncState = {
       status: 'connected',
@@ -134,6 +203,7 @@ describe('googleHealth sync manager', () => {
       weightSync: {...initialGoogleHealthState.weightSync, state: 'failed'},
       nutritionSync: {...initialGoogleHealthState.nutritionSync, state: 'unknown'},
       bodyFatSync: {...initialGoogleHealthState.bodyFatSync, state: 'idle'},
+      weightImport: initialGoogleHealthState.weightImport,
     };
     apiSpy.mockResolvedValueOnce(mockSync);
     await syncGoogleHealth();
@@ -157,11 +227,12 @@ describe('googleHealth sync manager', () => {
       weightSync: initialGoogleHealthState.weightSync,
       nutritionSync: initialGoogleHealthState.nutritionSync,
       bodyFatSync: initialGoogleHealthState.bodyFatSync,
+      weightImport: initialGoogleHealthState.weightImport,
     };
     apiSpy.mockResolvedValueOnce(mockSync);
 
     const state = await syncGoogleHealth();
-    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/sync', {force: false});
+    expect(apiSpy).toHaveBeenCalledWith('/integrations/google-health/sync', {force: false, cacheOnly: true});
     expect(state.status).toBe('connected');
     expect(state.freshness).toBe('fresh');
     expect(state.days).toHaveLength(1);
@@ -178,6 +249,7 @@ describe('googleHealth sync manager', () => {
       weightSync: initialGoogleHealthState.weightSync,
       nutritionSync: initialGoogleHealthState.nutritionSync,
       bodyFatSync: initialGoogleHealthState.bodyFatSync,
+      weightImport: initialGoogleHealthState.weightImport,
     };
     let resolveApi: (value: GoogleHealthSyncState) => void;
     const slowPromise = new Promise<GoogleHealthSyncState>((res) => {
@@ -205,6 +277,7 @@ describe('googleHealth sync manager', () => {
       weightSync: initialGoogleHealthState.weightSync,
       nutritionSync: initialGoogleHealthState.nutritionSync,
       bodyFatSync: initialGoogleHealthState.bodyFatSync,
+      weightImport: initialGoogleHealthState.weightImport,
     };
     apiSpy.mockResolvedValue(mockSync);
 
@@ -231,6 +304,7 @@ describe('googleHealth sync manager', () => {
       weightSync: initialGoogleHealthState.weightSync,
       nutritionSync: initialGoogleHealthState.nutritionSync,
       bodyFatSync: initialGoogleHealthState.bodyFatSync,
+      weightImport: initialGoogleHealthState.weightImport,
     };
     apiSpy.mockResolvedValueOnce(connectedState);
     await syncGoogleHealth();

@@ -124,6 +124,15 @@ public class Weight : OwnedRecord
     public DateOnly Date { get; set; }
     public double Kg { get; set; }
     public string? Context { get; set; }
+    public string Source { get; set; } = WeightSources.Manual;
+    // The Google Health data point an imported weigh-in came from; support detail, never sent to clients.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ExternalId { get; set; }
+}
+public static class WeightSources
+{
+    public const string Manual = "manual";
+    public const string GoogleHealth = "google_health";
 }
 public class DayStatus : OwnedRecord
 {
@@ -267,6 +276,13 @@ public class GoogleHealthConnection
     public bool BodyFatSyncEnabled { get; set; }
     public long BodyFatSyncRevision { get; set; }
     public DateTime? BodyFatLastSuccessfulSyncAt { get; set; }
+    public bool WeightImportEnabled { get; set; }
+    public long WeightImportRevision { get; set; }
+    public DateTime? WeightImportLastAttemptAt { get; set; }
+    public DateTime? WeightImportLastSuccessAt { get; set; }
+    public int WeightImportLastCount { get; set; }
+    public string WeightImportFailureCode { get; set; } = "";
+    public string WeightImportFailureMessage { get; set; } = "";
     public long ConnectionGeneration { get; set; } = 1;
     public DateTime ConnectedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastSyncedAt { get; set; }

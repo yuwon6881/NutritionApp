@@ -2,10 +2,12 @@ import {useEffect, useState} from 'react';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {
+  formatGoogleHealthTimestamp as formatTimestamp,
   recoverGoogleHealthBundledSync,
   setGoogleHealthBundledSync,
   useGoogleHealth,
 } from '../lib/googleHealth';
+import {GoogleHealthWeightImportSetting} from './GoogleHealthWeightImportSetting';
 import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
 import {Activity, CheckCircle2, AlertTriangle, RefreshCw, Unlink} from 'lucide-react';
 import {CardFeedback} from './ui/CardFeedback';
@@ -22,6 +24,7 @@ export function GoogleHealthSettings() {
   const [bannerNotice, setBannerNotice] = useState<{type: 'success' | 'error'; message: string} | null>(null);
 
   const [requestDataSync, setRequestDataSync] = useState(true);
+  const [requestWeightImport, setRequestWeightImport] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
   const allPermissionsGranted = state.weightSync.permissionGranted &&
@@ -61,8 +64,11 @@ export function GoogleHealthSettings() {
     : state.status === 'connected' ? 'Connected' : state.status === 'reconnect_required' ? 'Reconnect required' : syncError ? 'Unavailable' : 'Not connected';
   const statusTone = state.status === 'connected' ? 'success' : state.status === 'reconnect_required' ? 'warning' : 'neutral';
 
-  const openDisclosure = () => {
+  // Import is offered pre-checked to a new connection; a reconnect keeps the current choice so an
+  // existing connection never starts importing without the user turning it on.
+  const openDisclosure = (importWeight = state.status === 'disconnected' || state.weightImport.enabled) => {
     setRequestDataSync(bundledSyncEnabled || !allPermissionsGranted);
+    setRequestWeightImport(importWeight);
     setDisclosureOpen(true);
   };
 
@@ -131,6 +137,7 @@ export function GoogleHealthSettings() {
         syncWeight: requestDataSync,
         syncNutrition: requestDataSync,
         syncBodyFat: requestDataSync,
+        importWeight: requestWeightImport,
       });
       window.location.href = authUrl;
     } catch (ex) {
@@ -141,8 +148,8 @@ export function GoogleHealthSettings() {
 
   const handleBundledSyncChange = async (enabled: boolean) => {
     if (enabled && !allPermissionsGranted) {
+      openDisclosure();
       setRequestDataSync(true);
-      setDisclosureOpen(true);
       return;
     }
     setActionLoading(true);
@@ -186,26 +193,13 @@ export function GoogleHealthSettings() {
     }
   };
 
-  const formatTimestamp = (iso: string | null) => {
-    if (!iso) return 'Never';
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      });
-    } catch {
-      return iso;
-    }
-  };
-
   return (
     <article className="panel integration-card google-health-panel" aria-labelledby="google-health-title">
       <header className="integration-card-header">
         <span className="integration-logo" aria-hidden="true"><Activity size={20} /></span>
         <div className="integration-card-title">
           <h3 id="google-health-title">Google Health</h3>
-          <p>Steps in; weight, nutrition, and body fat out when sync is on.</p>
+          <p>Steps and optional weigh-ins in; weight, nutrition, and body fat out when sync is on.</p>
         </div>
         <span className={`status-badge ${statusTone}`} role="status">
           {state.status === 'connected' ? <CheckCircle2 size={14} aria-hidden="true" /> : state.status === 'reconnect_required' ? <AlertTriangle size={14} aria-hidden="true" /> : null}
@@ -243,7 +237,7 @@ export function GoogleHealthSettings() {
       {state.status === 'disconnected' && !loading && !syncError && (
         <div className="integration-state disconnected">
           <p className="description">
-            Show your daily steps beside your diary and, if you choose, send new weight, nutrition, and body fat entries to Google Health.
+            Show your daily steps beside your diary, import smart-scale weigh-ins, and, if you choose, send new weight, nutrition, and body fat entries to Google Health.
           </p>
           <div className="actions">
             <Button variant="primary" onClick={() => openDisclosure()}>
@@ -334,6 +328,13 @@ export function GoogleHealthSettings() {
             )}
           </div>
 
+          <GoogleHealthWeightImportSetting
+            status={state.weightImport}
+            onRequestPermission={() => openDisclosure(true)}
+            onRetry={() => void refresh(true)}
+            retrying={loading}
+          />
+
           <div className="actions">
             <Button variant="tertiary" onClick={() => void refresh(true)} disabled={loading}>
               <RefreshCw size={15} className={loading ? 'spin' : ''} aria-hidden="true" />
@@ -348,7 +349,7 @@ export function GoogleHealthSettings() {
       )}
 
       <p className="source integration-note">
-        Steps are retained for 31 days. Disconnecting revokes access and deletes local sync data; Google copies remain.
+        Steps are retained for 31 days. Disconnecting revokes access and deletes local sync data; Google copies and imported weigh-ins remain.
       </p>
 
       {/* Pre-connection disclosure modal */}
@@ -358,6 +359,8 @@ export function GoogleHealthSettings() {
         onConfirm={handleStartConnect}
         syncData={requestDataSync}
         onSyncDataChange={setRequestDataSync}
+        importWeight={requestWeightImport}
+        onImportWeightChange={setRequestWeightImport}
         loading={connecting}
         error={actionError}
       />
@@ -372,7 +375,7 @@ export function GoogleHealthSettings() {
       >
         <div className="disconnect-dialog">
           <p>
-            Disconnecting revokes access and deletes local step and sync data. Uploaded Google copies remain.
+            Disconnecting revokes access and deletes local step and sync data. Uploaded Google copies and imported weigh-ins remain.
           </p>
           <div className="modal-actions">
             <Button variant="tertiary" onClick={() => setDisconnectOpen(false)} disabled={disconnecting}>

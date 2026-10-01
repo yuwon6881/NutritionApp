@@ -45,6 +45,12 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<AppUser>().Property(x => x.WeightGoalMetric).HasDefaultValue("scale");
         m.Entity<Food>().Property(x => x.PortionsJson).HasDefaultValue("[]");
         m.Entity<Weight>().Property(x => x.Context).HasMaxLength(32);
+        m.Entity<Weight>().Property(x => x.Source).HasMaxLength(16).HasDefaultValue(WeightSources.Manual);
+        m.Entity<Weight>().Property(x => x.ExternalId).HasMaxLength(256);
+        m.Entity<Weight>().ToTable("Weights", table =>
+            table.HasCheckConstraint("CK_Weights_Source", "\"Source\" IN ('manual', 'google_health')"));
+        m.Entity<GoogleHealthConnection>().Property(x => x.WeightImportFailureCode).HasMaxLength(64);
+        m.Entity<GoogleHealthConnection>().Property(x => x.WeightImportFailureMessage).HasMaxLength(300);
         m.Entity<PublicFoodProduct>().HasKey(x => new { x.ProviderId, x.Code });
         m.Entity<PublicFoodProduct>().Property(x => x.ProviderId).HasMaxLength(32);
         m.Entity<PublicFoodProduct>().HasIndex(x => x.ExpiresAt);

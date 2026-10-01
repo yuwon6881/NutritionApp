@@ -1,3 +1,4 @@
+import {resetGoogleHealthState} from './lib/googleHealth';
 import {lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
 import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
@@ -332,8 +333,11 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
       if(active&&cached)setUser(previous);
       try{
         const account=await validation;
-        if(active&&localStorage.getItem('nourish-signed-out')!=='1'){localStorage.setItem('nourish-account',account.id);setUser(account.id);setAuthReady(true);}
-      }catch(ex){if(active){if(!cached||(ex instanceof ApiError&&ex.status===401))setUser(null);setAuthReady(true);}}
+        if(active&&localStorage.getItem('nourish-signed-out')!=='1'){
+          if(previous!==account.id)resetGoogleHealthState();
+          localStorage.setItem('nourish-account',account.id);setUser(account.id);setAuthReady(true);
+        }
+      }catch(ex){if(active){if(!cached||(ex instanceof ApiError&&ex.status===401)){resetGoogleHealthState();setUser(null);}setAuthReady(true);}}
     })();
     return()=>{active=false;};
   },[]);
@@ -343,6 +347,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
   },[user]);
 
   const logout=async()=>{
+    resetGoogleHealthState();
     clearAccountHydration();
     if(user){
       try{

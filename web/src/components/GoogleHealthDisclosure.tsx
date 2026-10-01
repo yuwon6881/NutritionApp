@@ -15,6 +15,8 @@ interface GoogleHealthDisclosureProps {
   onSyncNutritionChange?: (checked: boolean) => void;
   syncBodyFat?: boolean;
   onSyncBodyFatChange?: (checked: boolean) => void;
+  importWeight?: boolean;
+  onImportWeightChange?: (checked: boolean) => void;
   loading?: boolean;
   error?: string;
   restoreFocus?: HTMLElement | null;
@@ -32,6 +34,8 @@ export function GoogleHealthDisclosure({
   onSyncNutritionChange,
   syncBodyFat,
   onSyncBodyFatChange,
+  importWeight,
+  onImportWeightChange,
   loading = false,
   error,
   restoreFocus,
@@ -82,6 +86,23 @@ export function GoogleHealthDisclosure({
             </span>
           </Checkbox>
         </div>
+
+        {onImportWeightChange && (
+          <div className="disclosure-item google-health-weight-option">
+            <Checkbox
+              id="google-health-import-weight"
+              role="switch"
+              aria-label="Import weigh-ins from Google Health"
+              checked={Boolean(importWeight)}
+              onChange={onImportWeightChange}
+            >
+              <span>
+                <strong>Import weigh-ins</strong>
+                <small>Reads scale weight from the last 31 days into days without a weigh-in. Your own entries always win.</small>
+              </span>
+            </Checkbox>
+          </div>
+        )}
 
         <div className="disclosure-data-notice">
           <ShieldCheck size={18} aria-hidden="true" className="policy-icon" />

@@ -1521,8 +1521,8 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .integration-state .description{margin:0 0 16px;font-size:.84rem;line-height:1.6}
 .integration-note{margin:18px 0 0;padding-top:14px;border-top:1px dashed var(--border);font-size:.74rem;line-height:1.55;color:var(--muted-foreground)}
 .freshness-note{margin:0 0 12px;color:var(--carbs)}
-.google-health-weight-sync{margin:0 0 16px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--muted)}
-.google-health-weight-sync>.source{margin:8px 0 0}
+.google-health-weight-sync,.google-health-weight-import{margin:0 0 16px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--muted)}
+.google-health-weight-sync>.source,.google-health-weight-import>.source{margin:8px 0 0}
 .local-data-dialog p{margin:0 0 14px;font-size:.85rem;line-height:1.55}
 .local-data-counts{display:grid;gap:6px;margin:0 0 16px;padding:12px 14px;border-radius:12px;background:var(--muted)}
 .local-data-counts>div{display:flex;justify-content:space-between;gap:12px;font-size:.82rem}
@@ -1570,9 +1570,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .metadata-item .label{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground)}
 .metadata-grid dt,.metadata-grid dd{margin:0}
 .metadata-item .value{font-size:.86rem;font-weight:550;color:var(--ink-strong);font-variant-numeric:tabular-nums}
-.google-health-weight-sync .check-row{align-items:flex-start}
-.google-health-weight-sync .check-row>span{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
-.google-health-weight-sync .check-row>span small{display:block;line-height:1.5}
+.google-health-weight-sync .check-row,.google-health-weight-import .check-row{align-items:flex-start}
+.google-health-weight-sync .check-row>span,.google-health-weight-import .check-row>span{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.google-health-weight-sync .check-row>span small,.google-health-weight-import .check-row>span small{display:block;line-height:1.5}
 .disconnect-dialog p{margin:0 0 16px;line-height:1.5;font-size:.85rem;color:var(--foreground)}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}

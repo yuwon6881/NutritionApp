@@ -318,3 +318,41 @@ test('Retry sync immediately dispatches requeued health uploads',async({page})=>
   await expect(page.locator('.google-health-weight-sync')).toContainText('Last sync:');
   await expect(feedback).toHaveCount(0);
 });
+
+test('weigh-in import is offered at connect and turning it off keeps imported weigh-ins',async({page})=>{
+  const item={enabled:false,permissionGranted:true,state:'disabled',pendingCount:0,lastSuccessfulSyncAt:null,revision:1};
+  let weightImport={enabled:true,permissionGranted:true,state:'idle',lastSuccessAt:'2026-10-01T08:00:00Z',lastImportedCount:2,revision:3};
+  let status='disconnected';
+  const preferences:unknown[]=[];
+  await page.route('**/api/integrations/google-health/sync',async route=>{
+    await route.fulfill({json:{status,connectedAt:status==='connected'?'2026-09-17T08:00:00Z':null,lastSyncedAt:null,
+      freshness:status==='connected'?'fresh':'unavailable',days:[],weightSync:item,nutritionSync:item,bodyFatSync:item,weightImport}});
+  });
+  await page.route('**/api/integrations/google-health/weight-import/preference',async route=>{
+    preferences.push(route.request().postDataJSON());
+    weightImport={...weightImport,enabled:false,state:'disabled',revision:4};
+    await route.fulfill({json:weightImport});
+  });
+  await signIn(page,'test-alice');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+
+  await page.getByRole('button',{name:'Connect Google Health',exact:true}).click();
+  const disclosure=page.getByRole('dialog',{name:'Connect Google Health',exact:true});
+  await expect(disclosure.getByRole('switch',{name:'Import weigh-ins from Google Health'})).toBeChecked();
+  await disclosure.getByRole('button',{name:'Cancel',exact:true}).click();
+
+  status='connected';
+  await page.reload();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  const section=page.locator('.google-health-weight-import');
+  const importSwitch=section.getByRole('switch',{name:'Import weigh-ins from Google Health'});
+  await expect(importSwitch).toBeChecked();
+  await expect(section).toContainText('2 weigh-ins added.');
+  await expect(section).toContainText('weigh-ins already imported stay');
+
+  // The switch reflects the saved preference, so it flips only after the server answers.
+  await importSwitch.click();
+  await expect.poll(()=>preferences).toEqual([{enabled:false,revision:3}]);
+  await expect(importSwitch).not.toBeChecked();
+  await expect(section).toContainText('Your own entries always win.');
+});

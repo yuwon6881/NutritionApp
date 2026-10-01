@@ -6,7 +6,9 @@ export type PortionBasis={quantity:number;unit:'g'|'serving';portionLabel:string
 export type Entry=RecordBase&Nutrients&{date:string;time?:string|null;portionLabel?:string|null;portionGrams?:number|null;quantity:number;unit:'g'|'serving'};
 export type Food=RecordBase&Nutrients&{servingGrams:number;favourite:boolean;barcode?:string|null;ingredientsJson:string;portionsJson:string;cookedYieldGrams:number|null};
 export type WeightContextCode='high_sodium'|'high_carb'|'alcohol'|'poor_sleep'|'stress'|'hard_training'|'bloating'|'menstrual_cycle'|'digestion'|'dehydration'|'low_carb'|'illness'|'travel'|'other_temporary'|'genuine_change'|'unsure';
-export type Weight=RecordBase&{date:string;kg:number;context?:WeightContextCode|null};
+// An imported weigh-in came from Google Health; any edit makes it the user's own (manual).
+export type WeightSource='manual'|'google_health';
+export type Weight=RecordBase&{date:string;kg:number;context?:WeightContextCode|null;source?:WeightSource};
 export type Day=RecordBase&{date:string;status:'incomplete'|'complete'|'fasting'|'not_logged';archived?:boolean;entryCount?:number;calories?:number;protein?:number|null;fat?:number|null;carbs?:number|null;fiber?:number|null};
 export type ActivityLevel='none'|'lifting'|'cardio'|'cardio_lifting';
 export type Profile={age:number;dateOfBirth:string|null;heightCm:number;weightKg:number;sex:'male'|'female';activity:number;activityLevel?:ActivityLevel|null;goal:'lose'|'maintain'|'gain';maintenance:number|null;proteinGrams:number|null;resistanceTraining:boolean;pregnancyOrBreastfeeding:boolean;medicalNutrition:boolean;timeZone:string;phaseMode?:'open'|'duration'|'weight';phaseStart?:string|null;durationWeeks?:number|null;targetWeightKg?:number|null;phaseStartWeightKg?:number|null;goalRatePercent?:number|null;distributionShares?:number[]|null;energyAdjustmentPercent?:number|null;proteinPercent?:number|null;carbsPercent?:number|null;fatPercent?:number|null;macroPreset?:string|null};

@@ -67,13 +67,15 @@ public sealed class ExportServiceTests : IAsyncLifetime
         Assert.Contains("barcode",foodsCsv,StringComparison.Ordinal);
         Assert.Contains("9551234567890",foodsCsv,StringComparison.Ordinal);
         var readme=await Read(archive,"README.txt");
-        Assert.Contains("csvSchemaVersion=5",readme,StringComparison.Ordinal);
+        Assert.Contains("csvSchemaVersion=6",readme,StringComparison.Ordinal);
         var bodyCsv=await Read(archive,"body-records.csv");
         Assert.Contains("waist_cm",bodyCsv,StringComparison.Ordinal);
         Assert.Contains("82",bodyCsv,StringComparison.Ordinal);
         var weightsCsv=await Read(archive,"weights.csv");
         Assert.Contains("context",weightsCsv,StringComparison.Ordinal);
         Assert.Contains("bloating",weightsCsv,StringComparison.Ordinal);
+        Assert.Contains("context,source",weightsCsv,StringComparison.Ordinal);
+        Assert.Contains("bloating,manual",weightsCsv,StringComparison.Ordinal);
         var profileCsv = await Read(archive, "profile.csv");
         Assert.Contains("profile_json,\"{\"\"age\"\":30", profileCsv, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("profile_json,\"\"\"", profileCsv, StringComparison.Ordinal);

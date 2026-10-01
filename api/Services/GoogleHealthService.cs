@@ -24,7 +24,8 @@ public sealed record GoogleHealthSyncResult(
     string? WarningMessage = null,
     GoogleHealthWeightSyncStatus? WeightSync = null,
     GoogleHealthNutritionSyncStatus? NutritionSync = null,
-    GoogleHealthBodyFatSyncStatus? BodyFatSync = null
+    GoogleHealthBodyFatSyncStatus? BodyFatSync = null,
+    GoogleHealthWeightImportStatus? WeightImport = null
 );
 
 public sealed record GoogleHealthConnectResult(string AuthUrl);
@@ -44,9 +45,9 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
     }
 
     private static readonly ConcurrentDictionary<Guid, Task<GoogleHealthSyncResult>> InFlightSyncs = new();
-    private static readonly MemoryCache SyncCache = new(new MemoryCacheOptions { SizeLimit = 512 });
+    internal static readonly MemoryCache SyncCache = new(new MemoryCacheOptions { SizeLimit = 512 });
 
-    private sealed record CachedSync(DateTime SyncedAt, GoogleHealthSyncResult Result, long ConnectionGeneration, DateOnly LocalDate, string TimeZone);
+    internal sealed record CachedSync(DateTime SyncedAt, GoogleHealthSyncResult Result, long ConnectionGeneration, DateOnly LocalDate, string TimeZone);
 
     public static void InvalidateMemoryCache(Guid userId) => SyncCache.Remove(userId);
     public static void ClearMemoryCache() => SyncCache.Compact(1);
@@ -65,7 +66,8 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
     public async Task<GoogleHealthConnectResult> GenerateConnectUrlAsync(
         Guid userId, string sessionHash, string? requestOrigin, CancellationToken ct,
-        bool requestWeightSync = false, bool requestNutritionSync = false, bool requestBodyFatSync = false)
+        bool requestWeightSync = false, bool requestNutritionSync = false, bool requestBodyFatSync = false,
+        bool requestWeightImport = false)
     {
         Validation.Require(!string.IsNullOrEmpty(ClientId), "Google Health integration is not configured.", 503);
 
@@ -89,6 +91,11 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         {
             operations.Add("body_fat_write");
             scopes.Add(GoogleHealthBodyFatSyncService.BodyFatScope);
+        }
+        if (requestWeightImport)
+        {
+            operations.Add("weight_read");
+            scopes.Add(GoogleHealthWeightImportService.ReadScope);
         }
 
         var oauthState = new GoogleHealthOAuthState
@@ -273,6 +280,10 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         var bodyFatGranted = grantedScopes.Contains(GoogleHealthBodyFatSyncService.BodyFatScope, StringComparer.Ordinal);
         var bodyFatEnabled = existingConn?.BodyFatSyncEnabled == true && !requestedBodyFat || bodyFatGranted && requestedBodyFat;
 
+        var requestedImport = oauthState.RequestedOperationsJson.Contains("weight_read", StringComparison.Ordinal);
+        var importGranted = grantedScopes.Contains(GoogleHealthWeightImportService.ReadScope, StringComparer.Ordinal);
+        var importEnabled = existingConn?.WeightImportEnabled == true && !requestedImport || importGranted && requestedImport;
+
         if (existingConn != null)
         {
             existingConn.GoogleIdHash = googleIdHash;
@@ -283,6 +294,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             existingConn.WeightSyncEnabled = weightEnabled;
             existingConn.NutritionSyncEnabled = nutritionEnabled;
             existingConn.BodyFatSyncEnabled = bodyFatEnabled;
+            existingConn.WeightImportEnabled = importEnabled;
             existingConn.ConnectedAt = DateTime.UtcNow;
             existingConn.LastSyncedAt = null;
             existingConn.Status = "connected";
@@ -301,6 +313,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 WeightSyncEnabled = weightGranted && requestedWeight,
                 NutritionSyncEnabled = nutritionGranted && requestedNutrition,
                 BodyFatSyncEnabled = bodyFatGranted && requestedBodyFat,
+                WeightImportEnabled = importGranted && requestedImport,
                 ConnectedAt = DateTime.UtcNow,
                 LastSyncedAt = null,
                 Status = "connected",
@@ -431,9 +444,9 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             {
                 try
                 {
-                    return await AttachSyncStatusesAsync(userId, await existingTask, ct);
+                    return await AttachSyncStatusesAsync(userId, await existingTask.WaitAsync(ct), ct);
                 }
-                catch
+                catch (Exception) when (!ct.IsCancellationRequested)
                 {
                     // Fallthrough to retry if in-flight failed
                 }
@@ -470,14 +483,15 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         }
     }
 
-    private async Task<GoogleHealthSyncResult> AttachSyncStatusesAsync(Guid userId, GoogleHealthSyncResult result, CancellationToken ct)
+    public async Task<GoogleHealthSyncResult> AttachSyncStatusesAsync(Guid userId, GoogleHealthSyncResult result, CancellationToken ct)
     {
         var connection = await db.GoogleHealthConnections.SingleOrDefaultAsync(c => c.UserId == userId, ct);
         if (connection is null) return result with
         {
             WeightSync = new(false, false, "disabled", 0, null, 0),
             NutritionSync = new(false, false, "disabled", 0, null, 0),
-            BodyFatSync = new(false, false, "disabled", 0, null, 0)
+            BodyFatSync = new(false, false, "disabled", 0, null, 0),
+            WeightImport = GoogleHealthWeightImportService.Status(null)
         };
         string[] granted;
         try { granted = JsonSerializer.Deserialize<string[]>(connection.GrantedScopesJson, Json.Options) ?? []; }
@@ -535,7 +549,8 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 connection.BodyFatLastSuccessfulSyncAt,
                 connection.BodyFatSyncRevision,
                 bodyFatProblem?.LastErrorCategory,
-                bodyFatProblem?.LastErrorMessage)
+                bodyFatProblem?.LastErrorMessage),
+            WeightImport = GoogleHealthWeightImportService.Status(connection)
         };
     }
 

@@ -8,6 +8,8 @@ import {registerAppServiceWorker,waitForAppServiceWorker} from '../../lib/regist
 import {isNativeApp} from '../../lib/nativeApp';
 import {getOrCreatePushDeviceId} from '../../lib/push/deviceId';
 import {reconcileNotificationDevice} from '../../lib/push/deviceLifecycle';
+import {IntegrationRecovery} from '../../lib/integrationRecovery';
+import {ApiError} from '../../lib/api';
 import {listenForNativePushActions,isNativeAndroid} from '../../lib/push/nativeNotifications';
 import {parseNutritionReminderPayload} from '../../lib/push/pushPayload';
 import {Button} from './Button';
@@ -287,13 +289,19 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
     if(!userId||!authReady)return;
     let disposed=false;
     let running=false;
+    const recovery = new IntegrationRecovery();
     let removeAppState:(()=>void)|undefined;
     const deviceId=getOrCreatePushDeviceId();
     const run=async()=>{
       if(disposed||running)return;
       running=true;
-      try{await reconcileNotificationDevice(userId,deviceId);}
-      catch(error){console.warn('Could not refresh this device notification registration.',error);}
+      try{await reconcileNotificationDevice(userId,deviceId);recovery.reset();}
+      catch(error){
+        console.warn('Could not refresh this device notification registration.',error);
+        if (!(error instanceof ApiError) || [0,429,502,503,504].includes(error.status)) {
+          recovery.schedule(run,error instanceof ApiError?error.retryAfterMs??5000:5000);
+        }
+      }
       finally{running=false;}
     };
     const subscriptionChanged=(event:MessageEvent)=>{if(event.data?.type==='REFRESH_PUSH_SUBSCRIPTION')void run();};
@@ -309,6 +317,7 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
     }
     return()=>{
       disposed=true;
+      recovery.reset();
       removeAppState?.();
       navigator.serviceWorker?.removeEventListener('message',subscriptionChanged);
       window.removeEventListener('focus',run);

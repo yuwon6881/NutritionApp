@@ -14,8 +14,15 @@ export interface NotificationStatus extends CheckInReminder {
 
 export type NotificationPlatform='web'|'android';
 
-export function fetchNotificationStatus(deviceId:string){
-  return api<NotificationStatus>(`/notifications/status?deviceId=${encodeURIComponent(deviceId)}`,undefined,'GET');
+const statusReads = new Map<string, Promise<NotificationStatus>>();
+export function fetchNotificationStatus(deviceId:string,accountId:string){
+  const key = JSON.stringify([accountId,deviceId]);
+  const existing = statusReads.get(key);
+  if (existing) return existing;
+  const read = api<NotificationStatus>(`/notifications/status?deviceId=${encodeURIComponent(deviceId)}`,undefined,'GET')
+    .finally(() => {if (statusReads.get(key) === read) statusReads.delete(key);});
+  statusReads.set(key,read);
+  return read;
 }
 
 export function fetchCheckInReminder(){
@@ -36,11 +43,13 @@ export async function activateCheckInReminder(reminder:CheckInReminder,subscribe
 }
 
 export function registerNotificationDevice(deviceId:string,fcmToken:string,platform:NotificationPlatform='web'){
-  return api<void>('/notifications/subscriptions',{deviceId,fcmToken,platform},'POST');
+  statusReads.clear();
+  return api<void>('/notifications/subscriptions',{deviceId,fcmToken,platform},'POST').finally(() => statusReads.clear());
 }
 
 export function removeNotificationDevice(deviceId:string,fcmToken:string,options?:ApiFetchOptions){
-  return api<void>(`/notifications/subscriptions/${encodeURIComponent(deviceId)}`,{fcmToken},'DELETE',options);
+  statusReads.clear();
+  return api<void>(`/notifications/subscriptions/${encodeURIComponent(deviceId)}`,{fcmToken},'DELETE',options).finally(() => statusReads.clear());
 }
 
 export function revokePushDeviceSubscription(userId:string,deviceId:string,fcmToken:string,options?:ApiFetchOptions){

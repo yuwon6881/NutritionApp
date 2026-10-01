@@ -1,6 +1,21 @@
 # Google Health weight import plan
 
-Status: proposed 2026-10-01. Nothing below is implemented. This plan does not authorize a commit, deployment, or OAuth consent-screen change.
+Status: implemented 2026-10-01 (phases 1–6) except the items under "Remaining". This plan does not authorize a deployment or OAuth consent-screen change.
+
+## Phase 0 findings (from published API reference, not a live account)
+
+- Reference checks: [list endpoint and scopes](https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints/list), [filter syntax](https://developers.google.com/health/filters), and [data point/source fields](https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints). These confirm the documented contract; they do not replace the live-account spike.
+- List endpoint: `GET https://health.googleapis.com/v4/users/me/dataTypes/weight/dataPoints` with `pageSize` (max 10000), `pageToken`/`nextPageToken`, and an AIP-160 `filter` such as `weight.sample_time.physical_time >= "…Z" AND weight.sample_time.physical_time < "…Z"`.
+- Read scope: `https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly`. It is requested alongside the existing `.writeonly` scope.
+- A point carries `weight.weightGrams`, `weight.sampleTime.physicalTime` (RFC 3339), and `utcOffset` (Duration, for example `"28800s"`). `dataSource.application.googleWebClientId` identifies the writing OAuth client and is the echo filter in addition to mapped resource names.
+- Same-date collisions before this change: a second weigh-in for a date already holding a row, deleted or not, violated the unique `(UserId, Date)` index. The API returned 409 and the client dropped the edit with a notice. An imported row (live or deleted) is now replaced by the manual write. Collisions with manual rows and manual tombstones are unchanged.
+
+## Remaining
+
+- Not exercised against a live Google account: response shapes, whether `googleWebClientId` is populated for this app's own uploads, and the scope combination at consent. Run a manual connect, import, and Sync now on a test account before release.
+- The read scope must be added to the Google Cloud OAuth consent screen. It is a sensitive health scope and may need Google verification.
+- Google's health-data terms on keeping imported data after access is revoked are unchecked (see Decisions).
+- Imported weigh-ins reach other screens through the existing revision poll (on wake and every 30 s while visible), not immediately after the sync call.
 
 ## Goal
 
@@ -50,6 +65,7 @@ A user edit through `Apply` sets `Source = manual`, because the value is now the
 New `GoogleHealthWeightImportService` (separate file; `GoogleHealthService.cs` is already ~950 lines):
 
 1. Under `MutationLock` for the user, re-check emptiness for each candidate date (a manual write may have landed during the provider call).
+   Re-check the current connection generation, enabled preference, status, and read grant too: disabling import or changing the connection while Google responds must prevent writes from the old consent.
 2. Insert all imported rows in one transaction with a single new revision. Bump `user.Revision` and `TrajectoryRevision`, and rebuild the trajectory once from the earliest imported date.
 3. Record `WeightImportLastSuccessAt`, the inserted count, and the last failure on the connection.
 
@@ -63,7 +79,7 @@ Phase 0 must first establish what happens today when two devices log the same em
 
 ### Trigger and cost
 
-- Run the import inside the existing active-user `/google-health/sync` pass, after outbound uploads and alongside the steps read. It is gated by the import preference, the granted read scope, and the 2-minute cache, with `force` from Settings Sync.
+- Run the import inside the separate active-user `/google-health/sync-data` pass, after outbound uploads, so the steps read can return independently. It is gated by the import preference, the granted read scope, and the 2-minute cache, with `force` from Settings Sync.
 - Do not add it to the daily `/internal/google-health-sync` sweep in v1. Check-ins happen while the app is open, so the active pass already sees fresh data.
 - Errors map onto the existing warning model (`reconnect_required`, `permissions_missing`, transient). An import failure never fails the steps result.
 
@@ -72,8 +88,9 @@ Phase 0 must first establish what happens today when two devices log the same em
 - Add a read scope for health metrics. **Unverified:** the exact scope string, whether it combines with the current `.writeonly` scope or replaces both with a read/write scope, and whether adding it triggers Google OAuth app re-verification. Phase 0 settles this.
 - Connection fields: `WeightImportEnabled`, `WeightImportRevision`, `WeightImportLastSuccessAt`, last failure code/message. Expose them as `WeightImport` on the sync status next to `WeightSync`.
 - Connect requests the read scope when import is chosen. Existing connections without it show "Reconnect to import weigh-ins" and stay outbound-only until then.
-- Settings: a separate "Import weigh-ins from Google Health" control, distinct from the bundled outbound control, because import changes coaching inputs while upload does not. (Decision below.)
-- Disconnect keeps imported weights: they are now the user's local data. It stops future imports and clears the import status.
+- Settings: a separate "Import weigh-ins from Google Health" switch, distinct from the bundled outbound control, because import changes coaching inputs while upload does not. Revisioned like the outbound preferences (`expectedRevision`, 409 on a stale device).
+- **Turning the switch off, or disconnecting, keeps every weigh-in already imported.** It only stops future imports and clears the import status. Imported weights are scale readings that are now part of the user's record. Accepted plans, check-ins, and the expenditure trajectory were computed from them. Deleting them as a side effect of a settings switch would silently rewrite trends and coaching history, and turning the switch back on could not restore the same state, because the 31-day window may no longer cover those days. This matches the outbound rule, which keeps already-uploaded Google copies when sync is disabled. The switch's helper text says so plainly: "Turning this off stops new imports. Weigh-ins already imported stay."
+- Turning the switch back on resumes filling empty days in the window. Days the user deleted stay deleted, because a tombstone blocks import.
 
 ### UI
 
@@ -86,7 +103,7 @@ Phase 0 must first establish what happens today when two devices log the same em
 
 | Phase | Work | Exit evidence |
 | --- | --- | --- |
-| 0 | Live API spike on a test Google account: read scope string and combination with `.writeonly`, list endpoint/filter/paging for `weight` data points, sample time and offset fields, data-origin metadata. Confirm current behavior for same-date offline collisions and re-logging a date with a deleted weight. | Recorded response fixtures (redacted) under `tests/`; written answers to the open questions in this file. |
+| 0 | Live API spike on a test Google account: read scope string and combination with `.writeonly`, list endpoint/filter/paging for `weight` data points, sample time and offset fields, data-origin metadata. Confirm current behavior for same-date offline collisions and re-logging a date with a deleted weight. Check Google's health-data terms on keeping imported data after the user revokes access. | Recorded response fixtures (redacted) under `tests/`; written answers to the open questions in this file. |
 | 1 | Regression tests first (list below), then the migration: `Weight.Source`/`ExternalId` with check constraint; connection import fields. | Failing tests merged with the plan; the migration applies on a fresh database. |
 | 2 | `GoogleHealthWeightReadProvider` (list + parse, paging, error classification sharing `GoogleHealthWeightProvider` categories). | Parser tests on the Phase 0 fixtures. |
 | 3 | `GoogleHealthWeightImportService` + hook into the active sync pass + status DTO. | Backend import tests green. |
@@ -104,22 +121,29 @@ Backend (`tests/GoogleHealthWeightImportTests.cs`, `GoogleHealthWeightReadProvid
 - Disabled preference or missing read scope makes no provider call.
 - A second run inserts nothing; one revision bump and one trajectory rebuild per pass.
 - A manual `Apply` racing the import: the manual row survives and the import skips that date.
+- Turning import off during the provider read prevents new imported rows; invalid numeric offsets are ignored, and an incomplete capped provider list fails rather than choosing a permanent daily sample from partial data.
 - An offline manual weigh-in with a new id on an imported date replaces the imported row; a manual row is never replaced.
 - An imported row never creates `GoogleHealthWeightSyncWork`; editing it sets `Source = manual` and still uploads nothing.
-- Disconnect keeps imported weights; tenancy filters hold for import writes.
+- Turning import off and disconnecting both keep imported weights and make no further provider read; turning it back on fills only still-empty days. Tenancy filters hold for import writes.
 - A provider 401/403/429/5xx maps to the existing warning categories without failing steps.
 
 Frontend: import status mapping in `googleHealth.test.ts`; source label rendering; `WeightEntryDialog` editing an imported row targets its id; bootstrap refresh after an import revision.
 
-## Decisions for the owner
+## Decisions
 
-1. **Separate import toggle vs. folding into the single Google Health control.** Recommended: separate, because it changes coaching inputs and needs its own consent. This amends the "single control" wording in `CLAUDE.md`.
-2. **Earliest vs. latest reading per day.** Recommended: earliest.
-3. **Default for new connections.** Recommended: offered and pre-checked at connect, never silently enabled for existing connections.
-4. **History backfill beyond 31 days.** Recommended: out of v1; a later one-shot "Import older weigh-ins" action can reuse the same service with a bounded range.
+Agreed 2026-10-01:
+
+1. **Separate import switch**, distinct from the bundled outbound control. This amends the "single control" wording in `CLAUDE.md` in Phase 6.
+2. **Turning the switch off or disconnecting retains imported weigh-ins** (see Consent and preference).
+3. **Earliest reading per day.**
+4. **Default for new connections:** offered and pre-checked at connect, never silently enabled for existing connections.
+5. **No history backfill beyond 31 days in v1.** A later one-shot "Import older weigh-ins" action can reuse the same service with a bounded range.
+
+Still to confirm in Phase 0: whether Google's API terms for health data require deleting imported data when the user revokes access. Today's steps cache is deleted on revocation, but steps are a display-only cache, not user records. If the terms require deletion, revocation (not the switch) must remove rows that are still `Source = google_health`, and this plan must be revised.
 
 ## Out of scope for v1
 
 - Body fat import. It would use the same pattern later through `GoogleHealthBodyFatSyncService`'s data type.
 - Pushing edits of imported rows back to Google; Google likely rejects changes to another app's data points.
 - Scheduled background import for inactive users.
+- A bulk "Remove imported weigh-ins" action. If it is added later, it must be its own explicit, confirmed, undoable action, never a side effect of the switch. It would soft-delete only rows still `Source = google_health` (never user-edited ones), so those days stay blocked from re-import.

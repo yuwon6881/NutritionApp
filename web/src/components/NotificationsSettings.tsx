@@ -42,6 +42,7 @@ function deviceSupportError(installed:boolean,status?:NotificationStatus,nativeC
 export function NotificationsSettings({store}:{store:Nourish}){
   const pwa=useMobilePwa();
   const [deviceId]=useState(getOrCreatePushDeviceId);
+  const accountId = store.state!.id;
   const [status,setStatus]=useState<NotificationStatus>();
   const [savedReminder,setSavedReminder]=useState<CheckInReminder|null>(null);
   const [reminder,setReminder]=useState<CheckInReminder>(()=>({
@@ -65,7 +66,7 @@ export function NotificationsSettings({store}:{store:Nourish}){
   useEffect(()=>{
     let current=true;
     setLoading(true);
-    void Promise.allSettled([fetchNotificationStatus(deviceId),fetchCheckInReminder()]).then(results=>{
+    void Promise.allSettled([fetchNotificationStatus(deviceId,accountId),fetchCheckInReminder()]).then(results=>{
       if(!current)return;
       const [deviceResult,reminderResult]=results;
       if(deviceResult.status==='fulfilled')setStatus(deviceResult.value);
@@ -77,13 +78,13 @@ export function NotificationsSettings({store}:{store:Nourish}){
       }else setLoadError(previous=>previous||((reminderResult.reason as Error).message||'Reminder settings are unavailable.'));
     }).finally(()=>{if(current)setLoading(false);});
     return()=>{current=false;};
-  },[deviceId]);
+  },[deviceId,accountId]);
 
   useEffect(()=>{
     const refreshPermission=()=>{
       if(isNativeAndroid())void checkNativeNotificationPermission().then(setPermission).catch(()=>setPermission('unsupported'));
       else setPermission(typeof Notification==='undefined'?'unsupported':Notification.permission);
-      void fetchNotificationStatus(deviceId).then(setStatus).catch(()=>{});
+      void fetchNotificationStatus(deviceId,accountId).then(setStatus).catch(()=>{});
     };
     window.addEventListener('focus',refreshPermission);
     window.addEventListener('online',refreshPermission);
@@ -93,7 +94,7 @@ export function NotificationsSettings({store}:{store:Nourish}){
       window.removeEventListener('online',refreshPermission);
       window.removeEventListener('nourish-push-revocation-drained',refreshPermission);
     };
-  },[deviceId]);
+  },[deviceId,accountId]);
 
   useEffect(()=>{
     if(!isNativeAndroid())return;

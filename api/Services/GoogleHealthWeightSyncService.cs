@@ -209,6 +209,9 @@ public sealed class GoogleHealthWeightSyncService(
     /// Processes due uploads for every account, or for one account while its user is active.
     public async Task<GoogleHealthWeightSyncProcessResult> ProcessDueAsync(CancellationToken ct, Guid? userId = null, TimeSpan? budget = null)
     {
+        using var passDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        passDeadline.CancelAfter(budget ?? GoogleHealthSyncLeases.ScheduledBudget);
+        ct = passDeadline.Token;
         var started = DateTime.UtcNow;
         var deadline = started.Add(budget ?? GoogleHealthSyncLeases.ScheduledBudget);
         var candidates = await db.GoogleHealthWeightSyncWork.IgnoreQueryFilters()

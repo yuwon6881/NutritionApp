@@ -47,6 +47,7 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
             <p className="weigh-in-meta">
               {change==null?'First in period':Math.abs(change)<.005?'No change':<>{`${change>0?'+':'−'}${displayWeight(Math.abs(change),units.weight,2)} ${unit}`}<span className="sr-only"> from the previous weigh-in</span></>}
               {context&&<span className="weigh-in-context"> · {context}</span>}
+              {weight.source==='google_health'&&<span className="weigh-in-context"> · From Google Health</span>}
             </p>
           </div>
           <div className="weigh-in-actions">

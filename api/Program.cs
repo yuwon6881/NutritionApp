@@ -74,6 +74,7 @@ builder.Services.AddHttpClient<GoogleHealthService>(c=>c.Timeout=TimeSpan.FromSe
 builder.Services.AddHttpClient<GoogleHealthWeightSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<GoogleHealthNutritionSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<GoogleHealthBodyFatSyncService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddHttpClient<GoogleHealthWeightImportService>(c=>c.Timeout=TimeSpan.FromSeconds(20)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<AiChatClient>(c=>c.Timeout=TimeSpan.FromSeconds(45)).AddHttpMessageHandler<ExternalCallMetricsHandler>();

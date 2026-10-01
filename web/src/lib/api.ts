@@ -1,6 +1,6 @@
 import {fetchWithAvailabilityRecovery} from './availabilityRecovery';
 
-const recoverablePath=(path:string)=>['/auth/me','/bootstrap','/training/summary','/integrations/google-health/sync'].includes(path.split('?')[0]);
+const recoverablePath=(path:string)=>['/auth/me','/bootstrap','/training/summary','/notifications/status','/integrations/google-health/sync','/integrations/google-health/sync-data'].includes(path.split('?')[0]);
 
 export class ApiError extends Error {
   constructor(message:string, public status:number, public retryAfterMs:number|null=null, public retryAt:number|null=null){super(message);}
@@ -38,7 +38,8 @@ async function responseError(path:string,response:Response):Promise<never>{
 }
 
 // AI work (scan processing, body-fat estimates) outlives the ordinary request budget.
-const requestTimeoutMs=(path:string)=>path.includes('/process')||path.endsWith('/body-fat-estimate')?120000:20000;
+const requestTimeoutMs=(path:string)=>path.includes('/process')||path.endsWith('/body-fat-estimate')?120000
+  :path==='/integrations/google-health/sync'?15000:20000;
 
 export interface ApiFetchOptions {
   headers?: Record<string, string>;

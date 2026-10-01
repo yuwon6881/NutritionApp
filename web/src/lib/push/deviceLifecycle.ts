@@ -16,8 +16,21 @@ import {
 import {retryPendingPushRevocations} from './revocations';
 import {waitForAppServiceWorker} from '../registerAppServiceWorker';
 
-export async function reconcileNotificationDevice(userId:string,deviceId:string):Promise<void>{
-  const status=await fetchNotificationStatus(deviceId);
+const reconciliations = new Map<string, Promise<void>>();
+
+export function reconcileNotificationDevice(userId:string,deviceId:string):Promise<void>{
+  const key = `${userId}:${deviceId}`;
+  const existing = reconciliations.get(key);
+  if (existing) return existing;
+  const flight = reconcileDevice(userId, deviceId).finally(() => {
+    if (reconciliations.get(key) === flight) reconciliations.delete(key);
+  });
+  reconciliations.set(key, flight);
+  return flight;
+}
+
+async function reconcileDevice(userId:string,deviceId:string):Promise<void>{
+  const status=await fetchNotificationStatus(deviceId,userId);
   if(!status.configured||!status.thisDeviceSubscribed)return;
 
   const platform:NotificationPlatform=isNativeAndroid()?'android':'web';

@@ -53,6 +53,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         }
         var revision = user.Revision + 1;
         var keptSavedDay = false;
+        var replacedImport = false;
         DateOnly? trajectoryFrom = null;
         switch (op.Kind)
         {
@@ -111,11 +112,16 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                     using var recipe = JsonDocument.Parse(f.IngredientsJson);
                     Validation.Require(recipe.RootElement.ValueKind == JsonValueKind.Array, "Recipe ingredients must be a list.");
                 }, ct); break;
-            case "weight": await Upsert<Weight>(op, revision, w =>
-            {
-                Date(w.Date); Validation.Number(w.Kg, 20, 400, "Weight");
-                Validation.Require(WeightContextPolicy.IsValid(w.Context), "Choose a valid weigh-in context.");
-            }, ct); break;
+            case "weight":
+                replacedImport = !op.Delete && await RemoveImportedWeightOn(mutatedDate, op.RecordId, ct);
+                await Upsert<Weight>(op, revision, w =>
+                {
+                    Date(w.Date); Validation.Number(w.Kg, 20, 400, "Weight");
+                    Validation.Require(WeightContextPolicy.IsValid(w.Context), "Choose a valid weigh-in context.");
+                    // Anything the user writes is theirs, including an edit of an imported weigh-in.
+                    w.Source = WeightSources.Manual;
+                    w.ExternalId = previousWeight?.ExternalId;
+                }, ct); break;
             case "day":
                 var savedDay=await db.Days.SingleOrDefaultAsync(d=>d.Id==op.RecordId,ct);
                 Validation.Require(!(op.Delete && savedDay?.Archived == true),"Daily summaries cannot be deleted.",409);
@@ -161,7 +167,8 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         user.Revision = revision;
         if (op.Kind == "food") user.FoodRevision = revision;
         if (op.Kind is "entry" or "day") user.DiaryRevision = revision;
-        if(op.Kind=="weight"&&weightSync!=null)
+        // A weigh-in that replaced an imported one is not uploaded: Google already holds a reading for that day.
+        if(op.Kind=="weight"&&weightSync!=null&&!replacedImport)
             await weightSync.QueueMutationAsync(previousWeight,op,revision,ct);
         if(op.Kind=="entry"&&nutritionSync!=null)
             await nutritionSync.QueueMutationAsync(previousEntry,op,revision,ct);
@@ -172,6 +179,23 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         }
         db.Receipts.Add(new MutationReceipt { Id = op.Id, UserId = uid, Hash = hash, Revision = revision });
         await db.SaveChangesAsync(ct); await gate.Commit(ct); return revision;
+    }
+
+    /// <summary>
+    /// One date holds one weigh-in. A device that queued a weigh-in before it saw an imported one for the
+    /// same date would otherwise be rejected by that rule; the user's entry wins, so an imported row that
+    /// was never edited (edits make it manual) is removed. It is server-originated, and the next bootstrap
+    /// replaces every client's copy.
+    /// </summary>
+    private async Task<bool> RemoveImportedWeightOn(DateOnly? date,Guid recordId,CancellationToken ct)
+    {
+        if(date==null)return false;
+        var imported=await db.Weights.SingleOrDefaultAsync(w=>w.Date==date&&w.Id!=recordId&&w.Source==WeightSources.GoogleHealth,ct);
+        if(imported==null)return false;
+        db.Weights.Remove(imported);
+        // Flush the removal first so the unique (user, date) index never sees two rows.
+        await db.SaveChangesAsync(ct);
+        return true;
     }
 
     /// <summary>

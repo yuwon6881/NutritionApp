@@ -15,6 +15,16 @@ public sealed class GoogleHealthUploadRetryTests
     private const string GoogleIdHash = "retry-google";
 
     [Fact]
+    public async Task An_in_progress_create_is_canceled_by_the_pass_budget_and_never_resent()
+    {
+        await using var fixture = await Fixture.Create();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Process(new StalledHandler(), TimeSpan.FromSeconds(2)));
+        Assert.Equal("processing", await fixture.State());
+        var result = await fixture.Process(new Handler(Ok));
+        Assert.Equal(0, result.Processed); // The retained lease protects the ambiguous create.
+    }
+
+    [Fact]
     public async Task A_weight_upload_that_gets_a_503_then_succeeds_completes_in_one_pass()
     {
         await using var fixture = await Fixture.Create();
@@ -96,7 +106,7 @@ public sealed class GoogleHealthUploadRetryTests
             return new Fixture(db);
         }
 
-        public Task<GoogleHealthWeightSyncProcessResult> Process(HttpMessageHandler handler)
+        public Task<GoogleHealthWeightSyncProcessResult> Process(HttpMessageHandler handler, TimeSpan? budget = null)
         {
             var http = new HttpClient(handler, disposeHandler: false);
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -104,7 +114,7 @@ public sealed class GoogleHealthUploadRetryTests
                 ["GoogleHealth:ClientId"] = "client", ["GoogleHealth:ClientSecret"] = "secret"
             }).Build();
             var google = new GoogleHealthService(http, db, new PlainKms(), config);
-            return new GoogleHealthWeightSyncService(db, google, http, null, (_, _) => Task.CompletedTask).ProcessDueAsync(default);
+            return new GoogleHealthWeightSyncService(db, google, http, null, (_, _) => Task.CompletedTask).ProcessDueAsync(default, budget: budget);
         }
 
         public async Task<string> State()
@@ -120,6 +130,16 @@ public sealed class GoogleHealthUploadRetryTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
             => Task.FromResult(respond(request));
+    }
+
+    private sealed class StalledHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            if (request.RequestUri!.Host == "oauth2.googleapis.com") return Ok(request);
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+            return Ok(request);
+        }
     }
 
     private sealed class PlainKms : IGoogleHealthKms
