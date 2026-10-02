@@ -90,7 +90,7 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
     }}>
       {dates.map(day=>{
         const cached=sharedDiaryCoordinator.projectDate(day,store.local?.queue??[]);
-        const local=store.local?historyState(store.local,day):undefined;
+        const local=!cached&&store.local?historyState(store.local,day):undefined;
         const intake=calendarIntake(cached??(local?{date:day,entries:local.entries,day:local.days[0],revision:local.revision,fetchedAt:0}:undefined));
         const target=calendarTarget(store.state!,day);
         const progress=calorieProgress(intake,target);

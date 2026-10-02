@@ -10,7 +10,8 @@ export function historyRange(key:string,current:string){
 }
 export function clipHistory(state:AppState,start:string,end:string):AppState{
   const inside=(row:{date:string})=>row.date>=start&&row.date<=end;
-  const seeds=new Map([...(state.weightTrendSeed??[]),...state.weights].filter(w=>w.date<start&&w.date>=shiftDate(start,-56)).map(w=>[w.date,w]));
+  const seedStart=shiftDate(start,-56);
+  const seeds=new Map([...(state.weightTrendSeed??[]),...state.weights].filter(w=>w.date<start&&w.date>=seedStart).map(w=>[w.date,w]));
   return {...state,start,end,entries:state.entries.filter(inside),days:state.days.filter(inside),weights:state.weights.filter(inside),weightTrendSeed:[...seeds.values()].filter(w=>!w.deleted).sort((a,b)=>a.date.localeCompare(b.date))};
 }
 export function historyState(local:LocalData,key:string):AppState|undefined{

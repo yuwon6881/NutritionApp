@@ -42,3 +42,24 @@ test('dated cached workouts remain usable while the live peer refresh waits', as
     expect(requests).toEqual([true, false]);
   } finally { release(); }
 });
+
+for (const status of [503, 401, 403]) test(status === 503 ? 'an unavailable cached read still reaches the live training summary'
+  : `cached training access rejection stops the live request (${status})`, async ({ page }) => {
+  const fixture = performanceFixture(7);
+  fixture.state.workoutConnected = true;
+  const requests: boolean[] = [];
+  await page.route('**/api/**', async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/auth/me') return route.fulfill({ json: { id: fixture.state.id, displayName: 'Performance' } });
+    if (url.pathname === '/api/bootstrap') return route.fulfill({ json: fixture.state });
+    if (url.pathname !== '/api/training/summary') return route.fulfill({ json: { configured: false, connected: false, enabled: false, subscriptions: [] } });
+    const cached = url.searchParams.get('cacheOnly') === 'true';
+    requests.push(cached);
+    if (cached) return route.fulfill({ status, json: { message: 'Stored summary unavailable' } });
+    return route.fulfill({ json: { workoutConnected: true, workoutWarning: null, summaries: [] } });
+  });
+  await page.goto('/');
+  await expect(page.locator('.training-summary')).toContainText('No workouts');
+  await expect(page.getByText('Workout sync needs attention', { exact: true })).toHaveCount(status === 503 ? 0 : 1);
+  expect(requests).toEqual(status === 503 ? [true, false] : [true]);
+});

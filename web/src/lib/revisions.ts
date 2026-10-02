@@ -32,7 +32,7 @@ export async function pollNutritionRevisions(
     const current = local.current.state;
     const revision = response.data;
     if (bootstrapNeedsRefresh(current, revision)) await refresh();
-    if (revision.foods !== (current.foodRevision ?? current.revision)) await loadSavedFoods();
+    if (local.current?.foodsLoaded && revision.foods !== (current.foodRevision ?? current.revision)) await loadSavedFoods();
   }
   // Peer data has its own provider freshness contract, independent of local revision equality.
   if (Date.now() - lastPeerRefresh.current >= 120_000) await loadTrainingSummaries();

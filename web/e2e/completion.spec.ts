@@ -103,11 +103,10 @@ test('cached training remains visible while a refresh is pending',async({page})=
     await route.fulfill({response,json:{...state,workoutConnected:true}});
   });
   const summary={id:'cached',status:'completed',localDate:current,startedAt:null,finishedAt:null,workoutName:'Cached training',muscleGroups:[],workingSetCount:4,externalVolumeKg:null,systemVolumeKg:null,averageRpe:null};
-  let requests=0;
   let complete:()=>void=()=>{};
   const waiting=new Promise<void>(resolve=>{complete=resolve;});
-  await page.route('**/api/training/summary',async route=>{
-    if(++requests>1)await waiting;
+  await page.route(/\/api\/training\/summary(?:\?.*)?$/,async route=>{
+    if(new URL(route.request().url()).searchParams.get('cacheOnly')!=='true')await waiting;
     await route.fulfill({status:200,json:{summaries:[summary],workoutConnected:true,workoutWarning:null}});
   });
   try{
@@ -127,17 +126,18 @@ test('cached training remains visible while a refresh is pending',async({page})=
 });
 
 test('a stale stored Workout warning stays hidden until the live read answers',async({page})=>{
+  let refreshed=false;
   await page.route('**/api/bootstrap',async route=>{
     const requestHeaders={...route.request().headers()};
     delete requestHeaders['if-none-match'];
     const response=await route.fetch({headers:requestHeaders});
     const state=await response.json();
-    await route.fulfill({response,json:{...state,workoutConnected:true,workoutWarning:'Workout training summaries are temporarily unavailable. Try again later.'}});
+    await route.fulfill({response,json:{...state,displayName:refreshed?'Refreshed nutrition':state.displayName,workoutConnected:true,workoutWarning:'Workout training summaries are temporarily unavailable. Try again later.'}});
   });
   let complete:()=>void=()=>{};
   const waiting=new Promise<void>(resolve=>{complete=resolve;});
-  await page.route('**/api/training/summary',async route=>{
-    await waiting;
+  await page.route(/\/api\/training\/summary(?:\?.*)?$/,async route=>{
+    if(new URL(route.request().url()).searchParams.get('cacheOnly')!=='true')await waiting;
     await route.fulfill({status:200,json:{summaries:[],workoutConnected:true,workoutWarning:null}});
   });
   try{
@@ -147,6 +147,12 @@ test('a stale stored Workout warning stays hidden until the live read answers',a
     await expect(page.getByText('No workouts',{exact:true})).toHaveCount(0);
     complete();
     await expect(page.getByText('No workouts',{exact:true})).toBeVisible();
+    await expect(page.getByText('Workout sync needs attention',{exact:true})).toHaveCount(0);
+    // Imported weights refresh bootstrap independently of the peer read. Its stored
+    // outcome must not replace a newer successful live response.
+    refreshed=true;
+    await page.evaluate(()=>window.dispatchEvent(new Event('nutrition:imported-weights')));
+    await expect(page.locator('.account-name')).toHaveText('Refreshed nutrition');
     await expect(page.getByText('Workout sync needs attention',{exact:true})).toHaveCount(0);
   }finally{
     complete();
