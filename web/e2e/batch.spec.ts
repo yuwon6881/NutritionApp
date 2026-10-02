@@ -89,9 +89,20 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
 
   // Rescale quantity of Greek Yogurt from 100g to 200g (59 * 2 = 118 + 57 = 175 kcal)
   await expect(page.locator('.batch-food input')).toHaveCount(0);
+  // A busy frame must not postpone editor focus and then steal it during quantity entry.
+  const animationFrame=await page.evaluateHandle(()=>window.requestAnimationFrame);
+  await page.evaluate(original=>{
+    window.requestAnimationFrame=callback=>original(timestamp=>{window.setTimeout(()=>callback(timestamp),1000);});
+  },animationFrame);
   await page.locator('.batch-food').filter({hasText:'Greek Yogurt 0%'}).getByRole('button',{name:'Edit',exact:true}).click();
+  await expect(page.getByLabel('Food name',{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.activeElement?.id)).toBe('food-name');
+  await page.evaluate(original=>{window.requestAnimationFrame=original;},animationFrame);
+  await animationFrame.dispose();
   const qtyInput=page.getByLabel('Quantity',{exact:true});
   await qtyInput.fill('200');
+  await expect(qtyInput).toHaveValue('200');
+  await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('118');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();
   await expect(calorieCard.getByText('175')).toBeVisible();

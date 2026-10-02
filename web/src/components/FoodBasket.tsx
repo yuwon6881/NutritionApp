@@ -51,8 +51,8 @@ export function FoodBasket({
     const target=editingKey?root.current?.querySelector<HTMLElement>('[data-modal-autofocus]'):previousEditing.current?Array.from(root.current?.querySelectorAll<HTMLElement>('[data-batch-actions]')??[]).find(element=>element.dataset.batchActions===previousEditing.current&&element.getClientRects().length>0):undefined;
     previousEditing.current=editingKey;
     if(!target)return;
-    const frame=requestAnimationFrame(()=>target.focus({preventScroll:true}));
-    return()=>cancelAnimationFrame(frame);
+    // Focus during the commit so a later animation frame cannot interrupt quantity entry.
+    target.focus({preventScroll:true});
   },[editingKey]);
   const units=unitsFor(store.state!.settings);
   // Back leaves the line editor for the batch it came from; the batch step layer sits beneath.

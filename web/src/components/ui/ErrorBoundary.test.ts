@@ -21,7 +21,7 @@ describe('NutritionApp ErrorBoundary', () => {
     expect(html).toContain('role="alert"');
     expect(html).toContain('NUTRITION');
     expect(html).toContain('This view needs a reload');
-    expect(html).toContain('Your food diary stays saved on this device. Reload to continue where you left off.');
+    expect(html).toContain('Your diary is saved. Reload to continue.');
     expect(html).toContain('Reload Nutrition');
     expect(html).toContain('Try again');
     expect(html).toContain('reload-recovery');
