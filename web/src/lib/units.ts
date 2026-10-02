@@ -44,6 +44,15 @@ export function inputEnergy(kcal:number|null|undefined,unit:EnergyUnit,digits=0)
   if(kcal==null||!Number.isFinite(kcal))return '';
   return (kcal*(unit==='kj'?kjPerKcal:1)).toFixed(digits).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1');
 }
+/**
+ * Rescaling a portion multiplies by ratios such as 30.4/100, which leaves binary noise
+ * (23.99999999999999 g). Inputs show at most `digits` decimals; the stored value keeps its
+ * precision. A number, not a string, so a number input keeps a half-typed "1." intact.
+ */
+export function inputAmount(value:number|null|undefined,digits=2):number|''{
+  if(value==null||!Number.isFinite(value))return '';
+  return Number(value.toFixed(digits));
+}
 export function parseEnergy(value:string,unit:EnergyUnit){
   const parsed=Number(value);
   return Number.isFinite(parsed)?parsed/(unit==='kj'?kjPerKcal:1):NaN;

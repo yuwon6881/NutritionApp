@@ -110,7 +110,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   expect(horizontalMotion).toBe(false);
   await ingredientSearch.fill('oats');
   await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
-  await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
+  await ingredientSearch.press('Enter');
   await page.locator('.food-row.interactive').filter({hasText:'API oats'}).click();
   await expect(page.getByRole('heading',{name:'Set ingredient quantity',exact:true})).toBeVisible();
   await expect(page.getByText('API oats',{exact:true})).toBeVisible();

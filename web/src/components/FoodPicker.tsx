@@ -29,7 +29,9 @@ export function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit='kcal
   if(result.basis==='per100g'){
     return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
   }
-  return 'Basis unavailable';
+  // Open Food Facts' search index can label serving values as per 100 g; the product is
+  // looked up when chosen, and only then are its nutrients known to be per 100 g.
+  return 'Nutrition loads when opened';
 }
 
 export interface FoodPickerProps {
@@ -84,7 +86,12 @@ export function FoodPicker({
 }:FoodPickerProps){
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
-  const search=useSearchAsYouType({enabled:tab==='search'&&open&&step==='selection',query,onResults:setResults});
+  const search=useSearchAsYouType({
+    enabled:tab==='search'&&open&&step==='selection',
+    query,
+    onResults:found=>{setError('');setResults(found);},
+    onError:setError,
+  });
   // The Android app scans with ML Kit behind its own viewfinder; the in-page camera remains the fallback.
   const [scanner,setScanner]=useState<'checking'|'native'|'in-page'>('checking');
   useEffect(()=>{
@@ -178,7 +185,9 @@ export function FoodPicker({
               <Camera size={18}/>
             </Button>
           ):undefined}
-          action={<Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>}
+          // Text search runs as the person types (and on the keyboard's search key); barcode
+          // digits are looked up only when asked, because a partial code is never a product.
+          action={tab==='barcode'?<Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>:undefined}
         />
       </div>
     </Form>

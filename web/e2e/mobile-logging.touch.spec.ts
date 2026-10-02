@@ -82,20 +82,53 @@ test('search runs after a pause in typing and reuses a repeated query',async({pa
   expect(calls).toBe(1);
 });
 
-test('serving shortcuts rescale a reviewed food without the keyboard',async({page})=>{
+test('a reviewed provider food starts at its declared serving without shortcut chips',async({page})=>{
   await page.route('**/api/foods/search?**',route=>route.fulfill({json:[{name:'Boiled egg',calories:155,protein:13,carbs:1.1,fat:11,fiber:0,source:'Open Food Facts',servingGrams:100,portions:[{label:'1 egg',grams:50}],code:null,basis:'per100g'}]}));
   await openFoodLog(page);
   await page.getByRole('button',{name:'Log food',exact:true}).click();
   await page.getByRole('dialog').getByLabel('Search term',{exact:true}).fill('egg');
   await page.getByRole('button',{name:'Boiled egg',exact:true}).click();
-  const chips=page.getByRole('group',{name:/Quick .* amounts/});
-  await expect(chips).toBeVisible();
+  await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
   await expect(page.locator('.live-calorie-value')).toContainText('78');
+  await expect(page.getByRole('group',{name:/Quick .* amounts/})).toHaveCount(0);
+  // Nutrients are per 100 g, so a serving without a weight is not offered for a provider food.
+  await expect(page.locator('#food-unit option',{hasText:'Serving (weight unknown)'})).toHaveCount(0);
+});
 
-  await chips.getByRole('button',{name:'Two servings',exact:true}).click();
-  await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('2');
-  await expect(page.locator('.live-calorie-value')).toContainText('155');
-  await expect(chips.getByRole('button',{name:'Two servings',exact:true})).toHaveAttribute('aria-pressed','true');
+test('Back steps out of review, batch line edit, and batch without closing the food dialog',async({page})=>{
+  await page.route('**/api/foods/search?**',route=>route.fulfill({json:[{name:'Boiled egg',calories:155,protein:13,carbs:1.1,fat:11,fiber:0,source:'Open Food Facts',servingGrams:100,portions:[{label:'1 egg',grams:50}],code:null,basis:'per100g'}]}));
+  await openFoodLog(page);
+  await page.getByRole('button',{name:'Log food',exact:true}).click();
+  const logDialog=page.getByRole('dialog',{name:'Log food',exact:true});
+  await logDialog.getByLabel('Search term',{exact:true}).fill('egg');
+  await page.getByRole('button',{name:'Boiled egg',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Review food',exact:true})).toBeVisible();
+
+  await page.goBack();
+  await expect(logDialog).toBeVisible();
+
+  await logDialog.getByLabel('Search term',{exact:true}).fill('egg');
+  await page.getByRole('button',{name:'Boiled egg',exact:true}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();
+  const batch=page.getByRole('dialog',{name:'Batch (1 food)',exact:true});
+  await expect(batch).toBeVisible();
+  await batch.getByRole('button',{name:'Actions for Boiled egg',exact:true}).click();
+  await batch.getByRole('button',{name:'Edit',exact:true}).click();
+  await expect(batch.getByLabel('Food name',{exact:true})).toBeVisible();
+
+  await page.goBack();
+  await expect(batch.getByLabel('Food name',{exact:true})).toHaveCount(0);
+  await expect(batch.getByRole('button',{name:'Log all 1 food',exact:true})).toBeVisible();
+
+  await page.goBack();
+  await expect(logDialog).toBeVisible();
+  await expect(logDialog.getByRole('button',{name:'View batch, 1 foods',exact:true})).toBeVisible();
+
+  // Leave no batch behind for the tests that follow.
+  await logDialog.getByRole('button',{name:'View batch, 1 foods',exact:true}).click();
+  await batch.getByRole('button',{name:'Actions for Boiled egg',exact:true}).click();
+  await batch.getByRole('button',{name:'Remove Boiled egg',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Remove Boiled egg',exact:true})).toHaveCount(0);
 });
 
 // Earlier tests in this file log food today, so read the true total from the ring's accessible name.

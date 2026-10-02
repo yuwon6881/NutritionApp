@@ -31,10 +31,13 @@ export function EnergyRing({total,target,energyUnit,intro,pending}:{total:number
   const centre=pending!=null
     ?{value:target?displayEnergy(Math.abs(target-after),energyUnit):'—',caption:target&&after>target?'over':'left'}
     :{value:shownRemaining==null?'—':displayEnergy(shownRemaining,energyUnit),caption:total>(target??Infinity)?'target reached':'remaining'};
+  // A round line cap draws a zero-length arc as a dot, which would read as food already logged.
+  const fillLength=ratio*progress*circumference;
+  const pendingLength=pendingRatio*progress*circumference;
   return <svg className={`energy-ring${progress<1?' energy-ring-intro':''}`} viewBox="0 0 120 120" role="img" aria-label={label}>
     <circle className="ring-track" cx="60" cy="60" r="48"/>
-    {pending!=null&&<circle className="ring-pending" cx="60" cy="60" r="48" strokeDasharray={`${pendingRatio*progress*circumference} ${circumference}`} strokeDashoffset={-ratio*progress*circumference} transform="rotate(-90 60 60)"/>}
-    <circle className="ring-fill" cx="60" cy="60" r="48" strokeDasharray={`${ratio*progress*circumference} ${circumference}`} transform="rotate(-90 60 60)"/>
+    {pending!=null&&pendingLength>0&&<circle className="ring-pending" cx="60" cy="60" r="48" strokeDasharray={`${pendingLength} ${circumference}`} strokeDashoffset={-fillLength} transform="rotate(-90 60 60)"/>}
+    {fillLength>0&&<circle className="ring-fill" cx="60" cy="60" r="48" strokeDasharray={`${fillLength} ${circumference}`} transform="rotate(-90 60 60)"/>}
     <text x="60" y="58" textAnchor="middle">{centre.value}</text>
     <text className="ring-label" x="60" y="76" textAnchor="middle">{centre.caption}</text>
   </svg>;

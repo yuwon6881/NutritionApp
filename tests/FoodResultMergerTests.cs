@@ -120,4 +120,37 @@ public sealed class FoodResultMergerTests
 
         Assert.Equal([generic,branded],ranked);
     }
+
+    [Fact]
+    public void A_brand_match_ranks_with_name_matches_and_unrelated_rows_are_dropped()
+    {
+        var named=Branded("Sunglo Natural Low Fat Probiotic Greek Yoghurt","9557337800090");
+        var hummus=new FoodResult("Cilantro Jalapeno Hummus (Small) · Pita Jungle",165,null,null,null,null,"Powered by fatsecret");
+        var pita=new FoodResult("Wheat Pita · Pita Jungle",205,null,null,null,null,"Powered by fatsecret");
+        var brandOnly=Branded("Full Cream Greek Yoghurt · Sunglo","9557337800106");
+
+        var merged=Merge("sunglo",(FatSecret,[hummus,pita]),(Off,[named,brandOnly]));
+
+        Assert.Equal([named,brandOnly],merged);
+    }
+
+    [Fact]
+    public void Loose_provider_matches_stay_when_nothing_matches_the_query()
+    {
+        var first=new FoodResult("Banana bread",320,null,null,null,null,"Powered by fatsecret");
+        var second=new FoodResult("Banana",89,null,null,null,null,"Powered by fatsecret");
+
+        Assert.Equal(2,Merge("bananna",(FatSecret,[first,second])).Count);
+    }
+
+    [Theory]
+    [InlineData("eggs","Egg, whole")]
+    [InlineData("greek yog","Full Cream Greek Yoghurt · Sunglo")]
+    public void Plural_and_partly_typed_words_still_match(string query,string name)
+    {
+        var match=Branded(name,"111111111111");
+        var unrelated=Branded("Wheat Pita · Pita Jungle","222222222222");
+
+        Assert.Equal([match],Merge(query,(Off,[unrelated,match])));
+    }
 }

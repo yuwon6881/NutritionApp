@@ -14,7 +14,7 @@ public sealed class FoodCatalog
 {
     // Bump when provider mapping, display filtering, or merging changes so a process does not keep
     // serving rows cached under the old shape.
-    private const string SearchCacheVersion="search:v6:";
+    private const string SearchCacheVersion="search:v7:";
     private static readonly TimeSpan CompleteSearchLifetime=TimeSpan.FromHours(6);
     // A merge missing a provider is still worth reusing briefly, but not for hours.
     private static readonly TimeSpan PartialSearchLifetime=TimeSpan.FromMinutes(1);

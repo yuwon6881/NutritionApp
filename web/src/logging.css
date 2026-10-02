@@ -5,9 +5,6 @@
 .recent-food-name{overflow-wrap:anywhere}
 .food-selection .food-method-panel>.recent-foods-section{margin-top:18px}
 
-.portion-chips{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 18px}
-.portion-chips>.button{min-width:var(--touch-target);min-height:var(--touch-target);font-variant-numeric:tabular-nums}
-@media (min-width:1024px){.portion-chips>.button{min-width:var(--touch-target-expanded);min-height:var(--touch-target-expanded)}}
 
 .barcode-camera-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .barcode-camera-status>p{margin:0}

@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor} from './units';
+import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,heightPartsFromCm,inputAmount,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor} from './units';
 
 describe('display units',()=>{
   it('defaults old or incomplete settings to metric',()=>{
@@ -22,5 +22,15 @@ describe('display units',()=>{
     expect(heightPartsFromCm(182.87)).toEqual({feet:6,inches:0});
     expect(displayHeight(182.87,'ft-in')).toBe('6 ft 0 in');
     expect(displayHeight(182.5,'ft-in')).toBe('5 ft 11.9 in');
+  });
+});
+
+describe('inputAmount',()=>{
+  it('hides rescaling noise without inventing a value',()=>{
+    expect(inputAmount(78.9473684210526*30.4/100)).toBe(24);
+    expect(inputAmount(3.0000000000000004)).toBe(3);
+    expect(inputAmount(1.256)).toBe(1.26);
+    expect(inputAmount(null)).toBe('');
+    expect(inputAmount(Number.NaN)).toBe('');
   });
 });

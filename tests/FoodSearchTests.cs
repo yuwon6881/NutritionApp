@@ -168,7 +168,7 @@ public sealed class FoodSearchTests
 
         Assert.Equal("Nasi Goreng · Chef Select",result.Name);
         var portion=Assert.Single(result.Portions!);
-        Assert.Equal("375 g",portion.Label);
+        Assert.Equal("serving",portion.Label);
         Assert.Equal(375,portion.Grams);
         Assert.Equal(382.5,result.ServingCalories);
     }
@@ -251,6 +251,35 @@ public sealed class FoodSearchTests
         var product=Product("""{"serving_quantity":45,"serving_quantity_unit":"g"}""");
 
         Assert.Equal("serving",Assert.Single(OpenFoodFactsParser.MapPortions(product)).Label);
+    }
+
+    [Fact]
+    public void A_weight_only_serving_label_is_named_a_serving()
+    {
+        var product=Product("""{"serving_quantity":30.4,"serving_quantity_unit":"g","serving_size":"30.4g"}""");
+
+        var portion=Assert.Single(OpenFoodFactsParser.MapPortions(product));
+        Assert.Equal("serving",portion.Label);
+        Assert.Equal(30.4,portion.Grams);
+    }
+
+    [Theory]
+    [InlineData("100.0g")]
+    [InlineData("100 g")]
+    [InlineData(null)]
+    public void A_100_gram_serving_that_only_repeats_the_basis_is_not_a_portion(string? label)
+    {
+        var product=Product(JsonSerializer.Serialize(new {serving_quantity=100,serving_quantity_unit="g",serving_size=label}));
+
+        Assert.Empty(OpenFoodFactsParser.MapPortions(product));
+    }
+
+    [Fact]
+    public void A_named_100_gram_serving_is_kept()
+    {
+        var product=Product("""{"serving_quantity":100,"serving_quantity_unit":"g","serving_size":"1 pot (100 g)"}""");
+
+        Assert.Equal("1 pot (100 g)",Assert.Single(OpenFoodFactsParser.MapPortions(product)).Label);
     }
 
     [Fact]

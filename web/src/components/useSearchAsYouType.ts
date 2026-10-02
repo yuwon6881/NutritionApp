@@ -12,14 +12,16 @@ export function typeaheadQuery(query:string):string|null{
 }
 
 /**
- * Searches after the person pauses typing. Quiet by design: no busy state and
- * no error message — the explicit Search action still reports failures — and
- * a repeated query is answered from memory instead of spending another call.
+ * Searches after the person pauses typing; this is the only search trigger
+ * besides the keyboard's search key, so a failure is reported through
+ * `onError` rather than leaving an empty list. No busy state, and a repeated
+ * query is answered from memory instead of spending another call.
  */
-export function useSearchAsYouType({enabled,query,onResults}:{
+export function useSearchAsYouType({enabled,query,onResults,onError}:{
   enabled:boolean;
   query:string;
   onResults:(results:FoodSearchResult[])=>void;
+  onError?:(message:string)=>void;
 }){
   const cache=useRef(new Map<string,FoodSearchResult[]>());
   const requests=useRef(new Map<string,{controller:AbortController;promise:Promise<FoodSearchResult[]>}>());
@@ -42,7 +44,8 @@ export function useSearchAsYouType({enabled,query,onResults}:{
     return promise;
   },[]);
   const onResultsRef=useRef(onResults);
-  useEffect(()=>{onResultsRef.current=onResults;});
+  const onErrorRef=useRef(onError);
+  useEffect(()=>{onResultsRef.current=onResults;onErrorRef.current=onError;});
 
   useEffect(()=>{
     const key=query.trim().toLowerCase();
@@ -59,7 +62,11 @@ export function useSearchAsYouType({enabled,query,onResults}:{
         .then(results=>{
           if(active)onResultsRef.current(results);
         })
-        .catch(()=>{/* Typeahead is best-effort; an explicit search reports errors. */});
+        .catch((error:unknown)=>{
+          // A superseded request aborts on purpose; only a live query's failure is news.
+          if(!active||(error instanceof DOMException&&error.name==='AbortError'))return;
+          onErrorRef.current?.(error instanceof Error?error.message:'Food search is unavailable. Try again.');
+        });
     },TYPEAHEAD_DELAY_MS);
     return()=>{active=false;window.clearTimeout(timer);};
   },[enabled,query,search]);

@@ -8,10 +8,9 @@ import {Field,SelectField,TimePicker} from './ui/Field';
 
 import {nutrientRescaleWarning,rescaleNutrients} from '../lib/nutrients';
 import {parsePortions,serializePortions,validatePortions} from '../lib/portions';
-import {energyLabel,inputEnergy,parseEnergy} from '../lib/units';
+import {energyLabel,inputAmount,inputEnergy,parseEnergy} from '../lib/units';
 import {number} from '../lib/format';
 import {useAsyncAction} from './ui/useAsyncAction';
-import {PortionChips} from './PortionChips';
 import {FatSecretAttribution} from './FatSecretAttribution';
 import {isFatSecretSource} from '../lib/foodSources';
 
@@ -108,6 +107,7 @@ export function FoodEditor({
   };
 
   const portions=parsePortions(draft.portionsJson);
+  const isProviderFood = !title.startsWith('Edit batch') && !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add';
   const unitChoice=draft.unit==='g'?'g':draft.portionLabel?`portion:${draft.portionLabel}`:'serving';
   const unitOptions=[
     {value:'g',label:'Grams'},
@@ -115,7 +115,9 @@ export function FoodEditor({
     ...(draft.portionLabel&&!portions.some(portion=>portion.label.toLocaleLowerCase()===draft.portionLabel!.toLocaleLowerCase())
       ?[{value:`portion:${draft.portionLabel}`,label:`${draft.portionLabel}${draft.portionGrams==null?'':` · ${draft.portionGrams} g`}`}]
       :[]),
-    {value:'serving',label:'Serving (weight unknown)'},
+    // A provider food's nutrients are per 100 g, so a serving without a weight cannot be
+    // scaled from them; it is offered only for hand-entered food or when already chosen.
+    ...(!isProviderFood||unitChoice==='serving'?[{value:'serving',label:'Serving (weight unknown)'}]:[]),
   ];
   const showPortionDefinitions=title.startsWith('Save food')||Boolean(initial?.portionsJson)||Boolean(initial?.portions?.length);
 
@@ -149,7 +151,6 @@ export function FoodEditor({
     catch(ex){setError((ex as Error).message);}
   };
 
-  const isProviderFood = !title.startsWith('Edit batch') && !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add';
   const submitLabel = busy ? 'Saving…' : title.startsWith('Save food') ? 'Save custom food' : title.startsWith('Edit') ? 'Save changes' : 'Add to batch';
 
   return <div className="dialog-step editor">
@@ -191,7 +192,6 @@ export function FoodEditor({
                 if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
               }
             }} options={unitOptions}/>
-            {draft.unit==='serving'&&<div className="form-grid-span-all"><PortionChips quantity={draft.quantity} unitLabel={draft.portionLabel??'serving'} onChange={quantity=>set('quantity',quantity)}/></div>}
             <TimePicker id="food-time" name="time" className="form-grid-span-all" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>
           </div>
         </>
@@ -210,7 +210,7 @@ export function FoodEditor({
               }
             }} options={unitOptions}/>
             <Field id="food-calories" name="calories" label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
-            {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} className={key==='fiber'?'form-grid-span-all':undefined} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={draft[key]??''} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
+            {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} className={key==='fiber'?'form-grid-span-all':undefined} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={inputAmount(draft[key])} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
           </div>
         </>
       )}

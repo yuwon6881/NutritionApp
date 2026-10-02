@@ -100,8 +100,16 @@ public static partial class OpenFoodFactsParser
             var match=GramLabel().Match(label??"");
             if(!match.Success||!double.TryParse(match.Groups["grams"].Value.Replace(',','.'),NumberStyles.Float,CultureInfo.InvariantCulture,out var declared)||declared!=grams)return [];
         }
-        return FoodResults.LimitPortions([new FoodPortion(string.IsNullOrWhiteSpace(label)?"serving":label!,grams)]);
+        // A label that is only a weight ("30.4g") says nothing the gram figure does not, so the
+        // portion is called a serving. A 100 g "serving" merely repeats the per-100 g basis and
+        // would make 100 g look like the product's declared serving.
+        var metricOnly=label is null||MetricOnlyLabel().IsMatch(label);
+        if(metricOnly&&Math.Abs(grams-100)<.001)return [];
+        return FoodResults.LimitPortions([new FoodPortion(metricOnly?"serving":label!,grams)]);
     }
+
+    [GeneratedRegex(@"^\s*\d+(?:[.,]\d+)?\s*g?\s*$",RegexOptions.IgnoreCase)]
+    private static partial Regex MetricOnlyLabel();
 
     private static double? Nutrient(JsonElement product,string key)=>
         product.TryGetProperty("nutriments",out var nutrients)&&nutrients.ValueKind==JsonValueKind.Object

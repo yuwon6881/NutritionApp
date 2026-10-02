@@ -15,6 +15,7 @@ import {DayEnergyPreview} from './DayEnergyPreview';
 import {parsePortions} from '../lib/portions';
 import {hapticTick} from '../lib/haptics';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {useBackLayer} from '../lib/useBackLayer';
 
 export interface FoodBasketProps {
   basket:FoodBasketHook;
@@ -54,6 +55,8 @@ export function FoodBasket({
     return()=>cancelAnimationFrame(frame);
   },[editingKey]);
   const units=unitsFor(store.state!.settings);
+  // Back leaves the line editor for the batch it came from; the batch step layer sits beneath.
+  useBackLayer(editingKey!==undefined,()=>setEditingKey(undefined));
 
   const totals=basketTotals(basket.lines);
 
