@@ -3,8 +3,8 @@ import {ChevronLeft,ChevronRight} from 'lucide-react';
 import type {Nourish} from '../useNourish';
 import {shiftDate} from '../lib/energyBalance';
 import {sharedDiaryCoordinator} from '../lib/diaryCoordinator';
-import {historyState} from '../lib/history';
-import {calendarIntake,calendarTarget,calorieProgress} from '../lib/calendarProgress';
+import {projectedDayIntake} from '../lib/dayIntake';
+import {calendarTarget,calorieProgress} from '../lib/calendarProgress';
 import {Button} from './ui/Button';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
@@ -89,9 +89,7 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
       if(element.scrollWidth-element.clientWidth-element.scrollLeft<dayWidth*3)extendLater();
     }}>
       {dates.map(day=>{
-        const cached=sharedDiaryCoordinator.projectDate(day,store.local?.queue??[]);
-        const local=!cached&&store.local?historyState(store.local,day):undefined;
-        const intake=calendarIntake(cached??(local?{date:day,entries:local.entries,day:local.days[0],revision:local.revision,fetchedAt:0}:undefined));
+        const intake=projectedDayIntake(store.local,day);
         const target=calendarTarget(store.state!,day);
         const progress=calorieProgress(intake,target);
         const weekday=weekdays[new Date(`${day}T12:00:00Z`).getUTCDay()];

@@ -105,3 +105,20 @@
 @media (min-width:640px) and (max-width:1023px){
   .food-modal .modal-actions{margin-inline:-24px;padding-inline:24px}
 }
+
+/* Batch review: the day as it would stand once the batch is logged. Logged food keeps the
+   Dashboard ring colour; the batch is a lighter arc after it so the two read apart. */
+.day-energy-preview{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px}
+.day-energy-preview-figures{flex:1;min-width:0}
+.day-energy-preview .eyebrow{margin-bottom:10px!important}
+.day-energy-preview dl{display:grid;gap:6px;margin:0;font-size:.8rem}
+.day-energy-preview dl>div{display:flex;justify-content:space-between;gap:12px}
+.day-energy-preview dt{display:flex;align-items:center;gap:8px;color:var(--muted-foreground)}
+.day-energy-preview dd{margin:0;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
+.day-energy-preview-note{font-size:.8rem;margin:0}
+.day-energy-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.day-energy-swatch.logged{background:var(--primary)}
+.day-energy-swatch.batch{background:color-mix(in srgb,var(--primary) 40%,var(--track))}
+.day-energy-preview .energy-ring{width:108px;max-width:36%}
+.ring-pending{stroke:color-mix(in srgb,var(--primary) 40%,var(--track));stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease),stroke-dashoffset var(--motion-layout) var(--motion-ease)}
+@media (max-width:639px){.day-energy-preview{padding:12px 14px;gap:12px}.day-energy-preview .energy-ring{width:92px}}

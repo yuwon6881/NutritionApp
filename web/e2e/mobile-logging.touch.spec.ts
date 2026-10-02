@@ -41,6 +41,18 @@ test('a recent food goes straight to the batch review with its last portion',asy
   await expect(foodCards(page,'Porridge')).toHaveCount(before+1);
 });
 
+test('the batch review previews the day total with the batch drawn after logged food',async({page})=>{
+  await openFoodLog(page);
+  await page.getByRole('button',{name:'Log food',exact:true}).click();
+  const recents=page.getByRole('dialog',{name:'Log food',exact:true}).getByRole('region',{name:'Recent and frequent'});
+  await recents.getByRole('button',{name:/^Porridge,/}).click();
+  const preview=page.getByRole('dialog',{name:'Batch (1 food)',exact:true}).getByRole('region',{name:'Day total after logging'});
+  await expect(preview.getByText('TODAY AFTER LOGGING')).toBeVisible();
+  await expect(preview.getByText('+350 kcal')).toBeVisible();
+  await expect(preview.getByRole('img',{name:/ kcal after logging, including 350 kcal from this batch$/})).toBeVisible();
+  await expect(preview.locator('.ring-pending')).toHaveCount(1);
+});
+
 test('Dashboard omits Log again while recent foods remain in the picker',async({page})=>{
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();

@@ -81,6 +81,12 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await expect(calorieCard.getByText('116')).toBeVisible();
   await expect(calorieCard.getByText('2 foods')).toBeVisible();
 
+  // Without an accepted plan the day preview still adds the batch to the empty day, but draws no ring.
+  const dayPreview=page.getByRole('region',{name:'Day total after logging'});
+  await expect(dayPreview.getByText('+116 kcal')).toBeVisible();
+  await expect(dayPreview.getByText('No target set')).toBeVisible();
+  await expect(dayPreview.getByRole('img')).toHaveCount(0);
+
   // Rescale quantity of Greek Yogurt from 100g to 200g (59 * 2 = 118 + 57 = 175 kcal)
   await expect(page.locator('.batch-food input')).toHaveCount(0);
   await page.locator('.batch-food').filter({hasText:'Greek Yogurt 0%'}).getByRole('button',{name:'Edit',exact:true}).click();

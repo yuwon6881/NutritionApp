@@ -11,6 +11,7 @@ import {TimePicker} from './ui/Field';
 import {Form,FieldFrame} from './ui/Form';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {FoodEditor} from './FoodEditor';
+import {DayEnergyPreview} from './DayEnergyPreview';
 import {parsePortions} from '../lib/portions';
 import {hapticTick} from '../lib/haptics';
 import {useAsyncAction} from './ui/useAsyncAction';
@@ -99,6 +100,7 @@ export function FoodBasket({
         {p.known} of {p.total} foods report {p.nutrient}.
       </small>)}
     </div>
+    <DayEnergyPreview store={store} date={date} batchCalories={totals.calories}/>
 
     <Form onSubmit={submitBatch}>
       <TimePicker id="batch-time" name="time" label="Meal time" required dataModalAutofocus value={time} onChange={value=>{setTime(value);onTimeChange?.(value);}}/>
