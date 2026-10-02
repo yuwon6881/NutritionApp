@@ -70,6 +70,29 @@ public sealed class FoodCatalogTests : IAsyncLifetime
         Assert.Contains(message,error.Message);
     }
 
+    [Theory]
+    [InlineData("unverified",2)]
+    [InlineData("per100g",1)]
+    public async Task A_list_with_unverified_rows_is_reused_only_briefly(string basis,int expectedCalls)
+    {
+        var clock=new ManualClock(DateTimeOffset.UtcNow);
+        var provider=new FakeFoodProvider("off"){OnSearch=_=>[Branded("Goodday Cultured Milk Drink","9556404123223") with {Basis=basis}]};
+        var catalog=new FoodCatalog([provider],new MemoryCache(new MemoryCacheOptions{SizeLimit=256,Clock=clock}));
+
+        await catalog.Search("goodday",default);
+        clock.UtcNow=clock.UtcNow.AddMinutes(2);
+        await catalog.Search("goodday",default);
+
+        Assert.Equal(expectedCalls,provider.SearchCalls.Count);
+    }
+
+#pragma warning disable CS0618 // MemoryCacheOptions still reads time through ISystemClock.
+    private sealed class ManualClock(DateTimeOffset now):Microsoft.Extensions.Internal.ISystemClock
+    {
+        public DateTimeOffset UtcNow { get; set; }=now;
+    }
+#pragma warning restore CS0618
+
     [Fact]
     public async Task No_match_anywhere_is_an_empty_answer()
     {

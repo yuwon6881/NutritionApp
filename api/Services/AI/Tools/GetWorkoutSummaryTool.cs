@@ -13,7 +13,7 @@ public sealed class GetWorkoutSummaryTool : IAiTool
     }
 
     public string Name => "get_workout_summary";
-    public string Description => "Get recent workout sessions synced from WorkoutApp, including training days, volume, and muscle groups.";
+    public string Description => "Get recent workout sessions synced from WorkoutApp, including training days, volume, and muscle groups. upNext lists the active program's remaining planned days this week; they have not been trained.";
 
     public JsonObject ParametersSchema => new()
     {
@@ -50,12 +50,17 @@ public sealed class GetWorkoutSummaryTool : IAiTool
             });
         }
 
+        // Planned program days are not training done; they are reported apart from the record.
+        var upNext = workouts.Where(w => w.Status == WorkoutSummaryService.Upcoming).Select(w => w.WorkoutName).ToList();
+        workouts = workouts.Where(w => w.Status != WorkoutSummaryService.Upcoming).ToList();
+
         if (workouts.Count == 0)
         {
             return AiToolResult.Of(new
             {
                 count = 0,
                 workouts = Array.Empty<object>(),
+                upNext,
                 message = "No workouts recorded in this time period."
             });
         }
@@ -77,7 +82,8 @@ public sealed class GetWorkoutSummaryTool : IAiTool
         return AiToolResult.Of(new
         {
             count = list.Count,
-            workouts = list
+            workouts = list,
+            upNext
         });
     }
 }

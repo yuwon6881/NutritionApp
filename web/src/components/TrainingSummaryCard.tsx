@@ -6,6 +6,8 @@ import {Button} from './ui/Button';
 import {CardFeedback} from './ui/CardFeedback';
 import {SkeletonBlock} from './ui/Skeleton';
 
+const UP_NEXT_LIMIT=3;
+
 export function TrainingSummaryCard({
   summaries,
   settings,
@@ -31,23 +33,26 @@ export function TrainingSummaryCard({
   onOpenSettings?: () => void;
 }) {
   const todayDate=today(timeZone??undefined);
-  const isConnected = workoutConnected ?? Boolean(summaries && summaries.length > 0);
-  const visible=(summaries??[])
-    .filter(item=>item.localDate>=shift(todayDate,-7))
-    .sort((left,right)=>{
-      const leftUpcoming=left.localDate>=todayDate && left.status!=='completed';
-      const rightUpcoming=right.localDate>=todayDate && right.status!=='completed';
-      if (leftUpcoming !== rightUpcoming) return Number(rightUpcoming)-Number(leftUpcoming);
-      const dateOrder = leftUpcoming
-        ? left.localDate.localeCompare(right.localDate)
-        : right.localDate.localeCompare(left.localDate);
-      return dateOrder || left.workoutName.localeCompare(right.workoutName);
-    })
-    .slice(0,8);
+  // Up-next days are the active program's remaining days this week, in program order; they lead
+  // the list and are capped so recent training stays visible.
+  const all=summaries??[];
+  const isConnected = workoutConnected ?? all.length > 0;
+  const upNext=all.filter(item=>item.status==='upcoming').slice(0,UP_NEXT_LIMIT);
+  const recorded=all
+    .filter(item=>item.status!=='upcoming'&&item.localDate>=shift(todayDate,-7))
+    // Workout no longer schedules dates, so recorded rows are past or today: a session in progress
+    // first, then newest first.
+    .sort((left,right)=>Number(right.status==='in_progress')-Number(left.status==='in_progress')
+      ||right.localDate.localeCompare(left.localDate)||left.workoutName.localeCompare(right.workoutName))
+    .slice(0,8-upNext.length);
+  const visible=[...upNext,...recorded];
   const unit=unitsFor(settings).weight;
   const feedbackMessage = error ?? (resolved ? warning : null);
-  // Until the first live answer arrives the connection itself is unknown, so say so rather than claim "not connected".
-  const pending = (loading || !resolved) && !visible.length && workoutConnected !== false;
+  // Until the first answer the connection itself is unknown, so say so rather than claim "not connected".
+  // Once any answer is known (live, or a stored sync time), refreshes stay quiet instead of
+  // swapping a settled "No workouts" for a spinner on every background read.
+  const settled = resolved || Boolean(syncedAt) || visible.length > 0;
+  const pending = !settled && workoutConnected !== false;
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
     <div className="training-summary-header">
       <div>
@@ -59,7 +64,7 @@ export function TrainingSummaryCard({
       </div>
     </div>
     {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} />}
-    {loading && visible.length > 0 && <p className="source" role="status" aria-live="polite">Refreshing…</p>}
+    {loading && settled && <p className="source" role="status" aria-live="polite">Refreshing…</p>}
     {visible.length > 0 && syncedAt && Number.isFinite(Date.parse(syncedAt)) && <p className="source">Last synced <time dateTime={syncedAt}>{new Date(syncedAt).toLocaleString(undefined, { timeZone: timeZone ?? undefined })}</time></p>}
     {pending ? (
       <div className="training-empty-state training-pending" role="status" aria-live="polite" aria-busy="true">
@@ -69,7 +74,7 @@ export function TrainingSummaryCard({
         <div className="training-empty-content">
           <p className="training-empty-title">{isConnected ? 'Loading workouts' : 'Checking Workout connection'}</p>
           <p className="training-empty-description">
-            {isConnected ? 'Fetching your recent and upcoming sessions.' : 'This usually takes a few seconds.'}
+            {isConnected ? 'Fetching your sessions.' : 'This usually takes a few seconds.'}
           </p>
           <div className="training-pending-lines" aria-hidden="true">
             <SkeletonBlock width="70%" height={10} />
@@ -88,7 +93,7 @@ export function TrainingSummaryCard({
           </p>
           <p className="training-empty-description">
             {isConnected
-              ? 'Nothing scheduled or recorded in the past 7 days.'
+              ? 'Nothing up next or logged in the past 7 days.'
               : 'Connect Workout to see training here.'}
           </p>
           {!isConnected && onOpenSettings && (
@@ -105,8 +110,10 @@ export function TrainingSummaryCard({
         {visible.map((item,index)=>{
           const completed=item.status==='completed' || Boolean(item.finishedAt);
           const scheduled=item.status==='scheduled' || !item.startedAt;
+          // A program day has no calendar date, so it shows no date rather than today's.
+          const when=item.status==='upcoming'?'Up next':`${item.localDate} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
           return <div className="training-summary-row" key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
-            <div><strong>{item.workoutName}</strong><small>{item.localDate} · {completed?'Completed':scheduled?'Scheduled':'In progress'}</small></div>
+            <div><strong>{item.workoutName}</strong><small>{when}</small></div>
             <div className="training-summary-metrics">
               {item.workingSetCount>0&&<span>{item.workingSetCount} sets</span>}
               {item.externalVolumeKg!=null&&<span>{displayWeight(item.externalVolumeKg,unit,0)} {weightLabel(unit)} external volume</span>}

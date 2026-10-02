@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type CSSProperties} from 'react';
-import {Camera, ScanBarcode, Star} from 'lucide-react';
+import {Camera, LoaderCircle, ScanBarcode, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api,ApiError} from '../lib/api';
 import {number} from '../lib/format';
@@ -9,7 +9,7 @@ import {Form} from './ui/Form';
 import {BarcodeCamera} from './BarcodeCamera';
 import {Modal} from './ui/Modal';
 import {displayEnergy,energyLabel} from '../lib/units';
-import {useSearchAsYouType} from './useSearchAsYouType';
+import {useSearchAsYouType,type SearchCache} from './useSearchAsYouType';
 import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScanner';
 import {NativeBarcodeScanner} from './NativeBarcodeScanner';
 import {FatSecretAttribution} from './FatSecretAttribution';
@@ -21,9 +21,11 @@ export function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit='kcal
   const serving=result.portions?.[0];
   if(serving){
     const calories=result.servingCalories??result.calories*serving.grams/100;
-    const label=/^\d+(?:[.,]\d+)?\s*g$/i.test(serving.label.trim())
+    const trimmed=serving.label.trim();
+    // "1 Bottle (330 g)" already states its weight; repeating it would read "(330 g) (330 g)".
+    const label=/^\d+(?:[.,]\d+)?\s*g$/i.test(trimmed)
       ?`${number(serving.grams,1)} g`
-      :`${serving.label} (${number(serving.grams,1)} g)`;
+      :/\d\s*g\b/i.test(trimmed)?trimmed:`${trimmed} (${number(serving.grams,1)} g)`;
     return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${label}`;
   }
   if(result.basis==='per100g'){
@@ -59,6 +61,8 @@ export interface FoodPickerProps {
   open:boolean;
   step:string;
   energyUnit?:EnergyUnit;
+  /** Search answers kept by the dialog, so coming back from a review spends no new call. */
+  searchCache?:SearchCache;
 }
 
 export function FoodPicker({
@@ -83,14 +87,16 @@ export function FoodPicker({
   open,
   step,
   energyUnit='kcal',
+  searchCache,
 }:FoodPickerProps){
   const requestId=useRef(0);
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
-  const search=useSearchAsYouType({
+  const {search,searching:typeaheadSearching}=useSearchAsYouType({
     enabled:tab==='search'&&open&&step==='selection',
     query,
     onResults:found=>{setError('');setResults(found);},
     onError:setError,
+    cache:searchCache,
   });
   // The Android app scans with ML Kit behind its own viewfinder; the in-page camera remains the fallback.
   const [scanner,setScanner]=useState<'checking'|'native'|'in-page'>('checking');
@@ -99,6 +105,8 @@ export function FoodPicker({
     void nativeBarcodeScannerAvailable().then(available=>{if(active)setScanner(available?'native':'in-page');});
     return()=>{active=false;};
   },[]);
+  // Typing and the keyboard's search key both search, so either one shows the same indicator.
+  const searching=tab==='search'&&(typeaheadSearching||busy);
   const scanning=tab==='barcode'&&camera&&open&&step==='selection';
   const detected=(code:string)=>{
     setCamera(false);
@@ -172,7 +180,11 @@ export function FoodPicker({
           required
           value={query}
           onChange={event=>{requestId.current++;setQuery(event.target.value);}}
-          insideAction={tab==='barcode'?(
+          insideAction={searching?(
+            <span className="food-search-spinner" role="status" aria-label="Searching">
+              <LoaderCircle size={18} aria-hidden="true"/>
+            </span>
+          ):tab==='barcode'?(
             <Button
               type="button"
               variant="tertiary"

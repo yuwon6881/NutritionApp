@@ -76,7 +76,11 @@ public sealed class FoodCatalog
             var worst=failed.OrderBy(outcome=>FoodLookupErrors.Precedence(outcome.Failure!.Value)).First();
             throw FoodLookupErrors.Search(worst.Provider.Name,worst.Failure!.Value);
         }
-        var lifetime=failed.Length==0?CompleteSearchLifetime:PartialSearchLifetime;
+        // Open Food Facts verifies a row's per-100 g basis in a separate, flaky bulk read. A list still
+        // holding unverified rows is reused only briefly, so a passing outage does not pin
+        // "loads when opened" on that query for hours; verified products come from the durable cache.
+        var complete=failed.Length==0&&merged.All(result=>result.Basis!="unverified");
+        var lifetime=complete?CompleteSearchLifetime:PartialSearchLifetime;
         cache.Set(key,merged,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=lifetime });
         return merged;
     }

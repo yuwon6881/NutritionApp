@@ -83,6 +83,9 @@ export function LogFood({
   const {busy,run:runAction}=useAsyncAction();
   const [camera,setCamera]=useState(false);
   const selectionRef=useRef<HTMLDivElement>(null);
+  // Leaving a review returns to the same query, answers, and scroll position.
+  const searchCache=useRef(new Map<string,SearchResult[]>());
+  const selectionScroll=useRef<number|null>(null);
   const energyUnit=unitsFor(store.state!.settings).energy;
 
   const wasOpen=useRef(false);
@@ -106,6 +109,7 @@ export function LogFood({
       setError('');
       setCamera(false);
       setBatchTime(undefined);
+      searchCache.current.clear();
     }
     wasOpen.current=open;
   },[open,editing?.id,date,defaultTab,basket]);
@@ -123,7 +127,9 @@ export function LogFood({
   useEffect(()=>{if(!open||tab!=='barcode'||step!=='selection')setCamera(false);},[open,tab,step]);
 
   useLayoutEffect(()=>{
-    if(step==='selection')selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'});
+    if(step!=='selection')return;
+    selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:selectionScroll.current??0,left:0,behavior:'auto'});
+    selectionScroll.current=null;
   },[step,tab]);
 
   useFoodStepFocus(open,step,tab);
@@ -133,7 +139,7 @@ export function LogFood({
     setError('');
     void store.toggleFoodFavourite(food).catch(error=>setError(error instanceof Error?error.message:'Could not change the favourite.'));
   };
-  const go=(next:FoodStep)=>{if(next==='selection'){setQuery('');setResults([]);setError('');}setStepDirty(false);setStep(next);};
+  const go=(next:FoodStep,keepSearch=false)=>{if(next==='selection'&&!keepSearch){setQuery('');setResults([]);setError('');selectionScroll.current=null;}setStepDirty(false);setStep(next);};
   const selectTab=(next:'search'|'saved'|'barcode'|'ai')=>{
     if(next!==tab)hapticTick('selection');
     setSavedFilter('all');
@@ -174,7 +180,7 @@ export function LogFood({
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   // A recent food goes straight to the batch review at its last portion; the review step stays.
   const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));hapticTick('selection');setBatchTime(newTime());go('batch');});
-  const leaveEditor=()=>{if(saveFood){setSaveFood(false);setPendingBarcode(undefined);setLabelNote('');}setDraft(undefined);go('selection');};
+  const leaveEditor=()=>{if(saveFood){setSaveFood(false);setPendingBarcode(undefined);setLabelNote('');}setDraft(undefined);go('selection',selectionScroll.current!=null);};
   // Back steps out of an inner step before it closes the sheet. A step with
   // unsaved input falls through to the Modal's own discard confirmation.
   const choosingIngredient=step==='selection'&&selectionPurpose==='recipe';
@@ -318,7 +324,9 @@ export function LogFood({
       }
     });
   };
-  const choose=(food:SearchResult)=>{selectionRequest.current++;setDetail(null);setBarcodeRecovery(undefined);setSaveFood(false);setDraft({...lineFromPer100(food),time:newTime()});go('editor');};
+  const choose=(food:SearchResult)=>{
+    if(step==='selection')selectionScroll.current=selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTop??0;
+    selectionRequest.current++;setDetail(null);setBarcodeRecovery(undefined);setSaveFood(false);setDraft({...lineFromPer100(food),time:newTime()});go('editor');};
   const chooseRecipe=(food:SearchResult)=>{
     setDetail(null);
     setBarcodeRecovery(undefined);
@@ -432,6 +440,7 @@ export function LogFood({
       open={open}
       step={step}
       energyUnit={energyUnit}
+      searchCache={searchCache}
     />}
     {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents entries={recentEntries} energyUnit={energyUnit} onPick={quickLogRecent}/>}
     {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}

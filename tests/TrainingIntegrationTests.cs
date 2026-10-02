@@ -87,6 +87,23 @@ public sealed class TrainingIntegrationTests
     }
 
     [Fact]
+    public void Summary_merge_keeps_only_the_latest_up_next_days_and_their_status()
+    {
+        static TrainingSummaryItem Item(string id, string status, DateOnly date, string name)
+            => new(id, status, date, null, null, name, [], 0, null, null, null);
+
+        // Yesterday's answer listed Full Body 2; it has since been passed and is outside the new range.
+        var existing = new[] { Item("upcoming:a", "upcoming", Today.AddDays(-1), "Full Body 2") };
+        var incoming = new[] { Item("upcoming:b", "upcoming", Today, "Full Body 3") };
+
+        var merged = WorkoutSummaryService.Merge(existing, incoming, Today, Today);
+
+        var result = Assert.Single(merged);
+        Assert.Equal("upcoming:b", result.Id);
+        Assert.Equal("upcoming", result.Status);
+    }
+
+    [Fact]
     public void Summary_merge_does_not_rewrite_a_frozen_completed_snapshot()
     {
         static TrainingSummaryItem Item(string id, string status, DateOnly date, string name, int sets)

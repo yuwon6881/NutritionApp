@@ -82,6 +82,23 @@ test('search runs after a pause in typing and reuses a repeated query',async({pa
   expect(calls).toBe(1);
 });
 
+test('the search field shows that a search is in flight',async({page})=>{
+  let release=()=>{};
+  const answered=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/foods/search?**',async route=>{
+    await answered;
+    await route.fulfill({json:[{name:'Rolled oats',calories:379,protein:13,carbs:68,fat:6.5,fiber:10,source:'Open Food Facts',servingGrams:100,portions:[],code:null,basis:'per100g'}]});
+  });
+  await openFoodLog(page);
+  await page.getByRole('button',{name:'Log food',exact:true}).click();
+  await page.getByRole('dialog').getByLabel('Search term',{exact:true}).fill('oats');
+  const spinner=page.getByRole('status',{name:'Searching',exact:true});
+  await expect(spinner).toBeVisible();
+  release();
+  await expect(page.getByRole('button',{name:'Rolled oats',exact:true})).toBeVisible();
+  await expect(spinner).toHaveCount(0);
+});
+
 test('a reviewed provider food starts at its declared serving without shortcut chips',async({page})=>{
   await page.route('**/api/foods/search?**',route=>route.fulfill({json:[{name:'Boiled egg',calories:155,protein:13,carbs:1.1,fat:11,fiber:0,source:'Open Food Facts',servingGrams:100,portions:[{label:'1 egg',grams:50}],code:null,basis:'per100g'}]}));
   await openFoodLog(page);
@@ -96,7 +113,8 @@ test('a reviewed provider food starts at its declared serving without shortcut c
 });
 
 test('Back steps out of review, batch line edit, and batch without closing the food dialog',async({page})=>{
-  await page.route('**/api/foods/search?**',route=>route.fulfill({json:[{name:'Boiled egg',calories:155,protein:13,carbs:1.1,fat:11,fiber:0,source:'Open Food Facts',servingGrams:100,portions:[{label:'1 egg',grams:50}],code:null,basis:'per100g'}]}));
+  let calls=0;
+  await page.route('**/api/foods/search?**',route=>{calls+=1;return route.fulfill({json:[{name:'Boiled egg',calories:155,protein:13,carbs:1.1,fat:11,fiber:0,source:'Open Food Facts',servingGrams:100,portions:[{label:'1 egg',grams:50}],code:null,basis:'per100g'}]});});
   await openFoodLog(page);
   await page.getByRole('button',{name:'Log food',exact:true}).click();
   const logDialog=page.getByRole('dialog',{name:'Log food',exact:true});
@@ -106,8 +124,12 @@ test('Back steps out of review, batch line edit, and batch without closing the f
 
   await page.goBack();
   await expect(logDialog).toBeVisible();
+  // The query and its answers come back as they were, without another search.
+  await expect(logDialog.getByLabel('Search term',{exact:true})).toHaveValue('egg');
+  await expect(page.getByRole('button',{name:'Boiled egg',exact:true})).toBeVisible();
+  await page.waitForTimeout(1100);
+  expect(calls).toBe(1);
 
-  await logDialog.getByLabel('Search term',{exact:true}).fill('egg');
   await page.getByRole('button',{name:'Boiled egg',exact:true}).click();
   await page.getByRole('button',{name:'Add to batch',exact:true}).click();
   const batch=page.getByRole('dialog',{name:'Batch (1 food)',exact:true});

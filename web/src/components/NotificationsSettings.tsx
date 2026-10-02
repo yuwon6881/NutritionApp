@@ -12,7 +12,7 @@ import {waitForAppServiceWorker} from '../lib/registerAppServiceWorker';
 import {isFirebasePushConfigured} from '../lib/push/firebaseConfig';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
-import {Field,SelectField} from './ui/Field';
+import {SelectField,TimePicker} from './ui/Field';
 import {CardFeedback} from './ui/CardFeedback';
 import {useMobilePwa} from './ui/MobilePwa';
 import {SettingRow} from './ui/SettingRow';
@@ -249,7 +249,7 @@ export function NotificationsSettings({store}:{store:Nourish}){
           <SelectField id="nutrition-checkin-reminder-weekday" name="weekday" label="Day" value={String(reminder.weekday)} disabled={fieldsDisabled} onChange={value=>setReminder(current=>({...current,weekday:Number(value)}))}>
             {weekdays.map((day,index)=><option key={day} value={index}>{day}</option>)}
           </SelectField>
-          <Field id="nutrition-checkin-reminder-time" name="localTime" type="time" step={60} label="Time" value={reminder.localTime} disabled={fieldsDisabled} onChange={event=>setReminder(current=>({...current,localTime:event.target.value}))}/>
+          <TimePicker id="nutrition-checkin-reminder-time" name="localTime" label="Time" value={reminder.localTime} disabled={fieldsDisabled} onChange={localTime=>setReminder(current=>({...current,localTime}))}/>
 
         </div>
         <div className="actions notification-save-actions">

@@ -125,6 +125,43 @@ test('cached training remains visible while a refresh is pending',async({page})=
   }
 });
 
+test('a settled empty Workout card refreshes quietly and lists up-next program days',async({page})=>{
+  await page.route('**/api/bootstrap',async route=>{
+    const requestHeaders={...route.request().headers()};
+    delete requestHeaders['if-none-match'];
+    const response=await route.fetch({headers:requestHeaders});
+    const state=await response.json();
+    await route.fulfill({response,json:{...state,workoutConnected:true}});
+  });
+  const upNext=[
+    {id:'upcoming:a',status:'upcoming',localDate:current,startedAt:null,finishedAt:null,workoutName:'Full Body 2',muscleGroups:[],workingSetCount:0,externalVolumeKg:null,systemVolumeKg:null,averageRpe:null},
+    {id:'upcoming:b',status:'upcoming',localDate:current,startedAt:null,finishedAt:null,workoutName:'Full Body 3',muscleGroups:[],workingSetCount:0,externalVolumeKg:null,systemVolumeKg:null,averageRpe:null},
+  ];
+  let complete:()=>void=()=>{};
+  const waiting=new Promise<void>(resolve=>{complete=resolve;});
+  await page.route(/\/api\/training\/summary(?:\?.*)?$/,async route=>{
+    // The stored answer is an empty week; the live read, held here, finds the active program.
+    const live=new URL(route.request().url()).searchParams.get('cacheOnly')!=='true';
+    if(live)await waiting;
+    await route.fulfill({status:200,json:{summaries:live?upNext:[],workoutConnected:true,workoutWarning:null,lastSuccessAt:new Date().toISOString()}});
+  });
+  try{
+    await seed(page);
+    // A known answer stays on screen during the refresh instead of a loading state.
+    await expect(page.getByText('No workouts',{exact:true})).toBeVisible();
+    await expect(page.getByText('Loading workouts',{exact:true})).toHaveCount(0);
+    await expect(page.getByRole('status').filter({hasText:'Refreshing…'})).toBeVisible();
+    complete();
+    const card=page.locator('.training-summary');
+    await expect(card.getByText('Full Body 2',{exact:true})).toBeVisible();
+    await expect(card.locator('.training-summary-row small').first()).toHaveText('Up next');
+    await expect(card.getByText('Full Body 3',{exact:true})).toBeVisible();
+  }finally{
+    complete();
+    await page.unrouteAll({behavior:'wait'});
+  }
+});
+
 test('a stale stored Workout warning stays hidden until the live read answers',async({page})=>{
   let refreshed=false;
   await page.route('**/api/bootstrap',async route=>{

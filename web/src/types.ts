@@ -36,7 +36,7 @@ export type DiaryRangeResponse={from:string;to:string;revision:number;detailCuto
 export type BootstrapResponse=Omit<AppState,'foods'|'trainingSummaries'>;
 export type FoodsResponse={foods:Food[];revision:number;foodRevision?:number};
 export type TrainingResponse={summaries:TrainingSummary[];workoutConnected?:boolean;workoutWarning?:string|null};
-export type TrainingSummary={id:string;status:'scheduled'|'in_progress'|'completed';localDate:string;startedAt:string|null;finishedAt:string|null;workoutName:string;muscleGroups:string[];workingSetCount:number;externalVolumeKg:number|null;systemVolumeKg:number|null;averageRpe:number|null};
+export type TrainingSummary={id:string;status:'scheduled'|'in_progress'|'completed'|'upcoming';localDate:string;startedAt:string|null;finishedAt:string|null;workoutName:string;muscleGroups:string[];workingSetCount:number;externalVolumeKg:number|null;systemVolumeKg:number|null;averageRpe:number|null};
 /** `holdUntil` is local only: an undoable deletion is not sent before that time (see lib/heldMutations). */
 export type Mutation={id:string;kind:'profile'|'settings'|'entry'|'food'|'weight'|'day';recordId:string;expectedRevision:number;data:unknown;delete:boolean;holdUntil?:number};
 export type AiFood={name:string;quantity:number;unit:'g'|'serving';portionLabel?:string|null;portionGrams?:number|null;calories:number;protein:number|null;fat:number|null;carbs:number|null;fiber:number|null;notes:string};

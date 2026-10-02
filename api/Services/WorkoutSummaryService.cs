@@ -243,7 +243,9 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
         existing = existing.Select(Canonical).ToList();
         incoming = incoming.Select(Canonical).ToList();
         var incomingIds = incoming.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
-        var retained = existing.Where(item =>
+        // Up-next days describe the active program as of one answer; an older answer's list is
+        // never kept, even outside the refreshed range, or a passed day would linger as planned.
+        var retained = existing.Where(item => item.Status != Upcoming).Where(item =>
             (item.LocalDate < from || item.LocalDate > to) ||
             (item.Status == "completed" && incomingIds.Contains(item.Id)))
             .ToList();
@@ -262,9 +264,12 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
         return merged.OrderBy(item => item.LocalDate).ThenBy(item => item.WorkoutName, StringComparer.Ordinal).ToList();
     }
 
+    /// A planned day of Workout's active program: informational only, never training done.
+    public const string Upcoming = "upcoming";
+
     private static TrainingSummaryItem Canonical(TrainingSummaryItem item)
     {
-        var status = item.Status is "scheduled" or "in_progress" or "completed"
+        var status = item.Status is "scheduled" or "in_progress" or "completed" or Upcoming
             ? item.Status
             : item.FinishedAt is not null ? "completed" : item.StartedAt is not null ? "in_progress" : "scheduled";
         var id = string.IsNullOrWhiteSpace(item.Id)

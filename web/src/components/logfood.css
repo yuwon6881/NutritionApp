@@ -122,3 +122,6 @@
 .day-energy-preview .energy-ring{width:108px;max-width:36%}
 .ring-pending{stroke:color-mix(in srgb,var(--primary) 40%,var(--track));stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease),stroke-dashoffset var(--motion-layout) var(--motion-ease)}
 @media (max-width:639px){.day-energy-preview{padding:12px 14px;gap:12px}.day-energy-preview .energy-ring{width:92px}}
+.food-search-spinner{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;color:var(--muted-foreground)}
+.food-search-spinner>svg{animation:spin 900ms linear infinite}
+@media (prefers-reduced-motion:reduce){.food-search-spinner>svg{animation:none}}
