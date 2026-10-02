@@ -6,7 +6,7 @@ namespace Nutrition.Api.Services;
 public static class GoogleHealthActiveDataSync
 {
     public static async Task RunAsync(AppDb db, IServiceScopeFactory scopes, GoogleHealthWeightImportService import,
-        ILogger logger, bool force, CancellationToken ct)
+        ILogger logger, bool force, CancellationToken ct, bool outboundOnly = false)
     {
         try { await GoogleHealthOutboundSync.RunAsync(scopes, db.CurrentUser!.Value, GoogleHealthOutboundSync.ActiveUserBudget, ct); }
         catch (Exception ex) when (!ct.IsCancellationRequested)
@@ -15,6 +15,7 @@ public static class GoogleHealthActiveDataSync
         }
         // Upload scopes may have changed the connection revision; discard a tracked copy.
         db.ChangeTracker.Clear();
+        if (outboundOnly) return;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(TimeSpan.FromSeconds(6));
         try { await import.RunAsync(force, deadline.Token); }

@@ -161,11 +161,14 @@ public static class RecordEndpoints
             if(summary.Revision==user.Revision&&finalRevision==user.Revision)http.Response.Headers.ETag=etag;
             return Results.Ok(summary);
         }).RequireRateLimiting("progress");
-        app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,AppDb db,IServiceScopeFactory scopes,ILogger<SyncService> logger,CancellationToken ct)=>
+        app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,AppDb db,IServiceScopeFactory scopes,ILogger<SyncService> logger,HttpContext http,CancellationToken ct)=>
         {
             var revision=await sync.Apply(mutation,ct);
-            // Weight and meal changes queue a Google Health upload; send it now, while the API is awake.
-            if(mutation.Kind is "weight" or "entry")await GoogleHealthOutboundSync.FlushForActiveUserAsync(scopes,db.CurrentUser,logger,ct);
+            // The committed change owns durable work; capable clients dispatch a coalesced pass.
+            if(mutation.Kind is "weight" or "entry") await IntegrationDispatch.AfterCommit(http,
+                () => mutation.Kind == "weight" ? db.GoogleHealthWeightSyncWork.AsNoTracking().AnyAsync(work => GoogleHealthSyncLeases.Claimable.Contains(work.ProcessingState), ct)
+                    : db.GoogleHealthNutritionSyncWork.AsNoTracking().AnyAsync(work => GoogleHealthSyncLeases.Claimable.Contains(work.ProcessingState), ct),
+                () => GoogleHealthOutboundSync.FlushForActiveUserAsync(scopes,db.CurrentUser,logger,ct));
             return Results.Ok(new { revision });
         });
         app.MapGet("/api/coach/preview",async(CoachingService coach,CancellationToken ct)=>await coach.Preview(ct)).RequireRateLimiting("coaching");
@@ -175,7 +178,7 @@ public static class RecordEndpoints
     }
 
     private static async Task<IResult> TrainingSummary(HttpContext http, AppDb db, WorkoutSummaryService training,
-        DateOnly? from, DateOnly? to, CancellationToken ct)
+        DateOnly? from, DateOnly? to, bool? cacheOnly, CancellationToken ct)
     {
         var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
         var today = RetentionService.Today(user.ProfileJson);
@@ -193,16 +196,17 @@ public static class RecordEndpoints
             http.Response.Headers.ETag = ifNoneMatch;
             return Results.StatusCode(StatusCodes.Status304NotModified);
         }
-        var trainingSummary = await training.Get(start, end, profile?.TimeZone, ct, WorkoutSummaryService.RefreshDeadline);
+        var trainingSummary = await training.Get(start, end, profile?.TimeZone, ct, WorkoutSummaryService.RefreshDeadline, cacheOnly: cacheOnly == true);
         var workoutConnected = await training.IsConnected(ct);
         var workoutWarning = workoutConnected ? await training.GetLastError(ct) : null;
         // A refresh writes the cache and advances its revision, so the validator must describe the
         // state after that write. A pre-refresh revision would never match again and every poll
         // would call Workout.
-        var revision = await db.WorkoutSummaries.AsNoTracking().Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct);
-        http.Response.Headers.ETag = await TrainingEtag(db, user.Id, revision, start, end, ct);
+        var refreshedCache = await db.WorkoutSummaries.AsNoTracking().Select(x => new { x.Revision, x.LastSuccessAt }).SingleOrDefaultAsync(ct);
+        http.Response.Headers.ETag = await TrainingEtag(db, user.Id, refreshedCache?.Revision, start, end, ct);
         return Results.Ok(new {
             summaries = trainingSummary,
+            lastSuccessAt = refreshedCache?.LastSuccessAt,
             workoutConnected,
             workoutWarning
         });

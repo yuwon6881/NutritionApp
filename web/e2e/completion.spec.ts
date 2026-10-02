@@ -126,6 +126,34 @@ test('cached training remains visible while a refresh is pending',async({page})=
   }
 });
 
+test('a stale stored Workout warning stays hidden until the live read answers',async({page})=>{
+  await page.route('**/api/bootstrap',async route=>{
+    const requestHeaders={...route.request().headers()};
+    delete requestHeaders['if-none-match'];
+    const response=await route.fetch({headers:requestHeaders});
+    const state=await response.json();
+    await route.fulfill({response,json:{...state,workoutConnected:true,workoutWarning:'Workout training summaries are temporarily unavailable. Try again later.'}});
+  });
+  let complete:()=>void=()=>{};
+  const waiting=new Promise<void>(resolve=>{complete=resolve;});
+  await page.route('**/api/training/summary',async route=>{
+    await waiting;
+    await route.fulfill({status:200,json:{summaries:[],workoutConnected:true,workoutWarning:null}});
+  });
+  try{
+    await seed(page);
+    await expect(page.getByText('Loading workouts',{exact:true})).toBeVisible();
+    await expect(page.getByText('Workout sync needs attention',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('No workouts',{exact:true})).toHaveCount(0);
+    complete();
+    await expect(page.getByText('No workouts',{exact:true})).toBeVisible();
+    await expect(page.getByText('Workout sync needs attention',{exact:true})).toHaveCount(0);
+  }finally{
+    complete();
+    await page.unrouteAll({behavior:'wait'});
+  }
+});
+
 test('a protein override exceeding the energy budget blocks plan progression',async({page})=>{
   await seed(page,600);
   await page.getByRole('button',{name:'Coach',exact:true}).click();

@@ -6,7 +6,7 @@ let active: {account: string; promise: Promise<LocalData | undefined>} | undefin
 /** Reuse only the initial read while App hands the active account to its workspace. */
 export function hydrateAccount(account: string): Promise<LocalData | undefined> {
   if (active?.account === account) return active.promise;
-  const promise = readLocal(account);
+  const promise = readLocal(account, false);
   active = {account,promise};
   void promise.catch(() => { if (active?.promise === promise) active = undefined; });
   return promise;

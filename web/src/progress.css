@@ -97,3 +97,28 @@
   .bar-chart-edge-forward{right:6px}
   .button.bar-chart-edge:disabled{opacity:0;pointer-events:none}
 }
+
+/* Energy readout: a status chip and three cells; the cells the chart is drawing are emphasised. */
+.chart-heading{margin-bottom:14px}
+.chart-heading h3{margin:0}
+.chart-readout.energy-readout{display:grid;gap:10px;align-items:stretch;padding:12px;margin-bottom:6px}
+.energy-readout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:26px}
+.energy-readout-status{padding:3px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-size:.7rem;line-height:1.4;white-space:nowrap;color:var(--muted-foreground)}
+.energy-readout-status.is-complete{color:var(--ink-strong)}
+.energy-readout-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.energy-readout-cells>div{display:grid;align-content:start;gap:2px;min-width:0;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--card);transition:border-color var(--motion-control) ease}
+.energy-readout-cells>div.is-active{border-color:color-mix(in srgb,var(--primary) 45%,var(--border))}
+.energy-readout-cells dt{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;min-width:0;font-size:.68rem;letter-spacing:.02em;color:var(--muted-foreground)}
+.energy-readout-cells dd{margin:0;font-size:1.05rem;line-height:1.3;font-weight:600;color:var(--ink-strong);overflow-wrap:anywhere}
+.energy-readout-cells dd .unit{font-size:.7rem}
+.energy-readout-cells dd .is-unknown{color:var(--muted-foreground)}
+.energy-readout-cells small{display:block;min-height:1.5em;font-size:.68rem;line-height:1.4}
+.energy-readout-cells .is-surplus dd{color:var(--carbs)}
+.energy-readout-cells .is-deficit dd{color:var(--protein)}
+@media(max-width:639px){
+  .energy-readout-cells{gap:6px}
+  .energy-readout-cells>div{padding:8px}
+  .energy-readout-cells dd{font-size:.92rem}
+  /* Two lines are reserved so a longer note never pushes the chart down. */
+  .energy-readout-cells small{min-height:2.8em}
+}

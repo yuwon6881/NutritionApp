@@ -11,6 +11,7 @@ it('shares startup hydration only for the active account',async()=>{
   expect(hydrateAccount('bob')).toBe(second);
   await Promise.all([first,second]);
   expect(readLocal).toHaveBeenCalledTimes(2);
+  expect(readLocal).toHaveBeenCalledWith('alice', false);
   clearAccountHydration();await hydrateAccount('bob');
   expect(readLocal).toHaveBeenCalledTimes(3);
 });

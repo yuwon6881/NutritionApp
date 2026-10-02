@@ -281,7 +281,7 @@ export function isFoodScanDraft(value: unknown, date?: string): value is FoodSca
       (draft.pendingBarcode.purpose === 'log' || draft.pendingBarcode.purpose === 'recipe')));
 }
 
-export async function readLocal(user: string): Promise<LocalData | undefined> {
+export async function readLocal(user: string, includeSavedFoods = true): Promise<LocalData | undefined> {
   const db = await database();
   await migrateV1ToV2(db, user).catch(() => {});
 
@@ -295,12 +295,12 @@ export async function readLocal(user: string): Promise<LocalData | undefined> {
   const [queue,drafts,foodsRecord] = await Promise.all([
     readMutations(user).catch(() => raw.queue ?? []),
     readDrafts(user).catch(() => ({ photoDrafts: raw.photoDrafts, bodyDrafts: raw.bodyDrafts })),
-    readSavedFoods(user).catch(() => undefined)
+    includeSavedFoods ? readSavedFoods(user).catch(() => undefined) : Promise.resolve(undefined)
   ]);
 
   const state: AppState = {
     ...raw.state,
-    foods: foodsRecord?.foods ?? raw.state?.foods ?? []
+    foods: includeSavedFoods ? foodsRecord?.foods ?? raw.state?.foods ?? [] : []
   };
 
   const cacheHasLoadedData = Boolean(foodsRecord && foodsRecord.revision===(raw.state.foodRevision??raw.state.revision) &&
@@ -309,7 +309,7 @@ export async function readLocal(user: string): Promise<LocalData | undefined> {
   return {
     ...raw,
     state,
-    foodsLoaded: foodsRecord?cacheHasLoadedData:raw.foodsLoaded===true||Boolean(raw.state?.foods?.length),
+    foodsLoaded: includeSavedFoods ? (foodsRecord?cacheHasLoadedData:raw.foodsLoaded===true||Boolean(raw.state?.foods?.length)) : false,
     queue,
     photoDrafts: drafts.photoDrafts ?? raw.photoDrafts,
     bodyDrafts: drafts.bodyDrafts ?? raw.bodyDrafts

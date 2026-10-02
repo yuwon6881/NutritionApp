@@ -52,3 +52,10 @@
   .food-selection-bar{position:fixed;top:auto;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));width:auto;margin:0;z-index:120}
   .food-log-page:has(.food-selection-bar){padding-bottom:180px}
 }
+
+/* Food Log day swipe: vertical scrolling stays with the browser, sideways drags belong to the page. */
+.food-day-swipe{min-width:0}
+@media (pointer:coarse){
+  .food-day-swipe{touch-action:pan-y}
+}
+.food-day-content{min-width:0}

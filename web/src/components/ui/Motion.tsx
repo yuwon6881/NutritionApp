@@ -2,7 +2,7 @@ import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactN
 
 const fallbackEase='cubic-bezier(.2,.8,.2,1)';
 
-function motionTiming(variable:string,fallback:number){
+export function motionTiming(variable:string,fallback:number){
   const styles=getComputedStyle(document.documentElement);
   const value=styles.getPropertyValue(variable).trim();
   const duration=value.endsWith('ms')?Number.parseFloat(value):value.endsWith('s')?Number.parseFloat(value)*1000:NaN;

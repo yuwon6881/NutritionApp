@@ -20,8 +20,9 @@ test('touching the weight chart reads the nearest date, and arrow keys step thro
 
   const chart=page.getByRole('img',{name:/weight chart across/});
   await chart.scrollIntoViewIfNeeded();
-  const box=(await chart.boundingBox())!;
-  await page.touchscreen.tap(box.x+60,box.y+box.height/2);
+  // The plot scrolls inside the chart, so tap near the left edge of what is on screen.
+  const box=(await page.locator('.weight-chart-panel .bar-chart-scroller').boundingBox())!;
+  await page.touchscreen.tap(box.x+30,box.y+box.height/2);
   await expect(readoutDate).not.toHaveAttribute('datetime',todayInTestZone());
   const firstDate=(await readoutDate.getAttribute('datetime'))!;
 

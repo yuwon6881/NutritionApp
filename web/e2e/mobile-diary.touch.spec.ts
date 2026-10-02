@@ -71,3 +71,34 @@ test('bulk actions sit above the bottom navigation and bulk delete is undoable',
   await expect(card(page,'Overnight oats')).toBeVisible();
   await expect(card(page,'Chicken rice bowl')).toBeVisible();
 });
+
+test('swiping the day sideways opens the previous and next day, and stops at the planning day',async({page})=>{
+  const summary=page.locator('.food-day-summary');
+  await expect(dayHeading(page)).toHaveText('Today');
+  const swipeDay=async(direction:'previous'|'next')=>{
+    // Start once the previous slide has settled, as a person would.
+    await expect(summary).toBeVisible();
+    await expect.poll(()=>page.locator('.food-day-content').evaluate(element=>element.getAnimations().length)).toBe(0);
+    const center=await centerOf(summary);
+    const offset=direction==='previous'?100:-100;
+    await swipe(page,{x:center.x-offset,y:center.y},{x:center.x+offset,y:center.y});
+  };
+  await swipeDay('previous');
+  await expect(dayHeading(page)).toHaveText('Yesterday');
+  await swipeDay('next');
+  await expect(dayHeading(page)).toHaveText('Today');
+  await swipeDay('next');
+  await expect(dayHeading(page)).toHaveText('Tomorrow');
+  // Nothing is planned beyond tomorrow, so the day settles back instead of moving on.
+  await swipeDay('next');
+  await expect(dayHeading(page)).toHaveText('Tomorrow');
+  // The slide leaves no transform behind to trap popups under the navigation.
+  await expect.poll(()=>page.locator('.food-day-content').evaluate(element=>element.style.transform)).toBe('');
+});
+
+test('a vertical drag scrolls the Food Log without changing the day',async({page})=>{
+  const summary=page.locator('.food-day-summary');
+  const center=await centerOf(summary);
+  await swipe(page,{x:center.x,y:center.y+120},{x:center.x+12,y:center.y-120});
+  await expect(dayHeading(page)).toHaveText('Today');
+});

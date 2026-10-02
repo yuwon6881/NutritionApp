@@ -10,6 +10,7 @@ export default defineConfig({
   timeout: 60000,
   expect: { timeout: 15000 },
   use: {
+    channel: process.env.NUTRITION_TEST_BROWSER_CHANNEL,
     baseURL: process.env.NUTRITION_TEST_URL || 'http://127.0.0.1:5088',
     trace: 'retain-on-failure'
   },

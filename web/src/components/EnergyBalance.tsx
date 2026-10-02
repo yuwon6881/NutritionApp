@@ -1,13 +1,15 @@
-import {useId} from 'react';
+import {useId,useState} from 'react';
 import type {Nourish} from '../useNourish';
 import type {ProgressPeriod,ProgressSummary} from '../types';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
-import {bucketReadoutLabel,dateSpan} from '../lib/chartLabels';
+import {dateSpan} from '../lib/chartLabels';
 import {CardFeedback} from './ui/CardFeedback';
+import {SegmentedControl} from './ui/SegmentedControl';
 import {useChartScrub} from './ui/useChartScrub';
 import {useBarViewport,useRevealBar} from './ui/useBarViewport';
 import {BarChartNav} from './ui/BarChartFrame';
 import {BalanceChart,IntakeChart} from './EnergyBalanceCharts';
+import {EnergyReadout,type EnergyView} from './EnergyReadout';
 
 const groupingNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
@@ -24,8 +26,7 @@ export function EnergyBalance({store,period,summary,error}:{store:Nourish;period
   useRevealBar(viewport,scrub.index);
   const selected=rows[scrub.index];
   const readoutId=useId();
-  const amount=(value:number)=>`${displayEnergy(value,units.energy)} ${energyUnit}`;
-  const balanceText=(value:number|null)=>value==null?'Not known':value===0?'Even':`${value>0?'Surplus +':'Deficit −'}${amount(Math.abs(value))}`;
+  const [view,setView]=useState<EnergyView>('intake');
   const visibleSpan=rows.length?dateSpan(rows[viewport.edges.first]?.date??rows[0].date,rows[viewport.edges.last]?.end??rows.at(-1)!.end):'';
   const chartProps={rows,grouping,energyUnit:units.energy,viewport,selected:scrub.index,plotProps:scrub.svgProps};
   return <section className="panel energy-history">
@@ -44,17 +45,16 @@ export function EnergyBalance({store,period,summary,error}:{store:Nourish;period
         <section><p className="eyebrow">TOTAL BALANCE</p><h3>{stats?.totalBalance==null?'—':`${stats.totalBalance>0?'+':''}${displayEnergy(stats.totalBalance,units.energy)}`} <span className="unit">{energyUnit}</span></h3><p>{stats?.surplusDays??0} surplus · {stats?.deficitDays??0} deficit</p></section>
       </div>
       {rows.length?<div className="chart-scrub energy-charts" role="group" aria-label={`Energy charts. Tap a bar or use the left and right arrow keys to read a ${groupingSingular[grouping]}.`} aria-describedby={readoutId} {...scrub.groupProps}>
-        <div id={readoutId} className="chart-readout chart-readout-grid" aria-live="polite">
-          <strong className="chart-readout-date">{selected?bucketReadoutLabel(selected.date,selected.end,grouping):'—'}</strong>
-          <dl>
-            <div><dt>Intake</dt><dd>{selected?.intake==null?'Not logged':<>{amount(selected.intake)}{selected.complete?'':<small> partly logged</small>}</>}</dd></div>
-            <div><dt>Maintenance</dt><dd>{selected?.maintenance==null?'No estimate':amount(selected.maintenance)}</dd></div>
-            <div><dt>Balance</dt><dd className={selected?.balance==null?'':selected.balance>0?'is-surplus':selected.balance<0?'is-deficit':''}>{balanceText(selected?.balance??null)}</dd></div>
-          </dl>
+        <div className="section-heading chart-heading">
+          <div><h3>{view==='intake'?'Intake and maintenance':'Surplus or deficit'}</h3></div>
+          <SegmentedControl<EnergyView> layout="equal" className="chart-view-toggle" label="Energy chart display" value={view} onChange={setView} options={[
+            {value:'intake',label:<><span className="tab-label-full">Intake and maintenance</span><span className="tab-label-short">Intake</span></>,ariaLabel:'Intake and maintenance'},
+            {value:'balance',label:<><span className="tab-label-full">Surplus or deficit</span><span className="tab-label-short">Balance</span></>,ariaLabel:'Surplus or deficit'}
+          ]}/>
         </div>
+        <EnergyReadout id={readoutId} row={selected} grouping={grouping} energyUnit={units.energy} view={view}/>
         <BarChartNav viewport={viewport} range={visibleSpan}/>
-        <div className="chart-block">
-          <h3>Intake and maintenance</h3>
+        {view==='intake'?<div className="chart-block">
           <p className="sr-only">Bars are the calories you logged. The line is your estimated maintenance: roughly what keeps your weight steady.</p>
           <IntakeChart {...chartProps}/>
           <ul className="chart-legend" aria-label="Intake chart key">
@@ -63,9 +63,7 @@ export function EnergyBalance({store,period,summary,error}:{store:Nourish;period
             <li><span className="legend-line swatch-maintenance" aria-hidden="true"/>Maintenance</li>
             <li><span className="legend-swatch swatch-missing" aria-hidden="true"/>Nothing logged</li>
           </ul>
-        </div>
-        <div className="chart-block">
-          <h3>Surplus or deficit</h3>
+        </div>:<div className="chart-block">
           <p className="sr-only">Logged intake minus estimated maintenance. Above zero you ate more than you burned; below zero, less. Only fully logged {groupingNoun[grouping]} with an estimate get a bar.</p>
           {!rows.some(row=>row.balance!=null)&&<p className="notice chart-empty-note">No complete days to compare.</p>}
           <BalanceChart {...chartProps}/>
@@ -74,7 +72,7 @@ export function EnergyBalance({store,period,summary,error}:{store:Nourish;period
             <li><span className="legend-swatch swatch-deficit" aria-hidden="true"/>Deficit</li>
             <li><span className="legend-swatch swatch-missing" aria-hidden="true"/>Not known</li>
           </ul>
-        </div>
+        </div>}
       </div>:<div className="empty"><h3>No energy data in this period</h3></div>}
     </>}
   </section>;

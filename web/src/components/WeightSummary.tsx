@@ -29,7 +29,7 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
       <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{stats.count} {stats.count===1?'weigh-in':'weigh-ins'}</p></section>
       <section className="panel"><p className="eyebrow">CHANGE IN TREND</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending sync':dateSpan(summary.start,summary.end)}</p></section>
     </div>
-    <WeightChart series={summary.weight.series} weightUnit={units.weight}/>
+    <WeightChart series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end}/>
     <section className="panel weight-history-panel" aria-labelledby="latest-weigh-ins-title">
       <div className="section-heading"><div><h2 id="latest-weigh-ins-title">Latest weigh-ins</h2></div></div>
       {editable.length?<><ul className="weigh-in-list">{shown.map(weight=>{
@@ -56,7 +56,7 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
           </div>
         </li>;
       })}</ul>
-      {editable.length>INITIAL_ROWS&&<div className="weigh-in-more"><Button variant="secondary" aria-expanded={showAll} onClick={()=>setShowAll(value=>!value)}>{showAll?'Show fewer':`Show all ${editable.length} weigh-ins`}</Button></div>}</>
+      {editable.length>INITIAL_ROWS&&<div className="weigh-in-more"><Button variant="secondary" aria-expanded={showAll} onClick={()=>setShowAll(value=>!value)}>{showAll?'Show fewer':`Show ${editable.length-INITIAL_ROWS} more`}</Button></div>}</>
       :<p className="empty">No weigh-ins in this period.</p>}
     </section>
   </>;

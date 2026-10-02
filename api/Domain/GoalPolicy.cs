@@ -22,10 +22,11 @@ public record GoalProgress(string Mode, double? Percent, bool Complete, DateOnly
 public static class GoalPolicy
 {
     public static GoalProgress Evaluate(Profile p, IReadOnlyList<WeightPoint> weights, DateOnly today,
-        PhaseDecision? decision = null, string weightGoalMetric = "scale")
+        PhaseDecision? decision = null, string weightGoalMetric = "scale", IReadOnlyList<WeightPoint>? preparedTrend = null)
     {
         var points = weights.Where(w => w.Date <= today).OrderBy(w => w.Date).ToArray();
-        var trend = Coach.Trend(points);
+        // A caller sharing this calculation supplies the trend of these same ordered, dated points.
+        var trend = preparedTrend ?? Coach.Trend(points);
         var current = trend.LastOrDefault()?.Kg;
         var scale = points.LastOrDefault()?.Kg;
         var startWeight = p.PhaseStartWeightKg ?? p.WeightKg;

@@ -27,10 +27,12 @@ builder.Services.AddResponseCompression(o=>
     o.MimeTypes=["application/json","text/plain","text/css","application/javascript"];
 });
 builder.Services.AddSingleton<DatabaseMetricsInterceptor>();
+builder.Services.AddSingleton<DatabaseConnectionMetricsInterceptor>();
 builder.Services.AddTransient<ExternalCallMetricsHandler>();
 builder.Services.AddDbContext<AppDb>((services,o)=>
 {
     o.AddInterceptors(services.GetRequiredService<DatabaseMetricsInterceptor>());
+    o.AddInterceptors(services.GetRequiredService<DatabaseConnectionMetricsInterceptor>());
     var connection=builder.Configuration.GetConnectionString("Database");
     if(!string.IsNullOrWhiteSpace(connection)) o.UseNpgsql(ConnectionSettings.Normalize(connection));
     else if(builder.Environment.IsDevelopment()) o.UseSqlite("Data Source="+(builder.Configuration["Database:SqlitePath"]??"nutrition.db"));
@@ -47,7 +49,7 @@ builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSummaryService>();
 builder.Services.AddScoped<BootstrapReadService>();
 builder.Services.AddScoped<BodyRecordService>();builder.Services.AddScoped<BodyFatEstimateService>();
-builder.Services.AddScoped<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<ISharedAccessTokenValidator>(sp=>sp.GetRequiredService<OpenIddictAccessTokenService>());builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
+builder.Services.AddSingleton<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<ISharedAccessTokenValidator>(sp=>sp.GetRequiredService<OpenIddictAccessTokenService>());builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
 builder.Services.AddScoped<WorkoutSummaryService>();
 builder.Services.AddAuthentication(options =>
 {

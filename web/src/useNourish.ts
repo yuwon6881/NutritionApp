@@ -1,3 +1,4 @@
+import { beginIntegrationBurst } from './lib/integrationDispatch';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, LocalData, Mutation, PhysiqueAngle, TrainingSummary } from './types';
 import { api, apiWithMeta, ApiError } from './lib/api';
@@ -27,11 +28,14 @@ export function useNourish(user: string) {
   const [busy, setBusy] = useState(false);
   const [trainingLoading, setTrainingLoading] = useState(false);
   const [trainingError, setTrainingError] = useState<string | null>(null);
+  // Bootstrap carries only the last stored Workout outcome; this flips once a live read has answered.
+  const [trainingResolved, setTrainingResolved] = useState(false);
   const [sync, setSync] = useState<SyncState>({ phase: 'idle' });
   const ref = useRef<LocalData | undefined>(undefined);
   const writes = useRef(Promise.resolve());
   const draining = useRef(false);
   const trainingRequest = useRef<Promise<void> | null>(null);
+  const trainingCacheAccount = useRef<string | null>(null);
   const processingDrafts = useRef(false);
   const alive = useRef(true);
   const drainRequested = useRef(false);
@@ -181,9 +185,9 @@ export function useNourish(user: string) {
             });
             const current=ref.current;
             const reuseFoods=current?.foodsLoaded===true&&current.state.foodRevision===b.foodRevision;
-            const cachedFoods = reuseFoods?undefined:await readSavedFoods(user);
+            const cachedFoods = reuseFoods || current?.foodsLoaded !== true ? undefined : await readSavedFoods(user);
             foodsLoaded=reuseFoods||isSavedFoodsCacheUsable(cachedFoods,b.foodRevision??b.revision);
-            state = { ...b, foods: reuseFoods?current.state.foods:cachedFoods?.foods ?? current?.state.foods ?? [], trainingSummaries: current?.state.trainingSummaries ?? [] };
+            state = { ...b, foods: reuseFoods?current.state.foods:cachedFoods?.foods ?? current?.state.foods ?? [], trainingSummaries: current?.state.trainingSummaries ?? [], trainingSyncedAt: current?.state.trainingSyncedAt };
           }
         } catch (ex) {
           // /state is a compatibility path for a server that predates bootstrap.
@@ -223,26 +227,43 @@ export function useNourish(user: string) {
   }, []);
   const loadSavedFoods=useSavedFoods(user,ref,alive,foodsEtag,commit);
   const loadTrainingSummaries = useCallback(async () => {
-    if (!user || !navigator.onLine) return;
+    if (!user) return;
+    if (!navigator.onLine) {
+      // Offline there will be no live answer; show what is cached instead of loading forever.
+      setTrainingResolved(true);
+      return;
+    }
     if (trainingRequest.current) return trainingRequest.current;
     setTrainingLoading(true);
     setTrainingError(null);
     const task = (async () => {
       try {
-        const res = await apiWithMeta<{ summaries: TrainingSummary[]; workoutConnected?: boolean; workoutWarning?: string | null }>('/training/summary', {
+        type SummaryResponse = { summaries: TrainingSummary[]; workoutConnected?: boolean; workoutWarning?: string | null; lastSuccessAt?: string | null };
+        if (trainingCacheAccount.current !== user) {
+          const cached = await apiWithMeta<SummaryResponse>('/training/summary?cacheOnly=true', { signal: readController.current.signal });
+          trainingCacheAccount.current = user;
+          if (cached.data && alive.current && ref.current?.state.id === user) await commit(current => ({ ...current, state: { ...current.state,
+            trainingSummaries: cached.data!.summaries, trainingSyncedAt: cached.data!.lastSuccessAt, workoutConnected: cached.data!.workoutConnected, workoutWarning: cached.data!.workoutWarning } }));
+        }
+        const res = await apiWithMeta<SummaryResponse>('/training/summary', {
+          signal: readController.current.signal,
           headers: trainingEtag.current ? { 'If-None-Match': trainingEtag.current } : undefined
         });
+        if (!alive.current || ref.current?.state.id !== user) return;
         if (res.etag) trainingEtag.current = res.etag;
         lastPeerRefresh.current = Date.now();
         if (res.data && alive.current) {
-          await commit(current => ({ ...current, state: { ...current.state, trainingSummaries: res.data!.summaries, workoutConnected: res.data!.workoutConnected, workoutWarning: res.data!.workoutWarning } }));
+          await commit(current => ({ ...current, state: { ...current.state, trainingSummaries: res.data!.summaries, trainingSyncedAt: res.data!.lastSuccessAt, workoutConnected: res.data!.workoutConnected, workoutWarning: res.data!.workoutWarning } }));
         }
       } catch (ex) {
         if (alive.current) {
           setTrainingError(ex instanceof Error ? ex.message : 'Workout training summaries are temporarily unavailable.');
         }
       } finally {
-        if (alive.current) setTrainingLoading(false);
+        if (alive.current) {
+          setTrainingLoading(false);
+          setTrainingResolved(true);
+        }
       }
     })().finally(() => {
       trainingRequest.current = null;
@@ -258,6 +279,7 @@ export function useNourish(user: string) {
     const hadQueue = ref.current.queue.length > 0;
     let sent = false;
     draining.current = true;
+    const finishIntegrationBurst = beginIntegrationBurst();
     if (ref.current.queue.length) { beginSync(ref.current.queue[0]?.kind ?? 'entry'); setBusy(true); }
     try {
       while (alive.current && ref.current?.queue.length) {
@@ -297,6 +319,7 @@ export function useNourish(user: string) {
       if (alive.current) setError(ex instanceof Error ? ex.message : 'Sync is waiting for a connection.');
     } finally {
       draining.current = false;
+      finishIntegrationBurst();
       if (alive.current) {
         setBusy(false);
         finishSync();
@@ -308,6 +331,11 @@ export function useNourish(user: string) {
   const drainRef = useRef(drain);
   drainRef.current = drain;
   useEffect(() => () => clearTimeout(heldDrainTimer.current), []);
+  useEffect(() => {
+    const imported = () => { if (alive.current) void refresh(); };
+    window.addEventListener('nutrition:imported-weights', imported);
+    return () => window.removeEventListener('nutrition:imported-weights', imported);
+  }, [refresh]);
 
   /** Queues a mutation; `holdMs` makes it undoable for that long before it is sent. Returns its id. */
   const mutate = useCallback(async (op: Omit<Mutation, 'id' | 'holdUntil'>, options?: { holdMs?: number }) => {
@@ -447,7 +475,7 @@ export function useNourish(user: string) {
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local?.state,local?.queue]);
 
   return {
-    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, drain, calendarDate,
+    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, trainingResolved, drain, calendarDate,
     ...actions,
   };
 }

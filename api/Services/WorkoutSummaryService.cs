@@ -130,7 +130,7 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     }
 
     public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, string? timeZone, CancellationToken ct,
-        TimeSpan? deadline = null, TimeProvider? timeProvider = null)
+        TimeSpan? deadline = null, TimeProvider? timeProvider = null, bool cacheOnly = false)
     {
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
         var url = config["Integrations:WorkoutTrainingSummaryUrl"];
@@ -138,7 +138,7 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
         var clock = timeProvider ?? TimeProvider.System;
         var now = clock.GetUtcNow();
 
-        if (connected)
+        if (connected && !cacheOnly)
         {
             if (string.IsNullOrWhiteSpace(url))
             {

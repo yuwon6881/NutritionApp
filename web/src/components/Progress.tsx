@@ -166,7 +166,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
     {tab==='activity'&&<div className="activity-progress-hub">
       <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
       <StepCalorieCalculator store={store} variant="panel"/>
-      <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} error={store.trainingError} onOpenSettings={onSettings}/>
+      <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings}/>
     </div>}
     </div>
     </MotionPanel>

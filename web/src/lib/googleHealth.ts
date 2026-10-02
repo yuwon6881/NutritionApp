@@ -1,3 +1,4 @@
+import { resetIntegrationDispatch } from './integrationDispatch';
 import {useCallback, useEffect, useState, useSyncExternalStore} from 'react';
 import {api, ApiError} from './api';
 import {consumeGoogleHealthHandoff} from './googleHealthBrowser';
@@ -91,6 +92,7 @@ let inFlightPromise: Promise<GoogleHealthSyncState> | null = null;
 let inFlightForced = false;
 let generation = 0;
 let dataSyncFlight: Promise<void> | null = null;
+let dataSyncAgain = false;
 let dataSyncTimer: ReturnType<typeof setTimeout> | undefined;
 let lastDataSync = 0;
 const recovery = new IntegrationRecovery();
@@ -301,11 +303,13 @@ export function formatGoogleHealthTimestamp(iso: string | null): string {
 }
 
 export function resetGoogleHealthState() {
+  resetIntegrationDispatch();
   generation++;
   recovery.reset();
   clearTimeout(dataSyncTimer);
   dataSyncTimer = undefined;
   lastDataSync = 0;
+  dataSyncAgain = false;
   dataSyncFlight = null;
   memoryState = initialGoogleHealthState;
   lastFetchTime = 0;
@@ -313,24 +317,32 @@ export function resetGoogleHealthState() {
   notify();
 }
 
-function scheduleDataSync(force: boolean) {
+function scheduleDataSync(force: boolean, committedWork = false) {
+  if (committedWork && dataSyncFlight) { dataSyncAgain = true; return; }
   const pending = memoryState.weightSync.pendingCount + memoryState.nutritionSync.pendingCount + memoryState.bodyFatSync.pendingCount;
-  if (memoryState.status !== 'connected' || (!pending && !memoryState.weightImport.enabled)
-    || dataSyncFlight || dataSyncTimer !== undefined || (!force && Date.now() - lastDataSync < 120000)) return;
+  if ((!committedWork && (memoryState.status !== 'connected' || (!pending && !memoryState.weightImport.enabled)))
+    || dataSyncFlight || dataSyncTimer !== undefined || (!committedWork && !force && Date.now() - lastDataSync < 120000)) return;
   const epoch = generation;
   dataSyncTimer = setTimeout(() => {
     dataSyncTimer = undefined;
     if (epoch !== generation) return;
     lastDataSync = Date.now();
-    dataSyncFlight = api<GoogleHealthSyncState>('/integrations/google-health/sync-data', {force}).then(result => {
+    const previousImportSuccess = memoryState.weightImport.lastSuccessAt;
+    dataSyncFlight = api<GoogleHealthSyncState>('/integrations/google-health/sync-data', {force, ...(committedWork ? {outboundOnly: true} : {})}).then(result => {
       if (epoch !== generation) return;
       // This request owns upload/import status, not the concurrently refreshed step snapshot.
       memoryState = {...memoryState, weightSync: result.weightSync ?? memoryState.weightSync,
         nutritionSync: result.nutritionSync ?? memoryState.nutritionSync, bodyFatSync: result.bodyFatSync ?? memoryState.bodyFatSync,
         weightImport: result.weightImport ?? memoryState.weightImport};
       notify();
+      if (!committedWork && result.weightImport?.lastImportedCount && result.weightImport.lastSuccessAt !== previousImportSuccess)
+        window.dispatchEvent(new Event('nutrition:imported-weights'));
     }).catch(() => { /* Durable work remains queued for a later active pass or the daily sweep. */ })
-      .finally(() => { if (epoch === generation) dataSyncFlight = null; });
+      .finally(() => {
+        if (epoch !== generation) return;
+        dataSyncFlight = null;
+        if (dataSyncAgain) { dataSyncAgain = false; scheduleDataSync(false, true); }
+      });
   }, 250);
 }
 
@@ -412,3 +424,5 @@ export function useGoogleHealth(enabled = true) {
     disconnect: disconnectGoogleHealth,
   };
 }
+
+if (typeof window !== 'undefined') window.addEventListener('fitness:integration-pending', () => scheduleDataSync(false, true));

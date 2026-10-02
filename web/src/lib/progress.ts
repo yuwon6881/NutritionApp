@@ -125,15 +125,15 @@ export function projectProgressWeightSummary(
         hasRetainedAdditions = true;
       }
       if (!rw.deleted && rw.date >= range.start && rw.date <= range.end) {
-        if (!seriesMap.has(rw.date)) {
+        // The server lists only the latest weigh-ins, so a saved row missing from the list is not an
+        // unsynced edit. It counts as one only when the saved series lacks it or holds another value.
+        const saved = seriesMap.get(rw.date);
+        if (!saved || (!existing && saved.scaleKg !== rw.kg)) {
           seriesMap.set(rw.date, { scaleKg: rw.kg, trendKg: null });
           invalidateFrom(rw.date);
           hasRetainedAdditions = true;
         }
-        if (!editableMap.has(rw.id)) {
-          editableMap.set(rw.id, { ...rw });
-          hasRetainedAdditions = true;
-        }
+        if (!editableMap.has(rw.id)) editableMap.set(rw.id, { ...rw });
       }
     }
   }

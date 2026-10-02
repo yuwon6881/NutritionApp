@@ -8,7 +8,7 @@ namespace Nutrition.Api.Endpoints;
 public static class GoogleHealthEndpoints
 {
     public sealed record ConnectInput(bool SyncWeight = false, bool SyncNutrition = false, bool SyncBodyFat = false, bool ImportWeight = false);
-    public sealed record SyncInput(bool Force = false, bool? CacheOnly = null);
+    public sealed record SyncInput(bool Force = false, bool? CacheOnly = null, bool OutboundOnly = false);
     public sealed record WeightSyncPreferenceInput(bool Enabled, long Revision);
     public sealed record NutritionSyncPreferenceInput(bool Enabled, long Revision);
     public sealed record BodyFatSyncPreferenceInput(bool Enabled, long Revision);
@@ -85,7 +85,7 @@ public static class GoogleHealthEndpoints
             IGoogleHealthKms kms, GoogleHealthWeightImportService weightImport, IServiceScopeFactory scopes,
             ILogger<GoogleHealthService> logger, CancellationToken ct) =>
         {
-            await GoogleHealthActiveDataSync.RunAsync(db, scopes, weightImport, logger, input?.Force == true, ct);
+            await GoogleHealthActiveDataSync.RunAsync(db, scopes, weightImport, logger, input?.Force == true, ct, input?.OutboundOnly == true);
             return Results.Ok(await GoogleHealthStepReads.ReadCachedAsync(service, db, kms, ct, includeDays: false));
         });
 

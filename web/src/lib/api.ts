@@ -1,3 +1,4 @@
+import { integrationGeneration, signalIntegrationPending } from './integrationDispatch';
 import {fetchWithAvailabilityRecovery} from './availabilityRecovery';
 
 const recoverablePath=(path:string)=>['/auth/me','/bootstrap','/training/summary','/notifications/status','/integrations/google-health/sync','/integrations/google-health/sync-data'].includes(path.split('?')[0]);
@@ -49,6 +50,7 @@ export interface ApiFetchOptions {
 
 export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DELETE',options?:ApiFetchOptions):Promise<T>{
   checkCooldown(path);
+  const integrationEpoch = integrationGeneration();
   const selectedMethod=method??(body===undefined?'GET':'POST');
 
   const signal=options?.signal;
@@ -58,18 +60,21 @@ export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DEL
     credentials:'same-origin',
     cache:'no-store',
     signal,
-    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...customHeaders},
+    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(body===undefined?{}:{body:JSON.stringify(body)})
   },recoverablePath(path),requestTimeoutMs(path));
   if(response.status===304)return null as T;
   if(!response.ok){
     await responseError(path,response);
   }
-  return response.status===204?undefined as T:response.json();
+  const data=response.status===204?undefined as T:await response.json();
+  if(response.headers.get('X-Fitness-Integration-Pending')==='1')signalIntegrationPending(integrationEpoch);
+  return data;
 }
 
 export async function apiWithMeta<T>(path:string,options?:ApiFetchOptions & { body?: unknown; method?: 'GET'|'POST'|'DELETE' }):Promise<{ data: T | null; notModified: boolean; etag: string | null }>{
   checkCooldown(path);
+  const integrationEpoch = integrationGeneration();
   const selectedMethod=options?.method??(options?.body===undefined?'GET':'POST');
 
   const signal=options?.signal;
@@ -79,7 +84,7 @@ export async function apiWithMeta<T>(path:string,options?:ApiFetchOptions & { bo
     credentials:'same-origin',
     cache:'no-store',
     signal,
-    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...customHeaders},
+    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(options?.body===undefined?{}:{body:JSON.stringify(options.body)})
   },recoverablePath(path),requestTimeoutMs(path));
   const etag=response.headers.get('ETag');
@@ -88,5 +93,6 @@ export async function apiWithMeta<T>(path:string,options?:ApiFetchOptions & { bo
     await responseError(path,response);
   }
   const data=response.status===204?undefined as T:await response.json();
+  if(response.headers.get('X-Fitness-Integration-Pending')==='1')signalIntegrationPending(integrationEpoch);
   return { data, notModified: false, etag };
 }

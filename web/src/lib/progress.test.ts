@@ -62,6 +62,22 @@ describe('projectProgressWeightSummary',()=>{
     expect(projectProgressWeightSummary(range,baseSummary,[],[{...acknowledged,revision:0}])).toBe(baseSummary);
   });
 
+  it('does not treat saved weigh-ins missing from the capped list as unsynced edits',()=>{
+    // The server lists only the latest weigh-ins, so older saved ones are retained locally but absent from the list.
+    const older:Weight={id:'w0',date:'2026-03-10',kg:79.5,revision:1,deleted:false};
+    const capped:ProgressWeightSummary={...baseSummary,editableWeighIns:[baseSummary.editableWeighIns[0]]};
+    const retained=[baseSummary.editableWeighIns[0],older];
+    expect(projectProgressWeightSummary(range,capped,[],retained)).toBe(capped);
+  });
+
+  it('still flags a retained value that differs from the saved series',()=>{
+    const capped:ProgressWeightSummary={...baseSummary,editableWeighIns:[baseSummary.editableWeighIns[0]]};
+    const changed:Weight={id:'w0',date:'2026-03-10',kg:78,revision:2,deleted:false};
+    const projected=projectProgressWeightSummary(range,capped,[],[baseSummary.editableWeighIns[0],changed])!;
+    expect(projected.series[0]).toEqual({date:'2026-03-10',scaleKg:78,trendKg:null});
+    expect(projected.statistics.trendPending).toBe(true);
+  });
+
   it('merges queued additions and marks trend pending',()=>{
     const addOp:Mutation={
       id:'m-add',

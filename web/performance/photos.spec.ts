@@ -34,7 +34,7 @@ test('mobile photo preparation stays asynchronous',async({page,context,browser})
     await page.getByRole('button',{name:'Add entry',exact:true}).click();
     await page.getByRole('button',{name:'Scan food or label',exact:true}).click();
     await page.getByRole('button',{name:'AI logging',exact:true}).click();
-    await page.getByLabel('How would you like to log?',{exact:true}).selectOption('photo');
+    await page.getByRole('button',{name:'Meal photo',exact:true}).click();
     await page.evaluate(()=>{
       Object.assign(window,{photoFrameIntervals:[],photoFramePrevious:undefined,photoFrameActive:true});
       const sample=(now:number)=>{

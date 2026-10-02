@@ -18,6 +18,7 @@ import {useFoodSelection} from '../lib/useFoodSelection';
 import {useFoodClipboard,createPasteMutations} from '../lib/useFoodClipboard';
 import {FoodSelectionBar} from './FoodSelectionBar';
 import {FoodWeekStrip} from './FoodWeekStrip';
+import {useDaySwipe} from './useDaySwipe';
 import {DiaryEmptyState} from './DiaryEmptyState';
 import {FoodDaySkeleton} from './ui/Skeleton';
 import {canShareText,daySummaryText,shareText} from '../lib/share';
@@ -57,6 +58,9 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   // The day after today can be opened to plan ahead; nothing further out can.
   const latest=shiftDate(current,1);
   const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=latest){setError('');selection.exitSelection();setDate(value);}};
+
+  // Touch swipe between days; selection mode and the move dialog keep the touch to themselves.
+  const swipe=useDaySwipe({enabled:!selection.isSelecting&&!bulkMoving,date,canPrevious:date>'2000-01-01',canNext:date<latest,onNavigate:delta=>changeDate(shiftDate(date,delta))});
 
   const move=async(moving:Entry[],destinationDate:string,time?:string|null)=>{
     await act(async()=>{
@@ -121,6 +125,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         <Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button>
       </div>
     </header>
+    <div className="food-day-swipe" {...swipe.bind}>
     <div className="food-diary-toolbar">
       <div className="food-date-navigation">
         <DatePicker label="Food date" value={date} min="2000-01-01" max={latest} onChange={changeDate}/>
@@ -143,6 +148,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         </SelectField>
       </div>}
     </div>
+    <div className="food-day-content" ref={swipe.contentRef}>
     {history.error&&<CardFeedback
       title={state?'Diary history needs attention':'Diary history unavailable'}
       message={`${state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} ${history.error}`}
@@ -226,6 +232,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
         />
       </>}
     </>}
+    </div>
+    </div>
     {bulkMoving&&<MoveFoodDialog
       open={Boolean(bulkMoving)}
       onClose={()=>setBulkMoving(null)}

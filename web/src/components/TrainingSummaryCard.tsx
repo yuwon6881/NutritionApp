@@ -10,18 +10,23 @@ export function TrainingSummaryCard({
   summaries,
   settings,
   timeZone,
+  syncedAt,
   workoutConnected,
   warning,
   loading = false,
+  resolved = true,
   error,
   onOpenSettings,
 }: {
   summaries?: TrainingSummary[];
   settings?: CoachingSettings;
   timeZone?: string | null;
+  syncedAt?: string | null;
   workoutConnected?: boolean;
   warning?: string | null;
   loading?: boolean;
+  /** False until a live read has answered; the bootstrap warning is only the last stored outcome. */
+  resolved?: boolean;
   error?: string | null;
   onOpenSettings?: () => void;
 }) {
@@ -40,9 +45,9 @@ export function TrainingSummaryCard({
     })
     .slice(0,8);
   const unit=unitsFor(settings).weight;
-  const feedbackMessage = error ?? warning;
-  // Until the first answer arrives the connection itself is unknown, so say so rather than claim "not connected".
-  const pending = loading && !visible.length && workoutConnected !== false;
+  const feedbackMessage = error ?? (resolved ? warning : null);
+  // Until the first live answer arrives the connection itself is unknown, so say so rather than claim "not connected".
+  const pending = (loading || !resolved) && !visible.length && workoutConnected !== false;
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
     <div className="training-summary-header">
       <div>
@@ -55,6 +60,7 @@ export function TrainingSummaryCard({
     </div>
     {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} />}
     {loading && visible.length > 0 && <p className="source" role="status" aria-live="polite">Refreshing…</p>}
+    {visible.length > 0 && syncedAt && Number.isFinite(Date.parse(syncedAt)) && <p className="source">Last synced <time dateTime={syncedAt}>{new Date(syncedAt).toLocaleString(undefined, { timeZone: timeZone ?? undefined })}</time></p>}
     {pending ? (
       <div className="training-empty-state training-pending" role="status" aria-live="polite" aria-busy="true">
         <div className="training-empty-icon" aria-hidden="true">

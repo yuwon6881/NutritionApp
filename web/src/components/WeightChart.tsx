@@ -14,20 +14,23 @@ const TOP=16;
 const BASE=184;
 const HEIGHT=214;
 const DAY=86400000;
-/** A window shows this many calendar days per bar-chart slot before the rest is reached by scrolling or the page buttons. */
-const DAYS_PER_BAR_SLOT=2;
+/** A long period never needs more than this many screens of scrolling. */
 const MAX_SCREENS=4;
 const isoDay=(time:number)=>new Date(time).toISOString().slice(0,10);
 
-export function WeightChart({series,weightUnit='kg'}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit}){
+export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit;periodStart?:string;periodEnd?:string}){
   const [view,setView]=useState<View>('both');
   const readoutId=useId();
   const gradientId=`trend-fill-${useId().replace(/[^\w-]/g,'')}`;
   const unit=weightLabel(weightUnit);
-  const start=series.length?Date.parse(series[0].date):0;
-  const totalDays=series.length?Math.max(0,Math.round((Date.parse(series.at(-1)!.date)-start)/DAY)):0;
-  // One slot per calendar day, so weigh-ins keep their true spacing. A long period never needs more than a few screens of scrolling.
-  const viewport=useBarViewport(totalDays+1,base=>Math.max(base*DAYS_PER_BAR_SLOT,Math.ceil((totalDays+1)/MAX_SCREENS)));
+  // The axis spans the selected period, not just the first to last weigh-in, so a short period fills the chart through today.
+  const first=series.length?series[0].date:undefined;
+  const last=series.length?series.at(-1)!.date:undefined;
+  const start=first?Date.parse(periodStart&&periodStart<first?periodStart:first):0;
+  const end=last?Date.parse(periodEnd&&periodEnd>last?periodEnd:last):0;
+  const totalDays=series.length?Math.max(0,Math.round((end-start)/DAY)):0;
+  // One slot per calendar day, so weigh-ins keep their true spacing; each window shows the same days as the Energy charts.
+  const viewport=useBarViewport(totalDays+1,base=>Math.max(base,Math.ceil((totalDays+1)/MAX_SCREENS)));
   const {slot,contentWidth,edges}=viewport;
   const dayOf=(date:string)=>Math.round((Date.parse(date)-start)/DAY);
   const x=(date:string)=>slot*(dayOf(date)+.5);

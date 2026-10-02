@@ -297,6 +297,8 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   expect(result.expenditure).toBeCloseTo(2029.95,2);expect(result.calories).toBe(1725);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
+  // Balance is its own chart view; it explains why no bar is drawn.
+  await page.getByRole('button',{name:'Surplus or deficit',exact:true}).click();
   await expect(page.getByText('No complete days to compare.',{exact:true})).toBeVisible();
 
   const shift=(date:string,days:number)=>new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
