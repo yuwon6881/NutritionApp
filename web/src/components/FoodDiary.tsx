@@ -65,8 +65,9 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   const move=async(moving:Entry[],destinationDate:string,time?:string|null)=>{
     await act(async()=>{
       for(const entry of moving){
-        const targetTime=time!==undefined?time:(entry.time??null);
-        const operation=moveEntry(entry,targetTime,destinationDate);
+        const currentEntry=entries.find(e=>e.id===entry.id)??entry;
+        const targetTime=time!==undefined?time:(currentEntry.time??null);
+        const operation=moveEntry(currentEntry,targetTime,destinationDate);
         if(operation)await store.mutate(operation);
       }
     },true);
@@ -77,7 +78,10 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nou
   const removeEntries=async(removing:Entry[])=>{
     const ids:string[]=[];
     await act(async()=>{
-      for(const entry of removing)ids.push(await store.mutate({kind:'entry',recordId:entry.id,expectedRevision:entry.revision,delete:true,data:entry},{holdMs:UNDO_WINDOW_MS}));
+      for(const entry of removing){
+        const currentEntry=entries.find(e=>e.id===entry.id)??entry;
+        ids.push(await store.mutate({kind:'entry',recordId:currentEntry.id,expectedRevision:currentEntry.revision,delete:true,data:currentEntry},{holdMs:UNDO_WINDOW_MS}));
+      }
     },true);
     showUndo(removing.length===1?`Deleted ${removing[0].name}`:`Deleted ${removing.length} foods`,()=>store.undo(ids));
   };

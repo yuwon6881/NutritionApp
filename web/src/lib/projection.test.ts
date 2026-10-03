@@ -39,6 +39,11 @@ it('uses the latest acknowledged revision when a settings edit is queued after a
   const op:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'kg'}};
   expect(enqueueMutation(current,op).queue[0].expectedRevision).toBe(27);
 });
+it('uses the latest acknowledged revision when a record edit is queued after a response',()=>{
+  const current={state:{...state,entries:[{...state.entries[0],id:'e1',revision:5}]},queue:[]};
+  const op:Mutation={id:'m',kind:'entry',recordId:'e1',expectedRevision:4,delete:false,data:{name:'Oats'}};
+  expect(enqueueMutation(current,op).queue[0].expectedRevision).toBe(5);
+});
 it('coalesces settings data without changing the in-flight revision',()=>{
   const queued:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'kg'}};
   const current={state:{...state,settings:{checkInWeekday:1,revision:26}},queue:[queued]};

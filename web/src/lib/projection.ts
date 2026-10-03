@@ -1,5 +1,11 @@
 import type { AppState, CoachingSettings, LocalData, Mutation, Profile } from '../types';
 const collection={entry:'entries',food:'foods',weight:'weights',day:'days'} as const;
+function knownRecordRevision(current:LocalData,kind:Mutation['kind'],recordId:string):number|undefined{
+  if(kind==='settings')return current.state.settings?.revision;
+  if(kind==='profile')return current.state.profileRevision;
+  const key=collection[kind as keyof typeof collection];
+  return key?(current.state[key] as Array<{id:string;revision:number}>).find(item=>item.id===recordId)?.revision:undefined;
+}
 export function enqueueMutation(current:LocalData,op:Mutation):LocalData{
   if(op.kind==='settings'){
     const queued=current.queue.find(item=>item.kind==='settings');
@@ -8,7 +14,10 @@ export function enqueueMutation(current:LocalData,op:Mutation):LocalData{
     const expectedRevision=current.state.settings?.revision??op.expectedRevision;
     return {...current,queue:[...current.queue,{...op,expectedRevision}]};
   }
-  return {...current,queue:[...current.queue,op]};
+  // A record can change again before React receives the preceding acknowledgement.
+  const known=knownRecordRevision(current,op.kind,op.recordId);
+  const expectedRevision=known!==undefined?Math.max(op.expectedRevision,known):op.expectedRevision;
+  return {...current,queue:[...current.queue,{...op,expectedRevision}]};
 }
 export function project(state:AppState,queue:Mutation[]):AppState{
   if(queue.length===0)return state;
