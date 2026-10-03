@@ -5,7 +5,6 @@ import type { FoodScanDraft } from './foodScans';
 import { idbDelete, idbGet, idbGetAllKeys, idbPut } from './idb';
 import { migrateV1ToV2 } from './localMigration';
 import {compactAccountSnapshot,writeLocalSnapshot} from './localSnapshot';
-import { LEGACY_IMPORT_KEY, type LegacyImportState } from './legacyStorage';
 
 export { idbDelete, idbGet, idbGetAllKeys, idbPut };
 export * from './localMigration';
@@ -99,8 +98,6 @@ export function database(): Promise<IDBDatabase> {
       if (oldVersion < 5 && !db.objectStoreNames.contains('push_devices')) {
         db.createObjectStore('push_devices');
       }
-      // Recorded with the creation itself, so only a brand-new database copies the pre-rename one.
-      if (oldVersion === 0) request.transaction?.objectStore('meta').put('pending' satisfies LegacyImportState, LEGACY_IMPORT_KEY);
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -117,22 +114,9 @@ export function database(): Promise<IDBDatabase> {
       }
       settled = true;
       clearTimeout(timeout);
-      void idbGet<LegacyImportState>(db, 'meta', LEGACY_IMPORT_KEY)
-        // Loaded only on the one start that copies the pre-rename database.
-        .then(state => state === 'pending'
-          ? import('./legacyDatabase').then(legacy => legacy.importLegacyDatabase(db, state, DATABASE_VERSION + 1))
-          : undefined)
-        .then(() => {
-          databaseInvalidated = false;
-          databaseFailure = '';
-          resolve(db);
-        }, () => {
-          // The previous database is left untouched and the copy retries on the next start.
-          db.close();
-          const error = new LocalDatabaseError('unavailable', 'Local Nutrition data could not be moved to its new storage. Reload the app; unsynced data has not been submitted.');
-          reportDatabaseFailure(error);
-          reject(error);
-        });
+      databaseInvalidated = false;
+      databaseFailure = '';
+      resolve(db);
     };
     request.onerror = () => {
       if (settled) return;

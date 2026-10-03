@@ -21,11 +21,7 @@ function fakeDatabase(){
         objectStore:(store:string)=>({
           put:(_value:unknown,key?:IDBValidKey)=>{current.actions.push({store,kind:'put',key});return {} as IDBRequest;},
           delete:(key:IDBValidKey)=>{current.actions.push({store,kind:'delete',key});return {} as IDBRequest;},
-          get:(_key:IDBValidKey)=>{
-            const request={result:undefined,onsuccess:null as IDBRequest['onsuccess'],onerror:null};
-            queueMicrotask(()=>request.onsuccess?.call(request as unknown as IDBRequest,new Event('success')));
-            return request as unknown as IDBRequest;
-          }
+          get:(_key:IDBValidKey)=>({result:undefined,onsuccess:null,onerror:null}) as unknown as IDBRequest
         }),
         oncomplete:null as IDBTransaction['oncomplete'],
         onerror:null as IDBTransaction['onerror'],
@@ -86,13 +82,11 @@ describe('durable local recovery',()=>{
 
     await saveLocalAndRetireFoodBasketDraft('account-a',data,'2026-09-21');
 
-    // Opening the database reads its import marker; the save itself is one write transaction.
-    const writes=fake.transactions.filter(transaction=>transaction.actions.length>0);
-    expect(writes).toHaveLength(1);
-    expect(writes[0].stores).toContain('mutations');
-    expect(writes[0].stores).toContain('food_drafts');
-    expect(writes[0].actions).toContainEqual({store:'mutations',kind:'put',key:'account-a'});
-    expect(writes[0].actions).toContainEqual({
+    expect(fake.transactions).toHaveLength(1);
+    expect(fake.transactions[0].stores).toContain('mutations');
+    expect(fake.transactions[0].stores).toContain('food_drafts');
+    expect(fake.transactions[0].actions).toContainEqual({store:'mutations',kind:'put',key:'account-a'});
+    expect(fake.transactions[0].actions).toContainEqual({
       store:'food_drafts',kind:'delete',key:foodBasketDraftKey('account-a','2026-09-21')
     });
   });

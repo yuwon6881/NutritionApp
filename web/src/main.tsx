@@ -15,9 +15,6 @@ import './barcode.css';
 import './accessibility.css';
 import {measurePerformance} from './lib/performance';
 import {ErrorBoundary} from './components/ui/ErrorBoundary';
-import {migrateLegacyLocalStorage} from './lib/legacyStorage';
-// Before anything reads the session, theme, or device keys under their current names.
-try{migrateLegacyLocalStorage(localStorage);}catch{/* Storage can be unavailable; nothing to move. */}
 const startupFinished=measurePerformance('startup.usable');
 void registerAppServiceWorker().catch(()=>{});
 void initializeNativeApp().catch(()=>{});

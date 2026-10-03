@@ -6,7 +6,6 @@ const manifest=self.__WB_MANIFEST;
 const version=manifest.map(e=>e.url+e.revision).join('|');
 const digest=[...version].reduce((n,c)=>Math.imul(n,31)+c.charCodeAt(0)|0,0).toString(16);
 const cacheName='nutrition-app-assets-'+digest;
-const legacyCachePrefix='nourish-assets-';
 const assets=new Set(manifest.map(e=>new URL(e.url,self.location.origin).pathname));
 const precacheUrls=[...new Set([...manifest.map(e=>e.url),'/'])];
 const cacheable=(request:Request,url:URL)=>request.method==='GET'&&url.origin===self.location.origin&&!url.pathname.startsWith('/api/');
@@ -68,7 +67,7 @@ self.addEventListener('activate',event=>{
     // useful response path. Disable it for new workers; fetch handlers below still
     // settle any preload that was started while an older worker was active.
     if(self.registration.navigationPreload)await self.registration.navigationPreload.disable();
-    for(const name of await caches.keys())if((name.startsWith('nutrition-app-assets-')||name.startsWith(legacyCachePrefix))&&name!==cacheName)await caches.delete(name);
+    for(const name of await caches.keys())if(name.startsWith('nutrition-app-assets-')&&name!==cacheName)await caches.delete(name);
     await self.clients.claim();
   })());
 });
