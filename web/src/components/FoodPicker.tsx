@@ -196,7 +196,7 @@ export function FoodPicker({
             >
               <Camera size={18}/>
             </Button>
-          ):undefined}
+          ):null}
           // Text search runs as the person types (and on the keyboard's search key); barcode
           // digits are looked up only when asked, because a partial code is never a product.
           action={tab==='barcode'?<Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>:undefined}

@@ -91,12 +91,18 @@ test('the search field shows that a search is in flight',async({page})=>{
   });
   await openFoodLog(page);
   await page.getByRole('button',{name:'Log food',exact:true}).click();
-  await page.getByRole('dialog').getByLabel('Search term',{exact:true}).fill('oats');
+  const search=page.getByRole('dialog').getByLabel('Search term',{exact:true});
+  await search.fill('oats');
+  // Remounting the input when the indicator appears would close the on-screen keyboard.
+  await search.evaluate(input=>{(window as unknown as {searchInput:Element}).searchInput=input;});
   const spinner=page.getByRole('status',{name:'Searching',exact:true});
   await expect(spinner).toBeVisible();
+  await expect(search).toBeFocused();
   release();
   await expect(page.getByRole('button',{name:'Rolled oats',exact:true})).toBeVisible();
   await expect(spinner).toHaveCount(0);
+  await expect(search).toBeFocused();
+  expect(await search.evaluate(input=>input===(window as unknown as {searchInput:Element}).searchInput)).toBe(true);
 });
 
 test('a reviewed provider food starts at its declared serving without shortcut chips',async({page})=>{

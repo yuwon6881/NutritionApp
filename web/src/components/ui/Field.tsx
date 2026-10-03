@@ -26,8 +26,10 @@ export function Field({
     <input {...props} inputMode={props.inputMode??numericInputMode(props)} id={id} name={name} aria-describedby={[props['aria-describedby'],hint?`${id}-hint`:undefined].filter(Boolean).join(' ')||undefined}
       value={props.type==='number'?raw:props.value} onChange={event=>{if(props.type==='number')setRaw(event.target.value);props.onChange?.(event);}}/>
   );
-  const fieldInput = insideAction ? (
-    <div className="field-input-wrapper">{inputEl}<div className="field-inside-action">{insideAction}</div></div>
+  // `null` keeps the wrapper mounted with an empty slot: an indicator that appears while someone
+  // types must not reparent the focused input, or the remount closes the on-screen keyboard.
+  const fieldInput = insideAction !== undefined ? (
+    <div className="field-input-wrapper">{inputEl}{insideAction != null && <div className="field-inside-action">{insideAction}</div>}</div>
   ) : inputEl;
   return (
     <FieldFrame label={label} validate={validate} className={`field ${className}`.trim()}>

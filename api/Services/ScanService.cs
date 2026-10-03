@@ -4,7 +4,7 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
 public record ScanInput(Guid Id,string Mode,string Description,string? ImageBase64);
-public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi ai,StorageService storage)
+public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi ai,StorageService storage,ILogger<ScanService> logger)
 {
     public async Task<ScanJob> Create(ScanInput input,CancellationToken ct)
     {
@@ -52,7 +52,13 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
         if(bytes!=null&&uploadRequired)
         {
             try { await images.Put(scan.ObjectPath!,bytes,ct); scan.Status="queued"; }
-            catch { scan.Status="failed";scan.Error="Upload interrupted. Try again."; }
+            catch(Exception ex)
+            {
+                // The client retries this state with the same identity, so the cause (for example a
+                // storage permission the runtime account lacks) is visible only in this log.
+                logger.LogWarning(ex,"Scan {ScanId} image upload to temporary storage failed.",scan.Id);
+                scan.Status="failed";scan.Error="Upload interrupted. Try again.";
+            }
             await db.SaveChangesAsync(CancellationToken.None);
         }
         return scan;
