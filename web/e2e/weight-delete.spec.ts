@@ -29,6 +29,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
     await trigger.click();
+    // Escape only targets the native modal after its opening frame moves focus inside.
+    await expect(dialog.getByRole('button',{name:'Close dialog',exact:true})).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
