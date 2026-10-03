@@ -1,7 +1,7 @@
 import {Form,FieldFrame,validateFields} from './ui/Form';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,Check,Sliders} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
 import {normalizeProfileSex,profilesEqual} from '../lib/profile';
@@ -108,7 +108,7 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
   </div>;
 }
 
-export function Coach({store,onboarding=false}:{store:Nourish;onboarding?:boolean}){
+export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?:boolean}){
   const [profile,setProfile]=useState<ProfileDraft>(()=>normalizeProfileSex(store.state!.profile??defaults));
   const [message,setMessage]=useState('');
   const {busy:saving,run:runSave}=useAsyncAction();

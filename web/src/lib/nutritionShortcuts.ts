@@ -24,7 +24,7 @@ export const NUTRITION_SHORTCUTS = [
 
 export type NutritionShortcutAction = typeof NUTRITION_SHORTCUTS[number]['action'];
 
-const STORAGE_KEY = 'nourish-pending-shortcut-v1';
+const STORAGE_KEY = 'nutrition-pending-shortcut-v1';
 const PENDING_LIFETIME_MS = 30 * 60 * 1000;
 const MAX_CLOCK_SKEW_MS = 2 * 60 * 1000;
 

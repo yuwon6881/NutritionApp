@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {CheckCheck,Plus,Share2} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {useHistoryWindow} from '../useHistoryWindow';
 import {number,today} from '../lib/format';
@@ -27,7 +27,7 @@ import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {FoodClipboardBanner} from './FoodClipboardBanner';
 import {MoveFoodDialog} from './MoveFoodDialog';
 
-export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nourish;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void}){
+export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:NutritionStore;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void}){
   const history=useHistoryWindow(store,date);
   const [error,setError]=useState('');
   const [timelineView,setTimelineView]=useState<TimelineView>('data');

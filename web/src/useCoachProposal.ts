@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {CoachPreview,Profile,ProfileDraft} from './types';
-import type {Nourish} from './useNourish';
+import type {NutritionStore} from './useNutritionStore';
 import {api,ApiError} from './lib/api';
 import {profilesEqual} from './lib/profile';
 
@@ -9,7 +9,7 @@ export type ProposalOperation='idle'|'waiting'|'calculating'|'updating'|'accepti
 type AcceptedHandler=(refreshed:boolean)=>void|Promise<void>;
 
 export function useCoachProposal({store,draft,changed=false,onAccepted}:{
-  store:Nourish;
+  store:NutritionStore;
   draft?:Profile|ProfileDraft|null;
   changed?:boolean;
   onAccepted?:AcceptedHandler;

@@ -10,7 +10,7 @@ test.beforeEach(async({request,context})=>{
 for(const width of [390,768,1440])for(const theme of ['light','dark']){
   test(`calendar, empty state and food actions at ${width}px in ${theme}`,async({page},testInfo)=>{
     await page.setViewportSize({width,height:950});
-    await page.addInitScript(value=>localStorage.setItem('nourish-theme',value),theme);
+    await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);
     await page.goto('/');
     await page.getByRole('button',{name:'Food Log',exact:true}).click();
     const calendar=page.getByRole('group',{name:'Choose a food day'});

@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import type {Nourish} from '../../useNourish';
+import type {NutritionStore} from '../../useNutritionStore';
 import type {BodyDraft,BodyRecord,PhysiqueDraft,PhysiquePhoto,PhysiquePhotoSet} from '../../types';
 import {number} from '../../lib/format';
 import {allMeasurementKeys,angleLabel,angles,measurementLabel} from '../../lib/bodyMeasurements';
@@ -24,13 +24,13 @@ export function BodyHistoryRow({record,onOpen,onEdit}:{record:BodyRecord;onOpen:
   </article>;
 }
 
-export function BodyDraftNotice({draft,store}:{draft:BodyDraft;store:Nourish}){
+export function BodyDraftNotice({draft,store}:{draft:BodyDraft;store:NutritionStore}){
   const count=Object.values(draft.measurements).filter(value=>value!=null).length;
   const detail=draft.action==='delete'?'Delete pending':count+' measurement'+(count===1?'':'s')+(draft.photos.length?' · '+draft.photos.length+' photo'+(draft.photos.length===1?'':'s'):'');
   return <div className="notice body-draft-notice"><p>{draft.date} · {detail} · {draft.error??'Saved locally; syncing when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryBody(draft.id)}>Retry Body record</Button>}<Button variant="tertiary" onClick={()=>void store.removeBodyDraft(draft.id)}>Discard local Body record</Button></div></div>;
 }
 
-export function PhotoDraftNotice({draft,store}:{draft:PhysiqueDraft;store:Nourish}){
+export function PhotoDraftNotice({draft,store}:{draft:PhysiqueDraft;store:NutritionStore}){
   return <div className="notice"><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.id)}>Discard local photo set</Button></div></div>;
 }
 

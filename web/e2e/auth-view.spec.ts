@@ -2,9 +2,9 @@ import {expect, test} from '@playwright/test';
 
 test('signed-out Nutrition login follows the browser theme, ignores a saved choice, and stays balanced across widths', async ({page}) => {
   await page.addInitScript(() => {
-    localStorage.setItem('nourish-signed-out', '1');
+    localStorage.setItem('nutrition-signed-out', '1');
     // A previous account's explicit choice must not colour the signed-out screen.
-    localStorage.setItem('nourish-theme', 'light');
+    localStorage.setItem('nutrition-theme', 'light');
   });
   await page.goto('/');
   await expect(page.getByRole('heading', {name: 'Sign in to Nutrition'})).toBeVisible();
@@ -41,7 +41,7 @@ test('signed-out Nutrition login follows the browser theme, ignores a saved choi
 });
 
 test('cancelled Nutrition sign-in offers a neutral next step in both themes', async ({page}) => {
-  await page.addInitScript(() => localStorage.setItem('nourish-signed-out', '1'));
+  await page.addInitScript(() => localStorage.setItem('nutrition-signed-out', '1'));
   for (const width of [390, 768, 1440]) {
     for (const theme of ['light', 'dark'] as const) {
       await page.setViewportSize({width, height: width < 640 ? 480 : 900});
@@ -67,7 +67,7 @@ test('cancelled Nutrition sign-in offers a neutral next step in both themes', as
 
 test('Nutrition leaves the Fitness Account theme to the browser and restores the login screen on Back', async ({page}) => {
   await page.emulateMedia({colorScheme: 'dark'});
-  await page.addInitScript(() => localStorage.setItem('nourish-signed-out', '1'));
+  await page.addInitScript(() => localStorage.setItem('nutrition-signed-out', '1'));
   let releaseRoute!: () => void;
   const routePaused = new Promise<void>(resolve => { releaseRoute = resolve; });
   await page.route('**/api/auth/central/start*', async route => {

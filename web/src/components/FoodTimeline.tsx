@@ -1,6 +1,6 @@
 import {useCallback,useState,useRef,useEffect} from 'react';
 import {ClipboardPaste,Copy,MoveRight,Pencil,Trash2} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {timelineGroups,timelineSlots,moveAnnouncement,type TimelineView} from '../lib/foodDiary';
 import {Button} from './ui/Button';
@@ -12,7 +12,7 @@ import {FoodTimeCard} from './FoodTimeCard';
 import {useTimelineDrag} from './useTimelineDrag';
 
 export interface FoodTimelineProps {
-  store:Nourish;
+  store:NutritionStore;
   date:string;
   currentDate:string;
   entries:Entry[];

@@ -47,7 +47,7 @@ async function openLog(page:import('@playwright/test').Page){
 const powder={name:'Protein powder with a deliberately long product name',source:'Open Food Facts / ODbL / 12345678',code:'12345678',servingGrams:100,calories:400,protein:80,carbs:null,fat:4,fiber:2,basis:'unverified' as const};
 for(const theme of ['light','dark'])test(`${theme} large barcode controls stay aligned`,async({page,context})=>{
   await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
-  await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
+  await page.addInitScript(theme=>localStorage.setItem('nutrition-theme',theme),theme);
   await openLog(page);await page.getByRole('button',{name:'Barcode',exact:true}).click();
   const options=page.locator('.food-selection');
   const camera=page.getByRole('button',{name:'Scan barcode with camera',exact:true});
@@ -75,7 +75,7 @@ test('search results show declared serving calories and reuse them in review',as
 });
 for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${theme} ${width}: serving review, batch header and actions`,async({page,context})=>{
   await context.addCookies(session.cookies);await page.setViewportSize({width,height:900});
-  await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
+  await page.addInitScript(theme=>localStorage.setItem('nutrition-theme',theme),theme);
   let lookups=0;
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder]}));
   await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:{...powder,basis:'per100g' as const,portions:[{label:'scoop',grams:30}]}});});

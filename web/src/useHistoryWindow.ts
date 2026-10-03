@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AppState } from './types';
-import type { Nourish } from './useNourish';
+import type { NutritionStore } from './useNutritionStore';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { today } from './lib/format';
 import { historyState } from './lib/history';
 
-export function useHistoryWindow(store: Nourish, key: string, enabled = true) {
+export function useHistoryWindow(store: NutritionStore, key: string, enabled = true) {
   const [failure, setFailure] = useState<{ key: string; message: string }>();
   const [attempt, setAttempt] = useState(0);
   const [tick, setTick] = useState(0);

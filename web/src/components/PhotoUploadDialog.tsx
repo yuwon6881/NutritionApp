@@ -1,6 +1,6 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type ChangeEvent,type FormEvent} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {PhysiqueAngle,PhysiqueDraft,PhysiquePhotoSet} from '../types';
 import {prepareImage} from '../lib/image';
 import {number,today} from '../lib/format';
@@ -25,7 +25,7 @@ function makeSlots(initial?:PhysiquePhotoSet):UploadSlot[]{
 
 export interface PhotoUploadDialogProps {
   open:boolean;
-  store:Nourish;
+  store:NutritionStore;
   onClose:()=>void;
   restoreFocus?:HTMLElement|null;
   initial?:PhysiquePhotoSet;

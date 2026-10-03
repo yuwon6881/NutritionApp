@@ -1,15 +1,15 @@
 import {CloudOff,LoaderCircle} from 'lucide-react';
 import {useEffect,useState} from 'react';
-import type {Nourish} from '../../useNourish';
+import type {NutritionStore} from '../../useNutritionStore';
 
-function pendingWork(store:Nourish){
+function pendingWork(store:NutritionStore){
   const queue=store.local?.queue.length??0;
   const photos=store.local?.photoDrafts?.filter(draft=>!draft.error).length??0;
   const body=store.local?.bodyDrafts?.filter(draft=>!draft.error).length??0;
   return queue+photos+body;
 }
 
-export function SyncStatus({store}:{store:Nourish}){
+export function SyncStatus({store}:{store:NutritionStore}){
   const [online,setOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
   useEffect(()=>{
     const update=()=>setOnline(navigator.onLine);

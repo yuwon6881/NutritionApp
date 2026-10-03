@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type ChangeEvent,type FormEvent} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {BodyDraft,BodyMeasurementKey,BodyRecord,BodyWeightContext,PhysiqueAngle,PhysiquePhoto} from '../types';
 import {api} from '../lib/api';
 import {today} from '../lib/format';
@@ -19,7 +19,7 @@ import {buildEstimateRequest} from '../lib/bodyFatEstimate';
 import {BodyFatEstimate} from './body/BodyFatEstimate';
 import {useOnlineStatus} from './ui/useOnlineStatus';
 
-async function captureBodyContext(store:Nourish,date:string):Promise<BodyWeightContext>{
+async function captureBodyContext(store:NutritionStore,date:string):Promise<BodyWeightContext>{
   if(navigator.onLine){
     try{return await api<BodyWeightContext>('/body-records/weight-context?date='+encodeURIComponent(date));}
     catch{/* Fall back to retained local values */}
@@ -43,7 +43,7 @@ function makeBodySlots(record?:BodyRecord):BodySlot[]{
 export interface BodyRecordDialogProps{
   open:boolean;
   record?:BodyRecord;
-  store:Nourish;
+  store:NutritionStore;
   restoreFocus?:HTMLElement|null;
   onClose:()=>void;
 }

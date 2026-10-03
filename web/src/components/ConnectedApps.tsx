@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react';
 import {Dumbbell, CheckCircle2, Unlink} from 'lucide-react';
 import {api, ApiError} from '../lib/api';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {CardFeedback} from './ui/CardFeedback';
@@ -17,7 +17,7 @@ type Grant = {
   revokedAt: string | null;
 };
 
-export function ConnectedApps({store}: {store?: Nourish}) {
+export function ConnectedApps({store}: {store?: NutritionStore}) {
   const [grant, setGrant] = useState<Grant>();
   const [busy, setBusy] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);

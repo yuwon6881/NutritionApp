@@ -35,7 +35,7 @@ export function drainPendingPushRevocations(options?: ApiFetchOptions): Promise<
         // Retain record for next retry on reconnect or next startup.
       }
     }
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('nourish-push-revocation-drained'));
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('nutrition-push-revocation-drained'));
   })();
   const drain = task.finally(() => { if (activeDrains.get(key) === drain) activeDrains.delete(key); });
   activeDrains.set(key, drain);

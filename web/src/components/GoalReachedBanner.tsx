@@ -1,7 +1,7 @@
 import {useRef,useState} from 'react';
 import {Flag} from 'lucide-react';
 import type {GoalProgress} from '../types';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {api} from '../lib/api';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
 import {Button} from './ui/Button';
@@ -12,7 +12,7 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
   progress:GoalProgress|null|undefined;
   onChooseGoal:()=>void;
   action?:string;
-  store?:Nourish;
+  store?:NutritionStore;
   onComplete?:(trigger:HTMLElement)=>void;
 }){
   const {busy,run}=useAsyncAction();

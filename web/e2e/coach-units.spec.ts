@@ -12,7 +12,7 @@ test.describe('Coach unit selection', () => {
     await page.goto('/');
     await page.evaluate(() => {
       localStorage.clear();
-      indexedDB.deleteDatabase('nourish-local');
+      indexedDB.deleteDatabase('nutrition-local');
     });
     await signIn(page, 'coach-units-tester');
     await expect(page.getByRole('heading', {name: 'Set up profile'})).toBeVisible();
@@ -84,7 +84,7 @@ test.describe('Coach unit selection', () => {
     await page.goto('/');
     await page.evaluate(() => {
       localStorage.clear();
-      indexedDB.deleteDatabase('nourish-local');
+      indexedDB.deleteDatabase('nutrition-local');
     });
     await signIn(page, 'coach-flow-tester');
     await page.setViewportSize({width: 1440, height: 900});

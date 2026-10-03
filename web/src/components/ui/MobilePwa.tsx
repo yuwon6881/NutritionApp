@@ -272,16 +272,16 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
     const stop=()=>{stopListening?.();stopListening=undefined;};
     const refresh=()=>{if(typeof Notification!=='undefined'&&Notification.permission==='granted')void start();else stop();};
     window.addEventListener('focus',refresh);
-    window.addEventListener('nourish-push-enabled',refresh);
-    window.addEventListener('nourish-push-disabled',stop);
+    window.addEventListener('nutrition-push-enabled',refresh);
+    window.addEventListener('nutrition-push-disabled',stop);
     void start();
     return()=>{
       disposed=true;
       navigator.serviceWorker?.removeEventListener('message',foregroundReminder);
       stop();
       window.removeEventListener('focus',refresh);
-      window.removeEventListener('nourish-push-enabled',refresh);
-      window.removeEventListener('nourish-push-disabled',stop);
+      window.removeEventListener('nutrition-push-enabled',refresh);
+      window.removeEventListener('nutrition-push-disabled',stop);
     };
   },[]);
 

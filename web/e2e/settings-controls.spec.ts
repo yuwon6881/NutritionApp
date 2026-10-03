@@ -26,7 +26,7 @@ async function openSettings(page:Page){
 
 for(const theme of ['light','dark'])test(`${theme} 1440: reminder day and time share a row and open the app time picker`,async({page})=>{
   await page.setViewportSize({width:1440,height:1000});
-  await page.addInitScript(value=>localStorage.setItem('nourish-theme',value),theme);
+  await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);
   await openSettings(page);
   const day=page.locator('.notification-schedule-fields .field').first();
   const time=page.locator('.notification-schedule-fields .time-picker-field');

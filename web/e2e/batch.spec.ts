@@ -145,3 +145,27 @@ test('unfinished food batch is restored after the app reloads',async({page,conte
   await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
   await expect(page.locator('.batch-food')).toContainText('Greek Yogurt 0%');
 });
+
+
+test('dismissing the modal and confirming discard clears all unrecorded batch foods',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  await page.goto('/');
+  await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
+  await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
+  await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
+  await page.getByRole('button',{name:'Your foods',exact:true}).click();
+  await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
+  await page.getByRole('button',{name:'Add to batch'}).click();
+  await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
+
+  await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Discard changes?'})).toBeVisible();
+  await page.getByRole('button',{name:'Discard changes'}).click();
+  await expect(page.getByRole('heading',{name:'Discard changes?'})).toHaveCount(0);
+  await expect(page.getByRole('dialog',{name:'Log food'})).not.toBeVisible();
+
+  await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
+  await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();
+  await expect(page.getByRole('heading',{name:'Log food'})).toBeVisible();
+  await expect(page.getByRole('button',{name:/View batch/})).toHaveCount(0);
+});

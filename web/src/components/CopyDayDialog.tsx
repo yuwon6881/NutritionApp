@@ -1,6 +1,6 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
@@ -10,7 +10,7 @@ import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface CopyDayDialogProps {
   open:boolean;
-  store:Nourish;
+  store:NutritionStore;
   sourceDate:string;
   entries:Entry[];
   onClose:()=>void;

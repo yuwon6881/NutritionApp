@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {CoachResult} from '../types';
 import {number,today} from '../lib/format';
 import {cleanTrend} from '../lib/weightSignal';
@@ -21,7 +21,7 @@ import {MotionPanel} from './ui/Motion';
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
 
-export function Today({store,onCoach,onSettings}:{store:Nourish;onCoach:()=>void;onSettings?:()=>void}){
+export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:()=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
   // The same cleaned trend the coach uses: marked temporary days and statistical outliers stay out.

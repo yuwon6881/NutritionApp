@@ -8,6 +8,7 @@ export interface ModalProps {
   open:boolean;
   onClose:()=>void;
   onCancel?:()=>void;
+  onDiscard?:(source:'close'|'cancel')=>void;
   title:string;
   description?:string;
   ariaDescribedBy?:string;
@@ -39,6 +40,7 @@ export function Modal({
   open,
   onClose,
   onCancel,
+  onDiscard,
   title,
   description,
   ariaDescribedBy,
@@ -72,6 +74,7 @@ export function Modal({
   const reduceMotion=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const onCloseRef=useRef(onClose);
   const onCancelRef=useRef(onCancel);
+  const onDiscardRef=useRef(onDiscard);
   const dismissSourceRef=useRef<'close'|'cancel'>('close');
   const requestCloseRef=useRef<(source?:'close'|'cancel')=>void>(()=>{});
   const historyEntry=useRef(false);
@@ -79,6 +82,7 @@ export function Modal({
   useEffect(()=>{onCloseCompleteRef.current=onCloseComplete;},[onCloseComplete]);
   useEffect(()=>{onCloseRef.current=onClose;},[onClose]);
   useEffect(()=>{onCancelRef.current=onCancel;},[onCancel]);
+  useEffect(()=>{onDiscardRef.current=onDiscard;},[onDiscard]);
 
   useEffect(()=>{
     if(open){
@@ -181,15 +185,15 @@ export function Modal({
     const state=window.history.state&&typeof window.history.state==='object'&&!Array.isArray(window.history.state)
       ?window.history.state as Record<string,unknown>
       :{};
-    window.history.pushState({...state,__nourishModal:historyToken},'');
+    window.history.pushState({...state,__nutritionModal:historyToken},'');
     historyEntry.current=true;
     const onPopState=()=>{
-      if(window.history.state?.__nourishModal===historyToken||!historyEntry.current)return;
+      if(window.history.state?.__nutritionModal===historyToken||!historyEntry.current)return;
       if(preventDismiss||dirty){
         const current=window.history.state&&typeof window.history.state==='object'&&!Array.isArray(window.history.state)
           ?window.history.state as Record<string,unknown>
           :{};
-        window.history.pushState({...current,__nourishModal:historyToken},'');
+        window.history.pushState({...current,__nutritionModal:historyToken},'');
         if(!preventDismiss)requestCloseRef.current('cancel');
         return;
       }
@@ -280,7 +284,7 @@ export function Modal({
           </div>
           <div className="actions">
             <Button ref={keepEditing} onClick={keepEditingAction}>Keep editing</Button>
-            <Button variant="destructive" onClick={()=>{clearDismissIntent();confirmationOrigin.current=null;wasConfirming.current=false;setConfirming(false);if(dismissSourceRef.current==='cancel'&&onCancelRef.current)onCancelRef.current();else onClose();}}>Discard changes</Button>
+            <Button variant="destructive" onClick={()=>{const source=dismissSourceRef.current;clearDismissIntent();confirmationOrigin.current=null;wasConfirming.current=false;setConfirming(false);if(onDiscardRef.current)onDiscardRef.current(source);else if(source==='cancel'&&onCancelRef.current)onCancelRef.current();else onClose();}}>Discard changes</Button>
           </div>
         </div>
       </div>}

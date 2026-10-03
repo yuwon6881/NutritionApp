@@ -1,13 +1,13 @@
 import {useMemo} from 'react';
 import type {LocalData, PhysiqueDraft, BodyDraft} from './types';
 import {saveLocalAndRetireFoodBasketDraft} from './lib/local';
-import {queueEntries, type SyncKind} from './lib/nourishDrafts';
+import {queueEntries, type SyncKind} from './lib/nutritionDrafts';
 
 type Persist = (account: string, data: LocalData, previous: LocalData) => Promise<void>;
 type Commit = (change: (data: LocalData) => LocalData, persist?: Persist) => Promise<void>;
 
 /** Stable retained-work actions keep status changes out of action dependencies. */
-export function useNourishActions(
+export function useNutritionStoreActions(
   commit: Commit,
   markSyncQueued: (kind: SyncKind) => void,
   drain: () => Promise<void>,

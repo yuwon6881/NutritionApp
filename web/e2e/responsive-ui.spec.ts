@@ -44,7 +44,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     test.setTimeout(120000);
     await context.addCookies(session.cookies);
     await page.setViewportSize({width,height:900});
-    await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
+    await page.addInitScript(theme=>localStorage.setItem('nutrition-theme',theme),theme);
     await page.goto('/');
     await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
     const launcher=page.getByRole('button',{name:'Add entry',exact:true});

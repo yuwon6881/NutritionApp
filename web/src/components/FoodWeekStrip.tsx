@@ -1,6 +1,6 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {ChevronLeft,ChevronRight} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {shiftDate} from '../lib/energyBalance';
 import {sharedDiaryCoordinator} from '../lib/diaryCoordinator';
 import {projectedDayIntake} from '../lib/dayIntake';
@@ -15,7 +15,7 @@ const dayWidth=64;
 const initialDaysBack=30;
 const outline='M30 1 H47 A12 12 0 0 1 59 13 V47 A12 12 0 0 1 47 59 H13 A12 12 0 0 1 1 47 V13 A12 12 0 0 1 13 1 Z';
 
-export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:string;store:Nourish;onChange:(date:string)=>void}){
+export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:string;store:NutritionStore;onChange:(date:string)=>void}){
   const [range,setRange]=useState(()=>({from:shiftDate(date,-initialDaysBack)<earliest?earliest:shiftDate(date,-initialDaysBack),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)}));
   const [failure,setFailure]=useState('');
   const [,update]=useState(0);

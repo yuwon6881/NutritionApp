@@ -35,8 +35,8 @@ export async function prepare(page:Page,data:LocalData) {
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   await page.evaluate(async value=>{
-    localStorage.setItem('nourish-account',value.state.id);
-    const db=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open('nourish-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+    localStorage.setItem('nutrition-account',value.state.id);
+    const db=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open('nutrition-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
     await new Promise<void>((resolve,reject)=>{
       const tx=db.transaction(['accounts','mutations','drafts','saved_foods','meta'],'readwrite');
       tx.objectStore('accounts').put(value,value.state.id);

@@ -41,7 +41,7 @@ test.beforeAll(async({request})=>{
 for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme+' '+width+': compact batch, fresh searches, AI estimate and recipe',async({page,context})=>{
   await context.addCookies(session.cookies);
   await page.setViewportSize({width,height:900});
-  await page.addInitScript(theme=>localStorage.setItem('nourish-theme',theme),theme);
+  await page.addInitScript(theme=>localStorage.setItem('nutrition-theme',theme),theme);
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   // Only a due check-in may sit in the energy panel; no logging actions do.

@@ -9,7 +9,7 @@ import {Haptics,ImpactStyle,NotificationType} from '@capacitor/haptics';
  */
 export type HapticKind='selection'|'success'|'warning';
 
-const KEY='nourish-haptics';
+const KEY='nutrition-haptics';
 
 export function hapticsEnabled():boolean{
   try{return localStorage.getItem(KEY)!=='off';}catch{return true;}

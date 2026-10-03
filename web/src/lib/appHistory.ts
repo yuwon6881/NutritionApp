@@ -2,9 +2,9 @@
  * In-app Back behaviour for the PWA and the Android shell.
  *
  * History holds three kinds of entry:
- * - page entries (`__nourishPage`, `__nourishDepth`) pushed by top-level navigation;
- * - one entry per open Modal (`__nourishModal`, owned by ui/Modal);
- * - at most one guard entry (`__nourishGuard`) while any lighter layer — selection
+ * - page entries (`__nutritionPage`, `__nutritionDepth`) pushed by top-level navigation;
+ * - one entry per open Modal (`__nutritionModal`, owned by ui/Modal);
+ * - at most one guard entry (`__nutritionGuard`) while any lighter layer — selection
  *   mode, a dialog step, a popover — wants Back. Layers are consumed innermost first.
  *
  * The URL never changes: hosting only serves the app shell at `/` and `/coach`.
@@ -18,10 +18,10 @@ export interface HistoryPort {
   back():void;
 }
 
-export const PAGE_KEY='__nourishPage';
-export const DEPTH_KEY='__nourishDepth';
-export const MODAL_KEY='__nourishModal';
-export const GUARD_KEY='__nourishGuard';
+export const PAGE_KEY='__nutritionPage';
+export const DEPTH_KEY='__nutritionDepth';
+export const MODAL_KEY='__nutritionModal';
+export const GUARD_KEY='__nutritionGuard';
 
 export function readState(port:HistoryPort):HistoryState{
   const state=port.state;

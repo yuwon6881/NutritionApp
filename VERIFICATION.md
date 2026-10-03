@@ -53,17 +53,17 @@ The experiment uses a disposable SQLite database. It excludes personal food libr
 - Isolated PostgreSQL verification passed: two concurrent registration slots, tenant isolation, idempotent replay, and equivalent coaching results after compaction. The temporary schema was removed; no test users were added to public application tables.
 - A ten-year fixture of 7,300 summaries and 7,300 weights used 4,005,888 bytes including indexes in its isolated schema. This excludes other long-term entity types. The application database measured 8,421,376 bytes after removal of that schema.
 - Created an independent Cloud Run runtime identity and scoped Secret Manager access. Credentials are in ignored local deployment files and Secret Manager, excluded from Docker input.
-- Created private scan bucket `nourish-scans-396431756440`, with soft delete disabled and an age-one-day deletion lifecycle for the nutrition scan prefix. Lifecycle deletion is asynchronous; hourly application cleanup is still needed for the intended expiry contract.
+- Created private scan bucket `nutrition-scans-396431756440`, with soft delete disabled and an age-one-day deletion lifecycle for the nutrition scan prefix. Lifecycle deletion is asynchronous; hourly application cleanup is still needed for the intended expiry contract.
 - Added a nutrition-prefix-only runtime grant on the existing physique bucket. Its versioning and 30-day soft-delete settings were preserved.
 
 ## Deployed verification status (2026-09-10)
 
 This is a historical snapshot from before the central Fitness Account cutover, not current production evidence. The live cutover and infrastructure state remain unverified until the credentialed Stage G operations are completed.
 
-- **Cloud Run API**: Deployed to `https://nourish-api-i47taxhzba-as.a.run.app` (`asia-southeast1`). Runtime service account `nourish-api` scoped to Secret Manager and GCS buckets. `PublicOrigin` set to `https://nutrition-diary-app.vercel.app`.
+- **Cloud Run API**: Deployed to `https://nutrition-api-i47taxhzba-as.a.run.app` (`asia-southeast1`). Runtime service account `nutrition-api` scoped to Secret Manager and GCS buckets. `PublicOrigin` set to `https://nutrition-diary-app.vercel.app`.
 - **Vercel PWA**: Deployed to `https://nutrition-diary-app.vercel.app`. Serves PWA assets, manifest, deduplicated service worker (`sw.js`), and proxies `/api/*` and `/health` to Cloud Run with `Cache-Control: no-store`. Missing assets return 404 text responses without SPA fallback.
 - **Neon PostgreSQL**: Applied all migrations on `neondb` in `ap-southeast-1` (`ep-noisy-bar-b3gvfj2z`). Direct and pooled connections verified with SSL and channel binding. Both registration slots (1 and 2) remain open and available for user registration (`registrationOpen: true`).
-- **Cloud Scheduler**: Configured and enabled `nourish-hourly-cleanup` on `17 * * * *` invoking `POST /internal/cleanup` with `X-Cleanup-Token`. Execution verified returning HTTP 200 `{"deleted":0,"compactedEntries":0,"deletedPhotos":0}`.
+- **Cloud Scheduler**: Configured and enabled `nutrition-daily-cleanup` on `17 4 * * *` (Asia/Kuala_Lumpur) invoking `POST /internal/cleanup` with `X-Cleanup-Token`. Execution verified returning HTTP 200 `{"deleted":0,"compactedEntries":0,"deletedPhotos":0}`.
 - **Security & Origin checks**: CSRF/Origin enforcement verified (non-origin POSTs return 403; unauthorized requests return 401). Internal cleanup route returns 404 through Vercel public routing.
 - **Automated test suite**: 91 .NET tests passed; 76 frontend Vitest tests passed; TypeScript (`tsc -b`) and production PWA bundle build passed; 37 Playwright end-to-end browser scenarios passed against the isolated local API.
 

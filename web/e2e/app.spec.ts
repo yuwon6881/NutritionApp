@@ -111,7 +111,7 @@ test('responsive screens have no horizontal overflow and working touch targets',
   await signIn(context.request);await page.goto('/');await expect(page.getByRole('heading',{name:'Dashboard'})).toBeVisible();
   test.setTimeout(120000);
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
-    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;localStorage.setItem('nourish-theme',theme);},theme);
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;localStorage.setItem('nutrition-theme',theme);},theme);
     await page.setViewportSize({width,height:900});
     const items=['Dashboard','Progress','Coach','Settings'];
     for(const name of items){

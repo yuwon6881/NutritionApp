@@ -1,5 +1,5 @@
 export type Theme='light'|'dark';
-const key='nourish-theme';
+const key='nutrition-theme';
 const darkQuery='(prefers-color-scheme: dark)';
 
 export function storedTheme():Theme|null{
@@ -17,7 +17,7 @@ export const activeTheme=():Theme=>storedTheme()??systemTheme();
 
 /** Mirrors the sign-in marker used at startup so the first paint matches the screen that follows. */
 export function hasSavedSession():boolean{
-  try{return !!localStorage.getItem('nourish-account')&&localStorage.getItem('nourish-signed-out')!=='1';}
+  try{return !!localStorage.getItem('nutrition-account')&&localStorage.getItem('nutrition-signed-out')!=='1';}
   catch{return false;}
 }
 

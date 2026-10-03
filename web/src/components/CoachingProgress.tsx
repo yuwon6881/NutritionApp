@@ -1,4 +1,4 @@
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {useChartLayout} from './ui/useChartLayout';
 
@@ -12,7 +12,7 @@ function lineSegments(points:{date:string;value:number|null}[],x:(date:string)=>
   return segments;
 }
 
-export function CoachingProgress({store}:{store:Nourish}){
+export function CoachingProgress({store}:{store:NutritionStore}){
   const chart=useChartLayout();
   const state=store.state!;
   const units=unitsFor(state.settings);

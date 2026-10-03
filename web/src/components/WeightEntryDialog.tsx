@@ -1,6 +1,6 @@
 import {Form} from './ui/Form';
 import {useEffect,useState,type FormEvent} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {CoachResult,Weight} from '../types';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
@@ -17,7 +17,7 @@ import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface WeightEntryDialogProps {
   open:boolean;
-  store:Nourish;
+  store:NutritionStore;
   date?:string;
   initial?:Weight;
   onClose:()=>void;

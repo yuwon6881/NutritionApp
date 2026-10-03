@@ -36,6 +36,7 @@ import {longDate,today} from '../lib/format';
 import {hapticTick} from '../lib/haptics';
 import './logfood.css';
 import {findSavedFood} from '../lib/savedFoods';
+import {saveFoodBasketDraft} from '../lib/local';
 import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
 
 type SearchResult=import('../types').FoodSearchResult;
@@ -170,12 +171,7 @@ export function LogFood({
     recipe.clearIngredient();
     setStep('recipe');
   };
-  const finishRecipe=()=>{
-    setSelectionPurpose('log');
-    recipe.reset();
-    setTab('saved');
-    go('selection');
-  };
+  const finishRecipe=cancelRecipe;
   const recipeDirty=recipe.dirty;
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
   // A recent food goes straight to the batch review at its last portion; the review step stays.
@@ -198,7 +194,12 @@ export function LogFood({
     else if(step!=='selection')go('selection');
     else onClose();
   };
-  const close=()=>{
+  const discard=async(source:'close'|'cancel')=>{
+    if(source==='cancel'&&step==='editor'&&!editing){leaveEditor();return;}
+    if(source==='cancel'&&choosingIngredient){cancelRecipeIngredient();return;}
+    try{await Promise.all([basket.clear(),saveFoodBasketDraft(accountId,date,[])]);}catch{}
+    if(scanDraftRef.current)await removeScanDraft(date).catch(()=>undefined);
+    setDescription('');setPhoto(null);setLabelNote('');setStepDirty(false);recipe.reset();setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setPendingLinkBarcode(undefined);setBarcodeRecovery(undefined);
     onClose();
   };
   const submitAiEstimate=async()=>{
@@ -454,6 +455,7 @@ export function LogFood({
       onDescriptionChange={setDescription}
       photo={photo}
       onPhotoFile={file=>void run(async()=>{await scan.attachPhoto(await prepareImage(file));})}
+      onClearPhoto={()=>setPhoto(null)}
       hasSavedReview={hasSavedScanReview}
       scanDraft={scanDraft}
       storageError={scan.storageError}
@@ -492,6 +494,6 @@ export function LogFood({
   const readyContent=!basket.ready?<div className="dialog-step"><p role="status" aria-busy="true">Restoring your unfinished food batch…</p></div>:basket.storageError?<div className="dialog-step"><p className="notice" role="alert">{basket.storageError}</p><Button variant="secondary" onClick={()=>void basket.retrySave().catch(()=>{})}>Retry saving this batch</Button>{animatedChild}</div>:animatedChild;
   const resolvedContent=history.state&& !mealReadOnly(history.state,date) ? readyContent : content;
   return <>
-    <Modal open={open} onClose={close} onCancel={cancel} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{resolvedContent}</Modal>
+    <Modal open={open} onClose={onClose} onCancel={cancel} onDiscard={discard} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{resolvedContent}</Modal>
   </>;
 }

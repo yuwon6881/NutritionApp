@@ -1,9 +1,9 @@
-import type { Nourish } from '../useNourish';
+import type { NutritionStore } from '../useNutritionStore';
 import type { Entry } from '../types';
 
 export interface LogFoodProps {
   open: boolean;
-  store: Nourish;
+  store: NutritionStore;
   date: string;
   editing?: Entry;
   onClose: () => void;

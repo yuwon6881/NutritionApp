@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {api} from '../lib/api';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
@@ -12,7 +12,7 @@ import {useAsyncAction} from './ui/useAsyncAction';
 
 export interface CheckInDialogProps {
   open:boolean;
-  store:Nourish;
+  store:NutritionStore;
   onClose:()=>void;
   restoreFocus?:HTMLElement|null;
 }

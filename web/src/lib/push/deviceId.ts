@@ -1,4 +1,4 @@
-const DEVICE_ID_STORAGE_KEY='nourish-push-device-id';
+const DEVICE_ID_STORAGE_KEY='nutrition-push-device-id';
 
 function generateUuid(){
   if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return crypto.randomUUID();

@@ -34,7 +34,7 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
           <Button className="auth-submit" variant="primary" type="button" disabled={starting} onClick={()=>{
             if(navigationStarted.current)return;
             navigationStarted.current=true;
-            try{localStorage.removeItem('nourish-signed-out');}catch{}
+            try{localStorage.removeItem('nutrition-signed-out');}catch{}
             setStarting(true);
             window.setTimeout(()=>window.location.assign('/api/auth/central/start'),120);
           }}>

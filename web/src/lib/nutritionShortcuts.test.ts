@@ -54,7 +54,7 @@ describe('Nutrition Home Screen shortcuts',()=>{
     const storage=memoryStorage();
     captureNutritionShortcut('/?nutritionAction=log-food',storage,1000);
     expect(consumePendingNutritionShortcut(storage,1000+30*60*1000+1)).toBeNull();
-    storage.values.set('nourish-pending-shortcut-v1','{bad json');
+    storage.values.set('nutrition-pending-shortcut-v1','{bad json');
     expect(consumePendingNutritionShortcut(storage,1000)).toBeNull();
     expect(storage.values.size).toBe(0);
   });

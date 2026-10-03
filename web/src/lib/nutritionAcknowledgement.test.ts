@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import type {AppState,Mutation} from '../types';
-import {acknowledgeLocalWrite} from './nourishAcknowledgement';
+import {acknowledgeLocalWrite} from './nutritionAcknowledgement';
 import {acknowledgeState} from './acknowledgeState';
 
 it('rebases day writes without mutating retained queue records or source days',()=>{

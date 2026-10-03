@@ -1,4 +1,5 @@
-import {Camera,LoaderCircle,MessageSquareText,ScanText,Sparkles} from 'lucide-react';
+import {useRef} from 'react';
+import {Camera,LoaderCircle,MessageSquareText,ScanText,Sparkles,X} from 'lucide-react';
 import type {FoodScanDraft} from '../lib/foodScans';
 import {Button} from './ui/Button';
 import {TextArea} from './ui/Field';
@@ -18,6 +19,7 @@ export function LogFoodAiForm({
   onDescriptionChange,
   photo,
   onPhotoFile,
+  onClearPhoto,
   hasSavedReview,
   scanDraft,
   storageError,
@@ -33,12 +35,14 @@ export function LogFoodAiForm({
   onDescriptionChange:(value:string)=>void;
   photo:string|null;
   onPhotoFile:(file:File)=>void;
+  onClearPhoto?:()=>void;
   hasSavedReview:boolean;
   scanDraft:FoodScanDraft|null;
   storageError:string;
   onSubmit:()=>void;
   onBackToBarcode:()=>void;
 }){
+  const fileInputRef=useRef<HTMLInputElement>(null);
   const failed=scanDraft?.date===date&&scanDraft.status==='failed'&&scanDraft.error;
   const interrupted=scanDraft?.error==='Upload interrupted. Try again.';
   const submitLabel=busy?'Estimating…'
@@ -55,13 +59,22 @@ export function LogFoodAiForm({
       {value:'label',label:<><ScanText size={18} aria-hidden="true"/><span>Label</span></>,ariaLabel:'Nutrition label',disabled:busy&&mode!=='label'},
     ]}/>}
     {mode==='description'&&<TextArea id="ai-meal-description" name="description" disabled={busy} required label="Meal description and portions" maxLength={3000} value={description} onChange={event=>onDescriptionChange(event.target.value)} placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"/>}
-    {mode!=='description'&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo&&!hasSavedReview?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" libraryOption maxSizeLabel="1.5 MB" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file)onPhotoFile(file);}}/>}
-    {photo&&mode!=='description'&&<figure className="ai-photo-preview">
-      {/* prepareImage returns bare base64 of a JPEG re-encode (the API takes it without a prefix). */}
-      <img src={`data:image/jpeg;base64,${photo}`} alt={mode==='label'?'Selected nutrition label photo':'Selected meal photo'}/>
-      <figcaption>Location metadata removed · deleted after processing.</figcaption>
-    </figure>}
-    {mode!=='description'&&<TextArea id="ai-photo-details" name="details" disabled={busy} label="Details for the AI (optional)" maxLength={3000} hint="Portions, ingredients, cooking method, or what you left uneaten. The estimate follows these details." value={description} onChange={event=>onDescriptionChange(event.target.value)} placeholder={mode==='label'?'Ate 2 servings · per 100 g column only…':'Ate half the rice · fried in 1 tbsp oil · teh tarik less sugar…'}/>}
+    {mode!=='description'&&!photo&&<FileInput id="ai-photo-input" name="photo" validate={()=>!photo&&!hasSavedReview?'Choose a photo before continuing.':undefined} key={mode} disabled={busy} label={mode==='label'?'Photograph the nutrition label':'Photograph your food'} accept="image/*" capture="environment" libraryOption maxSizeLabel="1.5 MB" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file)onPhotoFile(file);}}/>}
+    {photo&&mode!=='description'&&<div className="ai-photo-card">
+      <input ref={fileInputRef} id="ai-photo-input" name="photo" type="file" accept="image/*" capture="environment" disabled={busy} className="accessible-native-file" style={{display:'none'}} onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file)onPhotoFile(file);}}/>
+      <figure className="ai-photo-preview">
+        {/* prepareImage returns bare base64 of a JPEG re-encode (the API takes it without a prefix). */}
+        <img src={`data:image/jpeg;base64,${photo}`} alt={mode==='label'?'Selected nutrition label photo':'Selected meal photo'}/>
+        <div className="ai-photo-preview-bar">
+          <figcaption>Location metadata removed · deleted after processing.</figcaption>
+          <div className="ai-photo-actions">
+            <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={()=>fileInputRef.current?.click()}><Camera size={14} aria-hidden="true"/>Retake</Button>
+            {onClearPhoto&&<Button type="button" variant="tertiary" size="sm" disabled={busy} onClick={onClearPhoto}><X size={14} aria-hidden="true"/>Remove</Button>}
+          </div>
+        </div>
+      </figure>
+    </div>}
+    {mode!=='description'&&<TextArea id="ai-photo-details" name="details" disabled={busy} label="Details for the AI (optional)" rows={2} maxLength={3000} value={description} onChange={event=>onDescriptionChange(event.target.value)} placeholder={mode==='label'?'e.g. 2 servings, per 100 g column only…':'e.g. half portion, cooking oil, sauces…'}/>}
     {hasSavedReview&&<p className="notice" role="status">This scan is saved on this device and ready for review.</p>}
     {failed&&<p className="notice" role="status">{interrupted?'The photo is retained on this device. Retry will use the same scan identity.':'The previous scan failed. Try again to start a new scan; the failed request will not be duplicated.'}</p>}
     {busy&&<p className="ai-busy-status" role="status">Estimating nutrients. This scan is saved on this device, so it can resume if the connection drops.</p>}

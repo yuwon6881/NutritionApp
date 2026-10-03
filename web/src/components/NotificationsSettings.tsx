@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {Bell,BellOff} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {CheckInReminder,NotificationStatus} from '../lib/notifications';
 import {activateCheckInReminder,fetchCheckInReminder,fetchNotificationStatus,registerNotificationDevice,saveCheckInReminder} from '../lib/notifications';
 import type {NotificationPlatform} from '../lib/notifications';
@@ -39,7 +39,7 @@ function deviceSupportError(installed:boolean,status?:NotificationStatus,nativeC
   return '';
 }
 
-export function NotificationsSettings({store}:{store:Nourish}){
+export function NotificationsSettings({store}:{store:NutritionStore}){
   const pwa=useMobilePwa();
   const [deviceId]=useState(getOrCreatePushDeviceId);
   const accountId = store.state!.id;
@@ -88,11 +88,11 @@ export function NotificationsSettings({store}:{store:Nourish}){
     };
     window.addEventListener('focus',refreshPermission);
     window.addEventListener('online',refreshPermission);
-    window.addEventListener('nourish-push-revocation-drained',refreshPermission);
+    window.addEventListener('nutrition-push-revocation-drained',refreshPermission);
     return()=>{
       window.removeEventListener('focus',refreshPermission);
       window.removeEventListener('online',refreshPermission);
-      window.removeEventListener('nourish-push-revocation-drained',refreshPermission);
+      window.removeEventListener('nutrition-push-revocation-drained',refreshPermission);
     };
   },[deviceId,accountId]);
 
@@ -145,7 +145,7 @@ export function NotificationsSettings({store}:{store:Nourish}){
         const platform:NotificationPlatform=native?'android':'web';
         await registerNotificationDevice(deviceId,token,platform);
         setStatus(current=>current?{...current,thisDeviceSubscribed:true}:current);
-        window.dispatchEvent(new Event('nourish-push-enabled'));
+        window.dispatchEvent(new Event('nutrition-push-enabled'));
       };
       if(activateReminder){
         const saved=await activateCheckInReminder(reminder,subscribe);
@@ -176,7 +176,7 @@ export function NotificationsSettings({store}:{store:Nourish}){
         throw new Error('The turn-off request is saved on this device and will retry when you reconnect as this account.');
       await deletePushDeviceCredential(store.state!.id,deviceId,credential.fcmToken);
       setStatus(current=>current?{...current,thisDeviceSubscribed:false}:current);
-      window.dispatchEvent(new Event('nourish-push-disabled'));
+      window.dispatchEvent(new Event('nutrition-push-disabled'));
       if(localUnregisterError)throw new Error(`The server subscription was removed, but this device could not unregister locally: ${localUnregisterError.message}`);
       setMessage('Notifications are turned off on this device. The account reminder schedule is unchanged.');
     }catch(ex){setError((ex as Error).message||'Could not turn off notifications on this device.');}

@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {sharedDiaryCoordinator} from '../lib/diaryCoordinator';
 import {projectedDayCalories} from '../lib/dayIntake';
 import {calendarTarget} from '../lib/calendarProgress';
@@ -9,7 +9,7 @@ import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {EnergyRing} from './EnergyRing';
 
 /** How the batch review's day would stand once its foods are logged. */
-export function DayEnergyPreview({store,date,batchCalories}:{store:Nourish;date:string;batchCalories:number}){
+export function DayEnergyPreview({store,date,batchCalories}:{store:NutritionStore;date:string;batchCalories:number}){
   const state=store.state!;
   const energyUnit=unitsFor(state.settings).energy;
   const unit=energyLabel(energyUnit);

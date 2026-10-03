@@ -13,7 +13,7 @@ test('legacy food compaction preserves authoritative emptiness and unsynced work
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   await page.evaluate(async value=>{
-    const db=await new Promise<IDBDatabase>(resolve=>{const request=indexedDB.open('nourish-local');request.onsuccess=()=>resolve(request.result);});
+    const db=await new Promise<IDBDatabase>(resolve=>{const request=indexedDB.open('nutrition-local');request.onsuccess=()=>resolve(request.result);});
     await new Promise<void>((resolve,reject)=>{
       const tx=db.transaction(['accounts','mutations','drafts','saved_foods','meta'],'readwrite');
       tx.objectStore('accounts').put(value,value.state.id);
@@ -24,12 +24,12 @@ test('legacy food compaction preserves authoritative emptiness and unsynced work
       tx.objectStore('meta').delete(`migrated_v2:${value.state.id}`);
       tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
     });
-    localStorage.setItem('nourish-account',value.state.id);db.close();
+    localStorage.setItem('nutrition-account',value.state.id);db.close();
   },fixture);
   await page.reload();
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   const stored=await page.evaluate(async account=>{
-    const db=await new Promise<IDBDatabase>(resolve=>{const request=indexedDB.open('nourish-local');request.onsuccess=()=>resolve(request.result);});
+    const db=await new Promise<IDBDatabase>(resolve=>{const request=indexedDB.open('nutrition-local');request.onsuccess=()=>resolve(request.result);});
     const records=await Promise.all(['accounts','saved_foods','mutations','drafts'].map(store=>new Promise<unknown>(resolve=>{
       const request=db.transaction(store,'readonly').objectStore(store).get(account);request.onsuccess=()=>resolve(request.result);
     })));

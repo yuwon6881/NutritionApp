@@ -1,6 +1,6 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {mealTime} from '../lib/foodDiary';
 import {ArrowLeft} from 'lucide-react';
 import {Button} from './ui/Button';
@@ -8,7 +8,7 @@ import {Field,TimePicker} from './ui/Field';
 import {energyLabel,parseEnergy,unitsFor} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
 
-export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:Nourish;date:string;onDone:()=>void;onBack?:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
+export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:NutritionStore;date:string;onDone:()=>void;onBack?:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const [calories,setCalories]=useState('');
   const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
   const {busy,run}=useAsyncAction();

@@ -1,5 +1,5 @@
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
 import {readoutDate,today} from '../lib/format';
 import {Button} from './ui/Button';
@@ -27,7 +27,7 @@ type Tab='weight'|'energy'|'body'|'activity';
 const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
 const progressKinds=new Set(['entry','weight','day','profile','settings']);
 
-function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean){
+function useProgressSummary(store:NutritionStore,period:ProgressPeriod,enabled:boolean){
   const [error,setError]=useState('');
   const cached=store.local?.progress?.[period];
   const [retained,setRetained]=useState<ProgressSummary|undefined>(cached);
@@ -51,7 +51,7 @@ function useProgressSummary(store:Nourish,period:ProgressPeriod,enabled:boolean)
   return {summary:activeSummary,error,loading,retry:load};
 }
 
-export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}){
+export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()=>void}){
   const [tab,setTab]=useState<Tab>('weight');
   const [weightPeriod,setWeightPeriod]=useState<ProgressPeriod>('month');
   const [energyPeriod,setEnergyPeriod]=useState<ProgressPeriod>('month');

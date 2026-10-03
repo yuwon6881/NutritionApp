@@ -80,10 +80,10 @@ substitutions:
   _NUTRITION_FCM_PROJECT_ID: 'project-7eb1aec8-8636-4c86-b2a'
   _WORKOUT_SUMMARY_URL: 'https://workout-api-i47taxhzba-as.a.run.app/api/integrations/v1/training-summary'
   # Physique photos share the FinancialApp vault bucket under the nutrition-physique/ prefix;
-  # scans use their own short-retention bucket. Both were dropped when this pipeline replaced the
-  # nourish-api one, which left photo upload and AI scanning returning 503 on the live service.
+  # scans use their own short-retention bucket. Both must be set here: a deploy without them leaves
+  # photo upload and AI scanning returning 503 on the live service.
   _PHYSIQUE_BUCKET: 'financialapp-vault-396431756440'
-  _SCAN_BUCKET: 'nourish-scans-396431756440'
+  _SCAN_BUCKET: 'nutrition-scans-396431756440'
   # Where the check-in queue delivers its wake-ups; the dispatcher route is protected by Cleanup__Token.
   _NUTRITION_API_ORIGIN: 'https://nutrition-api-i47taxhzba-as.a.run.app'
 

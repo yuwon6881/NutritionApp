@@ -25,7 +25,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'] as const){
   test(`retained weights and Close/Back stay honest at ${width}px ${theme}`,async({page,context})=>{
     await page.setViewportSize({width,height:900});
     await page.emulateMedia({reducedMotion:'reduce'});
-    await page.addInitScript(value=>localStorage.setItem('nourish-theme',value),theme);
+    await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);
     await seed(page);
     await page.getByRole('button',{name:'Progress',exact:true}).click();
     await page.getByLabel('Weight history period',{exact:true}).selectOption('all');

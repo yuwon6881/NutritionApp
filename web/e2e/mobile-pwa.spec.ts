@@ -22,9 +22,9 @@ async function signInWithProfile(page:import('@playwright/test').Page){
 async function savePushCredential(page:import('@playwright/test').Page,userId:string){
   await page.evaluate(async accountId=>{
     const deviceId='pwa-signout-test-device';
-    localStorage.setItem('nourish-push-device-id',deviceId);
+    localStorage.setItem('nutrition-push-device-id',deviceId);
     const db=await new Promise<IDBDatabase>((resolve,reject)=>{
-      const request=indexedDB.open('nourish-local');
+      const request=indexedDB.open('nutrition-local');
       request.onsuccess=()=>resolve(request.result);
       request.onerror=()=>reject(request.error);
     });
@@ -133,7 +133,7 @@ test('failed push revocation does not block sign-out and runs before session log
   expect(requests).toEqual(['revoke','logout']);
   const queued=await page.evaluate(async()=>{
     const db=await new Promise<IDBDatabase>((resolve,reject)=>{
-      const request=indexedDB.open('nourish-local');
+      const request=indexedDB.open('nutrition-local');
       request.onsuccess=()=>resolve(request.result);
       request.onerror=()=>reject(request.error);
     });

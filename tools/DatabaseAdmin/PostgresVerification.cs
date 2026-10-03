@@ -12,7 +12,7 @@ public static class PostgresVerification
 {
     public static async Task Run(string connectionString)
     {
-        var schema="nourish_verify_"+Guid.NewGuid().ToString("N");
+        var schema="nutrition_verify_"+Guid.NewGuid().ToString("N");
         await using var admin=new NpgsqlConnection(connectionString);await admin.OpenAsync();
         await new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"",admin).ExecuteNonQueryAsync();
         try

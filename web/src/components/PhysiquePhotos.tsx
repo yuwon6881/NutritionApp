@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {ArrowLeft,Camera,Scale,ArrowLeftRight} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {BodyPage,BodyRecord,PhysiqueAngle,PhysiquePhotoPage,PhysiquePhotoSet} from '../types';
 import {api} from '../lib/api';
 import {clampIndex} from '../lib/bodyMeasurements';
@@ -19,7 +19,7 @@ import './body/body.css';
 
 type BodyView='home'|'history'|'body-viewer'|'gallery'|'viewer'|'compare';
 
-export function PhysiquePhotos({store}:{store:Nourish}){
+export function PhysiquePhotos({store}:{store:NutritionStore}){
   const [page,setPage]=useState<BodyView>('home');
   const [bodyRecords,setBodyRecords]=useState<BodyRecord[]>([]);
   const [bodyCursor,setBodyCursor]=useState<string|null>(null);

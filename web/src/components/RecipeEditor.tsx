@@ -1,7 +1,7 @@
 import {Form,FieldFrame} from './ui/Form';
 import {useState} from 'react';
 import type {FoodSearchResult} from '../types';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {ArrowLeft} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Field,SelectField} from './ui/Field';
@@ -59,7 +59,7 @@ export function RecipeEditor({
   onClose,
   onSaved,
 }: {
-  store:Nourish;
+  store:NutritionStore;
   draft:RecipeDraft;
   onDraftChange:(draft:RecipeDraft)=>void;
   selected?:FoodSearchResult;

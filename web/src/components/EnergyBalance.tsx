@@ -1,5 +1,5 @@
 import {useId,useState} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {ProgressPeriod,ProgressSummary} from '../types';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {dateSpan} from '../lib/chartLabels';
@@ -14,7 +14,7 @@ import {EnergyReadout,type EnergyView} from './EnergyReadout';
 const groupingNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
 
-export function EnergyBalance({store,period,summary,error}:{store:Nourish;period:ProgressPeriod;summary?:ProgressSummary;error?:string}){
+export function EnergyBalance({store,period,summary,error}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string}){
   const state=store.state!;
   const units=unitsFor(state.settings);
   const energyUnit=energyLabel(units.energy);

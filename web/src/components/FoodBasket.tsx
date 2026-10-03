@@ -1,6 +1,6 @@
 import {useLayoutEffect,useRef,useState,type FormEvent} from 'react';
 import {ScanBarcode} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {number} from '../lib/format';
 import {mealTime} from '../lib/foodDiary';
 import {basketTotals,basketEntries} from '../lib/foodBasket';
@@ -19,7 +19,7 @@ import {useBackLayer} from '../lib/useBackLayer';
 
 export interface FoodBasketProps {
   basket:FoodBasketHook;
-  store:Nourish;
+  store:NutritionStore;
   date:string;
   onBack:()=>void;
   onSaved:()=>void;

@@ -1,6 +1,6 @@
 import {useMemo,useState} from 'react';
 import {Moon,Sun} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {nextOccurrenceAfter} from '../lib/checkIn';
 import {longDate,today} from '../lib/format';
 import {unitsFor} from '../lib/units';
@@ -30,7 +30,7 @@ function TouchFeedbackSetting(){
 }
 
 /** One settings mutation path: every change sends the whole preference record at the current revision. */
-export function useSettingsSave(store:Nourish){
+export function useSettingsSave(store:NutritionStore){
   const state=store.state!;
   const settings=state.settings??{checkInWeekday:1,revision:0};
   const units=unitsFor(settings);
@@ -58,7 +58,7 @@ export function useSettingsSave(store:Nourish){
   return {current,save,saving:Boolean(queued),savingLabel};
 }
 
-export function GeneralSettings({store,theme,onTheme}:{store:Nourish;theme:Theme;onTheme:(theme:Theme)=>void}){
+export function GeneralSettings({store,theme,onTheme}:{store:NutritionStore;theme:Theme;onTheme:(theme:Theme)=>void}){
   const {current,save}=useSettingsSave(store);
   return <>
     <SettingRow label="Appearance" description="Applies to this device.">
@@ -92,7 +92,7 @@ const missingDayDescriptions:Record<MissingDayAction,string>={
   not_logged:'Past days with no food count as not logged; they are left out of intake-based calibration.'
 };
 
-export function DiarySettings({store}:{store:Nourish}){
+export function DiarySettings({store}:{store:NutritionStore}){
   const state=store.state!;
   const {current,save}=useSettingsSave(store);
   const date=today(state.profile?.timeZone);

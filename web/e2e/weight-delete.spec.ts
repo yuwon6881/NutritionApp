@@ -7,7 +7,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await context.addCookies(session.cookies);
     await page.setViewportSize({width,height:900});
     await page.emulateMedia({reducedMotion:'reduce'});
-    await page.addInitScript(value=>localStorage.setItem('nourish-theme',value),theme);
+    await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);
     await page.goto('/');
     await page.getByRole('button',{name:'Progress',exact:true}).click();
     const rows=page.locator('.weigh-in-list .weigh-in-row');

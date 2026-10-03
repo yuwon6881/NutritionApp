@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {NativeBuildInfo} from './NativeBuildInfo';
 import {Bell,Compass,HardDrive,Link2,LogOut,SlidersHorizontal} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {activeTheme,chooseTheme,type Theme} from '../lib/theme';
 import {Button} from './ui/Button';
 import {CardFeedback} from './ui/CardFeedback';
@@ -25,7 +25,7 @@ function initials(name:string){
   return (words.length>1?words[0][0]+words[1][0]:name.trim().slice(0,2)).toUpperCase()||'?';
 }
 
-export function Settings({store,onLogout}:{store:Nourish;onLogout:()=>Promise<void>}){
+export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');
   const [theme,setTheme]=useState<Theme>(activeTheme);
   const {saving,savingLabel}=useSettingsSave(store);

@@ -7,23 +7,23 @@ import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import {useSavedFoods} from './useSavedFoods';
 import { today } from './lib/format';
 import { enqueueMutation, project, wireMutation } from './lib/projection';
-import {acknowledgeLocalWrite} from './lib/nourishAcknowledgement';
+import {acknowledgeLocalWrite} from './lib/nutritionAcknowledgement';
 import { dispatchWait, nextDispatchableMutation, undoHeldMutations } from './lib/heldMutations';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
-import { normalizePhotoDraft, uploadPendingDrafts, type SyncKind, type SyncPhase, type SyncState } from './lib/nourishDrafts';
+import { normalizePhotoDraft, uploadPendingDrafts, type SyncKind, type SyncPhase, type SyncState } from './lib/nutritionDrafts';
 import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
 import {singleFlight} from './lib/singleFlight';
 import {useTrainingSummaries} from './useTrainingSummaries';
 import {trainingWarning} from './lib/trainingFreshness';
-import {useNourishActions} from './useNourishActions';
+import {useNutritionStoreActions} from './useNutritionStoreActions';
 import {useFoodFavourite} from './useFoodFavourite';
 import {useProgressReads} from './useProgressReads';
 import {rejectedEditMessage} from './lib/rejectedEdit';
 import {showNotice} from './components/ui/UndoToast';
 export type { SyncKind, SyncPhase, SyncState };
-export function useNourish(user: string) {
+export function useNutritionStore(user: string) {
   const [calendarDate, setCalendarDate] = useState(today());
   const [local, setLocal] = useState<LocalData>();
   const [error, setError] = useState('');
@@ -420,7 +420,7 @@ export function useNourish(user: string) {
 
   const toggleFoodFavourite=useFoodFavourite(ref,loadSavedFoods,mutate);
 
-  const actions=useNourishActions(commit,markSyncQueued,drain,runPendingDrafts);
+  const actions=useNutritionStoreActions(commit,markSyncQueued,drain,runPendingDrafts);
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local?.state,local?.queue]);
 
   return {
@@ -429,4 +429,4 @@ export function useNourish(user: string) {
   };
 }
 
-export type Nourish = ReturnType<typeof useNourish>;
+export type NutritionStore = ReturnType<typeof useNutritionStore>;

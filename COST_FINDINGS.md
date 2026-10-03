@@ -34,7 +34,7 @@ vacuum-full, dropping indexes, or a speculative migration. The database size doe
 branch/history storage, backup overhead, or billed compute activity; those provider quantities and
 plan remain unknown.
 
-The separate `nourish-scans-396431756440` temporary bucket had zero live objects in the read-only
+The separate temporary scan bucket (now `nutrition-scans-396431756440`) had zero live objects in the read-only
 inventory. Storage charges for future scans depend on stored GiB-hours, operations, and egress; no
 current object-byte saving is identified. The physique-photo bucket shares infrastructure with the
 FinancialApp vault and was deliberately not inventoried. Preserve the separate scan lifecycle and
@@ -64,7 +64,7 @@ provider calls, database waits, or token usage. No new telemetry system was adde
   serverless assignment charges. The public IP itself is about $3.60 per full month at the current
   $0.005/hour rate. Exact NAT payable cost requires billing SKU data; removing it could break stable
   provider egress.
-- Keep the daily `nourish-hourly-cleanup` Scheduler job despite its historical name; it runs daily.
+- Keep the daily `nutrition-daily-cleanup` Scheduler job.
   The job count cost is account-wide after three free jobs. Do not add a frequent reminder or health
   sync scheduler.
 - No storage deletion, database change, model/prompt change, Vercel configuration change, or

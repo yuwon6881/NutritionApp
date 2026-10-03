@@ -34,7 +34,7 @@ for(const days of [7,365,3650])test(`mobile performance ${days} days`,async({pag
     await expect(page.getByRole('heading',{name:'Food Log',exact:true})).toBeVisible();
     // A visible destination can precede the previous dialog's history cleanup.
     // Complete that navigation before opening the next modal or reloading.
-    await expect.poll(()=>page.evaluate(()=>history.state?.__nourishPage==='food'&&!history.state?.__nourishModal&&!history.state?.__nourishGuard)).toBe(true);
+    await expect.poll(()=>page.evaluate(()=>history.state?.__nutritionPage==='food'&&!history.state?.__nutritionModal&&!history.state?.__nutritionGuard)).toBe(true);
     await page.getByRole('button',{name:'Add entry',exact:true}).click();
     await page.getByRole('button',{name:/Log weight/}).click();
     await page.getByLabel('Weight (kg)',{exact:true}).fill(String(80+(run%3)*.1));
@@ -54,7 +54,7 @@ for(const days of [7,365,3650])test(`mobile performance ${days} days`,async({pag
     runs.push({run,kind:run<5?'cold-cache':'warm',startup,navigation,save,...details});
     writeReport(false);
     if((run+1)%5===0)console.log(JSON.stringify({days,completedRuns:run+1}));
-    await expect.poll(()=>page.evaluate(()=>!history.state?.__nourishModal&&!history.state?.__nourishGuard)).toBe(true);
+    await expect.poll(()=>page.evaluate(()=>!history.state?.__nutritionModal&&!history.state?.__nutritionGuard)).toBe(true);
   }
   writeReport(true);
   const p95=(key:'startup'|'navigation'|'save')=>{const values=runs.slice(5).map(run=>run[key]).sort((a,b)=>a-b);return Math.round(values[18]);};

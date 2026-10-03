@@ -1,12 +1,12 @@
 import {useEffect,useState} from 'react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import {automaticMissingDays,missingDays} from '../lib/loggingDay';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
 import {Modal} from './ui/Modal';
 import {useAsyncAction} from './ui/useAsyncAction';
 
-export function MissedDays({store}:{store:Nourish}){
+export function MissedDays({store}:{store:NutritionStore}){
   const [remember,setRemember]=useState(false);
   const {busy,run}=useAsyncAction();
   const [error,setError]=useState('');

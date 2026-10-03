@@ -8,7 +8,7 @@ import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
 import {today} from './lib/format';
 import {watchTheme} from './lib/theme';
-import {useNourish} from './useNourish';
+import {useNutritionStore} from './useNutritionStore';
 import type {Entry,Weight} from './types';
 import {Button} from './components/ui/Button';
 import {Brand} from './components/ui/Brand';
@@ -49,7 +49,7 @@ const asPage=(value:unknown):Page|undefined=>PAGES.find(page=>page===value);
 function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boolean;onLogout:()=>Promise<void>;onUsable?:()=>void}){
   const firstUsable=useRef<(()=>void)|undefined>(undefined);
   if(!firstUsable.current)firstUsable.current=measurePerformance('dashboard.usable');
-  const store=useNourish(user);
+  const store=useNutritionStore(user);
   const dashboardMarked=useRef(false);
   useEffect(()=>{
     if(!store.state||dashboardMarked.current)return;
@@ -318,12 +318,12 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
       }catch{/* Keep the original shortcut URL if browser storage is blocked. */}
       const params=typeof window!=='undefined'?new URLSearchParams(window.location.search):null;
       if(params?.has('auth')){
-        try{localStorage.removeItem('nourish-signed-out');}catch{}
+        try{localStorage.removeItem('nutrition-signed-out');}catch{}
         const cleanUrl=window.location.pathname+(window.location.hash||'');
         window.history.replaceState(null,'',cleanUrl);
       }
-      if(localStorage.getItem('nourish-signed-out')==='1'){setUser(null);setAuthReady(true);return;}
-      const previous=localStorage.getItem('nourish-account');let cached=false;
+      if(localStorage.getItem('nutrition-signed-out')==='1'){setUser(null);setAuthReady(true);return;}
+      const previous=localStorage.getItem('nutrition-account');let cached=false;
       const finishHydration=measurePerformance('startup.hydration');
       const validation=api<{id:string;displayName?:string}>('/auth/me');
       // Attach a rejection handler while local storage is opening; validation proceeds in parallel.
@@ -333,9 +333,9 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
       if(active&&cached)setUser(previous);
       try{
         const account=await validation;
-        if(active&&localStorage.getItem('nourish-signed-out')!=='1'){
+        if(active&&localStorage.getItem('nutrition-signed-out')!=='1'){
           if(previous!==account.id)resetGoogleHealthState();
-          localStorage.setItem('nourish-account',account.id);setUser(account.id);setAuthReady(true);
+          localStorage.setItem('nutrition-account',account.id);setUser(account.id);setAuthReady(true);
         }
       }catch(ex){if(active){if(!cached||(ex instanceof ApiError&&ex.status===401)){resetGoogleHealthState();setUser(null);}setAuthReady(true);}}
     })();
@@ -361,8 +361,8 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
       }catch{/* Keep the exact account/device/token revocation for a later retry. */}
     }
     try{clearPendingNutritionShortcut(window.localStorage);}catch{/* The action cannot be retained when browser storage is blocked. */}
-    localStorage.setItem('nourish-signed-out','1');
-    localStorage.removeItem('nourish-account');
+    localStorage.setItem('nutrition-signed-out','1');
+    localStorage.removeItem('nutrition-account');
     setUser(null);
     try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}
   };
@@ -370,6 +370,6 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
     <ForegroundNotificationHandler userId={user} authReady={authReady}/>
-    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout} onUsable={onUsable}/>:<Auth onLogin={id=>{localStorage.removeItem('nourish-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
+    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout} onUsable={onUsable}/>:<Auth onLogin={id=>{localStorage.removeItem('nutrition-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
   </>;
 }

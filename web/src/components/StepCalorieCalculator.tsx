@@ -1,6 +1,6 @@
 import {useId,useMemo,useState} from 'react';
 import {Calculator} from 'lucide-react';
-import type {Nourish} from '../useNourish';
+import type {NutritionStore} from '../useNutritionStore';
 import type {CoachResult} from '../types';
 import {number,today} from '../lib/format';
 import {cleanTrend} from '../lib/weightSignal';
@@ -17,7 +17,7 @@ const KM_PER_MILE=1.609344;
  * height, and sex. Opened from a button in the Dashboard steps card and on the Activity tab; it only
  * informs and never changes targets or coaching.
  */
-export function StepCalorieCalculator({store,variant}:{store:Nourish;variant:'inline'|'panel'}){
+export function StepCalorieCalculator({store,variant}:{store:NutritionStore;variant:'inline'|'panel'}){
   const state=store.state!;
   const profile=state.profile;
   const units=unitsFor(state.settings);

@@ -57,7 +57,7 @@ Read-only review of `BodyRecordService`, `PhotoService`, endpoints, and the draf
 
 ### A4. Storage logic check (read-only unless a defect is proven)
 
-Review `BodyRecordService.cs`, `PhotoService.cs`, `BodyRecordEndpoints.cs`, `web/src/lib/nourishDrafts.ts`, and the body-draft path in `useNourishActions.ts` for: revision checks, idempotent mutation IDs, per-angle replace/delete without touching other angles, pending → complete photo status, tombstone cleanup of storage objects, offline draft retention and retry, tenancy filters, and `bodyFatPercent` range validation (client 0.1–99.9 vs server). Report findings; fix only proven defects, each with a regression test first.
+Review `BodyRecordService.cs`, `PhotoService.cs`, `BodyRecordEndpoints.cs`, `web/src/lib/nutritionDrafts.ts`, and the body-draft path in `useNutritionStoreActions.ts` for: revision checks, idempotent mutation IDs, per-angle replace/delete without touching other angles, pending → complete photo status, tombstone cleanup of storage objects, offline draft retention and retry, tenancy filters, and `bodyFatPercent` range validation (client 0.1–99.9 vs server). Report findings; fix only proven defects, each with a regression test first.
 
 ## Part B — AI body-fat estimate
 

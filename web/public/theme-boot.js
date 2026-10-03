@@ -5,8 +5,10 @@
   const system=()=>window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
   let theme=system();
   try{
-    const signedIn=!!localStorage.getItem('nourish-account')&&localStorage.getItem('nourish-signed-out')!=='1';
-    const saved=localStorage.getItem('nourish-theme');
+    // The pre-rename keys are read only until src/lib/legacyStorage.ts moves them, later in this first start.
+    const read=key=>localStorage.getItem('nutrition-'+key)??localStorage.getItem('nourish-'+key);
+    const signedIn=!!read('account')&&read('signed-out')!=='1';
+    const saved=read('theme');
     if(signedIn&&(saved==='light'||saved==='dark'))theme=saved;
   }catch{/* Storage can be unavailable; the browser or OS appearance applies. */}
   document.documentElement.dataset.theme=theme;
