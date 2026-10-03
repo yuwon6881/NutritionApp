@@ -1423,7 +1423,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 }
 @media(max-width:420px){
   .saved-foods-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .saved-foods-actions>.button:first-child{grid-column:1/-1}
   .saved-foods-actions .button{flex:none}
 }
 
@@ -1453,7 +1452,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
    ========================================================================== */
 
 /* Settings page: account summary, jump links on expanded widths, and grouped sections of label/control rows. */
-.settings-page{max-width:1080px;margin:0 auto}
+.settings-page{max-width:1080px;margin:0 auto;padding-bottom:clamp(120px,24vh,240px)}
 .settings-heading{flex-wrap:wrap;align-items:flex-end}
 .settings-save-status{display:flex;align-items:flex-start;gap:10px;margin:0;padding:10px 14px;border-radius:12px;background:var(--primary-tint);border:1px solid color-mix(in srgb,var(--primary) 22%,var(--border));color:var(--foreground)}
 .settings-save-status>span:last-child{display:grid;gap:3px;min-width:0}

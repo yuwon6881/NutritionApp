@@ -121,7 +121,6 @@ export function LogFoodSavedFoods({
     <div className="saved-foods-header section-heading">
       <div><h3>Your foods</h3><p>{logging?'Saved custom foods, recipes, and recent diary items.':'Choose a saved food for this ingredient.'}</p></div>
       {logging&&<div className="actions saved-foods-actions">
-        <Button variant="tertiary" onClick={()=>{onQueryChange('');onFilterChange('all');window.requestAnimationFrame(()=>document.getElementById('log-food-search')?.focus());}}>Search</Button>
         <Button variant="secondary" onClick={onCustomFood}><Plus size={16}/>Custom food</Button>
         <Button variant="secondary" onClick={onNewRecipe}><Plus size={16}/>New recipe</Button>
       </div>}

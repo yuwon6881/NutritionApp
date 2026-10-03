@@ -83,6 +83,7 @@
 /* Quick add: one number, read at a glance. */
 .quick-add-calories input{min-height:52px;font-size:1.5rem;font-weight:600;letter-spacing:-.02em;text-align:center;color:var(--ink-strong)}
 .quick-add-calories input::placeholder{color:var(--border)}
+.food-modal .quick-add .modal-actions,.quick-add .modal-actions{border-top:0;padding-top:0}
 
 /* Batch review: the total responds when a food joins or leaves. */
 .food-basket .live-calorie-value{animation:logFoodPop var(--motion-layout) var(--motion-ease) both}
@@ -101,6 +102,7 @@
   .food-modal .modal-actions{display:flex;flex-wrap:wrap;gap:8px}
   .food-modal .modal-actions>.button{flex:1 1 0;min-width:0}
   .food-modal .modal-actions>.button.primary{flex:1 1 100%;order:1;min-height:50px;font-size:.92rem}
+  .food-modal .quick-add .modal-actions{border-top:0}
 }
 @media (min-width:640px) and (max-width:1023px){
   .food-modal .modal-actions{margin-inline:-24px;padding-inline:24px}
