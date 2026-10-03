@@ -52,8 +52,9 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.getByRole('button',{name:'Add entry',exact:true}).click();
   await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log food'}).click();
   await page.getByLabel('Search term',{exact:true}).fill('old query');
-  await page.getByRole('button',{name:'Your foods',exact:true}).click();
-  await page.locator('.food-selection .section-heading .actions').getByRole('button',{name:'Search',exact:true}).click();
+  const foodMethods=page.getByRole('group',{name:'Food logging method',exact:true});
+  await foodMethods.getByRole('button',{name:'Your foods',exact:true}).click();
+  await expect(foodMethods.getByRole('button',{name:'Your foods',exact:true})).toHaveAttribute('aria-pressed','true');
   await expect(page.getByLabel('Find your food')).toHaveValue('');
   await page.getByLabel('Find your food').fill('Greek');
   await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt'}).click();
@@ -69,7 +70,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await expect(page.getByLabel('Barcode digits')).toHaveValue('');
   await page.getByLabel('Barcode digits').fill('12345678');
-  await page.getByRole('button',{name:'Search',exact:true}).first().click();
+  await foodMethods.getByRole('button',{name:'Search',exact:true}).click();
   await expect(page.getByLabel('Search term',{exact:true})).toHaveValue('');
   await page.route('**/api/scans',async route=>{
     const input=route.request().postDataJSON();expect(input.mode).toBe('description');expect(input.imageBase64).toBeNull();
