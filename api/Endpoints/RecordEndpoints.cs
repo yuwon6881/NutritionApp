@@ -186,11 +186,12 @@ public static class RecordEndpoints
         var start = from ?? today.AddDays(-89);
         var end = to ?? today.AddDays(14);
         var cached = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
-        // Peer context is informational and is revalidated at a two-minute cadence. A fresh cache
+        // Peer context is informational and is revalidated at a 15-minute cadence. A fresh cache
         // answers an unchanged browser read with no Workout call; an older cache falls through to
         // WorkoutSummaryService for revalidation.
+        var force = http.Request.Query["force"] == "true";
         var ifNoneMatch = http.Request.Headers.IfNoneMatch.ToString();
-        if (ifNoneMatch.Length > 0 && cached?.LastSuccessAt >= DateTime.UtcNow.AddMinutes(-2)
+        if (!force && ifNoneMatch.Length > 0 && cached?.LastSuccessAt >= DateTime.UtcNow.AddMinutes(-15)
             && ifNoneMatch == await TrainingEtag(db, user.Id, cached.Revision, start, end, ct))
         {
             http.Response.Headers.ETag = ifNoneMatch;

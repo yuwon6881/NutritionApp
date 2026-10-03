@@ -49,6 +49,10 @@
 .swatch-deficit{background:var(--protein)}
 .swatch-scale{background:var(--muted-foreground)}
 .swatch-trend{border-color:var(--primary);border-top-width:3px}
+.swatch-coaching-maintenance{border-top:3px solid var(--primary);border-top-style:solid}
+.swatch-coaching-goal{border-top:2px dashed var(--protein);border-top-style:dashed}
+.swatch-coaching-accepted{border-top:2px dotted var(--muted-foreground);border-top-style:dotted;opacity:.8}
+.legend-hint{font-size:.68rem;color:var(--muted-foreground);margin-left:2px}
 
 /* Energy: two charts of one period, one scroll position. */
 .chart-block{margin-top:6px}
@@ -86,7 +90,7 @@
   /* Two lines are reserved for every value, so a longer one never pushes the chart down. */
   .chart-readout-grid dd{min-height:2.6em;font-size:.8rem;line-height:1.3}
   .chart-readout-grid dd small{display:block}
-  .chart-legend{justify-content:flex-start;gap:6px 12px}
+  .chart-legend{justify-content:center;gap:6px 12px;text-align:center}
   .chart-block+.chart-block{margin-top:24px;padding-top:20px}
   .weigh-in-row{gap:12px}
 }
@@ -116,9 +120,12 @@
 .energy-readout-cells .is-surplus dd{color:var(--carbs)}
 .energy-readout-cells .is-deficit dd{color:var(--protein)}
 @media(max-width:639px){
+  .chart-readout.energy-readout{padding:10px 10px 8px;gap:8px}
   .energy-readout-cells{gap:6px}
-  .energy-readout-cells>div{padding:8px}
-  .energy-readout-cells dd{font-size:.92rem}
-  /* Two lines are reserved so a longer note never pushes the chart down. */
-  .energy-readout-cells small{min-height:2.8em}
+  .energy-readout-cells>div{display:flex;flex-direction:column;justify-content:space-between;padding:8px 6px;border-radius:8px}
+  .energy-readout-cells dt{flex-wrap:nowrap;gap:4px;font-size:.65rem;white-space:nowrap}
+  .energy-readout-cells dt .legend-line{width:10px}
+  .energy-readout-cells dd{font-size:.88rem;line-height:1.25;margin:3px 0 2px;display:flex;align-items:baseline;gap:2px;white-space:nowrap}
+  .energy-readout-cells dd .unit{font-size:.65rem}
+  .energy-readout-cells small{font-size:.64rem;line-height:1.25;min-height:2.4em}
 }

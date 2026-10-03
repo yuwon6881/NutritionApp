@@ -1,5 +1,9 @@
 # NutritionApp enhancement plan
 
+## Android feature audit — 2026-10-03
+
+See [the source-grounded Android audit](docs/ANDROID_FEATURE_AUDIT_2026-10-03.md) for implemented native features, device-proof boundaries and prioritized candidates. Main gaps: native barcode detections are not bounded by the viewfinder, reminder readiness does not inspect disabled channels, incoming photo sharing and APK launcher shortcuts are absent. Live Updates / Xiaomi Super Island remain deferred because current diary/reminder tasks do not justify ongoing activity notifications; Xiaomi also requires scenario/access approval. These are findings and proposed work, not implemented fixes.
+
 ## Android-first performance delivery — 2026-09-28
 
 The authorized performance implementation and its measurement boundaries are recorded in [the performance report](docs/PERFORMANCE_2026-09-28.md). It preserves the existing Ayu interface, nutrition calculations, offline edits, sequential synchronization, infrastructure capacity, and provider pacing. Physical Android, production PostgreSQL query plans, and live-provider measurements remain pending.

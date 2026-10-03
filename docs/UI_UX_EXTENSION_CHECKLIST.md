@@ -40,6 +40,8 @@ Do not reimplement a button, field, form validator, select, date/time picker, mo
 
 ## 3. Implement the contract, not just the happy path
 
+For held deletion feedback, reuse the themed `UndoToast` card, wrapping message and 44 px secondary Undo action. Weigh-in deletion requires date/weight confirmation before queuing; verify Cancel, Escape/Back, focus restoration and the unchanged five-second Undo window.
+
 For each new interaction, define and render the states that apply:
 
 - initial/empty;

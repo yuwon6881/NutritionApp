@@ -27,9 +27,17 @@
 }
 
 /* Undo notice: thumb height, above the bottom navigation on compact and medium layouts. */
-.undo-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:150;display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(420px,calc(100vw - 32px));min-height:var(--touch-target);padding:6px 8px 6px 16px;background:var(--ink-strong);color:var(--background);border-radius:13px;box-shadow:0 14px 38px rgba(0,0,0,.2);font-size:.86rem}
-.undo-toast>.button{color:var(--background);flex-shrink:0}
-@media (hover:hover) and (pointer:fine){.undo-toast>.button:hover{background:color-mix(in srgb,var(--background) 14%,transparent)}}
+.undo-toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:150;
+  display:flex;align-items:center;gap:12px;
+  width:min(460px,calc(100vw - 32px));min-height:var(--touch-target);
+  padding:10px 12px;border:1px solid var(--border);border-radius:14px;
+  background:var(--card);color:var(--foreground);box-shadow:var(--shadow);
+  font-size:.875rem;line-height:1.5;
+}
+.undo-toast-icon{display:grid;place-items:center;flex-shrink:0;width:32px;height:32px;border-radius:10px;background:var(--primary-tint);color:var(--primary-ink)}
+.undo-toast-message{flex:1;min-width:0;overflow-wrap:anywhere}
+.undo-toast>.button{flex-shrink:0;min-height:44px}
 @media (max-width:1023px){
   .undo-toast{bottom:calc(84px + env(safe-area-inset-bottom))}
   html[data-keyboard='open'] .undo-toast{bottom:12px}

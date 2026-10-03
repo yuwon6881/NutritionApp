@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Undo2} from 'lucide-react';
+import {Info,Undo2} from 'lucide-react';
 import {UNDO_WINDOW_MS} from '../../lib/heldMutations';
 import {Button} from './Button';
 
@@ -58,7 +58,8 @@ export function UndoToastHost(){
 
   if(!notice&&!result)return null;
   return <div className="undo-toast" role="status" aria-live="polite">
-    <span>{notice?notice.message:result}</span>
-    {notice?.onUndo&&<Button variant="tertiary" size="sm" onClick={()=>void undo()}><Undo2 size={16} aria-hidden="true"/>Undo</Button>}
+    <span className="undo-toast-icon" aria-hidden="true"><Info size={18}/></span>
+    <span className="undo-toast-message">{notice?notice.message:result}</span>
+    {notice?.onUndo&&<Button variant="secondary" size="sm" onClick={()=>void undo()}><Undo2 size={16} aria-hidden="true"/>Undo</Button>}
   </div>;
 }

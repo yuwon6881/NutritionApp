@@ -35,5 +35,5 @@ export async function pollNutritionRevisions(
     if (local.current?.foodsLoaded && revision.foods !== (current.foodRevision ?? current.revision)) await loadSavedFoods();
   }
   // Peer data has its own provider freshness contract, independent of local revision equality.
-  if (Date.now() - lastPeerRefresh.current >= 120_000) await loadTrainingSummaries();
+  if (Date.now() - lastPeerRefresh.current >= 900_000) await loadTrainingSummaries();
 }

@@ -19,6 +19,7 @@ export function TrainingSummaryCard({
   resolved = true,
   error,
   onOpenSettings,
+  onRetry,
 }: {
   summaries?: TrainingSummary[];
   settings?: CoachingSettings;
@@ -31,6 +32,7 @@ export function TrainingSummaryCard({
   resolved?: boolean;
   error?: string | null;
   onOpenSettings?: () => void;
+  onRetry?: () => void;
 }) {
   const todayDate=today(timeZone??undefined);
   // Up-next days are the active program's remaining days this week, in program order; they lead
@@ -63,7 +65,7 @@ export function TrainingSummaryCard({
         <Dumbbell size={22} />
       </div>
     </div>
-    {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} />}
+    {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined} />}
     {loading && settled && <p className="source" role="status" aria-live="polite">Refreshing…</p>}
     {visible.length > 0 && syncedAt && Number.isFinite(Date.parse(syncedAt)) && <p className="source">Last synced <time dateTime={syncedAt}>{new Date(syncedAt).toLocaleString(undefined, { timeZone: timeZone ?? undefined })}</time></p>}
     {pending ? (

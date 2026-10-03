@@ -13,7 +13,7 @@ export function useTrainingSummaries(user: string, ref: Ref<LocalData | undefine
   const trainingEtag = useRef<string | undefined>(undefined);
   const trainingLiveAccount = useRef<string | null>(null);
   useEffect(() => { trainingEtag.current = undefined; trainingLiveAccount.current = null; }, [user]);
-  const loadTrainingSummaries = useCallback(async () => {
+  const loadTrainingSummaries = useCallback(async (force?: boolean) => {
     if (!user) return;
     if (!navigator.onLine) {
       // Offline there will be no live answer; show what is cached instead of loading forever.
@@ -21,6 +21,7 @@ export function useTrainingSummaries(user: string, ref: Ref<LocalData | undefine
       return;
     }
     if (trainingRequest.current) return trainingRequest.current;
+    if (force) trainingEtag.current = undefined;
     setTrainingLoading(true);
     setTrainingError(null);
     const signal = readController.current.signal;
@@ -39,7 +40,8 @@ export function useTrainingSummaries(user: string, ref: Ref<LocalData | undefine
           trainingCacheAccount.current = user;
         }
         if (signal.aborted || !alive.current || ref.current?.state.id !== user) return;
-        const res = await apiWithMeta<SummaryResponse>('/training/summary', {
+        const url = force ? '/training/summary?force=true' : '/training/summary';
+        const res = await apiWithMeta<SummaryResponse>(url, {
           signal,
           headers: trainingEtag.current ? { 'If-None-Match': trainingEtag.current } : undefined
         });

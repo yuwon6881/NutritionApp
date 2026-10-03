@@ -1,7 +1,7 @@
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {Nourish} from '../useNourish';
 import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
-import {today} from '../lib/format';
+import {readoutDate,today} from '../lib/format';
 import {Button} from './ui/Button';
 import {SkeletonBlock} from './ui/Skeleton';
 import {CoachingProgress} from './CoachingProgress';
@@ -21,6 +21,7 @@ import {CardFeedback} from './ui/CardFeedback';
 import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {progressDataKey} from '../lib/progressFreshness';
 import {WeightSummary} from './WeightSummary';
+import {WeightDeleteDialog} from './WeightDeleteDialog';
 
 type Tab='weight'|'energy'|'body'|'activity';
 const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
@@ -56,6 +57,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const [energyPeriod,setEnergyPeriod]=useState<ProgressPeriod>('month');
   const [weightOpen,setWeightOpen]=useState(false);
   const [weightEdit,setWeightEdit]=useState<Weight>();
+  const [weightDelete,setWeightDelete]=useState<{weight:Weight;trigger:HTMLElement}>();
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
   const weight=useProgressSummary(store,weightPeriod,tab==='weight');
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
@@ -70,7 +72,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
   const pendingWeightDeletes=new Set((store.local?.queue??[]).filter(op=>op.kind==='weight'&&op.delete).map(op=>op.recordId));
   const deleteWeight=async(weight:Weight)=>{
     const id=await store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true},{holdMs:UNDO_WINDOW_MS});
-    showUndo(`Deleted the ${displayWeight(weight.kg,units.weight,2)} ${weightLabel(units.weight)} weigh-in from ${weight.date}`,()=>store.undo([id]));
+    showUndo(`Deleted weigh-in · ${displayWeight(weight.kg,units.weight,2)} ${weightLabel(units.weight)} · ${readoutDate(weight.date)}`,()=>store.undo([id]));
   };
   const tabs=[['weight','Weight'],['energy','Energy'],['body','Body'],['activity','Activity']] as const;
   const tabDirection:1|-1=tab==='body'||tab==='activity'?-1:1;
@@ -152,7 +154,7 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
         message="Showing weigh-ins saved on this device."
       />}
       {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2></section></div>}
-      {summary&&<WeightSummary summary={summary} units={units} pending={pending||Boolean(summary.awaitingSynchronization)} onEdit={editWeight} onDelete={weight=>void deleteWeight(weight)} pendingDeletes={pendingWeightDeletes}/>}
+      {summary&&<WeightSummary summary={summary} units={units} pending={pending||Boolean(summary.awaitingSynchronization)} onEdit={editWeight} onDelete={(weight,trigger)=>setWeightDelete({weight,trigger})} pendingDeletes={pendingWeightDeletes}/>}
     </>}
     {tab==='energy'&&<>
       <div className="history-filter"><SelectField label="Energy history period" value={energyPeriod} onChange={value=>setEnergyPeriod(value as ProgressPeriod)}>
@@ -166,10 +168,11 @@ export function Progress({store,onSettings}:{store:Nourish;onSettings?:()=>void}
     {tab==='activity'&&<div className="activity-progress-hub">
       <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
       <StepCalorieCalculator store={store} variant="panel"/>
-      <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings}/>
+      <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings} onRetry={()=>void loadTrainingSummaries?.(true)}/>
     </div>}
     </div>
     </MotionPanel>
     <WeightEntryDialog open={weightOpen} store={store} date={weightEdit?.date??today(store.state!.profile?.timeZone)} initial={weightEdit} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
+    {weightDelete&&<WeightDeleteDialog weight={weightDelete.weight} unit={units.weight} restoreFocus={weightDelete.trigger} onClose={()=>setWeightDelete(undefined)} onDelete={deleteWeight}/>}
   </>;
 }

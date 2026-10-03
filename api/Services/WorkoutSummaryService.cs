@@ -112,7 +112,7 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     public static readonly TimeSpan InlineDeadline = TimeSpan.FromSeconds(2);
     /// Dedicated summary refreshes may wait out a scale-to-zero cold start of Workout, whose
     /// handler also validates the connection with Fitness Account before answering.
-    public static readonly TimeSpan RefreshDeadline = TimeSpan.FromSeconds(8);
+    public static readonly TimeSpan RefreshDeadline = TimeSpan.FromSeconds(15);
 
     public async Task<bool> IsConnected(CancellationToken ct)
         => await db.IntegrationGrants.AsNoTracking().AnyAsync(x => x.Peer == "workout" && x.Status == "active"
@@ -194,13 +194,17 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                     {
-                        breaker.RecordFailure(clock.GetUtcNow());
-                        await Save(null, from, to, now.UtcDateTime, "Workout summaries are temporarily unavailable.", ct);
+                        var failureTime = clock.GetUtcNow();
+                        breaker.RecordFailure(failureTime);
+                        var shouldRecord = cache is null || string.IsNullOrWhiteSpace(cache.SummaryJson) || breaker.IsOpen(failureTime);
+                        await Save(null, from, to, now.UtcDateTime, shouldRecord ? "Workout summaries are temporarily unavailable." : null, ct);
                     }
                     catch (HttpRequestException ex) when (ex.StatusCode is null || (int)ex.StatusCode >= 500)
                     {
-                        breaker.RecordFailure(clock.GetUtcNow());
-                        await Save(null, from, to, now.UtcDateTime, ex.Message, ct);
+                        var failureTime = clock.GetUtcNow();
+                        breaker.RecordFailure(failureTime);
+                        var shouldRecord = cache is null || string.IsNullOrWhiteSpace(cache.SummaryJson) || breaker.IsOpen(failureTime);
+                        await Save(null, from, to, now.UtcDateTime, shouldRecord ? ex.Message : null, ct);
                     }
                     catch (HttpRequestException ex)
                     {
@@ -305,9 +309,13 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
                 var existing = string.IsNullOrWhiteSpace(row.SummaryJson) ? [] : Json.Read<List<TrainingSummaryItem>>(row.SummaryJson);
                 row.SummaryJson = Json.Write(Merge(existing, items, from, to));
                 row.LastSuccessAt = now; row.LastError = ""; row.LastErrorAt = null;
+                row.Revision++; await db.SaveChangesAsync(ct);
             }
-            else { row.LastError = error ?? "Workout summary unavailable."; row.LastErrorAt = now; }
-            row.Revision++; await db.SaveChangesAsync(ct);
+            else if (!string.IsNullOrWhiteSpace(error))
+            {
+                row.LastError = error; row.LastErrorAt = now;
+                row.Revision++; await db.SaveChangesAsync(ct);
+            }
         }
         catch (DbUpdateException) { /* Cached training is informational and never blocks Nutrition. */ }
     }

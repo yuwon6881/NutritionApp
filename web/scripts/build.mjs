@@ -11,7 +11,8 @@ await build();
 // Mobile budgets: what a phone downloads on a cold start over mobile data.
 // The first load is the entry script plus every chunk index.html preloads with it.
 const KIB = 1024;
-const budgets = { firstLoad: 437 * KIB, precache: 1176 * KIB };
+// Allow the weigh-in confirmation and themed Undo surface in the offline bundle.
+const budgets = { firstLoad: 437 * KIB, precache: 1180 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

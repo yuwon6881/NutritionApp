@@ -2,18 +2,15 @@ import {useEffect,useRef,useState} from 'react';
 import {ArrowRight} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Brand} from './ui/Brand';
-import {FatSecretAttribution} from './FatSecretAttribution';
+import {CardFeedback} from './ui/CardFeedback';
 import {centralAuthError} from '../lib/centralAuthError';
 
 export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
-  const [error,setError]=useState('');
+  const [errorCode]=useState(()=>new URLSearchParams(window.location.search).get('central_error'));
   const [starting,setStarting]=useState(false);
   const navigationStarted=useRef(false);
 
   useEffect(()=>{
-    const params=new URLSearchParams(window.location.search);
-    const centralError=params.get('central_error');
-    if(centralError)setError(centralAuthError(centralError));
     const restore=()=>{navigationStarted.current=false;setStarting(false);};
     window.addEventListener('pageshow',restore);
     return()=>window.removeEventListener('pageshow',restore);
@@ -29,7 +26,11 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
           <p className="eyebrow">YOUR FOOD DIARY</p>
           <h1 id="auth-heading">Sign in to Nutrition</h1>
           <p className="auth-description">Use your Fitness Account to access your diary, nutrition targets, and progress.</p>
-          {error&&<p className="error" role="alert">{error}</p>}
+          {errorCode&&<CardFeedback
+            tone={errorCode==='access_denied'?'info':'error'}
+            title={errorCode==='access_denied'?'Sign-in cancelled':'Sign-in could not be completed'}
+            message={errorCode==='access_denied'?'You’re still signed out. Sign in again when you’re ready to allow access to Nutrition.':centralAuthError(errorCode)}
+          />}
           <Button className="auth-submit" variant="primary" type="button" disabled={starting} onClick={()=>{
             if(navigationStarted.current)return;
             navigationStarted.current=true;
@@ -42,7 +43,7 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
           {starting&&<p className="auth-status" role="status">Starting secure sign-in…</p>}
           <p className="auth-registration">New to Nutrition? You can create an account on the next screen.</p>
         </section>
-        <footer className="auth-footer">Food diary <span aria-hidden="true">·</span> Nutrition targets <span aria-hidden="true">·</span> Progress <span aria-hidden="true">·</span> <FatSecretAttribution/></footer>
+        <footer className="auth-footer">Food diary <span aria-hidden="true">·</span> Nutrition targets <span aria-hidden="true">·</span> Progress</footer>
       </div>
     </main>
   );

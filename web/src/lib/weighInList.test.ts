@@ -13,4 +13,25 @@ describe('weigh-in change',()=>{
     expect(changeSincePrevious(series,'2026-09-20',81)).toBeNull();
     expect(changeSincePrevious([],'2026-09-20',81)).toBeNull();
   });
+
+  it('efficiently handles large datasets spanning years',()=>{
+    // 3,650 days (10 years) of daily weigh-in data
+    const largeSeries=Array.from({length:3650},(_,i)=>{
+      const d=new Date(Date.UTC(2016,0,1+i));
+      const date=d.toISOString().slice(0,10);
+      return {date,scaleKg:70+Math.sin(i/50)*5,trendKg:70};
+    });
+    const targetDate=largeSeries[largeSeries.length-1].date;
+    const pointBefore=largeSeries[largeSeries.length-2];
+    expect(pointBefore).toBeDefined();
+
+    const start=performance.now();
+    for(let k=0;k<100;k++){
+      const change=changeSincePrevious(largeSeries,targetDate,75);
+      expect(change).toBeCloseTo(75-pointBefore.scaleKg);
+    }
+    const elapsed=performance.now()-start;
+    // 100 binary searches across 3,650 items should take well under 10ms
+    expect(elapsed).toBeLessThan(50);
+  });
 });

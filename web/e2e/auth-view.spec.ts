@@ -17,6 +17,7 @@ test('signed-out Nutrition login follows the browser theme, ignores a saved choi
       await expect(page.getByRole('heading', {name: 'Sign in to Nutrition'})).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page.getByRole('button', {name: 'Sign in with Fitness Account'})).toBeVisible();
+      await expect(page.getByRole('link', {name: 'Powered by fatsecret Platform API'})).toHaveCount(0);
 
       const geometry = await page.evaluate(() => ({
         width: document.documentElement.clientWidth,
@@ -37,6 +38,31 @@ test('signed-out Nutrition login follows the browser theme, ignores a saved choi
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.emulateMedia({colorScheme: 'dark'});
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+
+test('cancelled Nutrition sign-in offers a neutral next step in both themes', async ({page}) => {
+  await page.addInitScript(() => localStorage.setItem('nourish-signed-out', '1'));
+  for (const width of [390, 768, 1440]) {
+    for (const theme of ['light', 'dark'] as const) {
+      await page.setViewportSize({width, height: width < 640 ? 480 : 900});
+      await page.emulateMedia({colorScheme: theme});
+      await page.goto('/?central_error=access_denied');
+      await expect(page.getByRole('status')).toContainText('Sign-in cancelled');
+      await expect(page.getByRole('status')).toContainText('You’re still signed out.');
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      const signIn = page.getByRole('button', {name: 'Sign in with Fitness Account'});
+      await expect(signIn).toBeEnabled();
+      await page.keyboard.press('Tab');
+      await expect(signIn).toBeFocused();
+      expect((await signIn.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(await signIn.evaluate(node => {
+        const box = node.getBoundingClientRect();
+        return node.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+      })).toBeTruthy();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.screenshot({path: test.info().outputPath(`nutrition-cancel-${width}-${theme}.png`), fullPage: true});
+    }
+  }
 });
 
 test('Nutrition leaves the Fitness Account theme to the browser and restores the login screen on Back', async ({page}) => {

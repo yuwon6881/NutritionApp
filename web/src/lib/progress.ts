@@ -90,7 +90,7 @@ export function projectProgressWeightSummary(
       trendChangeKg: null,
       trendPending: true
     };
-    const editableWeighIns = [...periodWeights].reverse();
+    const editableWeighIns = [...periodWeights].reverse().slice(0, 50);
     return {
       statistics: stats,
       series,
@@ -188,7 +188,8 @@ export function projectProgressWeightSummary(
 
   const editableWeighIns = Array.from(editableMap.values())
     .filter(w => !w.deleted && w.date >= range.start && w.date <= range.end)
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 50);
 
   const scaleValues = series.map(p => p.scaleKg);
   const count = scaleValues.length;

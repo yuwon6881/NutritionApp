@@ -1,5 +1,4 @@
 import type {Nourish} from '../useNourish';
-import {mondayIndex} from '../lib/dailyTargets';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {useChartLayout} from './ui/useChartLayout';
 
@@ -31,23 +30,36 @@ export function CoachingProgress({store}:{store:Nourish}){
   const y=(value:number)=>185-(value-min)/Math.max(1,max-min)*130;
   const maintenance=lineSegments(points.map(point=>({date:point.date,value:point.expenditure})),x,y);
   const goal=lineSegments(points.map(point=>({date:point.date,value:point.suggestedCalories})),x,y);
-  const acceptedFor=(date:string)=>{
-    const interval=accepted.find(item=>item.start<=date&&item.end>=date);
-    if(!interval)return null;
-    return interval.dailyCalories?.[mondayIndex(date)]??interval.calories??null;
-  };
   return <section className="panel coaching-progress">
-    <div className="section-heading"><div><h2>Coaching guidance</h2></div></div>
+    <div className="section-heading">
+      <div>
+        <h2>Coaching guidance</h2>
+        <p className="chart-description">Estimated daily burn rate alongside suggested and accepted calorie targets over time.</p>
+      </div>
+    </div>
     {!points.length?<p className="notice">Not enough data yet.</p>:<>
       <svg ref={chart.ref} viewBox={`0 0 ${chart.width} 245`} className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
         <line x1={chart.left} y1="185" x2={chart.right} y2="185" className="chart-grid"/>
-        {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);return target==null?null:<line key={interval.start} x1={x(interval.start)} x2={x(interval.end>end?end:interval.end)} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{interval.start} to {interval.end}: accepted target {displayEnergy(target,units.energy)} {energyUnit}/day</title></line>;})}
-        {maintenance.map((segment,index)=><polyline key={`maintenance-${index}`} className="trend-line" points={segment.join(' ')}/>)}
-        {goal.map((segment,index)=><polyline key={`goal-${index}`} className="goal-trend-line" points={segment.join(' ')}/>)}
+        {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);return target==null?null:<line key={interval.start} x1={x(interval.start)} x2={x(interval.end>end?end:interval.end)} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{interval.start} to {interval.end}: accepted target {displayEnergy(target,units.energy)} {energyUnit}/day (active plan)</title></line>;})}
+        {maintenance.map((segment,index)=><polyline key={`maintenance-${index}`} className="trend-line" points={segment.join(' ')}><title>Maintenance: estimated daily energy expenditure to keep weight steady</title></polyline>)}
+        {goal.map((segment,index)=><polyline key={`goal-${index}`} className="goal-trend-line" points={segment.join(' ')}><title>Provisional goal: suggested daily intake calculated by coach</title></polyline>)}
         <text x={chart.left-8} y="55" textAnchor="end">{displayEnergy(max,units.energy)}</text><text x={chart.left-8} y="185" textAnchor="end">{displayEnergy(min,units.energy)}</text>
         <text x={chart.left} y="220">{start}</text><text x={chart.right} y="220" textAnchor="end">{end}</text>
       </svg>
-      <p className="chart-key"><span className="chart-key-maintenance">Maintenance</span> · <span className="chart-key-goal">Provisional goal</span> · <span className="chart-key-accepted">Accepted target</span></p>
+      <ul className="chart-legend coaching-legend" aria-label="Coaching guidance key">
+        <li>
+          <span className="legend-line swatch-coaching-maintenance" aria-hidden="true"/>
+          <span>Maintenance <span className="legend-hint">(burn rate)</span></span>
+        </li>
+        <li>
+          <span className="legend-line swatch-coaching-goal" aria-hidden="true"/>
+          <span>Provisional goal <span className="legend-hint">(suggested)</span></span>
+        </li>
+        <li>
+          <span className="legend-line swatch-coaching-accepted" aria-hidden="true"/>
+          <span>Accepted target <span className="legend-hint">(active plan)</span></span>
+        </li>
+      </ul>
     </>}
   </section>;
 }

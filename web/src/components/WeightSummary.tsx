@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useMemo,useState} from 'react';
 import {Pencil,Trash2} from 'lucide-react';
 import type {ProgressSummary,Weight} from '../types';
 import {displayWeight,weightLabel,type unitsFor} from '../lib/units';
@@ -14,14 +14,14 @@ type Units=ReturnType<typeof unitsFor>;
 // A week of rows keeps the list short on a phone; the rest are one tap away.
 const INITIAL_ROWS=7;
 
-export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:Units;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight)=>void;pendingDeletes:ReadonlySet<string>}){
+export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:Units;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void;pendingDeletes:ReadonlySet<string>}){
   const stats=summary.weight.statistics;
   const isTrendPending=Boolean(stats.trendPending);
   const unit=weightLabel(units.weight);
-  const editable=summary.weight.editableWeighIns.filter(weight=>!pendingDeletes.has(weight.id));
+  const editable=useMemo(()=>summary.weight.editableWeighIns.filter(weight=>!pendingDeletes.has(weight.id)),[summary.weight.editableWeighIns,pendingDeletes]);
   const trendChange=stats.trendChangeKg;
   const [showAll,setShowAll]=useState(false);
-  const shown=showAll?editable:editable.slice(0,INITIAL_ROWS);
+  const shown=useMemo(()=>showAll?editable:editable.slice(0,INITIAL_ROWS),[editable,showAll]);
   return <>
     {pending&&<p className="notice" role="status">Recent edits will update after sync.</p>}
     <div className="stats-grid">
@@ -52,7 +52,7 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
           </div>
           <div className="weigh-in-actions">
             <Button variant="tertiary" size="icon" aria-label={`Edit weigh-in from ${spoken}`} onClick={event=>onEdit(weight,event.currentTarget)}><Pencil size={17} aria-hidden="true"/></Button>
-            <Button variant="tertiary" size="icon" className="weigh-in-delete" aria-label={`Delete weigh-in from ${spoken}`} onClick={()=>onDelete(weight)}><Trash2 size={17} aria-hidden="true"/></Button>
+            <Button variant="tertiary" size="icon" className="weigh-in-delete" aria-label={`Delete weigh-in from ${spoken}`} onClick={event=>onDelete(weight,event.currentTarget)}><Trash2 size={17} aria-hidden="true"/></Button>
           </div>
         </li>;
       })}</ul>
