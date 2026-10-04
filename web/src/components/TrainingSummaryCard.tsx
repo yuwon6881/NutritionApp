@@ -53,6 +53,9 @@ export function TrainingSummaryCard({
   // swapping a settled "No workouts" for a spinner on every background read.
   const settled = resolved || Boolean(syncedAt) || visible.length > 0;
   const pending = !settled && workoutConnected !== false;
+  // Render the status line only when it has something to say; reserving its height left a gap under the title.
+  const showLastSynced = visible.length > 0 && Boolean(syncedAt) && Number.isFinite(Date.parse(syncedAt ?? ''));
+  const hasSyncStatus = showLastSynced || (loading && settled);
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
     <div className="training-summary-header">
       <div>
@@ -64,7 +67,7 @@ export function TrainingSummaryCard({
       </div>
     </div>
     {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined} />}
-    <div className="training-sync-status">
+    {hasSyncStatus && <div className="training-sync-status">
       {visible.length > 0 && syncedAt && Number.isFinite(Date.parse(syncedAt)) ? (
         <p className="source">
           Last synced <time dateTime={syncedAt}>{new Date(syncedAt).toLocaleString(undefined, { timeZone: timeZone ?? undefined })}</time>
@@ -73,7 +76,7 @@ export function TrainingSummaryCard({
       ) : loading && settled ? (
         <p className="source" role="status" aria-live="polite"><LoaderCircle size={11} className="spin" aria-hidden="true" /> Refreshing…</p>
       ) : null}
-    </div>
+    </div>}
     {pending ? (
       <div className="training-skeleton-list" role="status" aria-live="polite" aria-busy="true">
         <span className="sr-only">{isConnected ? 'Loading workouts' : 'Checking Workout connection'}</span>

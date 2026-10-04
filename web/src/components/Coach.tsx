@@ -22,6 +22,8 @@ import {MiniUnitToggle} from './ui/MiniUnitToggle';
 import {cmFromHeightParts,displayEnergy,displayHeight,displayWeight,energyLabel,heightPartsFromCm,inputEnergy,inputWeight,parseEnergy,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {resolveGoalStartWeight} from '../lib/goalPhase';
+import {goalLabel} from '../lib/goalHistory';
+import {GoalHistoryPanel} from './GoalHistoryPanel';
 import {CardFeedback} from './ui/CardFeedback';
 import {MotionPanel} from './ui/Motion';
 import {ActivitySelection} from './ActivitySelection';
@@ -60,7 +62,7 @@ type MainTab='targets'|'plan'|'history';
 const stepOrder=['body','activity','goal','goal-details','pace','macros','macro-adjustments','distribution','review'] as const;
 const tabOrder:MainTab[]=['targets','plan','history'];
 
-export const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
+export {goalLabel};
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
 
 function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}){
@@ -664,25 +666,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     </Form>
   </section>;
 
-  const historyTab=<>
-    <section className="panel">
-      <div className="section-heading">
-        <div>
-          <h2>Accepted plans</h2>
-          <p>History of previously accepted coaching targets and macronutrient distributions.</p>
-        </div>
-      </div>
-      {plans.length===0?<p>No accepted plans yet.</p>:<dl className="plan-list">
-        {plans.map(plan=>{
-          const result=JSON.parse(plan.resultJson) as CoachResult;
-          return <div key={plan.id}>
-            <dt>{plan.date}</dt>
-            <dd>{displayEnergy(result.calories,units.energy)} {energyLabel(units.energy)} · {number(result.protein)} / {number(result.carbs)} / {number(result.fat)} g</dd>
-          </div>;
-        })}
-      </dl>}
-    </section>
-  </>;
+  const historyTab=<GoalHistoryPanel plans={plans} settings={settings}/>;
 
   return <>
     <header className="page-heading">
