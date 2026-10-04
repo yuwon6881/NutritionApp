@@ -142,6 +142,7 @@ export function TimePicker({
           id={timeId}
           type="time"
           name={timeName}
+          autoComplete="off"
           value={value || ''}
           required={required}
           disabled={disabled}

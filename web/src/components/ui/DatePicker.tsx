@@ -182,6 +182,7 @@ export interface DatePickerProps {
   id?: string;
   name?: string;
   className?: string;
+  autoComplete?: string;
 }
 
 const MONTHS = [
@@ -227,6 +228,7 @@ export function DatePicker({
   id: idProp,
   name: nameProp,
   className = '',
+  autoComplete = 'off',
 }: DatePickerProps) {
   const generatedId = useId();
   const id = idProp ?? generatedId;
@@ -408,6 +410,7 @@ export function DatePicker({
           id={id}
           name={name}
           type="date"
+          autoComplete={autoComplete}
           value={value}
           onChange={e => onChange(e.target.value)}
           min={min}
