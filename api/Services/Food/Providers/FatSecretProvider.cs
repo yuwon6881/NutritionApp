@@ -42,8 +42,7 @@ public sealed class FatSecretOptions
 public sealed class FatSecretProvider(HttpClient http,FatSecretOptions options):IFoodProvider
 {
     public const string ProviderId="fatsecret";
-    // The attribution fatsecret requires wherever its data is shown; the result source line carries it.
-    public const string Attribution="Powered by fatsecret";
+    public const string Attribution="fatsecret";
     private const string TokenUrl="https://oauth.fatsecret.com/connect/token";
     private const string SearchUrl="https://platform.fatsecret.com/rest/foods/search/v1";
     private const string FoodUrl="https://platform.fatsecret.com/rest/food/v4";

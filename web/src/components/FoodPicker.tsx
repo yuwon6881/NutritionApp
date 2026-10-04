@@ -9,11 +9,10 @@ import {Form} from './ui/Form';
 import {BarcodeCamera} from './BarcodeCamera';
 import {Modal} from './ui/Modal';
 import {displayEnergy,energyLabel} from '../lib/units';
+import {isFatSecretSource} from '../lib/foodSources';
 import {useSearchAsYouType,type SearchCache} from './useSearchAsYouType';
 import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScanner';
 import {NativeBarcodeScanner} from './NativeBarcodeScanner';
-import {FatSecretAttribution} from './FatSecretAttribution';
-import {isFatSecretSource} from '../lib/foodSources';
 
 type SearchResult = import('../types').FoodSearchResult;
 
@@ -179,7 +178,14 @@ export function FoodPicker({
           hint={tab==='barcode'?'Enter 8–14 digits or scan with the camera.':undefined}
           required
           value={query}
-          onChange={event=>{requestId.current++;setQuery(event.target.value);}}
+          onChange={event=>{
+            requestId.current++;
+            const next=event.target.value;
+            setQuery(next);
+            if(!next.trim()||(tab==='search'&&next.trim().length<3)){
+              setResults([]);
+            }
+          }}
           insideAction={searching?(
             <span className="food-search-spinner" role="status" aria-label="Searching">
               <LoaderCircle size={18} aria-hidden="true"/>
@@ -238,7 +244,7 @@ export function FoodPicker({
         >
           <div className="food-description">
             <strong>{result.name}</strong>
-            <small>{nutritionSummary(result,energyUnit)} · {result.source}</small>
+            <small>{nutritionSummary(result,energyUnit)}{!isFatSecretSource(result.source)?` · ${result.source}`:''}</small>
           </div>
           <Button
             variant="tertiary"
@@ -254,6 +260,5 @@ export function FoodPicker({
         </div>;
       })}
     </div>}
-    {results.some(result=>isFatSecretSource(result.source))&&<p className="source food-search-attribution"><FatSecretAttribution/></p>}
   </>;
 }

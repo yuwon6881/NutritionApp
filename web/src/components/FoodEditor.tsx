@@ -11,7 +11,6 @@ import {parsePortions,serializePortions,validatePortions} from '../lib/portions'
 import {energyLabel,inputAmount,inputEnergy,parseEnergy} from '../lib/units';
 import {number} from '../lib/format';
 import {useAsyncAction} from './ui/useAsyncAction';
-import {FatSecretAttribution} from './FatSecretAttribution';
 import {isFatSecretSource} from '../lib/foodSources';
 
 export type FoodDraft=Nutrients&{
@@ -165,7 +164,7 @@ export function FoodEditor({
         <>
           <div className="review-food-heading">
             <h3>{draft.name}</h3>
-            <small className="source">{isFatSecretSource(draft.source)?<FatSecretAttribution/>:draft.source}</small>
+            {!isFatSecretSource(draft.source)&&<small className="source">{draft.source}</small>}
           </div>
 
           <div className="live-calorie-card">
@@ -255,7 +254,7 @@ export function FoodEditor({
         <Button type="button" variant="secondary" onClick={()=>setPortionDrafts(current=>[...current,{label:'',grams:''}])}><Plus size={16}/>Add portion</Button>
         {portionError&&<p className="error" role="alert">{portionError}</p>}
       </fieldset>}
-      {!isProviderFood&&<p className="source">Source: {draft.source}</p>}
+      {!isProviderFood&&!isFatSecretSource(draft.source)&&<p className="source">Source: {draft.source}</p>}
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions">
         <Button variant="secondary" type="button" onClick={onClose}>Back</Button>

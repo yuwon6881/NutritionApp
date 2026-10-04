@@ -671,7 +671,6 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .food-row.interactive:hover{background:var(--muted);border-color:var(--border)}}
 .food-row.interactive:active{transform:scale(0.995);background:color-mix(in srgb,var(--muted) 80%,var(--card))}
 .food-search-results{display:grid;gap:8px;margin-top:10px}
-.food-search-attribution{margin:4px 0 0;text-align:right}a[href="https://platform.fatsecret.com"]{display:inline-flex;align-items:center;min-height:44px}
 .food-row.interactive:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .food-row-star{width:40px;height:40px;min-height:40px!important;padding:0!important;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:var(--muted-foreground);transition:color var(--motion-control) ease,transform 120ms ease;flex-shrink:0}
 @media (hover:hover) and (pointer:fine){
@@ -1653,6 +1652,14 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .training-row-when{display:inline-flex;align-items:center;margin-top:2px}
 .training-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:500;line-height:1.3}
 .training-tag-upcoming{background:var(--primary-tint);color:var(--primary-ink);border:1px solid color-mix(in srgb,var(--primary) 30%,transparent)}
+.training-tag-in-progress{display:inline-flex;align-items:center;gap:5px;background:color-mix(in srgb,var(--success) 14%,var(--card));color:var(--success);border:1px solid color-mix(in srgb,var(--success) 35%,transparent);font-weight:600}
+.training-pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;animation:trainingPulseDot 1.8s ease-in-out infinite}
+@keyframes trainingPulseDot{0%,100%{opacity:1;transform:scale(.95)}50%{opacity:.4;transform:scale(1.15)}}
+@media (prefers-reduced-motion: reduce){.training-pulse-dot{animation:none}}
+.training-row-in-progress{border-color:color-mix(in srgb,var(--success) 35%,var(--border));background:color-mix(in srgb,var(--success) 4%,var(--muted))}
+@media (hover:hover) and (pointer:fine){
+  .training-row-in-progress:hover{border-color:var(--success)}
+}
 .training-summary-metrics{display:flex;flex-wrap:wrap;gap:8px;font-size:.78rem;color:var(--muted-foreground)}
 .training-summary-metrics span{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-variant-numeric:tabular-nums}
 

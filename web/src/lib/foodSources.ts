@@ -2,4 +2,4 @@
 export const FATSECRET_SOURCE='Powered by fatsecret';
 export const FATSECRET_ATTRIBUTION_URL='https://platform.fatsecret.com';
 
-export const isFatSecretSource=(source:string)=>source===FATSECRET_SOURCE;
+export const isFatSecretSource=(source:string)=>source===FATSECRET_SOURCE||source==='fatsecret'||source.toLowerCase().includes('fatsecret');

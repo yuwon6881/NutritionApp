@@ -39,15 +39,13 @@ export function TrainingSummaryCard({
   // the list and are capped so recent training stays visible.
   const all=summaries??[];
   const isConnected = workoutConnected ?? all.length > 0;
+  const inProgress=all.filter(item=>item.status==='in_progress');
   const upNext=all.filter(item=>item.status==='upcoming').slice(0,UP_NEXT_LIMIT);
   const recorded=all
-    .filter(item=>item.status!=='upcoming'&&item.localDate>=shift(todayDate,-7))
-    // Workout no longer schedules dates, so recorded rows are past or today: a session in progress
-    // first, then newest first.
-    .sort((left,right)=>Number(right.status==='in_progress')-Number(left.status==='in_progress')
-      ||right.localDate.localeCompare(left.localDate)||left.workoutName.localeCompare(right.workoutName))
-    .slice(0,8-upNext.length);
-  const visible=[...upNext,...recorded];
+    .filter(item=>item.status!=='upcoming'&&item.status!=='in_progress'&&item.localDate>=shift(todayDate,-7))
+    .sort((left,right)=>right.localDate.localeCompare(left.localDate)||left.workoutName.localeCompare(right.workoutName))
+    .slice(0,Math.max(0,8-inProgress.length-upNext.length));
+  const visible=[...inProgress,...upNext,...recorded];
   const unit=unitsFor(settings).weight;
   const feedbackMessage = error ?? (resolved ? warning : null);
   // Until the first answer the connection itself is unknown, so say so rather than claim "not connected".
@@ -122,14 +120,20 @@ export function TrainingSummaryCard({
           const completed=item.status==='completed' || Boolean(item.finishedAt);
           const scheduled=item.status==='scheduled' || !item.startedAt;
           const isUpcoming=item.status==='upcoming';
+          const isInProgress=item.status==='in_progress';
           // A program day has no calendar date, so it shows no date rather than today's.
           const when=isUpcoming?'Up next':`${item.localDate} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
-          return <div className={`training-summary-row ${isUpcoming?'training-row-upcoming':''}`} key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
+          return <div className={`training-summary-row ${isUpcoming?'training-row-upcoming':''} ${isInProgress?'training-row-in-progress':''}`} key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
             <div className="training-row-main">
               <strong>{item.workoutName}</strong>
               <small className="training-row-when">
                 {isUpcoming ? (
                   <span className="training-tag training-tag-upcoming">Up next</span>
+                ) : isInProgress ? (
+                  <span className="training-tag training-tag-in-progress">
+                    <span className="training-pulse-dot" aria-hidden="true" />
+                    In progress
+                  </span>
                 ) : (
                   <span>{when}</span>
                 )}

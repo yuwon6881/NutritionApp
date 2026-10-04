@@ -253,7 +253,6 @@ export function LogFoodAiForm({
                 <span>{photo ? 'Upload another' : 'Upload photo'}</span>
               </Button>
             </div>
-            {!photo && <small className="ai-photo-hint">JPEG or PNG · compressed to 1.5 MB or less</small>}
           </div>
         ) : (
           !photo ? (
@@ -276,7 +275,6 @@ export function LogFoodAiForm({
             >
               <UploadCloud size={24} className="dropzone-icon" />
               <span className="dropzone-main-text">Choose a photo or drag & drop</span>
-              <small className="dropzone-subtext">JPEG or PNG · compressed on this device to 1.5 MB or less</small>
             </div>
           ) : (
             <div className="ai-photo-desktop-controls">
@@ -330,7 +328,6 @@ export function LogFoodAiForm({
           maxLength={3000}
           value={description}
           onChange={event => onDescriptionChange(event.target.value)}
-          placeholder={mode === 'label' ? 'e.g. 2 servings, per 100 g column only…' : 'e.g. half portion, cooking oil, sauces…'}
         />
       </>
     )}

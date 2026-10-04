@@ -62,7 +62,12 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
       if(!enabled||pending!==key){request.controller.abort();requests.current.delete(pending);}
     }
     const value=enabled?typeaheadQuery(query):null;
-    if(!value)return;
+    if(!value){
+      if(enabled&&query.trim().length<TYPEAHEAD_MIN_LENGTH){
+        onResultsRef.current([]);
+      }
+      return;
+    }
     const cached=cache.current.get(key);
     if(cached){onResultsRef.current(cached);return;}
     let active=true;
