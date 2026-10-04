@@ -93,3 +93,11 @@ export function dropTarget(rows:DropRow[],y:number):string|undefined{
   }
   return closest.time;
 }
+
+/**
+ * Today may show only this device's entries when its history cannot load. While an online fetch is
+ * still in flight the diary must keep loading: an empty device copy would read as "nothing logged".
+ */
+export function showsDeviceOnlyToday({isToday,hasHistory,loading,online}:{isToday:boolean;hasHistory:boolean;loading:boolean;online:boolean}){
+  return isToday&&!hasHistory&&(!loading||!online);
+}

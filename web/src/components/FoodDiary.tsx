@@ -6,7 +6,8 @@ import {useHistoryWindow} from '../useHistoryWindow';
 import {number,today} from '../lib/format';
 import {shiftDate} from '../lib/energyBalance';
 import {dayStatus} from '../lib/loggingDay';
-import {mealReadOnly,moveEntry,timelineSlots,type TimelineView} from '../lib/foodDiary';
+import {mealReadOnly,moveEntry,showsDeviceOnlyToday,timelineSlots,type TimelineView} from '../lib/foodDiary';
+import {useOnlineStatus} from './ui/useOnlineStatus';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
 import {SelectField} from './ui/Field';
@@ -38,7 +39,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
   const clipboard=useFoodClipboard();
 
   const current=today(store.state!.profile?.timeZone);
-  const currentUncached=!history.state&&date===current;
+  const online=useOnlineStatus();
+  const currentUncached=showsDeviceOnlyToday({isToday:date===current,hasHistory:!!history.state,loading:history.loading,online});
   const state=history.state??(currentUncached?store.state:undefined);
   const entries=state?.entries.filter(e=>!e.deleted&&e.date===date)??[];
   const day=state?.days.find(d=>d.date===date);

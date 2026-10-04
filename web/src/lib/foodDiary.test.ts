@@ -1,6 +1,6 @@
 import {afterEach,expect,it,vi} from 'vitest';
 import type {AppState,Entry,LocalData,Mutation} from '../types';
-import {mealReadOnly,mealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget} from './foodDiary';
+import {mealReadOnly,mealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget,showsDeviceOnlyToday} from './foodDiary';
 import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
 import {createPasteMutations} from './useFoodClipboard';
@@ -197,4 +197,15 @@ it('timelineSlots returns 0 rows for empty entries in data view and 24 rows in f
   expect(fullSlots).toHaveLength(24);
   expect(fullSlots[0].time).toBe('00:00');
   expect(fullSlots[23].time).toBe('23:00');
+});
+it('keeps today loading instead of showing device-only entries while its history is fetched online',()=>{
+  expect(showsDeviceOnlyToday({isToday:true,hasHistory:false,loading:true,online:true})).toBe(false);
+});
+it('falls back to device-only entries for today once the fetch ends without history or while offline',()=>{
+  expect(showsDeviceOnlyToday({isToday:true,hasHistory:false,loading:false,online:true})).toBe(true);
+  expect(showsDeviceOnlyToday({isToday:true,hasHistory:false,loading:true,online:false})).toBe(true);
+});
+it('never uses the device-only fallback for loaded history or other dates',()=>{
+  expect(showsDeviceOnlyToday({isToday:true,hasHistory:true,loading:false,online:false})).toBe(false);
+  expect(showsDeviceOnlyToday({isToday:false,hasHistory:false,loading:false,online:false})).toBe(false);
 });
