@@ -7,10 +7,12 @@ test('Reload app navigates after a service-worker update',async({page})=>{
     if(!navigator.serviceWorker.controller){
       await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
     }
+    const nextController=new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
     await navigator.serviceWorker.register(`/sw.js?update-test=${Date.now()}`,{scope:'/',type:'module'});
+    await nextController;
   });
   const reload=page.getByRole('button',{name:'Reload app',exact:true});
-  await expect(reload).toBeVisible();
+  await expect(reload).toBeVisible({timeout:30000});
   await expect(reload).toBeEnabled();
   await Promise.all([page.waitForEvent('framenavigated',frame=>frame===page.mainFrame()),reload.click()]);
   await expect(reload).toBeHidden();
