@@ -24,6 +24,18 @@ public static class IntegrationEndpoints
             return Results.Ok(await training.Get(token.Subject, ct));
         });
 
+        app.MapGet("/api/integrations/v1/nutrition-summary", async (HttpContext httpContext, OpenIddictAccessTokenService tokens,
+            IntegrationTokenService connections, NutritionPeerSummaryService summary, AppDb db,
+            DateOnly? from, DateOnly? to, int? days, CancellationToken ct) =>
+        {
+            var token = await tokens.Require(httpContext, TrainingScope, ct);
+            await connections.ValidateIncomingConnection(token, ct);
+            var user = await db.Users.SingleOrDefaultAsync(u => u.IdentitySubject == token.Subject, ct);
+            Validation.Require(user is not null, "That shared account is not mapped to this Nutrition account.", 403);
+            db.CurrentUser = user!.Id;
+            return Results.Ok(await summary.Get(token.Subject, from, to, days, ct));
+        });
+
         app.MapGet("/api/integrations/connected", async (AppDb db, IntegrationTokenService connections,
             WorkoutSummaryService summaries, CancellationToken ct) =>
         {

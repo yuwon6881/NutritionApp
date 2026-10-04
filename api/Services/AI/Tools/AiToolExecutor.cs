@@ -62,7 +62,7 @@ public sealed class AiToolExecutor
         var startedAt = Stopwatch.GetTimestamp();
         AiToolResult result;
         // Evidence is published only after the model receives a successful, bounded result.
-        var executionContext = new AiToolContext(context.EnergyUnit, context.WeightUnit, context.Today, context.Budget);
+        var executionContext = new AiToolContext(context.EnergyUnit, context.WeightUnit, context.Today, context.Budget, context.TimeZone);
         try
         {
             result = await tool.ExecuteAsync(args, executionContext, cancellationToken);

@@ -61,11 +61,11 @@ public sealed class TrainingContextService(AppDb db, IMemoryCache? cache = null)
         var profile = Json.Read<Profile>(user.ProfileJson);
         var today = RetentionService.Today(user.ProfileJson);
         var weights = await db.Weights.AsNoTracking().Where(w => !w.Deleted && w.Date <= today)
-            .OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date, w.Kg)).ToListAsync(ct);
+            .OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date, w.Kg, w.Context)).ToListAsync(ct);
         var phase = await db.PhaseDecisions.AsNoTracking()
             .SingleOrDefaultAsync(d => d.ProfileRevision == user.ProfileRevision && !d.Deleted, ct);
-        var trend = Coach.Trend(weights);
-        var progress = GoalPolicy.Evaluate(profile, weights, today, phase, user.WeightGoalMetric ?? "scale", trend);
+        var trend = WeightSignal.CleanTrend(weights, today);
+        var progress = GoalPolicy.Evaluate(profile, WeightContextPolicy.ForCalorieEstimation(weights), today, phase, user.WeightGoalMetric ?? "scale", trend);
         var effective = progress.Complete ? "maintain" : profile.Goal;
         var rawLast = weights.LastOrDefault();
         var trendLast = trend.LastOrDefault();
@@ -81,7 +81,7 @@ public sealed class TrainingContextService(AppDb db, IMemoryCache? cache = null)
     {
         // Smooth the complete history first. Re-starting the trend calculation at the 21-day
         // boundary makes the first point jump with the window and can manufacture a loss/gain.
-        var established = Coach.Trend(weights);
+        var established = WeightSignal.CleanTrend(weights, today);
         return ObservedLossFromTrend(established, today);
     }
 

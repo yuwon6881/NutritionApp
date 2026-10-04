@@ -80,6 +80,8 @@ builder.Services.AddHttpClient<GoogleHealthWeightImportService>(c=>c.Timeout=Tim
 builder.Services.AddHttpClient("workout", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient("fitness-account", c=>c.Timeout=TimeSpan.FromSeconds(10)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddHttpClient<AiChatClient>(c=>c.Timeout=TimeSpan.FromSeconds(45)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
+builder.Services.AddScoped<NutritionDailySummaryService>();
+builder.Services.AddScoped<NutritionPeerSummaryService>();
 builder.Services.AddScoped<IAiTool, GetDailySummaryTool>();
 builder.Services.AddScoped<IAiTool, GetFoodLogTool>();
 builder.Services.AddScoped<IAiTool, GetWeightTrendTool>();

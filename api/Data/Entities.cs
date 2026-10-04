@@ -391,6 +391,10 @@ public class IntegrationGrant : OwnedRecord
 public class WorkoutSummaryCache : OwnedRecord
 {
     public string SummaryJson { get; set; } = "[]";
+    public DateOnly? CoverageFrom { get; set; }
+    public DateOnly? CoverageTo { get; set; }
+    public string? CoverageTimeZone { get; set; }
+    public int SummarySchemaVersion { get; set; }
     public DateTime? LastSuccessAt { get; set; }
     public DateTime? LastErrorAt { get; set; }
     public string LastError { get; set; } = "";

@@ -1,89 +1,38 @@
 using System.Text.Json.Nodes;
-using Nutrition.Api.Services;
 
 namespace Nutrition.Api.Services.AI.Tools;
 
-public sealed class GetWorkoutSummaryTool : IAiTool
+public sealed class GetWorkoutSummaryTool(WorkoutSummaryService workouts) : IAiTool
 {
-    private readonly WorkoutSummaryService _workoutService;
-
-    public GetWorkoutSummaryTool(WorkoutSummaryService workoutService)
-    {
-        _workoutService = workoutService;
-    }
-
     public string Name => "get_workout_summary";
-    public string Description => "Get recent workout sessions synced from WorkoutApp, including training days, volume, and muscle groups. upNext lists the active program's remaining planned days this week; they have not been trained.";
-
+    public string Description => "Linked Workout sessions with coverage/freshness and adjacent completed-week comparisons. Planned and in-progress work is separate; RPE is recorded set effort, not session RPE.";
     public JsonObject ParametersSchema => new()
     {
         ["type"] = "object",
-        ["properties"] = new JsonObject
-        {
-            ["days"] = new JsonObject
-            {
-                ["type"] = "integer",
-                ["description"] = "Number of recent days of workout history (1-30, default 7)."
-            }
-        }
+        ["properties"] = new JsonObject { ["days"] = new JsonObject { ["type"] = "integer", ["description"] = "Completed-day lookback (1-30, default 14); today is included separately." } }
     };
-
-    public string ProgressLabel(AiToolArgs args) => "Looking up workout training summaries...";
-
-    public async Task<AiToolResult> ExecuteAsync(AiToolArgs args, AiToolContext context, CancellationToken cancellationToken)
+    public string ProgressLabel(AiToolArgs args) => "Checking linked training evidence...";
+    public async Task<AiToolResult> ExecuteAsync(AiToolArgs args, AiToolContext context, CancellationToken ct)
     {
-        var days = args.OptionalInt("days", 1, 30) ?? 7;
-        var fromDate = context.Today.AddDays(-(days - 1));
-
-        IReadOnlyList<TrainingSummaryItem> workouts;
-        try
+        var days = args.OptionalInt("days", 1, 30) ?? 14;
+        var result = await workouts.GetForAi(context.Today.AddDays(-days), context.Today, context.TimeZone, ct);
+        var completed = result.Items.Where(w => w.Status == "completed").ToArray();
+        var sample = completed.OrderByDescending(w => w.CompletionDate ?? w.LocalDate).Take(12).Select(w => new
         {
-            workouts = await _workoutService.Get(fromDate, context.Today, null, cancellationToken);
-        }
-        catch (Nutrition.Api.Domain.DomainException)
-        {
-            return AiToolResult.Of(new
-            {
-                connected = false,
-                message = "Workout summaries are unavailable. Check the connection in Settings.",
-                workouts = Array.Empty<object>()
-            });
-        }
-
-        // Planned program days are not training done; they are reported apart from the record.
-        var upNext = workouts.Where(w => w.Status == WorkoutSummaryService.Upcoming).Select(w => w.WorkoutName).ToList();
-        workouts = workouts.Where(w => w.Status != WorkoutSummaryService.Upcoming).ToList();
-
-        if (workouts.Count == 0)
-        {
-            return AiToolResult.Of(new
-            {
-                count = 0,
-                workouts = Array.Empty<object>(),
-                upNext,
-                message = "No workouts recorded in this time period."
-            });
-        }
-
-        context.Evidence.RecordAll(AiEvidenceLedger.Workout, workouts.Select(w => w.Id));
-
-        var list = workouts.Select(w => new
-        {
-            id = w.Id,
-            date = w.LocalDate.ToString("yyyy-MM-dd"),
-            workoutName = w.WorkoutName,
-            status = w.Status,
-            muscleGroups = w.MuscleGroups,
-            workingSetCount = w.WorkingSetCount,
-            volumeKg = w.ExternalVolumeKg.HasValue ? Math.Round(w.ExternalVolumeKg.Value, 1) : (double?)null,
-            averageRpe = w.AverageRpe.HasValue ? Math.Round(w.AverageRpe.Value, 1) : (double?)null
-        }).ToList();
-
+            w.Id, startDate = w.LocalDate, w.CompletionDate, w.WorkoutName, w.WorkingSetCount,
+            w.ExternalVolumeKg, w.SystemVolumeKg, w.ExternalVolumeComplete, w.SystemVolumeComplete, w.RepWorkingSets, w.TimedWorkingSets, w.DurationSeconds,
+            recordedSetRpe = w.AverageRpe, w.EffortRecordedSets
+        }).ToArray();
+        context.Evidence.RecordAll(AiEvidenceLedger.Workout, sample.Select(w => w.Id));
         return AiToolResult.Of(new
         {
-            count = list.Count,
-            workouts = list,
-            upNext
-        });
+            source = "WorkoutApp", result.ConnectionState, result.Availability, result.Freshness, result.Warning,
+            result.From, result.To, result.TimeZone, result.CoveredFrom, result.CoveredTo, result.LastSuccessAt, result.CompleteCoverage,
+            completedSessionCount = completed.Length, completedSessions = sample,
+            inProgress = result.Items.Where(w => w.Status == "in_progress").Select(w => new { w.WorkoutName, w.LocalDate }).ToArray(),
+            upNext = result.Items.Where(w => w.Status == WorkoutSummaryService.Upcoming).Select(w => w.WorkoutName).ToArray(),
+            comparison = WorkoutAiComparisons.Compare(result, context.Today),
+            note = "Empty results establish no workouts only with complete coverage. Legacy history has unknown completion dates. Planned days are undated, not training done. Cached completed figures are retained snapshots and may exclude later corrections."
+        }, truncated: completed.Length > sample.Length, approximate: result.Freshness == "stale");
     }
 }

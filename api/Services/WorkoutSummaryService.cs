@@ -18,7 +18,16 @@ public sealed record TrainingSummaryItem(
     int WorkingSetCount,
     double? ExternalVolumeKg,
     double? SystemVolumeKg,
-    double? AverageRpe);
+    double? AverageRpe,
+    DateOnly? CompletionDate = null,
+    int? RepWorkingSets = null,
+    int? TimedWorkingSets = null,
+    int? DurationSeconds = null,
+    int? EffortRecordedSets = null,
+    bool? EffortTracked = null,
+    IReadOnlyList<string>? ExerciseMix = null,
+    bool? ExternalVolumeComplete = null,
+    bool? SystemVolumeComplete = null);
 
 public sealed class WorkoutCircuitBreaker
 {
@@ -101,8 +110,11 @@ public sealed class WorkoutCircuitBreaker
     }
 }
 
-public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, IConfiguration config, IntegrationTokenService? peerTokens = null)
+public sealed partial class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, IConfiguration config, IntegrationTokenService? peerTokens = null,
+    ILogger<WorkoutSummaryService>? logger = null)
 {
+    public bool LastReadLive { get; private set; }
+    public bool AccessRejected { get; private set; }
     private static readonly ConcurrentDictionary<string, WorkoutCircuitBreaker> Breakers = new(StringComparer.OrdinalIgnoreCase);
 
     public static WorkoutCircuitBreaker GetBreaker(string endpoint) => Breakers.GetOrAdd(endpoint, _ => new WorkoutCircuitBreaker());
@@ -132,6 +144,8 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
     public async Task<IReadOnlyList<TrainingSummaryItem>> Get(DateOnly from, DateOnly to, string? timeZone, CancellationToken ct,
         TimeSpan? deadline = null, TimeProvider? timeProvider = null, bool cacheOnly = false)
     {
+        LastReadLive = false;
+        AccessRejected = false;
         var cache = await db.WorkoutSummaries.AsNoTracking().SingleOrDefaultAsync(ct);
         var url = config["Integrations:WorkoutTrainingSummaryUrl"];
         var connected = await IsConnected(ct);
@@ -180,6 +194,7 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
 
                         if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
                         {
+                            AccessRejected = true;
                             await Save(null, from, to, now.UtcDateTime, "Workout access is unauthorized.", ct);
                         }
                         else
@@ -188,7 +203,9 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
                             var items = (await response.Content.ReadFromJsonAsync<List<TrainingSummaryItem>>(cancellationToken: timeout.Token) ?? [])
                                 .Select(Canonical).ToList();
                             breaker.RecordSuccess();
-                            await Save(items, from, to, now.UtcDateTime, null, ct);
+                            var version = response.Headers.TryGetValues("X-Workout-Summary-Version", out var versions) && versions.Contains("2") ? 2 : 1;
+                            await Save(items, from, to, now.UtcDateTime, null, ct, timeZone, version);
+                            LastReadLive = true;
                             return items;
                         }
                     }
@@ -225,13 +242,14 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
                 }
             }
         }
-        if (cache is null || string.IsNullOrWhiteSpace(cache.SummaryJson)) return [];
+        if (AccessRejected || cache is null || string.IsNullOrWhiteSpace(cache.SummaryJson)) return [];
         try
         {
             // Without an active connection, scheduled and in-progress rows can no longer be
             // revalidated and would read as current. Only frozen completed history remains, the
             // same set an explicit disconnect keeps.
             return Json.Read<List<TrainingSummaryItem>>(cache.SummaryJson).Select(Canonical)
+                .Select(item => item with { AverageRpe = null, EffortRecordedSets = null, EffortTracked = null })
                 .Where(item => item.LocalDate >= from && item.LocalDate <= to)
                 .Where(item => connected || item.Status == "completed").ToList();
         }
@@ -261,7 +279,19 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
             // refresh may replace scheduled/in-progress rows, or promote one to completed, but
             // it must never rewrite an already-frozen completed record.
             if (mergedById.TryGetValue(item.Id, out var existingItem) && existingItem.Status == "completed")
+            {
+                var compatible = existingItem.WorkingSetCount == item.WorkingSetCount
+                    && existingItem.ExternalVolumeKg == item.ExternalVolumeKg && existingItem.SystemVolumeKg == item.SystemVolumeKg;
+                // New metadata cannot certify frozen figures that differ from a later peer correction.
+                mergedById[item.Id] = existingItem with { CompletionDate = item.CompletionDate ?? existingItem.CompletionDate,
+                    RepWorkingSets = compatible ? item.RepWorkingSets ?? existingItem.RepWorkingSets : existingItem.RepWorkingSets,
+                    TimedWorkingSets = compatible ? item.TimedWorkingSets ?? existingItem.TimedWorkingSets : existingItem.TimedWorkingSets,
+                    DurationSeconds = compatible ? item.DurationSeconds ?? existingItem.DurationSeconds : existingItem.DurationSeconds,
+                    ExerciseMix = compatible ? item.ExerciseMix ?? existingItem.ExerciseMix : existingItem.ExerciseMix,
+                    ExternalVolumeComplete = compatible ? item.ExternalVolumeComplete ?? existingItem.ExternalVolumeComplete : false,
+                    SystemVolumeComplete = compatible ? item.SystemVolumeComplete ?? existingItem.SystemVolumeComplete : false };
                 continue;
+            }
             mergedById[item.Id] = item;
         }
         var merged = mergedById.Values.ToList();
@@ -298,7 +328,7 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task Save(IReadOnlyList<TrainingSummaryItem>? items, DateOnly from, DateOnly to, DateTime now, string? error, CancellationToken ct)
+    private async Task Save(IReadOnlyList<TrainingSummaryItem>? items, DateOnly from, DateOnly to, DateTime now, string? error, CancellationToken ct, string? timeZone = null, int schemaVersion = 1)
     {
         try
         {
@@ -307,7 +337,10 @@ public sealed class WorkoutSummaryService(AppDb db, IHttpClientFactory clients, 
             if (items is not null)
             {
                 var existing = string.IsNullOrWhiteSpace(row.SummaryJson) ? [] : Json.Read<List<TrainingSummaryItem>>(row.SummaryJson);
-                row.SummaryJson = Json.Write(Merge(existing, items, from, to));
+                // Effort is not persisted: a later preference change cannot leak historic RPE through fallback.
+                row.SummaryJson = Json.Write(Merge(existing, items, from, to).Select(item => item with { AverageRpe = null, EffortRecordedSets = null, EffortTracked = null }).ToList());
+                row.CoverageFrom = from; row.CoverageTo = to; row.CoverageTimeZone = timeZone ?? "UTC";
+                row.SummarySchemaVersion = schemaVersion;
                 row.LastSuccessAt = now; row.LastError = ""; row.LastErrorAt = null;
                 row.Revision++; await db.SaveChangesAsync(ct);
             }

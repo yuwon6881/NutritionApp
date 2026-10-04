@@ -110,13 +110,15 @@ public sealed class TrainingIntegrationTests
             => new(id, status, date, null, null, name, [], sets, null, null, null);
 
         var existing = new[] { Item("session-1", "completed", Today.AddDays(-1), "Original", 4) };
-        var incoming = new[] { Item("session-1", "completed", Today.AddDays(-1), "Peer correction", 9) };
+        var incoming = new[] { Item("session-1", "completed", Today.AddDays(-1), "Peer correction", 9) with { ExternalVolumeKg = 900, ExternalVolumeComplete = true } };
 
         var merged = WorkoutSummaryService.Merge(existing, incoming, Today.AddDays(-7), Today);
 
         var result = Assert.Single(merged);
         Assert.Equal("Original", result.WorkoutName);
         Assert.Equal(4, result.WorkingSetCount);
+        Assert.Null(result.ExternalVolumeKg);
+        Assert.False(result.ExternalVolumeComplete);
     }
 
     [Fact]

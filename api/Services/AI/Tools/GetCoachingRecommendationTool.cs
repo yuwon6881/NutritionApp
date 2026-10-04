@@ -47,6 +47,10 @@ public sealed class GetCoachingRecommendationTool : IAiTool
         return AiToolResult.Of(new
         {
             available = true,
+            eligible = result.Eligible,
+            explanation = result.Explanation,
+            evidence = result.Evidence,
+            adaptive = result.Adaptive,
             energyUnit = context.EnergyUnit,
             effectiveGoal = result.EffectiveGoal,
             targetCalories = AiNutritionValues.Energy(result.Calories, context),

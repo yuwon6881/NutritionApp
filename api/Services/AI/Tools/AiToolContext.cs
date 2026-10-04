@@ -7,14 +7,16 @@ public sealed class AiToolContext
         string energyUnit,
         string weightUnit,
         DateOnly today,
-        AiTurnBudget? budget = null)
+        AiTurnBudget? budget = null, string timeZone = "UTC")
     {
+        TimeZone = TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out var zone) ? zone.Id : "UTC";
         EnergyUnit = energyUnit;
         WeightUnit = weightUnit;
         Today = today;
         Budget = budget ?? new AiTurnBudget();
     }
 
+    public string TimeZone { get; }
     public string EnergyUnit { get; }
     public string WeightUnit { get; }
     public DateOnly Today { get; }

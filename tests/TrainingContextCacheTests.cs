@@ -11,6 +11,19 @@ namespace Nutrition.Tests;
 public sealed class TrainingContextCacheTests
 {
     [Fact]
+    public void Observed_loss_ignores_temporary_weight_context_and_keeps_sustained_changes()
+    {
+        var today = new DateOnly(2026, 10, 4);
+        var weights = Enumerable.Range(0, 22).Select(i => new WeightPoint(today.AddDays(i - 21),
+            i == 21 ? 72 : 80, i == 21 ? "dehydration" : null)).ToArray();
+        var loss = TrainingContextService.ObservedLoss(weights, today);
+        Assert.NotNull(loss);
+        Assert.Equal(0, loss.Value.RatePercent);
+        var sustained = weights.Select(w => w with { Kg = 80 - .04 * (w.Date.DayNumber - weights[0].Date.DayNumber), Context = null }).ToArray();
+        Assert.True(TrainingContextService.ObservedLoss(sustained, today)!.Value.RatePercent > 0);
+    }
+
+    [Fact]
     public async Task Reuses_identical_calculations_and_invalidates_a_backdated_weight_edit()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

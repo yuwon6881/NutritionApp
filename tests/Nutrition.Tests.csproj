@@ -7,4 +7,5 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
     <ProjectReference Include="../api/Nutrition.Api.csproj" />
   </ItemGroup>
+  <ItemGroup><None Update="fixtures/fitness-ai.examples.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>
