@@ -107,7 +107,7 @@ export function FoodEditor({
   };
 
   const portions=parsePortions(draft.portionsJson);
-  const isProviderFood = !title.startsWith('Edit batch') && !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add';
+  const isProviderFood = !title.startsWith('Edit batch') && !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add' && (draft.source !== 'AI label estimate' || Boolean((draft as {key?: string}).key));
   const unitChoice=draft.unit==='g'?'g':draft.portionLabel?`portion:${draft.portionLabel}`:'serving';
   const unitOptions=[
     {value:'g',label:'Grams'},

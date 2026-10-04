@@ -471,14 +471,22 @@ test('mobile scan shortcut supports food photos and label autofill before review
     await expect.poll(()=>page.locator('.ai-photo-preview img').evaluate((img:HTMLImageElement)=>img.complete?img.naturalWidth:0)).toBeGreaterThan(0);
     await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
     const foodName=mode==='label'?'Label yoghurt':'Photo meal';
-    await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
-    await page.getByRole('button',{name:'Actions for '+foodName}).click();
-    await page.getByRole('button',{name:'Edit',exact:true}).click();
-    await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');
-    await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
-    if(mode==='label')await page.getByLabel('Calories (kcal)',{exact:true}).fill('135');
-    await page.getByRole('button',{name:'Save changes',exact:true}).click();
-    if(mode==='photo'){await page.getByRole('button',{name:'Remove '+foodName,exact:true}).click();await page.getByRole('button',{name:'Add more food'}).click();}
+    if(mode==='photo'){
+      await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
+      await page.getByRole('button',{name:'Actions for '+foodName}).click();
+      await page.getByRole('button',{name:'Edit',exact:true}).click();
+      await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');
+      await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
+      await page.getByRole('button',{name:'Save changes',exact:true}).click();
+      await page.getByRole('button',{name:'Remove '+foodName,exact:true}).click();
+      await page.getByRole('button',{name:'Add more food'}).click();
+    }else{
+      await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');
+      await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
+      await page.getByLabel('Calories (kcal)',{exact:true}).fill('135');
+      await page.getByRole('button',{name:'Add to batch',exact:true}).click();
+      await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
+    }
   }
   expect(modes).toEqual(['photo','label']);
   await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();

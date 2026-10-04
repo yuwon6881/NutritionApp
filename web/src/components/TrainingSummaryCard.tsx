@@ -61,28 +61,37 @@ export function TrainingSummaryCard({
         <p className="eyebrow" id="training-summary-title">WORKOUTS</p>
         <h2>Recent and upcoming</h2>
       </div>
-      <div className="training-icon-badge" aria-hidden="true">
+      <div className={`training-icon-badge ${loading && settled ? 'training-refreshing' : ''}`} aria-hidden="true">
         <Dumbbell size={22} />
       </div>
     </div>
     {feedbackMessage && <CardFeedback tone="warning" title="Workout sync needs attention" message={feedbackMessage} action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined} />}
-    {loading && settled && <p className="source" role="status" aria-live="polite">Refreshing…</p>}
-    {visible.length > 0 && syncedAt && Number.isFinite(Date.parse(syncedAt)) && <p className="source">Last synced <time dateTime={syncedAt}>{new Date(syncedAt).toLocaleString(undefined, { timeZone: timeZone ?? undefined })}</time></p>}
+    <div className="training-sync-status">
+      {visible.length > 0 && syncedAt && Number.isFinite(Date.parse(syncedAt)) ? (
+        <p className="source">
+          Last synced <time dateTime={syncedAt}>{new Date(syncedAt).toLocaleString(undefined, { timeZone: timeZone ?? undefined })}</time>
+          {loading && settled && <span className="training-refreshing-tag" role="status" aria-live="polite"><LoaderCircle size={11} className="spin" aria-hidden="true" /> Refreshing…</span>}
+        </p>
+      ) : loading && settled ? (
+        <p className="source" role="status" aria-live="polite"><LoaderCircle size={11} className="spin" aria-hidden="true" /> Refreshing…</p>
+      ) : null}
+    </div>
     {pending ? (
-      <div className="training-empty-state training-pending" role="status" aria-live="polite" aria-busy="true">
-        <div className="training-empty-icon" aria-hidden="true">
-          <LoaderCircle size={22} className="spin" />
-        </div>
-        <div className="training-empty-content">
-          <p className="training-empty-title">{isConnected ? 'Loading workouts' : 'Checking Workout connection'}</p>
-          <p className="training-empty-description">
-            {isConnected ? 'Fetching your sessions.' : 'This usually takes a few seconds.'}
-          </p>
-          <div className="training-pending-lines" aria-hidden="true">
-            <SkeletonBlock width="70%" height={10} />
-            <SkeletonBlock width="45%" height={10} />
+      <div className="training-skeleton-list" role="status" aria-live="polite" aria-busy="true">
+        <span className="sr-only">{isConnected ? 'Loading workouts' : 'Checking Workout connection'}</span>
+        {[0, 1, 2].map(i => (
+          <div key={i} className="training-summary-row training-row-skeleton" aria-hidden="true">
+            <div className="training-row-main">
+              <SkeletonBlock width={`${50 + i * 14}%`} height={16} />
+              <div className="training-skeleton-sub">
+                <SkeletonBlock width="68px" height={12} />
+              </div>
+            </div>
+            <div className="training-skeleton-badge">
+              <SkeletonBlock width="64px" height={22} radius={999} />
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     ) : !visible.length ? (
       <div className="training-empty-state">
@@ -112,10 +121,20 @@ export function TrainingSummaryCard({
         {visible.map((item,index)=>{
           const completed=item.status==='completed' || Boolean(item.finishedAt);
           const scheduled=item.status==='scheduled' || !item.startedAt;
+          const isUpcoming=item.status==='upcoming';
           // A program day has no calendar date, so it shows no date rather than today's.
-          const when=item.status==='upcoming'?'Up next':`${item.localDate} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
-          return <div className="training-summary-row" key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
-            <div><strong>{item.workoutName}</strong><small>{when}</small></div>
+          const when=isUpcoming?'Up next':`${item.localDate} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
+          return <div className={`training-summary-row ${isUpcoming?'training-row-upcoming':''}`} key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
+            <div className="training-row-main">
+              <strong>{item.workoutName}</strong>
+              <small className="training-row-when">
+                {isUpcoming ? (
+                  <span className="training-tag training-tag-upcoming">Up next</span>
+                ) : (
+                  <span>{when}</span>
+                )}
+              </small>
+            </div>
             <div className="training-summary-metrics">
               {item.workingSetCount>0&&<span>{item.workingSetCount} sets</span>}
               {item.externalVolumeKg!=null&&<span>{displayWeight(item.externalVolumeKg,unit,0)} {weightLabel(unit)} external volume</span>}

@@ -6,7 +6,7 @@ import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {api,ApiError} from '../lib/api';
 import {foodScanDraftForAttempt,resumeFoodScanJob,type FoodScanDraft} from '../lib/foodScans';
-import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,parseAiEstimate} from '../lib/logFood';
+import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,labelManualEntryDraft,parseAiEstimate} from '../lib/logFood';
 import {lineFromPer100,lineKey} from '../lib/foodBasket';
 import {serializePortions,parsePortions} from '../lib/portions';
 import {Button} from './ui/Button';
@@ -240,7 +240,16 @@ export function LogFood({
       setDescription('');setPhoto(null);go('editor');
       return;
     }
-    await basket.addAiFoods(estimate.foods,mode==='label'?'AI label estimate':'AI estimate',requestDraft.id);
+    if(mode==='label'){
+      const food=estimate.foods[0];
+      setLabelNote(food.notes||'');
+      setSaveFood(false);
+      setDraft(labelManualEntryDraft(food,newTime()));
+      await removeScanDraft(date).catch(()=>undefined);
+      setDescription('');setPhoto(null);go('editor');
+      return;
+    }
+    await basket.addAiFoods(estimate.foods,'AI estimate',requestDraft.id);
     await removeScanDraft(date);
     setDescription('');setPhoto(null);setLabelNote('');go('batch');
   };
@@ -421,44 +430,24 @@ export function LogFood({
       onNewRecipe={startRecipe}
     />}
     {(tab==='search'||tab==='barcode')&&!pendingBarcode&&<FoodPicker
-      tab={tab}
-      searchLabel={selectionPurpose==='recipe'?'Search ingredients':'Search term'}
-      query={query}
-      setQuery={setQuery}
-      results={results}
-      setResults={setResults}
-      busy={busy}
-      error={error}
-      setError={setError}
-      camera={camera}
-      setCamera={setCamera}
+      tab={tab} searchLabel={selectionPurpose==='recipe'?'Search ingredients':'Search term'}
+      query={query} setQuery={setQuery} results={results} setResults={setResults}
+      busy={busy} error={error} setError={setError} camera={camera} setCamera={setCamera}
       onChoose={food=>void chooseSearch(food)}
       lookup={async(kind,value)=>kind==='barcode'?resolveBarcode(value):api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value))}
       onBarcodeError={(code,problem)=>{setResults([]);setBarcodeRecovery({code,status:problem.status,message:problem.message});}}
       isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
-      onToggleSave={toggleFavourite}
-      run={run}
-      open={open}
-      step={step}
-      energyUnit={energyUnit}
-      searchCache={searchCache}
+      onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
     {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents entries={recentEntries} energyUnit={energyUnit} onPick={quickLogRecent}/>}
     {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
-      date={date}
-      busy={busy}
-      pendingBarcode={pendingBarcode}
-      mode={mode}
+      date={date} busy={busy} pendingBarcode={pendingBarcode} mode={mode}
       onModeChange={value=>{setMode(value);setPhoto(null);}}
-      description={description}
-      onDescriptionChange={setDescription}
-      photo={photo}
+      description={description} onDescriptionChange={setDescription} photo={photo}
       onPhotoFile={file=>void run(async()=>{await scan.attachPhoto(await prepareImage(file));})}
-      onClearPhoto={()=>setPhoto(null)}
-      hasSavedReview={hasSavedScanReview}
-      scanDraft={scanDraft}
-      storageError={scan.storageError}
+      onClearPhoto={()=>setPhoto(null)} hasSavedReview={hasSavedScanReview}
+      scanDraft={scanDraft} storageError={scan.storageError}
       onSubmit={()=>void run(async()=>{await submitAiEstimate();hapticTick('success');})}
       onBackToBarcode={()=>{setPendingBarcode(undefined);setTab('barcode');}}
     />}
@@ -471,17 +460,9 @@ export function LogFood({
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(editing)onClose();else leaveEditor();}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor
-      store={store}
-      draft={recipe.draft}
-      onDraftChange={recipe.setDraft}
-      selected={recipe.selected}
-      quantity={recipe.quantity}
-      onQuantityChange={recipe.setQuantity}
-      onAddIngredient={recipe.addIngredient}
-      onBeginIngredient={beginRecipeIngredient}
-      onCancelIngredient={cancelRecipeIngredient}
-      onClose={cancelRecipe}
-      onSaved={finishRecipe}
+      store={store} draft={recipe.draft} onDraftChange={recipe.setDraft} selected={recipe.selected} quantity={recipe.quantity}
+      onQuantityChange={recipe.setQuantity} onAddIngredient={recipe.addIngredient} onBeginIngredient={beginRecipeIngredient}
+      onCancelIngredient={cancelRecipeIngredient} onClose={cancelRecipe} onSaved={finishRecipe}
     />
     :selection;
   const steps:FoodStep[]=['selection','quick','editor','recipe','batch'];

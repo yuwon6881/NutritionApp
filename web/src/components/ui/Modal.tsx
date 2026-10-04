@@ -231,8 +231,10 @@ export function Modal({
     className={`modal-shell modal-width-${width} modal-${phase} ${className}`.trim()}
     aria-labelledby={titleId}
     aria-describedby={ariaDescribedBy ?? (description ? descriptionId : undefined)}
-    aria-modal="true"
-    onCancel={event=>{event.preventDefault();if(confirming)keepEditingAction();else if(!preventDismiss)requestClose('cancel');}}
+    onCancel={event=>{
+      if(event.target!==event.currentTarget){event.stopPropagation();return;}
+      event.preventDefault();if(confirming)keepEditingAction();else if(!preventDismiss)requestClose('cancel');
+    }}
     onPointerDownCapture={event=>{
       backdropPointer.current=null;backdropClick.current=false;clearDismissIntent();
       if(confirming||preventDismiss||!event.isPrimary||event.button!==0)return;

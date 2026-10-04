@@ -1,7 +1,8 @@
 import {FieldFrame} from './Form';
-import {useId, useRef, useState, type ChangeEvent, type DragEvent, type InputHTMLAttributes} from 'react';
+import {useId, useRef, useState, useEffect, type ChangeEvent, type DragEvent, type InputHTMLAttributes} from 'react';
 import {UploadCloud, FileImage, Images, X} from 'lucide-react';
 import {Button} from './Button';
+import {backCoordinator} from '../../lib/appHistory';
 
 export interface FileInputProps {
   label: string;
@@ -48,7 +49,48 @@ export function FileInput({
   // Phones have no drag and drop; offer the camera or library instead.
   const touchFirst = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 
+  const cameraActiveRef = useRef(false);
+  const unregisterCameraBack = useRef<(() => void) | null>(null);
+
+  const disarmCameraGuard = () => {
+    cameraActiveRef.current = false;
+    if (unregisterCameraBack.current) {
+      unregisterCameraBack.current();
+      unregisterCameraBack.current = null;
+    }
+  };
+
+  const armCameraGuard = () => {
+    if (cameraActiveRef.current || !touchFirst || typeof window === 'undefined') return;
+    cameraActiveRef.current = true;
+    unregisterCameraBack.current = backCoordinator().register(() => {
+      disarmCameraGuard();
+    });
+    const onFocus = () => {
+      window.setTimeout(disarmCameraGuard, 350);
+    };
+    window.addEventListener('focus', onFocus, { once: true });
+  };
+
+  useEffect(() => {
+    return () => {
+      disarmCameraGuard();
+    };
+  }, []);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    const onCancel = (e: Event) => {
+      e.stopPropagation();
+      disarmCameraGuard();
+    };
+    input.addEventListener('cancel', onCancel);
+    return () => input.removeEventListener('cancel', onCancel);
+  }, []);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    disarmCameraGuard();
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFileName(file.name);
@@ -84,6 +126,7 @@ export function FileInput({
   const chooseFromLibrary = () => {
     const input = inputRef.current;
     if (!input || disabled) return;
+    armCameraGuard();
     input.removeAttribute('capture');
     try { input.click(); } finally { if (capture) input.setAttribute('capture', String(capture)); }
   };
@@ -113,7 +156,10 @@ export function FileInput({
           // chooser instead of re-entering the outer action.
           if (event.target === inputRef.current) return;
           if (event.target instanceof Element && event.target.closest('button')) return;
-          if (!disabled) inputRef.current?.click();
+          if (!disabled) {
+            armCameraGuard();
+            inputRef.current?.click();
+          }
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -127,6 +173,7 @@ export function FileInput({
           if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
+            armCameraGuard();
             inputRef.current?.click();
           }
         }}

@@ -72,6 +72,29 @@ export function labelFoodDraft(food:AiEstimate['foods'][number],barcode:string):
   };
 }
 
+/** Pre-fills a manual entry draft from an AI nutrition label estimate for user review. */
+export function labelManualEntryDraft(food:AiEstimate['foods'][number],time?:string|null):Partial<Entry&Food>{
+  const portions=food.portionLabel&&food.portionGrams!=null&&Number.isFinite(food.portionGrams)
+    ?[{label:food.portionLabel,grams:food.portionGrams}]
+    :[];
+  return {
+    ...blankNutrients,
+    name:food.name||'',
+    calories:food.calories,
+    protein:food.protein??null,
+    carbs:food.carbs??null,
+    fat:food.fat??null,
+    fiber:food.fiber??null,
+    quantity:(typeof food.quantity==='number'&&food.quantity>0)?food.quantity:1,
+    unit:food.unit==='g'?'g':'serving',
+    portionLabel:food.portionLabel??null,
+    portionGrams:food.portionGrams??null,
+    portionsJson:serializePortions(portions),
+    source:'AI label estimate',
+    time:time??null,
+  };
+}
+
 /** A barcode food is stored per 100 g; the entered serving must state its weight. */
 export function barcodeFoodPer100(data:FoodDraft,barcode:string):FoodDraft{
   if(data.unit==='serving'&&(!data.portionLabel||data.portionGrams==null))
