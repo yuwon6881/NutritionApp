@@ -587,7 +587,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 }
 .coach-goal-option.selected{background:var(--primary-tint);border-color:var(--primary);color:var(--primary-ink)}
 .coach-goal-option:active{transform:scale(.985)}
-.coach-goal-option:focus-within{outline:2px solid var(--ring);outline-offset:3px}
+.coach-goal-option:has(:focus-visible){outline:2px solid var(--ring);outline-offset:2px}
 .coach-goal-option input[type=radio]{position:absolute;inset:0;opacity:0;width:100%;min-height:44px;height:100%;padding:0;margin:0;cursor:pointer}
 .coach-goal-option svg{opacity:0;transform:scale(.75);transition:opacity var(--coach-short),transform var(--coach-short) var(--coach-ease)}
 .coach-goal-option.selected svg{opacity:1;transform:scale(1)}

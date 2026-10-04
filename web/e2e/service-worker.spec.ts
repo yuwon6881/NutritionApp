@@ -4,8 +4,12 @@ import {signIn} from './signIn';
 test('Reload app navigates after a service-worker update',async({page})=>{
   await signIn(page);
   await page.evaluate(async()=>{
+    await navigator.serviceWorker.ready;
     if(!navigator.serviceWorker.controller){
-      await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
+      await new Promise(resolve=>{
+        navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true});
+        if(navigator.serviceWorker.controller)resolve();
+      });
     }
     const nextController=new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
     await navigator.serviceWorker.register(`/sw.js?update-test=${Date.now()}`,{scope:'/',type:'module'});

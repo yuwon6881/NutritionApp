@@ -282,6 +282,7 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await page.getByRole('button',{name:/^Next: Pace/}).click();
   await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
   for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowLeft');
+  await expect(page.getByRole('slider',{name:'Rate (% bodyweight per week)'})).toHaveAttribute('aria-valuenow','-0.35');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'High protein',exact:true}).click();
   await page.getByRole('button',{name:/^Next: Distribution/}).click();

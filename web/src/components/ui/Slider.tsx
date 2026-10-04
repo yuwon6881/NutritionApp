@@ -65,24 +65,28 @@ export function Slider({
   const gesture=usePointerGesture(trackRef,(x)=>updateFromPointer(x),!disabled);
   const isSliding=gesture.dragging;
 
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (disabled) return;
     gesture.cancel();
-    let next = value;
+    const current = valueRef.current;
+    let next = current;
     switch (e.key) {
       case 'ArrowRight':
       case 'ArrowUp':
-        next = clampAndSnap(value + step);
+        next = clampAndSnap(current + step);
         break;
       case 'ArrowLeft':
       case 'ArrowDown':
-        next = clampAndSnap(value - step);
+        next = clampAndSnap(current - step);
         break;
       case 'PageUp':
-        next = clampAndSnap(value + step * 5);
+        next = clampAndSnap(current + step * 5);
         break;
       case 'PageDown':
-        next = clampAndSnap(value - step * 5);
+        next = clampAndSnap(current - step * 5);
         break;
       case 'Home':
         next = min;
@@ -94,7 +98,8 @@ export function Slider({
         return;
     }
     e.preventDefault();
-    if (next !== value) {
+    if (next !== current) {
+      valueRef.current = next;
       onChange(next);
     }
   };
