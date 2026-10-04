@@ -1,5 +1,5 @@
 import {resetGoogleHealthState} from './lib/googleHealth';
-import {lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
+import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
@@ -46,10 +46,10 @@ type Page='today'|'food'|'progress'|'coach'|'settings';
 const PAGES:readonly Page[]=['today','food','progress','coach','settings'];
 const asPage=(value:unknown):Page|undefined=>PAGES.find(page=>page===value);
 
-function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boolean;onLogout:()=>Promise<void>;onUsable?:()=>void}){
+function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:string;authReady:boolean;onLogout:()=>Promise<void>;onUsable?:()=>void;onSessionExpired?:()=>void}){
   const firstUsable=useRef<(()=>void)|undefined>(undefined);
   if(!firstUsable.current)firstUsable.current=measurePerformance('dashboard.usable');
-  const store=useNutritionStore(user);
+  const store=useNutritionStore(user,onSessionExpired);
   const dashboardMarked=useRef(false);
   useEffect(()=>{
     if(!store.state||dashboardMarked.current)return;
@@ -290,6 +290,10 @@ function Workspace({user,authReady,onLogout,onUsable}:{user:string;authReady:boo
 
 export default function App({onUsable}:{onUsable?:()=>void}={}){
   const [user,setUser]=useState<string|null>();
+  const [sessionExpired,setSessionExpired]=useState(false);
+  // Same as an expired session found at startup: return to sign-in without the signed-out marker
+  // or clearing the account, so its saved local work syncs after the user signs in again.
+  const expireSession=useCallback(()=>{resetGoogleHealthState();setSessionExpired(true);setUser(null);},[]);
   useEffect(()=>{clearApiCooldowns();},[user]);
   const [authReady,setAuthReady]=useState(false);
   const [localDatabaseError,setLocalDatabaseError]=useState(getLocalDatabaseFailure);
@@ -370,6 +374,6 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
     <ForegroundNotificationHandler userId={user} authReady={authReady}/>
-    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout} onUsable={onUsable}/>:<Auth onLogin={id=>{localStorage.removeItem('nutrition-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
+    {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout} onUsable={onUsable} onSessionExpired={expireSession}/>:<Auth sessionExpired={sessionExpired} onLogin={id=>{localStorage.removeItem('nutrition-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
   </>;
 }

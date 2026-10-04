@@ -58,4 +58,27 @@ public sealed class FoodSearchPersonalizationTests
         Assert.Equal("Banana · Gamma",aliceResults[0].Name);
         Assert.Equal("Banana · Alpha",bobResults[0].Name);
     }
+
+    [Fact]
+    public async Task Barcoded_results_rank_by_their_own_frequency_not_their_providers()
+    {
+        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user=await TestUsers.CreateAsync(db,"coded-frequency");
+        db.CurrentUser=user.Id;
+        db.Entries.AddRange(Enumerable.Range(0,3).Select(_=>new DiaryEntry {Id=Guid.NewGuid(),UserId=user.Id,Name="Banana · Gamma",Source="Open Food Facts / ODbL",Calories=91}));
+        await db.SaveChangesAsync();
+
+        IReadOnlyList<FoodResult> results=[
+            new("Banana · Alpha",89,null,null,null,null,"Open Food Facts / ODbL",Code:"111"),
+            new("Banana · Beta",90,null,null,null,null,"Open Food Facts / ODbL",Code:"222"),
+            new("Banana · Gamma",91,null,null,null,null,"Open Food Facts / ODbL",Code:"333")
+        ];
+
+        var ranked=await FoodRanking.RankForUser(results,"banana",db,default);
+
+        Assert.Equal("Banana · Gamma",ranked[0].Name);
+    }
 }

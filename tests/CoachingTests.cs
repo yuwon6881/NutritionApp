@@ -10,6 +10,20 @@ public class CoachingTests
     private static List<NutritionDay> Days(int count = 28, double calories = 2500) => Enumerable.Range(1, count).Select(i => new NutritionDay(Today.AddDays(-i), "complete", calories)).OrderBy(d => d.Date).ToList();
     private static List<WeightPoint> Weights(double dailyChange = 0) => Enumerable.Range(1, 28).Select(i => new WeightPoint(Today.AddDays(-i), 80 - i * dailyChange)).OrderBy(w => w.Date).ToList();
 
+    [Fact]
+    public void An_adaptive_trajectory_proposal_does_not_claim_the_estimate_is_held()
+    {
+        // The preview recomputes targets from the trajectory's expenditure with adaptation off,
+        // then marks the result adaptive when the trajectory itself adapted.
+        var adaptive = Coach.Calculate(Profile(), Days(), Weights(), new PreviousPlan(2500, 2500), Today, 2400,
+            allowAdaptation: false, adaptiveOverride: true);
+        var held = Coach.Calculate(Profile(), Days(), Weights(), new PreviousPlan(2500, 2500), Today, 2400,
+            allowAdaptation: false, adaptiveOverride: false);
+
+        Assert.DoesNotContain("Holding", adaptive.Explanation);
+        Assert.Contains("Holding the accepted estimate until the next check-in.", held.Explanation);
+    }
+
     [Fact] public void Initial_targets_follow_goal_and_floor()
     {
         Assert.Equal(2500, Coach.Calculate(Profile(), [], [], null, Today).Calories);

@@ -67,7 +67,8 @@ public sealed class GoogleHealthBodyFatSyncService(
             : isDelete ? previous?.Measurements.BodyFatPercent : null;
 
         // If no body fat percent was set or updated, ignore
-        if (requestedPercent is null && !mapped) return;
+        if (requestedPercent is null && !mapped
+            && !(work is not null && GoogleHealthSyncLeases.IsCreateInFlight(work.ProcessingState, work.LeaseUntil, work.GoogleResourceName, work.GoogleOperationName))) return;
 
         var qualifiesAsNew = previous is null && !isDelete && requestedPercent is not null;
         if (work is null && (!qualifiesAsNew || !CanDispatch(connection))) return;
@@ -94,7 +95,8 @@ public sealed class GoogleHealthBodyFatSyncService(
         work.ConnectionGeneration = connection.ConnectionGeneration;
         work.UpdatedAt = DateTime.UtcNow;
 
-        if ((isDelete || requestedPercent is null) && !mapped)
+        if ((isDelete || requestedPercent is null) && !mapped
+            && !GoogleHealthSyncLeases.IsCreateInFlight(work.ProcessingState, work.LeaseUntil, work.GoogleResourceName, work.GoogleOperationName))
         {
             CancelWork(work);
             return;
@@ -261,6 +263,13 @@ public sealed class GoogleHealthBodyFatSyncService(
             await gate.Commit(ct);
             return null;
         }
+        if (GoogleHealthSyncLeases.HasNothingToDelete(work.DesiredDeleted, work.GoogleResourceName, work.GoogleOperationName))
+        {
+            CancelWork(work);
+            await db.SaveChangesAsync(ct);
+            await gate.Commit(ct);
+            return null;
+        }
         var leaseId = Guid.NewGuid().ToString("N");
         work.ProcessingState = "processing";
         work.LeaseId = leaseId;
@@ -355,7 +364,8 @@ public sealed class GoogleHealthBodyFatSyncService(
                 work.LeaseUntil = null;
                 work.LeaseId = "";
                 work.UpdatedAt = DateTime.UtcNow;
-                if (latest is not null && latest.DesiredRevision != lease.DesiredRevision)
+                if ((latest is not null && latest.DesiredRevision != lease.DesiredRevision)
+                    || GoogleHealthSyncLeases.DeleteFollowsCreate(lease.Deleted, lease.ResourceName, result.ResourceName))
                 {
                     work.ProcessingState = "pending";
                     work.NextAttemptAt = DateTime.UtcNow;

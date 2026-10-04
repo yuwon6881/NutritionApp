@@ -68,3 +68,23 @@ it('preserves archived totals when a day decision is queued',()=>{
   const day=project(archived,[op]).days[0];
   expect(day.status).toBe('not_logged');expect(day.archived).toBe(true);expect(day.calories).toBe(1700);expect(day.protein).toBeNull();
 });
+describe('queued deletes of records missing from the projected state',()=>{
+  // A history window, or a refresh after another device's delete, can lack the record a queued delete targets.
+  const withEntry:AppState={...state,entries:[{id:'kept',revision:1,deleted:false,date:'2026-02-02',name:'Oats',calories:300,quantity:1,unit:'serving'} as AppState['entries'][number]]};
+  it.each([
+    ['entry','entries'],
+    ['weight','weights'],
+    ['food','foods'],
+  ] as const)('leaves %s state unchanged instead of inventing a dateless record',(kind,key)=>{
+    const op:Mutation={id:`delete-${kind}`,kind,recordId:'absent',expectedRevision:3,delete:true,data:{}};
+    const result=project(withEntry,[op]);
+    expect(result[key]).toEqual(withEntry[key]);
+  });
+  it('still sorts the collection when another queued edit is present',()=>{
+    const queue:Mutation[]=[
+      {id:'add',kind:'entry',recordId:'new',expectedRevision:0,delete:false,data:{date:'2026-02-01',name:'Rice',calories:130}},
+      {id:'gone',kind:'entry',recordId:'absent',expectedRevision:2,delete:true,data:{}},
+    ];
+    expect(project(withEntry,queue).entries.map(entry=>entry.id)).toEqual(['new','kept']);
+  });
+});

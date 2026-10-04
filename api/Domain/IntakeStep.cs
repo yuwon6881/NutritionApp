@@ -10,6 +10,10 @@ public sealed record IntakeStep(DateOnly Date, double ChangeKcal)
     private const int MinimumChangeKcal = 250;
     private const double MinimumChangeShare = .15;
     private const int MinimumLoggedPerBlock = 4;
+    private const int BlockDays = 7;
+    /// Days before the window start that <see cref="Largest"/> reads: the earliest candidate sits
+    /// SettleDays - 1 before the start and its "before" block covers the BlockDays preceding it.
+    public const int LookbackDays = SettleDays - 1 + BlockDays;
 
     /// <summary>Only changes whose settling period reaches into the window matter; earlier ones have already settled.</summary>
     public static IntakeStep? Largest(IEnumerable<NutritionDay> loggedDays, DateOnly start, DateOnly today)
@@ -18,8 +22,8 @@ public sealed record IntakeStep(DateOnly Date, double ChangeKcal)
         IntakeStep? largest = null;
         for (var date = start.AddDays(-SettleDays + 1); date <= today.AddDays(-MinimumLoggedPerBlock); date = date.AddDays(1))
         {
-            var before = Block(logged, date.AddDays(-7), date);
-            var after = Block(logged, date, date.AddDays(7) < today ? date.AddDays(7) : today);
+            var before = Block(logged, date.AddDays(-BlockDays), date);
+            var after = Block(logged, date, date.AddDays(BlockDays) < today ? date.AddDays(BlockDays) : today);
             if (before.Length < MinimumLoggedPerBlock || after.Length < MinimumLoggedPerBlock) continue;
             var change = after.Average() - before.Average();
             if (Math.Abs(change) < Math.Max(MinimumChangeKcal, MinimumChangeShare * before.Average())) continue;

@@ -18,6 +18,23 @@ internal static class GoogleHealthSyncLeases
     public static bool IsInterruptedCreate(string state, string resourceName, string operationName, bool deleted)
         => state == "processing" && !deleted
             && string.IsNullOrWhiteSpace(resourceName) && string.IsNullOrWhiteSpace(operationName);
+
+    /// A create sent to Google whose resource name is not known yet: either its request is still
+    /// leased or Google accepted it as a long-running operation. A delete queued now must wait for
+    /// that name instead of cancelling the work, or the created reading is orphaned in Google Health.
+    public static bool IsCreateInFlight(string state, DateTime? leaseUntil, string resourceName, string operationName)
+        => string.IsNullOrWhiteSpace(resourceName)
+            && ((state == "processing" && leaseUntil > DateTime.UtcNow)
+                || (state == "awaiting_operation" && !string.IsNullOrWhiteSpace(operationName)));
+
+    /// The leased request was a create (or its operation poll) for work the user has since deleted.
+    /// Once Google reports the created resource, the work must go round again to delete it.
+    public static bool DeleteFollowsCreate(bool deleted, string leasedResourceName, string? createdResourceName)
+        => deleted && string.IsNullOrWhiteSpace(leasedResourceName) && !string.IsNullOrWhiteSpace(createdResourceName);
+
+    /// Deleted work with no known Google resource and no operation to finish has nothing to delete.
+    public static bool HasNothingToDelete(bool deleted, string resourceName, string operationName)
+        => deleted && string.IsNullOrWhiteSpace(resourceName) && string.IsNullOrWhiteSpace(operationName);
 }
 
 public sealed record GoogleHealthOutboundSyncResult(

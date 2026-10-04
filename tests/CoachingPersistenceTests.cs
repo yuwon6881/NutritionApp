@@ -75,6 +75,45 @@ public class CoachingPersistenceTests
         Assert.All(snapshots, snapshot => Assert.Equal(revision, snapshot.SourceRevision));
     }
 
+    [Fact]
+    public async Task Trajectory_rebuilt_by_a_diary_mutation_includes_that_mutation()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options;
+        await using var db = new AppDb(options);
+        await db.Database.EnsureCreatedAsync();
+        var user = await TestUsers.CreateAsync(db, "trajectory-flush");
+        db.CurrentUser = user.Id;
+        var profile = new Profile
+        {
+            Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
+            Goal = "maintain", Maintenance = 2500, TimeZone = "UTC"
+        };
+        var trajectory = new ExpenditureTrajectoryService(db);
+        var sync = new SyncService(db, trajectory: trajectory);
+        await sync.Apply(new(Guid.NewGuid(), "profile", user.Id, 0,
+            JsonSerializer.SerializeToElement(profile, Json.Options)), default);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var entryId = Guid.NewGuid();
+        var entry = new { date = today.AddDays(-1), name = "Rice", calories = 500, quantity = 1, unit = "serving" };
+
+        var revision = await sync.Apply(new(Guid.NewGuid(), "entry", entryId, 0,
+            JsonSerializer.SerializeToElement(entry, Json.Options)), default);
+        Assert.StartsWith("1 of 28 days logged", await TodayHoldReason(options, user.Id));
+
+        await sync.Apply(new(Guid.NewGuid(), "entry", entryId, revision,
+            JsonSerializer.SerializeToElement(entry, Json.Options), true), default);
+        Assert.StartsWith("0 of 28 days logged", await TodayHoldReason(options, user.Id));
+    }
+
+    private static async Task<string?> TodayHoldReason(DbContextOptions<AppDb> options, Guid userId)
+    {
+        await using var read = new AppDb(options) { CurrentUser = userId };
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        return (await read.ExpenditureEstimates.SingleAsync(item => item.Date == today)).HoldReason;
+    }
+
     [Fact] public async Task Preview_rejects_stale_acceptance_and_accepted_history_survives_corrections()
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();

@@ -78,14 +78,11 @@ public static class FoodRanking
     }
 
     /// <summary>
-    /// A product with a code keeps its identity even when its display name is edited after logging.
-    /// Code-bearing sources include that code; code-less results fall back to their normalized
-    /// source and name. This lets old diary rows contribute without a schema migration.
+    /// Diary entries record no product code, so every result is matched by its normalized source and
+    /// name. A provider-wide key would give every barcoded product the same count and remove the
+    /// tie-break between them.
     /// </summary>
-    public static string UsageKey(FoodResult result)
-        =>result.Code is {Length:>0}
-            ? "code:"+result.Source
-            : NameUsageKey(result.Source,result.Name);
+    public static string UsageKey(FoodResult result)=>NameUsageKey(result.Source,result.Name);
 
     /// <summary>
     /// Lower is better: 0 exact, 1 prefix, 2 contains, 3 all tokens, 4+ partial, 100 none. Exact,
@@ -152,11 +149,6 @@ public static class FoodRanking
         var sources=results.Select(result=>result.Source).Distinct(StringComparer.Ordinal).ToArray();
         if(sources.Length==0)return new Dictionary<string,int>(StringComparer.Ordinal);
 
-        var sourceCounts=await db.Entries.AsNoTracking()
-            .Where(entry=>!entry.Deleted&&sources.Contains(entry.Source))
-            .GroupBy(entry=>entry.Source)
-            .Select(group=>new {Source=group.Key,Count=group.Count()})
-            .ToDictionaryAsync(row=>row.Source,row=>row.Count,StringComparer.Ordinal,ct);
         // Group in SQL first, then normalize the relatively small set of distinct
         // names. This avoids materializing every historical diary row for ranking.
         var distinctNames=await db.Entries.AsNoTracking()
@@ -173,10 +165,8 @@ public static class FoodRanking
         var resultCounts=new Dictionary<string,int>(StringComparer.Ordinal);
         foreach(var result in results)
         {
-            var count=result.Code is {Length:>0}
-                ? sourceCounts.GetValueOrDefault(result.Source)
-                : nameCounts.GetValueOrDefault(NameUsageKey(result.Source,result.Name));
-            resultCounts[UsageKey(result)]=count;
+            var key=UsageKey(result);
+            resultCounts[key]=nameCounts.GetValueOrDefault(key);
         }
         return resultCounts;
     }

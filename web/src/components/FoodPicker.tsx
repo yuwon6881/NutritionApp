@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type CSSProperties} from 'react';
+import {useEffect,useId,useRef,useState,type CSSProperties} from 'react';
 import {Camera, LoaderCircle, ScanBarcode, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api,ApiError} from '../lib/api';
@@ -89,6 +89,7 @@ export function FoodPicker({
   searchCache,
 }:FoodPickerProps){
   const requestId=useRef(0);
+  const rowId=useId();
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
   const {search,searching:typeaheadSearching}=useSearchAsYouType({
     enabled:tab==='search'&&open&&step==='selection',
@@ -226,34 +227,23 @@ export function FoodPicker({
     {results.length>0&&<div className="food-search-results">
       {results.map((result,index)=>{
         const starred=isSaved?isSaved(result):false;
+        const id=`${rowId}-${index}`;
         return <div
           className="food-row interactive"
           style={{'--i':Math.min(index,8)} as CSSProperties}
           key={`${result.source}|${result.name}|${index}`}
-          role="button"
-          aria-label={result.name}
-          tabIndex={0}
-          onClick={()=>onChoose(result)}
-          onKeyDown={event=>{
-            if(event.target!==event.currentTarget)return;
-            if(event.key==='Enter'||event.key===' '){
-              event.preventDefault();
-              onChoose(result);
-            }
-          }}
         >
+          {/* Covers the row so the whole card chooses the food; the star stays a separate control above it. */}
+          <Button presentation="plain" className="food-row-choose" aria-labelledby={`${id}-name`} aria-describedby={`${id}-summary`} onClick={()=>onChoose(result)}/>
           <div className="food-description">
-            <strong>{result.name}</strong>
-            <small>{nutritionSummary(result,energyUnit)}{!isFatSecretSource(result.source)?` · ${result.source}`:''}</small>
+            <strong id={`${id}-name`}>{result.name}</strong>
+            <small id={`${id}-summary`}>{nutritionSummary(result,energyUnit)}{!isFatSecretSource(result.source)?` · ${result.source}`:''}</small>
           </div>
           <Button
             variant="tertiary"
             className={`food-row-star ${starred?'starred':''}`}
             aria-label={starred?`Remove ${result.name} from saved foods`:`Save ${result.name} to your foods`}
-            onClick={event=>{
-              event.stopPropagation();
-              onToggleSave?.(result);
-            }}
+            onClick={()=>onToggleSave?.(result)}
           >
             <Star size={18} fill={starred?'currentColor':'none'}/>
           </Button>

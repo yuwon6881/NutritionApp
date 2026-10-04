@@ -15,6 +15,9 @@ public record ExpenditureEstimate(bool Adaptive, double Expenditure, double? Obs
 public static class Expenditure
 {
     public const int WindowDays = 28;
+    /// Diary days a caller must load before today: the window plus the history intake-step
+    /// detection compares against at the window's leading edge.
+    public const int HistoryDays = WindowDays + IntakeStep.LookbackDays;
     private const int MinimumSettledWindowDays = 14;
 
     public static double DailyGain(double weeklyGain)
@@ -62,7 +65,7 @@ public static class Expenditure
         };
     }
 
-    private const string HoldAccepted = " Holding the accepted estimate until the next check-in.";
+    internal const string HoldAccepted = " Holding the accepted estimate until the next check-in.";
 
     private static ExpenditureEstimate EstimateWindow(IReadOnlyList<NutritionDay> days,
         IReadOnlyList<WeightPoint> weights, double expenditure, DateOnly today, bool allowAdaptation, int windowDays, string windowNote)

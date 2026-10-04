@@ -66,24 +66,15 @@ export function LogFoodSavedFoods({
     className="food-row interactive"
     style={{'--i':Math.min(index,8)} as CSSProperties}
     key={food.id}
-    role="button"
-    aria-label={food.name}
-    tabIndex={0}
-    onClick={()=>onChoose(food)}
-    onKeyDown={event=>{
-      if(event.target!==event.currentTarget)return;
-      if(event.key==='Enter'||event.key===' '){
-        event.preventDefault();
-        onChoose(food);
-      }
-    }}
   >
+    {/* Covers the row so the whole card chooses the food; Favourite and Edit stay separate controls above it. */}
+    <Button presentation="plain" className="food-row-choose" aria-labelledby={`saved-${food.id}-name`} aria-describedby={`saved-${food.id}-summary`} onClick={()=>onChoose(food)}/>
     <div className="food-description">
-      <div className="saved-food-title-row">
+      <div className="saved-food-title-row" id={`saved-${food.id}-name`}>
         <strong>{food.name}</strong>
         {isRecipe(food)&&<span className="food-badge recipe-badge">Recipe</span>}
       </div>
-      <div className="saved-food-meta">
+      <div className="saved-food-meta" id={`saved-${food.id}-summary`}>
         <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g</span>
         {(food.protein!=null||food.carbs!=null||food.fat!=null)&&(
           <FoodMacroSummary protein={food.protein} carbs={food.carbs} fat={food.fat} className="food-macro-summary-inline"/>
@@ -95,14 +86,14 @@ export function LogFoodSavedFoods({
         variant="tertiary"
         className={`food-row-star ${food.favourite?'starred':''}`}
         aria-label={`${food.favourite?'Unfavourite':'Favourite'} ${food.name}`}
-        onClick={event=>{event.stopPropagation();onToggleFavourite(food);}}
+        onClick={()=>onToggleFavourite(food)}
       >
         <Star size={18} fill={food.favourite?'currentColor':'none'}/>
       </Button>
       {logging&&<Button
         variant="tertiary"
         aria-label={`Edit ${food.name}`}
-        onClick={event=>{event.stopPropagation();onEdit(food);}}
+        onClick={()=>onEdit(food)}
       >
         Edit
       </Button>}

@@ -22,8 +22,9 @@ import {useFoodFavourite} from './useFoodFavourite';
 import {useProgressReads} from './useProgressReads';
 import {rejectedEditMessage} from './lib/rejectedEdit';
 import {showNotice} from './components/ui/UndoToast';
+import {classifySyncFailure} from './lib/syncFailure';
 export type { SyncKind, SyncPhase, SyncState };
-export function useNutritionStore(user: string) {
+export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   const [calendarDate, setCalendarDate] = useState(today());
   const [local, setLocal] = useState<LocalData>();
   const [error, setError] = useState('');
@@ -53,6 +54,15 @@ export function useNutritionStore(user: string) {
   const isActivityActiveRef = useRef(false);
   const activityTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastWake = useRef(0);
+  // Once the server rejects the session, nothing is sent until the user signs in again; the queue stays saved.
+  const sessionExpired = useRef(false);
+  const sessionExpiredHandler = useRef(onSessionExpired);
+  sessionExpiredHandler.current = onSessionExpired;
+  const expireSession = useCallback(() => {
+    if (sessionExpired.current) return;
+    sessionExpired.current = true;
+    sessionExpiredHandler.current?.();
+  }, []);
   const checkActivity = useCallback(() => {
     const hasWork = activeOperations.current.size > 0 || activeSync.current > 0;
     if (hasWork) {
@@ -212,11 +222,14 @@ export function useNutritionStore(user: string) {
         });
       }
       if(receivedEtag&&ref.current?.state.revision===state.revision)bootstrapEtag.current=receivedEtag;
+    } catch (ex) {
+      if (classifySyncFailure(ex) === 'session-expired') expireSession();
+      throw ex;
     } finally {
       endActivity();
     }
     });
-  }, [beginActivity, commit, user, trainingLiveAccount]);
+  }, [beginActivity, commit, expireSession, user, trainingLiveAccount]);
   const refreshHistory = useCallback(async (key: string) => {
     const todayDate = today(ref.current?.state.profile?.timeZone);
     await sharedDiaryCoordinator.requestDate(key, todayDate, { isNavigation: true });
@@ -226,7 +239,7 @@ export function useNutritionStore(user: string) {
     [loadSavedFoods, loadTrainingSummaries, refresh, user]);
   const refreshProgress=useProgressReads(ref,alive,readController,commit);
   const drain = useCallback(async () => {
-    if (draining.current || !navigator.onLine || !ref.current) return;
+    if (draining.current || sessionExpired.current || !navigator.onLine || !ref.current) return;
     const hadQueue = ref.current.queue.length > 0;
     let sent = false;
     draining.current = true;
@@ -249,7 +262,9 @@ export function useNutritionStore(user: string) {
           await commit(current=>acknowledgeLocalWrite(current,op,revision));
           await sharedDiaryCoordinator.acknowledge(op,revision);
         } catch (ex) {
-          if (ex instanceof ApiError && [400, 409, 422].includes(ex.status)) {
+          const failure = classifySyncFailure(ex);
+          if (failure === 'session-expired') expireSession();
+          if (failure === 'rejected') {
             // A terminal rejection leaves the saved server record in place. Retaining the edit for
             // review could never change that outcome, so the device drops it, refreshes onto the
             // saved value, and says so without blocking later work.
@@ -277,7 +292,7 @@ export function useNutritionStore(user: string) {
         if (drainRequested.current) { drainRequested.current = false; void drain(); }
       }
     }
-  }, [beginSync, commit, finishSync, refresh]);
+  }, [beginSync, commit, expireSession, finishSync, refresh]);
 
   const drainRef = useRef(drain);
   drainRef.current = drain;

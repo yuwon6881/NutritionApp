@@ -5,7 +5,7 @@ import {Brand} from './ui/Brand';
 import {CardFeedback} from './ui/CardFeedback';
 import {centralAuthError} from '../lib/centralAuthError';
 
-export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
+export function Auth({onLogin:_onLogin,sessionExpired=false}:{onLogin?:(id:string)=>void;sessionExpired?:boolean}){
   const [errorCode]=useState(()=>new URLSearchParams(window.location.search).get('central_error'));
   const [starting,setStarting]=useState(false);
   const navigationStarted=useRef(false);
@@ -26,6 +26,11 @@ export function Auth({onLogin:_onLogin}:{onLogin?:(id:string)=>void}){
           <p className="eyebrow">YOUR FOOD DIARY</p>
           <h1 id="auth-heading">Sign in to Nutrition</h1>
           <p className="auth-description">Use your Fitness Account to access your diary, nutrition targets, and progress.</p>
+          {sessionExpired&&!errorCode&&<CardFeedback
+            tone="info"
+            title="Session expired"
+            message="Sign in again to continue. Changes saved on this device are kept and sync after you sign in."
+          />}
           {errorCode&&<CardFeedback
             tone={errorCode==='access_denied'?'info':'error'}
             title={errorCode==='access_denied'?'Sign-in cancelled':'Sign-in could not be completed'}

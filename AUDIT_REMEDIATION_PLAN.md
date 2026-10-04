@@ -4,6 +4,26 @@ Source: external (Gemini) audit, verified against the working tree on 2026-10-05
 reproduced by reading the current code; severities are re-rated after verification. Every behavior change
 starts with a failing regression test (repo rule for sync, auth, and coaching math).
 
+## Status (2026-10-06)
+
+Phases 1 and 2 (items 1–9) are implemented, each with a regression test that failed before its fix:
+
+| Item | Regression coverage |
+|------|---------------------|
+| 1 Flush before trajectory rebuild | `CoachingPersistenceTests.Trajectory_rebuilt_by_a_diary_mutation_includes_that_mutation`, `GoogleHealthWeightImportTests.The_trajectory_rebuilt_by_an_import_includes_the_imported_weigh_in` |
+| 2 Projection of absent deletes | `web/src/lib/projection.test.ts` (queued deletes of missing records) |
+| 3 Delete during in-flight create | `GoogleHealthDeleteDuringCreateTests` (weight); the same shared lease rules apply to nutrition and body fat |
+| 4 Session expiry | `web/src/lib/syncFailure.test.ts`; store stops sending and the shell returns to sign-in keeping local work |
+| 5 Intake-step lookback | `IntakeStepHistoryTests` |
+| 6 Coded food frequency | `FoodSearchPersonalizationTests.Barcoded_results_rank_by_their_own_frequency_not_their_providers` |
+| 7 Adaptive explanation | `CoachingTests.An_adaptive_trajectory_proposal_does_not_claim_the_estimate_is_held` |
+| 8 Access-token reuse | `GoogleHealthAccessTokenTests` |
+| 9 Food row semantics | `e2e/keyboard-accessibility.spec.ts`; also applied to saved-food rows (`LogFoodSavedFoods`) |
+
+`ExpenditureTrajectory.AlgorithmVersion` is now `v7-intake-history`, so stored trajectories rebuild once.
+Phase 3 (P3 hardening) is not started. In item 4, the store reacts to 401 only on the diary sync and
+bootstrap paths; `/training/summary` also uses 401 for "Workout access temporarily unavailable".
+
 ## Verdict summary
 
 | # | Finding | Verdict | Re-rated |

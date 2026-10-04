@@ -704,12 +704,14 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .search-line .field{margin-bottom:0}
 
 /* Food search interactive rows */
-.food-row.interactive{cursor:pointer;border-radius:12px;padding:12px 14px;border:1px solid transparent;transition:background var(--motion-control) ease,border-color var(--motion-control) ease,transform 100ms ease}
+.food-row.interactive{position:relative;cursor:pointer;border-radius:12px;padding:12px 14px;border:1px solid transparent;transition:background var(--motion-control) ease,border-color var(--motion-control) ease,transform 100ms ease}
 @media (hover:hover) and (pointer:fine){
 .food-row.interactive:hover{background:var(--muted);border-color:var(--border)}}
 .food-row.interactive:active{transform:scale(0.995);background:color-mix(in srgb,var(--muted) 80%,var(--card))}
 .food-search-results{display:grid;gap:8px;margin-top:10px}
-.food-row.interactive:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+/* The row's choose action is one real button stretched over the card; its own controls sit above it. */
+.food-row-choose{position:absolute;inset:0;width:100%;margin:0;padding:0;border:0;border-radius:inherit;background:transparent;color:inherit;cursor:pointer}
+.food-row.interactive>.food-row-star,.food-row.interactive>.food-row-actions{position:relative}
 .food-row-star{width:40px;height:40px;min-height:40px!important;padding:0!important;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:var(--muted-foreground);transition:color var(--motion-control) ease,transform 120ms ease;flex-shrink:0}
 @media (hover:hover) and (pointer:fine){
 .food-row-star:hover{color:var(--primary-ink);transform:scale(1.1)}}

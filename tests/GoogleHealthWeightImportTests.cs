@@ -197,6 +197,26 @@ public sealed class GoogleHealthWeightImportTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_trajectory_rebuilt_by_an_import_includes_the_imported_weigh_in()
+    {
+        var user = await db.Users.SingleAsync(item => item.Id == userId);
+        user.ProfileJson = Json.Write(new Profile
+        {
+            Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
+            Goal = "maintain", Maintenance = 2500, TimeZone = "Asia/Kuala_Lumpur"
+        });
+        user.ProfileRevision = 1;
+        await db.SaveChangesAsync();
+        handler.Points.Add(Point("scale", At(today.AddDays(-1), 7), 72));
+
+        Assert.Equal(1, (await Import().RunAsync(force: true, default)).Imported);
+
+        db.ChangeTracker.Clear();
+        var point = await db.ExpenditureEstimates.AsNoTracking().SingleAsync(item => item.Date == today);
+        Assert.Equal(72, point.TrendWeightKg!.Value, 3);
+    }
+
+    [Fact]
     public async Task Imported_weigh_ins_never_queue_uploads_and_an_edit_makes_them_manual()
     {
         handler.Points.Add(Point("scale", At(today.AddDays(-1), 7), 72));

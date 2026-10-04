@@ -28,9 +28,11 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         Validation.Require(user.ProfileJson.Length > 0, "Complete your coaching profile first.");
         var profile = Json.Read<Profile>(user.ProfileJson);
         var today = Today(profile);
-        var since = today.AddDays(-28);
-        var statuses = await db.Days.Where(d => d.Date >= since && d.Date < today && !d.Deleted).ToListAsync(ct);
-        var totals = await db.Entries.Where(e => e.Date >= since && e.Date < today && !e.Deleted)
+        var since = today.AddDays(-Expenditure.WindowDays);
+        // Intake-step detection reads history before the window; the window statistics filter to their own dates.
+        var history = today.AddDays(-Expenditure.HistoryDays);
+        var statuses = await db.Days.Where(d => d.Date >= history && d.Date < today && !d.Deleted).ToListAsync(ct);
+        var totals = await db.Entries.Where(e => e.Date >= history && e.Date < today && !e.Deleted)
             .GroupBy(e => e.Date).Select(g => new { Date = g.Key, Calories = g.Sum(e => e.Calories) })
             .ToDictionaryAsync(x => x.Date, x => x.Calories, ct);
         var dates = statuses.Select(d => d.Date).Union(totals.Keys);

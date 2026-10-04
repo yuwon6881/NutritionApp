@@ -127,7 +127,8 @@ public sealed class GoogleHealthNutritionSyncService(
         work.ConnectionGeneration = connection.ConnectionGeneration;
         work.UpdatedAt = DateTime.UtcNow;
 
-        if (operation.Delete && !mapped)
+        if (operation.Delete && !mapped
+            && !GoogleHealthSyncLeases.IsCreateInFlight(work.ProcessingState, work.LeaseUntil, work.GoogleResourceName, work.GoogleOperationName))
         {
             CancelWork(work);
             return;
@@ -294,6 +295,13 @@ public sealed class GoogleHealthNutritionSyncService(
             await gate.Commit(ct);
             return null;
         }
+        if (GoogleHealthSyncLeases.HasNothingToDelete(work.DesiredDeleted, work.GoogleResourceName, work.GoogleOperationName))
+        {
+            CancelWork(work);
+            await db.SaveChangesAsync(ct);
+            await gate.Commit(ct);
+            return null;
+        }
         var leaseId = Guid.NewGuid().ToString("N");
         work.ProcessingState = "processing";
         work.LeaseId = leaseId;
@@ -393,7 +401,8 @@ public sealed class GoogleHealthNutritionSyncService(
                 work.LeaseUntil = null;
                 work.LeaseId = "";
                 work.UpdatedAt = DateTime.UtcNow;
-                if (latest is not null && latest.DesiredRevision != lease.DesiredRevision)
+                if ((latest is not null && latest.DesiredRevision != lease.DesiredRevision)
+                    || GoogleHealthSyncLeases.DeleteFollowsCreate(lease.Deleted, lease.ResourceName, result.ResourceName))
                 {
                     work.ProcessingState = "pending";
                     work.NextAttemptAt = DateTime.UtcNow;

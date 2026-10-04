@@ -14,7 +14,8 @@ public sealed record TrajectoryPoint(
 
 public static class ExpenditureTrajectory
 {
-    public const string AlgorithmVersion = "v6-robust-signal";
+    // v7: rebuilds see the mutation that triggered them and load intake-step lookback history.
+    public const string AlgorithmVersion = "v7-intake-history";
 
     public static TrajectoryPoint Calculate(
         Profile profile,

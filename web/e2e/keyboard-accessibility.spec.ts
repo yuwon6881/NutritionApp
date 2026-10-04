@@ -53,8 +53,11 @@ test('keyboard actions submit forms and activate only the focused control',async
   await saveResult.press('Enter');
   await expect(page.getByRole('heading',{name:'Log food',exact:true})).toBeVisible();
 
-  await result.focus();
-  await result.press('Enter');
+  // Choosing is a real button named by the food; the Save control is a sibling, not nested inside it.
+  const chooseResult=result.getByRole('button',{name:'Keyboard nasi goreng',exact:true});
+  await expect(saveResult.locator('xpath=ancestor::button')).toHaveCount(0);
+  await chooseResult.focus();
+  await chooseResult.press('Enter');
   await expect(page.getByRole('heading',{name:'Review food',exact:true})).toBeVisible();
   await expect(page.getByRole('dialog',{name:'Review food',exact:true})).toBeVisible();
   await expect(page.getByLabel('Quantity',{exact:true})).toBeFocused();

@@ -84,7 +84,10 @@ public static class Coach
             ? "Starting from your supplied maintenance estimate. Log complete days and weigh regularly to calibrate it."
             : $"Estimated resting energy: {Math.Round(Resting(p))} kcal/day using Mifflin–St Jeor. {(p.ActivityLevel is { } level ? $"Activity: {ActivityLevels.Label(level)} (multiplier {p.Activity})." : $"Your approximate activity multiplier is {p.Activity}.")} This is a starting estimate, not a metabolic measurement. Log complete days and weigh regularly to calibrate it.";
         if(startingExpenditure!=null)reason="Carrying your learned maintenance estimate into this phase, scaled only for an explicit activity change. Your selected pace sets the new target.";
-        if (adaptive || previous != null || startingExpenditure != null) reason = estimate.Reason;
+        // An override marks a result adaptive that was computed with adaptation off (the trajectory
+        // already adapted), so the estimate's "holding the accepted estimate" note does not apply.
+        if (adaptive || previous != null || startingExpenditure != null)
+            reason = adaptiveOverride == true && !allowAdaptation ? estimate.Reason.Replace(Expenditure.HoldAccepted, "") : estimate.Reason;
         if (adaptive) expenditure = estimate.Expenditure;
 
         var rate = EffectiveGoalRate(p, effectiveGoal);

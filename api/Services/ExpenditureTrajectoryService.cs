@@ -89,6 +89,10 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
 
     internal async Task RebuildFromUnderLock(DateOnly from, long sourceRevision, CancellationToken ct, bool profileChanged = false)
     {
+        // The day totals and weights below are database queries; they cannot see entries or weigh-ins
+        // the caller has only staged. Flush them inside the caller's lock transaction first, or the
+        // rebuild is stamped with the new revision while missing the change that caused it.
+        await db.SaveChangesAsync(ct);
         var user = await db.Users.SingleAsync(item => item.Id == db.CurrentUser, ct);
         if (string.IsNullOrWhiteSpace(user.ProfileJson)) return;
         var profile = Json.Read<Profile>(user.ProfileJson);
@@ -102,7 +106,7 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
             .OrderByDescending(item => item.Date)
             .FirstOrDefaultAsync(ct);
         var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, ct, profileChanged);
-        var days = await LoadDays(start.AddDays(-28), today, today, ct);
+        var days = await LoadDays(start.AddDays(-Expenditure.HistoryDays), today, today, ct);
         var weights = await db.Weights
             .Where(weight => !weight.Deleted && weight.Date >= start.AddDays(-120) && weight.Date <= today)
             .OrderBy(weight => weight.Date)

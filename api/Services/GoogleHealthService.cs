@@ -49,8 +49,17 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
     internal sealed record CachedSync(DateTime SyncedAt, GoogleHealthSyncResult Result, long ConnectionGeneration, DateOnly LocalDate, string TimeZone);
 
+    /// Short-lived Google access tokens, so a sweep of many queued uploads exchanges the refresh
+    /// token once rather than once per record. Held only in process memory, never persisted.
+    private static readonly MemoryCache AccessTokens = new(new MemoryCacheOptions { SizeLimit = 512 });
+    private const int DefaultAccessTokenSeconds = 3600;
+    private static readonly TimeSpan AccessTokenExpiryMargin = TimeSpan.FromMinutes(5);
+
     public static void InvalidateMemoryCache(Guid userId) => SyncCache.Remove(userId);
-    public static void ClearMemoryCache() => SyncCache.Compact(1);
+    public static void ClearMemoryCache() { SyncCache.Compact(1); AccessTokens.Compact(1); }
+
+    private static string AccessTokenCacheKey(GoogleHealthConnection connection)
+        => $"{connection.UserId:N}:{connection.ConnectionGeneration}:{AuthService.Hash(connection.EncryptedRefreshToken)}";
 
     public const string Scope = "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly";
 
@@ -332,6 +341,10 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
     {
         var conn = await db.GoogleHealthConnections.SingleOrDefaultAsync(c => c.UserId == userId, ct);
         if (conn is null || conn.Status == "reconnect_required" || !HasGrantedScope(conn, requiredScope)) return null;
+        // Status and permission are checked on every call above; the cache only saves the KMS decrypt
+        // and token exchange. The key changes with a reconnect (new refresh token or generation).
+        var cacheKey = AccessTokenCacheKey(conn);
+        if (AccessTokens.TryGetValue(cacheKey, out string? cachedToken) && cachedToken is not null) return cachedToken;
         string refreshToken;
         try
         {
@@ -342,8 +355,14 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             return null;
         }
 
-        var (accessToken, revoked, _) = await RefreshAccessTokenAsync(refreshToken, ct);
-        if (!revoked) return accessToken;
+        var (accessToken, revoked, _, expiresIn) = await RefreshAccessTokenAsync(refreshToken, ct);
+        if (!revoked)
+        {
+            var lifetime = TimeSpan.FromSeconds(expiresIn ?? DefaultAccessTokenSeconds) - AccessTokenExpiryMargin;
+            if (!string.IsNullOrEmpty(accessToken) && lifetime > TimeSpan.Zero)
+                AccessTokens.Set(cacheKey, accessToken, new MemoryCacheEntryOptions { Size = 1, AbsoluteExpirationRelativeToNow = lifetime });
+            return accessToken;
+        }
         conn.Status = "reconnect_required";
         conn.EncryptedRefreshToken = "";
         conn.Revision++;
@@ -589,7 +608,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             return await ReturnStaleOrUnavailable(conn, "kms_error", "KMS service is temporarily unavailable.", ct);
         }
 
-        var (accessToken, isRevoked, refreshError) = await RefreshAccessTokenAsync(refreshToken, ct);
+        var (accessToken, isRevoked, refreshError, _) = await RefreshAccessTokenAsync(refreshToken, ct);
         if (isRevoked)
         {
             // Confirmed revoked: delete imported step data and require reconnection
@@ -711,7 +730,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         return null;
     }
 
-    private async Task<(string? AccessToken, bool IsRevoked, string? Error)> RefreshAccessTokenAsync(string refreshToken, CancellationToken ct)
+    private async Task<(string? AccessToken, bool IsRevoked, string? Error, int? ExpiresIn)> RefreshAccessTokenAsync(string refreshToken, CancellationToken ct)
     {
         var body = new Dictionary<string, string>
         {
@@ -738,17 +757,18 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 {
                     var err = errProp.GetString();
                     if (err is "invalid_grant" or "unauthorized_client")
-                        return (null, true, err);
+                        return (null, true, err, null);
                 }
             }
             catch { }
 
-            return (null, false, $"Status {res.StatusCode}");
+            return (null, false, $"Status {res.StatusCode}", null);
         }
 
         using var successDoc = JsonDocument.Parse(json);
         var accessToken = successDoc.RootElement.TryGetProperty("access_token", out var atProp) ? atProp.GetString() : null;
-        return (accessToken, false, null);
+        int? expiresIn = successDoc.RootElement.TryGetProperty("expires_in", out var expiresProp) && expiresProp.TryGetInt32(out var seconds) ? seconds : null;
+        return (accessToken, false, null, expiresIn);
     }
 
     private async Task<Dictionary<DateOnly, int?>> FetchDailyRollupStepsAsync(string accessToken, DateOnly start, DateOnly endPlusOne, CancellationToken ct)

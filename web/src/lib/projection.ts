@@ -44,6 +44,9 @@ export function project(state:AppState,queue:Mutation[]):AppState{
     copy(key);
     const values=result[key] as Array<{id:string;revision:number;deleted:boolean;date?:string;status?:string}>;
     const i=values.findIndex(v=>v.id===op.recordId);
+    // A delete for a record this state does not hold (another history window, or removed by another
+    // device) has nothing to hide; adding a placeholder would leave a row with no date or name.
+    if(i<0&&op.delete)continue;
     const old=values[i];const next={...(op.kind==='day'?old:{}),...(op.delete?old:op.data as object),id:op.recordId,revision:op.expectedRevision,deleted:op.delete};
     if(i<0)values.push(next);else values[i]=next;
     if(op.kind==='entry'){
