@@ -1,7 +1,7 @@
 import {useId,useState} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {ProgressPeriod,ProgressSummary} from '../types';
-import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {unitsFor} from '../lib/units';
 import {dateSpan} from '../lib/chartLabels';
 import {CardFeedback} from './ui/CardFeedback';
 import {SegmentedControl} from './ui/SegmentedControl';
@@ -10,6 +10,7 @@ import {useBarViewport,useRevealBar} from './ui/useBarViewport';
 import {BarChartNav} from './ui/BarChartFrame';
 import {BalanceChart,IntakeChart} from './EnergyBalanceCharts';
 import {EnergyReadout,type EnergyView} from './EnergyReadout';
+import {EnergyStats} from './EnergyStats';
 
 const groupingNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
@@ -17,7 +18,6 @@ const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
 export function EnergyBalance({store,period,summary,error}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string}){
   const state=store.state!;
   const units=unitsFor(state.settings);
-  const energyUnit=energyLabel(units.energy);
   const rows=summary?.energy.series??[];
   const grouping=summary?.grouping.energy??'daily';
   const stats=summary?.energy.statistics;
@@ -39,11 +39,7 @@ export function EnergyBalance({store,period,summary,error}:{store:NutritionStore
     {!summary&&!error&&<div className="skeleton" aria-busy="true" style={{minHeight:320}}/>}
     {summary&&<>
       {summary.awaitingSynchronization&&<p className="notice" role="status">Recent edits will update after sync.</p>}
-      <div className="stats-grid progress-energy-stats">
-        <section><p className="eyebrow">COMPLETE DAYS</p><h3>{stats?.completeDays??0}</h3><p>of {stats?.days??0}</p></section>
-        <section><p className="eyebrow">AVERAGE INTAKE</p><h3>{displayEnergy(stats?.averageIntake,units.energy)} <span className="unit">{energyUnit}</span></h3><p>{stats?.loggedDays??0} logged</p></section>
-        <section><p className="eyebrow">TOTAL BALANCE</p><h3>{stats?.totalBalance==null?'—':`${stats.totalBalance>0?'+':''}${displayEnergy(stats.totalBalance,units.energy)}`} <span className="unit">{energyUnit}</span></h3><p>{stats?.surplusDays??0} surplus · {stats?.deficitDays??0} deficit</p></section>
-      </div>
+      <EnergyStats stats={stats} energyUnit={units.energy}/>
       {rows.length?<div className="chart-scrub energy-charts" role="group" aria-label={`Energy charts. Tap a bar or use the left and right arrow keys to read a ${groupingSingular[grouping]}.`} aria-describedby={readoutId} {...scrub.groupProps}>
         <div className="section-heading chart-heading">
           <div><h3>{view==='intake'?'Intake and maintenance':'Surplus or deficit'}</h3></div>

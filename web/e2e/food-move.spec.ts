@@ -75,8 +75,8 @@ test('food timeline supports single-item move to custom time, move to existing t
   await bar.getByRole('button',{name:/Move/}).click();
   const moveDialog=page.getByRole('dialog',{name:'Move Rolled oats'});
   await expect(moveDialog).toBeVisible();
-  await expect(moveDialog.getByRole('button',{name:/Move To Today/i})).toBeVisible();
-  await expect(moveDialog.getByRole('button',{name:/Move to tmr/i})).toBeVisible();
+  await expect(moveDialog.getByRole('button',{name:/Move to today/i})).toBeVisible();
+  await expect(moveDialog.getByRole('button',{name:/Move to tomorrow/i})).toBeVisible();
   await expect(moveDialog.getByRole('button',{name:/Date and time/i})).toBeVisible();
 
   // Third button switches to custom date and time picker
@@ -107,8 +107,12 @@ test('food timeline supports single-item move to custom time, move to existing t
   await expect(row1215.getByText('Rolled oats')).toBeVisible();
   await expect(row1215.getByText('Black coffee')).toBeVisible();
 
-  // Group move: Move all items from 12:15 PM to 19:00
-  await row1215.getByRole('button',{name:/Move all/,exact:false}).click();
+  // Group move through bulk selection: both items from 12:15 PM to 19:00
+  await page.getByRole('button',{name:'Day options',exact:true}).click();
+  await page.getByRole('menuitem',{name:'Bulk select',exact:true}).click();
+  await row1215.locator('.food-time-card').filter({hasText:'Rolled oats'}).first().click();
+  await row1215.locator('.food-time-card').filter({hasText:'Black coffee'}).first().click();
+  await bar.getByRole('button',{name:'Move 2 selected foods',exact:true}).click();
   const groupMoveDialog=page.getByRole('dialog',{name:'Move 2 entries'});
   await expect(groupMoveDialog).toBeVisible();
   await groupMoveDialog.getByRole('button',{name:/Date and time/i}).click();
@@ -214,7 +218,7 @@ test('food timeline supports single-item move to custom time, move to existing t
   await yesterdayOats.click();
   await bar.getByRole('button',{name:/Move/}).click();
   const todayMoveDialog=page.getByRole('dialog',{name:'Move Rolled oats'});
-  await todayMoveDialog.getByRole('button',{name:/Move To Today/i}).click();
+  await todayMoveDialog.getByRole('button',{name:/Move to today/i}).click();
   await expect(page.locator('.food-day-summary')).toBeVisible();
   await expect(page.getByText('Rolled oats').first()).toBeVisible();
 
@@ -225,6 +229,6 @@ test('food timeline supports single-item move to custom time, move to existing t
   await todayOats.click();
   await bar.getByRole('button',{name:/Move/}).click();
   const tmrMoveDialog=page.getByRole('dialog',{name:'Move Rolled oats'});
-  await tmrMoveDialog.getByRole('button',{name:/Move to tmr/i}).click();
+  await tmrMoveDialog.getByRole('button',{name:/Move to tomorrow/i}).click();
   await expect(page.getByText('Rolled oats').first()).toBeVisible();
 });

@@ -36,9 +36,10 @@
 .habit-legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 20px;padding:0;list-style:none;font-size:.78rem;color:var(--muted-foreground)}
 .habit-legend li{display:inline-flex;align-items:center;gap:7px}
 .habit-legend .habit-cell{width:14px;height:14px;flex-shrink:0}
-.habit-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:22px 28px}
-.habit-month h3{margin:0 0 10px;font-size:.9rem;font-weight:600}
-.habit-grid-full{gap:5px}
+.habit-months{max-width:420px;margin:0 auto}
+.habit-month-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;margin:0 0 14px}
+.habit-month-nav h3{margin:0;text-align:center;font-size:1rem;font-weight:600;font-variant-numeric:tabular-nums}
+.habit-grid-full{gap:6px}
 .habit-weekday{padding-bottom:2px;text-align:center;font-size:.66rem;font-weight:600;color:var(--muted-foreground)}
 .habit-day{display:grid;place-items:center;border-radius:7px;font-size:.72rem;font-variant-numeric:tabular-nums;color:var(--foreground)}
 .habit-day[data-status=logged]{color:var(--habit-on-ink);font-weight:600}

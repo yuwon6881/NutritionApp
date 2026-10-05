@@ -1,4 +1,4 @@
-import {test,expect,type APIRequestContext} from '@playwright/test';
+import {test,expect,type APIRequestContext,type Locator} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
 
@@ -6,6 +6,14 @@ const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
 let session:Awaited<ReturnType<APIRequestContext['storageState']>>;
 const current=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+/** Counts matching days across the current and previous month, one page at a time. */
+const countAcrossMonths=async(dialog:Locator,text:RegExp)=>{
+  const days=()=>dialog.locator('.habit-months').getByRole('listitem').filter({hasText:text}).count();
+  let total=await days();
+  const previous=dialog.getByRole('button',{name:'Previous month'});
+  if(await previous.isEnabled()){await previous.click();total+=await days();await dialog.getByRole('button',{name:'Next month'}).click();}
+  return total;
+};
 const daysAgo=(offset:number)=>{const day=new Date(`${current}T12:00:00Z`);day.setUTCDate(day.getUTCDate()-offset);return day.toISOString().slice(0,10);};
 
 test.beforeAll(async({request})=>{
@@ -41,6 +49,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await expect(weight).toHaveAccessibleName(/^Weigh-ins: 6 of 11 days logged, 1-day streak/);
 
     await page.evaluate(()=>document.fonts.ready);
+    // The landing cascade staggers the two cards; measure once it settles.
+    await expect.poll(()=>page.evaluate(()=>document.getAnimations().filter(animation=>animation.playState==='running').length)).toBe(0);
     // Both cards sit side by side at every width, sized to their content, with 44 px targets.
     const foodBox=(await food.boundingBox())!;
     const weightBox=(await weight.boundingBox())!;
@@ -57,9 +67,12 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await food.click();
     const dialog=page.getByRole('dialog',{name:'Food logging'});
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('.habit-months').getByRole('listitem').filter({hasText:/Food logged/})).toHaveCount(8);
-    await expect(dialog.locator('.habit-months').getByRole('listitem').filter({hasText:/Fasting day/})).toHaveCount(1);
+    // One month at a time, opening on the current month.
+    await expect(dialog.locator('.habit-grid-full')).toHaveCount(1);
+    await expect(dialog.getByRole('button',{name:'Next month'})).toBeDisabled();
     await expect(dialog.locator('.habit-day[data-today]')).toHaveCount(1);
+    expect(await countAcrossMonths(dialog,/Food logged/)).toBe(8);
+    expect(await countAcrossMonths(dialog,/Fasting day/)).toBe(1);
     expect(await dialog.locator('.modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
     await page.screenshot({path:`artifacts/ui-uplift/dashboard-habits-dialog-${theme}-${width}.png`,animations:'disabled'});
     await page.keyboard.press('Escape');
@@ -68,7 +81,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
 
     await weight.click();
     const weighIns=page.getByRole('dialog',{name:'Weigh-ins'});
-    await expect(weighIns.locator('.habit-months').getByRole('listitem').filter({hasText:/Weighed in/})).toHaveCount(6);
+    expect(await countAcrossMonths(weighIns,/Weighed in/)).toBe(6);
     await page.keyboard.press('Escape');
   });
 }

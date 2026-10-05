@@ -131,8 +131,8 @@ export function WeeklyProgramSetup({
         value={mode}
         size="sm"
         options={[
-          {value: 'even', label: 'Even distributed'},
-          {value: 'weekend', label: 'Higher on weekends'},
+          {value: 'even', label: <><span className="tab-label-full">Even every day</span><span className="tab-label-short">Even</span></>, ariaLabel: 'Even every day'},
+          {value: 'weekend', label: <><span className="tab-label-full">Higher on weekends</span><span className="tab-label-short">Weekends</span></>, ariaLabel: 'Higher on weekends'},
           {value: 'custom', label: 'Custom'},
         ]}
         onChange={handleModeChange}
@@ -149,7 +149,7 @@ export function WeeklyProgramSetup({
               <Check size={14} aria-hidden="true" /> Exact budget
             </span>
           ) : (
-            <span>
+            <span className="weekly-invalid-badge">
               Remaining {displayEnergy(Math.abs(remaining), energyUnit)} {energyLabel(energyUnit)}
               {remaining < 0 ? ' over' : ''}
             </span>

@@ -368,7 +368,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       </div>
       {step==='body'&&<div className="step-content">
         <div className="form-grid">
-          <DatePicker id="coach-date-of-birth" name="dateOfBirth" autoComplete="bday" validate={()=>derivedAge!=null&&(derivedAge<13||derivedAge>120)?'Enter a date of birth for an age from 13 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`Age ${derivedAge}`:undefined}/>
+          <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<13||derivedAge>120)?'Enter a date of birth for an age from 13 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`Age ${derivedAge}`:undefined}/>
           {units.height==='cm'?(
             <Field id="coach-height" name="heightCm" label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value)||0)} labelAction={<MiniUnitToggle<'cm'|'ft-in'> label="Height unit" value={units.height} onChange={v=>updateUnits({height:v})} options={[{value:'cm',label:'cm'},{value:'ft-in',label:'ft'}]}/>}/>
           ):(

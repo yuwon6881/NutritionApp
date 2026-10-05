@@ -12,8 +12,8 @@ await build();
 // The first load is the entry script plus every chunk index.html preloads with it.
 const KIB = 1024;
 // Include identity-safe retained writes, Body request checkpoints, and canonical sync recovery in the offline allowance.
-// Allow the weigh-in confirmation, themed Undo surface, AI photo controls, workout summary polish, weight goal card, goal history card uplift, session-expiry sign-in handling, day options menu, and food action sheet in the offline bundle.
-const budgets = { firstLoad: 452 * KIB, precache: 1228 * KIB };
+// Allow the weigh-in confirmation, themed Undo surface, AI photo controls, workout summary polish, weight goal card, goal history card uplift, session-expiry sign-in handling, day options menu, food action sheet, month-paged habit calendars, and Energy period totals in the offline bundle.
+const budgets = { firstLoad: 452 * KIB, precache: 1232 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

@@ -106,14 +106,14 @@ export function MoveFoodDialog({
             <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void moveToToday()} disabled={busyPending}>
               <span className="action-sheet-item-icon"><Calendar size={22} aria-hidden="true"/></span>
               <span className="action-sheet-item-text">
-                <strong>Move To Today</strong>
+                <strong>Move to today</strong>
                 <small>{hasMultipleTimes?'Keep original times for each entry':sourceTime?`Keep ${timeLabel(sourceTime)}`:'Keep time not recorded'}</small>
               </span>
             </Button>
             <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void moveToTomorrow()} disabled={busyPending}>
               <span className="action-sheet-item-icon"><CalendarPlus size={22} aria-hidden="true"/></span>
               <span className="action-sheet-item-text">
-                <strong>Move to tmr</strong>
+                <strong>Move to tomorrow</strong>
                 <small>{hasMultipleTimes?'Keep original times for each entry':sourceTime?`Keep ${timeLabel(sourceTime)}`:'Keep time not recorded'}</small>
               </span>
             </Button>

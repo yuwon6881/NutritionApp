@@ -157,19 +157,6 @@ export function FoodTimeline({
               onClick={()=>onPasteAtTime(group.time)}
             ><ClipboardPaste size={16}/></Button>}
           </div>
-          {group.entries.length>1&&!readOnly&&!isSelecting&&<div className="food-slot-move-all">
-            <Button
-              variant="tertiary"
-              size="sm"
-              aria-label={`Move all ${group.entries.length} entries from ${group.label}`}
-              onClick={e=>{
-                setRestoreFocus(e.currentTarget);
-                setMovingEntries(group.entries);
-              }}
-            >
-              Move all
-            </Button>
-          </div>}
         </div>
         <div className={`food-time-cards ${group.entries.length===0?'food-time-cards-empty':''}`}>
           {group.entries.length===0&&(
