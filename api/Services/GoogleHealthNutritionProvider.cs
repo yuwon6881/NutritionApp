@@ -22,9 +22,12 @@ internal sealed class GoogleHealthNutritionProviderException(
     bool transient = false,
     bool unknownCreate = false,
     TimeSpan? retryAfter = null,
-    bool authenticationFailure = false) : Exception(message), IGoogleHealthProviderFailure
+    bool authenticationFailure = false,
+    string providerStatus = "") : Exception(message), IGoogleHealthProviderFailure
 {
     public string Category { get; } = category;
+    /// <summary>HTTP status and Google's error status (never the request or response body), for diagnosis in logs.</summary>
+    public string ProviderStatus { get; } = providerStatus;
     public bool Transient { get; } = transient;
     public bool UnknownCreate { get; } = unknownCreate;
     public TimeSpan? RetryAfter { get; } = retryAfter;
@@ -61,7 +64,8 @@ internal static class GoogleHealthNutritionProvider
         if (data.ProteinGrams is { } p)
             nutrients.Add(new { nutrient = "PROTEIN", quantity = new { grams = Math.Round(p, 2) } });
         if (data.CarbsGrams is { } c)
-            nutrients.Add(new { nutrient = "TOTAL_CARBOHYDRATE", quantity = new { grams = Math.Round(c, 2) } });
+            // Google's Nutrient enum names carbohydrate "CARBOHYDRATES"; any other name fails the whole upload.
+            nutrients.Add(new { nutrient = "CARBOHYDRATES", quantity = new { grams = Math.Round(c, 2) } });
         if (data.FatGrams is { } f)
             nutrients.Add(new { nutrient = "TOTAL_FAT", quantity = new { grams = Math.Round(f, 2) } });
         if (data.FiberGrams is { } fib)
@@ -77,7 +81,7 @@ internal static class GoogleHealthNutritionProvider
                     endTime = data.EndTime
                 },
                 foodDisplayName = string.IsNullOrWhiteSpace(data.FoodDisplayName) ? "Food" : data.FoodDisplayName.Trim(),
-                mealType = string.IsNullOrWhiteSpace(data.MealType) ? "MEAL_TYPE_UNSPECIFIED" : data.MealType,
+                mealType = string.IsNullOrWhiteSpace(data.MealType) ? "LUNCH" : data.MealType,
                 energy = new
                 {
                     kcal = Math.Round(data.CaloriesKcal, 1)
@@ -142,7 +146,26 @@ internal static class GoogleHealthNutritionProvider
         response.Dispose();
         if (authentication) throw new GoogleHealthNutritionProviderException("reconnect_required", "Reconnect Google Health to resume nutrition uploads.", authenticationFailure: true);
         if (transient) throw new GoogleHealthNutritionProviderException("provider_unavailable", "Google Health temporarily rejected the upload.", true, retryAfter: retryAfter);
-        throw new GoogleHealthNutritionProviderException("provider_validation", "Google Health rejected this nutrition upload.");
+        throw new GoogleHealthNutritionProviderException("provider_validation", "Google Health rejected this nutrition upload.",
+            providerStatus: $"HTTP {(int)response.StatusCode} {ErrorStatus(body)}".TrimEnd());
+    }
+
+    private static string ErrorStatus(string body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            return document.RootElement.TryGetProperty("error", out var error)
+                && error.ValueKind == JsonValueKind.Object
+                && error.TryGetProperty("status", out var status)
+                && status.ValueKind == JsonValueKind.String
+                ? status.GetString() ?? ""
+                : "";
+        }
+        catch (JsonException)
+        {
+            return "";
+        }
     }
 
     private static async Task<GoogleHealthOperationResult> ParseOperationAsync(HttpResponseMessage response, string? fallbackName, bool create, CancellationToken ct)

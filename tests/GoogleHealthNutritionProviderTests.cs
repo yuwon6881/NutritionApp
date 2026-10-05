@@ -44,7 +44,10 @@ public sealed class GoogleHealthNutritionProviderTests
         var protein = nutrients.First(n => n.GetProperty("nutrient").GetString() == "PROTEIN");
         Assert.Equal(35.2, protein.GetProperty("quantity").GetProperty("grams").GetDouble());
 
-        var carbs = nutrients.First(n => n.GetProperty("nutrient").GetString() == "TOTAL_CARBOHYDRATE");
+        // Google rejects the whole upload for a name outside its Nutrient enum.
+        Assert.All(nutrients, n => Assert.Contains(n.GetProperty("nutrient").GetString(), GoogleNutrientEnum));
+
+        var carbs = nutrients.First(n => n.GetProperty("nutrient").GetString() == "CARBOHYDRATES");
         Assert.Equal(55.4, carbs.GetProperty("quantity").GetProperty("grams").GetDouble());
 
         var fat = nutrients.First(n => n.GetProperty("nutrient").GetString() == "TOTAL_FAT");
@@ -53,6 +56,15 @@ public sealed class GoogleHealthNutritionProviderTests
         var fiber = nutrients.First(n => n.GetProperty("nutrient").GetString() == "DIETARY_FIBER");
         Assert.Equal(6.5, fiber.GetProperty("quantity").GetProperty("grams").GetDouble());
     }
+
+    /// <summary>Nutrient values accepted by Google Health API v4 (google.devicesandservices.health.v4.Nutrient).</summary>
+    private static readonly string[] GoogleNutrientEnum =
+    [
+        "CALCIUM", "CARBOHYDRATES", "CHOLESTEROL", "CHROMIUM", "COPPER", "DIETARY_FIBER", "FOLATE", "IODINE", "IRON",
+        "MAGNESIUM", "MANGANESE", "MOLYBDENUM", "NIACIN", "PANTOTHENIC_ACID", "PHOSPHORUS", "POTASSIUM", "PROTEIN",
+        "SATURATED_FAT", "SELENIUM", "SODIUM", "SUGAR", "THIAMINE", "TOTAL_FAT", "UNSATURATED_FAT", "VANADIUM",
+        "VITAMIN_A", "VITAMIN_B12", "VITAMIN_B6", "VITAMIN_C", "VITAMIN_D", "VITAMIN_E", "VITAMIN_K", "ZINC"
+    ];
 
     private sealed class CaptureHandler : HttpMessageHandler
     {

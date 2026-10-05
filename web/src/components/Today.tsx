@@ -17,6 +17,7 @@ import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {EnergyRing} from './EnergyRing';
 import {MotionPanel} from './ui/Motion';
+import {HabitCalendars} from './habits/HabitCalendars';
 
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
@@ -77,7 +78,9 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
       <p>Connect to load this date.</p>
     </section>:<>
       <div className={intro?'dashboard-cards dashboard-intro':'dashboard-cards'}>
-      <section className="daily-grid">
+      <section className="dashboard-section dashboard-section-today" aria-labelledby="dashboard-today-title">
+      <h2 id="dashboard-today-title" className="dashboard-section-title">Today</h2>
+      <div className="daily-grid">
         <article className="panel energy-panel">
           <div>
             <p className="eyebrow">ENERGY</p>
@@ -101,13 +104,21 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
             </div>;
           })}
         </article>
-      </section>
+      </div>
       {showGoogleHealthSteps && <MotionPanel motionKey="dashboard-steps" axis="reveal" animateOnMount={intro} className="dashboard-steps-reveal"><GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} warningMessage={ghState.warningMessage} onOpenSettings={onSettings}><StepCalorieCalculator store={store} variant="inline"/></GoogleHealthStepsCard></MotionPanel>}
+      </section>
+      <section className="dashboard-section dashboard-section-habits" aria-labelledby="dashboard-habits-title">
+        <h2 id="dashboard-habits-title" className="dashboard-section-title">Habits</h2>
+        <HabitCalendars state={state} current={date}/>
+      </section>
+      <section className="dashboard-section dashboard-section-insights" aria-labelledby="dashboard-insights-title">
+      <h2 id="dashboard-insights-title" className="dashboard-section-title">Insights &amp; analytics</h2>
       {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
         <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
       </section>}
       <section className="panel dashboard-trend-panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latestWeight?.kg,unitsFor(state.settings).weight,1)} <span className="unit">{weightLabel(unitsFor(state.settings).weight)}</span></h2><small>{latestWeight?`As of ${latestWeight.date}`:"No weigh-in yet"}</small></section>
       <TrainingSummaryCard syncedAt={state.trainingSyncedAt} summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings} onRetry={()=>void loadTrainingSummaries?.(true)}/>
+      </section>
       </div>
     </>}
     <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>

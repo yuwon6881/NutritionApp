@@ -27,6 +27,7 @@
 .food-time-card.panel:hover:not([data-dragging]){border-color:color-mix(in srgb,var(--primary) 32%,var(--border));box-shadow:0 4px 16px rgba(0,0,0,.04);transform:translateY(-1px)}}
 .food-time-card-header{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
 .food-time-card-title{margin:0;min-width:0;flex:1}
+.food-time-card-title-text{display:block;font-size:.93rem;font-weight:600;line-height:1.3;color:var(--ink-strong);overflow-wrap:anywhere}
 .food-time-card-title>.button,.food-time-card-title>.button.size-md{justify-content:flex-start;padding:2px 0;padding-left:0;padding-right:0;text-align:left;overflow-wrap:anywhere;font-size:.93rem;font-weight:600;min-height:30px;line-height:1.3;color:var(--ink-strong)}
 @media (hover:hover) and (pointer:fine){
 .food-time-card-title>.button:hover{color:var(--primary-ink)}}
@@ -44,7 +45,12 @@
 .food-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}.food-card-footer>.source{overflow-wrap:anywhere}
 .topbar .mobile-settings{display:none}
 .food-time-card[data-draggable]{cursor:grab}
-.food-time-card[data-dragging]{cursor:grabbing;opacity:.94;border-color:var(--primary)!important;box-shadow:0 16px 38px rgba(0,0,0,.16),0 4px 12px rgba(0,0,0,.08);transform:scale(1.02) translateY(-2px);z-index:25;position:relative;transition:opacity var(--motion-control) ease,box-shadow var(--motion-control) ease,transform var(--motion-control) var(--motion-ease),border-color var(--motion-control) ease}
+/* While a card is dragged its place stays as a quiet outline; the floating copy follows the pointer. */
+.food-time-card[data-dragging]{cursor:grabbing;opacity:.38;border-style:dashed;border-color:var(--primary)!important;box-shadow:none;transition:opacity var(--motion-control) ease,border-color var(--motion-control) ease}
+.food-drag-ghost.panel{position:fixed;z-index:160;margin:0;pointer-events:none;cursor:grabbing;-webkit-user-select:none;user-select:none;border-color:var(--primary);box-shadow:0 18px 40px rgba(0,0,0,.2),0 4px 12px rgba(0,0,0,.1);scale:1.03;rotate:-1deg;will-change:translate;animation:foodDragLift var(--motion-control) var(--motion-ease)}
+.food-drag-ghost[data-settling]{scale:1;rotate:0deg;opacity:.6;box-shadow:var(--shadow);transition:translate 180ms var(--motion-ease),scale 180ms var(--motion-ease),rotate 180ms var(--motion-ease),opacity 180ms ease}
+@keyframes foodDragLift{from{scale:1;rotate:0deg;box-shadow:var(--shadow)}}
+:root[data-card-dragging],:root[data-card-dragging] *{cursor:grabbing!important;-webkit-user-select:none!important;user-select:none!important}
 .food-time-cards{transition:background-color 180ms ease,border-color 180ms ease,transform 180ms ease}
 .food-time-row[data-drop-over] .food-time-cards{background:var(--primary-tint);border-left:3px solid var(--primary);border-radius:12px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 22%,transparent);transform:scale(1.004)}
 .food-time-row[data-drop-over] .food-time-label::after{transform:scale(1.4);background:var(--primary);box-shadow:0 0 8px color-mix(in srgb,var(--primary) 70%,transparent);transition:transform 180ms var(--motion-ease),background 180ms ease,box-shadow 180ms ease}
@@ -71,6 +77,19 @@
 .food-clipboard-text{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;color:var(--foreground)}
 .food-clipboard-text strong{color:var(--ink-strong)}
 .food-clipboard-banner-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.food-diary-menu-anchor{position:relative;display:inline-flex}
+.food-diary-menu-trigger{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;padding:0!important;border-radius:12px}
+.food-diary-dropdown{position:absolute;top:calc(100% + 6px);right:0;z-index:100;min-width:180px;padding:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);display:flex;flex-direction:column;gap:2px;animation:fadeIn .12s ease-out}
+.food-diary-dropdown-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;min-height:44px;border:none;background:transparent;color:var(--foreground);font-size:.86rem;font-weight:550;border-radius:10px;cursor:pointer;text-align:left;transition:background-color var(--motion-control) ease,color var(--motion-control) ease}
+@media (hover:hover) and (pointer:fine){
+  .food-diary-dropdown-item:hover:not(:disabled){background:var(--muted);color:var(--ink-strong)}
+}
+.food-diary-dropdown-item:focus-visible{outline:2px solid var(--ring);outline-offset:-1px}
+.food-diary-dropdown-item:disabled{opacity:.45;cursor:not-allowed}
+.food-diary-dropdown-item-danger{color:var(--destructive)}
+@media (hover:hover) and (pointer:fine){
+  .food-diary-dropdown-item-danger:hover:not(:disabled){background:color-mix(in srgb,var(--destructive) 10%,var(--card));color:var(--destructive)}
+}
 @media(max-width:639px){.food-selection-bar{top:8px;padding:10px 12px;margin:8px 0 14px;border-radius:12px}.food-selection-bar-content{flex-direction:column;align-items:stretch;gap:10px}.food-selection-bar-info{justify-content:space-between;width:100%}.food-selection-bar-actions{width:100%;display:flex;flex-wrap:wrap;gap:6px;justify-content:stretch}.food-selection-bar-actions>.button{flex:1 1 auto;min-height:44px;padding:8px 8px;font-size:.8rem;justify-content:center}.food-selection-bar-actions>.button:last-child{flex:0 0 44px;min-width:44px}}
 @media(max-width:1023px){.topbar .mobile-settings{display:inline-flex;min-width:44px;margin-left:auto}.food-date-navigation{gap:8px;grid-template-columns:44px minmax(0,1fr) 44px auto}.food-time-row{grid-template-columns:3.875rem minmax(0,1fr);gap:14px}.food-time-label{font-size:.73rem}.food-time-label::after{right:-19px}.food-time-cards{padding-left:14px}.food-time-card.panel{padding:12px}.food-time-card .section-heading{flex-wrap:wrap;gap:0 8px}.food-time-card .section-heading>strong{padding:0 0 10px}.food-day-nutrients{gap:12px 20px}}
 :root{font-family:"Inter Variable",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light;--background:#fcfcfc;--foreground:#53575c;--card:#fff;--primary:#f29718;--primary-ink:#714306;--primary-tint:#fff4df;--muted:#f3f4f5;--muted-foreground:#646f7a;--border:#e3e6e9;--destructive:#c0392f;--ring:#a56508;--success:#487b31;--protein:#57917b;--carbs:#bf862f;--fat:#a183b3;--track:#eeeae1;--ink-strong:#303840;--on-primary:#272015;--scrollbar-track:#f5f6f7;--scrollbar-thumb:#b5bdc5;--scrollbar-thumb-hover:#7c8791;--shadow:0 4px 20px rgba(0,0,0,0.035), 0 1px 3px rgba(0,0,0,0.02);--radius:20px;font-synthesis:none;font-variant-numeric:tabular-nums;text-rendering:optimizeLegibility}
@@ -448,7 +467,6 @@ summary{cursor:pointer}
 .food-time-row[data-empty] .food-time-label::after{background:var(--muted-foreground);opacity:.55}
 .food-time-card-moved{animation:diaryRowMove var(--motion-panel) var(--motion-ease)}
 @keyframes diaryRowMove{from{opacity:.35;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.food-time-card[data-dragging]{box-shadow:0 14px 34px rgba(0,0,0,.16);transform:scale(.99);transition:opacity var(--motion-control) ease,box-shadow var(--motion-control) ease,transform var(--motion-control) ease}
 @media(max-width:1023px){
   .nav-mobile-items{grid-template-columns:repeat(5,minmax(0,1fr))}
   .food-log-page .food-time-row{grid-template-columns:4.5rem minmax(0,1fr)}
@@ -464,7 +482,7 @@ summary{cursor:pointer}
   .food-slot-add{width:36px;min-width:36px}
 }
 @media(prefers-reduced-motion:reduce){
-  .selection-indicator-marker,.selection-indicator>[data-selection-key],.food-time-card[data-dragging]{transition:none}
+  .selection-indicator-marker,.selection-indicator>[data-selection-key],.food-time-card[data-dragging],.food-drag-ghost{transition:none;animation:none;rotate:0deg}
   .food-time-card-moved,.food-time-card-added{animation:none}
 }
 
@@ -647,9 +665,9 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
   .page-heading-actions>.button{flex:1 1 0;width:100%;min-height:44px;justify-content:center;text-align:center;white-space:nowrap}
   /* The primary action carries the longest label, so it takes the larger share of a shared row. */
   .page-heading-actions>.button.primary{flex-grow:1.5}
-  .food-log-page .page-heading-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%}
-  .food-log-page .page-heading-actions>.button{min-height:44px;padding:8px 6px;font-size:.8rem;white-space:nowrap}
-  .food-log-page .page-heading-actions>.button.primary{grid-column:1/-1;min-height:44px;padding:10px 16px;font-size:.88rem}
+  .food-log-page .page-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;width:100%}
+  .food-log-page .page-heading-actions>.button.primary{flex:1 1 auto;min-height:44px;padding:10px 16px;font-size:.88rem}
+  .food-log-page .page-heading-actions .food-diary-menu-anchor{flex:0 0 44px}
 }
 .nowrap{white-space:nowrap}
 .food-selection .segmented-control{width:100%;margin-bottom:24px}
@@ -1690,15 +1708,20 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .training-summary-row strong{display:block;font-size:.86rem;color:var(--ink-strong)}
 .training-summary-row small{color:var(--muted-foreground);font-size:.76rem}
 .training-row-when{display:inline-flex;align-items:center;margin-top:2px}
+.training-row-status-group{display:inline-flex;align-items:center;gap:8px}
+.training-row-date{color:var(--muted-foreground);font-size:.76rem;font-variant-numeric:tabular-nums}
 .training-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:500;line-height:1.3}
 .training-tag-upcoming{background:var(--primary-tint);color:var(--primary-ink);border:1px solid color-mix(in srgb,var(--primary) 30%,transparent)}
 .training-tag-in-progress{display:inline-flex;align-items:center;gap:5px;background:color-mix(in srgb,var(--success) 14%,var(--card));color:var(--success);border:1px solid color-mix(in srgb,var(--success) 35%,transparent);font-weight:600}
+.training-tag-completed{display:inline-flex;align-items:center;gap:4px;background:color-mix(in srgb,var(--success) 14%,var(--card));color:var(--success);border:1px solid color-mix(in srgb,var(--success) 32%,transparent);font-weight:600}
 .training-pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;animation:trainingPulseDot 1.8s ease-in-out infinite}
 @keyframes trainingPulseDot{0%,100%{opacity:1;transform:scale(.95)}50%{opacity:.4;transform:scale(1.15)}}
 @media (prefers-reduced-motion: reduce){.training-pulse-dot{animation:none}}
 .training-row-in-progress{border-color:color-mix(in srgb,var(--success) 35%,var(--border));background:color-mix(in srgb,var(--success) 4%,var(--muted))}
+.training-row-completed{border-color:color-mix(in srgb,var(--success) 24%,var(--border));background:color-mix(in srgb,var(--success) 3%,var(--muted))}
 @media (hover:hover) and (pointer:fine){
   .training-row-in-progress:hover{border-color:var(--success)}
+  .training-row-completed:hover{border-color:color-mix(in srgb,var(--success) 45%,var(--border))}
 }
 .training-summary-metrics{display:flex;flex-wrap:wrap;gap:8px;font-size:.78rem;color:var(--muted-foreground)}
 .training-summary-metrics span{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-variant-numeric:tabular-nums}

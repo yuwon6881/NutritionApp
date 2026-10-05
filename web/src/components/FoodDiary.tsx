@@ -1,5 +1,5 @@
-import {useState} from 'react';
-import {CheckCheck,Plus,Share2} from 'lucide-react';
+import {useState,useRef} from 'react';
+import {CheckCheck,Copy,MoreVertical,Plus,Trash2} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {useHistoryWindow} from '../useHistoryWindow';
@@ -22,11 +22,12 @@ import {FoodWeekStrip} from './FoodWeekStrip';
 import {useDaySwipe} from './useDaySwipe';
 import {DiaryEmptyState} from './DiaryEmptyState';
 import {FoodDaySkeleton} from './ui/Skeleton';
-import {canShareText,daySummaryText,shareText} from '../lib/share';
 import {showUndo} from './ui/UndoToast';
 import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {FoodClipboardBanner} from './FoodClipboardBanner';
 import {MoveFoodDialog} from './MoveFoodDialog';
+import {Modal} from './ui/Modal';
+import {useDismissablePopover} from './ui/useDismissablePopover';
 
 export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:NutritionStore;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void}){
   const history=useHistoryWindow(store,date);
@@ -34,6 +35,11 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
   const [timelineView,setTimelineView]=useState<TimelineView>('data');
   const [bulkMoving,setBulkMoving]=useState<Entry[]|null>(null);
   const [selectionRestoreFocus,setSelectionRestoreFocus]=useState<HTMLElement|null>(null);
+  const [isMenuOpen,setIsMenuOpen]=useState(false);
+  const [confirmingClearDay,setConfirmingClearDay]=useState(false);
+  const menuAnchorRef=useRef<HTMLDivElement>(null);
+  const menuRef=useRef<HTMLDivElement>(null);
+  useDismissablePopover(isMenuOpen,[menuAnchorRef,menuRef],()=>setIsMenuOpen(false));
 
   const selection=useFoodSelection();
   const clipboard=useFoodClipboard();
@@ -49,11 +55,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
   const count=archived?day?.entryCount??0:entries.length;
   const total=archived?day?.calories??0:entries.reduce((sum,e)=>sum+e.calories,0);
   const energyUnit=unitsFor(store.state?.settings).energy;
-  const [shareStatus,setShareStatus]=useState('');
-  const shareDay=async()=>{
-    const outcome=await shareText(`Food log ${date}`,daySummaryText(date,entries,energyUnit));
-    setShareStatus(outcome==='copied'?'Day summary copied.':outcome==='unavailable'?'Sharing is not available here.':'');
-  };
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
 
   const act=async(action:()=>Promise<unknown>,rethrow=false)=>{setError('');try{await action();}catch(ex){setError((ex as Error).message);if(rethrow)throw ex;}};
@@ -118,16 +119,61 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     <header className="page-heading">
       <div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time, copy or move them, and remove mistakes.</p></div>
       <div className="page-heading-actions">
-        {entries.length>0&&!readOnly&&<Button
-          variant="tertiary"
-          aria-label={selection.isSelecting?'Done selecting':'Select food entries'}
-          onClick={()=>selection.isSelecting?selection.exitSelection():selection.enterSelection()}
-        >
-          <CheckCheck size={18}/>
-          {selection.isSelecting?'Done':'Select'}
-        </Button>}
-        {entries.length>0&&!readOnly&&!selection.isSelecting&&<Button variant="tertiary" onClick={event=>onCopyDay(date,entries,event.currentTarget)}>Copy day</Button>}
-        {entries.length>0&&!selection.isSelecting&&canShareText()&&<Button variant="tertiary" onClick={()=>void shareDay()}><Share2 size={18} aria-hidden="true"/>Share</Button>}
+        {selection.isSelecting&&(
+          <Button
+            variant="tertiary"
+            aria-label="Done selecting"
+            onClick={selection.exitSelection}
+          >
+            <CheckCheck size={18}/>
+            Done
+          </Button>
+        )}
+        <div className="food-diary-menu-anchor" ref={menuAnchorRef}>
+          <Button
+            variant="secondary"
+            size="icon"
+            className="food-diary-menu-trigger"
+            aria-label="Day options"
+            aria-haspopup="menu"
+            aria-expanded={isMenuOpen}
+            onClick={()=>setIsMenuOpen(v=>!v)}
+          >
+            <MoreVertical size={20}/>
+          </Button>
+          {isMenuOpen&&<div className="food-diary-dropdown" role="menu" ref={menuRef}>
+            <Button
+              presentation="plain"
+              className="food-diary-dropdown-item"
+              role="menuitem"
+              disabled={entries.length===0}
+              onClick={e=>{setIsMenuOpen(false);onCopyDay(date,entries,e.currentTarget);}}
+            >
+              <Copy size={16} aria-hidden="true"/>
+              <span>Copy day</span>
+            </Button>
+            <Button
+              presentation="plain"
+              className="food-diary-dropdown-item"
+              role="menuitem"
+              disabled={entries.length===0||readOnly}
+              onClick={()=>{setIsMenuOpen(false);selection.enterSelection();}}
+            >
+              <CheckCheck size={16} aria-hidden="true"/>
+              <span>Bulk select</span>
+            </Button>
+            <Button
+              presentation="plain"
+              className="food-diary-dropdown-item food-diary-dropdown-item-danger"
+              role="menuitem"
+              disabled={entries.length===0||readOnly}
+              onClick={()=>{setIsMenuOpen(false);setConfirmingClearDay(true);}}
+            >
+              <Trash2 size={16} aria-hidden="true"/>
+              <span>Clear day</span>
+            </Button>
+          </div>}
+        </div>
         <Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button>
       </div>
     </header>
@@ -166,7 +212,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
       <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':date}</h2><p>Loading diary date…</p></div></div>
     </section>}
     {!state&&!history.error&&<FoodDaySkeleton/>}
-    {shareStatus&&<p className="notice" role="status">{shareStatus}</p>}
     {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>
       <section className="panel food-day-summary">
@@ -201,6 +246,13 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
           energyUnit={energyUnit}
           onSelectAll={()=>selection.selectAll(entries.map(e=>e.id))}
           onDeselectAll={selection.deselectAll}
+          onEdit={()=>{
+            if(selectedEntries.length===1){
+              const target=selectedEntries[0];
+              selection.exitSelection();
+              onEdit(target);
+            }
+          }}
           onCopy={()=>{
             clipboard.copy(selectedEntries,date);
             selection.exitSelection();
@@ -223,7 +275,12 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
           entries={entries}
           readOnly={readOnly}
           onEdit={onEdit}
-          onMove={move}
+          onMove={async(moving,destDate,destTime)=>{
+            await move(moving,destDate,destTime);
+            if(destDate!==date){
+              changeDate(destDate);
+            }
+          }}
           onCopy={copy}
           onDelete={remove}
           showEmptySlots
@@ -244,13 +301,31 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
       open={Boolean(bulkMoving)}
       onClose={()=>setBulkMoving(null)}
       entries={bulkMoving}
-      groups={groups}
       currentDate={current}
       onMove={async(moving,destDate,destTime)=>{
         await move(moving,destDate,destTime);
         selection.exitSelection();
+        if(destDate!==date){
+          changeDate(destDate);
+        }
       }}
       restoreFocus={selectionRestoreFocus}
     />}
+    {confirmingClearDay&&<Modal
+      open={confirmingClearDay}
+      onClose={()=>setConfirmingClearDay(false)}
+      title="Clear day?"
+      description={`Remove all ${entries.length} food ${entries.length===1?'entry':'entries'} logged for ${date}?`}
+      width="sm"
+    >
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={()=>setConfirmingClearDay(false)}>Cancel</Button>
+        <Button variant="destructive" onClick={async()=>{
+          setConfirmingClearDay(false);
+          selection.exitSelection();
+          await removeEntries(entries);
+        }}>Clear day</Button>
+      </div>
+    </Modal>}
   </div>;
 }

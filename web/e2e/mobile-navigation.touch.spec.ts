@@ -35,11 +35,13 @@ test('Back returns through visited pages to the Dashboard',async({page})=>{
 
 test('Back leaves selection mode before it leaves the Food Log',async({page})=>{
   await page.getByRole('button',{name:'Food Log',exact:true}).click();
-  await page.getByRole('button',{name:'Select food entries',exact:true}).click();
+  await page.getByRole('button',{name:'Day options',exact:true}).click();
+  await page.getByRole('menuitem',{name:'Bulk select',exact:true}).click();
   await expect(page.getByRole('button',{name:'Done selecting',exact:true})).toBeVisible();
 
   await page.goBack();
-  await expect(page.getByRole('button',{name:'Select food entries',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Day options',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Done selecting',exact:true})).toBeHidden();
   await expect(heading(page,'Food Log')).toBeVisible();
 
   await page.goBack();

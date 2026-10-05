@@ -55,7 +55,7 @@ test('holding then moving a card drags it to another hour',async({page})=>{
   await holdAndDrag(page,apple.locator('.food-time-card-details'),target);
 
   await expect(targetRow.locator('.food-time-card').filter({has:page.getByRole('heading',{name:'Apple'})})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Select food entries',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Day options',exact:true})).toBeVisible();
 });
 
 test('a quick flick over a card scrolls instead of selecting or dragging',async({page})=>{
@@ -67,7 +67,7 @@ test('a quick flick over a card scrolls instead of selecting or dragging',async(
   await swipe(page,start,{x:start.x,y:towardTop?start.y+250:Math.max(10,start.y-250)});
 
   await expect.poll(()=>page.evaluate(()=>window.scrollY)).not.toBe(scrollBefore);
-  await expect(page.getByRole('button',{name:'Select food entries',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Day options',exact:true})).toBeVisible();
   await expect(page.locator('.food-time-card[data-dragging]')).toHaveCount(0);
 });
 

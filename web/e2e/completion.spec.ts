@@ -39,7 +39,10 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'] as const){
     await expect(page.locator(`.weigh-in-list time[datetime="${shifted(-45)}"]`)).toBeVisible();
     await context.setOffline(false);
     await page.getByRole('button',{name:'Food Log',exact:true}).click();
-    await page.getByRole('button',{name:'Review meal',exact:true}).click();
+    await page.getByRole('button',{name:'Day options',exact:true}).click();
+    await page.getByRole('menuitem',{name:'Bulk select',exact:true}).click();
+    await page.locator('.food-time-card').filter({hasText:'Review meal'}).first().click();
+    await page.getByRole('button',{name:'Edit selected food',exact:true}).click();
     await expect(page.getByRole('heading',{name:'Edit food',exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('heading',{name:'Edit food',exact:true})).not.toBeVisible();

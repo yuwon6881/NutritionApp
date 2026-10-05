@@ -19,8 +19,9 @@ public sealed class GoogleHealthNutritionSyncTests
     [InlineData("18:00", "DINNER")]
     [InlineData("21:00", "DINNER")]
     [InlineData("02:00", "DINNER")]
-    [InlineData(null, "MEAL_TYPE_UNSPECIFIED")]
-    [InlineData("invalid", "MEAL_TYPE_UNSPECIFIED")]
+    // Untimed entries upload at noon (EntryTimestamp), and Google requires a concrete meal type.
+    [InlineData(null, "LUNCH")]
+    [InlineData("invalid", "LUNCH")]
     public void MealTypeIsInferredFromTime(string? time, string expectedMealType)
     {
         Assert.Equal(expectedMealType, GoogleHealthNutritionSyncService.InferMealType(time));

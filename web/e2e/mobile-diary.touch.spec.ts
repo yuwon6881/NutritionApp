@@ -56,7 +56,8 @@ test('swiping a card reveals its actions and Undo restores a deleted entry',asyn
 });
 
 test('bulk actions sit above the bottom navigation and bulk delete is undoable',async({page})=>{
-  await page.getByRole('button',{name:'Select food entries',exact:true}).click();
+  await page.getByRole('button',{name:'Day options',exact:true}).click();
+  await page.getByRole('menuitem',{name:'Bulk select',exact:true}).click();
   await card(page,'Overnight oats').click();
   await card(page,'Chicken rice bowl').click();
   const bar=page.getByRole('toolbar',{name:'Bulk selection actions'});

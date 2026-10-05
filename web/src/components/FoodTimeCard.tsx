@@ -1,5 +1,5 @@
 import {memo,type CSSProperties} from 'react';
-import {Check,Copy,MoreHorizontal,MoveRight,Trash2} from 'lucide-react';
+import {Check,Copy,MoveRight,Trash2} from 'lucide-react';
 import type {Entry} from '../types';
 import {Button} from './ui/Button';
 import {FoodMacroSummary} from './FoodMacroSummary';
@@ -15,8 +15,8 @@ export interface FoodTimeCardProps {
   isMoved:boolean;
   isAdded?:boolean;
   isPendingSync:boolean;
-  onEdit:(entry:Entry)=>void;
-  onOpenActions:(entry:Entry,trigger:HTMLElement)=>void;
+  onEdit?:(entry:Entry)=>void;
+  onOpenActions?:(entry:Entry,trigger:HTMLElement)=>void;
   onToggleSelect:(id:string)=>void;
   dragProps:Record<string,unknown>;
   /** Touch swipe state from the timeline: offset in px (≤ 0) and whether actions are open. */
@@ -78,36 +78,12 @@ export const FoodTimeCard=memo(function FoodTimeCard({
           {isSelected&&<Check size={14} className="food-check-icon"/>}
         </div>}
         <h3 className="food-time-card-title">
-          <Button
-            variant="tertiary"
-            disabled={readOnly}
-            onClick={e=>{
-              if(isSelecting){
-                e.stopPropagation();
-                onToggleSelect(entry.id);
-              }else{
-                onEdit(entry);
-              }
-            }}
-          >
-            {entry.name}
-          </Button>
+          <span className="food-time-card-title-text">{entry.name}</span>
         </h3>
         <div className="food-time-card-aside">
           <strong className="food-time-card-energy">
             {displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small>
           </strong>
-          {!isSelecting&&<Button
-            variant="tertiary"
-            size="icon"
-            className="food-time-card-more"
-            disabled={readOnly}
-            aria-label={`More actions for ${entry.name}`}
-            title="More actions"
-            onClick={event=>onOpenActions(entry,event.currentTarget)}
-          >
-            <MoreHorizontal size={19}/>
-          </Button>}
         </div>
       </div>
       <div className="food-time-card-details">

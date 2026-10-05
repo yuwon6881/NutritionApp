@@ -1,4 +1,4 @@
-import {Dumbbell, ArrowUpRight, LoaderCircle} from 'lucide-react';
+import {Dumbbell, ArrowUpRight, LoaderCircle, Check} from 'lucide-react';
 import type {TrainingSummary, CoachingSettings} from '../types';
 import {today} from '../lib/format';
 import {displayWeight, unitsFor, weightLabel} from '../lib/units';
@@ -126,7 +126,7 @@ export function TrainingSummaryCard({
           const isInProgress=item.status==='in_progress';
           // A program day has no calendar date, so it shows no date rather than today's.
           const when=isUpcoming?'Up next':`${item.localDate} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
-          return <div className={`training-summary-row ${isUpcoming?'training-row-upcoming':''} ${isInProgress?'training-row-in-progress':''}`} key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
+          return <div className={`training-summary-row ${isUpcoming?'training-row-upcoming':''} ${isInProgress?'training-row-in-progress':''} ${completed?'training-row-completed':''}`} key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
             <div className="training-row-main">
               <strong>{item.workoutName}</strong>
               <small className="training-row-when">
@@ -137,13 +137,21 @@ export function TrainingSummaryCard({
                     <span className="training-pulse-dot" aria-hidden="true" />
                     In progress
                   </span>
+                ) : completed ? (
+                  <span className="training-row-status-group">
+                    <span className="training-tag training-tag-completed">
+                      <Check size={11} strokeWidth={2.5} aria-hidden="true" />
+                      Completed
+                    </span>
+                    <span className="training-row-date">{item.localDate}</span>
+                  </span>
                 ) : (
                   <span>{when}</span>
                 )}
               </small>
             </div>
             <div className="training-summary-metrics">
-              {item.workingSetCount>0&&<span>{item.workingSetCount} sets</span>}
+              {item.workingSetCount>0&&<span>{item.workingSetCount} {item.workingSetCount===1?'set':'sets'}</span>}
               {item.externalVolumeKg!=null&&<span>{displayWeight(item.externalVolumeKg,unit,0)} {weightLabel(unit)} external volume</span>}
               {item.systemVolumeKg!=null&&<span>{displayWeight(item.systemVolumeKg,unit,0)} {weightLabel(unit)} system volume</span>}
               {item.averageRpe!=null&&<span>Avg RPE {item.averageRpe.toFixed(1)}</span>}

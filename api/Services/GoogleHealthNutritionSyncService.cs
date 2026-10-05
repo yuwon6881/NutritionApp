@@ -32,8 +32,9 @@ public sealed class GoogleHealthNutritionSyncService(
 
     public static string InferMealType(string? time)
     {
+        // Google requires a concrete meal type; an untimed entry uploads at noon (EntryTimestamp).
         if (string.IsNullOrWhiteSpace(time) || !TimeOnly.TryParse(time, CultureInfo.InvariantCulture, out var t))
-            return "MEAL_TYPE_UNSPECIFIED";
+            return "LUNCH";
         return t.Hour switch
         {
             >= 5 and < 11 => "BREAKFAST",
@@ -386,6 +387,7 @@ public sealed class GoogleHealthNutritionSyncService(
                     await FinalizeAsync(lease, (work, _) => Retry(work, result.RetryAfter), ct);
                     return "retry";
                 }
+                logger?.LogWarning("Google Health rejected a nutrition operation: {ProviderStatus}.", result.ErrorCategory);
                 await FinalizeAsync(lease, (work, _) => MarkFailed(work, result.ErrorCategory, result.ErrorMessage), ct);
                 return "failed";
             }
@@ -425,6 +427,8 @@ public sealed class GoogleHealthNutritionSyncService(
             }
             if (ex.AuthenticationFailure)
                 await google.MarkReconnectRequiredAsync(lease.UserId, ct);
+            else if (!ex.Transient)
+                logger?.LogWarning("Google Health rejected a nutrition upload: {ProviderStatus}.", ex.ProviderStatus);
             await FinalizeAsync(lease, (work, _) =>
             {
                 if (ex.AuthenticationFailure)

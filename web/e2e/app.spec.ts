@@ -63,7 +63,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Nasi lemak reviewed portion');await page.getByLabel('Calories (kcal)',{exact:true}).fill('520');
   await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('button',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('heading',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Nasi lemak reviewed portion');}).toBeTruthy();
   await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Progress',exact:true}).click();await expect(page.locator('[data-page-heading]')).toHaveText('Progress');await page.waitForTimeout(400);await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
@@ -82,8 +82,8 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBeTruthy();
   await context.setOffline(true);await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Offline banana');await page.getByLabel('Calories (kcal)',{exact:true}).fill('105');await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();await expect(page.getByText('Pending sync',{exact:true}).first()).toBeVisible();
-  await page.reload();await page.getByRole('button',{name:'Food Log',exact:true}).click();await expect(page.getByRole('button',{name:'Offline banana',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Offline banana',exact:true})).toBeVisible();await expect(page.getByText('Pending sync',{exact:true}).first()).toBeVisible();
+  await page.reload();await page.getByRole('button',{name:'Food Log',exact:true}).click();await expect(page.getByRole('heading',{name:'Offline banana',exact:true})).toBeVisible();
   await context.setOffline(false);
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Offline banana');}).toBeTruthy();
   const secondContext=await context.browser()!.newContext({baseURL:(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088')});const second=secondContext.request;await signIn(second,'test-bob');
@@ -419,7 +419,7 @@ test('cached diary opens while the server sleeps and uploads retained food and w
   await page.getByLabel('Food name',{exact:true}).fill('Server wake meal');
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('400');
   await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Server wake meal',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Server wake meal',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Add entry',exact:true}).click();await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log weight',exact:true}).click();
   await page.getByLabel('Weight (kg)',{exact:true}).fill('80.6');
   await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();

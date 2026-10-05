@@ -1,0 +1,72 @@
+/* Dashboard sections and habit calendars. */
+.dashboard-section{margin-bottom:12px}
+.dashboard-section-title{margin:8px 0 14px;font-size:.78rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground)}
+.dashboard-section+.dashboard-section .dashboard-section-title{margin-top:20px}
+
+.habit-calendars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-bottom:24px}
+.habit-calendars>.panel{margin-bottom:0}
+.habit-calendar{--habit-on:var(--primary);--habit-on-ink:var(--on-primary);padding:0;overflow:hidden}
+.habit-calendar.habit-weight,.habit-months.habit-weight{--habit-on:var(--success);--habit-on-ink:var(--card)}
+.habit-months.habit-food{--habit-on:var(--primary);--habit-on-ink:var(--on-primary)}
+
+.habit-calendar-trigger{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head grid" "count grid" "streak grid";align-items:start;column-gap:20px;width:100%;min-height:44px;padding:24px 28px;margin:0;border:0;border-radius:inherit;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color var(--motion-control) ease}
+@media (hover:hover) and (pointer:fine){
+  .habit-calendar-trigger:hover{background:color-mix(in srgb,var(--muted) 55%,transparent)}
+  .habit-calendar-trigger:hover .habit-calendar-expand{opacity:1}
+}
+.habit-calendar-trigger:focus-visible{outline:2px solid var(--ring);outline-offset:-3px}
+.habit-calendar-heading{grid-area:head;display:flex;align-items:center;gap:8px}
+.habit-calendar-heading .eyebrow{margin:0!important}
+.habit-calendar-expand{color:var(--muted-foreground);opacity:.6;transition:opacity var(--motion-control) ease}
+.habit-calendar-count{grid-area:count;display:block;margin:12px 0 2px;font-size:1.35rem;font-weight:600;letter-spacing:-.03em;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.habit-calendar-streak{grid-area:streak;font-size:.78rem}
+
+.habit-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.habit-grid-compact{grid-area:grid;align-self:center;width:142px;gap:4px}
+.habit-cell{display:block;aspect-ratio:1;border-radius:4px;background:var(--track);border:1px solid transparent}
+.habit-cell[data-status=logged]{background:var(--habit-on)}
+.habit-cell[data-status=fasting]{background:color-mix(in srgb,var(--habit-on) 45%,var(--track))}
+.habit-cell[data-status=not_logged]{background:color-mix(in srgb,var(--muted-foreground) 30%,var(--track))}
+.habit-cell[data-status=open]{background:transparent;border:1px dashed color-mix(in srgb,var(--habit-on) 70%,var(--border))}
+.habit-cell[data-status=unknown]{background:transparent;border:1px dashed var(--border)}
+.habit-cell[data-status=before],.habit-cell[data-status=future]{background:transparent;border-color:color-mix(in srgb,var(--border) 60%,transparent)}
+.habit-cell[data-today]{box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--ink-strong)}
+
+/* Full calendar in the dialog. */
+.habit-legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 20px;padding:0;list-style:none;font-size:.78rem;color:var(--muted-foreground)}
+.habit-legend li{display:inline-flex;align-items:center;gap:7px}
+.habit-legend .habit-cell{width:14px;height:14px;flex-shrink:0}
+.habit-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:22px 28px}
+.habit-month h3{margin:0 0 10px;font-size:.9rem;font-weight:600}
+.habit-grid-full{gap:5px}
+.habit-weekday{padding-bottom:2px;text-align:center;font-size:.66rem;font-weight:600;color:var(--muted-foreground)}
+.habit-day{display:grid;place-items:center;border-radius:7px;font-size:.72rem;font-variant-numeric:tabular-nums;color:var(--foreground)}
+.habit-day[data-status=logged]{color:var(--habit-on-ink);font-weight:600}
+.habit-day[data-status=unknown],.habit-day[data-status=before],.habit-day[data-status=future]{color:var(--muted-foreground)}
+
+@media(max-width:1023px){
+  .habit-calendars{gap:16px}
+  .habit-calendar-trigger{padding:20px 22px;column-gap:16px}
+  .habit-grid-compact{width:126px}
+}
+/* Phones keep both cards side by side; the grid moves under the summary. */
+@media(max-width:639px){
+  .habit-calendars{gap:12px;margin-bottom:18px}
+  .habit-calendar-trigger{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "count" "streak" "grid";padding:16px}
+  .habit-calendar-count{margin-top:10px;font-size:1.1rem}
+  .habit-calendar-streak{font-size:.72rem}
+  .habit-grid-compact{width:100%;max-width:150px;margin-top:12px;gap:3px}
+  .habit-cell{border-radius:3px}
+}
+@media(prefers-reduced-motion:reduce){
+  .habit-calendar-trigger,.habit-calendar-expand{transition:none}
+}
+@media(forced-colors:active){
+  .habit-cell{border:1px solid CanvasText}
+  .habit-cell[data-status=logged]{background:Highlight}
+}
+
+/* The landing cascade steps through sections rather than individual panels. */
+.dashboard-intro>.dashboard-section-habits .panel{animation-delay:200ms}
+.dashboard-intro>.dashboard-section-habits .panel+.panel{animation-delay:260ms}
+.dashboard-intro>.dashboard-section-insights .panel{animation-delay:320ms}

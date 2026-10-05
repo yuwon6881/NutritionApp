@@ -5,6 +5,8 @@ import {CARD_HOLD_MS,idleCardGesture,stepCardGesture,type CardGestureEvent,type 
 import {hapticTick} from '../lib/haptics';
 import {settlesOpen,swipeOffset} from '../lib/swipeReveal';
 import {useFrameTask} from './ui/useFrameTask';
+import {autoScrollStep} from '../lib/dragAutoScroll';
+import {createDragGhost,visibleScrollBand,type DragGhost} from './timelineDragSurface';
 
 /** Width of the Copy / Move / Delete actions revealed behind a swiped card. */
 export const CARD_REVEAL_WIDTH=204;
@@ -15,10 +17,17 @@ interface ActiveGesture {
   pointerId:number;
   gesture:CardGestureState;
   holdTimer?:ReturnType<typeof setTimeout>;
+  mouseHoldTimer?:ReturnType<typeof setTimeout>;
   rowRects:DropRow[];
   currentTargetTime?:string;
   swipeElement:HTMLElement|null;
   swipeOffset?:number;
+  lastX:number;
+  lastY:number;
+  ghost?:DragGhost;
+  autoScrollFrame?:number;
+  /** Removes the touch-scroll blocker added for this pointer. */
+  releaseTouch?:()=>void;
 }
 
 const INTERACTIVE='button,a,input,select,textarea,summary,.food-card-select-checkbox';
@@ -69,21 +78,27 @@ export function useTimelineDrag({
   const swipeFrame=useFrameTask((current:ActiveGesture)=>{
     if(activeRef.current===current)current.swipeElement?.style.setProperty('--swipe-x',`${current.swipeOffset??0}px`);
   });
-  const targetFrame=useFrameTask(({current,y}:{current:ActiveGesture;y:number})=>{
+  const targetFrame=useFrameTask((current:ActiveGesture)=>{
     if(activeRef.current!==current)return;
+    current.ghost?.move(current.lastX,current.lastY);
     if(!current.rowRects.length)current.rowRects=snapshotRows();
-    updateTarget(current,y);
+    updateTarget(current,current.lastY);
   });
 
   const reset=useCallback(()=>{
     swipeFrame.cancel();targetFrame.cancel();
     const current=activeRef.current;
     if(current?.holdTimer)clearTimeout(current.holdTimer);
+    if(current?.mouseHoldTimer)clearTimeout(current.mouseHoldTimer);
     if(current){
+      if(current.autoScrollFrame!==undefined)cancelAnimationFrame(current.autoScrollFrame);
+      current.ghost?.remove();
+      current.releaseTouch?.();
       current.swipeElement?.style.setProperty('--swipe-x',revealedRef.current===current.entry.id?`${-CARD_REVEAL_WIDTH}px`:'0px');
       try{current.targetEl.releasePointerCapture(current.pointerId);}catch{/* Capture may already be gone. */}
     }
     activeRef.current=null;
+    delete document.documentElement.dataset.cardDragging;
     setDraggingEntry(null);
     setDropOverTime(null);
   },[swipeFrame,targetFrame]);
@@ -101,25 +116,69 @@ export function useTimelineDrag({
   },[revealedId]);
   useEffect(()=>reset,[reset]);
   useEffect(()=>{
-    const invalidate=()=>{if(activeRef.current)activeRef.current.rowRects=[];};
+    // Rows move under a still pointer while the page scrolls, so the hour is picked again.
+    const invalidate=()=>{
+      const current=activeRef.current;
+      if(!current)return;
+      current.rowRects=[];
+      if(current.gesture.phase==='dragging')targetFrame.schedule(current);
+    };
     window.addEventListener('resize',invalidate);window.addEventListener('scroll',invalidate,true);
     return()=>{window.removeEventListener('resize',invalidate);window.removeEventListener('scroll',invalidate,true);};
-  },[]);
+  },[targetFrame]);
 
-  // Once a card is lifted the finger belongs to the card, not the page.
   useEffect(()=>{
     if(!draggingEntry)return;
-    const blockTouch=(event:TouchEvent)=>{if(event.cancelable)event.preventDefault();};
-    const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')reset();};
-    window.addEventListener('touchmove',blockTouch,{passive:false});
+    const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')cancelDrag();};
     window.addEventListener('keydown',onKey);
     window.addEventListener('blur',reset);
     return()=>{
-      window.removeEventListener('touchmove',blockTouch);
       window.removeEventListener('keydown',onKey);
       window.removeEventListener('blur',reset);
     };
-  },[draggingEntry,reset]);
+  });
+
+  /** Ends the gesture with the floating card gliding back to where it came from. */
+  const cancelDrag=()=>{
+    const current=activeRef.current;
+    if(current?.mouseHoldTimer)clearTimeout(current.mouseHoldTimer);
+    const ghost=current?.ghost;
+    if(current)current.ghost=undefined;
+    reset();
+    setSwipe(null);
+    ghost?.returnHome();
+  };
+
+  /**
+   * Once a card is lifted the finger belongs to the card, not the page. The
+   * blocker is attached on touch-down, before the browser decides whether the
+   * first move pans, so a move right after the lift cannot start a scroll.
+   */
+  const blockTouchScroll=(current:ActiveGesture)=>{
+    const block=(event:TouchEvent)=>{
+      const phase=current.gesture.phase;
+      if(event.cancelable&&(phase==='lifted'||phase==='dragging'))event.preventDefault();
+    };
+    window.addEventListener('touchmove',block,{passive:false});
+    current.releaseTouch=()=>window.removeEventListener('touchmove',block);
+  };
+
+  const lift=(current:ActiveGesture)=>{
+    if(current.ghost)return;
+    current.ghost=createDragGhost(current.targetEl,current.gesture.originX,current.gesture.originY);
+    document.documentElement.dataset.cardDragging='true';
+    window.getSelection()?.removeAllRanges();
+  };
+
+  // The visible band is measured once per drag; fixed chrome does not move while a card is held.
+  const autoScroll=(current:ActiveGesture,band=visibleScrollBand())=>{
+    current.autoScrollFrame=requestAnimationFrame(()=>{
+      if(activeRef.current!==current||current.gesture.phase!=='dragging')return;
+      const step=autoScrollStep(current.lastY,band);
+      if(step!==0)window.scrollBy(0,step);
+      autoScroll(current,band);
+    });
+  };
 
   const updateTarget=(current:ActiveGesture,clientY:number)=>{
     const target=dropTarget(current.rowRects,clientY);
@@ -140,19 +199,29 @@ export function useTimelineDrag({
       case 'begin-drag':
         if(!current.rowRects.length)current.rowRects=snapshotRows();
         if(effect==='lift')hapticTick();
+        lift(current);
+        if(effect==='begin-drag'){
+          if(current.mouseHoldTimer)clearTimeout(current.mouseHoldTimer);
+          current.ghost?.move(current.lastX,current.lastY);
+          autoScroll(current);
+        }
         setDraggingEntry(current.entry);
         updateTarget(current,clientY??current.gesture.originY);
         break;
       case 'track':
-        if(clientY!==undefined)targetFrame.schedule({current,y:clientY});
+        targetFrame.schedule(current);
         break;
       case 'drop':{
         const {entry,currentTargetTime}=current;
-        reset();
-        if(currentTargetTime&&currentTargetTime!==(entry.time??null))onDrop(entry,currentTargetTime);
+        if(currentTargetTime&&currentTargetTime!==(entry.time??null)){
+          // The card reappears in its new hour with the moved animation.
+          reset();
+          onDrop(entry,currentTargetTime);
+        }else cancelDrag();
         break;
       }
       case 'select':{
+        if(current.mouseHoldTimer)clearTimeout(current.mouseHoldTimer);
         const {entry}=current;
         reset();
         swallowNextClick();
@@ -181,8 +250,7 @@ export function useTimelineDrag({
         break;
       }
       case 'abort':
-        reset();
-        setSwipe(null);
+        cancelDrag();
         break;
       case 'none':
         break;
@@ -195,9 +263,21 @@ export function useTimelineDrag({
     if((event.target as HTMLElement).closest(INTERACTIVE))return;
     reset();
     const current:ActiveGesture={entry,targetEl:event.currentTarget,pointerId:event.pointerId,gesture:idleCardGesture,rowRects:[],
-      swipeElement:event.currentTarget.closest<HTMLElement>('.food-card-swipe')};
+      swipeElement:event.currentTarget.closest<HTMLElement>('.food-card-swipe'),lastX:event.clientX,lastY:event.clientY};
     activeRef.current=current;
+    if(event.pointerType==='touch')blockTouchScroll(current);
     try{current.targetEl.setPointerCapture(current.pointerId);}catch{/* Capture is an enhancement. */}
+    if(event.pointerType==='mouse'){
+      current.mouseHoldTimer=setTimeout(()=>{
+        if(activeRef.current===current&&current.gesture.phase==='pending'){
+          const {entry:held}=current;
+          reset();
+          swallowNextClick();
+          hapticTick();
+          onHoldSelect(held);
+        }
+      },500);
+    }
     dispatch(current,{type:'down',pointerType:event.pointerType,x:event.clientX,y:event.clientY});
   };
 
@@ -214,8 +294,20 @@ export function useTimelineDrag({
     closeReveal:useCallback(()=>setRevealedId(null),[]),
     bindDrag:(entry:Entry)=>({
       onPointerDown:(event:React.PointerEvent<HTMLElement>)=>onPointerDown(entry,event),
-      onPointerMove:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>dispatch(current,{type:'move',x:event.clientX,y:event.clientY},event.clientY,event.clientX)),
+      onPointerMove:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>{
+        if(current.mouseHoldTimer&&Math.hypot(event.clientX-current.gesture.originX,event.clientY-current.gesture.originY)>=8){
+          clearTimeout(current.mouseHoldTimer);
+          current.mouseHoldTimer=undefined;
+        }
+        current.lastX=event.clientX;current.lastY=event.clientY;
+        dispatch(current,{type:'move',x:event.clientX,y:event.clientY},event.clientY,event.clientX);
+      }),
       onPointerUp:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>{
+        if(current.mouseHoldTimer){
+          clearTimeout(current.mouseHoldTimer);
+          current.mouseHoldTimer=undefined;
+        }
+        current.lastX=event.clientX;current.lastY=event.clientY;
         if(current.gesture.phase==='swiping'||current.gesture.phase==='dragging')dispatch(current,{type:'move',x:event.clientX,y:event.clientY},event.clientY,event.clientX);
         targetFrame.flush();swipeFrame.flush();dispatch(current,{type:'up'});
       }),
