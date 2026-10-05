@@ -6,7 +6,6 @@ import {api} from '../lib/api';
 import {clampIndex} from '../lib/bodyMeasurements';
 import {Button} from './ui/Button';
 import {PhotoUploadDialog} from './PhotoUploadDialog';
-import {useAsyncAction} from './ui/useAsyncAction';
 import {unitsFor} from '../lib/units';
 import {CardFeedback} from './ui/CardFeedback';
 import {MotionPanel} from './ui/Motion';
@@ -43,28 +42,40 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
   const galleryScroll=useRef(0);
   const cursorRef=useRef<string|null>(null);
   const loadingRef=useRef(false);
-  const {busy,run}=useAsyncAction();
+  const [bodyLoading,setBodyLoading]=useState(false);
+  const [photoLoading,setPhotoLoading]=useState(false);
+  const bodyLoadingRef=useRef(false);
+  const busy=bodyLoading||photoLoading;
+  const busyPending=busy;
 
+  const bodyRead=useRef(0);
+  const photoRead=useRef(0);
   const loadBodyPage=useCallback(async(reset=false)=>{
+    if(bodyLoadingRef.current&&!reset)return 0;
+    const request=++bodyRead.current;bodyLoadingRef.current=true;setBodyLoading(true);
     if(reset)setBodyError('');
     try{
       const cursor=reset?null:bodyCursor;
-      const response=await run(()=>api<BodyPage>('/body-records'+(cursor?'?cursor='+encodeURIComponent(cursor):'')));
+      const response=await api<BodyPage>('/body-records'+(cursor?'?cursor='+encodeURIComponent(cursor):''));
+      if(request!==bodyRead.current)return 0;
       setBodyCursor(response.nextCursor);setBodyHasMore(response.hasMore);setBodyLoaded(true);
       setBodyRecords(current=>{
         if(reset)return response.records;
         const byId=new Map(current.map(item=>[item.id,item]));response.records.forEach(item=>byId.set(item.id,item));return [...byId.values()];
       });
       return response.records.length;
-    }catch(ex){setBodyError((ex as Error).message);return 0;}
-  },[bodyCursor,run]);
+    }catch(ex){if(request!==bodyRead.current)return 0;setBodyError((ex as Error).message);return 0;}
+    finally{if(request===bodyRead.current){bodyLoadingRef.current=false;setBodyLoading(false);}}
+  },[bodyCursor]);
 
   const loadPage=useCallback(async(reset=false)=>{
-    if(loadingRef.current)return 0;
-    loadingRef.current=true;setError('');
+    if(loadingRef.current&&!reset)return 0;
+    const request=++photoRead.current;
+    loadingRef.current=true;setPhotoLoading(true);setError('');
     try{
       const cursor=reset?null:cursorRef.current;
-      const response=await run(()=>api<PhysiquePhotoPage>('/photos?limit=20'+(cursor?'&cursor='+encodeURIComponent(cursor):'')));
+      const response=await api<PhysiquePhotoPage>('/photos?limit=20'+(cursor?'&cursor='+encodeURIComponent(cursor):''));
+      if(request!==photoRead.current)return 0;
       cursorRef.current=response.nextCursor;setHasMore(response.hasMore);setLoaded(true);
       setSets(current=>{
         if(reset)return response.sets;
@@ -73,9 +84,9 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
         return [...byId.values()];
       });
       return response.sets.length;
-    }catch(ex){setError((ex as Error).message);return 0;}
-    finally{loadingRef.current=false;}
-  },[run]);
+    }catch(ex){if(request!==photoRead.current)return 0;setError((ex as Error).message);return 0;}
+    finally{if(request===photoRead.current){loadingRef.current=false;setPhotoLoading(false);}}
+  },[]);
 
   useEffect(()=>{
     if(page==='gallery'&&!loaded)void loadPage(true);
@@ -85,6 +96,13 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
       return()=>window.cancelAnimationFrame(frame);
     }
   },[page,loaded,loadPage,bodyLoaded,loadBodyPage]);
+
+  useEffect(()=>()=>{++bodyRead.current;++photoRead.current;},[]);
+  useEffect(()=>{
+    const completed=()=>{void loadBodyPage(true);void loadPage(true);};
+    window.addEventListener('nutrition:body-saved',completed);
+    return()=>window.removeEventListener('nutrition:body-saved',completed);
+  },[loadBodyPage,loadPage]);
 
   // A deleted record or a reload can shorten the list under an open viewer.
   const bodyIndex=clampIndex(bodyViewerIndex,bodyRecords.length);
@@ -118,9 +136,9 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
         <div className="section-heading"><div><h2>Measurements and photos</h2><p>Newest first.</p></div><Button variant="secondary" disabled={bodyRecords.length<2} onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare</Button></div>
         {!bodyRecords.length&&!bodyError&&(bodyLoaded?<p className="empty">No Body records yet.</p>:<BodyListSkeleton kind="history" label="Loading Body history…"/>)}
         <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
-        {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
+        {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busyPending} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
       </section>
-      {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}
+      {bodyDrafts.map(draft=><BodyDraftNotice key={draft.mutationId} draft={draft} store={store}/>)}
     </>;
   }else if(page==='body-viewer'){
     const current=bodyRecords[bodyIndex];
@@ -136,9 +154,9 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
         <div className="section-heading"><div><h2>Photo sets</h2><p>Newest first.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}><ArrowLeftRight size={16} aria-hidden="true"/>Step through sets</Button></div>
         {!sets.length&&!error&&(loaded?<p className="empty">No photo sets yet.</p>:<BodyListSkeleton kind="gallery" label="Loading gallery…"/>)}
         <div className="photo-gallery-list">{sets.map(set=><PhotoSetRow key={set.id} set={set} onEdit={openUpload}/>)}</div>
-        {hasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>void loadPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
+        {hasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busyPending} onClick={()=>void loadPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
       </section>
-      {drafts.map(draft=><PhotoDraftNotice key={draft.id} draft={draft} store={store}/>)}
+      {drafts.map(draft=><PhotoDraftNotice key={draft.versionId??draft.id} draft={draft} store={store}/>)}
     </>;
   }else if(page==='viewer'){
     view=<>
@@ -181,8 +199,8 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
         </div>
         {retained>0&&<p className="source body-hub-status">{retained} {retained===1?'change':'changes'} waiting to sync.</p>}
       </section>
-      {drafts.map(draft=><PhotoDraftNotice key={draft.id} draft={draft} store={store}/>)}
-      {bodyDrafts.map(draft=><BodyDraftNotice key={draft.id} draft={draft} store={store}/>)}
+      {drafts.map(draft=><PhotoDraftNotice key={draft.versionId??draft.id} draft={draft} store={store}/>)}
+      {bodyDrafts.map(draft=><BodyDraftNotice key={draft.mutationId} draft={draft} store={store}/>)}
     </>;
   }
 

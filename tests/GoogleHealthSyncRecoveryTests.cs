@@ -144,9 +144,10 @@ public sealed class GoogleHealthSyncRecoveryTests
                     });
                     break;
                 default:
+                    var bodyId=Guid.NewGuid();Db.BodyRecords.Add(new BodyRecord{Id=bodyId,UserId=UserId,Date=date});
                     Db.GoogleHealthBodyFatSyncWork.Add(new GoogleHealthBodyFatSyncWork
                     {
-                        Id = Guid.NewGuid(), UserId = UserId, BodyRecordId = Guid.NewGuid(), DesiredRevision = 1, DesiredDate = date, DesiredBodyFatPercent = 18,
+                        Id = Guid.NewGuid(), UserId = UserId, BodyRecordId = bodyId, DesiredRevision = 1, DesiredDate = date, DesiredBodyFatPercent = 18,
                         GoogleIdHash = GoogleIdHash, ConnectionGeneration = 1, ProcessingState = state,
                         NextAttemptAt = due, LeaseUntil = leaseUntil, LeaseId = leaseId
                     });

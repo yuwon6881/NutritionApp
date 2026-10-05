@@ -37,7 +37,7 @@ export function MoveFoodDialog({
   const [destinationTime,setDestinationTime]=useState(sourceTime);
   const [keepOriginalTimes,setKeepOriginalTimes]=useState(hasMultipleTimes);
   const [error,setError]=useState('');
-  const {busy,run,reset}=useAsyncAction();
+  const {busy,run,reset,pending:busyPending}=useAsyncAction();
   const initial=useRef({date:sourceDate,time:sourceTime});
 
   useEffect(()=>{
@@ -103,21 +103,21 @@ export function MoveFoodDialog({
       {mode==='options'?(
         <>
           <div className="action-sheet-options" style={{marginBottom:18}}>
-            <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void moveToToday()} disabled={busy}>
+            <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void moveToToday()} disabled={busyPending}>
               <span className="action-sheet-item-icon"><Calendar size={22} aria-hidden="true"/></span>
               <span className="action-sheet-item-text">
                 <strong>Move To Today</strong>
                 <small>{hasMultipleTimes?'Keep original times for each entry':sourceTime?`Keep ${timeLabel(sourceTime)}`:'Keep time not recorded'}</small>
               </span>
             </Button>
-            <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void moveToTomorrow()} disabled={busy}>
+            <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void moveToTomorrow()} disabled={busyPending}>
               <span className="action-sheet-item-icon"><CalendarPlus size={22} aria-hidden="true"/></span>
               <span className="action-sheet-item-text">
                 <strong>Move to tmr</strong>
                 <small>{hasMultipleTimes?'Keep original times for each entry':sourceTime?`Keep ${timeLabel(sourceTime)}`:'Keep time not recorded'}</small>
               </span>
             </Button>
-            <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>setMode('custom')} disabled={busy}>
+            <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>setMode('custom')} disabled={busyPending}>
               <span className="action-sheet-item-icon"><Clock size={22} aria-hidden="true"/></span>
               <span className="action-sheet-item-text">
                 <strong>Date and time</strong>
@@ -128,7 +128,7 @@ export function MoveFoodDialog({
           </div>
           {error&&<p className="error" role="alert">{error}</p>}
           <div className="modal-actions">
-            <Button type="button" variant="secondary" fullWidth onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button type="button" variant="secondary" fullWidth onClick={onClose} disabled={busyPending}>Cancel</Button>
           </div>
         </>
       ):(
@@ -166,8 +166,8 @@ export function MoveFoodDialog({
           />}
           {error&&<p className="error" role="alert">{error}</p>}
           <div className="modal-actions">
-            <Button type="button" variant="secondary" onClick={()=>setMode('options')} disabled={busy}>Back</Button>
-            <Button type="submit" variant="primary" disabled={busy}>{busy?'Moving…':'Move'}</Button>
+            <Button type="button" variant="secondary" onClick={()=>setMode('options')} disabled={busyPending}>Back</Button>
+            <Button type="submit" variant="primary" disabled={busyPending}>{busy?'Moving…':'Move'}</Button>
           </div>
         </Form>
       )}

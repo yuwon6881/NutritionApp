@@ -69,7 +69,7 @@ public sealed class GoogleHealthBodyFatSyncTests
         var recordId = Guid.NewGuid();
 
         var mutation = new BodyMutation(
-            recordId,
+            Guid.NewGuid(),
             0,
             new BodyPatch(
                 Date: new DateOnly(2026, 9, 18),
@@ -78,13 +78,38 @@ public sealed class GoogleHealthBodyFatSyncTests
                     ["bodyFatPercent"] = 14.8
                 }));
 
-        await bodyFatSync.QueueMutationAsync(null, mutation, 1, default);
+        var record=new BodyRecord{Id=recordId,UserId=db.CurrentUser.Value,Date=new DateOnly(2026,9,18),CreationOrder=1};
+        record.Measurements.BodyFatPercent=14.8;
+        db.BodyRecords.Add(record);await db.SaveChangesAsync();
+        await bodyFatSync.QueueMutationAsync(recordId,null,record,mutation,1,default);
         await db.SaveChangesAsync();
 
         var work = await db.GoogleHealthBodyFatSyncWork.SingleAsync(x => x.BodyRecordId == recordId);
         Assert.Equal("pending", work.ProcessingState);
         Assert.Equal(14.8, work.DesiredBodyFatPercent);
         Assert.Equal(new DateOnly(2026, 9, 18), work.DesiredDate);
+        work.GoogleResourceName="users/me/dataSources/app/dataPoints/bodyfat";
+        record.Measurements.BodyFatPercent=16.2;
+        await bodyFatSync.QueueMutationAsync(recordId,record,record,new BodyMutation(Guid.NewGuid(),1,new BodyPatch(Measurements:new(){{"bodyFatPercent",16.2}})),2,default);
+        Assert.Equal(16.2,work.DesiredBodyFatPercent);
+        record.Date=record.Date.AddDays(-1);
+        await bodyFatSync.QueueMutationAsync(recordId,record,record,new BodyMutation(Guid.NewGuid(),2,new BodyPatch(Date:record.Date)),3,default);
+        Assert.False(work.DesiredDeleted);Assert.Equal(16.2,work.DesiredBodyFatPercent);Assert.Equal(record.Date,work.DesiredDate);
+        record.Measurements.BodyFatPercent=null;
+        await bodyFatSync.QueueMutationAsync(recordId,record,record,new BodyMutation(Guid.NewGuid(),3,new BodyPatch(Measurements:new(){{"bodyFatPercent",null}})),4,default);
+        Assert.True(work.DesiredDeleted);
+        // Exercise patches through the real Body service, including omitted fields and deletion.
+        record.Revision=4;(await db.Users.SingleAsync()).Revision=4;await db.SaveChangesAsync();
+        var config=new ConfigurationBuilder().Build();
+        var body=new BodyRecordService(db,new GcsPhotoStore(new HttpClient(),config,_=>Task.FromResult("token")),config,bodyFatSync);
+        var saved=await body.Apply(recordId,new BodyMutation(Guid.NewGuid(),4,new BodyPatch(Measurements:new(){{"bodyFatPercent",19}})),default);
+        Assert.Equal(19,work.DesiredBodyFatPercent);Assert.False(work.DesiredDeleted);
+        saved=await body.Apply(recordId,new BodyMutation(Guid.NewGuid(),saved.Revision,new BodyPatch(Date:record.Date.AddDays(-1))),default);
+        Assert.Equal(19,saved.Measurements.BodyFatPercent);Assert.Equal(19,work.DesiredBodyFatPercent);Assert.False(work.DesiredDeleted);
+        saved=await body.Apply(recordId,new BodyMutation(Guid.NewGuid(),saved.Revision,new BodyPatch(Measurements:new(){{"bodyFatPercent",null}})),default);
+        Assert.True(work.DesiredDeleted);
+        await body.Apply(recordId,new BodyMutation(Guid.NewGuid(),saved.Revision,Action:"delete"),default);
+        Assert.True(work.DesiredDeleted);
     }
 
     private sealed class CaptureHandler : HttpMessageHandler

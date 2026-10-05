@@ -40,12 +40,14 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await expect(food).toHaveAccessibleName(/^Food logging: 9 of 10 days logged, 6-day streak/);
     await expect(weight).toHaveAccessibleName(/^Weigh-ins: 6 of 11 days logged, 1-day streak/);
 
+    await page.evaluate(()=>document.fonts.ready);
     // Both cards sit side by side at every width, sized to their content, with 44 px targets.
     const foodBox=(await food.boundingBox())!;
     const weightBox=(await weight.boundingBox())!;
     expect(Math.abs(foodBox.y-weightBox.y)).toBeLessThanOrEqual(1);
     expect(foodBox.height).toBeGreaterThanOrEqual(44);
-    expect(foodBox.height).toBeLessThan(width<640?260:200);
+    // The medium navigation rail leaves room for an extra wrapped summary line.
+    expect(foodBox.height).toBeLessThan(width<640?260:width<1024?216:200);
     await expect(food.locator('.habit-cell')).toHaveCount(28);
     await expect(food.locator('.habit-cell[data-status="logged"]')).not.toHaveCount(0);
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();

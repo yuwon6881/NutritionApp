@@ -189,3 +189,10 @@ it('invalidates downstream trends after edits and restores them after Undo',()=>
   const offline=projectProgressWeightSummary(range,undefined,[op],[weight])!;
   expect(offline.series).toEqual([{date:'2026-03-10',scaleKg:81,trendKg:null}]);
 });
+
+it('projects an occupied-date atomic move into one retained weigh-in',()=>{
+  const weights:Weight[]=[{id:'a',date:'2026-03-01',kg:80,revision:1,deleted:false},{id:'b',date:'2026-03-02',kg:81,revision:2,deleted:false}];
+  const op:Mutation={id:'move',kind:'weight_move',recordId:'a',expectedRevision:1,delete:false,data:{date:'2026-03-02',kg:82,destinationId:'b',destinationRevision:2}};
+  const result=projectProgressWeightSummary({start:'2026-03-01',end:'2026-03-31'},undefined,[op],weights);
+  expect(result?.editableWeighIns).toHaveLength(1);expect(result?.editableWeighIns[0]).toMatchObject({id:'b',kg:82});expect(result?.statistics.trendPending).toBe(true);
+});

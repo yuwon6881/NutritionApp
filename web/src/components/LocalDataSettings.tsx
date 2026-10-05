@@ -19,7 +19,7 @@ export function LocalDataSettings({accountId,onLogout}:{accountId:string;onLogou
   const [counts,setCounts]=useState<AccountLocalWorkCounts>();
   const [notice,setNotice]=useState('');
   const [error,setError]=useState('');
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
 
   const review=()=>void (async()=>{
     setError('');
@@ -57,10 +57,10 @@ export function LocalDataSettings({accountId,onLogout}:{accountId:string;onLogou
   return <>
     <SettingRow className="setting-row-danger" label={<h3 className="setting-row-heading">Local Nutrition data</h3>}
       description="Removes this account's cache and device-only work from this browser, then signs you out. Records already synced to your account stay there.">
-      <Button variant="destructive" disabled={busy} onClick={review}>Remove local data…</Button>
+      <Button variant="destructive" disabled={busyPending} onClick={review}>Remove local data…</Button>
     </SettingRow>
     {error&&<CardFeedback title="Local data unavailable" message={error}/>}
-    <Modal open={open} onClose={()=>{if(!busy)setOpen(false);}} title="Remove local Nutrition data?" description="This removes Nutrition data for this account from this browser and signs you out." width="sm" preventDismiss={busy}>
+    <Modal open={open} onClose={()=>{if(!busyPending)setOpen(false);}} title="Remove local Nutrition data?" description="This removes Nutrition data for this account from this browser and signs you out." width="sm" preventDismiss={busyPending}>
       <div className="local-data-dialog">
         <p>Device-only pending work will be removed. Server-synced Nutrition data stays in your account. Other accounts and notification revocation work on this device are kept.</p>
         {counts&&<>
@@ -71,8 +71,8 @@ export function LocalDataSettings({accountId,onLogout}:{accountId:string;onLogou
         </>}
         {notice&&<p className="notice" role="status">{notice}</p>}
         <div className="actions">
-          <Button variant="secondary" disabled={busy} onClick={()=>setOpen(false)}>Keep local data</Button>
-          <Button variant="destructive" disabled={busy||!counts} onClick={confirm}>{busy?'Removing…':'Remove local data & sign out'}</Button>
+          <Button variant="secondary" disabled={busyPending} onClick={()=>setOpen(false)}>Keep local data</Button>
+          <Button variant="destructive" disabled={busyPending||!counts} onClick={confirm}>{busy?'Removing…':'Remove local data & sign out'}</Button>
         </div>
       </div>
     </Modal>

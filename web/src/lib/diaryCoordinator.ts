@@ -16,6 +16,7 @@ export class DiaryCoordinator {
   private cachedDays = new Map<string, DatedDiaryDay>();
   private rangeEtags = new Map<string, string>();
   private inFlightRanges = new Map<string, Promise<void>>();
+  private rangeSignals = new Map<string, AbortSignal | undefined>();
   private navigationAbort: AbortController | null = null;
   private listeners = new Set<(date?: string) => void>();
   private generation=0;
@@ -39,6 +40,7 @@ export class DiaryCoordinator {
     this.cachedDays.clear();
     this.rangeEtags.clear();
     this.inFlightRanges.clear();
+    this.rangeSignals.clear();
     this.user = null;
     this.notify();
   }
@@ -68,7 +70,7 @@ export class DiaryCoordinator {
   }
 
   /** Keep acknowledged edits visible when the outbox clears before revalidation finishes. */
-  public async acknowledge(op:Mutation,revision:number):Promise<void>{
+  public async acknowledge(op:Mutation,revision:number,canonical?:Day[]):Promise<void>{
     if(op.kind!=='entry'&&op.kind!=='day')return;
     const requestUser=this.user;
     const generation=this.generation;
@@ -80,12 +82,15 @@ export class DiaryCoordinator {
       if(cached.entries.some(entry=>entry.id===op.recordId))dates.add(date);
     }
     for(const date of dates){
+      if((this.cachedDays.get(date)?.revision??0)>revision)continue;
       if(!this.cachedDays.has(date))this.cachedDays.set(date,{date,entries:[],revision:0,fetchedAt:0});
       const projected=this.projectDate(date,[op]);
       if(!projected)continue;
       const entry=projected.entries.find(item=>item.id===op.recordId);
       if(entry)entry.revision=revision;
       if(projected.day)projected.day.revision=revision;
+      const saved=canonical?.find(day=>day.date===date);
+      if(saved)projected.day=saved;
       const next={...projected,revision,fetchedAt:Date.now()};
       this.cachedDays.set(date,next);
       updated.push(next);
@@ -126,6 +131,7 @@ export class DiaryCoordinator {
         const opDate = (op.data as any)?.date;
         if (opDate === date) {
           day = {
+            ...day,
             id: op.recordId,
             revision: op.expectedRevision,
             deleted: op.delete,
@@ -133,7 +139,7 @@ export class DiaryCoordinator {
             status: (op.data as any)?.status ?? 'incomplete',
             archived: day?.archived
           };
-          dayModified = true;
+          dayModified=false;
         }
       } else if (op.kind === 'entry') {
         const entryData = op.data as any;
@@ -202,6 +208,9 @@ export class DiaryCoordinator {
     const { from, to } = getMonthRange(date, date > todayDate ? date : todayDate);
     const rangeKey = `${from}:${to}`;
 
+    const existingPromise = this.inFlightRanges.get(rangeKey);
+    if (existingPromise && !this.rangeSignals.get(rangeKey)?.aborted) return existingPromise;
+
     if (options?.isNavigation) {
       if (this.navigationAbort) {
         this.navigationAbort.abort();
@@ -209,10 +218,8 @@ export class DiaryCoordinator {
       this.navigationAbort = new AbortController();
     }
 
-    const existingPromise = this.inFlightRanges.get(rangeKey);
-    if (existingPromise) return existingPromise;
-
     const signal = options?.isNavigation ? this.navigationAbort?.signal : undefined;
+    this.rangeSignals.set(rangeKey, signal);
     const requestPromise = (async () => {
       try {
         const etag = this.rangeEtags.get(rangeKey);
@@ -302,7 +309,10 @@ export class DiaryCoordinator {
         if (ex?.name === 'AbortError') return;
         throw ex;
       } finally {
-        if(generation===this.generation)this.inFlightRanges.delete(rangeKey);
+        if(generation===this.generation && this.rangeSignals.get(rangeKey)===signal){
+          this.inFlightRanges.delete(rangeKey);
+          this.rangeSignals.delete(rangeKey);
+        }
       }
     })();
 

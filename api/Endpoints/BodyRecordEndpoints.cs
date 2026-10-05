@@ -27,12 +27,12 @@ public static class BodyRecordEndpoints
                 () => GoogleHealthOutboundSync.FlushForActiveUserAsync(scopes,db.CurrentUser,logger,ct));
             return Results.Ok(detail);
         });
-        app.MapPost("/api/body-records/{id:guid}/photos",async(Guid id,PhotoSetInput input,PhotoService photos,BodyRecordService body,CancellationToken ct)=>
+        app.MapPost("/api/body-records/{id:guid}/photos",async(Guid id,PhotoSetInput input,PhotoService photos,BodyRecordService body,AppDb db,CancellationToken ct)=>
         {
             Validation.Require(id==input.Id&&input.MutationId!=null&&input.ExpectedRevision!=null,"A revisioned photo mutation is required.");
             var uploaded=await photos.Upload(input,ct);
-            var record=await body.Detail(id,ct);
-            return Results.Ok(new {revision=record.Revision,photos=uploaded});
+            var revision=await db.Receipts.Where(r=>r.Id==input.MutationId).Select(r=>r.Revision).SingleAsync(ct);
+            return Results.Ok(new {revision,photos=uploaded});
         });
     }
 }

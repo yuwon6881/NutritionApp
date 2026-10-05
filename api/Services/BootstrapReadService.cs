@@ -39,7 +39,7 @@ public sealed class BootstrapReadService(AppDb db, RetentionService retention, E
             payload = new {
                 user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
                 diaryRevision = user.DiaryRevision, trajectoryRevision = user.TrajectoryRevision, bodyRevision = user.BodyRevision, foodRevision = user.FoodRevision,
-                settings = new {checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,
+                settings = new {checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,cadenceRevision=user.CadenceRevision,cadenceChangedDate=user.CadenceChangedDate,
                     weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale"},
                 profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson),
                 start, end = today, detailCutoff = RetentionService.Cutoff(today,retention.DetailDays), detailDays = retention.DetailDays,

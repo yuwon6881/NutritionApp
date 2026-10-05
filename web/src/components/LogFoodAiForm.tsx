@@ -36,6 +36,7 @@ const useIsMobile = () => {
 export function LogFoodAiForm({
   date,
   busy,
+  pending=busy,
   pendingBarcode,
   mode,
   onModeChange,
@@ -52,6 +53,7 @@ export function LogFoodAiForm({
 }:{
   date:string;
   busy:boolean;
+  pending?:boolean;
   pendingBarcode?:PendingBarcode;
   mode:AiMode;
   onModeChange:(mode:AiMode)=>void;
@@ -111,7 +113,7 @@ export function LogFoodAiForm({
 
   const triggerCamera = () => {
     const input = fileInputRef.current;
-    if (!input || busy) return;
+    if (!input || pending) return;
     armCameraGuard();
     input.setAttribute('capture', 'environment');
     input.click();
@@ -119,7 +121,7 @@ export function LogFoodAiForm({
 
   const triggerGallery = () => {
     const input = fileInputRef.current;
-    if (!input || busy) return;
+    if (!input || pending) return;
     armCameraGuard();
     input.removeAttribute('capture');
     try {
@@ -145,7 +147,7 @@ export function LogFoodAiForm({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!busy) setIsDragging(true);
+    if (!pending) setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -156,7 +158,7 @@ export function LogFoodAiForm({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (busy) return;
+    if (pending) return;
     const file = e.dataTransfer.files?.[0];
     if (file) onPhotoFile(file);
   };
@@ -187,11 +189,11 @@ export function LogFoodAiForm({
         className="ai-mode-choice"
         label="How would you like to log?"
         value={mode}
-        onChange={value => { if (!busy) onModeChange(value); }}
+        onChange={value => { if (!pending) onModeChange(value); }}
         options={[
-          {value:'description', label:<><MessageSquareText size={18} aria-hidden="true"/><span>Describe</span></>, ariaLabel:'Describe my meal', disabled:busy&&mode!=='description'},
-          {value:'photo', label:<><Camera size={18} aria-hidden="true"/><span>Photo</span></>, ariaLabel:'Meal photo', disabled:busy&&mode!=='photo'},
-          {value:'label', label:<><ScanText size={18} aria-hidden="true"/><span>Label</span></>, ariaLabel:'Nutrition label', disabled:busy&&mode!=='label'},
+          {value:'description', label:<><MessageSquareText size={18} aria-hidden="true"/><span>Describe</span></>, ariaLabel:'Describe my meal', disabled:pending&&mode!=='description'},
+          {value:'photo', label:<><Camera size={18} aria-hidden="true"/><span>Photo</span></>, ariaLabel:'Meal photo', disabled:pending&&mode!=='photo'},
+          {value:'label', label:<><ScanText size={18} aria-hidden="true"/><span>Label</span></>, ariaLabel:'Nutrition label', disabled:pending&&mode!=='label'},
         ]}
       />
     )}
@@ -200,7 +202,7 @@ export function LogFoodAiForm({
       <TextArea
         id="ai-meal-description"
         name="description"
-        disabled={busy}
+        disabled={pending}
         required
         label="Meal description and portions"
         maxLength={3000}
@@ -223,7 +225,7 @@ export function LogFoodAiForm({
           accept="image/*"
           aria-label={mode === 'label' ? 'Photograph the nutrition label' : 'Photograph your food'}
           capture={isMobile ? 'environment' : undefined}
-          disabled={busy}
+          disabled={pending}
           className="accessible-native-file"
           tabIndex={-1}
           onChange={handleFileChange}
@@ -236,7 +238,7 @@ export function LogFoodAiForm({
                 type="button"
                 variant="secondary"
                 className="ai-photo-btn ai-photo-btn-camera"
-                disabled={busy}
+                disabled={pending}
                 onClick={triggerCamera}
               >
                 <Camera size={18} aria-hidden="true" />
@@ -246,7 +248,7 @@ export function LogFoodAiForm({
                 type="button"
                 variant="secondary"
                 className="ai-photo-btn ai-photo-btn-gallery"
-                disabled={busy}
+                disabled={pending}
                 onClick={triggerGallery}
               >
                 <Images size={18} aria-hidden="true" />
@@ -257,14 +259,14 @@ export function LogFoodAiForm({
         ) : (
           !photo ? (
             <div
-              className={`custom-file-dropzone ai-photo-desktop-dropzone ${isDragging ? 'dragging' : ''} ${busy ? 'disabled' : ''}`}
+              className={`custom-file-dropzone ai-photo-desktop-dropzone ${isDragging ? 'dragging' : ''} ${pending ? 'disabled' : ''}`}
               onClick={triggerGallery}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               data-validation-focus
               role="button"
-              tabIndex={busy ? -1 : 0}
+              tabIndex={pending ? -1 : 0}
               onKeyDown={e => {
                 if (e.target !== e.currentTarget) return;
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -282,7 +284,7 @@ export function LogFoodAiForm({
                 type="button"
                 variant="secondary"
                 size="sm"
-                disabled={busy}
+                disabled={pending}
                 onClick={triggerGallery}
               >
                 <UploadCloud size={16} aria-hidden="true" />
@@ -306,7 +308,7 @@ export function LogFoodAiForm({
                     type="button"
                     variant="tertiary"
                     size="sm"
-                    disabled={busy}
+                    disabled={pending}
                     onClick={onClearPhoto}
                     aria-label="Remove photo"
                   >
@@ -322,7 +324,7 @@ export function LogFoodAiForm({
         <TextArea
           id="ai-photo-details"
           name="details"
-          disabled={busy}
+          disabled={pending}
           label="Details for the AI (optional)"
           rows={2}
           maxLength={3000}
@@ -337,7 +339,7 @@ export function LogFoodAiForm({
     {busy && <p className="ai-busy-status" role="status">Estimating nutrients. This scan is saved on this device, so it can resume if the connection drops.</p>}
     {storageError && <p className="error" role="alert">{storageError}</p>}
     <div className="modal-actions">
-      <Button variant="primary" disabled={busy || !!storageError} type="submit">
+      <Button variant="primary" disabled={pending || !!storageError} type="submit">
         {busy ? <LoaderCircle size={18} className="spin-icon" aria-hidden="true" /> : <Sparkles size={18} aria-hidden="true" />}
         {submitLabel}
       </Button>

@@ -89,8 +89,8 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         // so this is separate from the normal Monday cadence and cannot be triggered by scale data.
         var completionDue = result.PhaseComplete && phaseDecision?.Decision == "completed" && accepted?.PhaseComplete != true;
         var cadenceChanged = last != null && last.ProfileRevision == user.ProfileRevision &&
-            (last.CheckInWeekday != weekday || last.CoachingSettingsRevision != user.CoachingSettingsRevision);
-        var cadenceNext = user.CoachingSettingsChangedDate is {} changedDate
+            (last.CheckInWeekday != weekday || last.CadenceRevision != user.CadenceRevision);
+        var cadenceNext = user.CadenceChangedDate is {} changedDate
             ? CheckInWeek.NextOccurrenceAfter(changedDate, weekday)
             : CheckInWeek.NextOccurrenceAfter(last?.Date ?? today, weekday);
         var cadenceDue = cadenceChanged && today >= cadenceNext;
@@ -99,6 +99,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         var nextCheckIn = last == null
             ? weekStart
             : cadenceChanged ? cadenceNext : CheckInWeek.NextCheckIn(last.Date, weekday);
+        if(declined)nextCheckIn=CheckInWeek.NextOccurrenceAfter(today,weekday);
         var changes = accepted == null ? null : new PlanDiff(
             accepted.Calories, result.Calories, accepted.Expenditure, result.Expenditure,
             accepted.Protein, result.Protein, accepted.Carbs, result.Carbs,
@@ -140,6 +141,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
             InputRevision = inputRevision,
             ProfileRevision = user.ProfileRevision,
             CoachingSettingsRevision = user.CoachingSettingsRevision,
+            CadenceRevision=user.CadenceRevision,CadenceChangedDate=user.CadenceChangedDate,
             CheckInWeekday = user.CheckInWeekday,
             ResultJson = Json.Write(preview.Result),
             ProfileJson = user.ProfileJson

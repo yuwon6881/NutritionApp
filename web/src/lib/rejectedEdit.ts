@@ -12,7 +12,7 @@ function subjectOf(op:Mutation){
   }
   if(op.kind==='settings')return 'coaching settings change';
   if(op.kind==='profile')return 'coach profile change';
-  if(op.kind==='weight')return `weigh-in${date}`;
+  if((op.kind==='weight'||op.kind==='weight_move'))return `weigh-in${date}`;
   if(op.kind==='food')return `saved food${name}`;
   return `food entry${name}${date}`;
 }

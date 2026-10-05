@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
@@ -131,7 +132,7 @@ public static class RecordEndpoints
             return Results.Ok(new {
                 user.Id, displayName = user.DisplayName, user.Revision, user.ProfileRevision,
                 diaryRevision = user.DiaryRevision, trajectoryRevision = user.TrajectoryRevision, bodyRevision = user.BodyRevision, foodRevision = user.FoodRevision,
-                settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale" },
+                settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,cadenceRevision=user.CadenceRevision,cadenceChangedDate=user.CadenceChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale" },
                 profile=user.ProfileJson.Length==0?null:Json.Read<Profile>(user.ProfileJson), start,end,
                 detailCutoff=RetentionService.Cutoff(RetentionService.Today(user.ProfileJson),retention.DetailDays),detailDays=retention.DetailDays,
                 energyEstimates=energySnapshots.Select(snapshot=>new { date=snapshot.Date,revision=snapshot.SourceRevision,expenditure=snapshot.Expenditure,suggestedCalories=snapshot.SuggestedCalories,confidence=snapshot.Confidence,holdReason=snapshot.HoldReason,algorithmVersion=snapshot.AlgorithmVersion,trendWeightKg=snapshot.TrendWeightKg }),
@@ -165,11 +166,11 @@ public static class RecordEndpoints
         {
             var revision=await sync.Apply(mutation,ct);
             // The committed change owns durable work; capable clients dispatch a coalesced pass.
-            if(mutation.Kind is "weight" or "entry") await IntegrationDispatch.AfterCommit(http,
-                () => mutation.Kind == "weight" ? db.GoogleHealthWeightSyncWork.AsNoTracking().AnyAsync(work => GoogleHealthSyncLeases.Claimable.Contains(work.ProcessingState), ct)
+            if(mutation.Kind is "weight" or "weight_move" or "entry") await IntegrationDispatch.AfterCommit(http,
+                () => mutation.Kind is "weight" or "weight_move" ? db.GoogleHealthWeightSyncWork.AsNoTracking().AnyAsync(work => GoogleHealthSyncLeases.Claimable.Contains(work.ProcessingState), ct)
                     : db.GoogleHealthNutritionSyncWork.AsNoTracking().AnyAsync(work => GoogleHealthSyncLeases.Claimable.Contains(work.ProcessingState), ct),
                 () => GoogleHealthOutboundSync.FlushForActiveUserAsync(scopes,db.CurrentUser,logger,ct));
-            return Results.Ok(new { revision });
+            return Results.Ok(await SyncWriteResults.Read(db,mutation,revision,ct));
         });
         app.MapGet("/api/coach/preview",async(CoachingService coach,CancellationToken ct)=>await coach.Preview(ct)).RequireRateLimiting("coaching");
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));

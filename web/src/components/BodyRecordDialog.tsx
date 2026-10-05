@@ -59,7 +59,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
   const [omitTrend,setOmitTrend]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(false);
   const [error,setError]=useState('');
-  const {busy,run,reset}=useAsyncAction();
+  const {busy,run,reset,pending:busyPending}=useAsyncAction();
   const online=useOnlineStatus();
   const initialRef=useRef({date,values,slots});
 
@@ -104,7 +104,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
     setUnit(nextUnit);
   };
 
-  const dirty=date!==initialRef.current.date||allMeasurementKeys.some(k=>values[k]!==initialRef.current.values[k])||slots.some(s=>s.changed||s.deleted);
+  const dirty=omitScale||omitTrend||date!==initialRef.current.date||allMeasurementKeys.some(k=>values[k]!==initialRef.current.values[k])||slots.some(s=>s.changed||s.deleted);
 
   const selectPhoto=async(photoAngle:PhysiqueAngle,event:ChangeEvent<HTMLInputElement>)=>{
     const file=event.currentTarget.files?.[0];
@@ -121,7 +121,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
 
   const save=async(event:FormEvent)=>{
     event.preventDefault();
-    if(busy)return;
+    if(busyPending)return;
     const measurements:Record<string,number|null>={};
     for(const key of allMeasurementKeys){
       const raw=values[key].trim();
@@ -192,10 +192,10 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
             return <section className="physique-upload-slot" key={slot.angle}>
               <div className="physique-upload-slot-heading">
                 <h4>{angleLabel(slot.angle)}</h4>
-                {slot.existing&&!slot.deleted&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busy} onClick={()=>setSlots(curr=>curr.map(item=>item.angle===slot.angle?{...item,deleted:true}:item))}>Delete</Button>}
+                {slot.existing&&!slot.deleted&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busyPending} onClick={()=>setSlots(curr=>curr.map(item=>item.angle===slot.angle?{...item,deleted:true}:item))}>Delete</Button>}
               </div>
               {preview&&<img className="photo-preview" src={preview} alt={`${slot.changed?'Selected':'Current'} ${slot.angle} physique photo`}/>}
-              <FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busy} label={angleLabel(slot.angle)+' photo'} accept="image/*" hint="JPEG or PNG; ≤750 KB." onChange={e=>void selectPhoto(slot.angle,e)}/>
+              <FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busyPending} label={angleLabel(slot.angle)+' photo'} accept="image/*" hint="JPEG or PNG; ≤750 KB." onChange={e=>void selectPhoto(slot.angle,e)}/>
             </section>;
           })}
         </div>
@@ -205,7 +205,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
         <div className="body-form-section-header"><h3>Body fat</h3><span className="unit-indicator">%</span></div>
         <div className="body-field-grid body-composition-grid">
           <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>setValues(cv=>({...cv,bodyFatPercent:e.currentTarget.value}))}/>
-          <BodyFatEstimate slots={slots} online={online} disabled={busy} request={buildEstimateRequest(date,slots,values,unit)} onUse={percent=>setValues(cv=>({...cv,bodyFatPercent:String(percent)}))}/>
+          <BodyFatEstimate slots={slots} online={online} disabled={busyPending} request={buildEstimateRequest(date,slots,values,unit)} onUse={percent=>setValues(cv=>({...cv,bodyFatPercent:String(percent)}))}/>
         </div>
       </section>
 
@@ -226,14 +226,14 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
 
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions">
-        {record&&<Button type="button" variant="destructive" disabled={busy} onClick={()=>setConfirmDelete(true)}>Delete record</Button>}
-        <Button type="submit" variant="primary" disabled={busy}>{busy?'Preparing…':'Save Body record'}</Button>
+        {record&&<Button type="button" variant="destructive" disabled={busyPending} onClick={()=>setConfirmDelete(true)}>Delete record</Button>}
+        <Button type="submit" variant="primary" disabled={busyPending}>{busy?'Preparing…':'Save Body record'}</Button>
       </div>
     </Form>
     <Modal open={confirmDelete} onClose={()=>setConfirmDelete(false)} title="Delete Body record?" description="The record and its private photo views will be marked for deletion. You can retry cleanup if storage is unavailable." width="sm">
       <div className="modal-actions">
         <Button variant="secondary" onClick={()=>setConfirmDelete(false)}>Keep record</Button>
-        <Button variant="destructive" disabled={busy} onClick={()=>void deleteRecord()}>Delete record</Button>
+        <Button variant="destructive" disabled={busyPending} onClick={()=>void deleteRecord()}>Delete record</Button>
       </div>
     </Modal>
   </Modal>;

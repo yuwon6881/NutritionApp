@@ -1,3 +1,4 @@
+import {shiftDate} from '../lib/energyBalance';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {Entry} from '../types';
 import {normalizeTime,timeLabel} from '../lib/foodDiary';
@@ -21,7 +22,7 @@ export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFoc
   const [destinationDate,setDestinationDate]=useState(entry.date);
   const [destinationTime,setDestinationTime]=useState(entry.time??'');
   const [error,setError]=useState('');
-  const {busy,run,reset}=useAsyncAction();
+  const {busy,run,reset,pending:busyPending}=useAsyncAction();
   const initial=useRef({date:entry.date,time:entry.time??''});
 
   useEffect(()=>{
@@ -37,7 +38,7 @@ export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFoc
   const validDate=destinationDate>='2000-01-01'&&destinationDate<=currentDate;
   const submit=async(event?:FormEvent)=>{
     event?.preventDefault();
-    if(busy)return;
+    if(busyPending)return;
     const time=normalizeTime(destinationTime);
     if(!validDate){setError('Choose a date from 2000 through today.');return;}
     if(time===undefined){setError('Choose a valid meal time (HH:mm), or leave it blank.');return;}
@@ -71,7 +72,7 @@ export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFoc
   >
     <div className="copy-food-dialog">
       {entry.date!==currentDate&&<div className="action-sheet-options" style={{marginBottom:18}}>
-        <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void copyToToday()} disabled={busy}>
+        <Button type="button" variant="secondary" size="lg" className="action-sheet-item" onClick={()=>void copyToToday()} disabled={busyPending}>
           <span className="action-sheet-item-text">
             <strong>Copy to today</strong>
             <small>{entry.time?`Keep ${timeLabel(entry.time)}`:'Keep time not recorded'}</small>
@@ -85,7 +86,7 @@ export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFoc
           label="Copy to date"
           value={destinationDate}
           min="2000-01-01"
-          max={currentDate}
+          max={shiftDate(currentDate,1)}
           required
           validate={()=>validDate?undefined:'Choose a date from 2000 through today.'}
           onChange={value=>{setDestinationDate(value);setError('');}}
@@ -102,8 +103,8 @@ export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFoc
         />
         {error&&<p className="error" role="alert">{error}</p>}
         <div className="modal-actions">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button type="submit" variant="primary" disabled={busy}>{busy?'Copying…':'Copy'}</Button>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={busyPending}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={busyPending}>{busy?'Copying…':'Copy'}</Button>
         </div>
       </Form>
     </div>

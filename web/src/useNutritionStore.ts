@@ -1,17 +1,18 @@
+import {validateFoodDestination} from './lib/foodDestination';
 import { beginIntegrationBurst } from './lib/integrationDispatch';
+import {acquireAccountDispatch,subscribeAccountWork} from './lib/accountWork';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, LocalData, Mutation, PhysiqueAngle } from './types';
 import { api, apiWithMeta, ApiError } from './lib/api';
-import { saveLocal, readSavedFoods, saveDatedDiaryBatch, stripLegacyScanDrafts } from './lib/local';
+import { saveLocal, readLocal, readSavedFoods, saveDatedDiaryBatch, stripLegacyScanDrafts } from './lib/local';
 import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import {useSavedFoods} from './useSavedFoods';
 import { today } from './lib/format';
 import { enqueueMutation, project, wireMutation } from './lib/projection';
-import {acknowledgeLocalWrite} from './lib/nutritionAcknowledgement';
 import { dispatchWait, nextDispatchableMutation, undoHeldMutations } from './lib/heldMutations';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
-import { normalizePhotoDraft, uploadPendingDrafts, type SyncKind, type SyncPhase, type SyncState } from './lib/nutritionDrafts';
+import { normalizePhotoDraft, type SyncKind, type SyncPhase, type SyncState } from './lib/nutritionDrafts';
 import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
 import {singleFlight} from './lib/singleFlight';
@@ -243,6 +244,14 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
     const hadQueue = ref.current.queue.length > 0;
     let sent = false;
     draining.current = true;
+    const release=await acquireAccountDispatch(user).catch(ex=>{setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');return undefined;});
+    if(!release){draining.current=false;return;}
+    const reload=writes.current.catch(()=>undefined).then(async()=>{
+      const durable=await readLocal(user);
+      if(durable&&alive.current){ref.current=durable;setLocal(durable);}
+    });
+    writes.current=reload;
+    try{await reload;}catch(ex){draining.current=false;await release().catch(ex=>{if(alive.current)setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');});setError((ex as Error).message);return;}
     const finishIntegrationBurst = beginIntegrationBurst();
     if (ref.current.queue.length) { beginSync(ref.current.queue[0]?.kind ?? 'entry'); setBusy(true); }
     try {
@@ -257,10 +266,12 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
           break;
         }
         try {
-          const { revision } = await api<{ revision: number }>('/sync', wireMutation(op));
+          const acknowledgement=await api<import('./types').SyncAcknowledgement>('/sync',wireMutation(op));
+          const {revision}=acknowledgement;
           sent = true;
-          await commit(current=>acknowledgeLocalWrite(current,op,revision));
-          await sharedDiaryCoordinator.acknowledge(op,revision);
+          const {acknowledgeLocalWrite}=await import('./lib/nutritionAcknowledgement');
+          await commit(current=>acknowledgeLocalWrite(current,op,revision,acknowledgement));
+          await sharedDiaryCoordinator.acknowledge(op,revision,acknowledgement.days??undefined);
         } catch (ex) {
           const failure = classifySyncFailure(ex);
           if (failure === 'session-expired') expireSession();
@@ -273,6 +284,8 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
             showNotice(rejectedEditMessage(op));
             continue;
           }
+          if(failure==='retry')await commit(current=>({...current,queue:current.queue.map(item=>item.id===op.id
+            ?{...item,retryAt:Date.now()+(ex instanceof ApiError?ex.retryAfterMs??5000:5000)}:item)}));
           throw ex;
         }
       }
@@ -285,6 +298,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
       if (alive.current) setError(ex instanceof Error ? ex.message : 'Sync is waiting for a connection.');
     } finally {
       draining.current = false;
+      await release().catch(ex=>{if(alive.current)setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');});
       finishIntegrationBurst();
       if (alive.current) {
         setBusy(false);
@@ -292,7 +306,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
         if (drainRequested.current) { drainRequested.current = false; void drain(); }
       }
     }
-  }, [beginSync, commit, expireSession, finishSync, refresh]);
+  }, [beginSync, commit, expireSession, finishSync, refresh,user]);
 
   const drainRef = useRef(drain);
   drainRef.current = drain;
@@ -306,15 +320,22 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   /** Queues a mutation; `holdMs` makes it undoable for that long before it is sent. Returns its id. */
   const mutate = useCallback(async (op: Omit<Mutation, 'id' | 'holdUntil'>, options?: { holdMs?: number }) => {
     const fullOp: Mutation = { ...op, id: crypto.randomUUID(), ...(options?.holdMs ? { holdUntil: Date.now() + options.holdMs } : {}) };
-    await commit(current => enqueueMutation(current,fullOp));
+    await commit(current => {validateFoodDestination(current.state,fullOp);return enqueueMutation(current,fullOp);});
     if (op.kind === 'entry') {
-      const entryData = op.data as any;
+      const entryData = op.data as {date?:string}|null;
       if (entryData?.date) sharedDiaryCoordinator.projectDate(entryData.date, [fullOp]);
     }
     markSyncQueued(op.kind);
     if (draining.current) drainRequested.current = true; else void drain();
     return fullOp.id;
   }, [commit, drain, markSyncQueued]);
+
+  const mutateMany=useCallback(async(operations:Omit<Mutation,'id'|'holdUntil'>[],options?:{holdMs?:number})=>{
+    const full=operations.map(op=>({...op,id:crypto.randomUUID(),...(options?.holdMs?{holdUntil:Date.now()+options.holdMs}:{})}));
+    await commit(current=>{full.forEach(op=>validateFoodDestination(current.state,op));return full.reduce((data,op)=>enqueueMutation(data,op),current);});
+    if(full.length){markSyncQueued(full[0].kind);void drain();}
+    return full.map(op=>op.id);
+  },[commit,drain,markSyncQueued]);
 
   /** Removes still-held mutations before they are sent. Returns false once any window has closed. */
   const undo = useCallback(async (ids: readonly string[]) => {
@@ -329,21 +350,41 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   }, [commit, drain]);
 
   const runPendingDrafts = useCallback(async () => {
-    if (processingDrafts.current || !navigator.onLine || !ref.current) return;
+    if (processingDrafts.current || sessionExpired.current || !navigator.onLine || !ref.current) return;
     processingDrafts.current = true;
+    const release=await acquireAccountDispatch(user).catch(ex=>{setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');return undefined;});
+    if(!release){processingDrafts.current=false;return;}
     try {
+      const reload=writes.current.catch(()=>undefined).then(async()=>{
+        const durable=await readLocal(user);
+        if(durable&&alive.current){ref.current=durable;setLocal(durable);}
+      });writes.current=reload;await reload;
+      const {uploadPendingDrafts}=await import('./lib/nutritionDraftUpload');
       await uploadPendingDrafts({
         isAlive: () => alive.current,
         getDrafts: () => ref.current,
         commit,
         beginSync,
         finishSync,
-        setError
+        setError,
+        expireSession
       });
+    } catch(ex){
+      if(alive.current)setError(ex instanceof Error?ex.message:'Retained work could not be read or saved.');
     } finally {
       processingDrafts.current = false;
+      await release().catch(ex=>{if(alive.current)setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');});
     }
-  }, [beginSync, commit, finishSync]);
+  }, [beginSync, commit, finishSync,expireSession,user]);
+
+  useEffect(()=>subscribeAccountWork(user,()=>{
+    const task=writes.current.catch(()=>undefined).then(async()=>{
+      const saved=await readLocal(user);
+      if(saved&&alive.current){ref.current=saved;setLocal(saved);}
+    });
+    writes.current=task;
+    void task.catch(()=>undefined);
+  }),[user]);
 
   useEffect(() => {
     sharedDiaryCoordinator.setUser(user);
@@ -439,7 +480,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local?.state,local?.queue]);
 
   return {
-    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, trainingResolved, drain, calendarDate,
+    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, mutateMany, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, trainingResolved, drain, calendarDate,
     ...actions,
   };
 }

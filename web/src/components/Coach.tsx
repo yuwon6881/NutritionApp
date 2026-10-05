@@ -113,7 +113,7 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
 export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?:boolean}){
   const [profile,setProfile]=useState<ProfileDraft>(()=>normalizeProfileSex(store.state!.profile??defaults));
   const [message,setMessage]=useState('');
-  const {busy:saving,run:runSave}=useAsyncAction();
+  const {busy:saving,run:runSave,pending:savingPending}=useAsyncAction();
   const [mainTab,setMainTab]=useState<MainTab>('targets');
   const previousTab=useRef<MainTab>(mainTab);
   const tabDirection=useRef<1|-1>(1);
@@ -155,7 +155,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const {proposal,operation:proposalOperation,setOperation,error,setError,setProposal,setWantsProposal,acceptProposal,retryRefresh:refreshTargets,
     loadProposal:requestProposal,invalidate,acceptance,locked,online}=proposalFlow;
   const operation=saving?'saving':proposalOperation;
-  const busy=saving||proposalFlow.busy;
+  const busy=savingPending||proposalFlow.busy;
 
   const updateUnits=(patch:Partial<UnitPreferences>)=>{
     const next={...units,...patch};
@@ -313,7 +313,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     {(busy||operation==='waiting')&&<CoachWait label={operationLabel} active={operation!=='waiting'||(online&&!store.error)}/>}
     {operation==='error'&&(proposal?<CardFeedback message={error}/>:<CardFeedback title="Target calculation failed" message={error??'Targets could not be calculated.'} action={{label:'Retry calculation',onClick:()=>void loadProposal(),disabled:!online||pending||changed}}/>)}
     {operation==='refresh-error'&&<CardFeedback title="Active targets unavailable" message={error??'The active targets could not be loaded.'} action={{label:'Retry loading targets',onClick:()=>void retryRefresh()}}/>}
-    <div className="coach-review-actions"><Button variant="tertiary" disabled={!!acceptance.current||operation==='saving'||operation==='accepting'||operation==='updating'||operation==='refreshing'} onClick={()=>openPlan('macros')}><ArrowLeft size={16}/>Back to edit</Button></div>
+    <div className="coach-review-actions"><Button variant="tertiary" disabled={savingPending||!!acceptance.current||operation==='saving'||operation==='accepting'||operation==='updating'||operation==='refreshing'} onClick={()=>openPlan('macros')}><ArrowLeft size={16}/>Back to edit</Button></div>
   </CoachLayout></section>:null;
 
   const targetsTab=<>

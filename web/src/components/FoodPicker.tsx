@@ -42,6 +42,7 @@ export interface FoodPickerProps {
   results:SearchResult[];
   setResults:(r:SearchResult[])=>void;
   busy:boolean;
+  pending?:boolean;
   error:string;
   setError:(err:string)=>void;
   camera:boolean;
@@ -71,6 +72,7 @@ export function FoodPicker({
   results,
   setResults,
   busy,
+  pending=busy,
   error: _error,
   setError,
   camera,
@@ -206,7 +208,7 @@ export function FoodPicker({
           ):null}
           // Text search runs as the person types (and on the keyboard's search key); barcode
           // digits are looked up only when asked, because a partial code is never a product.
-          action={tab==='barcode'?<Button variant="primary" type="submit" disabled={busy}>{busy?'Searching…':'Search'}</Button>:undefined}
+          action={tab==='barcode'?<Button variant="primary" type="submit" disabled={pending}>{busy?'Searching…':'Search'}</Button>:undefined}
         />
       </div>
     </Form>

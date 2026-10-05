@@ -7,6 +7,8 @@ public class AppUser
     public long Revision { get; set; }
     public long ProfileRevision { get; set; }
     public long CoachingSettingsRevision { get; set; }
+    public long CadenceRevision { get; set; }
+    public DateOnly? CadenceChangedDate { get; set; }
     public long TrajectoryRevision { get; set; }
     public long FoodRevision { get; set; }
     public long DiaryRevision { get; set; }
@@ -152,6 +154,8 @@ public class AcceptedPlan : OwnedRecord
     public long InputRevision { get; set; }
     public long ProfileRevision { get; set; }
     public long CoachingSettingsRevision { get; set; }
+    public long CadenceRevision { get; set; }
+    public DateOnly? CadenceChangedDate { get; set; }
     public int CheckInWeekday { get; set; } = 1;
     public string ResultJson { get; set; } = "";
     public string ProfileJson { get; set; } = "";
@@ -174,6 +178,7 @@ public class PhaseDecision : OwnedRecord
 }
 public class MutationReceipt
 {
+    public string? CanonicalJson { get; set; }
     public DateTime Created { get; set; } = DateTime.UtcNow;
     public Guid UserId { get; set; }
     public Guid Id { get; set; }

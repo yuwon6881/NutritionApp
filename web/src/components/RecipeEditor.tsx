@@ -72,11 +72,11 @@ export function RecipeEditor({
   onSaved?:()=>void;
 }){
   const energyUnit=unitsFor(store.state!.settings).energy;
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
 
   const save=async()=>{
-    if(busy)return;
+    if(busyPending)return;
     setError('');
     try{
       const nutrient=(key:'calories'|'protein'|'fat'|'carbs'|'fiber')=>draft.items.some(item=>item.food[key]==null)?null:draft.items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/draft.yieldGrams*100;
@@ -265,7 +265,7 @@ export function RecipeEditor({
       <Field id="recipe-servings" name="servings" validate={()=>!Number.isFinite(draft.servings)||draft.servings<=0?'Enter a positive number of servings.':undefined} required label="Servings in cooked yield" type="number" min="0.1" max="10000" step="any" value={draft.servings} onChange={event=>onDraftChange({...draft,servings:Number(event.target.value)})}/>
       <Field id="recipe-cooked-yield" name="yieldGrams" validate={()=>{for(const key of ['calories','protein','fat','carbs','fiber'] as const){if(draft.items.some(item=>item.food[key]==null))continue;const value=draft.items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/draft.yieldGrams*100;if(!Number.isFinite(value)||value>(key==='calories'?20000:3000))return 'Increase the yield or reduce ingredients to keep per-100 g nutrients within the supported range.';}return undefined;}} required label="Cooked yield (grams)" type="number" min="1" max="100000" value={draft.yieldGrams} onChange={event=>onDraftChange({...draft,yieldGrams:Number(event.target.value)})}/>
       {error&&<p className="error" role="alert">{error}</p>}
-      <div className="modal-actions"><Button type="button" variant="secondary" onClick={onClose}>Back</Button><Button variant="primary" disabled={busy} type="submit">{busy?'Saving…':'Save recipe'}</Button></div>
+      <div className="modal-actions"><Button type="button" variant="secondary" onClick={onClose}>Back</Button><Button variant="primary" disabled={busyPending} type="submit">{busy?'Saving…':'Save recipe'}</Button></div>
     </Form>
   </div>;
 }

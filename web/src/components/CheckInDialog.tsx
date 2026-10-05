@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
-import {api} from '../lib/api';
+import {api,ApiError} from '../lib/api';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {CoachWait} from './ui/CoachMotion';
@@ -18,9 +18,9 @@ export interface CheckInDialogProps {
 }
 
 export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogProps){
-  const {busy:declining,run:runDecline}=useAsyncAction();
+  const {busy:declining,run:runDecline,pending:decliningPending}=useAsyncAction();
   const [declineError,setDeclineError]=useState('');
-  const declineId=useRef<string|undefined>(undefined);
+  const declineId=useRef<{id:string;revision:number}|undefined>(undefined);
   const proposalFlow=useCoachProposal({store,onAccepted:onClose});
   const {proposal,operation,error,setError,loadProposal,acceptProposal,acceptance,online,pending}=proposalFlow;
 
@@ -31,17 +31,17 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
   },[open,loadProposal,setError]);
 
   const decline=async()=>{
-    if(!proposal||declining||!online||pending)return;
+    if(!proposal||decliningPending||!online||pending)return;
     setDeclineError('');
-    const id=declineId.current??crypto.randomUUID();declineId.current=id;
+    const input=declineId.current??{id:crypto.randomUUID(),revision:proposal.revision};declineId.current=input;
     try{
       await runDecline(async()=>{
-        await api('/coach/decline',{id,revision:proposal.revision});
+        await api('/coach/decline',input);
         declineId.current=undefined;
         try{await store.refresh();}catch{/* The server decision is durable even if the refresh is delayed. */}
       });
       onClose();
-    }catch(ex){setDeclineError((ex as Error).message);}
+    }catch(ex){if(ex instanceof ApiError&&[400,409,422].includes(ex.status))declineId.current=undefined;setDeclineError((ex as Error).message);}
   };
 
   const result=proposal?.result;
@@ -60,10 +60,10 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
       {adjusted&&<p className="check-in-context source">{adjusted}</p>}
       {(error||declineError)&&<p className="error" role="alert">{error||declineError}</p>}
       <div className="modal-actions">
-        <Button variant="primary" disabled={busy||!online||pending||!proposal.canAccept||!!acceptance.current} onClick={()=>void acceptProposal()}>
+        <Button variant="primary" disabled={busy||decliningPending||!online||pending||!proposal.canAccept||!!acceptance.current} onClick={()=>void acceptProposal()}>
           {operation==='accepting'?'Accepting…':'Accept'}
         </Button>
-        <Button variant="secondary" disabled={busy||!online||pending||!!acceptance.current} onClick={()=>void decline()}>
+        <Button variant="secondary" disabled={busy||decliningPending||!online||pending||!!acceptance.current} onClick={()=>void decline()}>
           {declining?'Declining…':'Decline'}
         </Button>
       </div>

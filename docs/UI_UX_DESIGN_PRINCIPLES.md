@@ -2,6 +2,8 @@
 
 This is the living UI contract for NutritionApp. It records the patterns already present in the application so future work extends the system instead of creating a parallel visual or interaction system. Read it with `docs/UI_UX_EXTENSION_CHECKLIST.md` before adding or changing a screen, control, search result, dialog, or animation. Compact and medium (phone-first, Android reference) behavior — thumb-zone primary actions, platform features, and landing motion — is owned by `docs/MOBILE_DESIGN_PRINCIPLES.md`.
 
+Async controls lock immediately through `pending`; delayed `busy` is visual feedback only. Only actions with the same explicit operation identity may share a result. Body views refresh on durable draft completion and ignore superseded reads.
+
 ## Product direction
 
 - Keep the interface restrained, premium, and data driven. Prefer a label, value, unit, date, source, uncertainty, error, or next action over slogans and decorative copy.

@@ -20,7 +20,7 @@ export function nextDispatchableMutation(queue:readonly Mutation[]):Mutation|und
 /** Milliseconds before the head of the queue may be sent; later work waits behind it to keep order. */
 export function dispatchWait(queue:readonly Mutation[],now:number):number{
   const head=queue[0];
-  return head?.holdUntil&&head.holdUntil>now?head.holdUntil-now:0;
+  return Math.max(0,(head?.holdUntil??0)-now,(head?.retryAt??0)-now);
 }
 
 export function undoHeldMutations(queue:Mutation[],ids:readonly string[],now:number):{queue:Mutation[];undone:string[]}{

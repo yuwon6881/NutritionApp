@@ -4,7 +4,7 @@ import type { BasketLine } from './foodBasket';
 import type { FoodScanDraft } from './foodScans';
 import { idbDelete, idbGet, idbGetAllKeys, idbPut } from './idb';
 import { migrateV1ToV2 } from './localMigration';
-import {compactAccountSnapshot,writeLocalSnapshot} from './localSnapshot';
+import {publishAccountWork} from './accountWork';
 
 export { idbDelete, idbGet, idbGetAllKeys, idbPut };
 export * from './localMigration';
@@ -288,13 +288,13 @@ export async function readLocal(user: string, includeSavedFoods = true): Promise
   const raw = await idbGet<LocalData>(db, 'accounts', user);
   if (!raw) return undefined;
 
-  if(raw.state.foods?.length)await compactAccountSnapshot(db,user).catch(()=>{
+  if(raw.state.foods?.length)await import('./localSnapshot').then(module=>module.compactAccountSnapshot(db,user)).catch(()=>{
     // Keep the original snapshot readable if atomic compaction cannot finish.
   });
 
   const [queue,drafts,foodsRecord] = await Promise.all([
-    readMutations(user).catch(() => raw.queue ?? []),
-    readDrafts(user).catch(() => ({ photoDrafts: raw.photoDrafts, bodyDrafts: raw.bodyDrafts })),
+    readMutations(user),
+    readDrafts(user),
     includeSavedFoods ? readSavedFoods(user).catch(() => undefined) : Promise.resolve(undefined)
   ]);
 
@@ -318,10 +318,14 @@ export async function readLocal(user: string, includeSavedFoods = true): Promise
 
 export async function saveLocal(user: string, data: LocalData, previous?: LocalData): Promise<void> {
   const db = await database();
-  return writeLocalSnapshot(db, user, data, previous);
+  const {writeLocalSnapshot}=await import('./localSnapshot');
+  await writeLocalSnapshot(db,user,data,previous);
+  publishAccountWork(user);
 }
 
 export async function saveLocalAndRetireFoodBasketDraft(user: string, data: LocalData, date: string, previous?: LocalData): Promise<void> {
   const db = await database();
-  return writeLocalSnapshot(db, user, data, previous, date);
+  const {writeLocalSnapshot}=await import('./localSnapshot');
+  await writeLocalSnapshot(db,user,data,previous,date);
+  publishAccountWork(user);
 }

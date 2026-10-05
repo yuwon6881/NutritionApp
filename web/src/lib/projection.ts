@@ -3,7 +3,7 @@ const collection={entry:'entries',food:'foods',weight:'weights',day:'days'} as c
 function knownRecordRevision(current:LocalData,kind:Mutation['kind'],recordId:string):number|undefined{
   if(kind==='settings')return current.state.settings?.revision;
   if(kind==='profile')return current.state.profileRevision;
-  const key=collection[kind as keyof typeof collection];
+  const key=collection[(kind==='weight_move'?'weight':kind) as keyof typeof collection];
   return key?(current.state[key] as Array<{id:string;revision:number}>).find(item=>item.id===recordId)?.revision:undefined;
 }
 export function enqueueMutation(current:LocalData,op:Mutation):LocalData{
@@ -40,6 +40,16 @@ export function project(state:AppState,queue:Mutation[]):AppState{
       // Keep expired/conflicting work in the queue, without changing an authoritative summary.
       if(result.days.some(day=>day.archived&&dates.includes(day.date)))continue;
     }
+    if(op.kind==='weight_move'){
+      copy('weights');
+      const data=op.data as {date:string;kg:number;context?:import('../types').WeightContextCode|null;destinationId?:string|null};
+      const source=result.weights.find(w=>w.id===op.recordId);
+      const target=result.weights.find(w=>w.date===data.date&&w.id!==op.recordId)??source;
+      if(!source||!target)continue;
+      result.weights=result.weights.map(w=>w.id===target.id?{...w,...data,deleted:false,source:'manual'}:
+        w.id===source.id?{...w,deleted:true}:w);
+      continue;
+    }
     const key=collection[op.kind];
     copy(key);
     const values=result[key] as Array<{id:string;revision:number;deleted:boolean;date?:string;status?:string}>;
@@ -63,14 +73,14 @@ export function project(state:AppState,queue:Mutation[]):AppState{
   return result;
 }
 // Queues saved before rejected edits were dropped may still carry a legacy review marker.
-export function wireMutation(op:Mutation){const {error:_legacy,holdUntil:_hold,...wire}=op as Mutation&{error?:string};return wire;}
+export function wireMutation(op:Mutation){const {error:_legacy,holdUntil:_hold,retryAt:_retry,...wire}=op as Mutation&{error?:string};return wire;}
 export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision:number,newId=()=>crypto.randomUUID()):Mutation[]{
   // A settings edit can be coalesced while its request is in flight. The
   // queued object then has the same id but newer data; keep it as a fresh
   // idempotent operation rebased on the revision just returned.
   const remaining=queue.flatMap(q=>{
     if(q.id!==completed.id)return [q];
-    return q===completed?[]:[{...q,id:newId(),expectedRevision:revision}];
+    return JSON.stringify(q)===JSON.stringify(completed)?[]:[{...q,id:newId(),expectedRevision:revision}];
   });
   return remaining.map(q=>q.kind===completed.kind&&q.recordId===completed.recordId?{...q,expectedRevision:revision}:q);
 }

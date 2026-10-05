@@ -59,3 +59,8 @@ describe('selected check-in weekdays',()=>{
     expect(checkInDue(changed,'2026-09-11')).toBe(true);
   });
 });
+
+it('ordinary preference revisions do not postpone a due check-in',()=>{
+  const saved=state({settings:{checkInWeekday:1,revision:9,changedDate:'2026-09-14'}});
+  expect(checkInSchedule(saved,'2026-09-21').due).toBe(true);
+});

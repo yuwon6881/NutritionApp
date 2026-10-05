@@ -34,7 +34,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
   // close and only settled once that discard forced a render.
   const [values,setValues]=useState(()=>weightEntryValues(date,current,state.weights,initial,units.weight));
   const [baseline,setBaseline]=useState(values);
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
 
   useEffect(()=>{
@@ -43,32 +43,31 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
     setValues(opened);setBaseline(opened);setError('');
   },[open,initial?.id,date]);
 
-  const existing=state.weights.find(weight=>!weight.deleted&&weight.date===values.date);
+  const existing=state.weights.find(weight=>weight.date===values.date);
   const unusual=unusualWeightDifference(values.kg,units.weight,values.date,state.weights,initial?.id);
   const intake=unusual?recentIntake(state.entries,state.days,values.date):null;
   const accepted=state.plans.find(plan=>!plan.deleted);
   const target=accepted?targetsForDate(JSON.parse(accepted.resultJson) as CoachResult,values.date).calories:null;
   const dirty=weightEntryDirty(values,baseline);
   const save=async(event:FormEvent)=>{
-    event.preventDefault();if(busy)return;
+    event.preventDefault();if(busyPending)return;
     setError('');
     try{
       // Editing a weigh-in and changing its date moves that record. One date holds at most one
       // weigh-in, so a destination that already has one is updated and the record left behind is
       // removed rather than duplicated onto the new date.
       const moved=initial&&initial.date!==values.date?initial:undefined;
-      const target=existing??moved??initial;
+      const target=existing??initial;
       await run(async()=>{
         await store.mutate({
-          kind:'weight',
-          recordId:target?.id??crypto.randomUUID(),
-          expectedRevision:target?.revision??0,
+          kind:moved?'weight_move':'weight',
+          recordId:moved?.id??target?.id??crypto.randomUUID(),
+          expectedRevision:moved?.revision??target?.revision??0,
           // The server records every user write as manual; projecting it keeps the label honest before sync.
-          data:{date:values.date,kg:parseWeight(values.kg,units.weight),context:values.context||null,source:'manual'},
+          data:{date:values.date,kg:parseWeight(values.kg,units.weight),context:values.context||null,source:'manual',...(moved?{sourceDate:moved.date,destinationId:existing?.id,destinationRevision:existing?.revision}:{})},
           delete:false,
         });
-        if(moved&&target?.id!==moved.id)
-          await store.mutate({kind:'weight',recordId:moved.id,expectedRevision:moved.revision,data:moved,delete:true});
+
       });
       onClose();
     }catch(ex){setError((ex as Error).message);}
@@ -107,7 +106,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
       {initial?.source==='google_health'&&<p className="source">Imported from Google Health. Saving a change makes it your own entry; Google keeps its copy.</p>}
       <p className="source">{initial?'Changing the date moves this weigh-in. A date that already has one is updated instead.':'A date with an existing weigh-in is updated.'}</p>
       {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':existing||initial?'Update weigh-in':'Save weigh-in'}</Button></div>
+      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busyPending}>{busy?'Saving…':existing||initial?'Update weigh-in':'Save weigh-in'}</Button></div>
     </Form>
   </Modal>;
 }

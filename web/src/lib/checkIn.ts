@@ -44,12 +44,12 @@ export function checkInSchedule(state:Pick<AppState,'plans'|'profileRevision'|'c
     return {due:false,nextDate:next,daysUntil:daysBetween(current,next),declined:true};
   }
 
-  const cadenceChanged=(last.coachingSettingsRevision??0)!==(state.settings?.revision??0)||last.checkInWeekday!=null&&last.checkInWeekday!==weekday;
+  const cadenceChanged=(last.cadenceRevision??0)!==(state.settings?.cadenceRevision??0)||last.checkInWeekday!=null&&last.checkInWeekday!==weekday;
   const next=cadenceChanged
-    ?nextOccurrenceAfter(state.settings?.changedDate??last.date,weekday)
+    ?nextOccurrenceAfter(state.settings?.cadenceChangedDate??state.settings?.changedDate??last.date,weekday)
     // Mirrors CheckInWeek.NextCheckIn: the first check-in day at least a week after the plan.
     :nextOccurrence(shift(last.date,7),weekday);
-  const due=current>=next&&periodStart(current,weekday)>periodStart(last.date,weekday);
+  const due=current>=next;
   return {due,nextDate:due?current:next,daysUntil:due?0:daysBetween(current,next),declined:false};
 }
 

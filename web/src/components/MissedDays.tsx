@@ -8,7 +8,7 @@ import {useAsyncAction} from './ui/useAsyncAction';
 
 export function MissedDays({store}:{store:NutritionStore}){
   const [remember,setRemember]=useState(false);
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
   const dates=missingDays(store.state!);
   const date=dates[0];
@@ -17,7 +17,7 @@ export function MissedDays({store}:{store:NutritionStore}){
 
   // Automatically apply default action when configured to fasting or not logging
   useEffect(()=>{
-    if(missingDayAction==='ask'||automaticDates.length===0||busy)return;
+    if(missingDayAction==='ask'||automaticDates.length===0||busyPending)return;
     void run(async()=>{
       for(const d of automaticDates){
         const day=store.state!.days.find(item=>item.date===d);
@@ -85,11 +85,11 @@ export function MissedDays({store}:{store:NutritionStore}){
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="missed-days-actions">
       <div className="missed-days-buttons">
-        <Button disabled={busy} onClick={()=>void save('fasting')}>Fasting</Button>
-        <Button variant="primary" disabled={busy} onClick={()=>void save('not_logged')}>Not logging</Button>
+        <Button disabled={busyPending} onClick={()=>void save('fasting')}>Fasting</Button>
+        <Button variant="primary" disabled={busyPending} onClick={()=>void save('not_logged')}>Not logging</Button>
       </div>
       <div className="missed-days-toggle-bottom">
-        <Checkbox id="missed-days-remember" role="switch" checked={remember} onChange={setRemember} disabled={busy}>
+        <Checkbox id="missed-days-remember" role="switch" checked={remember} onChange={setRemember} disabled={busyPending}>
           Remember my choice
         </Checkbox>
       </div>

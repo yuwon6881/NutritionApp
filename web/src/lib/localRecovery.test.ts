@@ -21,13 +21,13 @@ function fakeDatabase(){
         objectStore:(store:string)=>({
           put:(_value:unknown,key?:IDBValidKey)=>{current.actions.push({store,kind:'put',key});return {} as IDBRequest;},
           delete:(key:IDBValidKey)=>{current.actions.push({store,kind:'delete',key});return {} as IDBRequest;},
-          get:(_key:IDBValidKey)=>({result:undefined,onsuccess:null,onerror:null}) as unknown as IDBRequest
+          get:(_key:IDBValidKey)=>{const r={result:undefined,onsuccess:null as null|(()=>void),onerror:null};queueMicrotask(()=>r.onsuccess?.());return r as unknown as IDBRequest;}
         }),
         oncomplete:null as IDBTransaction['oncomplete'],
         onerror:null as IDBTransaction['onerror'],
         onabort:null as IDBTransaction['onabort']
       };
-      queueMicrotask(()=>tx.oncomplete?.call(tx as unknown as IDBTransaction,new Event('complete')));
+      queueMicrotask(()=>queueMicrotask(()=>tx.oncomplete?.call(tx as unknown as IDBTransaction,new Event('complete'))));
       return tx as unknown as IDBTransaction;
     },
     close:()=>{closed=true;},

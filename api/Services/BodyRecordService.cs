@@ -70,19 +70,20 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
         Validation.Require(recordId!=Guid.Empty&&op.Id!=Guid.Empty,"Body record and mutation identities are required.");
         Validation.Require(op.Action is "save" or "delete" or "photo-delete","Unknown Body record action.");
         var hash=AuthService.Hash(Json.Write(new {recordId,op}));
+        BodyRecordView result;
         await using(var gate=await MutationLock.Acquire(db,uid,ct))
         {
             var receipt=await db.Receipts.SingleOrDefaultAsync(r=>r.Id==op.Id,ct);
             if(receipt!=null)
             {
                 Validation.Require(receipt.Hash==hash,"Idempotency key reused for different data.",409);
-                return await Detail(recordId,ct);
+                return receipt.CanonicalJson is {} saved?Json.Read<BodyRecordView>(saved):(await Detail(recordId,ct)) with{Revision=receipt.Revision};
             }
             var user=await db.Users.SingleAsync(u=>u.Id==uid,ct);
             var record=await db.BodyRecords.IgnoreQueryFilters().SingleOrDefaultAsync(b=>b.Id==recordId&&b.UserId==uid,ct);
             Validation.Require((record?.Revision??0)==op.ExpectedRevision,"This Body record changed on another device. Review the conflict.",409);
             Validation.Require(record is not {Deleted:true},"This Body record was deleted. Keep your draft or create a new record.",409);
-            var previousRecord = record != null ? new BodyRecord { Date = record.Date, Measurements = new BodyMeasurements { BodyFatPercent = record.Measurements.BodyFatPercent } } : null;
+            var previousRecord = record != null ? new BodyRecord {Id=record.Id,UserId=record.UserId,Revision=record.Revision,Deleted=record.Deleted, Date = record.Date, Measurements = new BodyMeasurements { BodyFatPercent = record.Measurements.BodyFatPercent } } : null;
             var isNew=record==null;
             if(isNew)
             {
@@ -146,13 +147,15 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
             }
             body.Revision=++user.Revision;user.BodyRevision=user.Revision;body.Updated=DateTime.UtcNow;
             if (bodyFatSync != null)
-                await bodyFatSync.QueueMutationAsync(previousRecord, op, body.Revision, ct);
-            db.Receipts.Add(new MutationReceipt {Id=op.Id,UserId=uid,Hash=hash,Revision=body.Revision});
+                await bodyFatSync.QueueMutationAsync(recordId, previousRecord, body, op, body.Revision, ct);
+            await db.SaveChangesAsync(ct);
+            result=await Detail(recordId,ct);
+            db.Receipts.Add(new MutationReceipt {Id=op.Id,UserId=uid,Hash=hash,Revision=body.Revision,CanonicalJson=Json.Write(result)});
             await db.SaveChangesAsync(ct);await gate.Commit(ct);
         }
         // Deletion markers survive unavailable object storage. Scheduled cleanup retries them.
         if(op.Action is "delete" or "photo-delete")await CleanupRecordPhotos(recordId,ct);
-        return await Detail(recordId,ct);
+        return result;
     }
 
     public async Task CleanupRecordPhotos(Guid recordId,CancellationToken ct)

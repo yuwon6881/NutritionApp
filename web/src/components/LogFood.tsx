@@ -81,7 +81,7 @@ export function LogFood({
   const [labelNote,setLabelNote]=useState('');
   const [error,setError]=useState('');
   const [batchTime,setBatchTime]=useState<string|undefined>(undefined);
-  const {busy,run:runAction}=useAsyncAction();
+  const {busy,run:runAction,pending:busyPending}=useAsyncAction();
   const [camera,setCamera]=useState(false);
   const selectionRef=useRef<HTMLDivElement>(null);
   // Leaving a review returns to the same query, answers, and scroll position.
@@ -432,7 +432,7 @@ export function LogFood({
     {(tab==='search'||tab==='barcode')&&!pendingBarcode&&<FoodPicker
       tab={tab} searchLabel={selectionPurpose==='recipe'?'Search ingredients':'Search term'}
       query={query} setQuery={setQuery} results={results} setResults={setResults}
-      busy={busy} error={error} setError={setError} camera={camera} setCamera={setCamera}
+      busy={busy} pending={busyPending} error={error} setError={setError} camera={camera} setCamera={setCamera}
       onChoose={food=>void chooseSearch(food)}
       lookup={async(kind,value)=>kind==='barcode'?resolveBarcode(value):api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value))}
       onBarcodeError={(code,problem)=>{setResults([]);setBarcodeRecovery({code,status:problem.status,message:problem.message});}}
@@ -442,7 +442,7 @@ export function LogFood({
     {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents entries={recentEntries} energyUnit={energyUnit} onPick={quickLogRecent}/>}
     {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
-      date={date} busy={busy} pendingBarcode={pendingBarcode} mode={mode}
+      date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}
       onModeChange={value=>{setMode(value);setPhoto(null);}}
       description={description} onDescriptionChange={setDescription} photo={photo}
       onPhotoFile={file=>void run(async()=>{await scan.attachPhoto(await prepareImage(file));})}

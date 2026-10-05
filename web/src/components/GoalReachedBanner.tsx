@@ -15,7 +15,7 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
   store?:NutritionStore;
   onComplete?:(trigger:HTMLElement)=>void;
 }){
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
   const [showTrendModal,setShowTrendModal]=useState(false);
   const [rememberChoice,setRememberChoice]=useState(true);
@@ -37,7 +37,7 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
   const shownWeight=(value:number|null|undefined,digits=1)=>`${displayWeight(value,units.weight,digits)} ${weightUnit}`;
 
   const decide=async(decision:'completed'|'await-trend',trigger?:HTMLElement)=>{
-    if(!store||busy)return;
+    if(!store||busyPending)return;
     setError('');
     const id=decisionId.current??crypto.randomUUID();decisionId.current=id;
     try{
@@ -93,8 +93,8 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
         {progress.mode==='duration'&&<p>Your planned phase duration has elapsed.</p>}
       </div>
       <div className="goal-reached-actions">
-        <Button variant="primary" size="md" disabled={busy||!store} onClick={event=>void decide('completed',event.currentTarget)}>Complete goal</Button>
-        {scaleOnly&&<Button variant="secondary" size="md" disabled={busy||!store} onClick={event=>{triggerRef.current=event.currentTarget;setShowTrendModal(true);}}>Wait for trend weight</Button>}
+        <Button variant="primary" size="md" disabled={busyPending||!store} onClick={event=>void decide('completed',event.currentTarget)}>Complete goal</Button>
+        {scaleOnly&&<Button variant="secondary" size="md" disabled={busyPending||!store} onClick={event=>{triggerRef.current=event.currentTarget;setShowTrendModal(true);}}>Wait for trend weight</Button>}
       </div>
     </section>
     {error&&<p className="error" role="alert">{error}</p>}
@@ -109,8 +109,8 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
           </label>
         </div>
         <div className="modal-actions" style={{marginTop:'20px'}}>
-          <Button variant="primary" disabled={busy||!store} onClick={()=>void confirmWaitTrend()}>Wait for trend weight</Button>
-          <Button variant="secondary" disabled={busy} onClick={()=>setShowTrendModal(false)}>Cancel</Button>
+          <Button variant="primary" disabled={busyPending||!store} onClick={()=>void confirmWaitTrend()}>Wait for trend weight</Button>
+          <Button variant="secondary" disabled={busyPending} onClick={()=>setShowTrendModal(false)}>Cancel</Button>
         </div>
       </div>
     </Modal>

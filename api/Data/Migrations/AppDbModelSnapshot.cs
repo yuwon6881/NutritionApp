@@ -30,6 +30,12 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<DateOnly?>("CadenceChangedDate")
+                        .HasColumnType("date");
+
+                    b.Property<long>("CadenceRevision")
+                        .HasColumnType("bigint");
+
                     b.Property<int>("CheckInWeekday")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -235,6 +241,12 @@ namespace Nutrition.Api.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<long>("BodyRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly?>("CadenceChangedDate")
+                        .HasColumnType("date");
+
+                    b.Property<long>("CadenceRevision")
                         .HasColumnType("bigint");
 
                     b.Property<int>("CheckInWeekday")
@@ -1129,6 +1141,9 @@ namespace Nutrition.Api.Data.Migrations
 
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CanonicalJson")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone");

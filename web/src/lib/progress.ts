@@ -39,7 +39,7 @@ export function projectedProgressRange(
   queue: readonly Mutation[]
 ) {
   const dates = [cached?.start, ...weights.filter(w => !w.deleted).map(w => w.date),
-    ...queue.filter(op => op.kind === 'weight' && !op.delete).map(op => (op.data as Partial<Weight>).date)]
+    ...queue.filter(op => (op.kind === 'weight'||op.kind==='weight_move') && !op.delete).map(op => (op.data as Partial<Weight>).date)]
     .filter((date): date is string => typeof date === 'string' && date <= localToday);
   const earliest = dates.sort()[0];
   return progressRange(period, localToday, earliest);
@@ -53,7 +53,16 @@ export function projectProgressWeightSummary(
   queue: readonly Mutation[],
   retainedWeights?: readonly Weight[]
 ): ProgressWeightSummary | undefined {
-  const weightMutations = queue.filter(op => op.kind === 'weight');
+  const weightMutations:Mutation[]=queue.flatMap(op=>{
+    if(op.kind==='weight')return [op];
+    if(op.kind!=='weight_move')return [];
+    const data=op.data as {sourceDate?:string;destinationId?:string;destinationRevision?:number};
+    if(!data.destinationId||data.destinationId===op.recordId)return [{...op,kind:'weight' as const}];
+    const sourceDate=retainedWeights?.find(weight=>weight.id===op.recordId)?.date
+      ??base?.editableWeighIns.find(weight=>weight.id===op.recordId)?.date??data.sourceDate;
+    return [{...op,kind:'weight' as const,delete:true,data:{...(op.data as object),date:sourceDate}},
+      {...op,kind:'weight' as const,recordId:data.destinationId,expectedRevision:data.destinationRevision??0,delete:false}];
+  });
 
   if (!base) {
     const localWeights = new Map((retainedWeights ?? []).map(weight => [weight.id, weight]));

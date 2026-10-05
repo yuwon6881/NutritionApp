@@ -40,7 +40,7 @@ export function FoodBasket({
   onScanAnother,
 }:FoodBasketProps){
   const [time,setTime]=useState(initialTime??(()=>mealTime(store.state!.profile?.timeZone)));
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
   const [announcement,setAnnouncement]=useState('');
   const [editingKey,setEditingKey]=useState<string>();
@@ -127,9 +127,9 @@ export function FoodBasket({
 
       {error&&<p className="error" role="alert">{error}</p>}
       <div className="modal-actions">
-        <Button type="button" variant="secondary" onClick={onBack} disabled={busy}>Add more food</Button>
-        {onScanAnother&&<Button type="button" variant="secondary" onClick={onScanAnother} disabled={busy}><ScanBarcode size={17} aria-hidden="true"/>Scan another</Button>}
-        <Button type="submit" variant="primary" data-step-focus disabled={busy||!basket.lines.length}>
+        <Button type="button" variant="secondary" onClick={onBack} disabled={busyPending}>Add more food</Button>
+        {onScanAnother&&<Button type="button" variant="secondary" onClick={onScanAnother} disabled={busyPending}><ScanBarcode size={17} aria-hidden="true"/>Scan another</Button>}
+        <Button type="submit" variant="primary" data-step-focus disabled={busyPending||!basket.lines.length}>
           {busy?'Logging…':`Log all ${basket.lines.length} ${basket.lines.length===1?'food':'foods'}`}
         </Button>
       </div>

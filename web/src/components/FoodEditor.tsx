@@ -70,7 +70,7 @@ export function FoodEditor({
   const [portionError,setPortionError]=useState('');
   const [basisWarning,setBasisWarning]=useState('');
   const [customServing,setCustomServing]=useState({label:'serving',grams:''});
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const initialDraft=useRef(JSON.stringify({
     draft:makeDraft(initial),
     portionDrafts:initialPortions(initial).map(portion=>({label:portion.label,grams:String(portion.grams)})),
@@ -131,7 +131,7 @@ export function FoodEditor({
   };
 
   const save=async(event:FormEvent)=>{
-    event.preventDefault();if(busy)return;setError('');
+    event.preventDefault();if(busyPending)return;setError('');
     if(!Number.isFinite(draft.quantity)||draft.quantity<=0){
       setError('Enter a valid quantity greater than zero.');
       return;
@@ -258,7 +258,7 @@ export function FoodEditor({
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions">
         <Button variant="secondary" type="button" onClick={onClose}>Back</Button>
-        <Button variant="primary" disabled={busy} type="submit">{submitLabel}</Button>
+        <Button variant="primary" disabled={busyPending} type="submit">{submitLabel}</Button>
       </div>
     </Form>
   </div>;

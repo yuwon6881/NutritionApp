@@ -1,3 +1,4 @@
+import {validateFoodDestination} from './lib/foodDestination';
 import {useMemo} from 'react';
 import type {LocalData, PhysiqueDraft, BodyDraft} from './types';
 import {saveLocalAndRetireFoodBasketDraft} from './lib/local';
@@ -18,14 +19,14 @@ export function useNutritionStoreActions(
       const persist = options?.retireFoodBasketDate
         ? (account: string, data: LocalData, previous: LocalData) => saveLocalAndRetireFoodBasketDraft(account, data, options.retireFoodBasketDate!, previous)
         : undefined;
-      await commit(current => ({...current, queue: queueEntries(current, entries)}), persist);
+      await commit(current => {const queue=queueEntries(current,entries);queue.slice(current.queue.length).forEach(op=>validateFoodDestination(current.state,op));return {...current,queue};},persist);
       markSyncQueued('entry');
       void drain();
     },
     addPhoto: async (draft: PhysiqueDraft) => {
       await commit(current => ({
         ...current,
-        photoDrafts: [...(current.photoDrafts ?? []).filter(photo => photo.id !== draft.id), draft]
+        photoDrafts: [...(current.photoDrafts ?? []), {...draft,versionId:crypto.randomUUID()}]
       }));
       markSyncQueued('photo');
       void runPendingDrafts();
@@ -33,25 +34,22 @@ export function useNutritionStoreActions(
     retryPhoto: async (id: string) => {
       await commit(current => ({
         ...current,
-        photoDrafts: (current.photoDrafts ?? []).map(photo => photo.id === id ? {
+        photoDrafts: (current.photoDrafts ?? []).map(photo => (photo.versionId??photo.id) === id ? {
           ...photo,
           id: /expired|deleted/i.test(photo.error ?? '') ? crypto.randomUUID() : photo.id,
-          error: undefined
+          error: undefined,retryAt:undefined
         } : photo)
       }));
       void runPendingDrafts();
     },
     removePhotoDraft: async (id: string) => commit(current => ({
-      ...current, photoDrafts: (current.photoDrafts ?? []).filter(photo => photo.id !== id)
+      ...current, photoDrafts: (current.photoDrafts ?? []).filter(photo => (photo.versionId??photo.id) !== id)
     })),
     saveBodyDraft: async (draft: BodyDraft) => {
       await commit(current => {
-        const existing = current.bodyDrafts?.find(item => item.id === draft.id);
         return {
           ...current,
-          bodyDrafts: existing
-            ? (current.bodyDrafts ?? []).map(item => item.id === draft.id ? draft : item)
-            : [...(current.bodyDrafts ?? []), draft]
+          bodyDrafts:[...(current.bodyDrafts??[]),draft]
         };
       });
       markSyncQueued('body');
@@ -60,12 +58,12 @@ export function useNutritionStoreActions(
     retryBody: async (id: string) => {
       await commit(current => ({
         ...current,
-        bodyDrafts: (current.bodyDrafts ?? []).map(item => item.id === id ? {...item, error: undefined} : item)
+        bodyDrafts: (current.bodyDrafts ?? []).map(item => item.mutationId === id ? {...item, error: undefined,retryAt:undefined} : item)
       }));
       void runPendingDrafts();
     },
     removeBodyDraft: async (id: string) => commit(current => ({
-      ...current, bodyDrafts: (current.bodyDrafts ?? []).filter(item => item.id !== id)
+      ...current, bodyDrafts: (current.bodyDrafts ?? []).filter(item => item.mutationId !== id)
     }))
   }), [commit, markSyncQueued, drain, runPendingDrafts]);
 }

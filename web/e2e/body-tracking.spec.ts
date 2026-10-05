@@ -98,3 +98,11 @@ test('AI body-fat estimate errors stay beside the action and keep manual entry a
   await dialog.getByLabel('Body fat (%)',{exact:true}).fill('19');
   await expect(dialog.getByLabel('Body fat (%)',{exact:true})).toHaveValue('19');
 });
+
+test('changing only a weight-snapshot omission requires dirty dismissal confirmation',async({page})=>{
+  await openNewestRecord(page);await page.getByRole('button',{name:'Edit record',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Edit Body record'});
+  await dialog.getByRole('switch',{name:'Omit scale snapshot'}).click();await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading',{name:'Discard changes?',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(dialog).toBeVisible();
+});

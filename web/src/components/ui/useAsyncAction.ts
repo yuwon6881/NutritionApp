@@ -14,6 +14,7 @@ export function useAsyncAction(delayMs=DEFAULT_DELAY_MS){
   const mounted=useRef(true);
   const inFlight=useRef(false);
   const activePromise=useRef<Promise<unknown>|undefined>(undefined);
+  const activeKey=useRef<string|undefined>(undefined);
   const runId=useRef(0);
   const timer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
 
@@ -45,11 +46,13 @@ export function useAsyncAction(delayMs=DEFAULT_DELAY_MS){
     }
   },[clearTimer]);
 
-  const run=useCallback(async<T>(action:()=>Promise<T>):Promise<T>=>{
+  const run=useCallback(async<T>(action:()=>Promise<T>,operationKey?:string):Promise<T>=>{
     if(inFlight.current&&activePromise.current){
-      return activePromise.current as Promise<T>;
+      if(operationKey!==undefined&&activeKey.current===operationKey)return activePromise.current as Promise<T>;
+      throw new Error('Another action is in progress. Wait for it to finish.');
     }
     inFlight.current=true;
+    activeKey.current=operationKey;
     const id=++runId.current;
     if(mounted.current)setPending(true);
 
@@ -65,12 +68,9 @@ export function useAsyncAction(delayMs=DEFAULT_DELAY_MS){
       try{
         return await action();
       }finally{
-        clearTimer();
-        inFlight.current=false;
-        activePromise.current=undefined;
-        if(mounted.current&&id===runId.current){
-          setPending(false);
-          setBusy(false);
+        if(id===runId.current){
+          clearTimer();inFlight.current=false;activePromise.current=undefined;activeKey.current=undefined;
+          if(mounted.current){setPending(false);setBusy(false);}
         }
       }
     })();

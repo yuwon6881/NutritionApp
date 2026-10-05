@@ -39,6 +39,8 @@ public sealed class BodyRecordTests
 
             var cleared=await service.Apply(id,new BodyMutation(Guid.NewGuid(),created.Revision,new BodyPatch(Measurements:new Dictionary<string,double?> {{"waistCm",null}})),default);
             Assert.Null(cleared.Measurements.WaistCm);
+            var originalReceipt=await service.Apply(id,operation,default);
+            Assert.Equal(created.Revision,originalReceipt.Revision); // replay cannot borrow a later edit's revision
             await Assert.ThrowsAsync<DomainException>(()=>service.Apply(id,new BodyMutation(Guid.NewGuid(),cleared.Revision,new BodyPatch(WeightContext:new BodyWeightContext())),default));
         }
     }

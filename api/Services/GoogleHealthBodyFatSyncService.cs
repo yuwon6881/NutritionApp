@@ -54,24 +54,31 @@ public sealed class GoogleHealthBodyFatSyncService(
             percentage,
             MeasurementTimestamp(date, timeZone).ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture));
 
-    public async Task QueueMutationAsync(BodyRecord? previous, BodyMutation mutation, long revision, CancellationToken ct)
+    public async Task QueueMutationAsync(Guid recordId, BodyRecord? previous, BodyRecord current, BodyMutation mutation, long revision, CancellationToken ct)
     {
         var userId = db.CurrentUser ?? throw new DomainException("Sign in again.", 401);
         var connection = await db.GoogleHealthConnections.SingleOrDefaultAsync(ct);
         if (connection is null) return;
 
-        var work = await db.GoogleHealthBodyFatSyncWork.SingleOrDefaultAsync(x => x.BodyRecordId == mutation.Id, ct);
+        await GoogleHealthBodyFatMapping.RepairProvable(db,previous,ct);
+        var work=db.GoogleHealthBodyFatSyncWork.Local.FirstOrDefault(x=>x.BodyRecordId==recordId)
+            ??await db.GoogleHealthBodyFatSyncWork.SingleOrDefaultAsync(x => x.BodyRecordId == recordId, ct);
         var mapped = work is not null && !string.IsNullOrWhiteSpace(work.GoogleResourceName);
         var isDelete = mutation.Action == "delete";
-        var requestedPercent = mutation.Data?.Measurements != null && mutation.Data.Measurements.TryGetValue("bodyFatPercent", out var val) ? val
-            : isDelete ? previous?.Measurements.BodyFatPercent : null;
+        if(mutation.Action=="photo-delete")return;
+        var requestedPercent = current.Deleted ? null : current.Measurements.BodyFatPercent;
 
         // If no body fat percent was set or updated, ignore
         if (requestedPercent is null && !mapped
             && !(work is not null && GoogleHealthSyncLeases.IsCreateInFlight(work.ProcessingState, work.LeaseUntil, work.GoogleResourceName, work.GoogleOperationName))) return;
 
-        var qualifiesAsNew = previous is null && !isDelete && requestedPercent is not null;
+        var qualifiesAsNew = !isDelete && requestedPercent is not null;
         if (work is null && (!qualifiesAsNew || !CanDispatch(connection))) return;
+
+        // Older versions used operation IDs. Preserve their remote copies and stop new creates
+        // until their association is explicitly reviewed, rather than guessing by date/value.
+        if(work is null && await db.GoogleHealthBodyFatSyncWork.AnyAsync(x =>
+            !db.BodyRecords.Any(b => b.Id == x.BodyRecordId), ct)) return;
 
         if (work is null)
         {
@@ -79,7 +86,7 @@ public sealed class GoogleHealthBodyFatSyncService(
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                BodyRecordId = mutation.Id,
+                BodyRecordId = recordId,
                 GoogleIdHash = connection.GoogleIdHash,
                 ConnectionGeneration = connection.ConnectionGeneration,
                 ProcessingState = "pending"
@@ -88,7 +95,7 @@ public sealed class GoogleHealthBodyFatSyncService(
         }
 
         work.DesiredRevision = revision;
-        work.DesiredDate = mutation.Data?.Date ?? previous?.Date ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        work.DesiredDate = current.Date;
         work.DesiredBodyFatPercent = requestedPercent ?? 0;
         work.DesiredDeleted = isDelete || requestedPercent is null;
         work.GoogleIdHash = connection.GoogleIdHash;
@@ -158,6 +165,8 @@ public sealed class GoogleHealthBodyFatSyncService(
         var query = db.GoogleHealthBodyFatSyncWork.Where(x => new[] { "unknown", "failed" }.Contains(x.ProcessingState));
         if (bodyRecordId is not null) query = query.Where(x => x.BodyRecordId == bodyRecordId.Value);
         var works = await query.ToListAsync(ct);
+        Validation.Require(!await db.GoogleHealthBodyFatSyncWork.AnyAsync(x=>!db.BodyRecords.Any(b=>b.Id==x.BodyRecordId),ct),
+            "An older body-fat upload needs mapping review. Existing Google copies have been preserved.",409);
         foreach (var work in works)
         {
             work.ProcessingState = "pending";
@@ -183,6 +192,10 @@ public sealed class GoogleHealthBodyFatSyncService(
             return new(false, false, "disabled", 0, null, 0);
 
         var work = await db.GoogleHealthBodyFatSyncWork.ToListAsync(ct);
+        var recordIds=await db.BodyRecords.Select(b=>b.Id).ToListAsync(ct);
+        if(work.Any(item=>!recordIds.Contains(item.BodyRecordId)))
+            return new(connection.BodyFatSyncEnabled,HasBodyFatScope(connection),"failed",0,connection.BodyFatLastSuccessfulSyncAt,
+                connection.BodyFatSyncRevision,"legacy_mapping","An older body-fat upload needs mapping review. Existing Google copies have been preserved.");
         var pending = work.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
         var problem = work.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
         var state = !connection.BodyFatSyncEnabled ? "disabled"
@@ -256,6 +269,12 @@ public sealed class GoogleHealthBodyFatSyncService(
         var work = await db.GoogleHealthBodyFatSyncWork.SingleOrDefaultAsync(x => x.Id == workId, ct);
         if (work is null || !GoogleHealthSyncLeases.Claimable.Contains(work.ProcessingState) || work.NextAttemptAt > DateTime.UtcNow || work.LeaseUntil > DateTime.UtcNow)
             return null;
+        if(!await db.BodyRecords.AnyAsync(b=>b.Id==work.BodyRecordId,ct))
+        {
+            work.ProcessingState="failed";work.LastErrorCategory="legacy_mapping";
+            work.LastErrorMessage="An older body-fat upload needs mapping review. Existing Google copies have been preserved.";
+            await db.SaveChangesAsync(ct);await gate.Commit(ct);return null;
+        }
         if (GoogleHealthSyncLeases.IsInterruptedCreate(work.ProcessingState, work.GoogleResourceName, work.GoogleOperationName, work.DesiredDeleted))
         {
             MarkUnknown(work);

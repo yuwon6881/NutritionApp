@@ -36,7 +36,7 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onCha
   const current=today(store.state!.profile?.timeZone);
   const [date,setDate]=useState(initial?.date??current);
   const [slots,setSlots]=useState<UploadSlot[]>(()=>makeSlots(initial));
-  const {busy,run,reset}=useAsyncAction();
+  const {busy,run,reset,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
   const [deleteSlot,setDeleteSlot]=useState<UploadSlot>();
   const initialDate=useRef(initial?.date??current);
@@ -67,7 +67,7 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onCha
     }catch(ex){setError((ex as Error).message);}
   };
   const save=async(event:FormEvent)=>{
-    event.preventDefault();if(busy)return;
+    event.preventDefault();if(busyPending)return;
     const photos=slots.filter(slot=>slot.changed&&slot.imageBase64).map(slot=>({id:slot.id,angle:slot.angle,imageBase64:slot.imageBase64!}));
     if(!initial&&photos.length===0){setError('Choose at least one front, side, or back photo before saving.');return;}
     if(initial&&photos.length===0&&date===initialDate.current){setError('Choose a new photo or change the photo date before saving.');return;}
@@ -104,13 +104,13 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onCha
           const label=angleLabel(slot.angle);
           const preview=slot.imageBase64?`data:image/jpeg;base64,${slot.imageBase64}`:slot.existing?`/api/photos/${slot.existing.id}/content`:undefined;
           return <section className="physique-upload-slot" key={slot.angle} aria-labelledby={`photo-slot-${slot.angle}`}>
-            <div className="physique-upload-slot-heading"><h3 id={`photo-slot-${slot.angle}`}>{label}</h3>{slot.existing&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busy} onClick={()=>setDeleteSlot(slot)}>Delete</Button>}</div>
+            <div className="physique-upload-slot-heading"><h3 id={`photo-slot-${slot.angle}`}>{label}</h3>{slot.existing&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busyPending} onClick={()=>setDeleteSlot(slot)}>Delete</Button>}</div>
             {preview&&<img className="photo-preview" src={preview} alt={`${slot.changed?'Selected':'Current'} ${slot.angle} physique photo`}/>}
             <FileInput
               id={`photo-file-${slot.angle}`}
               name={`photo-${slot.angle}`}
               key={slot.fileKey}
-              disabled={busy}
+              disabled={busyPending}
               label={`${label} photo`}
               accept="image/*"
               hint="JPEG or PNG; compressed to 750 KB or less."
@@ -121,10 +121,10 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onCha
       </div>
       {selectedBytes>0&&<p className="source">Selected upload: {number(selectedBytes/1000)} KB · location metadata removed</p>}
       {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy}>{busy?'Preparing…':initial?'Save changed views and upload':'Save photo set and upload'}</Button></div>
+      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busyPending}>{busy?'Preparing…':initial?'Save changed views and upload':'Save photo set and upload'}</Button></div>
     </Form>
     <Modal open={Boolean(deleteSlot)} onClose={()=>setDeleteSlot(undefined)} title={`Delete ${deleteSlot?.angle??''} photo?`} description="This view will be removed from the private photo set." width="sm">
-      <div className="modal-actions"><Button variant="secondary" onClick={()=>setDeleteSlot(undefined)}>Keep view</Button><Button variant="destructive" disabled={busy} onClick={()=>void deleteView()}>{busy?'Deleting…':'Delete view'}</Button></div>
+      <div className="modal-actions"><Button variant="secondary" onClick={()=>setDeleteSlot(undefined)}>Keep view</Button><Button variant="destructive" disabled={busyPending} onClick={()=>void deleteView()}>{busy?'Deleting…':'Delete view'}</Button></div>
     </Modal>
   </Modal>;
 }

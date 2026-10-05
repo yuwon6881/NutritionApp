@@ -11,7 +11,7 @@ import {useAsyncAction} from './ui/useAsyncAction';
 export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:NutritionStore;date:string;onDone:()=>void;onBack?:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const [calories,setCalories]=useState('');
   const [time,setTime]=useState(()=>mealTime(store.state!.profile?.timeZone));
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
   const energyUnit=unitsFor(store.state!.settings).energy;
   const initial=useRef(JSON.stringify({calories:'',time}));
@@ -19,7 +19,7 @@ export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:Nutriti
   useEffect(()=>onDirtyChange?.(snapshot!==initial.current),[snapshot,onDirtyChange]);
 
   const save=async(event:FormEvent)=>{
-    event.preventDefault();if(busy)return;setError('');
+    event.preventDefault();if(busyPending)return;setError('');
     try{
       const parsed=parseEnergy(calories,energyUnit);
       if(!Number.isFinite(parsed))throw new Error(`Enter calories in ${energyLabel(energyUnit)}.`);
@@ -38,7 +38,7 @@ export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:Nutriti
     <TimePicker id="quick-add-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="modal-actions">
-      <Button type="submit" variant="primary" disabled={busy}>{busy?'Saving…':'Add calories'}</Button>
+      <Button type="submit" variant="primary" disabled={busyPending}>{busy?'Saving…':'Add calories'}</Button>
     </div>
   </Form></div>;
 }

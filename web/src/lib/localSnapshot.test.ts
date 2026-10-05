@@ -7,8 +7,8 @@ function database(fail=false){
   const put=vi.fn(()=>{if(fail)throw new Error('clone failed');});
   const remove=vi.fn();const abort=vi.fn();
   const transaction=vi.fn(()=>{
-    const tx={oncomplete:null as null|(()=>void),onerror:null,onabort:null,error:null,objectStore:()=>({put,delete:remove}),abort};
-    queueMicrotask(()=>tx.oncomplete?.());return tx;
+    const tx={oncomplete:null as null|(()=>void),onerror:null,onabort:null,error:null,objectStore:()=>({put,delete:remove,get:()=>{const r={result:undefined,onsuccess:null as null|(()=>void)};queueMicrotask(()=>r.onsuccess?.());return r;}}),abort};
+    queueMicrotask(()=>queueMicrotask(()=>tx.oncomplete?.()));return tx;
   });
   return {db:{transaction} as unknown as IDBDatabase,transaction,put,remove,abort};
 }

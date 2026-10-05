@@ -57,7 +57,7 @@ public sealed partial class NutritionNotificationService
             var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById(profile.TimeZone)).DateTime);
             var cadenceWeekday = user.CheckInWeekday is >= 0 and <= 6 ? user.CheckInWeekday : CheckInWeek.Monday;
             var checkInWeek = CheckInWeek.PeriodStart(today, cadenceWeekday);
-            var alreadyResolved = await db.CheckIns.AnyAsync(item => item.WeekStart == checkInWeek && !item.Deleted, ct);
+            var alreadyResolved = await db.CheckIns.AnyAsync(item => item.WeekStart == checkInWeek && item.CheckInWeekday==cadenceWeekday && !item.Deleted, ct);
             if (!alreadyResolved)
             {
                 var acceptedPlans = await db.Plans.Where(item => !item.Deleted && item.Date >= checkInWeek && item.Date <= today)
@@ -67,7 +67,15 @@ public sealed partial class NutritionNotificationService
             }
             // A plan needs a full week before its first check-in, so none is due yet.
             if (!alreadyResolved)
-                alreadyResolved = await db.Plans.AnyAsync(item => !item.Deleted && item.Date > today.AddDays(-7), ct);
+            {
+                var latest=await db.Plans.OrderByDescending(item=>item.Revision).FirstOrDefaultAsync(ct);
+                if(latest!=null&&latest.ProfileRevision==user.ProfileRevision){
+                    var changed=latest.CadenceRevision!=user.CadenceRevision||latest.CheckInWeekday!=cadenceWeekday;
+                    var next=changed?CheckInWeek.NextOccurrenceAfter(user.CadenceChangedDate??latest.Date,cadenceWeekday)
+                        :CheckInWeek.NextCheckIn(latest.Date,cadenceWeekday);
+                    alreadyResolved=today<next;
+                }
+            }
             if (alreadyResolved)
             {
                 skipped++;

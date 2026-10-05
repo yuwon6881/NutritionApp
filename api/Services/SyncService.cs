@@ -7,10 +7,11 @@ namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
 public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null, string? WeightGoalMetric = null);
-public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null,GoogleHealthNutritionSyncService? nutritionSync=null)
+public sealed partial class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null,GoogleHealthNutritionSyncService? nutritionSync=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
     {
+        if(op.Kind=="weight_move")return await ApplyWeightMove(op,ct);
         var uid = db.CurrentUser ?? throw new DomainException("Sign in again.", 401);
         Validation.Require(op.Id != Guid.Empty && op.RecordId != Guid.Empty, "Mutation identity is required.");
         var hash = AuthService.Hash(Json.Write(op));
@@ -52,6 +53,11 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 "This day has already been summarized. Meal details are read-only.",409);
         }
         var revision = user.Revision + 1;
+        if(op.Kind=="weight"&&!op.Delete&&previousWeight==null&&op.ExpectedRevision==0&&mutatedDate!=null)
+        {
+            var tombstone=await db.Weights.SingleOrDefaultAsync(w=>w.Date==mutatedDate&&w.Deleted,ct);
+            if(tombstone!=null){op=op with{RecordId=tombstone.Id,ExpectedRevision=tombstone.Revision};previousWeight=tombstone;}
+        }
         var keptSavedDay = false;
         var replacedImport = false;
         DateOnly? trajectoryFrom = null;
@@ -78,6 +84,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 Validation.Units(weightUnit, energyUnit, heightUnit);
                 Validation.Require(missingDayAction is "ask" or "fasting" or "not_logged", "Choose a valid unlogged day setting.");
                 Validation.Require(weightGoalMetric is "scale" or "trend", "Choose a valid weight goal metric.");
+                if(user.CheckInWeekday!=weekday){user.CadenceRevision=revision;user.CadenceChangedDate=RetentionService.Today(user.ProfileJson);}
                 user.CheckInWeekday = weekday;
                 user.WeightUnit = weightUnit;
                 user.EnergyUnit = energyUnit;
@@ -89,7 +96,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 break;
             case "entry": await Upsert<DiaryEntry>(op, revision, e =>
                 {
-                    Validation.Nutrients(e); Date(e.Date); Validation.Number(e.Quantity, .001, 100000, "Quantity");
+                    Validation.Nutrients(e); Date(e.Date,user.ProfileJson,true); Validation.Number(e.Quantity, .001, 100000, "Quantity");
                     Validation.Require(e.Time==null || System.Text.RegularExpressions.Regex.IsMatch(e.Time,@"\A(?:[01][0-9]|2[0-3]):[0-5][0-9]\z"),"Choose a valid meal time (HH:mm).");
                     Validation.Require(e.Unit is "g" or "serving", "Invalid unit.");
                     Validation.EntryPortion(e);
@@ -116,7 +123,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 replacedImport = !op.Delete && await RemoveImportedWeightOn(mutatedDate, op.RecordId, ct);
                 await Upsert<Weight>(op, revision, w =>
                 {
-                    Date(w.Date); Validation.Number(w.Kg, 20, 400, "Weight");
+                    Date(w.Date,user.ProfileJson); Validation.Number(w.Kg, 20, 400, "Weight");
                     Validation.Require(WeightContextPolicy.IsValid(w.Context), "Choose a valid weigh-in context.");
                     // Anything the user writes is theirs, including an edit of an imported weigh-in.
                     w.Source = WeightSources.Manual;
@@ -134,7 +141,7 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
                 }
                 await Upsert<DayStatus>(op,revision,d=>
                 {
-                    Date(d.Date);
+                    Date(d.Date,user.ProfileJson,true);
                     Validation.Require(savedDay==null || savedDay.Date==d.Date,"A day decision cannot be moved to another date.",409);
                     Validation.Require(d.Date < RetentionService.Today(user.ProfileJson) || d.Status == "incomplete","Today is still open for logging.");
                     Validation.Require(d.Status is "complete" or "incomplete" or "fasting" or "not_logged","Unknown day status.");
@@ -177,7 +184,9 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
             user.TrajectoryRevision = revision;
             if (trajectory != null) await trajectory.RebuildFromUnderLock(trajectoryFrom ?? RetentionService.Today(user.ProfileJson), revision, ct, op.Kind == "profile");
         }
-        db.Receipts.Add(new MutationReceipt { Id = op.Id, UserId = uid, Hash = hash, Revision = revision });
+        await db.SaveChangesAsync(ct);
+        var canonical=op.Kind is "weight" or "day"?Json.Write(await SyncWriteResults.Capture(db,op,revision,ct)):null;
+        db.Receipts.Add(new MutationReceipt { Id = op.Id, UserId = uid, Hash = hash, Revision = revision,CanonicalJson=canonical });
         await db.SaveChangesAsync(ct); await gate.Commit(ct); return revision;
     }
 
@@ -254,5 +263,5 @@ public sealed class SyncService(AppDb db,StorageService? storage=null,RetentionS
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);
     }
-    private static void Date(DateOnly date) => Validation.Require(date >= new DateOnly(2000,1,1) && date <= DateOnly.FromDateTime(DateTime.UtcNow).AddDays(2), "Choose a date from 2000 through tomorrow.");
+    private static void Date(DateOnly date,string profileJson,bool tomorrow=false) => Validation.Require(date >= new DateOnly(2000,1,1) && date <= RetentionService.Today(profileJson).AddDays(tomorrow?1:0), tomorrow?"Choose a date from 2000 through tomorrow.":"Choose a date from 2000 through today.");
 }

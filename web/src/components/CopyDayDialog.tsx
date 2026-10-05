@@ -2,6 +2,7 @@ import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
+import {shiftDate} from '../lib/energyBalance';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
@@ -19,7 +20,7 @@ export interface CopyDayDialogProps {
 
 export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocus}:CopyDayDialogProps){
   const [destination,setDestination]=useState(sourceDate);
-  const {busy,run}=useAsyncAction();
+  const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
   const [copied,setCopied]=useState(0);
   const initial=useRef(sourceDate);
@@ -31,15 +32,12 @@ export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocu
   },[open,sourceDate]);
 
   const copy=async(event:FormEvent)=>{
-    event.preventDefault();if(busy)return;
+    event.preventDefault();if(busyPending)return;
     if(destination===sourceDate){setError('Choose a different date.');return;}
     setError('');setCopied(0);
     try{
       await run(async()=>{
-        for(const entry of entries){
-          await store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,data:{...entry,date:destination},delete:false});
-          setCopied(count=>count+1);
-        }
+        await store.logEntries(entries.map(entry=>({...entry,date:destination})));setCopied(entries.length);
       });
       onClose();
     }catch(ex){setError((ex as Error).message);}
@@ -55,11 +53,11 @@ export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocu
     width="sm"
   >
     <Form onSubmit={copy} className="dialog-form">
-      <DatePicker id="copy-to-date" name="destination" validate={()=>destination===sourceDate?'Choose a different date.':undefined} label="Copy to date" value={destination} min="2000-01-01" max={current} required onChange={setDestination}/>
+      <DatePicker id="copy-to-date" name="destination" validate={()=>destination===sourceDate?'Choose a different date.':undefined} label="Copy to date" value={destination} min="2000-01-01" max={shiftDate(current,1)} required onChange={setDestination}/>
       <p className="source">Food is added to the destination as retained local work and syncs through the existing queue.</p>
       {copied>0&&<p className="notice" role="status">Copied {copied} of {entries.length} entries.</p>}
       {error&&<p role="alert" className="error">{error}</p>}
-      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busy||!entries.length}>{busy?'Copying…':'Copy day'}</Button></div>
+      <div className="modal-actions"><Button type="submit" variant="primary" disabled={busyPending||!entries.length}>{busy?'Copying…':'Copy day'}</Button></div>
     </Form>
   </Modal>;
 }

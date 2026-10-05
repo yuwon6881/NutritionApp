@@ -15,6 +15,37 @@ describe('DiaryCoordinator', () => {
     coordinator = new DiaryCoordinator('user-1');
   });
 
+  it('preserves pending explicit decisions and archived nutrient totals',()=>{
+    coordinator.primeDays([{date:'2026-09-10',entries:[],revision:1,fetchedAt:0}]);
+    const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:0,delete:false,data:{date:'2026-09-10',status:'fasting'}};
+    expect(coordinator.projectDate('2026-09-10',[op])?.day?.status).toBe('fasting');
+    coordinator.primeDays([{date:'2026-09-10',entries:[],day:{id:'d',date:'2026-09-10',status:'complete',archived:true,calories:1234,entryCount:2,protein:null,revision:1,deleted:false},revision:1,fetchedAt:0}]);
+    expect(coordinator.projectDate('2026-09-10',[{...op,data:{date:'2026-09-10',status:'not_logged'}}])?.day).toMatchObject({status:'not_logged',calories:1234,entryCount:2,protein:null});
+  });
+
+  it('applies a later explicit decision after an entry change in queue order',()=>{
+    coordinator.primeDays([{date:'2026-09-10',entries:[],day:{id:'d',date:'2026-09-10',status:'incomplete',revision:1,deleted:false},revision:1,fetchedAt:0}]);
+    const change:Mutation={id:'delete',kind:'entry',recordId:'e',expectedRevision:1,delete:true,data:{date:'2026-09-10'}};
+    const decision:Mutation={id:'decision',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{date:'2026-09-10',status:'fasting'}};
+    expect(coordinator.projectDate('2026-09-10',[change,decision])?.day?.status).toBe('fasting');
+    expect(coordinator.projectDate('2026-09-10',[decision,change])?.day?.status).toBe('incomplete');
+  });
+
+  it('shares a pending same-month navigation without aborting it',async()=>{
+    let release:()=>void=()=>{};
+    const held=new Promise<void>(resolve=>{release=resolve;});
+    let signal:AbortSignal|undefined;
+    vi.mocked(apiWithMeta).mockImplementationOnce(async(_path,options)=>{
+      signal=options?.signal;await held;
+      return {data:{entries:[],days:[],revision:2},notModified:false,etag:null};
+    });
+    const first=coordinator.requestDate('2026-09-10','2026-09-19',{isNavigation:true});
+    const second=coordinator.requestDate('2026-09-11','2026-09-19',{isNavigation:true});
+    expect(signal?.aborted).toBe(false);release();await Promise.all([first,second]);
+    expect(apiWithMeta).toHaveBeenCalledOnce();
+    expect(coordinator.getCached('2026-09-11')).toBeDefined();
+  });
+
   it('caches empty dates throughout the bounded response and notifies other visible dates',async()=>{
     vi.mocked(apiWithMeta).mockResolvedValueOnce({data:{entries:[],days:[],revision:3},notModified:false,etag:'range'});
     const notified=vi.fn();

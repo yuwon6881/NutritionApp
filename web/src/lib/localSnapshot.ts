@@ -1,4 +1,5 @@
 import type {LocalData} from '../types';
+import {mergeRetained} from './retainedMerge';
 
 /** Persist immutable partitions together, without cloning unchanged photo/food payloads. */
 export async function writeLocalSnapshot(
@@ -18,20 +19,48 @@ export async function writeLocalSnapshot(
   if (!stores.length) return;
   await new Promise<void>((resolve, reject) => {
     let tx: IDBTransaction | undefined;
+    let failed=false;
     try {
       tx = db.transaction(stores, 'readwrite');
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx?.error);
       tx.onabort = () => reject(tx?.error ?? new Error('Local data transaction aborted'));
+      const guard=(action:()=>void)=>{if(failed)return;try{action();}catch(error){failed=true;try{tx?.abort();}catch{/* already settled */}reject(error);}};
       if (accountChanged) {
         // Saved foods are authoritative in their own partition. Empty fallbacks remain
         // readable by older clients without duplicating the large collection.
-        tx.objectStore('accounts').put({state:{...data.state,foods:[]},progress:data.progress,foodsLoaded:data.foodsLoaded}, user);
+        const store=tx.objectStore('accounts');const request=store.get(user);
+        request.onsuccess=()=>guard(()=>{
+          if((request.result?.state?.revision??0)>data.state.revision)return;
+          store.put({state:{...data.state,foods:[]},progress:data.progress,foodsLoaded:data.foodsLoaded},user);
+        });
       }
-      if (queueChanged) tx.objectStore('mutations').put({queue:data.queue ?? []}, user);
-      if (draftsChanged) tx.objectStore('drafts').put({photoDrafts:data.photoDrafts,bodyDrafts:data.bodyDrafts}, user);
-      if (foodsChanged) tx.objectStore('saved_foods').put({foods:data.state.foods,
-        revision:data.state.foodRevision ?? data.state.revision ?? 0,fetchedAt:Date.now(),loaded:true}, user);
+      if (queueChanged) {
+        const store=tx.objectStore('mutations');
+        const request=store.get(user);
+        request.onsuccess=()=>guard(()=>{
+          data.queue=mergeRetained(request.result?.queue??previous?.queue??[],previous?.queue??[],data.queue,item=>item.id);
+          store.put({queue:data.queue},user);
+        });
+      }
+      if (draftsChanged) {
+        const store=tx.objectStore('drafts');
+        const request=store.get(user);
+        request.onsuccess=()=>guard(()=>{
+          const saved=request.result as Pick<LocalData,'photoDrafts'|'bodyDrafts'>|undefined;
+          data.photoDrafts=mergeRetained(saved?.photoDrafts??previous?.photoDrafts??[],previous?.photoDrafts??[],data.photoDrafts??[],item=>item.versionId??item.id);
+          data.bodyDrafts=mergeRetained(saved?.bodyDrafts??previous?.bodyDrafts??[],previous?.bodyDrafts??[],data.bodyDrafts??[],item=>item.mutationId);
+          store.put({photoDrafts:data.photoDrafts,bodyDrafts:data.bodyDrafts},user);
+        });
+      }
+      if(foodsChanged){
+        const store=tx.objectStore('saved_foods');const request=store.get(user);
+        request.onsuccess=()=>guard(()=>{
+          const revision=data.state.foodRevision??data.state.revision??0;
+          if((request.result?.revision??0)>revision)return;
+          store.put({foods:data.state.foods,revision,fetchedAt:Date.now(),loaded:true},user);
+        });
+      }
       if (retireFoodBasketDate !== undefined) tx.objectStore('food_drafts').delete(`${user}:${retireFoodBasketDate}`);
     } catch (error) {
       // A synchronous structured-clone/quota failure must not commit preceding puts.
