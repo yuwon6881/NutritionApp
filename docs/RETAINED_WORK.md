@@ -2,7 +2,7 @@
 
 Queue and draft writes apply an operation-identity delta to the latest account collection within one IndexedDB transaction. A stale tab cannot replace the whole collection or remove a newer draft version. Bulk food operations validate all destinations before one local transaction. Profile-local tomorrow is the latest food destination; archived meal details remain read-only.
 
-Tabs announce durable changes through BroadcastChannel and reload retained partitions. An account-scoped IndexedDB lease coordinates dispatch; crashed-tab leases expire. Offline entry stays available. Mutation identities provide server idempotency independently of the lease.
+Tabs announce durable changes through BroadcastChannel and reload retained partitions. An account-scoped IndexedDB lease coordinates dispatch between tabs; it is owned per page, so a tab's outbox drain and draft uploads share it, and crashed-tab leases expire. Offline entry stays available. Mutation identities provide server idempotency independently of the lease.
 
 Body draft versions use mutation IDs. Versions for a record dispatch in order. Every root save, upload and photo deletion persists its exact request before dispatch and its committed revision afterward. Retrying after a lost response uses the same payload; acknowledgement removes only that version and rebases its successor. Legacy partial drafts whose original requests cannot be reconstructed remain retained for review; they are never rebuilt into blind external writes.
 

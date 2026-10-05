@@ -70,8 +70,8 @@ test('a new terminal rejection permits the next independent write in the same dr
     await page.getByRole('button',{name:'Update weigh-in',exact:true}).click();
   }
   const calls:string[]=[];
-  const retry=page.getByRole('button',{name:'Retry connection',exact:true});
-  await expect(retry).toBeEnabled();
+  // Offline edits are retained quietly rather than reported as a connection failure.
+  await expect(page.getByText('Saved on this device',{exact:true})).toBeVisible();
   const frozenTime=new Date(Date.now()+10000);
   await page.clock.install({time:frozenTime});
   // The installed clock keeps running until paused, so pausing at the install instant races real
@@ -83,8 +83,8 @@ test('a new terminal rejection permits the next independent write in the same dr
     if(calls.length===1)await route.fulfill({status:400,json:{message:'Test terminal rejection'}});
     else await route.continue();
   });
+  // Reconnecting starts the drain; no retry control is needed.
   await context.setOffline(false);
-  await retry.click({force:true});
   let elapsed=0;
   await expect.poll(async()=>{await page.clock.runFor(1);elapsed++;return calls.length;},{timeout:10000}).toBe(2);
   // Allow only event-loop ticks, far short of a foreground or periodic retry.
