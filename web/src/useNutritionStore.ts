@@ -284,8 +284,13 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
             showNotice(rejectedEditMessage(op));
             continue;
           }
-          if(failure==='retry')await commit(current=>({...current,queue:current.queue.map(item=>item.id===op.id
-            ?{...item,retryAt:Date.now()+(ex instanceof ApiError?ex.retryAfterMs??5000:5000)}:item)}));
+          if (failure === 'retry') {
+            const retryDelay = ex instanceof ApiError ? ex.retryAfterMs ?? 5000 : 5000;
+            clearTimeout(heldDrainTimer.current);
+            heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, retryDelay + 20);
+            await commit(current => ({ ...current, queue: current.queue.map(item => item.id === op.id
+              ? { ...item, retryAt: Date.now() + retryDelay } : item) }));
+          }
           throw ex;
         }
       }

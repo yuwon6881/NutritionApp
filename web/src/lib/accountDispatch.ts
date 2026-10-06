@@ -4,7 +4,19 @@ type Lease={owner:string;until:number};
 // The lease excludes other tabs, not this page: a wake runs the outbox drain and draft uploads
 // together, and a per-call owner let whichever started second lock itself out.
 let pageOwner:string|undefined;
-const owner=()=>pageOwner??=crypto.randomUUID();
+function getPageOwner():string{
+  if(pageOwner)return pageOwner;
+  try{
+    const stored=typeof sessionStorage!=='undefined'?sessionStorage.getItem('dispatch_page_owner'):null;
+    if(stored)return (pageOwner=stored);
+    const generated=crypto.randomUUID();
+    try{sessionStorage?.setItem('dispatch_page_owner',generated);}catch{}
+    return (pageOwner=generated);
+  }catch{
+    return (pageOwner=crypto.randomUUID());
+  }
+}
+const owner=()=>getPageOwner();
 const holders=new Map<string,number>();
 const renewals=new Map<string,ReturnType<typeof setInterval>>();
 
