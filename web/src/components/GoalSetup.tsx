@@ -1,4 +1,3 @@
-import {Check} from 'lucide-react';
 import type {ProfileDraft,UnitPreferences,Weight,WeightGoalMetric} from '../types';
 import {today} from '../lib/format';
 import {calculateLivePace,getPaceStatus,profileAge} from '../lib/coachCalc';
@@ -20,7 +19,7 @@ export function GoalSelection({
   return <FieldFrame label="Your goal"><fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
     {(['lose','maintain','gain'] as const).map(goal=><label key={goal} htmlFor={`coach-goal-${goal}`} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
       <input id={`coach-goal-${goal}`} required type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
-      <span>{goalLabel(goal)}</span><Check size={16} aria-hidden="true"/>
+      <span>{goalLabel(goal)}</span>
     </label>)}
   </div></fieldset></FieldFrame>;
 }

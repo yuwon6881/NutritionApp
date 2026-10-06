@@ -18,6 +18,8 @@ import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {EnergyRing} from './EnergyRing';
 import {MotionPanel} from './ui/Motion';
 import {HabitCalendars} from './habits/HabitCalendars';
+import {DashboardSkeleton} from './ui/Skeleton';
+import {useOnlineStatus} from './ui/useOnlineStatus';
 
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
@@ -55,6 +57,7 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
   const liveProgress=useMemo(()=>liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date,phaseDecision,state.settings?.weightGoalMetric??'scale'),[state.profile,state.weightTrendSeed,state.weights,date,phaseDecision,state.settings?.weightGoalMetric]);
   const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveProgress,phaseDecision);
   const loaded=date>=state.start&&date<=state.end;
+  const online=useOnlineStatus();
   // A due check-in takes the ring's place: the target may change, so remaining calories stay
   // hidden until the check-in is accepted or declined, which recomputes the schedule.
   const checkIn=state.profile?checkInSchedule(state,date):undefined;
@@ -73,10 +76,13 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
       onComplete={openCheckIn}/>
-    {!loaded?<section className="panel">
-      <h2>Not stored on this device</h2>
-      <p>Connect to load this date.</p>
-    </section>:<>
+    {!loaded?online
+      // Online, today is simply still arriving (a cold start or a waking server): show its shape, not an offline notice.
+      ?<DashboardSkeleton heading={false} label="Loading today…"/>
+      :<section className="panel">
+        <h2>Not stored on this device</h2>
+        <p>Connect to load this date.</p>
+      </section>:<>
       <div className={intro?'dashboard-cards dashboard-intro':'dashboard-cards'}>
       <section className="dashboard-section dashboard-section-today" aria-labelledby="dashboard-today-title">
       <h2 id="dashboard-today-title" className="dashboard-section-title">Today</h2>

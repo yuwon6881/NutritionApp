@@ -66,7 +66,7 @@ export function HabitCalendarCard({title,tone,recent,history,summary,current,leg
         {recent.map(cell=><span key={cell.date} className="habit-cell" data-status={cell.status} data-today={cell.date===current||undefined}/>)}
       </span>
     </Button>
-    <Modal open={open} onClose={()=>setOpen(false)} restoreFocus={trigger} title={title} description={`${summaryText(summary)} logged · ${streakText(summary.streak)}. Days not stored on this device are shown as unknown.`} width="md">
+    <Modal open={open} onClose={()=>setOpen(false)} restoreFocus={trigger} title={title} description={`${summaryText(summary)} logged · ${streakText(summary.streak)}. Days not stored on this device are shown as unknown.`} width="sm">
       <ul className="habit-legend" aria-label="Legend">
         {legend.map(item=><li key={item.status}><span className="habit-cell" data-status={item.status} aria-hidden="true"/>{item.label}</li>)}
       </ul>

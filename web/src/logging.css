@@ -47,6 +47,7 @@
 .skeleton-block{display:block;background:var(--muted);max-width:100%}
 .skeleton-panel{display:grid;gap:12px;box-shadow:none}
 .dashboard-skeleton .skeleton-heading{margin:0 0 28px}
+.body-hub-skeleton-lines{display:grid;flex:1;gap:8px;padding-top:4px}
 .food-day-skeleton{display:grid;gap:14px}
 .food-day-skeleton-row{display:grid;grid-template-columns:72px minmax(0,1fr);gap:16px;align-items:start}
 .food-day-skeleton-row>.panel{margin:0;padding:14px}

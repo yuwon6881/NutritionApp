@@ -5,11 +5,12 @@
 
 .habit-calendars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-bottom:24px}
 .habit-calendars>.panel{margin-bottom:0}
-.habit-calendar{--habit-on:var(--primary);--habit-on-ink:var(--on-primary);padding:0;overflow:hidden}
+/* The trigger carries the padding; doubling it with the panel's own made the cards needlessly tall. */
+.panel.habit-calendar{--habit-on:var(--primary);--habit-on-ink:var(--on-primary);padding:0;overflow:hidden}
 .habit-calendar.habit-weight,.habit-months.habit-weight{--habit-on:var(--success);--habit-on-ink:var(--card)}
 .habit-months.habit-food{--habit-on:var(--primary);--habit-on-ink:var(--on-primary)}
 
-.habit-calendar-trigger{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head grid" "count grid" "streak grid";align-items:start;column-gap:20px;width:100%;min-height:44px;padding:24px 28px;margin:0;border:0;border-radius:inherit;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color var(--motion-control) ease}
+.habit-calendar-trigger{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head grid" "count grid" "streak grid";align-items:start;column-gap:20px;width:100%;min-height:44px;padding:20px 24px;margin:0;border:0;border-radius:inherit;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color var(--motion-control) ease}
 @media (hover:hover) and (pointer:fine){
   .habit-calendar-trigger:hover{background:color-mix(in srgb,var(--muted) 55%,transparent)}
   .habit-calendar-trigger:hover .habit-calendar-expand{opacity:1}
@@ -36,7 +37,7 @@
 .habit-legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 20px;padding:0;list-style:none;font-size:.78rem;color:var(--muted-foreground)}
 .habit-legend li{display:inline-flex;align-items:center;gap:7px}
 .habit-legend .habit-cell{width:14px;height:14px;flex-shrink:0}
-.habit-months{max-width:420px;margin:0 auto}
+.habit-months{min-width:0}
 .habit-month-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;margin:0 0 14px}
 .habit-month-nav h3{margin:0;text-align:center;font-size:1rem;font-weight:600;font-variant-numeric:tabular-nums}
 .habit-grid-full{gap:6px}
@@ -47,7 +48,7 @@
 
 @media(max-width:1023px){
   .habit-calendars{gap:16px}
-  .habit-calendar-trigger{padding:20px 22px;column-gap:16px}
+  .habit-calendar-trigger{padding:18px 20px;column-gap:16px}
   .habit-grid-compact{width:126px}
 }
 /* Phones keep both cards side by side; the grid moves under the summary. */

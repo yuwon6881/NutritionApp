@@ -3,7 +3,7 @@ import type {NutritionStore} from '../useNutritionStore';
 import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
 import {readoutDate,today} from '../lib/format';
 import {Button} from './ui/Button';
-import {SkeletonBlock} from './ui/Skeleton';
+import {BodyHubSkeleton} from './body/BodyHubSkeleton';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
 import {WeightEntryDialog} from './WeightEntryDialog';
@@ -164,7 +164,7 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
       {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading…</p>}
       <CoachingProgress store={store}/>
     </>}
-    {tab==='body'&&<Suspense fallback={<section className="panel" aria-busy="true"><p className="sr-only" role="status">Opening body records…</p><SkeletonBlock width="45%" height={28}/><SkeletonBlock height={180}/></section>}><PhysiquePhotos store={store}/></Suspense>}
+    {tab==='body'&&<Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>}
     {tab==='activity'&&<div className="activity-progress-hub">
       <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
       <StepCalorieCalculator store={store} variant="panel"/>

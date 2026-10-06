@@ -10,10 +10,10 @@ export function SkeletonBlock({width='100%',height=14,radius=8,className=''}:{wi
 }
 
 /** Placeholder for the Dashboard while the diary opens from this device or the server. */
-export function DashboardSkeleton({label}:{label:string}){
+export function DashboardSkeleton({label,heading=true}:{label:string;heading?:boolean}){
   return <div className="dashboard-skeleton" aria-busy="true">
     <p className="sr-only" role="status">{label}</p>
-    <SkeletonBlock width="46%" height={34} className="skeleton-heading"/>
+    {heading&&<SkeletonBlock width="46%" height={34} className="skeleton-heading"/>}
     <div className="daily-grid">
       <div className="panel skeleton-panel"><SkeletonBlock width="30%" height={10}/><SkeletonBlock width="55%" height={30}/><SkeletonBlock width="40%"/></div>
       <div className="panel skeleton-panel">{[0,1,2].map(index=><SkeletonBlock key={index} height={10}/>)}</div>

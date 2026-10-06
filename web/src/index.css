@@ -21,7 +21,8 @@
 .food-time-row{display:grid;grid-template-columns:5.75rem minmax(0,1fr);gap:20px;min-height:64px}
 .food-time-label{position:relative;text-align:right;padding:14px 0;font-size:.8rem;line-height:1.5;font-variant-numeric:tabular-nums;color:var(--muted-foreground)}
 .food-time-label::after{content:'';position:absolute;right:-25px;top:20px;width:9px;height:9px;border-radius:50%;background:var(--primary);border:2px solid var(--background);z-index:1}
-.food-time-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));align-items:start;gap:14px;border-left:1px solid var(--border);padding:4px 0 24px 20px;margin-top:-4px;min-width:0}
+/* One card per line at every width: a time slot reads top to bottom like the rest of the day. */
+.food-time-cards{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:14px;border-left:1px solid var(--border);padding:4px 0 24px 20px;margin-top:-4px;min-width:0}
 .food-time-card.panel{margin:0;padding:10px 14px;box-shadow:none;min-width:0;border-radius:14px;transition:border-color var(--motion-control) ease,background var(--motion-control) ease,box-shadow var(--motion-control) ease,transform var(--motion-control) var(--motion-ease)}
 @media (hover:hover) and (pointer:fine){
 .food-time-card.panel:hover:not([data-dragging]){border-color:color-mix(in srgb,var(--primary) 32%,var(--border));box-shadow:0 4px 16px rgba(0,0,0,.04);transform:translateY(-1px)}}
@@ -458,7 +459,8 @@ summary{cursor:pointer}
 .food-log-page .food-day-summary .section-heading{margin-bottom:16px}
 .food-log-page .food-timeline{margin-top:10px}
 .food-log-page .food-time-row{min-height:76px}
-.food-log-page .food-time-label{display:flex;align-items:flex-start;justify-content:flex-end;gap:6px;padding-top:17px}
+/* The time sits above its add button so the label never runs out of room beside it. */
+.food-log-page .food-time-label{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;gap:6px;padding-top:17px}
 .food-time-label-main{white-space:nowrap}
 .food-slot-add{width:36px;min-width:36px;min-height:36px;padding:4px;border-radius:50%;font-size:1.2rem;line-height:1;color:var(--primary-ink);background:var(--primary-tint)!important;border-color:var(--border)!important}
 @media (hover:hover) and (pointer:fine){
@@ -581,6 +583,19 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 
 .circular-slider-field>small{display:block;max-width:55ch;margin:14px auto 0;text-align:center;line-height:1.6}
 .slider-equivalent{color:var(--muted-foreground);font-size:.75rem;font-variant-numeric:tabular-nums}
+/* Bounds and steppers share one row: bounds hug the edges at equal width, steppers sit centred. */
+.circular-slider-range{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center}
+.circular-slider-bound{min-width:96px}
+.circular-slider-bound.start{justify-self:start}
+.circular-slider-bound.end{justify-self:end}
+.slider-value-group,.slider-current-badge,.slider-equivalent{white-space:nowrap}
+/* Phones put the question on its own line with the value under it, so neither wraps into the other. */
+@media(max-width:639px){
+  .circular-slider-field .field-label-row{flex-direction:column;align-items:flex-start;gap:6px}
+  .circular-slider-bound{min-width:88px;padding:6px 10px}
+  .circular-slider-steppers{gap:6px}
+  .circular-slider-field>small{text-align:left;margin-top:12px}
+}
 @media(prefers-reduced-motion:reduce){.circular-slider-fill,.circular-slider-thumb,.circular-slider-thumb-halo{transition:none!important}}
 
 /* Connected apps active state and source list */
@@ -631,8 +646,9 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 @keyframes coachFade{from{opacity:.4}to{opacity:1}}
 @keyframes coachReveal{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes coachSpin{to{transform:rotate(360deg)}}
-/* Phones centre the label; the selection tick is a corner badge, so choosing never moves the text. */
-@media(max-width:639px){.coach-goal-option{justify-content:center;padding:12px 18px;font-size:.77rem;text-align:center}.coach-goal-option:not(.coach-activity-option) svg{position:absolute;top:6px;right:6px;width:12px;height:12px}}
+/* A goal choice is marked by its border and tint alone, with the label centred. */
+.coach-goal-option:not(.coach-activity-option){justify-content:center;text-align:center}
+@media(max-width:639px){.coach-goal-option{padding:12px 6px;font-size:.77rem}}
 /* On phones, activity choices stay full-width rows. */
 @media(max-width:639px){.coach-goal-options.coach-activity-options{grid-template-columns:minmax(0,1fr)}.coach-goal-option.coach-activity-option{flex-direction:row;justify-content:space-between;padding:12px;text-align:start}}
 @media(prefers-reduced-motion:reduce){.coach-goal-option:active{transform:none}.coach-wait-arc{display:none}.goal-pulse-dot{animation:none}}

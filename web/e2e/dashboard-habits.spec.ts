@@ -8,10 +8,20 @@ let session:Awaited<ReturnType<APIRequestContext['storageState']>>;
 const current=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 /** Counts matching days across the current and previous month, one page at a time. */
 const countAcrossMonths=async(dialog:Locator,text:RegExp)=>{
+  // count() does not wait, so settle on the rendered month before each count.
+  const heading=dialog.locator('.habit-month-nav h3');
   const days=()=>dialog.locator('.habit-months').getByRole('listitem').filter({hasText:text}).count();
+  await expect(dialog.locator('.habit-day[data-today]')).toHaveCount(1);
+  const month=(await heading.textContent())??'';
   let total=await days();
   const previous=dialog.getByRole('button',{name:'Previous month'});
-  if(await previous.isEnabled()){await previous.click();total+=await days();await dialog.getByRole('button',{name:'Next month'}).click();}
+  if(await previous.isEnabled()){
+    await previous.click();
+    await expect(heading).not.toHaveText(month);
+    total+=await days();
+    await dialog.getByRole('button',{name:'Next month'}).click();
+    await expect(heading).toHaveText(month);
+  }
   return total;
 };
 const daysAgo=(offset:number)=>{const day=new Date(`${current}T12:00:00Z`);day.setUTCDate(day.getUTCDate()-offset);return day.toISOString().slice(0,10);};
