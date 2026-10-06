@@ -28,7 +28,6 @@
 .habit-cell[data-status=logged]{background:var(--habit-on)}
 .habit-cell[data-status=fasting]{background:color-mix(in srgb,var(--habit-on) 45%,var(--track))}
 .habit-cell[data-status=not_logged]{background:color-mix(in srgb,var(--muted-foreground) 30%,var(--track))}
-.habit-cell[data-status=open]{background:transparent;border:1px dashed color-mix(in srgb,var(--habit-on) 70%,var(--border))}
 .habit-cell[data-status=unknown]{background:transparent;border:1px dashed var(--border)}
 .habit-cell[data-status=before],.habit-cell[data-status=future]{background:transparent;border-color:color-mix(in srgb,var(--border) 60%,transparent)}
 .habit-cell[data-today]{box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--ink-strong)}

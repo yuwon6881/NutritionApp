@@ -265,7 +265,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 
 /* Centered add button styling in mobile bottom navigation */
 @media(max-width:1023px){
-  .sidebar nav .button.nav-center-add{background:var(--primary);color:var(--on-primary);border-radius:14px;border-color:var(--primary);font-weight:650;box-shadow:0 4px 12px color-mix(in srgb,var(--primary) 25%,transparent)}
+  .sidebar nav .button.nav-center-add{position:relative;z-index:2;background:var(--primary);color:var(--on-primary);border-radius:14px;border-color:var(--primary);font-weight:650;box-shadow:0 4px 12px color-mix(in srgb,var(--primary) 25%,transparent)}
   @media (hover:hover) and (pointer:fine){
   .sidebar nav .button.nav-center-add:hover{filter:brightness(1.08)}}
   .sidebar nav .button.nav-center-add .nav-icon{transform:scale(1.15)}
@@ -429,6 +429,7 @@ summary{cursor:pointer}
 .selection-indicator{position:relative;isolation:isolate}
 .selection-indicator-marker{position:absolute;z-index:0;top:0;left:0;pointer-events:none;border:0;border-radius:999px;background:transparent;transition:transform var(--motion-layout) var(--motion-ease),width var(--motion-layout) var(--motion-ease),height var(--motion-layout) var(--motion-ease),opacity var(--motion-control) ease}
 .selection-indicator>[data-selection-key]{position:relative;z-index:1;background:transparent;border-color:transparent;transition:color var(--motion-control) ease,background var(--motion-control) ease,transform var(--motion-control) ease}
+.selection-indicator .nav-center-add{position:relative;z-index:2}
 @media (hover:hover) and (pointer:fine){
 .selection-indicator>[data-selection-key]:hover:not(:disabled):not(.segment-active){background:transparent}}
 .selection-indicator>[data-selection-key].segment-active{color:var(--primary-ink);background:transparent}
@@ -1399,7 +1400,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .live-calorie-value{grid-column:2;grid-row:1 / span 3;align-self:center}
 .live-calorie-meta{grid-column:1;margin-top:8px;gap:6px 12px}
 .live-calorie-card>small{grid-column:1;display:block;margin-top:4px}
-@media(max-width:639px){.goal-pace-setup .live-calorie-card,.goal-pace-setup .live-calorie-header{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0}.goal-pace-setup .live-calorie-card{align-items:stretch;gap:10px;padding:16px}.goal-pace-setup .live-calorie-value strong{font-size:1.65rem}.goal-pace-setup .live-calorie-meta{justify-content:space-between;margin:0;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--primary) 22%,var(--border))}}
+@media(max-width:639px){.goal-pace-setup .live-calorie-card,.goal-pace-setup .live-calorie-header{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0}.goal-pace-setup .live-calorie-card{align-items:stretch;gap:10px;padding:16px}.goal-pace-setup .live-calorie-value{padding:4px 0}.goal-pace-setup .live-calorie-value strong{font-size:1.65rem}.goal-pace-setup .live-calorie-meta{justify-content:space-between;margin:0;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--primary) 22%,var(--border))}}
 .editor-back-nav{margin-bottom:12px}
 .review-food-heading{margin-bottom:14px}
 .review-food-heading h3{margin:0 0 4px;font-size:1.2rem;color:var(--foreground)}
