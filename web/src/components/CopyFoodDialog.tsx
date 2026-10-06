@@ -19,6 +19,7 @@ export interface CopyFoodDialogProps {
 }
 
 export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFocus}:CopyFoodDialogProps){
+  const latestDate=shiftDate(currentDate,1);
   const [destinationDate,setDestinationDate]=useState(entry.date);
   const [destinationTime,setDestinationTime]=useState(entry.time??'');
   const [error,setError]=useState('');
@@ -35,12 +36,12 @@ export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFoc
     reset();
   },[open,entry,reset]);
 
-  const validDate=destinationDate>='2000-01-01'&&destinationDate<=currentDate;
+  const validDate=destinationDate>='2000-01-01'&&destinationDate<=latestDate;
   const submit=async(event?:FormEvent)=>{
     event?.preventDefault();
     if(busyPending)return;
     const time=normalizeTime(destinationTime);
-    if(!validDate){setError('Choose a date from 2000 through today.');return;}
+    if(!validDate){setError('Choose a date from 2000 through tomorrow.');return;}
     if(time===undefined){setError('Choose a valid meal time (HH:mm), or leave it blank.');return;}
     setError('');
     try{
@@ -86,9 +87,9 @@ export function CopyFoodDialog({open,entry,currentDate,onClose,onCopy,restoreFoc
           label="Copy to date"
           value={destinationDate}
           min="2000-01-01"
-          max={shiftDate(currentDate,1)}
+          max={latestDate}
           required
-          validate={()=>validDate?undefined:'Choose a date from 2000 through today.'}
+          validate={()=>validDate?undefined:'Choose a date from 2000 through tomorrow.'}
           onChange={value=>{setDestinationDate(value);setError('');}}
         />
         <Field

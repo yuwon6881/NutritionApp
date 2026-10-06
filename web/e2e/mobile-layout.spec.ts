@@ -101,11 +101,37 @@ test('mobile view (360px & 390px): eliminates horizontal scroll and fixes button
     const editPlanBtn=page.getByRole('button',{name:'Edit plan'});
     if(await editPlanBtn.isVisible()){
       await editPlanBtn.click();
+      const planHeading=page.locator('.coach-plan-heading h2');
+      const targetsBackBtn=page.locator('.coach-plan-heading').getByRole('button',{name:'Targets'});
+      await expect(planHeading).toBeVisible();
+      await expect(targetsBackBtn).toBeVisible();
+      const headingBox=await planHeading.boundingBox();
+      const targetsBox=await targetsBackBtn.boundingBox();
+      expect(headingBox).not.toBeNull();
+      expect(targetsBox).not.toBeNull();
+      expect(Math.abs((headingBox!.y+headingBox!.height/2)-(targetsBox!.y+targetsBox!.height/2))).toBeLessThan(8);
+      expect(targetsBox!.width).toBeLessThan(width*0.5);
+
       // Progress is informational; move through the plan with the forward action.
       await expect(page.locator('.coach-step-progress').getByRole('button')).toHaveCount(0);
       await page.getByRole('button',{name:/^Next: Activity/}).click();
       await page.getByRole('button',{name:/^Next: Goal/}).click();
+      await page.locator('label[for="coach-goal-lose"]').click();
       await page.getByRole('button',{name:/^Next: Details/}).click();
+      await page.locator('#goal-phase-mode-btn').click();
+      await page.getByRole('option',{name:'Duration',exact:true}).click();
+      await page.getByRole('button',{name:/^Next: Pace/}).click();
+
+      const estTag=page.locator('.goal-pace-setup .live-calorie-tag');
+      const estVal=page.locator('.goal-pace-setup .live-calorie-value');
+      await expect(estTag).toBeVisible();
+      await expect(estVal).toBeVisible();
+      const tagBox=await estTag.boundingBox();
+      const valBox=await estVal.boundingBox();
+      expect(tagBox).not.toBeNull();
+      expect(valBox).not.toBeNull();
+      expect(valBox!.y).toBeGreaterThanOrEqual(tagBox!.y+tagBox!.height-2);
+
       await page.getByRole('button',{name:/^Next: Macros/}).click();
 
       // Check Macro presets: zero horizontal scroll and selectable buttons

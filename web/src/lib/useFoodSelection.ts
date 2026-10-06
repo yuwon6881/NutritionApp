@@ -60,7 +60,7 @@ export function useFoodSelection():FoodSelectionState{
   useEffect(()=>{
     if(!isSelecting)return;
     const handleKeyDown=(e:KeyboardEvent)=>{
-      if(e.key==='Escape'){
+      if(e.key==='Escape'&&!e.defaultPrevented&&!document.querySelector('[role="dialog"]')){
         exitSelection();
       }
     };

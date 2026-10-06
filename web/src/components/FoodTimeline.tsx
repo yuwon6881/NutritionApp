@@ -1,5 +1,5 @@
 import {useCallback,useState,useRef,useEffect} from 'react';
-import {ClipboardPaste,Copy,MoveRight,Pencil,Trash2} from 'lucide-react';
+import {Copy,MoveRight,Pencil,Trash2} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {timelineGroups,timelineSlots,moveAnnouncement,type TimelineView} from '../lib/foodDiary';
@@ -148,14 +148,6 @@ export function FoodTimeline({
               aria-label={`Add food at ${group.label}`}
               onClick={()=>onAddAtTime(group.time)}
             >+</Button>}
-            {group.time&&clipboardCount>0&&onPasteAtTime&&<Button
-              variant="tertiary"
-              size="icon"
-              className="food-slot-paste"
-              aria-label={`Paste ${clipboardCount} foods at ${group.label}`}
-              title={`Paste ${clipboardCount} foods at ${group.label}`}
-              onClick={()=>onPasteAtTime(group.time)}
-            ><ClipboardPaste size={16}/></Button>}
           </div>
         </div>
         <div className={`food-time-cards ${group.entries.length===0?'food-time-cards-empty':''}`}>

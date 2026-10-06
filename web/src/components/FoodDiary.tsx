@@ -6,7 +6,7 @@ import {useHistoryWindow} from '../useHistoryWindow';
 import {number,today} from '../lib/format';
 import {shiftDate} from '../lib/energyBalance';
 import {dayStatus} from '../lib/loggingDay';
-import {mealReadOnly,moveEntry,showsDeviceOnlyToday,timelineSlots,type TimelineView} from '../lib/foodDiary';
+import {mealReadOnly,moveEntry,showsDeviceOnlyToday,type TimelineView} from '../lib/foodDiary';
 import {useOnlineStatus} from './ui/useOnlineStatus';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
@@ -22,18 +22,19 @@ import {FoodWeekStrip} from './FoodWeekStrip';
 import {useDaySwipe} from './useDaySwipe';
 import {DiaryEmptyState} from './DiaryEmptyState';
 import {FoodDaySkeleton} from './ui/Skeleton';
-import {showUndo} from './ui/UndoToast';
-import {UNDO_WINDOW_MS} from '../lib/heldMutations';
-import {FoodClipboardBanner} from './FoodClipboardBanner';
-import {MoveFoodDialog} from './MoveFoodDialog';
-import {Modal} from './ui/Modal';
-import {useDismissablePopover} from './ui/useDismissablePopover';
+import { showUndo } from './ui/UndoToast';
+import { UNDO_WINDOW_MS } from '../lib/heldMutations';
+import { CopyFoodDialog } from './CopyFoodDialog';
+import { MoveFoodDialog } from './MoveFoodDialog';
+import { Modal } from './ui/Modal';
+import { useDismissablePopover } from './ui/useDismissablePopover';
 
 export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:NutritionStore;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void}){
   const history=useHistoryWindow(store,date);
   const [error,setError]=useState('');
   const [timelineView,setTimelineView]=useState<TimelineView>('data');
   const [bulkMoving,setBulkMoving]=useState<Entry[]|null>(null);
+  const [bulkCopying,setBulkCopying]=useState<Entry[]|null>(null);
   const [selectionRestoreFocus,setSelectionRestoreFocus]=useState<HTMLElement|null>(null);
   const [isMenuOpen,setIsMenuOpen]=useState(false);
   const [confirmingClearDay,setConfirmingClearDay]=useState(false);
@@ -43,6 +44,10 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
 
   const selection=useFoodSelection();
   const clipboard=useFoodClipboard();
+  const exitSelectionAndCopy=()=>{
+    clipboard.clear();
+    selection.exitSelection();
+  };
 
   const current=today(store.state!.profile?.timeZone);
   const online=useOnlineStatus();
@@ -62,8 +67,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
   const latest=shiftDate(current,1);
   const changeDate=(value:string)=>{if(value>='2000-01-01'&&value<=latest){setError('');selection.exitSelection();setDate(value);}};
 
-  // Touch swipe between days; selection mode and the move dialog keep the touch to themselves.
-  const swipe=useDaySwipe({enabled:!selection.isSelecting&&!bulkMoving,date,canPrevious:date>'2000-01-01',canNext:date<latest,onNavigate:delta=>changeDate(shiftDate(date,delta))});
+  // Touch swipe between days; selection mode and the move/copy dialogs keep the touch to themselves.
+  const swipe=useDaySwipe({enabled:!selection.isSelecting&&clipboard.count===0&&!bulkMoving&&!bulkCopying,date,canPrevious:date>'2000-01-01',canNext:date<latest,onNavigate:delta=>changeDate(shiftDate(date,delta))});
 
   const move=async(moving:Entry[],destinationDate:string,time?:string|null)=>{
     await act(async()=>{
@@ -94,34 +99,33 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
 
   const selectedEntries=entries.filter(e=>selection.isSelected(e.id));
   const selectedCalories=selectedEntries.reduce((sum,e)=>sum+e.calories,0);
-  const groups=timelineSlots(entries,0,23,timelineView);
 
+  const pasteEntriesTo=async(items:Entry[],targetDate:string,targetTime?:string|null)=>{
+    if(!items.length)return;
+    await act(async()=>{
+      const mutations=createPasteMutations(items,targetDate,targetTime);
+      await store.mutateMany(mutations);
+    },true);
+    exitSelectionAndCopy();
+    if(targetDate!==date){
+      changeDate(targetDate);
+    }
+  };
 
   const handlePasteAtTime=async(time:string)=>{
     if(!clipboard.clipboard)return;
-    await act(async()=>{
-      const mutations=createPasteMutations(clipboard.clipboard!.entries,date,time);
-      await store.mutateMany(mutations);
-    },true);
-  };
-
-  const handlePasteToDay=async()=>{
-    if(!clipboard.clipboard)return;
-    await act(async()=>{
-      const mutations=createPasteMutations(clipboard.clipboard!.entries,date);
-      await store.mutateMany(mutations);
-    },true);
+    await pasteEntriesTo(clipboard.clipboard.entries,date,time);
   };
 
   return <div className="food-log-page">
     <header className="page-heading">
       <div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time, copy or move them, and remove mistakes.</p></div>
       <div className="page-heading-actions">
-        {selection.isSelecting&&(
+        {(selection.isSelecting||clipboard.count>0)&&(
           <Button
             variant="tertiary"
             aria-label="Done selecting"
-            onClick={selection.exitSelection}
+            onClick={exitSelectionAndCopy}
           >
             <CheckCheck size={18}/>
             Done
@@ -155,7 +159,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
               className="food-diary-dropdown-item"
               role="menuitem"
               disabled={entries.length===0||readOnly}
-              onClick={()=>{setIsMenuOpen(false);selection.enterSelection();}}
+              onClick={()=>{setIsMenuOpen(false);clipboard.clear();selection.enterSelection();}}
             >
               <CheckCheck size={16} aria-hidden="true"/>
               <span>Bulk select</span>
@@ -224,36 +228,29 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
         })}</dl>
       </section>
       {readOnly?<DiaryEmptyState status={status} archived detailDays={state.detailDays} summary={`${count} food ${count===1?'entry':'entries'}${count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}`}/>:<>
-        {clipboard.clipboard&&<FoodClipboardBanner
-          clipboard={clipboard.clipboard}
-          currentDate={current}
-          viewDate={date}
-          energyUnit={energyUnit}
-          onPasteToDay={()=>void handlePasteToDay()}
-          onClear={clipboard.clear}
-        />}
         <div className="food-timeline-toolbar">
           <div><h2>Food timeline</h2><p>Show only logged times or every hour from 12 AM through 11 PM.</p></div>
           <SegmentedControl<TimelineView> id="food-timeline-view" label="Food timeline hours" value={timelineView} onChange={setTimelineView} options={[{value:'data',label:'Hours with data'},{value:'full',label:'Full day'}]}/>
         </div>
         {!entries.length&&timelineView==='data'&&<DiaryEmptyState status={status} offline={currentUncached} onLog={()=>onLog()}/>}
-        {selection.isSelecting&&<FoodSelectionBar
+        {(selection.isSelecting||clipboard.count>0)&&<FoodSelectionBar
           selectedCount={selectedEntries.length}
           totalCount={entries.length}
           totalCalories={selectedCalories}
+          copiedCount={clipboard.count}
+          copiedCalories={clipboard.totalCalories}
           energyUnit={energyUnit}
           onSelectAll={()=>selection.selectAll(entries.map(e=>e.id))}
           onDeselectAll={selection.deselectAll}
           onEdit={()=>{
             if(selectedEntries.length===1){
               const target=selectedEntries[0];
-              selection.exitSelection();
+              exitSelectionAndCopy();
               onEdit(target);
             }
           }}
           onCopy={()=>{
             clipboard.copy(selectedEntries,date);
-            selection.exitSelection();
           }}
           onMove={trigger=>{
             setSelectionRestoreFocus(trigger);
@@ -261,10 +258,39 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
           }}
           onDelete={()=>{
             const deleting=selectedEntries;
-            selection.exitSelection();
+            exitSelectionAndCopy();
             void removeEntries(deleting).catch(()=>{});
           }}
-          onDone={selection.exitSelection}
+          onPaste={()=>{
+            if(clipboard.clipboard){
+              void pasteEntriesTo(clipboard.clipboard.entries,date).catch(()=>{});
+            }
+          }}
+          onPasteToToday={()=>{
+            if(clipboard.clipboard){
+              void pasteEntriesTo(clipboard.clipboard.entries,current).catch(()=>{});
+            }
+          }}
+          onPasteToTomorrow={()=>{
+            if(clipboard.clipboard){
+              void pasteEntriesTo(clipboard.clipboard.entries,shiftDate(current,1)).catch(()=>{});
+            }
+          }}
+          onPasteDateAndTime={trigger=>{
+            if(clipboard.clipboard){
+              setSelectionRestoreFocus(trigger);
+              setBulkCopying(clipboard.clipboard.entries);
+            }
+          }}
+          onBackFromCopy={()=>{
+            clipboard.clear();
+            if(selectedEntries.length===0){
+              selection.exitSelection();
+            }else if(!selection.isSelecting){
+              selection.enterSelection();
+            }
+          }}
+          onDone={exitSelectionAndCopy}
         />}
         <FoodTimeline
           store={store}
@@ -284,10 +310,10 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
           showEmptySlots
           timelineView={timelineView}
           onAddAtTime={readOnly?undefined:onLog}
-          isSelecting={selection.isSelecting}
+          isSelecting={selection.isSelecting&&clipboard.count===0}
           selectedIds={selection.selectedIds}
           onToggleSelect={selection.toggle}
-          onLongPressSelect={id=>selection.enterSelection(id)}
+          onLongPressSelect={id=>{clipboard.clear();selection.enterSelection(id);}}
           clipboardCount={clipboard.count}
           onPasteAtTime={readOnly?undefined:handlePasteAtTime}
         />
@@ -295,6 +321,16 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     </>}
     </div>
     </div>
+    {bulkCopying&&bulkCopying[0]&&<CopyFoodDialog
+      open
+      onClose={()=>setBulkCopying(null)}
+      entry={bulkCopying[0]}
+      currentDate={current}
+      onCopy={async(_,destDate,destTime)=>{
+        await pasteEntriesTo(bulkCopying,destDate,destTime);
+      }}
+      restoreFocus={selectionRestoreFocus}
+    />}
     {bulkMoving&&<MoveFoodDialog
       open={Boolean(bulkMoving)}
       onClose={()=>setBulkMoving(null)}
@@ -302,7 +338,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
       currentDate={current}
       onMove={async(moving,destDate,destTime)=>{
         await move(moving,destDate,destTime);
-        selection.exitSelection();
+        exitSelectionAndCopy();
         if(destDate!==date){
           changeDate(destDate);
         }
@@ -320,7 +356,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
         <Button variant="secondary" onClick={()=>setConfirmingClearDay(false)}>Cancel</Button>
         <Button variant="destructive" onClick={async()=>{
           setConfirmingClearDay(false);
-          selection.exitSelection();
+          exitSelectionAndCopy();
           await removeEntries(entries);
         }}>Clear day</Button>
       </div>

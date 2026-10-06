@@ -348,10 +348,10 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   </>;
 
   const planTab=<section className="panel">
-    <div className="section-heading">
+    <div className="section-heading coach-plan-heading">
       <div><h2>{isInitialSetup?'Set up profile':'Edit plan'}</h2></div>
-      {!isInitialSetup&&<Button variant="tertiary" size="md" onClick={()=>{setMessage('');setMainTab('targets');}}>
-        <ArrowLeft size={16}/>Targets
+      {!isInitialSetup&&<Button variant="secondary" size="sm" onClick={()=>{setMessage('');setMainTab('targets');}}>
+        <ArrowLeft size={16} aria-hidden="true"/>Targets
       </Button>}
     </div>
 

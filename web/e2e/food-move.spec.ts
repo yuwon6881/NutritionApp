@@ -150,11 +150,17 @@ test('food timeline supports single-item move to custom time, move to existing t
   await reloadedCoffee.click();
   await expect(bar.getByRole('button',{name:'Edit selected food',exact:true})).toBeVisible();
 
-  // Copy to clipboard and paste at 21:00
+  // Copy transforms the selection bar in-place with paste destinations and allows pasting at 21:00
   await bar.getByRole('button',{name:/Copy/}).click();
-  await expect(page.locator('.food-clipboard-banner')).toContainText('1 food copied');
+  await expect(page.locator('.food-clipboard-banner')).toHaveCount(0);
+  await expect(bar).toContainText('1 food copied');
+  await expect(bar.getByRole('button',{name:'Paste copied food',exact:true})).toBeVisible();
+  await expect(bar.getByRole('button',{name:'Paste to today',exact:true})).toBeVisible();
+  await expect(bar.getByRole('button',{name:'Paste to tomorrow',exact:true})).toBeVisible();
+  await expect(bar.getByRole('button',{name:'Paste to date and time',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Full day',exact:true}).click();
   await page.locator('[data-time-row="21:00"]').getByRole('button',{name:/^Paste 1 food at/}).first().click();
+  await expect(bar).toBeHidden();
   const row21=page.locator('[data-time-row="21:00"]');
   await expect(row21.getByText('Rolled oats')).toBeVisible();
 
