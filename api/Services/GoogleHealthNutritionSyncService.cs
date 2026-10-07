@@ -73,9 +73,13 @@ public sealed class GoogleHealthNutritionSyncService(
     {
         var start = EntryTimestamp(date, time, timeZone);
         var end = start.AddMinutes(15);
+        var offsetSeconds = (long)start.Offset.TotalSeconds;
+        var utcOffset = $"{offsetSeconds}s";
         return new GoogleHealthNutritionDataPoint(
-            start.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture),
-            end.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture),
+            start.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+            utcOffset,
+            end.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+            utcOffset,
             name,
             InferMealType(time),
             calories,

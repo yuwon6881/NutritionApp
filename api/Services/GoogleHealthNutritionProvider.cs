@@ -7,7 +7,9 @@ namespace Nutrition.Api.Services;
 
 public sealed record GoogleHealthNutritionDataPoint(
     string StartTime,
+    string StartUtcOffset,
     string EndTime,
+    string EndUtcOffset,
     string FoodDisplayName,
     string MealType,
     double CaloriesKcal,
@@ -39,8 +41,11 @@ internal static class GoogleHealthNutritionProvider
     public static Task<GoogleHealthOperationResult> CreateAsync(HttpClient http, string token, GoogleHealthNutritionDataPoint data, CancellationToken ct)
         => SendOperationAsync(http, HttpMethod.Post, "https://health.googleapis.com/v4/users/me/dataTypes/nutrition-log/dataPoints", token, BuildPayload(data), true, ct);
 
-    public static Task<GoogleHealthOperationResult> UpdateAsync(HttpClient http, string token, string resourceName, GoogleHealthNutritionDataPoint data, CancellationToken ct)
-        => SendOperationAsync(http, HttpMethod.Patch, ResourceUrl(resourceName), token, BuildPayload(data), false, ct);
+    public static async Task<GoogleHealthOperationResult> UpdateAsync(HttpClient http, string token, string resourceName, GoogleHealthNutritionDataPoint data, CancellationToken ct)
+    {
+        await DeleteAsync(http, token, resourceName, ct);
+        return await CreateAsync(http, token, data, ct);
+    }
 
     public static Task<GoogleHealthOperationResult> DeleteAsync(HttpClient http, string token, string resourceName, CancellationToken ct)
         => SendOperationAsync(http, HttpMethod.Post, "https://health.googleapis.com/v4/users/me/dataTypes/nutrition-log/dataPoints:batchDelete", token, new { names = new[] { resourceName } }, false, ct, deleteRequest: true);
@@ -63,32 +68,35 @@ internal static class GoogleHealthNutritionProvider
         var nutrients = new List<object>();
         if (data.ProteinGrams is { } p)
             nutrients.Add(new { nutrient = "PROTEIN", quantity = new { grams = Math.Round(p, 2) } });
-        if (data.CarbsGrams is { } c)
-            // Google's Nutrient enum names carbohydrate "CARBOHYDRATES"; any other name fails the whole upload.
-            nutrients.Add(new { nutrient = "CARBOHYDRATES", quantity = new { grams = Math.Round(c, 2) } });
-        if (data.FatGrams is { } f)
-            nutrients.Add(new { nutrient = "TOTAL_FAT", quantity = new { grams = Math.Round(f, 2) } });
         if (data.FiberGrams is { } fib)
             nutrients.Add(new { nutrient = "DIETARY_FIBER", quantity = new { grams = Math.Round(fib, 2) } });
 
-        return new
+        var log = new Dictionary<string, object?>
         {
-            nutritionLog = new
+            ["interval"] = new
             {
-                interval = new
-                {
-                    startTime = data.StartTime,
-                    endTime = data.EndTime
-                },
-                foodDisplayName = string.IsNullOrWhiteSpace(data.FoodDisplayName) ? "Food" : data.FoodDisplayName.Trim(),
-                mealType = string.IsNullOrWhiteSpace(data.MealType) ? "LUNCH" : data.MealType,
-                energy = new
-                {
-                    kcal = Math.Round(data.CaloriesKcal, 1)
-                },
-                nutrients
+                startTime = data.StartTime,
+                startUtcOffset = data.StartUtcOffset,
+                endTime = data.EndTime,
+                endUtcOffset = data.EndUtcOffset
+            },
+            ["foodDisplayName"] = string.IsNullOrWhiteSpace(data.FoodDisplayName) ? "Food" : data.FoodDisplayName.Trim(),
+            ["mealType"] = string.IsNullOrWhiteSpace(data.MealType) ? "LUNCH" : data.MealType,
+            ["energy"] = new
+            {
+                kcal = Math.Round(data.CaloriesKcal, 1)
             }
         };
+
+        if (data.CarbsGrams is { } c)
+            log["totalCarbohydrate"] = new { grams = Math.Round(c, 2) };
+        if (data.FatGrams is { } f)
+            log["totalFat"] = new { grams = Math.Round(f, 2) };
+
+        if (nutrients.Count > 0)
+            log["nutrients"] = nutrients;
+
+        return new { nutritionLog = log };
     }
 
     private static async Task<GoogleHealthOperationResult> SendOperationAsync(HttpClient http, HttpMethod method, string url, string token, object body, bool create, CancellationToken ct, bool deleteRequest = false)

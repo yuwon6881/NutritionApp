@@ -41,8 +41,10 @@ public sealed class GoogleHealthNutritionSyncTests
             3.5,
             "Asia/Singapore");
 
-        Assert.Equal("2026-09-18T12:30:00+08:00", dp.StartTime);
-        Assert.Equal("2026-09-18T12:45:00+08:00", dp.EndTime);
+        Assert.Equal("2026-09-18T04:30:00Z", dp.StartTime);
+        Assert.Equal("28800s", dp.StartUtcOffset);
+        Assert.Equal("2026-09-18T04:45:00Z", dp.EndTime);
+        Assert.Equal("28800s", dp.EndUtcOffset);
         Assert.Equal("Chicken Rice", dp.FoodDisplayName);
         Assert.Equal("LUNCH", dp.MealType);
         Assert.Equal(650.0, dp.CaloriesKcal);

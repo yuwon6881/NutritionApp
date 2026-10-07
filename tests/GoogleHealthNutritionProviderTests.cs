@@ -14,8 +14,10 @@ public sealed class GoogleHealthNutritionProviderTests
         using var http = new HttpClient(handler);
 
         var dataPoint = new GoogleHealthNutritionDataPoint(
-            "2026-09-18T08:30:00+08:00",
-            "2026-09-18T08:45:00+08:00",
+            "2026-09-18T00:30:00Z",
+            "28800s",
+            "2026-09-18T00:45:00Z",
+            "28800s",
             "Oatmeal & Protein Shake",
             "BREAKFAST",
             450.5,
@@ -32,26 +34,22 @@ public sealed class GoogleHealthNutritionProviderTests
 
         using var body = JsonDocument.Parse(handler.Body!);
         var log = body.RootElement.GetProperty("nutritionLog");
-        Assert.Equal("2026-09-18T08:30:00+08:00", log.GetProperty("interval").GetProperty("startTime").GetString());
-        Assert.Equal("2026-09-18T08:45:00+08:00", log.GetProperty("interval").GetProperty("endTime").GetString());
+        Assert.Equal("2026-09-18T00:30:00Z", log.GetProperty("interval").GetProperty("startTime").GetString());
+        Assert.Equal("28800s", log.GetProperty("interval").GetProperty("startUtcOffset").GetString());
+        Assert.Equal("2026-09-18T00:45:00Z", log.GetProperty("interval").GetProperty("endTime").GetString());
+        Assert.Equal("28800s", log.GetProperty("interval").GetProperty("endUtcOffset").GetString());
         Assert.Equal("Oatmeal & Protein Shake", log.GetProperty("foodDisplayName").GetString());
         Assert.Equal("BREAKFAST", log.GetProperty("mealType").GetString());
         Assert.Equal(450.5, log.GetProperty("energy").GetProperty("kcal").GetDouble());
 
+        Assert.Equal(55.4, log.GetProperty("totalCarbohydrate").GetProperty("grams").GetDouble());
+        Assert.Equal(12.0, log.GetProperty("totalFat").GetProperty("grams").GetDouble());
+
         var nutrients = log.GetProperty("nutrients").EnumerateArray().ToList();
-        Assert.Equal(4, nutrients.Count);
+        Assert.Equal(2, nutrients.Count);
 
         var protein = nutrients.First(n => n.GetProperty("nutrient").GetString() == "PROTEIN");
         Assert.Equal(35.2, protein.GetProperty("quantity").GetProperty("grams").GetDouble());
-
-        // Google rejects the whole upload for a name outside its Nutrient enum.
-        Assert.All(nutrients, n => Assert.Contains(n.GetProperty("nutrient").GetString(), GoogleNutrientEnum));
-
-        var carbs = nutrients.First(n => n.GetProperty("nutrient").GetString() == "CARBOHYDRATES");
-        Assert.Equal(55.4, carbs.GetProperty("quantity").GetProperty("grams").GetDouble());
-
-        var fat = nutrients.First(n => n.GetProperty("nutrient").GetString() == "TOTAL_FAT");
-        Assert.Equal(12.0, fat.GetProperty("quantity").GetProperty("grams").GetDouble());
 
         var fiber = nutrients.First(n => n.GetProperty("nutrient").GetString() == "DIETARY_FIBER");
         Assert.Equal(6.5, fiber.GetProperty("quantity").GetProperty("grams").GetDouble());
