@@ -190,21 +190,16 @@ public sealed class GoogleHealthWeightSyncService(
         if (connection is null)
             return new(false, false, "disabled", 0, null, 0);
 
-        var work = await db.GoogleHealthWeightSyncWork.ToListAsync(ct);
-        var pending = work.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
-        var problem = work.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
-        var state = !connection.WeightSyncEnabled ? "disabled"
-            : connection.Status == "reconnect_required" ? "reconnect_required"
-            : problem?.ProcessingState ?? (pending > 0 ? "pending" : "idle");
+        var work = await GoogleHealthSyncStatus.SummarizeAsync(db.GoogleHealthWeightSyncWork, ct);
         return new(
             connection.WeightSyncEnabled,
             HasWeightScope(connection),
-            state,
-            pending,
+            GoogleHealthSyncStatus.State(connection.WeightSyncEnabled, connection.Status, work),
+            work.Pending,
             connection.WeightLastSuccessfulSyncAt,
             connection.WeightSyncRevision,
-            problem?.LastErrorCategory,
-            problem?.LastErrorMessage);
+            work.ProblemCategory,
+            work.ProblemMessage);
     }
 
     /// Processes due uploads for every account, or for one account while its user is active.

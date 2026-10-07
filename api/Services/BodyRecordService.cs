@@ -57,11 +57,16 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
     {
         var user=await db.Users.AsNoTracking().SingleAsync(u=>u.Id==db.CurrentUser,ct);
         ValidateDate(date,user.ProfileJson);
-        var history=await db.Weights.AsNoTracking().Where(w=>!w.Deleted&&w.Date<=date).OrderBy(w=>w.Date)
-            .Select(w=>new WeightPoint(w.Date,w.Kg)).ToListAsync(ct);
-        var scale=history.LastOrDefault();
-        var trend=Coach.Trend(history).LastOrDefault();
+        var (scale,trend)=await WeightHistory.Compute(db,date.AddDays(-28),date,CaptureWeights,ct);
         return new(scale?.Kg,scale?.Date,trend?.Kg,trend?.Date,DateTime.UtcNow,TrendVersion,"server");
+    }
+
+    /// The latest scale weight and its raw trend; only the last point is read.
+    internal static ((WeightPoint? Scale,WeightPoint? Trend) Result,DateOnly? Earliest) CaptureWeights(IReadOnlyList<WeightPoint> weights)
+    {
+        var history=weights.Select(w=>w with{Context=null}).ToArray();
+        var scale=history.LastOrDefault();
+        return ((scale,Coach.Trend(history).LastOrDefault()),scale?.Date);
     }
 
     public async Task<BodyRecordView> Apply(Guid recordId,BodyMutation op,CancellationToken ct)

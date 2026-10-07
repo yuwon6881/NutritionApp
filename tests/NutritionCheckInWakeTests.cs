@@ -81,6 +81,31 @@ public sealed class NutritionCheckInWakeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Saving_a_reminder_arms_only_the_saving_account_and_leaves_others_to_dispatch_and_cleanup()
+    {
+        var queue = new FakeQueue();
+        var other = Guid.NewGuid();
+        await using (var seed = Open())
+        {
+            seed.CurrentUser = other;
+            seed.Users.Add(new AppUser { Id = other, DisplayName = "other", IdentitySubject = $"wake_{other:N}" });
+            seed.NutritionCheckInReminderPreferences.Add(new NutritionCheckInReminderPreference
+            {
+                UserId = other, Enabled = true, Weekday = 3, LocalTime = new TimeOnly(9, 0), TimeZoneId = "Asia/Kuala_Lumpur",
+                UpdatedAt = now.UtcDateTime
+            });
+            await seed.SaveChangesAsync();
+        }
+        await using var db = Open();
+        db.NutritionPushSubscriptions.Add(Subscription());
+        await db.SaveChangesAsync();
+
+        await new NutritionNotificationService(db, Config(), new FixedTime(now), queue).SetSettingsAsync(true, 1, "08:00", "Asia/Kuala_Lumpur", default);
+
+        Assert.Equal([new DateTimeOffset(2026, 9, 28, 0, 0, 0, TimeSpan.Zero)], queue.Wakes);
+    }
+
+    [Fact]
     public async Task Saving_a_disabled_reminder_arms_nothing()
     {
         var queue = new FakeQueue();

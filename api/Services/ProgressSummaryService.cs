@@ -99,30 +99,23 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
 
     private async Task<DateOnly> EarliestRelevantDate(DateOnly fallback, CancellationToken ct)
     {
-        var dates = db.Entries.Where(item => !item.Deleted).Select(item => item.Date)
-            .Concat(db.Days.Where(item => !item.Deleted).Select(item => item.Date))
-            .Concat(db.Weights.Where(item => !item.Deleted).Select(item => item.Date))
-            .Concat(db.Plans.Where(item => !item.Deleted).Select(item => item.Date));
-        var earliest = await dates.OrderBy(value => value).FirstOrDefaultAsync(ct);
-        return earliest == default ? fallback : earliest;
+        // One indexed minimum per table rather than sorting the union of every dated row.
+        DateOnly?[] earliest =
+        [
+            await db.Entries.Where(item => !item.Deleted).MinAsync(item => (DateOnly?)item.Date, ct),
+            await db.Days.Where(item => !item.Deleted).MinAsync(item => (DateOnly?)item.Date, ct),
+            await db.Weights.Where(item => !item.Deleted).MinAsync(item => (DateOnly?)item.Date, ct),
+            await db.Plans.Where(item => !item.Deleted).MinAsync(item => (DateOnly?)item.Date, ct)
+        ];
+        return earliest.Min() ?? fallback;
     }
 
     private async Task<ProgressWeightSummary> BuildWeightSummary(DateOnly start, DateOnly end, CancellationToken ct)
     {
-        // Smooth the same complete preceding history for every selected period.
-        // A single raw seed changes the trend when the chart window changes.
-        var history = await db.Weights.AsNoTracking()
-            .Where(item => !item.Deleted && item.Date <= end)
-            .OrderBy(item => item.Date)
-            .Select(item => new WeightRow(item.Date, item.Kg))
-            .ToListAsync(ct);
-        var rows = history.Where(item => item.Date >= start).ToList();
-        IReadOnlyList<WeightPoint> smoothed;
-        using (PerformanceMetrics.Measure("progress.trend"))
-            smoothed = Coach.Trend(history.Select(item => new WeightPoint(item.Date, item.Kg)).ToList());
-        var trendByDate = smoothed.ToDictionary(item => item.Date, item => item.Kg);
-        var points = rows.Select(item => new ProgressWeightPoint(item.Date, item.Kg, trendByDate[item.Date])).ToList();
-        var values = rows.Select(item => item.Kg).ToArray();
+        // Smooth with a warm-up before the period rather than from the period's first weigh-in:
+        // a raw seed would change the trend whenever the chart window changes.
+        var points = await WeightHistory.Compute(db, start, end, history => (WeightPoints(history, start), (DateOnly?)start), ct);
+        var values = points.Select(item => item.ScaleKg).ToArray();
         var statistics = new ProgressWeightStatistics(
             values.Length,
             values.Length == 0 ? null : values.Average(),
@@ -157,11 +150,17 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
             .Select(group => new EntryTotal(group.Key, group.Sum(item => item.Calories), group.Count()))
             .ToDictionaryAsync(item => item.Date, ct);
 
-        var planRows = await db.Plans.AsNoTracking()
-            .Where(item => !item.Deleted && item.Date <= end)
+        // Only the plan in effect when the period opens matters from before it.
+        var plans = db.Plans.AsNoTracking().Where(item => !item.Deleted);
+        var planRows = await plans.Where(item => item.Date >= start && item.Date <= end)
             .OrderBy(item => item.Date).ThenBy(item => item.Revision)
             .Select(item => new PlanPoint(item.Date, item.Revision, item.ResultJson))
             .ToListAsync(ct);
+        var opening = await plans.Where(item => item.Date < start)
+            .OrderByDescending(item => item.Date).ThenByDescending(item => item.Revision)
+            .Select(item => new PlanPoint(item.Date, item.Revision, item.ResultJson))
+            .FirstOrDefaultAsync(ct);
+        if (opening != null) planRows.Insert(0, opening);
         var maintenance = planRows.Select(item =>
         {
             var result = Json.Read<CoachResult>(item.ResultJson);
@@ -261,7 +260,15 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
 
     private static DateOnly Monday(DateOnly date) => date.AddDays(-(((int)date.DayOfWeek + 6) % 7));
 
-    private sealed record WeightRow(DateOnly Date, double Kg);
+    /// Raw-trend points for the period's weigh-ins, smoothed from the weigh-ins before it.
+    internal static List<ProgressWeightPoint> WeightPoints(IReadOnlyList<WeightPoint> history, DateOnly start)
+    {
+        IReadOnlyList<WeightPoint> smoothed;
+        using (PerformanceMetrics.Measure("progress.trend"))
+            smoothed = Coach.Trend(history.Select(item => item with { Context = null }).ToList());
+        return smoothed.Zip(history).Where(pair => pair.Second.Date >= start)
+            .Select(pair => new ProgressWeightPoint(pair.Second.Date, pair.Second.Kg, pair.First.Kg)).ToList();
+    }
     private sealed record EntryTotal(DateOnly Date, double Calories, int Count);
     private sealed record PlanPoint(DateOnly Date, long Revision, string ResultJson);
     private sealed record MaintenancePoint(DateOnly Date, long Revision, double? Value);

@@ -516,59 +516,39 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         try { granted = JsonSerializer.Deserialize<string[]>(connection.GrantedScopesJson, Json.Options) ?? []; }
         catch (JsonException) { granted = []; }
 
-        // Weight status
-        var weightWork = await db.GoogleHealthWeightSyncWork.ToListAsync(ct);
-        var weightPending = weightWork.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
-        var weightProblem = weightWork.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
-        var weightState = !connection.WeightSyncEnabled ? "disabled"
-            : connection.Status == "reconnect_required" ? "reconnect_required"
-            : weightProblem?.ProcessingState ?? (weightPending > 0 ? "pending" : "idle");
-
-        // Nutrition status
-        var nutritionWork = await db.GoogleHealthNutritionSyncWork.ToListAsync(ct);
-        var nutritionPending = nutritionWork.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
-        var nutritionProblem = nutritionWork.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
-        var nutritionState = !connection.NutritionSyncEnabled ? "disabled"
-            : connection.Status == "reconnect_required" ? "reconnect_required"
-            : nutritionProblem?.ProcessingState ?? (nutritionPending > 0 ? "pending" : "idle");
-
-        // Body fat status
-        var bodyFatWork = await db.GoogleHealthBodyFatSyncWork.ToListAsync(ct);
-        var bodyFatPending = bodyFatWork.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
-        var bodyFatProblem = bodyFatWork.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
-        var bodyFatState = !connection.BodyFatSyncEnabled ? "disabled"
-            : connection.Status == "reconnect_required" ? "reconnect_required"
-            : bodyFatProblem?.ProcessingState ?? (bodyFatPending > 0 ? "pending" : "idle");
+        var weight = await GoogleHealthSyncStatus.SummarizeAsync(db.GoogleHealthWeightSyncWork, ct);
+        var nutrition = await GoogleHealthSyncStatus.SummarizeAsync(db.GoogleHealthNutritionSyncWork, ct);
+        var bodyFat = await GoogleHealthSyncStatus.SummarizeAsync(db.GoogleHealthBodyFatSyncWork, ct);
 
         return result with
         {
             WeightSync = new(
                 connection.WeightSyncEnabled,
                 granted.Contains(GoogleHealthWeightSyncService.WeightScope, StringComparer.Ordinal),
-                weightState,
-                weightPending,
+                GoogleHealthSyncStatus.State(connection.WeightSyncEnabled, connection.Status, weight),
+                weight.Pending,
                 connection.WeightLastSuccessfulSyncAt,
                 connection.WeightSyncRevision,
-                weightProblem?.LastErrorCategory,
-                weightProblem?.LastErrorMessage),
+                weight.ProblemCategory,
+                weight.ProblemMessage),
             NutritionSync = new(
                 connection.NutritionSyncEnabled,
                 granted.Contains(GoogleHealthNutritionSyncService.NutritionScope, StringComparer.Ordinal),
-                nutritionState,
-                nutritionPending,
+                GoogleHealthSyncStatus.State(connection.NutritionSyncEnabled, connection.Status, nutrition),
+                nutrition.Pending,
                 connection.NutritionLastSuccessfulSyncAt,
                 connection.NutritionSyncRevision,
-                nutritionProblem?.LastErrorCategory,
-                nutritionProblem?.LastErrorMessage),
+                nutrition.ProblemCategory,
+                nutrition.ProblemMessage),
             BodyFatSync = new(
                 connection.BodyFatSyncEnabled,
                 granted.Contains(GoogleHealthBodyFatSyncService.BodyFatScope, StringComparer.Ordinal),
-                bodyFatState,
-                bodyFatPending,
+                GoogleHealthSyncStatus.State(connection.BodyFatSyncEnabled, connection.Status, bodyFat),
+                bodyFat.Pending,
                 connection.BodyFatLastSuccessfulSyncAt,
                 connection.BodyFatSyncRevision,
-                bodyFatProblem?.LastErrorCategory,
-                bodyFatProblem?.LastErrorMessage),
+                bodyFat.ProblemCategory,
+                bodyFat.ProblemMessage),
             WeightImport = GoogleHealthWeightImportService.Status(connection)
         };
     }

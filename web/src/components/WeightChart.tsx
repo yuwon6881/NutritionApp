@@ -1,4 +1,4 @@
-import {useId,useState} from 'react';
+import {useId,useMemo,useState} from 'react';
 import {SegmentedControl} from './ui/SegmentedControl';
 import type {ProgressWeightPoint,WeightUnit} from '../types';
 import {displayWeight,weightLabel,weightValue} from '../lib/units';
@@ -55,6 +55,10 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
   const scrub=useChartScrub(series.map(point=>x(point.date)),{tapToSelect:true});
   const selected=series[scrub.index];
   useRevealBar(viewport,selected?dayOf(selected.date):0);
+  const dot=(point:ProgressWeightPoint,isSelected:boolean)=><circle key={`scale-${point.date}`} cx={x(point.date)} cy={y(point.scaleKg)} r={isSelected?5:2.75} className={isSelected?'scale-dot is-selected':'scale-dot'}><title>{point.date}: {displayWeight(point.scaleKg,weightUnit,2)} {unit} on the scale</title></circle>;
+  // Up to 400 dots: scrubbing swaps only the selected one, so React skips the unchanged elements.
+  // x and y derive only from these values.
+  const dots=useMemo(()=>series.map(point=>dot(point,false)),[series,slot,start,low,high,weightUnit]);
   // Labels sit on whole days and stay apart; long periods label months instead of days, and a month shows once.
   const dateLabel=totalDays>200?monthYear:shortDate;
   const labelDates=series.length?dateAxisOffsets(totalDays,slot)
@@ -88,7 +92,7 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
       <line x1={x(selected.date)} x2={x(selected.date)} y1={TOP-6} y2={BASE} className="chart-crosshair"/>
       {view!=='trend'&&<>
         {segments('scaleKg').map((points,index)=><polyline key={index} points={line(points,'scaleKg')} className="scale-line"/>)}
-        {series.map(point=><circle key={`scale-${point.date}`} cx={x(point.date)} cy={y(point.scaleKg)} r={point===selected?5:2.75} className={point===selected?'scale-dot is-selected':'scale-dot'}><title>{point.date}: {displayWeight(point.scaleKg,weightUnit,2)} {unit} on the scale</title></circle>)}
+        {series.map((point,index)=>point===selected?dot(point,true):dots[index])}
       </>}
       {view!=='scale'&&<>
         {segments('trendKg').map((points,index)=><polyline key={index} points={line(points,'trendKg')} className="trend-line"/>)}

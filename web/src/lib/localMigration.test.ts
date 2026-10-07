@@ -153,12 +153,11 @@ describe('local storage migration and recovery', () => {
     expect(foodsStore?.get(user)?.foods).toHaveLength(1);
     expect(foodsStore?.get(user)?.foods[0].name).toBe('Oatmeal');
 
-    // Check diary_days store
-    const diaryDaysStore = stores.get('diary_days');
-    expect(diaryDaysStore?.has(`${user}:2026-09-18`)).toBe(true);
-    expect(diaryDaysStore?.has(`${user}:2026-05-15`)).toBe(true);
-    expect(diaryDaysStore?.get(`${user}:2026-09-18`).entries[0].name).toBe('Eggs');
-    expect(diaryDaysStore?.get(`${user}:2026-05-15`).entries[0].name).toBe('Coffee');
+    // The account keeps its current diary; legacy history is dropped and no dated-day copy is written
+    const account = stores.get('accounts')?.get(user);
+    expect(account.history).toBeUndefined();
+    expect(account.state.entries[0].name).toBe('Eggs');
+    expect(stores.get('diary_days')?.size ?? 0).toBe(0);
 
     // Check migration completion marker
     const metaStore = stores.get('meta');

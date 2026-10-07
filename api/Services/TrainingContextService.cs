@@ -60,22 +60,36 @@ public sealed class TrainingContextService(AppDb db, IMemoryCache? cache = null)
     {
         var profile = Json.Read<Profile>(user.ProfileJson);
         var today = RetentionService.Today(user.ProfileJson);
-        var weights = await db.Weights.AsNoTracking().Where(w => !w.Deleted && w.Date <= today)
-            .OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date, w.Kg, w.Context)).ToListAsync(ct);
         var phase = await db.PhaseDecisions.AsNoTracking()
             .SingleOrDefaultAsync(d => d.ProfileRevision == user.ProfileRevision && !d.Deleted, ct);
-        var trend = WeightSignal.CleanTrend(weights, today);
+        var weight = await WeightHistory.Compute(db, today.AddDays(-WeightSignalWindowDays), today,
+            weights => WeightContext(profile, weights, today, phase, user.WeightGoalMetric ?? "scale"), ct);
+        var effective = weight.Progress.Complete ? "maintain" : profile.Goal;
+        double? target = effective == "lose" ? Math.Abs(profile.GoalRatePercent ?? Coach.EffectiveGoalRate(profile, effective)) : null;
+        return new(subject, user.Revision, profile.TimeZone, effective, weight.Progress.Complete, target,
+            weight.Observed?.RatePercent, weight.Observed?.WindowDays, weight.RawLast?.Kg, weight.RawLast?.Date,
+            weight.TrendLast?.Kg, weight.TrendLast?.Date, true);
+    }
+
+    private const int WeightSignalWindowDays = 28;
+
+    internal sealed record WeightContextResult(GoalProgress Progress, WeightPoint? RawLast, WeightPoint? TrendLast,
+        (double RatePercent, int WindowDays)? Observed);
+
+    /// The weight half of the training context, plus the earliest date it read (see WeightHistory).
+    internal static (WeightContextResult Result, DateOnly? Earliest) WeightContext(Profile profile, IReadOnlyList<WeightPoint> weights,
+        DateOnly today, PhaseDecision? phase, string metric)
+    {
+        var trend = WeightSignal.CleanTrend(weights, today, WeightSignalWindowDays);
         var counted = WeightContextPolicy.ForCalorieEstimation(weights);
-        var progress = GoalPolicy.Evaluate(profile, counted, today, phase, user.WeightGoalMetric ?? "scale", trend);
-        var effective = progress.Complete ? "maintain" : profile.Goal;
+        var progress = GoalPolicy.Evaluate(profile, counted, today, phase, metric, trend);
         // Workout freezes this as a bodyweight-load reference: a weigh-in the user marked as a
         // temporary fluctuation (bloating, a salty meal) is not their weight until later ones confirm it.
-        var rawLast = counted.LastOrDefault();
-        var trendLast = trend.LastOrDefault();
-        var observed = ObservedLossFromTrend(trend, today);
-        double? target = effective == "lose" ? Math.Abs(profile.GoalRatePercent ?? Coach.EffectiveGoalRate(profile, effective)) : null;
-        return new(subject, user.Revision, profile.TimeZone, effective, progress.Complete, target,
-            observed?.RatePercent, observed?.WindowDays, rawLast?.Kg, rawLast?.Date, trendLast?.Kg, trendLast?.Date, true);
+        var result = new WeightContextResult(progress, counted.LastOrDefault(), trend.LastOrDefault(), ObservedLossFromTrend(trend, today));
+        // The goal check reads the last three counted weigh-ins and the last three trend points.
+        DateOnly? earliest = counted.Count < 3 || trend.Count < 3 ? null
+            : new[] { today.AddDays(-WeightSignalWindowDays), counted[^3].Date, trend[^3].Date }.Min();
+        return (result, earliest);
     }
 
     /// A rate is published only when the established 21-day series has at least three weigh-ins

@@ -120,7 +120,7 @@ public static class RecordEndpoints
             var energySnapshots=snapshots.Where(snapshot=>snapshot.Date>=start&&snapshot.Date<=end).ToList();
             var precedingSnapshot=snapshots.Where(snapshot=>snapshot.Date<start).OrderByDescending(snapshot=>snapshot.Date).FirstOrDefault();
             if(precedingSnapshot!=null)energySnapshots.Insert(0,precedingSnapshot);
-            var orderedPlans=await db.Plans.OrderBy(plan=>plan.Date).ThenBy(plan=>plan.Revision).ToListAsync(ct);
+            var orderedPlans=await db.Plans.AsNoTracking().OrderBy(plan=>plan.Date).ThenBy(plan=>plan.Revision).ToListAsync(ct);
             var acceptedTargetIntervals=BuildAcceptedTargetIntervals(orderedPlans,today);
             var profileObj = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
             var timeZone = profileObj?.TimeZone;
@@ -139,12 +139,12 @@ public static class RecordEndpoints
                 acceptedTargetIntervals,
                 entries=await db.Entries.AsNoTracking().Where(e=>e.Date>=start&&e.Date<=end).OrderBy(e=>e.Date).ThenBy(e=>e.Id).ToListAsync(ct),
                 foods=await db.Foods.AsNoTracking().Where(f=>!f.Deleted).OrderBy(f=>f.Name).Take(1000).ToListAsync(ct),
-                weights=await db.Weights.Where(w=>w.Date>=start&&w.Date<=end).OrderBy(w=>w.Date).ToListAsync(ct),
-                weightTrendSeed=await db.Weights.Where(w=>w.Date>=start.AddDays(-56)&&w.Date<start&&!w.Deleted).OrderBy(w=>w.Date).ToListAsync(ct),
+                weights=await db.Weights.AsNoTracking().Where(w=>w.Date>=start&&w.Date<=end).OrderBy(w=>w.Date).ToListAsync(ct),
+                weightTrendSeed=await db.Weights.AsNoTracking().Where(w=>w.Date>=start.AddDays(-56)&&w.Date<start&&!w.Deleted).OrderBy(w=>w.Date).ToListAsync(ct),
                 days=await db.Days.AsNoTracking().Where(d=>d.Date>=start&&d.Date<=end).ToListAsync(ct),
-                plans=await db.Plans.OrderByDescending(p=>p.Revision).Take(12).ToListAsync(ct),
-                checkIns=await db.CheckIns.OrderByDescending(c=>c.Revision).Take(12).ToListAsync(ct),
-                phaseDecisions=await db.PhaseDecisions.OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct),
+                plans=await db.Plans.AsNoTracking().OrderByDescending(p=>p.Revision).Take(12).ToListAsync(ct),
+                checkIns=await db.CheckIns.AsNoTracking().OrderByDescending(c=>c.Revision).Take(12).ToListAsync(ct),
+                phaseDecisions=await db.PhaseDecisions.AsNoTracking().OrderByDescending(d=>d.Revision).Take(12).ToListAsync(ct),
                 trainingSummaries=trainingSummary,
                 workoutConnected,
                 workoutWarning

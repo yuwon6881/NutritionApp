@@ -129,7 +129,6 @@ describe('account-local Nutrition data removal',()=>{
       drafts:new Map([[accountA,{bodyDrafts:['a']}],[accountB,{bodyDrafts:['b']}]]),
       food_drafts:new Map([[`${accountA}:2026-09-22`,{lines:['a']}],[`${accountB}:2026-09-22`,{lines:['b']}]]),
       food_scans:new Map([[`${accountA}:2026-09-22`,{id:'a'}],[`${accountB}:2026-09-22`,{id:'b'}]]),
-      diary_days:new Map([[`${accountA}:2026-09-22`,{date:'2026-09-22'}],[`${accountB}:2026-09-22`,{date:'2026-09-22'}]]),
       meta:new Map([[`migrated_v2:${accountA}`,true],[`migrated_v2:${accountB}`,true]]),
       push_revocations:new Map([['revocation-a',{userId:accountA,fcmToken:'token-a'}]]),
       push_devices:new Map([[`${accountA}:device-a`,{userId:accountA,fcmToken:'token-a'}]])
@@ -138,7 +137,7 @@ describe('account-local Nutrition data removal',()=>{
 
     await clearUserCache(accountA);
 
-    for(const storeName of ['accounts','saved_foods','mutations','drafts','food_drafts','food_scans','diary_days','meta']){
+    for(const storeName of ['accounts','saved_foods','mutations','drafts','food_drafts','food_scans','meta']){
       const store=fake.stores.get(storeName);
       const keys=[...store?.keys()??[]];
       const accountAKey=storeName==='meta'?`migrated_v2:${accountA}`:accountA;

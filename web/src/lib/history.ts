@@ -14,14 +14,19 @@ export function clipHistory(state:AppState,start:string,end:string):AppState{
   const seeds=new Map([...(state.weightTrendSeed??[]),...state.weights].filter(w=>w.date<start&&w.date>=seedStart).map(w=>[w.date,w]));
   return {...state,start,end,entries:state.entries.filter(inside),days:state.days.filter(inside),weights:state.weights.filter(inside),weightTrendSeed:[...seeds.values()].filter(w=>!w.deleted).sort((a,b)=>a.date.localeCompare(b.date))};
 }
+/** The newest stored snapshot of this account that covers the whole range. */
+export function historySource(local:LocalData,key:string,range:{start:string;end:string}):AppState|undefined{
+  return [local.history?.[key],local.state,...Object.values(local.history??{})]
+    .filter((s):s is AppState=>!!s&&s.id===local.state.id&&s.start<=range.start&&s.end>=range.end)
+    .sort((a,b)=>b.revision-a.revision)[0];
+}
+/** A stored snapshot with the retained queue applied; clip it to the range being read. */
+export function projectHistorySource(local:LocalData,saved:AppState):AppState{
+  return project({...saved,profile:local.state.profile,detailDays:local.state.detailDays,detailCutoff:local.state.detailCutoff},local.queue);
+}
 export function historyState(local:LocalData,key:string):AppState|undefined{
   const range=historyRange(key,today(local.state.profile?.timeZone));
-  const candidates=[local.history?.[key],local.state,...Object.values(local.history??{})]
-    .filter((s):s is AppState=>!!s&&s.id===local.state.id&&s.start<=range.start&&s.end>=range.end)
-    .sort((a,b)=>b.revision-a.revision);
-  const saved=candidates[0];
-  if(!saved)return undefined;
-  const projected=project({...saved,profile:local.state.profile,detailDays:local.state.detailDays,detailCutoff:local.state.detailCutoff},local.queue);
-  return clipHistory(projected,range.start,range.end);
+  const saved=historySource(local,key,range);
+  return saved?clipHistory(projectHistorySource(local,saved),range.start,range.end):undefined;
 }
 export {acknowledgeState as acknowledgeHistory} from './acknowledgeState';

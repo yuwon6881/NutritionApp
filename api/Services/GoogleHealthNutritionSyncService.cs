@@ -219,21 +219,16 @@ public sealed class GoogleHealthNutritionSyncService(
         if (connection is null)
             return new(false, false, "disabled", 0, null, 0);
 
-        var work = await db.GoogleHealthNutritionSyncWork.ToListAsync(ct);
-        var pending = work.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
-        var problem = work.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
-        var state = !connection.NutritionSyncEnabled ? "disabled"
-            : connection.Status == "reconnect_required" ? "reconnect_required"
-            : problem?.ProcessingState ?? (pending > 0 ? "pending" : "idle");
+        var work = await GoogleHealthSyncStatus.SummarizeAsync(db.GoogleHealthNutritionSyncWork, ct);
         return new(
             connection.NutritionSyncEnabled,
             HasNutritionScope(connection),
-            state,
-            pending,
+            GoogleHealthSyncStatus.State(connection.NutritionSyncEnabled, connection.Status, work),
+            work.Pending,
             connection.NutritionLastSuccessfulSyncAt,
             connection.NutritionSyncRevision,
-            problem?.LastErrorCategory,
-            problem?.LastErrorMessage);
+            work.ProblemCategory,
+            work.ProblemMessage);
     }
 
     /// Processes due uploads for every account, or for one account while its user is active.

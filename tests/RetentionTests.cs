@@ -24,6 +24,30 @@ public class RetentionTests
         Assert.Equal(0,await retention.CompactUser(user.Id,today,default));Assert.Equal(300,(await db.Days.SingleAsync()).Calories);
         Assert.Throws<DomainException>(()=>retention.RequireEditable(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-100),""));
     }
+    [Fact] public async Task Compaction_prunes_finished_nutrition_sync_rows_only_for_entries_it_removed()
+    {
+        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
+        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
+        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();
+        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
+        var today=new DateOnly(2026,9,7);var old=today.AddDays(-10);var recent=today.AddDays(-1);
+        var oldEntry=new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=old,Name="Rice",Calories=200};
+        var recentEntry=new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=recent,Name="Egg",Calories=100};
+        db.Entries.AddRange(oldEntry,recentEntry);
+        GoogleHealthNutritionSyncWork Work(Guid entry,DateOnly date,string state)=>new(){Id=Guid.NewGuid(),UserId=user.Id,EntryId=entry,DesiredDate=date,ProcessingState=state};
+        // A row whose entry was moved to a retained date still maps that entry, whatever its last synced date.
+        var moved=Work(Guid.NewGuid(),old,"succeeded");
+        db.Entries.Add(new DiaryEntry{Id=moved.EntryId,UserId=user.Id,Date=recent,Name="Moved",Calories=50});
+        var kept=new[]{Work(Guid.NewGuid(),old,"failed"),Work(Guid.NewGuid(),old,"unknown"),Work(Guid.NewGuid(),old,"pending"),Work(recentEntry.Id,recent,"succeeded"),moved};
+        var pruned=new[]{Work(oldEntry.Id,old,"succeeded"),Work(Guid.NewGuid(),old,"cancelled")};
+        db.GoogleHealthNutritionSyncWork.AddRange([..kept,..pruned]);
+        await db.SaveChangesAsync();
+
+        await new RetentionService(db,config).CompactUser(user.Id,today,default);
+
+        var remaining=(await db.GoogleHealthNutritionSyncWork.Select(w=>w.Id).ToListAsync()).ToHashSet();
+        Assert.True(remaining.SetEquals(kept.Select(w=>w.Id)));
+    }
     [Fact] public void Cutoff_keeps_seven_recent_calendar_days() => Assert.Equal(new DateOnly(2026,9,1),RetentionService.Cutoff(new DateOnly(2026,9,7),7));
     [Fact] public async Task Twenty_eight_day_coaching_result_is_identical_after_detail_compaction()
     {

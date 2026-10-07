@@ -306,7 +306,16 @@ public class GoogleHealthOAuthState
     public DateTime ExpiresAt { get; set; }
 }
 
-public class GoogleHealthWeightSyncWork : OwnedRecord
+/// The lifecycle columns every outbound Google Health work row shares, so status reads aggregate in SQL.
+public interface IGoogleHealthSyncWork
+{
+    string ProcessingState { get; }
+    DateTime UpdatedAt { get; }
+    string LastErrorCategory { get; }
+    string LastErrorMessage { get; }
+}
+
+public class GoogleHealthWeightSyncWork : OwnedRecord, IGoogleHealthSyncWork
 {
     public Guid WeightId { get; set; }
     public long DesiredRevision { get; set; }
@@ -329,7 +338,7 @@ public class GoogleHealthWeightSyncWork : OwnedRecord
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
-public class GoogleHealthNutritionSyncWork : OwnedRecord
+public class GoogleHealthNutritionSyncWork : OwnedRecord, IGoogleHealthSyncWork
 {
     public Guid EntryId { get; set; }
     public long DesiredRevision { get; set; }
@@ -358,7 +367,7 @@ public class GoogleHealthNutritionSyncWork : OwnedRecord
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
-public class GoogleHealthBodyFatSyncWork : OwnedRecord
+public class GoogleHealthBodyFatSyncWork : OwnedRecord, IGoogleHealthSyncWork
 {
     public Guid BodyRecordId { get; set; }
     public long DesiredRevision { get; set; }

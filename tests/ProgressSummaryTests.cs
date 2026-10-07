@@ -55,8 +55,36 @@ public sealed class ProgressSummaryTests
         Assert.Contains(summary.Energy.Series,bucket=>bucket.Date==archived&&bucket.Intake==2300);
         Assert.Equal(10,summary.Weight.EditableWeighIns.Count);
         var week=await service.Get("week",default);
-        Assert.Equal(summary.Weight.Statistics.LatestTrendKg,week.Weight.Statistics.LatestTrendKg);
+        // The week reads a bounded warm-up, so it agrees with the full read to well below display precision.
+        Assert.Equal(summary.Weight.Statistics.LatestTrendKg!.Value,week.Weight.Statistics.LatestTrendKg!.Value,9);
         var expected=Coach.Trend((await db.Weights.OrderBy(w=>w.Date).ToListAsync()).Select(w=>new WeightPoint(w.Date,w.Kg)).ToList());
-        Assert.Equal(expected[^1].Kg,week.Weight.Statistics.LatestTrendKg);
+        Assert.Equal(expected[^1].Kg,week.Weight.Statistics.LatestTrendKg!.Value,9);
+    }
+
+    [Fact]
+    public async Task Energy_maintenance_starts_from_the_plan_in_effect_before_the_period()
+    {
+        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user=await TestUsers.CreateAsync(db, "progress-user");
+        user.ProfileJson=Json.Write(new Profile{Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2400,TimeZone="Asia/Kuala_Lumpur"});
+        user.Revision=1;db.CurrentUser=user.Id;
+        var current=RetentionService.Today(user.ProfileJson);
+        AcceptedPlan Plan(int daysAgo,long revision,double expenditure,bool deleted=false)=>new(){Id=Guid.NewGuid(),UserId=user.Id,Date=current.AddDays(-daysAgo),
+            Revision=revision,Deleted=deleted,ResultJson=Json.Write(new CoachResult(true,false,expenditure,expenditure,150,80,300,"accepted")),ProfileJson=user.ProfileJson};
+        // The same-date later revision wins, and a deleted plan never applies.
+        db.Plans.AddRange(Plan(500,1,1900),Plan(400,2,2000),Plan(400,3,2050),Plan(390,4,9999,deleted:true),Plan(200,5,2400));
+        await db.SaveChangesAsync();
+        using var cache=new MemoryCache(new MemoryCacheOptions{SizeLimit=32});
+
+        var year=await new ProgressSummaryService(db,new ExpenditureTrajectoryService(db),cache).Get("year",default);
+
+        // Monthly buckets carry the sum over their days.
+        double? Daily(ProgressEnergyBucket bucket)=>bucket.Maintenance/bucket.Days;
+        Assert.Equal(2050,Daily(year.Energy.Series[0]));
+        Assert.Contains(year.Energy.Series,bucket=>Daily(bucket)==2400);
+        Assert.DoesNotContain(year.Energy.Series,bucket=>Daily(bucket)>=9999);
     }
 }

@@ -14,15 +14,16 @@ public record CoachingPreview(long Revision, CoachResult Result, bool CanAccept,
 
 public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? trajectory = null)
 {
+    /// A read: it waits for the account lock only when the trajectory must be rebuilt. Without the
+    /// lock a concurrent write can land between its reads, but the user revision is read first, so
+    /// such a preview carries an older revision and Accept, which recomputes under the lock, rejects it.
     public async Task<CoachingPreview> Preview(CancellationToken ct)
     {
-        await using var gate = await MutationLock.Acquire(db, db.CurrentUser, ct);
-        var result = await PreviewCore(ct);
-        await gate.Commit(ct);
-        return result;
+        if (trajectory != null) await trajectory.EnsureThroughToday(ct);
+        return await PreviewCore(ct, rebuildTrajectory: false);
     }
 
-    private async Task<CoachingPreview> PreviewCore(CancellationToken ct)
+    private async Task<CoachingPreview> PreviewCore(CancellationToken ct, bool rebuildTrajectory = true)
     {
         var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
         Validation.Require(user.ProfileJson.Length > 0, "Complete your coaching profile first.");
@@ -65,7 +66,9 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
                 ? new PreviousPlan(calories, expenditure)
                 : null,
             today, seed, adaptationDue, phaseDecision, user.WeightGoalMetric ?? "scale");
-        var trajectoryPoint = trajectory == null ? null : await trajectory.LatestUnderLock(ct);
+        var trajectoryPoint = trajectory == null ? null
+            : rebuildTrajectory ? await trajectory.LatestUnderLock(ct)
+            : await db.ExpenditureEstimates.AsNoTracking().OrderByDescending(item => item.Date).FirstOrDefaultAsync(ct);
         if (trajectoryPoint != null)
         {
             // The learned expenditure replaces the accepted seed, but the calorie target and
@@ -203,12 +206,11 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         Validation.Require(user.ProfileJson.Length > 0, "Complete your coaching profile first.");
         var profile = Json.Read<Profile>(user.ProfileJson);
         var today = Today(profile);
-        var weights = await db.Weights.Where(w => !w.Deleted).OrderBy(w => w.Date)
-            .Select(w => new WeightPoint(w.Date, w.Kg, w.Context)).ToListAsync(ct);
         var current = await db.PhaseDecisions
             .SingleOrDefaultAsync(d => d.ProfileRevision == user.ProfileRevision && !d.Deleted, ct);
-        var progress = GoalPolicy.Evaluate(profile, WeightContextPolicy.ForCalorieEstimation(weights), today,
-            current, user.WeightGoalMetric ?? "scale");
+        // Later weigh-ins can confirm a marked day, so future-dated rows stay in the read.
+        var progress = await WeightHistory.Compute(db, today.AddDays(-28), DateOnly.MaxValue,
+            weights => GoalWeights(profile, weights, today, current, user.WeightGoalMetric ?? "scale"), ct);
         var reached = decision == "await-trend"
             ? progress.ScaleReached
             : progress.DurationReached || progress.ScaleReached || progress.TrendReached || progress.Complete;
@@ -228,6 +230,16 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         await db.SaveChangesAsync(ct);
         await gate.Commit(ct);
         return next;
+    }
+
+    /// Goal progress over counted weigh-ins; its trend check reads the last three of them (see WeightHistory).
+    internal static (GoalProgress Result, DateOnly? Earliest) GoalWeights(Profile profile, IReadOnlyList<WeightPoint> weights,
+        DateOnly today, PhaseDecision? decision, string metric)
+    {
+        var counted = WeightContextPolicy.ForCalorieEstimation(weights);
+        var dated = counted.Where(w => w.Date <= today).ToArray();
+        var progress = GoalPolicy.Evaluate(profile, counted, today, decision, metric);
+        return (progress, dated.Length < 3 ? null : new[] { today.AddDays(-28), dated[^3].Date }.Min());
     }
 
     private static DateOnly Today(Profile profile)

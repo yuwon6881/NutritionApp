@@ -1,6 +1,6 @@
 # Performance implementation — 2026-10-02
 
-Nutrition preserves account/session boundaries, full-history trend mathematics, manual-weight precedence, deleted dates, upload-echo prevention, conflict notices, local atomic writes, and runtime-only browser steps.
+Nutrition preserves account/session boundaries, full-history trend mathematics (since 2026-10-07 read through a one-year warm-up that matches the full read to 1e-9 kg; see `PERFORMANCE_REVIEW_PLAN.md`), manual-weight precedence, deleted dates, upload-echo prevention, conflict notices, local atomic writes, and runtime-only browser steps.
 
 Implemented: opt-in deferred committed-save acknowledgements with durable queue signals; coalesced awaited outbound-only Google Health passes; one affected-data refresh after imported weights; cached peer-summary reads before first live refresh; revision/date/version-keyed bounded training-context reuse; one shared weight-trend calculation; singleton reusable OIDC configuration validation; deferred saved-food hydration with pending edits and drafts retained; separate passive database connection acquisition metrics. Older clients keep inline integration dispatch and existing route/body contracts.
 

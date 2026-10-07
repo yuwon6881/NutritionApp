@@ -19,16 +19,17 @@ public sealed class NutritionPeerSummaryService(AppDb db, NutritionDailySummaryS
             && (days == null || days is >= 1 and <= 28), "Choose up to 28 nutrition days through today.");
         var goal = await context.Get(subject, ct);
         var summaries = await daily.Get(start, end, today, ct);
-        var weights = await db.Weights.AsNoTracking().Where(w => !w.Deleted && w.Date <= end)
-            .OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date, w.Kg, w.Context)).ToListAsync(ct);
-        var raw = weights.Where(w => w.Date >= start).ToArray();
-        var trend = WeightSignal.CleanTrend(weights, end).Where(w => w.Date >= start).ToArray();
+        // CleanTrend measures noise over the 28 days before end, which reaches back past start.
+        var (raw, trend) = await WeightHistory.Compute(db, end.AddDays(-28), end, weights => (Weights(weights, start, end), (DateOnly?)end.AddDays(-28)), ct);
         var preview = await coaching.Preview(ct);
         return new(subject, user.Revision, goal.TimeZone, start, end, DateTime.UtcNow, "kcal", new(goal.EffectiveGoal, goal.PhaseComplete, goal.TargetRatePercent, goal.ObservedLossRatePercent, goal.ObservedWindowDays),
             Aggregate(summaries, start, end), new(raw.Length, raw.FirstOrDefault()?.Date, raw.LastOrDefault()?.Date,
                 raw.FirstOrDefault()?.Kg, raw.LastOrDefault()?.Kg, trend.FirstOrDefault()?.Kg, trend.LastOrDefault()?.Kg,
                 "context_and_outlier_filtered", trend.FirstOrDefault()?.Date, trend.LastOrDefault()?.Date), summaries, preview.Result.Eligible, preview.Result.Explanation);
     }
+
+    internal static (WeightPoint[] Raw, WeightPoint[] Trend) Weights(IReadOnlyList<WeightPoint> weights, DateOnly start, DateOnly end)
+        => (weights.Where(w => w.Date >= start).ToArray(), WeightSignal.CleanTrend(weights, end).Where(w => w.Date >= start).ToArray());
 
     public static NutritionPeriodSummary Aggregate(IReadOnlyList<NutritionDailySummary> days, DateOnly from, DateOnly to)
     {

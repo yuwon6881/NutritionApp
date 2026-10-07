@@ -4,7 +4,8 @@ import {acquireAccountDispatch,subscribeAccountWork} from './lib/accountWork';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, LocalData, Mutation, PhysiqueAngle } from './types';
 import { api, apiWithMeta, ApiError } from './lib/api';
-import { saveLocal, readLocal, readSavedFoods, saveDatedDiaryBatch, stripLegacyScanDrafts } from './lib/local';
+import { saveLocal, readLocal, readSavedFoods, stripLegacyScanDrafts } from './lib/local';
+import {reloadRetainedWork} from './lib/retainedReload';
 import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import {useSavedFoods} from './useSavedFoods';
 import { today } from './lib/format';
@@ -187,9 +188,6 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
               fetchedAt: now
             }));
             sharedDiaryCoordinator.primeDays(datedDays);
-            void saveDatedDiaryBatch(user, datedDays).catch(()=>{
-              // The account snapshot retains these dates if optional range caching fails.
-            });
             const current=ref.current;
             const reuseFoods=current?.foodsLoaded===true&&current.state.foodRevision===b.foodRevision;
             const cachedFoods = reuseFoods || current?.foodsLoaded !== true ? undefined : await readSavedFoods(user);
@@ -247,8 +245,8 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
     const release=await acquireAccountDispatch(user).catch(ex=>{setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');return undefined;});
     if(!release){draining.current=false;return;}
     const reload=writes.current.catch(()=>undefined).then(async()=>{
-      const durable=await readLocal(user);
-      if(durable&&alive.current){ref.current=durable;setLocal(durable);}
+      const durable=await reloadRetainedWork(user,ref.current,'queue');
+      if(durable&&durable!==ref.current&&alive.current){ref.current=durable;setLocal(durable);}
     });
     writes.current=reload;
     try{await reload;}catch(ex){draining.current=false;await release().catch(ex=>{if(alive.current)setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');});setError((ex as Error).message);return;}
@@ -361,8 +359,8 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
     if(!release){processingDrafts.current=false;return;}
     try {
       const reload=writes.current.catch(()=>undefined).then(async()=>{
-        const durable=await readLocal(user);
-        if(durable&&alive.current){ref.current=durable;setLocal(durable);}
+        const durable=await reloadRetainedWork(user,ref.current,'drafts');
+        if(durable&&durable!==ref.current&&alive.current){ref.current=durable;setLocal(durable);}
       });writes.current=reload;await reload;
       const {uploadPendingDrafts}=await import('./lib/nutritionDraftUpload');
       await uploadPendingDrafts({

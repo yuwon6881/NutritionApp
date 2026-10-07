@@ -1,6 +1,6 @@
 import type { Day, DatedDiaryDay, DiaryRangeResponse, Entry, Mutation } from '../types';
 import { apiWithMeta } from './api';
-import { readDatedDiary, saveDatedDiaryBatch, clearUserCache } from './local';
+import { clearUserCache } from './local';
 
 export function getMonthRange(date: string, maxDate: string): { from: string; to: string } {
   const [year, month] = date.split('-').map(Number);
@@ -72,10 +72,7 @@ export class DiaryCoordinator {
   /** Keep acknowledged edits visible when the outbox clears before revalidation finishes. */
   public async acknowledge(op:Mutation,revision:number,canonical?:Day[]):Promise<void>{
     if(op.kind!=='entry'&&op.kind!=='day')return;
-    const requestUser=this.user;
-    const generation=this.generation;
     const dates=new Set<string>();
-    const updated:DatedDiaryDay[]=[];
     const target=(op.data as {date?:string}).date;
     if(target)dates.add(target);
     if(op.kind==='entry')for(const [date,cached] of this.cachedDays){
@@ -91,12 +88,9 @@ export class DiaryCoordinator {
       if(projected.day)projected.day.revision=revision;
       const saved=canonical?.find(day=>day.date===date);
       if(saved)projected.day=saved;
-      const next={...projected,revision,fetchedAt:Date.now()};
-      this.cachedDays.set(date,next);
-      updated.push(next);
+      this.cachedDays.set(date,{...projected,revision,fetchedAt:Date.now()});
     }
     this.notify();
-    if(requestUser&&generation===this.generation)await saveDatedDiaryBatch(requestUser,updated).catch(()=>{});
   }
 
   public isFresh(date: string, todayDate: string): boolean {
@@ -198,7 +192,6 @@ export class DiaryCoordinator {
     options?: { isNavigation?: boolean; force?: boolean }
   ): Promise<void> {
     if (!this.user) return;
-    const requestUser=this.user;
     const generation=this.generation;
     if (!options?.force && this.isFresh(date, todayDate)) {
       return;
@@ -236,15 +229,8 @@ export class DiaryCoordinator {
         if (res.notModified) {
           // 304: update fetchedAt timestamp
           const now = Date.now();
-          const updated: DatedDiaryDay[] = [];
           for (const [d, cached] of this.cachedDays.entries()) {
-            if (d >= from && d <= to) {
-              cached.fetchedAt = now;
-              updated.push(cached);
-            }
-          }
-          if (updated.length) {
-            await saveDatedDiaryBatch(requestUser, updated).catch(() => {});
+            if (d >= from && d <= to) cached.fetchedAt = now;
           }
           if(generation===this.generation)this.notify();
           return;
@@ -283,7 +269,6 @@ export class DiaryCoordinator {
             cursor=next.toISOString().slice(0,10);
           }
 
-          const toSave: DatedDiaryDay[] = [];
           for (const [dStr, bucket] of datesInResponse.entries()) {
             const existing = this.cachedDays.get(dStr);
             // Drop older response if newer cached data exists
@@ -297,11 +282,6 @@ export class DiaryCoordinator {
               fetchedAt: now
             };
             this.cachedDays.set(dStr, dayRecord);
-            toSave.push(dayRecord);
-          }
-
-          if (toSave.length) {
-            await saveDatedDiaryBatch(requestUser, toSave).catch(() => {});
           }
           if(generation===this.generation)this.notify();
         }

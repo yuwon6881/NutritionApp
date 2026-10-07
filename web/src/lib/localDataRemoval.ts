@@ -70,7 +70,7 @@ export async function clearUserCache(user: string): Promise<void> {
   if (!account) throw new Error('A signed-in account is required to remove local Nutrition data.');
   const db = await database();
   const transaction = db.transaction([
-    'accounts', 'saved_foods', 'mutations', 'drafts', 'food_drafts', 'food_scans', 'meta', 'diary_days'
+    'accounts', 'saved_foods', 'mutations', 'drafts', 'food_drafts', 'food_scans', 'meta'
   ], 'readwrite');
   const completed = new Promise<void>((resolve, reject) => {
     transaction.oncomplete = () => resolve();
@@ -85,7 +85,6 @@ export async function clearUserCache(user: string): Promise<void> {
     transaction.objectStore('meta').delete(`migrated_v2:${account}`);
     deleteAccountRecords(transaction, 'food_drafts', account);
     deleteAccountRecords(transaction, 'food_scans', account);
-    deleteAccountRecords(transaction, 'diary_days', account);
   } catch (error) {
     try { transaction.abort(); } catch { /* transaction may already have completed */ }
     await completed.catch(() => {});

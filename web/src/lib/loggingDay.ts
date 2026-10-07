@@ -7,14 +7,22 @@ export function dayStatus(date:string,current:string,status:string|undefined,has
   if(status==='fasting'||status==='not_logged')return status;
   return hasFood?'complete':'incomplete';
 }
-export function missingDays(state:AppState,current=today(state.profile?.timeZone)){
-  const first=[...state.entries,...state.weights,...state.days,...state.plans].filter(r=>!r.deleted).map(r=>r.date).sort()[0];
+/** The first saved (not deleted) day record for each date. */
+function savedDays(state:AppState){
+  const days=new Map<string,AppState['days'][number]>();
+  for(const day of state.days)if(!day.deleted&&!days.has(day.date))days.set(day.date,day);
+  return days;
+}
+export function missingDays(state:AppState,current=today(state.profile?.timeZone),days=savedDays(state)){
+  let first:string|undefined;
+  for(const rows of [state.entries,state.weights,state.days,state.plans])for(const row of rows)if(!row.deleted&&(first===undefined||row.date<first))first=row.date;
   if(!first)return [];
-  const start=[first,state.start].sort().at(-1)!;
+  const start=first>state.start?first:state.start;
+  const logged=new Set(state.entries.filter(e=>!e.deleted).map(e=>e.date));
   const result:string[]=[];
   for(let date=start;date<current&&date<=state.end;date=shiftDate(date,1)){
-    const day=state.days.find(d=>!d.deleted&&d.date===date);
-    const food=day?.archived?(day.entryCount??0)>0:state.entries.some(e=>!e.deleted&&e.date===date);
+    const day=days.get(date);
+    const food=day?.archived?(day.entryCount??0)>0:logged.has(date);
     if(!food&&day?.status!=='fasting'&&day?.status!=='not_logged')result.push(date);
   }
   return result;
@@ -27,5 +35,6 @@ export function missingDays(state:AppState,current=today(state.profile?.timeZone
  */
 export function automaticMissingDays(state:AppState,current=today(state.profile?.timeZone),action:MissingDayAction=state.settings?.missingDayAction??'ask'){
   if(action==='ask')return [];
-  return missingDays(state,current).filter(date=>state.days.find(day=>!day.deleted&&day.date===date)?.status!=='incomplete');
+  const days=savedDays(state);
+  return missingDays(state,current,days).filter(date=>days.get(date)?.status!=='incomplete');
 }

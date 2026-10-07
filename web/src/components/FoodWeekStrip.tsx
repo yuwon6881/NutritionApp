@@ -3,7 +3,7 @@ import {ChevronLeft,ChevronRight} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import {shiftDate} from '../lib/energyBalance';
 import {sharedDiaryCoordinator} from '../lib/diaryCoordinator';
-import {projectedDayIntake} from '../lib/dayIntake';
+import {projectedDayIntakes} from '../lib/dayIntake';
 import {calendarTarget,calorieProgress} from '../lib/calendarProgress';
 import {Button} from './ui/Button';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
@@ -77,6 +77,7 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
   const energyUnit=unitsFor(store.state?.settings).energy;
   const dates:string[]=[];
   for(let day=range.from;day<=range.to;day=shiftDate(day,1))dates.push(day);
+  const intakes=projectedDayIntakes(store.local,dates);
   return <div className="food-calendar">
     <div className="food-calendar-navigation">
       <Button variant="tertiary" className="food-calendar-back" aria-label="Scroll calendar back one week" onClick={()=>scroll(-1)}><ChevronLeft size={18}/></Button>
@@ -89,7 +90,7 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
       if(element.scrollWidth-element.clientWidth-element.scrollLeft<dayWidth*3)extendLater();
     }}>
       {dates.map(day=>{
-        const intake=projectedDayIntake(store.local,day);
+        const intake=intakes.get(day)??null;
         const target=calendarTarget(store.state!,day);
         const progress=calorieProgress(intake,target);
         const weekday=weekdays[new Date(`${day}T12:00:00Z`).getUTCDay()];

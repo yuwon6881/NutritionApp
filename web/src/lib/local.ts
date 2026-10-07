@@ -1,10 +1,11 @@
-import type { AppState, BodyDraft, DatedDiaryDay, Food, LocalData, Mutation, PhysiqueDraft } from '../types';
+import type { AppState, BodyDraft, Food, LocalData, Mutation, PhysiqueDraft } from '../types';
 import type { SavedFoodsCache } from './savedFoods';
 import type { BasketLine } from './foodBasket';
 import type { FoodScanDraft } from './foodScans';
 import { idbDelete, idbGet, idbGetAllKeys, idbPut } from './idb';
 import { migrateV1ToV2 } from './localMigration';
 import {publishAccountWork} from './accountWork';
+import {DATABASE_VERSION,upgradeLocalDatabase} from './localSchema';
 
 export { idbDelete, idbGet, idbGetAllKeys, idbPut };
 export * from './localMigration';
@@ -15,7 +16,6 @@ let connection: Promise<IDBDatabase> | undefined;
 let databaseInvalidated = false;
 let databaseFailure = '';
 
-const DATABASE_VERSION = 5;
 const DATABASE_OPEN_TIMEOUT_MS = 10_000;
 
 export type LocalDatabaseErrorCode = 'timeout' | 'unavailable' | 'versionchange';
@@ -73,32 +73,7 @@ export function database(): Promise<IDBDatabase> {
       return;
     }
     request.onblocked = () => { blocked = true; };
-    request.onupgradeneeded = (event) => {
-      const db = request.result;
-      const oldVersion = event.oldVersion;
-      if (oldVersion < 1) {
-        if (!db.objectStoreNames.contains('accounts')) db.createObjectStore('accounts');
-      }
-      if (oldVersion < 2) {
-        if (!db.objectStoreNames.contains('diary_days')) db.createObjectStore('diary_days');
-        if (!db.objectStoreNames.contains('saved_foods')) db.createObjectStore('saved_foods');
-        if (!db.objectStoreNames.contains('mutations')) db.createObjectStore('mutations');
-        if (!db.objectStoreNames.contains('drafts')) db.createObjectStore('drafts');
-        if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
-      }
-      if (oldVersion < 3 && !db.objectStoreNames.contains('food_drafts')) {
-        db.createObjectStore('food_drafts');
-      }
-      if (oldVersion < 4 && !db.objectStoreNames.contains('food_scans')) {
-        db.createObjectStore('food_scans');
-      }
-      if (oldVersion < 5 && !db.objectStoreNames.contains('push_revocations')) {
-        db.createObjectStore('push_revocations');
-      }
-      if (oldVersion < 5 && !db.objectStoreNames.contains('push_devices')) {
-        db.createObjectStore('push_devices');
-      }
-    };
+    request.onupgradeneeded = (event) => upgradeLocalDatabase(request.result, event.oldVersion);
     request.onsuccess = () => {
       const db = request.result;
       db.onversionchange = () => {
@@ -129,46 +104,6 @@ export function database(): Promise<IDBDatabase> {
   });
   connection = opening;
   return opening;
-}
-
-export async function readDatedDiary(user: string, date: string): Promise<DatedDiaryDay | undefined> {
-  const db = await database();
-  return idbGet<DatedDiaryDay>(db, 'diary_days', `${user}:${date}`);
-}
-
-export async function saveDatedDiary(user: string, date: string, day: DatedDiaryDay): Promise<void> {
-  const db = await database();
-  return idbPut(db, 'diary_days', day, `${user}:${date}`);
-}
-
-export async function saveDatedDiaryBatch(user: string, days: DatedDiaryDay[]): Promise<void> {
-  if (!days.length) return;
-  const db = await database();
-  return new Promise((resolve, reject) => {
-    try {
-      const tx = db.transaction('diary_days', 'readwrite');
-      const store = tx.objectStore('diary_days');
-      for (const d of days) {
-        store.put(d, `${user}:${d.date}`);
-      }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error ?? new Error('Batch save aborted'));
-    } catch (ex) {
-      reject(ex);
-    }
-  });
-}
-
-export async function readDatedDiaryRange(user: string, from: string, to: string): Promise<DatedDiaryDay[]> {
-  const db = await database();
-  if(from>to)return [];
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction('diary_days','readonly');
-    const request=tx.objectStore('diary_days').getAll(IDBKeyRange.bound(`${user}:${from}`,`${user}:${to}`));
-    request.onsuccess=()=>resolve(request.result as DatedDiaryDay[]);
-    request.onerror=()=>reject(request.error);
-  });
 }
 
 export async function readSavedFoods(user: string): Promise<SavedFoodsCache | undefined> {

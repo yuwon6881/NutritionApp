@@ -191,25 +191,19 @@ public sealed class GoogleHealthBodyFatSyncService(
         if (connection is null)
             return new(false, false, "disabled", 0, null, 0);
 
-        var work = await db.GoogleHealthBodyFatSyncWork.ToListAsync(ct);
-        var recordIds=await db.BodyRecords.Select(b=>b.Id).ToListAsync(ct);
-        if(work.Any(item=>!recordIds.Contains(item.BodyRecordId)))
+        if(await db.GoogleHealthBodyFatSyncWork.AnyAsync(item=>!db.BodyRecords.Any(b=>b.Id==item.BodyRecordId),ct))
             return new(connection.BodyFatSyncEnabled,HasBodyFatScope(connection),"failed",0,connection.BodyFatLastSuccessfulSyncAt,
                 connection.BodyFatSyncRevision,"legacy_mapping","An older body-fat upload needs mapping review. Existing Google copies have been preserved.");
-        var pending = work.Count(x => x.ProcessingState is "pending" or "processing" or "awaiting_operation");
-        var problem = work.Where(x => x.ProcessingState is "failed" or "unknown").OrderByDescending(x => x.UpdatedAt).FirstOrDefault();
-        var state = !connection.BodyFatSyncEnabled ? "disabled"
-            : connection.Status == "reconnect_required" ? "reconnect_required"
-            : problem?.ProcessingState ?? (pending > 0 ? "pending" : "idle");
+        var work = await GoogleHealthSyncStatus.SummarizeAsync(db.GoogleHealthBodyFatSyncWork, ct);
         return new(
             connection.BodyFatSyncEnabled,
             HasBodyFatScope(connection),
-            state,
-            pending,
+            GoogleHealthSyncStatus.State(connection.BodyFatSyncEnabled, connection.Status, work),
+            work.Pending,
             connection.BodyFatLastSuccessfulSyncAt,
             connection.BodyFatSyncRevision,
-            problem?.LastErrorCategory,
-            problem?.LastErrorMessage);
+            work.ProblemCategory,
+            work.ProblemMessage);
     }
 
     /// Processes due uploads for every account, or for one account while its user is active.

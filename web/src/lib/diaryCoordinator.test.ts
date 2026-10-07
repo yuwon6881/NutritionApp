@@ -2,10 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DiaryCoordinator, getMonthRange } from './diaryCoordinator';
 import type { DatedDiaryDay, Entry, Mutation } from '../types';
 import {apiWithMeta} from './api';
-import {saveDatedDiaryBatch} from './local';
 
 vi.mock('./api',()=>({apiWithMeta:vi.fn()}));
-vi.mock('./local',()=>({readDatedDiary:vi.fn(),clearUserCache:vi.fn(),saveDatedDiaryBatch:vi.fn().mockResolvedValue(undefined)}));
+vi.mock('./local',()=>({clearUserCache:vi.fn()}));
 
 describe('DiaryCoordinator', () => {
   let coordinator: DiaryCoordinator;
@@ -69,7 +68,6 @@ describe('DiaryCoordinator', () => {
     release();
     await request;
     expect(coordinator.getCached('2026-09-19')).toBeUndefined();
-    expect(saveDatedDiaryBatch).not.toHaveBeenCalled();
   });
 
   it('calculates calendar month ranges correctly', () => {

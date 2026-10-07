@@ -89,7 +89,7 @@ public sealed partial class NutritionNotificationService(
         preference.TimeZoneId = timeZoneId.Trim();
         preference.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
-        if (enabled) await ArmWakesAsync(ct);
+        if (enabled) await ArmWakeAsync(preference, ct);
         return ToSettings(preference);
     }
 

@@ -202,6 +202,29 @@ public sealed class CheckInTests
         Assert.Equal(completed.Id, (await coach.CompleteGoal(completeId, currentRevision, "completed", default)).Id);
     }
 
+    [Fact]
+    public async Task Preview_does_not_queue_behind_a_held_account_lock_once_the_trajectory_is_current()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        await NewUser(db);
+        var coach = new CoachingService(db, new ExpenditureTrajectoryService(db));
+        var before = await coach.Preview(default);
+
+        await using var other = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await other.OpenAsync();
+        await using var writerDb = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(other).Options);
+        await writerDb.Database.EnsureCreatedAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        CoachingPreview during;
+        await using (await MutationLock.Acquire(writerDb, null, timeout.Token))
+            during = await coach.Preview(timeout.Token);
+
+        Assert.Equal(Json.Write(before), Json.Write(during));
+    }
+
     private static async Task<AppUser> NewUser(AppDb db)
     {
         var user = await TestUsers.CreateAsync(db, "checkin-user");

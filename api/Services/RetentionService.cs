@@ -39,6 +39,12 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
             await db.SaveChangesAsync(ct);
             removed+=await db.Entries.Where(e=>e.Date==date).ExecuteDeleteAsync(ct);
         }
+        // A finished upload row is the edit/delete mapping for its entry. Once compaction has removed
+        // the entry nothing can edit it again, so the row only grows the queue. In-flight, failed, and
+        // unknown rows stay: they still need delivery or explicit recovery.
+        await db.GoogleHealthNutritionSyncWork
+            .Where(w=>(w.ProcessingState=="succeeded"||w.ProcessingState=="cancelled")&&w.DesiredDate<cutoff&&!db.Entries.Any(e=>e.Id==w.EntryId))
+            .ExecuteDeleteAsync(ct);
         // Old receipts are safe to drop: expired detail writes fail before they can recreate rows.
         // Existing persistent entities still reject replay through their revision checks.
         await db.Receipts.Where(r=>r.Created<DateTime.UtcNow.AddDays(-ReceiptDays)).ExecuteDeleteAsync(ct);

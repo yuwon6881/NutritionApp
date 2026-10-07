@@ -1,4 +1,4 @@
-import type {CSSProperties} from 'react';
+import {useMemo,type CSSProperties} from 'react';
 import {Plus,Star} from 'lucide-react';
 import type {EnergyUnit,Entry,Food} from '../types';
 import {isRecipe} from '../lib/logFood';
@@ -50,13 +50,15 @@ export function LogFoodSavedFoods({
   const logging=purpose==='log';
   const linking=Boolean(linkBarcode);
   const favoriteCount=savedFoods.filter(food=>food.favourite).length;
-  const recipeCount=savedFoods.filter(isRecipe).length;
+  // isRecipe parses each food's ingredients; do it once per library rather than per use per render.
+  const recipes=useMemo(()=>new Set(savedFoods.filter(isRecipe).map(food=>food.id)),[savedFoods]);
+  const recipeCount=recipes.size;
   const foods=savedFoods.filter(food=>{
-    if((!logging||linking)&&isRecipe(food))return false;
+    if((!logging||linking)&&recipes.has(food.id))return false;
     const matchesQuery=!query.trim()||food.name.toLowerCase().includes(query.toLowerCase().trim());
     if(!matchesQuery)return false;
     if(filter==='favourites')return food.favourite;
-    if(filter==='recipes')return isRecipe(food);
+    if(filter==='recipes')return recipes.has(food.id);
     return true;
   }).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
   const recentGrid=(entries:Entry[])=><div className="recent-foods-grid">
@@ -72,7 +74,7 @@ export function LogFoodSavedFoods({
     <div className="food-description">
       <div className="saved-food-title-row" id={`saved-${food.id}-name`}>
         <strong>{food.name}</strong>
-        {isRecipe(food)&&<span className="food-badge recipe-badge">Recipe</span>}
+        {recipes.has(food.id)&&<span className="food-badge recipe-badge">Recipe</span>}
       </div>
       <div className="saved-food-meta" id={`saved-${food.id}-summary`}>
         <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g</span>

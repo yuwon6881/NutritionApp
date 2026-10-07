@@ -1,6 +1,6 @@
-import type {DatedDiaryDay,LocalData} from '../types';
+import type {AppState,DatedDiaryDay,LocalData} from '../types';
 import {sharedDiaryCoordinator} from './diaryCoordinator';
-import {historyState} from './history';
+import {historySource,historyState,projectHistorySource} from './history';
 import {calendarIntake} from './calendarProgress';
 
 /** A date as the diary renders it, including retained edits that have not synced. */
@@ -11,9 +11,25 @@ function projectedDay(local:LocalData|null|undefined,date:string):DatedDiaryDay|
   return stored?{date,entries:stored.entries,day:stored.days[0],revision:stored.revision,fetchedAt:0}:undefined;
 }
 
-/** Calendar intake evidence for a date; null when the day carries no intake evidence. */
-export function projectedDayIntake(local:LocalData|null|undefined,date:string):number|null{
-  return calendarIntake(projectedDay(local,date));
+/**
+ * Calendar intake evidence for each date of a strip; null when a day carries no intake evidence.
+ * Uncached dates share one projection per stored snapshot instead of one per date.
+ */
+export function projectedDayIntakes(local:LocalData|null|undefined,dates:readonly string[]):Map<string,number|null>{
+  const projections=new Map<AppState,AppState>();
+  const result=new Map<string,number|null>();
+  for(const date of dates){
+    const cached=sharedDiaryCoordinator.projectDate(date,local?.queue??[]);
+    const saved=cached||!local?undefined:historySource(local,date,{start:date,end:date});
+    let stored:AppState|undefined;
+    if(saved){
+      stored=projections.get(saved);
+      if(!stored){stored=projectHistorySource(local!,saved);projections.set(saved,stored);}
+    }
+    result.set(date,calendarIntake(cached??(stored?{date,entries:stored.entries.filter(entry=>entry.date===date),
+      day:stored.days.find(day=>day.date===date),revision:stored.revision,fetchedAt:0}:undefined)));
+  }
+  return result;
 }
 
 /**

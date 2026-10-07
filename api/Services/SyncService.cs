@@ -108,17 +108,17 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 {
                     Validation.Nutrients(f); Validation.Number(f.ServingGrams, .1, 100000, "Serving weight");
                     Validation.Barcode(f.Barcode);
-                    if (!string.IsNullOrWhiteSpace(f.Barcode))
-                    {
-                        var duplicate = db.Foods.Any(existing => !existing.Deleted && existing.Barcode == f.Barcode && existing.Id != op.RecordId);
-                        Validation.Require(!duplicate, "That barcode is already linked to another saved food.", 409);
-                    }
                     Validation.Require(f.IngredientsJson.Length <= 12000, "Recipe is too large.");
                     Validation.Portions(f.PortionsJson);
                     if (f.CookedYieldGrams is {} yield) Validation.Number(yield, 1, 100000, "Cooked yield");
                     using var recipe = JsonDocument.Parse(f.IngredientsJson);
                     Validation.Require(recipe.RootElement.ValueKind == JsonValueKind.Array, "Recipe ingredients must be a list.");
-                }, ct); break;
+                }, ct, async f =>
+                {
+                    if (string.IsNullOrWhiteSpace(f.Barcode)) return;
+                    var duplicate = await db.Foods.AnyAsync(existing => !existing.Deleted && existing.Barcode == f.Barcode && existing.Id != op.RecordId, ct);
+                    Validation.Require(!duplicate, "That barcode is already linked to another saved food.", 409);
+                }); break;
             case "weight":
                 replacedImport = !op.Delete && await RemoveImportedWeightOn(mutatedDate, op.RecordId, ct);
                 await Upsert<Weight>(op, revision, w =>
@@ -231,7 +231,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         return (saved,true);
     }
 
-    private async Task Upsert<T>(Mutation op, long revision, Action<T> validate, CancellationToken ct) where T : OwnedRecord, new()
+    private async Task Upsert<T>(Mutation op, long revision, Action<T> validate, CancellationToken ct, Func<T, Task>? validateStored = null) where T : OwnedRecord, new()
     {
         var existing = db.Set<T>().Local.FirstOrDefault(x => x.Id == op.RecordId)
             ?? await db.Set<T>().SingleOrDefaultAsync(x => x.Id == op.RecordId, ct);
@@ -258,7 +258,9 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
             barcodeFood.Barcode=savedBarcodeFood.Barcode;
         if(next is Food normalizedBarcodeFood)
             normalizedBarcodeFood.Barcode=string.IsNullOrWhiteSpace(normalizedBarcodeFood.Barcode)?null:normalizedBarcodeFood.Barcode.Trim();
-        validate(next); next.Id = op.RecordId; next.UserId = db.CurrentUser!.Value; next.Revision = revision; next.Deleted = false;
+        validate(next);
+        if (validateStored != null) await validateStored(next);
+        next.Id = op.RecordId; next.UserId = db.CurrentUser!.Value; next.Revision = revision; next.Deleted = false;
         if (next is Food restoredFood) restoredFood.DeletedAt = null;
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);
