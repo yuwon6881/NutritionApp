@@ -36,6 +36,8 @@ export async function initializeNativeApp(){
     const action=hardwareBackAction(readState(window.history));
     if(action==='history-back')window.history.back();
     else if(action==='home')window.dispatchEvent(new Event(BACK_TO_HOME_EVENT));
-    else void App.exitApp();
+    // Leaving from the Dashboard sends the app to the background as Android does for its own
+    // apps; finishing the activity would make every return a cold start through the splash screen.
+    else void App.minimizeApp();
   });
 }

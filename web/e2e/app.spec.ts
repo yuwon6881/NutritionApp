@@ -1,6 +1,7 @@
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn as signInPage} from './signIn';
+import {longDate} from '../src/lib/format';
 const headers={'Origin':(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088'),'X-Nutrition-Request':'1'};
 async function getMockAuthorization(request:APIRequestContext,url:string){
   for(let attempt=0;;attempt++){
@@ -437,7 +438,7 @@ test('missed weight-only day asks once and keeps the weight after not logging',a
   const seededWeight=await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:randomUUID(),kind:'weight',expectedRevision:0,data:{date,kg:80.4}}});
   expect(seededWeight.ok(),await seededWeight.text()).toBeTruthy();
   await page.goto('/');
-  await expect(page.getByRole('dialog',{name:`No food logged for ${date}`})).toBeVisible();
+  await expect(page.getByRole('dialog',{name:`No food logged for ${longDate(date)}`})).toBeVisible();
   await page.getByRole('button',{name:'Not logging',exact:true}).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.days.some((d:{date:string;status:string})=>d.date===date&&d.status==='not_logged')&&state.weights.some((w:{date:string})=>w.date===date);}).toBeTruthy();

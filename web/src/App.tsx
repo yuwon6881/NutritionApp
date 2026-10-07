@@ -6,7 +6,7 @@ import {api,ApiError,clearApiCooldowns} from './lib/api';
 import {getLocalDatabaseFailure} from './lib/local';
 import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
-import {today} from './lib/format';
+import {longDate,today} from './lib/format';
 import {watchTheme} from './lib/theme';
 import {useNutritionStore} from './useNutritionStore';
 import type {Entry,Weight} from './types';
@@ -284,7 +284,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       </>}
       {aiOpen&&<Suspense fallback={null}><AiAssistantPanel isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page}/></Suspense>}
     </main>
-    <ActionSheet isOpen={showAddSheet} onClose={()=>setShowAddSheet(false)} restoreFocus={addReturnFocus} title="Add" subtitle={`${selectedEntryDate===activeDate?'Today · ':''}${selectedEntryDate}`} options={addOptions}/>
+    <ActionSheet isOpen={showAddSheet} onClose={()=>setShowAddSheet(false)} restoreFocus={addReturnFocus} title="Add" subtitle={`${selectedEntryDate===activeDate?'Today · ':''}${longDate(selectedEntryDate)}`} options={addOptions}/>
   </div>;
 }
 

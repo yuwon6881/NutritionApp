@@ -4,6 +4,7 @@ import {automaticMissingDays,missingDays} from '../lib/loggingDay';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
 import {Modal} from './ui/Modal';
+import {longDate} from '../lib/format';
 import {useAsyncAction} from './ui/useAsyncAction';
 
 export function MissedDays({store}:{store:NutritionStore}){
@@ -81,7 +82,7 @@ export function MissedDays({store}:{store:NutritionStore}){
       });
     }catch(ex){setError((ex as Error).message);}
   };
-  return <Modal open={!!date} onClose={()=>{}} title={`No food logged for ${date??''}`} description={dates.length>1?`${dates.length} days to review.`:'Fasting or not logging?'} width="sm" hideCloseButton preventDismiss>
+  return <Modal open={!!date} onClose={()=>{}} title={`No food logged for ${date?longDate(date):''}`} description={dates.length>1?`${dates.length} days to review.`:'Fasting or not logging?'} width="sm" hideCloseButton preventDismiss>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="missed-days-actions">
       <div className="missed-days-buttons">

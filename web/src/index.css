@@ -1483,6 +1483,8 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .recent-foods-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .recent-foods-heading h4{margin:0;font-size:.8rem;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.06em}
 .recent-foods-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:8px}
+.recent-foods-group+.recent-foods-group{margin-top:14px}
+.recent-foods-subheading{margin:0 0 6px;font-size:.78rem;font-weight:600;color:var(--ink-strong)}
 .recent-food-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer;text-align:left;transition:background var(--motion-control) ease,border-color var(--motion-control) ease,transform 100ms ease;min-height:44px}
 @media (hover:hover) and (pointer:fine){
 .recent-food-card:hover{background:var(--muted);border-color:var(--primary)}}
@@ -1804,11 +1806,17 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
   .modal-header{padding-top:28px}
 }
 @media(min-width:640px) and (max-width:1023px){
+  /* A phone in landscape, a foldable, or a tablet: the status bar, a camera cutout, or a side
+     navigation bar can sit along any edge, so the bar and content keep clear of every inset. */
+  .main-content{padding-inline:max(26px,env(safe-area-inset-left)) max(26px,env(safe-area-inset-right))}
+  .sidebar{padding-inline:max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-right))}
   .topbar{
     position:sticky;
     top:0;
     z-index:50;
+    margin-top:calc(-1 * env(safe-area-inset-top));
     margin-inline:-26px;
+    padding-top:env(safe-area-inset-top);
     padding-inline:26px;
     background:color-mix(in srgb,var(--background) 88%,transparent);
     -webkit-backdrop-filter:blur(16px);

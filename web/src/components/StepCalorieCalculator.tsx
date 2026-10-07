@@ -56,7 +56,7 @@ export function StepCalorieCalculator({store,variant}:{store:NutritionStore;vari
     {opener}
     <Modal open={open} onClose={()=>setOpen(false)} title="Steps calculator" width="sm">
       <div className="step-calculator-body">
-        <Field data-modal-autofocus name="step-calculator-energy" label={`Energy to burn (${energyLabel(units.energy)})`} type="number" min="1" step="10"
+        <Field data-modal-autofocus name="step-calculator-energy" label={`Energy to burn (${energyLabel(units.energy)})`} type="number" min="1" step="1"
           value={text} onChange={event=>setText(event.target.value)}/>
         <div className="step-calculator-result" role="status" aria-live="polite">
           {estimate?<>

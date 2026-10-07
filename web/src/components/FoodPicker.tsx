@@ -152,6 +152,9 @@ export function FoodPicker({
     </div>}
     <Form onSubmit={event=>{
       event.preventDefault();
+      // On a touch phone the keyboard's Search key is the way to put the keyboard away and see the
+      // results; a mouse-and-keyboard user keeps the field focused to refine the query.
+      if(window.matchMedia?.('(pointer: coarse)').matches&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
       const id=++requestId.current;
       void run(async()=>{
         try{
@@ -177,6 +180,9 @@ export function FoodPicker({
           enterKeyHint="search"
           data-modal-autofocus
           autoComplete="off"
+          // Brand and dish names are not dictionary words; autocorrect would rewrite the query.
+          autoCorrect="off"
+          spellCheck={false}
           label={tab==='barcode'?'Barcode digits':searchLabel}
           hint={tab==='barcode'?'Enter 8–14 digits or scan with the camera.':undefined}
           required

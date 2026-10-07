@@ -32,6 +32,7 @@ import {LogFoodBarcodeRecovery,type BarcodeRecovery} from './LogFoodBarcodeRecov
 import {LogFoodAiForm} from './LogFoodAiForm';
 import {LogFoodRecents} from './LogFoodRecents';
 import {lineFromEntry,rankRecentFoods} from '../lib/recentFoods';
+import {recentFoodSections} from '../lib/recentFoodSections';
 import {longDate,today} from '../lib/format';
 import {hapticTick} from '../lib/haptics';
 import './logfood.css';
@@ -359,6 +360,8 @@ export function LogFood({
   const [nowHours,nowMinutes]=mealTime(zone).split(':').map(Number);
   const recentEntries=useMemo(()=>open?rankRecentFoods(store.state!.entries,{date:today(zone),minutes:nowHours*60+nowMinutes}):[],
     [open,store.state!.entries,zone,nowHours,nowMinutes]);
+  const recentSections=useMemo(()=>recentFoodSections(open?store.state!.entries:[],{date:today(zone),minutes:nowHours*60+nowMinutes}),
+    [open,store.state!.entries,zone,nowHours,nowMinutes]);
   const beginBarcodeLink=()=>{
     if(!barcodeRecovery)return;
     setPendingLinkBarcode({code:barcodeRecovery.code,purpose:selectionPurpose});
@@ -439,7 +442,7 @@ export function LogFood({
       isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
-    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents entries={recentEntries} energyUnit={energyUnit} onPick={quickLogRecent}/>}
+    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} energyUnit={energyUnit} onPick={quickLogRecent}/>}
     {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
       date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}
