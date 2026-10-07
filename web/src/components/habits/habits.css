@@ -53,8 +53,12 @@
 }
 /* Phones keep both cards side by side; the grid moves under the summary. */
 @media(max-width:639px){
-  .habit-calendars{gap:12px;margin-bottom:18px}
-  .habit-calendar-trigger{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "count" "streak" "grid";padding:16px}
+  /* The two cards share four row tracks, so a title that wraps on one card moves both
+     cards' counts and grids together and the grids stay on one line. */
+  .habit-calendars{gap:0 12px;margin-bottom:18px;grid-template-rows:repeat(4,auto)}
+  .panel.habit-calendar{display:grid;grid-row:span 4;grid-template-rows:subgrid}
+  .habit-calendar-trigger{grid-row:1/-1;grid-template-rows:subgrid;row-gap:0;grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "count" "streak" "grid";padding:16px}
+  .habit-grid-compact{align-self:end}
   .habit-calendar-count{margin-top:10px;font-size:1.1rem}
   .habit-calendar-streak{font-size:.72rem}
   .habit-grid-compact{width:100%;max-width:190px;margin-top:12px;gap:3px}

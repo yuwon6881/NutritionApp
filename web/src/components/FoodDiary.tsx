@@ -3,7 +3,7 @@ import {CheckCheck,Copy,MoreVertical,Plus,Trash2} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {useHistoryWindow} from '../useHistoryWindow';
-import {number,today} from '../lib/format';
+import {today} from '../lib/format';
 import {shiftDate} from '../lib/energyBalance';
 import {dayStatus} from '../lib/loggingDay';
 import {mealReadOnly,moveEntry,showsDeviceOnlyToday,type TimelineView} from '../lib/foodDiary';
@@ -19,6 +19,8 @@ import {useFoodSelection} from '../lib/useFoodSelection';
 import {useFoodClipboard,createPasteMutations} from '../lib/useFoodClipboard';
 import {FoodSelectionBar} from './FoodSelectionBar';
 import {FoodWeekStrip} from './FoodWeekStrip';
+import {FoodDaySummary} from './FoodDaySummary';
+import {planForDate,targetsForDate} from '../lib/dailyTargets';
 import {useDaySwipe} from './useDaySwipe';
 import {DiaryEmptyState} from './DiaryEmptyState';
 import {FoodDaySkeleton} from './ui/Skeleton';
@@ -216,17 +218,17 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     {!state&&!history.error&&<FoodDaySkeleton/>}
     {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>
-      <section className="panel food-day-summary">
-        <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':date}</h2><p>{status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':date===latest?'Planning ahead':'No food logged'}</p></div>
-          <strong className="figure-inline">{count||status==='fasting'?displayEnergy(total,energyUnit):'—'} <span className="unit">{energyLabel(energyUnit)}</span></strong>
-        </div>
-        <dl className="food-day-nutrients">{(['protein','carbs','fat'] as const).map(key=>{
-          const known=entries.filter(e=>e[key]!=null);
-          const value=archived?day?.[key]:known.length?known.reduce((sum,e)=>sum+e[key]!,0):null;
-          const partial=!archived&&known.length>0&&known.length<entries.length;
-          return <div key={key}><dt>{key[0].toUpperCase()+key.slice(1)}</dt><dd>{number(value)} g{partial?' · partial':''}</dd></div>;
-        })}</dl>
-      </section>
+      <FoodDaySummary
+        title={date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':date}
+        statusText={status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':date===latest?'Planning ahead':'No food logged'}
+        entries={entries}
+        day={day}
+        count={count}
+        fasting={status==='fasting'}
+        total={total}
+        targets={targetsForDate(planForDate(store.state!,date),date)}
+        energyUnit={energyUnit}
+      />
       {readOnly?<DiaryEmptyState status={status} archived detailDays={state.detailDays} summary={`${count} food ${count===1?'entry':'entries'}${count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}`}/>:<>
         <div className="food-timeline-toolbar">
           <div><h2>Food timeline</h2><p>Show only logged times or every hour from 12 AM through 11 PM.</p></div>

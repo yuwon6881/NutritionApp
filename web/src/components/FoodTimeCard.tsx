@@ -1,10 +1,10 @@
 import {memo,type CSSProperties} from 'react';
-import {Check,Copy,MoveRight,Trash2} from 'lucide-react';
+import {Check,Copy,Flame,MoveRight,Trash2} from 'lucide-react';
 import type {Entry} from '../types';
 import {Button} from './ui/Button';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {displayEnergy,energyLabel,type EnergyUnit} from '../lib/units';
-import {displayPortion} from '../lib/portions';
+import {displayMass,displayPortion} from '../lib/portions';
 
 export interface FoodTimeCardProps {
   entry:Entry;
@@ -80,9 +80,13 @@ export const FoodTimeCard=memo(function FoodTimeCard({
         <h3 className="food-time-card-title">
           <span className="food-time-card-title-text">{entry.name}</span>
         </h3>
+        {/* Phones show this one short measure and place the energy before the macros, so every
+            card keeps the same two-line shape; wider windows show the full portion instead and
+            give the energy its own column. The card grid places each piece per tier. */}
+        <span className="food-time-card-mass">{displayMass(entry)}</span>
         <div className="food-time-card-aside">
           <strong className="food-time-card-energy">
-            {displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small>
+            <Flame size={13} aria-hidden="true"/>{displayEnergy(entry.calories,energyUnit)} <small>{energyLabel(energyUnit)}</small>
           </strong>
         </div>
       </div>

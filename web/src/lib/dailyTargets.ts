@@ -1,4 +1,4 @@
-import type {CoachResult} from '../types';
+import type {AppState,CoachResult} from '../types';
 
 export const mondayIndex=(date:string):number=>{
   const day=new Date(`${date}T00:00:00Z`).getUTCDay();
@@ -60,6 +60,22 @@ export function scaledMacros(result:Pick<CoachResult,'calories'|'protein'|'carbs
     carbs:result.carbs==null?null:Math.round(result.carbs*scale*10)/10,
     fat:result.fat==null?null:Math.round(result.fat*scale*10)/10,
   };
+}
+
+/**
+ * The accepted plan in force on a date: a historical target interval when one covers it,
+ * otherwise the latest accepted plan. A newer profile proposal never counts until accepted.
+ */
+export function planForDate(state:Pick<AppState,'plans'|'acceptedTargetIntervals'>,date:string):CoachResult|undefined{
+  const accepted=state.plans.find(p=>!p.deleted);
+  const latest:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
+  const interval=state.acceptedTargetIntervals?.find(i=>i.start<=date&&i.end>=date);
+  if(!interval)return latest;
+  return {version:latest?.version??'2.0.0',eligible:true,adaptive:false,calories:interval.calories,expenditure:null,
+    protein:interval.protein!==undefined?interval.protein:latest?.protein??null,
+    fat:interval.fat!==undefined?interval.fat:latest?.fat??null,
+    carbs:interval.carbs!==undefined?interval.carbs:latest?.carbs??null,explanation:'',weeklyCalories:interval.weeklyCalories,dailyCalories:interval.dailyCalories,
+    proteinFixed:interval.proteinFixed!==undefined?interval.proteinFixed:latest?.proteinFixed};
 }
 
 export function targetsForDate(result:CoachResult|undefined,date:string){

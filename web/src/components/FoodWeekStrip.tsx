@@ -79,8 +79,8 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
   for(let day=range.from;day<=range.to;day=shiftDate(day,1))dates.push(day);
   return <div className="food-calendar">
     <div className="food-calendar-navigation">
-      <Button variant="tertiary" aria-label="Scroll calendar back one week" onClick={()=>scroll(-1)}><ChevronLeft size={18}/></Button>
-      <Button variant="tertiary" aria-label="Scroll calendar forward one week" onClick={()=>scroll(1)}><ChevronRight size={18}/></Button>
+      <Button variant="tertiary" className="food-calendar-back" aria-label="Scroll calendar back one week" onClick={()=>scroll(-1)}><ChevronLeft size={18}/></Button>
+      <Button variant="tertiary" className="food-calendar-forward" aria-label="Scroll calendar forward one week" onClick={()=>scroll(1)}><ChevronRight size={18}/></Button>
     </div>
     <div ref={track} className="food-week-strip" role="group" aria-label="Choose a food day" onScroll={()=>{
       const element=track.current;

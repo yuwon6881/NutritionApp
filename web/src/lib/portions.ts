@@ -78,6 +78,16 @@ export function resolveGrams(basis: Partial<PortionBasis>): number | null {
   return Number.isFinite(total) && total > 0 ? total : null;
 }
 
+/**
+ * One short measure for tight layouts: the logged mass when it is known, so every
+ * card reads "52 g" rather than mixing "1 tart · 52 g" with "75 g". A serving without
+ * a frozen mass keeps its honest serving text; no mass is ever invented.
+ */
+export function displayMass(basis: Partial<PortionBasis>): string {
+  const grams = resolveGrams(basis);
+  return grams == null ? displayPortion(basis) : `${displayNumber(Math.round(grams * 10) / 10)} g`;
+}
+
 function displayNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));
 }

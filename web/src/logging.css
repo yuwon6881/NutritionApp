@@ -25,6 +25,70 @@
 .food-week-day-name{font-size:.7rem;color:var(--muted-foreground)}
 .food-week-day-number{font-size:.95rem;font-weight:600;font-variant-numeric:tabular-nums}
 .food-calendar-status{font-size:.75rem;margin:8px 0 0}
+/* Timeline cards. Phones: a one-line name with a short mass, then energy leading the macros.
+   Wider windows: the name and full portion on the left, energy centred in its own column. */
+.food-time-card-energy svg{color:var(--primary-ink)}
+.food-time-card-mass{display:none;font-size:.75rem;font-weight:500;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+.food-time-card.panel{display:grid;align-items:center}
+.food-time-card-header{display:contents}
+.food-time-card .food-card-select-checkbox{grid-column:1;grid-row:1/span 2}
+.food-time-card>.sync-label{grid-column:2/-1}
+@media(max-width:639px){
+  .food-time-card.panel{grid-template-columns:auto auto minmax(0,1fr) auto}
+  .food-time-card .food-card-select-checkbox{margin-right:8px}
+  .food-time-card-title{grid-column:2/4;grid-row:1;min-width:0}
+  .food-time-card-title-text{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;overflow-wrap:normal}
+  .food-time-card-mass{display:block;grid-column:4;grid-row:1;margin-left:10px}
+  .food-time-card-details{grid-column:3/5;grid-row:2;min-width:0;margin-top:6px}
+  .food-time-card-portion,.food-time-card-dot{display:none}
+  .food-time-card-aside{grid-column:2;grid-row:2;align-self:start;margin:6px 10px 0 0}
+  .food-time-card-energy{display:inline-flex;align-items:center;gap:4px;font-size:.78rem}
+  .food-time-card-energy small{font-size:.68rem}
+  /* The energy and macros share one line on ordinary phones; a very narrow screen wraps the macros rather than hiding a value. */
+  .food-time-card .food-macro-summary{gap:4px 9px}
+  .food-time-card .food-macro-summary .food-macro:not(:last-child)::after{content:none}
+}
+@media(min-width:640px){
+  .food-time-card.panel{grid-template-columns:auto minmax(0,1fr) auto}
+  .food-time-card .food-card-select-checkbox{margin-right:12px}
+  .food-time-card-title{grid-column:2;grid-row:1}
+  .food-time-card-aside{grid-column:3;grid-row:1/span 2;margin-left:16px}
+  .food-time-card-energy{font-size:.95rem}
+  .food-time-card-energy svg{display:none}
+  .food-time-card-details{grid-column:2;grid-row:2}
+}
+
+/* Food Log day summary: phones keep the bare totals; wider windows add targets and progress. */
+.food-day-energy{display:grid;justify-items:end;gap:2px;text-align:right}
+.food-day-target,.food-day-progress-bar{display:none}
+@media(min-width:640px){
+  .food-day-summary .food-day-target{display:inline;font-size:.76rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+  .food-day-energy .food-day-target{display:block}
+  .food-day-summary .figure-inline{font-size:1.6rem;letter-spacing:-.02em}
+  .food-day-summary progress.food-day-progress-bar{display:block;appearance:none;width:100%;height:6px;border:0;border-radius:999px;background:var(--track);overflow:hidden}
+  .food-day-summary>progress.food-day-progress-bar{height:8px;margin:0 0 22px}
+  .food-day-nutrient{display:grid;grid-template-rows:auto auto auto;gap:0;padding:14px 16px;border-radius:12px;background:var(--muted)}
+  .food-day-nutrient dd{margin-bottom:10px;font-size:1rem;font-weight:600}
+  .food-day-nutrient dd .food-day-target{font-weight:400}
+  .food-day-nutrient.protein progress::-webkit-progress-value{background:var(--protein)}
+  .food-day-nutrient.carbs progress::-webkit-progress-value{background:var(--carbs)}
+  .food-day-nutrient.fat progress::-webkit-progress-value{background:var(--fat)}
+  .food-day-nutrient.protein progress::-moz-progress-bar{background:var(--protein)}
+  .food-day-nutrient.carbs progress::-moz-progress-bar{background:var(--carbs)}
+  .food-day-nutrient.fat progress::-moz-progress-bar{background:var(--fat)}
+}
+
+/* Wider windows flank the strip with its week arrows; phones scroll the strip by touch. */
+@media(min-width:640px){
+  .food-calendar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:6px}
+  .food-calendar-navigation{display:contents}
+  .food-calendar-navigation>.button{grid-row:1;width:44px;min-width:44px;padding:0;border-radius:999px;color:var(--muted-foreground)}
+  .food-calendar-back{grid-column:1}
+  .food-calendar-forward{grid-column:3}
+  .food-calendar>.food-week-strip{grid-column:2;grid-row:1;mask-image:linear-gradient(to right,transparent,var(--background) 18px,var(--background) calc(100% - 18px),transparent)}
+  .food-calendar>.food-calendar-status{grid-column:1/-1}
+}
+@media(min-width:1024px){.food-calendar-navigation>.button{width:36px;min-width:36px;min-height:36px;height:36px}}
 .food-log-page .food-date-navigation{grid-template-columns:minmax(160px,260px) auto}
 .diary-empty-state{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 24px;background:var(--card)}
 .diary-empty-state h3,.diary-empty-state p{margin:0;max-width:380px}

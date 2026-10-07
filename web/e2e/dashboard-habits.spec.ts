@@ -71,6 +71,10 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     const foodBox=(await food.boundingBox())!;
     const weightBox=(await weight.boundingBox())!;
     expect(Math.abs(foodBox.y-weightBox.y)).toBeLessThanOrEqual(1);
+    // The two thirty-day grids line up even when one title wraps on a phone.
+    const foodGrid=(await food.locator('.habit-grid-compact').boundingBox())!;
+    const weightGrid=(await weight.locator('.habit-grid-compact').boundingBox())!;
+    expect(Math.abs(foodGrid.y-weightGrid.y)).toBeLessThanOrEqual(1);
     expect(foodBox.height).toBeGreaterThanOrEqual(44);
     // The medium navigation rail leaves room for an extra wrapped summary line.
     expect(foodBox.height).toBeLessThan(width<640?260:width<1024?216:200);

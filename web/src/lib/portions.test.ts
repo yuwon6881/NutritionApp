@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {displayPortion,parsePortions,resolveGrams,serializePortions,validatePortions} from './portions';
+import {displayMass,displayPortion,parsePortions,resolveGrams,serializePortions,validatePortions} from './portions';
 
 it('tolerates malformed and hostile portion JSON without exposing invalid values',()=>{
   expect(parsePortions('{')).toEqual([]);
@@ -35,4 +35,11 @@ it('displays a frozen portion or an honest legacy serving',()=>{
   expect(displayPortion({quantity:2,unit:'serving',portionLabel:'1 slice',portionGrams:25})).toBe('2 slice · 50 g');
   expect(displayPortion({quantity:1,unit:'serving',portionLabel:'1 scoop',portionGrams:30})).toBe('1 scoop · 30 g');
   expect(displayPortion({quantity:1,unit:'serving',portionLabel:null,portionGrams:null})).toBe('1 serving');
+});
+
+it('displays only the mass when one is known, and the serving otherwise',()=>{
+  expect(displayMass({quantity:75,unit:'g',portionLabel:null,portionGrams:null})).toBe('75 g');
+  expect(displayMass({quantity:1,unit:'serving',portionLabel:'1 tart',portionGrams:52})).toBe('52 g');
+  expect(displayMass({quantity:1.5,unit:'serving',portionLabel:'bowl',portionGrams:210})).toBe('315 g');
+  expect(displayMass({quantity:1,unit:'serving',portionLabel:null,portionGrams:null})).toBe('1 serving');
 });

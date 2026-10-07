@@ -79,7 +79,8 @@
 .weigh-in-value p{margin:0}
 .weigh-in-kg{font-size:1.05rem;line-height:1.3;color:var(--ink-strong)}
 .weigh-in-kg .figure{font-weight:600}
-.weigh-in-meta{font-size:.74rem;line-height:1.4;color:var(--muted-foreground)}
+.weigh-in-meta{font-size:.74rem;line-height:1.4;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.weigh-in-source{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:6px;border-radius:6px;background:var(--muted);color:var(--muted-foreground);vertical-align:2px}
 .weigh-in-actions{display:flex;gap:2px}
 .weigh-in-actions .button{color:var(--muted-foreground)}
 .weigh-in-actions .weigh-in-delete{color:var(--destructive)}

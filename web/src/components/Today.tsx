@@ -4,7 +4,7 @@ import type {CoachResult} from '../types';
 import {number,today} from '../lib/format';
 import {cleanTrend} from '../lib/weightSignal';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
-import {targetsForDate} from '../lib/dailyTargets';
+import {planForDate,targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {GoalSummary} from './GoalSummary';
 import {CheckInButton} from './CheckInButton';
@@ -37,22 +37,9 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
   const entries=state.entries.filter(e=>!e.deleted&&e.date===date);
   const savedDay=state.days.find(d=>d.date===date&&!d.deleted);
   const total=savedDay?.archived?(savedDay.calories??0):entries.reduce((s,e)=>s+e.calories,0);
-  // Keep the latest accepted targets active while a newer profile proposal is
-  // waiting for an explicit acceptance.
   const accepted=state.plans.find(p=>!p.deleted);
   const latestPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
-  // Use historical target intervals when browsing past dates so the diary shows
-  // the targets that were active at that time, not the current plan.
-  const intervals=state.acceptedTargetIntervals??[];
-  const historicalInterval=intervals.find(i=>i.start<=date&&i.end>=date);
-  const plan:CoachResult|undefined=historicalInterval
-    ?{version:latestPlan?.version??'2.0.0',eligible:true,adaptive:false,calories:historicalInterval.calories,expenditure:null,
-      protein:historicalInterval.protein!==undefined?historicalInterval.protein:latestPlan?.protein??null,
-      fat:historicalInterval.fat!==undefined?historicalInterval.fat:latestPlan?.fat??null,
-      carbs:historicalInterval.carbs!==undefined?historicalInterval.carbs:latestPlan?.carbs??null,explanation:'',weeklyCalories:historicalInterval.weeklyCalories,dailyCalories:historicalInterval.dailyCalories,
-      proteinFixed:historicalInterval.proteinFixed!==undefined?historicalInterval.proteinFixed:latestPlan?.proteinFixed}
-    :latestPlan;
-  const targets=targetsForDate(plan,date);
+  const targets=targetsForDate(planForDate(state,date),date);
   const phaseDecision=state.phaseDecisions?.find(decision=>decision.profileRevision===state.profileRevision&&!decision.deleted);
   const liveProgress=useMemo(()=>liveGoalProgress(state.profile,[...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date,phaseDecision,state.settings?.weightGoalMetric??'scale'),[state.profile,state.weightTrendSeed,state.weights,date,phaseDecision,state.settings?.weightGoalMetric]);
   const goalProgress=mergeGoalProgress(latestPlan?.goalProgress,liveProgress,phaseDecision);

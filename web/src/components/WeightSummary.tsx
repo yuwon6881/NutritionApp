@@ -1,5 +1,5 @@
 import {useMemo,useState} from 'react';
-import {Pencil,Trash2} from 'lucide-react';
+import {CloudDownload,Pencil,Trash2} from 'lucide-react';
 import type {ProgressSummary,Weight} from '../types';
 import {displayWeight,weightLabel,type unitsFor} from '../lib/units';
 import {monthShort,readoutDate,weekdayShort} from '../lib/format';
@@ -43,11 +43,14 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
             <span className="weigh-in-weekday">{weekdayShort(weight.date)}</span>
           </time>
           <div className="weigh-in-value">
-            <p className="weigh-in-kg"><span className="figure">{displayWeight(weight.kg,units.weight,2)}</span> <span className="unit">{unit}</span></p>
+            <p className="weigh-in-kg">
+              <span className="figure">{displayWeight(weight.kg,units.weight,2)}</span> <span className="unit">{unit}</span>
+              {/* The source rides beside the value as an icon so every row keeps the same one-line change text. */}
+              {weight.source==='google_health'&&<span className="weigh-in-source" title="From Google Health"><CloudDownload size={13} aria-hidden="true"/><span className="sr-only">, from Google Health</span></span>}
+            </p>
             <p className="weigh-in-meta">
               {change==null?'First in period':Math.abs(change)<.005?'No change':<>{`${change>0?'+':'−'}${displayWeight(Math.abs(change),units.weight,2)} ${unit}`}<span className="sr-only"> from the previous weigh-in</span></>}
               {context&&<span className="weigh-in-context"> · {context}</span>}
-              {weight.source==='google_health'&&<span className="weigh-in-context"> · From Google Health</span>}
             </p>
           </div>
           <div className="weigh-in-actions">

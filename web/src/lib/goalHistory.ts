@@ -59,5 +59,7 @@ export function buildGoalHistory(plans:readonly Plan[],metric:WeightGoalMetric='
     if(last.complete)return {...base,status:'completed',endDate:last.date};
     return {...base,status:'active'};
   });
-  return entries.reverse();
+  // A plan re-accepted the same day (for example a profile edit right after onboarding)
+  // replaces the earlier one before any of it was pursued, so it is not a period of its own.
+  return entries.filter(entry=>!(entry.status==='changed'&&entry.endDate===entry.startDate)).reverse();
 }

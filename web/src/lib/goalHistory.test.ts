@@ -31,6 +31,17 @@ describe('goal history',()=>{
     ]);
   });
 
+  it('leaves out a period replaced on the day it started',()=>{
+    const history=buildGoalHistory([
+      plan('c','2026-09-29','lose',65,65.9,65.8,false,2),
+      plan('b','2026-09-08','lose',65,65.0,65.0,false,2),
+      plan('a','2026-09-08','lose',65,65.0,65.0,false,1)
+    ]);
+    expect(history).toEqual([
+      {startDate:'2026-09-08',goal:'lose',startKg:65,endKg:65.9,status:'active'}
+    ]);
+  });
+
   it('uses the trend weight when that is the goal metric',()=>{
     const [entry]=buildGoalHistory([plan('a','2026-09-08','lose',64,63.2,63.5)],'trend');
     expect(entry.endKg).toBe(63.5);
