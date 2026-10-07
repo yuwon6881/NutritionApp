@@ -35,17 +35,36 @@ export function TrainingSummaryCard({
   onRetry?: () => void;
 }) {
   const todayDate=today(timeZone??undefined);
-  // Up-next days are the active program's remaining days this week, in program order; they lead
-  // the list and are capped so recent training stays visible.
+  // Without program positions the list reads like the week: recent sessions oldest first, then
+  // anything in progress, then the capped up-next program days in program order.
   const all=summaries??[];
   const isConnected = workoutConnected ?? all.length > 0;
   const inProgress=all.filter(item=>item.status==='in_progress');
   const upNext=all.filter(item=>item.status==='upcoming').slice(0,UP_NEXT_LIMIT);
   const recorded=all
     .filter(item=>item.status!=='upcoming'&&item.status!=='in_progress'&&item.localDate>=shift(todayDate,-7))
-    .sort((left,right)=>right.localDate.localeCompare(left.localDate)||left.workoutName.localeCompare(right.workoutName))
-    .slice(0,Math.max(0,8-inProgress.length-upNext.length));
-  const visible=[...inProgress,...upNext,...recorded];
+    .sort((left,right)=>right.localDate.localeCompare(left.localDate)||(right.finishedAt??'').localeCompare(left.finishedAt??'')||left.workoutName.localeCompare(right.workoutName))
+    .slice(0,Math.max(0,8-inProgress.length-upNext.length))
+    .reverse();
+
+  const weeklyScheduledMap = new Map<number, TrainingSummary>();
+  for (const item of all) {
+    if (item.programPosition != null) {
+      const existing = weeklyScheduledMap.get(item.programPosition);
+      if (!existing
+        || item.status === 'in_progress'
+        || (item.status === 'completed' && existing.status !== 'in_progress')
+        || (item.finishedAt && !existing.finishedAt)) {
+        weeklyScheduledMap.set(item.programPosition, item);
+      }
+    }
+  }
+  const weeklyScheduled = Array.from(weeklyScheduledMap.values())
+    .sort((a, b) => (a.programPosition ?? 0) - (b.programPosition ?? 0));
+
+  const visible = weeklyScheduled.length > 0
+    ? weeklyScheduled
+    : [...recorded, ...inProgress, ...upNext];
   const unit=unitsFor(settings).weight;
   const feedbackMessage = error ?? (resolved ? warning : null);
   // Until the first answer the connection itself is unknown, so say so rather than claim "not connected".
@@ -124,6 +143,7 @@ export function TrainingSummaryCard({
           const scheduled=item.status==='scheduled' || !item.startedAt;
           const isUpcoming=item.status==='upcoming';
           const isInProgress=item.status==='in_progress';
+          const displayDate = item.actualDate ?? (item.programPosition != null ? (item.finishedAt ? item.localDate : null) : item.localDate);
           // A program day has no calendar date, so it shows no date rather than today's.
           const when=isUpcoming?'Up next':`${item.localDate} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
           return <div className={`training-summary-row ${isUpcoming?'training-row-upcoming':''} ${isInProgress?'training-row-in-progress':''} ${completed?'training-row-completed':''}`} key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
@@ -143,7 +163,7 @@ export function TrainingSummaryCard({
                       <Check size={11} strokeWidth={2.5} aria-hidden="true" />
                       Completed
                     </span>
-                    <span className="training-row-date">{item.localDate}</span>
+                    {displayDate && <span className="training-row-date">{displayDate}</span>}
                   </span>
                 ) : (
                   <span>{when}</span>

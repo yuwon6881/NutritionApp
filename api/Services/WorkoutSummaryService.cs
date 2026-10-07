@@ -27,7 +27,9 @@ public sealed record TrainingSummaryItem(
     bool? EffortTracked = null,
     IReadOnlyList<string>? ExerciseMix = null,
     bool? ExternalVolumeComplete = null,
-    bool? SystemVolumeComplete = null);
+    bool? SystemVolumeComplete = null,
+    int? ProgramWeek = null,
+    int? ProgramPosition = null);
 
 public sealed class WorkoutCircuitBreaker
 {
@@ -289,7 +291,9 @@ public sealed partial class WorkoutSummaryService(AppDb db, IHttpClientFactory c
                     DurationSeconds = compatible ? item.DurationSeconds ?? existingItem.DurationSeconds : existingItem.DurationSeconds,
                     ExerciseMix = compatible ? item.ExerciseMix ?? existingItem.ExerciseMix : existingItem.ExerciseMix,
                     ExternalVolumeComplete = compatible ? item.ExternalVolumeComplete ?? existingItem.ExternalVolumeComplete : false,
-                    SystemVolumeComplete = compatible ? item.SystemVolumeComplete ?? existingItem.SystemVolumeComplete : false };
+                    SystemVolumeComplete = compatible ? item.SystemVolumeComplete ?? existingItem.SystemVolumeComplete : false,
+                    ProgramWeek = item.ProgramWeek ?? existingItem.ProgramWeek,
+                    ProgramPosition = item.ProgramPosition ?? existingItem.ProgramPosition };
                 continue;
             }
             mergedById[item.Id] = item;
