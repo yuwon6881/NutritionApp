@@ -38,8 +38,11 @@ export function useCoachSteps<T extends string>(initial:T,order:readonly T[],sce
     };
     focusHeading();
     // Media-query changes can land in the same frame as a programmatic step
-    // click. Reassert the destination focus after that browser event settles.
-    const focusFrame=window.requestAnimationFrame(focusHeading);
+    // click. Reassert the destination focus only if focus left the step stage,
+    // never stealing focus from a control the user or test already focused.
+    const focusFrame=window.requestAnimationFrame(()=>{
+      if(!stage.current?.contains(document.activeElement))focusHeading();
+    });
     if(!reduceMotion)animation.current=stage.current.animate([{opacity:0,transform:`translateX(${direction.current*24}px)`},{opacity:1,transform:'translateX(0)'}],{duration:direction.current<0?140:180,easing:'cubic-bezier(.2,.8,.2,1)'});
     return()=>window.cancelAnimationFrame(focusFrame);
   },[step,scene,reduceMotion]);

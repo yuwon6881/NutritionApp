@@ -34,6 +34,18 @@ test('Coach destination controls and focus do not wait for animation completion'
   await expect(page.locator('[data-step-heading]')).toHaveText('Activity');
   await expect(page.locator('[data-step-heading]')).toBeFocused();
   await expect(page.getByRole('radio',{name:/^Lifting\b/})).toBeEnabled();
+  const keptControlFocus=await page.getByRole('button',{name:'Back',exact:true}).evaluate(button=>new Promise<boolean>(resolve=>{
+    const stage=document.querySelector('.coach-step-stage')!;
+    const observer=new MutationObserver(()=>{
+      observer.disconnect();
+      const height=document.getElementById('coach-height');
+      height?.focus();
+      requestAnimationFrame(()=>resolve(document.activeElement===height));
+    });
+    observer.observe(stage,{attributes:true,attributeFilter:['data-step']});
+    (button as HTMLButtonElement).click();
+  }));
+  expect(keptControlFocus).toBe(true);
   await page.evaluate(()=>document.getAnimations().forEach(animation=>animation.cancel()));
 });
 async function step(page:Page,name:string){
