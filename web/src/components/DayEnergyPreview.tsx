@@ -19,16 +19,20 @@ export function DayEnergyPreview({store,date,batchCalories}:{store:NutritionStor
   const preview=dayEnergyPreview(projectedDayCalories(store.local,date),batchCalories,calendarTarget(state,date));
   const heading=date===today(state.profile?.timeZone)?'TODAY AFTER LOGGING':'THIS DAY AFTER LOGGING';
   const energy=(value:number)=>`${displayEnergy(value,energyUnit)} ${unit}`;
+  // The batch total already heads the review, so this reads only as the day: its new total against
+  // the target, and what was there before. The ring carries what is left or over.
   return <section className="day-energy-preview" aria-label="Day total after logging">
     <div className="day-energy-preview-figures">
       <p className="eyebrow">{heading}</p>
-      {preview.logged==null
+      {preview.logged==null||preview.after==null
         ?<p className="day-energy-preview-note">Earlier entries for this day aren't on this device, so the day total is unknown.</p>
-        :<dl>
-          <div><dt><span className="day-energy-swatch logged" aria-hidden="true"/>Already logged</dt><dd>{energy(preview.logged)}</dd></div>
-          <div><dt><span className="day-energy-swatch batch" aria-hidden="true"/>This batch</dt><dd>+{energy(preview.batch)}</dd></div>
-          <div><dt>Target</dt><dd>{preview.target==null?'No target set':energy(preview.target)}</dd></div>
-        </dl>}
+        :<>
+          <p className="day-energy-preview-total">
+            <strong>{energy(preview.after)}</strong>
+            <span>{preview.target==null?'No target set':`of ${energy(preview.target)} target`}</span>
+          </p>
+          <p className="day-energy-preview-detail"><span className="day-energy-swatch logged" aria-hidden="true"/>{energy(preview.logged)} already logged</p>
+        </>}
     </div>
     {preview.logged!=null&&preview.target!=null&&<EnergyRing total={preview.logged} pending={preview.batch} target={preview.target} energyUnit={energyUnit} intro={false}/>}
   </section>;

@@ -18,7 +18,6 @@
   .scale-line{stroke:CanvasText}
   .ring-pending{stroke:GrayText}
   .day-energy-swatch.logged{background:Highlight}
-  .day-energy-swatch.batch{background:GrayText}
   .bar-rect,.energy-intake{fill:Highlight}
   .energy-maintenance{fill:CanvasText}
   .undo-toast{border:2px solid CanvasText}

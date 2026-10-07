@@ -23,7 +23,8 @@
 .habit-calendar-streak{grid-area:streak;font-size:.78rem}
 
 .habit-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
-.habit-grid-compact{grid-area:grid;align-self:center;width:142px;gap:4px}
+/* Thirty days read oldest to newest in three rows of ten; the dialog keeps the weekday calendar. */
+.habit-grid-compact{grid-area:grid;align-self:center;grid-template-columns:repeat(10,minmax(0,1fr));width:184px;gap:4px}
 .habit-cell{display:block;aspect-ratio:1;border-radius:4px;background:var(--track);border:1px solid transparent}
 .habit-cell[data-status=logged]{background:var(--habit-on)}
 .habit-cell[data-status=fasting]{background:color-mix(in srgb,var(--habit-on) 45%,var(--track))}
@@ -48,7 +49,7 @@
 @media(max-width:1023px){
   .habit-calendars{gap:16px}
   .habit-calendar-trigger{padding:18px 20px;column-gap:16px}
-  .habit-grid-compact{width:126px}
+  .habit-grid-compact{width:164px}
 }
 /* Phones keep both cards side by side; the grid moves under the summary. */
 @media(max-width:639px){
@@ -56,7 +57,7 @@
   .habit-calendar-trigger{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "count" "streak" "grid";padding:16px}
   .habit-calendar-count{margin-top:10px;font-size:1.1rem}
   .habit-calendar-streak{font-size:.72rem}
-  .habit-grid-compact{width:100%;max-width:150px;margin-top:12px;gap:3px}
+  .habit-grid-compact{width:100%;max-width:190px;margin-top:12px;gap:3px}
   .habit-cell{border-radius:3px}
 }
 @media(prefers-reduced-motion:reduce){

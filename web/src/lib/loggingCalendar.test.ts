@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {AppState,Entry} from '../types';
-import {calendarDates,calendarMonths,foodCalendar,summarizeCalendar,weekdayIndex,weightCalendar} from './loggingCalendar';
+import {calendarDates,calendarMonths,foodCalendar,summarizeCalendar,summarizeWeek,weekdayIndex,weightCalendar} from './loggingCalendar';
 
 const entry=(date:string,deleted=false)=>({id:`e-${date}`,revision:0,deleted,date,name:'Oats',calories:300,protein:10,carbs:50,fat:5,quantity:1,unit:'serving'}) as Entry;
 
@@ -83,5 +83,22 @@ describe('logging calendar',()=>{
     expect(status(foodCalendar(state(),'2026-09-10','2026-09-10',3))).toEqual({'2026-09-08':'before','2026-09-09':'before','2026-09-10':'open'});
     const seeded=state({weightTrendSeed:[{id:'s',revision:0,deleted:false,date:'2026-08-20',kg:81}],weights:[{id:'w',revision:0,deleted:false,date:'2026-09-09',kg:80}]});
     expect(status(weightCalendar(seeded,'2026-09-10','2026-09-02',2))).toEqual({'2026-09-01':'missing','2026-09-02':'missing'});
+  });
+});
+
+describe('this week summary',()=>{
+  it('counts kept days from Monday through today out of seven',()=>{
+    // 2026-09-10 is a Thursday; the previous Sunday belongs to last week.
+    const cells=[
+      {date:'2026-09-06',status:'logged'},{date:'2026-09-07',status:'logged'},{date:'2026-09-08',status:'fasting'},
+      {date:'2026-09-09',status:'missing'},{date:'2026-09-10',status:'open'},
+    ];
+
+    expect(summarizeWeek(cells,'2026-09-10')).toEqual({kept:2,days:7});
+    expect(summarizeWeek([...cells.slice(0,4),{date:'2026-09-10',status:'logged'}],'2026-09-10').kept).toBe(3);
+  });
+
+  it('starts a new week on Monday',()=>{
+    expect(summarizeWeek([{date:'2026-09-13',status:'logged'},{date:'2026-09-14',status:'logged'}],'2026-09-14').kept).toBe(1);
   });
 });

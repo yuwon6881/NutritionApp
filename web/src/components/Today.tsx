@@ -15,7 +15,7 @@ import {shouldShowDashboardSteps,useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
 import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
-import {EnergyRing} from './EnergyRing';
+import {EnergyOverview} from './EnergyOverview';
 import {MotionPanel} from './ui/Motion';
 import {HabitCalendars} from './habits/HabitCalendars';
 import {DashboardSkeleton} from './ui/Skeleton';
@@ -87,16 +87,19 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
       <section className="dashboard-section dashboard-section-today" aria-labelledby="dashboard-today-title">
       <h2 id="dashboard-today-title" className="dashboard-section-title">Today</h2>
       <div className="daily-grid">
-        <article className="panel energy-panel">
-          <div>
+        {checkInReady&&checkIn
+          ?<article className="panel energy-panel">
+            <div>
+              <p className="eyebrow">ENERGY</p>
+              <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
+              <p>Review your check-in to see today's target</p>
+            </div>
+            <div className="energy-check-in"><CheckInButton schedule={checkIn} label="Review this week" onClick={openCheckIn}/><p className="energy-check-in-label">Check-in ready</p></div>
+          </article>
+          :<article className="panel energy-panel energy-panel-overview">
             <p className="eyebrow">ENERGY</p>
-            <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
-            <p>{checkInReady?"Review your check-in to see today's target":targets.calories?`${displayEnergy(targets.calories,energyUnit)} ${energyLabel(energyUnit)} target`:'Set up your coach'}</p>
-          </div>
-          {checkInReady&&checkIn
-            ?<div className="energy-check-in"><CheckInButton schedule={checkIn} label="Review this week" onClick={openCheckIn}/><p className="energy-check-in-label">Check-in ready</p></div>
-            :<EnergyRing total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>}
-        </article>
+            <EnergyOverview total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>
+          </article>}
         <article className="panel macros">
           <p className="eyebrow">MACRONUTRIENTS</p>
           {(['protein','carbs','fat'] as const).map(key=>{

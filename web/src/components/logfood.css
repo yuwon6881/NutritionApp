@@ -128,15 +128,18 @@
 .day-energy-preview{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px}
 .day-energy-preview-figures{flex:1;min-width:0}
 .day-energy-preview .eyebrow{margin-bottom:10px!important}
-.day-energy-preview dl{display:grid;gap:6px;margin:0;font-size:.8rem}
-.day-energy-preview dl>div{display:flex;justify-content:space-between;gap:12px}
-.day-energy-preview dt{display:flex;align-items:center;gap:8px;color:var(--muted-foreground)}
-.day-energy-preview dd{margin:0;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
+.day-energy-preview-total{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0 0 6px;font-variant-numeric:tabular-nums}
+.day-energy-preview-total strong{font-size:1.35rem;letter-spacing:-.03em;white-space:nowrap}
+.day-energy-preview-total span{font-size:.82rem;color:var(--muted-foreground);white-space:nowrap}
+.day-energy-preview-detail{display:flex;align-items:center;gap:8px;margin:0;font-size:.8rem;font-variant-numeric:tabular-nums}
 .day-energy-preview-note{font-size:.8rem;margin:0}
 .day-energy-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .day-energy-swatch.logged{background:var(--primary)}
-.day-energy-swatch.batch{background:color-mix(in srgb,var(--primary) 40%,var(--track))}
 .day-energy-preview .energy-ring{width:108px;max-width:36%}
+/* The preview ring is small, so its centre reads larger than the Dashboard ring's; going over the target takes the destructive tone. */
+.day-energy-preview .energy-ring .ring-value{font-size:24px}
+.day-energy-preview .energy-ring .ring-label{font-size:14px;font-weight:550}
+.day-energy-preview .energy-ring .ring-over{fill:var(--destructive)}
 .ring-pending{stroke:color-mix(in srgb,var(--primary) 40%,var(--track));stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease),stroke-dashoffset var(--motion-layout) var(--motion-ease)}
 @media (max-width:639px){.day-energy-preview{padding:12px 14px;gap:12px}.day-energy-preview .energy-ring{width:92px}}
 .food-search-spinner{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;color:var(--muted-foreground)}

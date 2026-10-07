@@ -24,6 +24,9 @@ const countAcrossMonths=async(dialog:Locator,text:RegExp)=>{
   }
   return total;
 };
+/** Offsets 0 (today) through this one fall in the current Monday-based week. */
+const weekdayOffset=(new Date(`${current}T12:00:00Z`).getUTCDay()+6)%7;
+const thisWeek=(offsets:number[])=>offsets.filter(offset=>offset<=weekdayOffset).length;
 const daysAgo=(offset:number)=>{const day=new Date(`${current}T12:00:00Z`);day.setUTCDate(day.getUTCDate()-offset);return day.toISOString().slice(0,10);};
 
 test.beforeAll(async({request})=>{
@@ -55,8 +58,11 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     const food=page.getByRole('button',{name:/^Food logging: /});
     const weight=page.getByRole('button',{name:/^Weigh-ins: /});
     // A fasting day keeps the habit; an explicit not-logging day ends the streak.
-    await expect(food).toHaveAccessibleName(/^Food logging: 9 of 10 days logged, 6-day streak/);
-    await expect(weight).toHaveAccessibleName(/^Weigh-ins: 6 of 11 days logged, 1-day streak/);
+    // The headline counts this week's kept days; fasting (6 days ago) counts, not-logging (7) does not.
+    const foodWeek=thisWeek([1,2,3,4,5,6,8,9,10]);
+    await expect(food).toHaveAccessibleName(new RegExp(`^Food logging: ${foodWeek} of 7 days this week, 6-day streak`));
+    await expect(weight).toHaveAccessibleName(new RegExp(`^Weigh-ins: ${thisWeek([0,2,4,6,8,10])} of 7 days this week, 1-day streak`));
+    await expect(food.locator('.habit-calendar-count')).toHaveText(`${foodWeek}/7 this week`);
 
     await page.evaluate(()=>document.fonts.ready);
     // The landing cascade staggers the two cards; measure once it settles.
@@ -68,7 +74,9 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     expect(foodBox.height).toBeGreaterThanOrEqual(44);
     // The medium navigation rail leaves room for an extra wrapped summary line.
     expect(foodBox.height).toBeLessThan(width<640?260:width<1024?216:200);
-    await expect(food.locator('.habit-cell')).toHaveCount(28);
+    // The compact grid is the last thirty days ending today; the dialog holds the month calendar.
+    await expect(food.locator('.habit-cell')).toHaveCount(30);
+    await expect(food.locator('.habit-cell').last()).toHaveAttribute('data-today','true');
     await expect(food.locator('.habit-cell[data-status="logged"]')).not.toHaveCount(0);
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
     await page.screenshot({path:`artifacts/ui-uplift/dashboard-habits-${theme}-${width}.png`,fullPage:true,animations:'disabled'});

@@ -106,8 +106,22 @@ export function calendarMonths(start:string,end:string):CalendarMonth[]{
  * A fasting day is an explicit record of the day, so it counts as kept; an
  * explicit not-logging day does not. Today only counts once it has a record.
  */
+const kept=(status:string)=>status==='logged'||status==='fasting';
+
+export interface WeekSummary {
+  /** Days kept this week, Monday through today. */
+  kept:number;
+  /** The whole week the count is read against. */
+  days:7;
+}
+
+/** Kept days in the Monday-based week holding today, read against all seven days. */
+export function summarizeWeek(cells:CalendarCell<string>[],current:string):WeekSummary{
+  const monday=shiftIsoDate(current,-weekdayIndex(current));
+  return {kept:cells.filter(cell=>cell.date>=monday&&cell.date<=current&&kept(cell.status)).length,days:7};
+}
+
 export function summarizeCalendar(cells:CalendarCell<string>[],current:string):CalendarSummary{
-  const kept=(status:string)=>status==='logged'||status==='fasting';
   const counted=(status:string)=>status!=='unknown'&&status!=='future'&&status!=='before';
   const known=cells.filter(cell=>counted(cell.status)&&!(cell.date===current&&!kept(cell.status)));
   let streak=0;

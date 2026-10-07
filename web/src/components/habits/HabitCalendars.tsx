@@ -1,10 +1,10 @@
 import {useMemo} from 'react';
 import type {AppState} from '../../types';
-import {foodCalendar,shiftIsoDate,summarizeCalendar,weekdayIndex,weightCalendar,type FoodCalendarStatus,type WeightCalendarStatus} from '../../lib/loggingCalendar';
+import {foodCalendar,summarizeCalendar,summarizeWeek,weightCalendar,type FoodCalendarStatus,type WeightCalendarStatus} from '../../lib/loggingCalendar';
 import {HabitCalendarCard,type HabitLegendItem} from './HabitCalendarCard';
 
-/** Four whole weeks ending this Sunday keep the compact grid aligned to weekdays. */
-const RECENT_WEEKS=4;
+/** The compact grid shows the last thirty days ending today; the dialog holds the real calendar. */
+const RECENT_DAYS=30;
 
 const FOOD_LABELS:Record<FoodCalendarStatus,string>={
   logged:'Food logged',
@@ -41,14 +41,12 @@ const WEIGHT_LEGEND:HabitLegendItem[]=[
 
 export function HabitCalendars({state,current}:{state:AppState;current:string}){
   const calendars=useMemo(()=>{
-    const weekEnd=shiftIsoDate(current,6-weekdayIndex(current));
-    const recentDays=RECENT_WEEKS*7;
     const historyDays=Math.max(1,Math.round((Date.parse(current)-Date.parse(state.start))/86400000)+1);
     const food=foodCalendar(state,current,current,historyDays);
     const weight=weightCalendar(state,current,current,historyDays);
     return {
-      food:{recent:foodCalendar(state,current,weekEnd,recentDays),history:food,summary:summarizeCalendar(food,current)},
-      weight:{recent:weightCalendar(state,current,weekEnd,recentDays),history:weight,summary:summarizeCalendar(weight,current)},
+      food:{recent:foodCalendar(state,current,current,RECENT_DAYS),history:food,summary:summarizeCalendar(food,current),week:summarizeWeek(food,current)},
+      weight:{recent:weightCalendar(state,current,current,RECENT_DAYS),history:weight,summary:summarizeCalendar(weight,current),week:summarizeWeek(weight,current)},
     };
   },[state,current]);
   return <div className="habit-calendars">

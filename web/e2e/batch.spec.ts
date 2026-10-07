@@ -83,7 +83,10 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
 
   // Without an accepted plan the day preview still adds the batch to the empty day, but draws no ring.
   const dayPreview=page.getByRole('region',{name:'Day total after logging'});
-  await expect(dayPreview.getByText('+116 kcal')).toBeVisible();
+  // The batch total heads the review, so the preview shows only the day: its new total and what was logged before.
+  await expect(dayPreview.getByText('+116 kcal')).toHaveCount(0);
+  await expect(dayPreview.locator('.day-energy-preview-total strong')).toHaveText('116 kcal');
+  await expect(dayPreview.getByText('0 kcal already logged')).toBeVisible();
   await expect(dayPreview.getByText('No target set')).toBeVisible();
   await expect(dayPreview.getByRole('img')).toHaveCount(0);
 

@@ -48,7 +48,13 @@ test('the batch review previews the day total with the batch drawn after logged 
   await recents.getByRole('button',{name:/^Porridge,/}).click();
   const preview=page.getByRole('dialog',{name:'Batch (1 food)',exact:true}).getByRole('region',{name:'Day total after logging'});
   await expect(preview.getByText('TODAY AFTER LOGGING')).toBeVisible();
-  await expect(preview.getByText('+350 kcal')).toBeVisible();
+  // The batch total heads the review; the preview reads only as the day and never repeats it.
+  await expect(preview.getByText('+350 kcal')).toHaveCount(0);
+  await expect(preview.locator('.day-energy-preview-total strong')).toHaveText(/ kcal$/);
+  await expect(preview.getByText(/ kcal already logged$/)).toBeVisible();
+  await expect(preview.locator('.ring-label')).toHaveText(/^(left|over)$/);
+  // The small ring's caption stays legible.
+  expect(await preview.locator('.ring-label').evaluate(element=>element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(9);
   await expect(preview.getByRole('img',{name:/ kcal after logging, including 350 kcal from this batch$/})).toBeVisible();
   await expect(preview.locator('.ring-pending')).toHaveCount(1);
 });
@@ -160,25 +166,31 @@ test('Back steps out of review, batch line edit, and batch without closing the f
 });
 
 // Earlier tests in this file log food today, so read the true total from the ring's accessible name.
-async function ringRemaining(page:Page){
+async function ringLogged(page:Page){
   const ring=page.getByRole('img',{name:/^[\d,]+ of [\d,]+ kcal logged$/});
   await expect(ring).toBeVisible();
   const [logged,target]=(await ring.getAttribute('aria-label'))!.match(/[\d,]+/g)!.map(value=>Number(value.replace(/,/g,'')));
   expect(logged).toBeGreaterThanOrEqual(1030);
-  return {ring,expected:(target-logged).toLocaleString('en-MY')};
+  // The ring holds the logged total; what is left and the target sit beside it, each shown once.
+  const overview=page.locator('.energy-overview');
+  await expect(overview.locator('.energy-target strong')).toHaveText(target.toLocaleString('en-MY'));
+  await expect(overview.locator('.energy-left')).toContainText(target>=logged?'kcal left':'kcal over');
+  await expect(overview.locator('.energy-left strong')).toHaveText(Math.abs(target-logged).toLocaleString('en-MY'));
+  await expect(page.locator('.energy-panel').getByText('target reached')).toHaveCount(0);
+  return {ring,expected:logged.toLocaleString('en-MY')};
 }
 
-test('the Dashboard ring shows its true remaining value at once with reduced motion',async({page})=>{
+test('the Dashboard ring shows its true logged value at once with reduced motion',async({page})=>{
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto('/');
-  const {ring,expected}=await ringRemaining(page);
+  const {ring,expected}=await ringLogged(page);
   await expect(ring.locator('text').first()).toHaveText(expected,{timeout:100});
 });
 
-test('the Dashboard landing count settles on the true remaining value',async({page})=>{
+test('the Dashboard landing count settles on the true logged value',async({page})=>{
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/');
-  const {ring,expected}=await ringRemaining(page);
+  const {ring,expected}=await ringLogged(page);
   await expect(ring.locator('text').first()).toHaveText(expected,{timeout:3000});
   // The cascade leaves no transform behind on the cards once it finishes.
   await expect.poll(()=>page.locator('.dashboard-intro .panel').first().evaluate(el=>getComputedStyle(el).transform)).toBe('none');
