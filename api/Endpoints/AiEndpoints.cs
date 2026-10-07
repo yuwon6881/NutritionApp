@@ -8,6 +8,8 @@ public static class AiEndpoints
     public static void MapAi(this WebApplication app)
     {
         app.MapGet("/api/foods/search",async(string q,FoodCatalog foods,AppDb db,CancellationToken ct)=>await foods.Search(q,db,ct)).RequireRateLimiting("food-lookup");
+        app.MapGet("/api/foods/verify",async(string provider,string codes,FoodCatalog foods,AppDb db,CancellationToken ct)=>
+            await foods.VerifyBasis(provider,codes.Split(',',StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries),db,ct)).RequireRateLimiting("food-lookup");
         app.MapGet("/api/foods/barcode/{code}",async(string code,FoodCatalog foods,AppDb db,CancellationToken ct)=>await foods.Barcode(code,db,ct));
         app.MapPost("/api/scans",async(ScanInput input,ScanService scans,CancellationToken ct)=>await scans.Create(input,ct)).RequireRateLimiting("scans");
         app.MapPost("/api/scans/{id:guid}/process",async(Guid id,ScanService scans,CancellationToken ct)=>await scans.Process(id,ct)).RequireRateLimiting("scans");

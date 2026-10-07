@@ -188,6 +188,28 @@ public sealed class FoodCatalog
         throw FoodLookupErrors.Barcode(worst.Provider.Name,worst.Failure);
     }
 
+    /// <summary>The most rows one list asks to confirm; a bulk read covers them in a single call.</summary>
+    public const int MaxVerifyCodes=12;
+    /// <summary>Long enough to wait out one paced slot of the bulk read, short of a hung request.</summary>
+    public TimeSpan VerifyTimeout { get; init; }=TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// Confirms search rows a provider returned before their per-100 g basis was known, so the list
+    /// shows their nutrition without each one being opened. Only the provider that produced the
+    /// rows can confirm them; a failure leaves them as they were rather than failing the list.
+    /// </summary>
+    public async Task<IReadOnlyList<FoodResult>> VerifyBasis(string providerId,IReadOnlyCollection<string> codes,AppDb db,CancellationToken ct)
+    {
+        Validation.Require(codes.Count is >0 and <=MaxVerifyCodes&&codes.All(code=>code.Length is >=8 and <=14&&code.All(char.IsAsciiDigit)),
+            $"Send 1–{MaxVerifyCodes} barcodes of 8–14 digits.");
+        var verifier=searchProviders.OfType<IFoodBasisVerifier>().FirstOrDefault(provider=>provider.Id==providerId);
+        if(verifier is null||health.Breaker(providerId).IsOpen)return [];
+        using var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(VerifyTimeout);
+        try { return await verifier.VerifyBasis(codes.Distinct(StringComparer.Ordinal).ToArray(),new PublicFoodCache(db),deadline.Token); }
+        catch(OperationCanceledException) when(!ct.IsCancellationRequested) { return []; }
+    }
+
     // Pacing and shed answers are already handled by the provider's own gate; the breaker only
     // counts faults, so a busy provider is not also locked out for a minute.
     private static void Record(ProviderBreaker breaker,FoodProviderException failure)

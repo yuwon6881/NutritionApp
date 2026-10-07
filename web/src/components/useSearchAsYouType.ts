@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useRef,useState,type RefObject} from 'react';
 import type {FoodSearchResult} from '../types';
 import {api} from '../lib/api';
+import {applyVerifiedFoods,verifiableCodes,VERIFYING_PROVIDER} from '../lib/foodVerification';
 
 /** Wait for a pause in typing: food search shares one paced provider quota with every user. */
 export const TYPEAHEAD_DELAY_MS=800;
@@ -34,6 +35,24 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
   // request from showing as the current one.
   const [inFlight,setInFlight]=useState<string|null>(null);
   const requests=useRef(new Map<string,{controller:AbortController;promise:Promise<FoodSearchResult[]>}>());
+  // The query on screen, so a confirmation that lands after the person moved on only updates memory.
+  const shownKey=useRef('');
+  const onResultsRef=useRef(onResults);
+  // Rows the search returned before Open Food Facts confirmed their basis are confirmed in one
+  // follow-up read and filled in place; a failure leaves them as "loads when opened".
+  const confirm=useCallback((key:string,results:FoodSearchResult[])=>{
+    const codes=verifiableCodes(results);
+    if(codes.length===0)return;
+    void api<FoodSearchResult[]>(`/foods/verify?provider=${VERIFYING_PROVIDER}&codes=${codes.join(',')}`)
+      .then(verified=>{
+        const current=cache.current.get(key)??results;
+        const next=applyVerifiedFoods(current,verified);
+        if(next.every((row,index)=>row===current[index]))return;
+        cache.current.set(key,next);
+        if(shownKey.current===key)onResultsRef.current(next);
+      })
+      .catch(()=>{/* confirmation is an improvement; the unconfirmed rows still open normally */});
+  },[cache]);
   const search=useCallback((value:string)=>{
     const key=value.trim().toLowerCase();
     const cached=cache.current.get(key);
@@ -46,18 +65,19 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
         if(!controller.signal.aborted){
           cache.current.set(key,results);
           if(cache.current.size>64)cache.current.delete(cache.current.keys().next().value!);
+          confirm(key,results);
         }
         return results;
       }).finally(()=>{if(requests.current.get(key)?.promise===promise)requests.current.delete(key);});
     requests.current.set(key,{controller,promise});
     return promise;
-  },[cache]);
-  const onResultsRef=useRef(onResults);
+  },[cache,confirm]);
   const onErrorRef=useRef(onError);
   useEffect(()=>{onResultsRef.current=onResults;onErrorRef.current=onError;});
 
   useEffect(()=>{
     const key=query.trim().toLowerCase();
+    shownKey.current=enabled?key:'';
     for(const [pending,request] of requests.current){
       if(!enabled||pending!==key){request.controller.abort();requests.current.delete(pending);}
     }

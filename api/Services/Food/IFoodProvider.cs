@@ -27,6 +27,18 @@ public interface IFoodProvider
     Task<FoodResult?> Barcode(string code,CancellationToken ct);
 }
 
+/// <summary>
+/// A provider whose search rows can arrive before their per-100 g basis is confirmed, because the
+/// confirming read is paced separately from search. It confirms those rows afterwards by product
+/// code, so the list can show their nutrition without opening each one.
+/// </summary>
+public interface IFoodBasisVerifier
+{
+    string Id { get; }
+    /// <summary>Confirmed per-100 g products for the codes it could read; unknown codes are left out.</summary>
+    Task<IReadOnlyList<FoodResult>> VerifyBasis(IReadOnlyCollection<string> codes,PublicFoodCache durable,CancellationToken ct);
+}
+
 public enum FoodProviderFailure
 {
     /// <summary>Our own pacing refused the call before it left the process.</summary>

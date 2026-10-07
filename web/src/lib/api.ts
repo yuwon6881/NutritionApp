@@ -11,7 +11,7 @@ const cooldowns=new Map<string,{retryAt:number;message:string}>();
 export function clearApiCooldowns(){cooldowns.clear();}
 
 function rateLimitKey(path:string){
-  if(path.startsWith('/foods/search')||path.startsWith('/foods/barcode/'))return 'food-lookup';
+  if(path.startsWith('/foods/search')||path.startsWith('/foods/verify')||path.startsWith('/foods/barcode/'))return 'food-lookup';
   if(path==='/scans'||/^\/scans\/[^/]+\/process$/.test(path))return 'scans';
   return path.split('?')[0];
 }

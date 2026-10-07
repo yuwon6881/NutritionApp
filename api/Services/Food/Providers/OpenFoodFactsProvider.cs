@@ -9,7 +9,7 @@ namespace Nutrition.Api.Services.FoodLookup;
 /// and serving hydration use the product API. Search results are hydrated in one bulk request so
 /// the list and editor share the same declared gram serving.
 /// </summary>
-public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider
+public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBasisVerifier
 {
     public const string ProviderId="off";
     private const string SearchUrl="https://search.openfoodfacts.org/search";
@@ -96,41 +96,57 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider
     private async Task Hydrate(List<FoodResult> results,PublicFoodCache? durable,CancellationToken ct)
     {
         var codes=results.Select(result=>result.Code).OfType<string>().Where(code=>code.Length>0).Distinct(StringComparer.Ordinal).ToArray();
-        if(codes.Length==0)return;
+        foreach(var (code,hydrated) in await ReadProducts(codes,durable,ct))Apply(results,code,hydrated);
+    }
+
+    /// <summary>
+    /// The confirming read a search could not finish in time (its paced slot, or Open Food Facts
+    /// shedding the bulk read). It is the same single bulk request, so asking afterwards costs no
+    /// more of the shared allowance than the search would have, and products already confirmed come
+    /// from the durable cache without a call.
+    /// </summary>
+    public async Task<IReadOnlyList<FoodResult>> VerifyBasis(IReadOnlyCollection<string> codes,PublicFoodCache durable,CancellationToken ct)
+        =>[..(await ReadProducts(codes,durable,ct)).Values];
+
+    /// <summary>Per-100 g products by code: the durable cache first, then one paced bulk read for the rest.</summary>
+    private async Task<Dictionary<string,FoodResult>> ReadProducts(IReadOnlyCollection<string> codes,PublicFoodCache? durable,CancellationToken ct)
+    {
+        var found=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
+        if(codes.Count==0)return found;
         var missing=codes.ToHashSet(StringComparer.Ordinal);
         if(durable is not null)
         {
-            var cached=await durable.Read(ProviderId,codes,ct);
-            foreach(var (code,hydrated) in cached)
+            foreach(var (code,hydrated) in await durable.Read(ProviderId,codes,ct))
             {
                 missing.Remove(code);
-                Apply(results,code,hydrated);
+                found[code]=hydrated;
             }
         }
-        if(missing.Count==0)return;
+        if(missing.Count==0)return found;
         try
         {
             var slot=await BatchProductGate.Reserve(BatchProductInterval,null,ct);
             if(slot!.Value.Wait>TimeSpan.Zero)await Task.Delay(slot.Value.Wait,ct);
             using var response=await http.GetAsync($"{BatchProductUrl}?code={Uri.EscapeDataString(string.Join(',',missing))}&fields={Uri.EscapeDataString(ProductFields)}&page_size={missing.Count}",ct);
-            if(!response.IsSuccessStatusCode)return;
+            if(!response.IsSuccessStatusCode)return found;
             using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-            if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)return;
-            var hydratedByCode=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
+            if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)return found;
+            var read=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
             foreach(var product in products.EnumerateArray())
             {
                 var code=OpenFoodFactsParser.Code(product);
-                if(code is {Length:>0}&&OpenFoodFactsParser.ReadProduct(product,code,"per100g") is {} hydrated)hydratedByCode[code]=hydrated;
+                if(code is {Length:>0}&&OpenFoodFactsParser.ReadProduct(product,code,"per100g") is {} hydrated)read[code]=hydrated;
             }
-            foreach(var (code,hydrated) in hydratedByCode)Apply(results,code,hydrated);
-            if(durable is not null&&hydratedByCode.Count>0)
-                await durable.Store(ProviderId,hydratedByCode.Values,DateTime.UtcNow.Add(DurableLifetime!.Value),ct);
+            foreach(var (code,hydrated) in read)found[code]=hydrated;
+            if(durable is not null&&read.Count>0)
+                await durable.Store(ProviderId,read.Values,DateTime.UtcNow.Add(DurableLifetime!.Value),ct);
         }
         catch(OperationCanceledException) when(ct.IsCancellationRequested){throw;}
         catch
         {
             // Serving hydration improves the search list but must not make free-text search fail.
         }
+        return found;
     }
 
     private static void Apply(List<FoodResult> results,string code,FoodResult hydrated)
