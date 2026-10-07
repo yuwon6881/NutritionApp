@@ -16,7 +16,7 @@ export type GoalHistoryEntry={
 
 export const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
 
-type Snapshot={date:string;goal:string;startKg:number|null;weightKg:number|null;complete:boolean};
+type Snapshot={date:string;goal:string;profileRevision:number;startKg:number|null;weightKg:number|null;complete:boolean};
 
 function snapshot(plan:Plan,metric:WeightGoalMetric):Snapshot|null{
   let result:CoachResult;
@@ -25,10 +25,10 @@ function snapshot(plan:Plan,metric:WeightGoalMetric):Snapshot|null{
   const goal=progress?.goal??result.effectiveGoal;
   if(!goal)return null;
   const [first,second]=metric==='trend'?[progress?.trendWeight,progress?.scaleWeight]:[progress?.scaleWeight,progress?.trendWeight];
-  return {date:plan.date,goal,startKg:progress?.startWeight??null,weightKg:first??second??null,complete:Boolean(result.phaseComplete||progress?.complete)};
+  return {date:plan.date,goal,profileRevision:plan.profileRevision??0,startKg:progress?.startWeight??null,weightKg:first??second??null,complete:Boolean(result.phaseComplete||progress?.complete)};
 }
 
-const sameGoal=(left:Snapshot,right:Snapshot)=>left.goal===right.goal&&(left.startKg==null||right.startKg==null||Math.abs(left.startKg-right.startKg)<0.05);
+const sameGoal=(left:Snapshot,right:Snapshot)=>left.goal===right.goal&&left.profileRevision===right.profileRevision&&(left.startKg==null||right.startKg==null||Math.abs(left.startKg-right.startKg)<0.05);
 
 /**
  * Collapses accepted plans into one entry per goal period. A period ends when the goal or its start

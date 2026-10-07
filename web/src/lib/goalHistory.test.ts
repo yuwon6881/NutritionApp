@@ -2,8 +2,8 @@ import {describe,expect,it} from 'vitest';
 import type {Plan} from '../types';
 import {buildGoalHistory} from './goalHistory';
 
-const plan=(id:string,date:string,goal:string,startWeight:number,scaleWeight:number,trendWeight:number,complete=false):Plan=>({
-  id,revision:1,deleted:false,date,inputRevision:1,profileRevision:1,
+const plan=(id:string,date:string,goal:string,startWeight:number,scaleWeight:number,trendWeight:number,complete=false,profileRevision=1):Plan=>({
+  id,revision:1,deleted:false,date,inputRevision:1,profileRevision,
   resultJson:JSON.stringify({calories:1800,phaseComplete:complete,effectiveGoal:goal,goalProgress:{goal,startWeight,scaleWeight,trendWeight,complete}})
 });
 
@@ -17,6 +17,17 @@ describe('goal history',()=>{
     expect(history).toEqual([
       {startDate:'2026-09-08',goal:'lose',startKg:64,endKg:63.2,status:'active'},
       {startDate:'2026-08-01',goal:'maintain',startKg:66,endKg:66,status:'changed',endDate:'2026-09-08'}
+    ]);
+  });
+
+  it('starts a new goal period on the date a new profile revision plan is accepted',()=>{
+    const history=buildGoalHistory([
+      plan('c','2026-10-02','lose',65,65.9,65.8,false,2),
+      plan('b','2026-09-08','lose',65,65.0,65.0,false,1)
+    ]);
+    expect(history).toEqual([
+      {startDate:'2026-10-02',goal:'lose',startKg:65,endKg:65.9,status:'active'},
+      {startDate:'2026-09-08',goal:'lose',startKg:65,endKg:65.0,status:'changed',endDate:'2026-10-02'}
     ]);
   });
 
