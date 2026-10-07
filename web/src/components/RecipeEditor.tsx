@@ -191,7 +191,6 @@ export function RecipeEditor({
         <Field
           id="recipe-ingredient-grams"
           name="grams"
-          data-modal-autofocus
           required
           label="Ingredient grams"
           type="number"

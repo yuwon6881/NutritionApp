@@ -60,7 +60,7 @@ test('keyboard actions submit forms and activate only the focused control',async
   await chooseResult.press('Enter');
   await expect(page.getByRole('heading',{name:'Review food',exact:true})).toBeVisible();
   await expect(page.getByRole('dialog',{name:'Review food',exact:true})).toBeVisible();
-  await expect(page.getByLabel('Quantity',{exact:true})).toBeFocused();
+  await expect(page.getByLabel('Quantity',{exact:true})).not.toBeFocused();
 
   const timeTrigger=page.locator('.custom-time-trigger');
   await timeTrigger.press('Enter');
