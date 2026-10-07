@@ -6,6 +6,8 @@ namespace Nutrition.Api.Services;
 public record ScanInput(Guid Id,string Mode,string Description,string? ImageBase64);
 public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi ai,StorageService storage,ILogger<ScanService> logger)
 {
+    /// Every temporary scan image an account uploads lives under this prefix.
+    public static string ObjectPrefix(Guid userId)=>$"nutrition-scans/{userId}/";
     public async Task<ScanJob> Create(ScanInput input,CancellationToken ct)
     {
         Validation.Require(input.Id!=Guid.Empty&&input.Mode is "photo" or "label" or "description","Invalid scan.");
@@ -34,7 +36,7 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
                 duplicate.Error=null;
                 duplicate.ResultJson=null;
                 duplicate.LeaseUntil=null;
-                duplicate.ObjectPath=bytes==null?null:$"nutrition-scans/{db.CurrentUser}/{input.Id}.jpg";
+                duplicate.ObjectPath=bytes==null?null:$"{ObjectPrefix(db.CurrentUser!.Value)}{input.Id}.jpg";
                 await db.SaveChangesAsync(ct);
                 await gate.Commit(ct);
                 scan=duplicate;
@@ -44,7 +46,7 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
             {
                 await storage.AllowOptional(ct);
                 Validation.Require(await db.Scans.CountAsync(s=>s.Created>DateTime.UtcNow.AddDays(-1),ct)<40,"Too many AI requests today.",429);
-                scan=new ScanJob { Id=input.Id,UserId=db.CurrentUser!.Value,RequestHash=hash,ImageBytes=bytes?.Length??0,Mode=input.Mode,Description=input.Description,Status=bytes==null?"queued":"uploading",ObjectPath=bytes==null?null:$"nutrition-scans/{db.CurrentUser}/{input.Id}.jpg" };
+                scan=new ScanJob { Id=input.Id,UserId=db.CurrentUser!.Value,RequestHash=hash,ImageBytes=bytes?.Length??0,Mode=input.Mode,Description=input.Description,Status=bytes==null?"queued":"uploading",ObjectPath=bytes==null?null:$"{ObjectPrefix(db.CurrentUser!.Value)}{input.Id}.jpg" };
                 db.Scans.Add(scan); await db.SaveChangesAsync(ct); await gate.Commit(ct);
                 uploadRequired=bytes!=null;
             }

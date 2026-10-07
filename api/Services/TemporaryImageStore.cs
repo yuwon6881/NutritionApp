@@ -12,4 +12,5 @@ public sealed class TemporaryImageStore(HttpClient http,IConfiguration config,Fu
     }
     public Task<byte[]> Get(string path,CancellationToken ct)=>store.Get(path,ct);
     public Task Delete(string path,CancellationToken ct)=>store.Delete(path,ct);
+    public Task<int> DeleteAllVersionsUnder(string prefix,CancellationToken ct)=>store.DeleteAllVersionsUnder(prefix,ct);
 }

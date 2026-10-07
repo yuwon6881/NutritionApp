@@ -50,6 +50,7 @@ builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSu
 builder.Services.AddScoped<BootstrapReadService>();
 builder.Services.AddScoped<BodyRecordService>();builder.Services.AddScoped<BodyFatEstimateService>();
 builder.Services.AddSingleton<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<ISharedAccessTokenValidator>(sp=>sp.GetRequiredService<OpenIddictAccessTokenService>());builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
+builder.Services.AddSingleton<IAccountDeletionNoticeValidator>(sp=>sp.GetRequiredService<SharedAccessTokenService>());builder.Services.AddScoped<AccountErasureService>();
 builder.Services.AddScoped<WorkoutSummaryService>();
 builder.Services.AddAuthentication(options =>
 {
@@ -186,7 +187,8 @@ app.Use(async(http,next)=>
     if(http.Request.Path.StartsWithSegments("/api")) http.Response.Headers.CacheControl="no-store";
     try
     {
-        if((HttpMethods.IsPost(http.Request.Method)||HttpMethods.IsDelete(http.Request.Method))&&!http.Request.Path.StartsWithSegments("/internal"))
+        // The account-deletion receiver is server-to-server and authenticated by its signed notice.
+        if((HttpMethods.IsPost(http.Request.Method)||HttpMethods.IsDelete(http.Request.Method))&&!http.Request.Path.StartsWithSegments("/internal")&&http.Request.Path.Value!=AccountDeletionEndpoints.Path)
         {
             var origin=http.Request.Headers.Origin.ToString();
             var allowed=builder.Configuration["PublicOrigin"]??$"{http.Request.Scheme}://{http.Request.Host}";
@@ -198,7 +200,7 @@ app.Use(async(http,next)=>
             var supplied=http.Request.Headers["X-Cleanup-Token"].ToString();
             Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(supplied),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
         }
-        else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback" or "/api/notifications/subscriptions/revoke"))
+        else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback" or "/api/notifications/subscriptions/revoke" or AccountDeletionEndpoints.Path))
         {
             var db=http.RequestServices.GetRequiredService<AppDb>();
             var token=http.Request.Cookies[AuthService.Cookie];
@@ -219,7 +221,7 @@ app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareRespon
     if(c.File.Name=="sw.js"||c.File.Name=="index.html") c.Context.Response.Headers.CacheControl="no-cache";
     else if(c.Context.Request.Path.StartsWithSegments("/assets")) c.Context.Response.Headers.CacheControl="public,max-age=31536000,immutable";
 } });
-app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapAiChat();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapNutritionNotifications();
+app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapAiChat();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapNutritionNotifications();app.MapAccountDeletion();
 app.MapGet("/health",()=>new { status="ok" });
 app.MapFallback(async http=>
 {

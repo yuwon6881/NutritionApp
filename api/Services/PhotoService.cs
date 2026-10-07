@@ -13,6 +13,8 @@ public record PhotoLegacyPage(bool Configured,long UsedBytes,long MaxBytes,IRead
 
 public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration config,StorageService storage)
 {
+    /// Every physique object an account owns lives under this prefix, which is what lets erasure find old generations.
+    public static string ObjectPrefix(Guid userId)=>$"nutrition-physique/{userId}/";
     private static readonly DateOnly EarliestDate=new(2000,1,1);
     public bool Configured => store.Configured;
 
@@ -152,7 +154,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                     {
                         Id=part.Id,UserId=uid,SetId=input.Id,Date=input.Date,Angle=part.Angle,
                         Bytes=preparedPhoto.Bytes.Length,RequestHash=preparedPhoto.Hash,
-                        ObjectPath=$"nutrition-physique/{uid}/{part.Id}.jpg",Status="uploading"
+                        ObjectPath=$"{ObjectPrefix(uid)}{part.Id}.jpg",Status="uploading"
                     };
                     db.Photos.Add(existing);
                 }

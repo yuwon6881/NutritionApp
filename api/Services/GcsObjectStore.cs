@@ -17,6 +17,12 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         var uploadCondition=generation is not null?"&ifGenerationMatch="+Uri.EscapeDataString(generation):(replace?string.Empty:"&ifGenerationMatch=0");
         var url=method==HttpMethod.Post?$"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name={name}&fields=generation{uploadCondition}":$"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}"+(method==HttpMethod.Get?(metadata?"?fields=generation":"?alt=media"):generation==null?"":"?generation="+Uri.EscapeDataString(generation));
         using var request=new HttpRequestMessage(method,url);
+        await Authorize(request,ct);
+        if(bytes!=null){request.Content=new ByteArrayContent(bytes);request.Content.Headers.ContentType=new("image/jpeg");}
+        return await http.SendAsync(request,ct);
+    }
+    private async Task Authorize(HttpRequestMessage request,CancellationToken ct)
+    {
         try
         {
             string token;
@@ -25,8 +31,33 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
             request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);
         }
         catch(Exception ex) when(ex is not OperationCanceledException) { throw new DomainException("Google Cloud photo credentials are unavailable.",503); }
-        if(bytes!=null){request.Content=new ByteArrayContent(bytes);request.Content.Headers.ContentType=new("image/jpeg");}
-        return await http.SendAsync(request,ct);
+    }
+
+    /// Deletes every generation stored under a prefix, noncurrent versions included. Ordinary
+    /// deletes leave earlier generations in a versioned bucket, so erasing an account cannot rely on
+    /// the database's record of the current one. An unconfigured bucket holds nothing to erase.
+    public async Task<int> DeleteAllVersionsUnder(string prefix,CancellationToken ct)
+    {
+        if(!Configured)return 0;
+        Validation.Require(prefix.EndsWith('/')&&prefix.Count(c=>c=='/')>=2,"Refusing to erase an unscoped storage prefix.",500);
+        var objects=new List<(string Name,string Generation)>();
+        string? page=null;
+        do
+        {
+            var url=$"https://storage.googleapis.com/storage/v1/b/{Uri.EscapeDataString(bucketName!)}/o?prefix={Uri.EscapeDataString(prefix)}&versions=true&fields=items(name,generation),nextPageToken"
+                +(page is null?"":"&pageToken="+Uri.EscapeDataString(page));
+            using var request=new HttpRequestMessage(HttpMethod.Get,url);
+            await Authorize(request,ct);
+            using var response=await http.SendAsync(request,ct);
+            Validation.Require(response.IsSuccessStatusCode,"Could not list stored images for erasure.",503);
+            using var document=System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            if(document.RootElement.TryGetProperty("items",out var items))
+                foreach(var item in items.EnumerateArray())
+                    objects.Add((item.GetProperty("name").GetString()!,item.GetProperty("generation").GetString()!));
+            page=document.RootElement.TryGetProperty("nextPageToken",out var next)?next.GetString():null;
+        } while(!string.IsNullOrEmpty(page));
+        foreach(var (name,generation) in objects) await Delete(name,ct,generation);
+        return objects.Count;
     }
     public async Task<string?> Put(string path,byte[] bytes,CancellationToken ct,bool replace=false,string? expectedGeneration=null)
     {
