@@ -139,6 +139,31 @@ public sealed class ExpenditureTests
     }
 
     [Fact]
+    public void Coaching_reports_marked_days_and_applies_the_marked_share_cap()
+    {
+        // Marked bloating days must reach the weight signal unresolved: resolving them before the
+        // estimator dropped them silently, so neither the 30% cap nor the explanation applied.
+        var profile = new Profile
+        {
+            Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
+            Goal = "maintain", Maintenance = 2500
+        };
+        var one = Weights().Select((weight, index) => index == 20
+            ? weight with { Kg = 81.8, Context = "bloating" }
+            : weight).ToArray();
+        var many = Weights().Select((weight, index) => index % 2 == 0
+            ? weight with { Kg = 81.8, Context = "bloating" }
+            : weight).ToArray();
+
+        var single = Coach.Calculate(profile, Days(), one, null, Today);
+        var capped = Coach.Calculate(profile, Days(), many, null, Today);
+
+        Assert.Equal(1, single.Evidence!.ContextExcluded);
+        Assert.Contains("Excluded 1 weigh-in day", single.Explanation);
+        Assert.Equal((int)Math.Floor(28 * WeightContextPolicy.MaxAdjustedShare), capped.Evidence!.ContextExcluded);
+    }
+
+    [Fact]
     public void Endpoint_and_Theil_Sen_disagreement_holds_adaptation()
     {
         var signal = WeightSignal.Analyze(Weights(i => i < 19 ? 80 : 82), Today);

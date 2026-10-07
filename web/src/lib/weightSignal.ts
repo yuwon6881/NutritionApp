@@ -1,6 +1,6 @@
-import type {WeightContextCode} from '../types';
+import type {Weight,WeightContextCode,WeightUnit} from '../types';
 import {trend} from './format';
-import {median,weightContextRule} from './weightContext';
+import {median,unusualWeightDifference,weightContextRule} from './weightContext';
 
 /** Mirrors the policy block of tests/fixtures/weight-context.json and the server's WeightSignal. */
 export const weightSignalPolicy={
@@ -70,4 +70,13 @@ export function cleanTrend(points:readonly SignalPoint[],today:string,windowDays
   const counted=countedWeighIns(points).filter(point=>point.date<=today);
   const flags=outlierDates(counted,today,windowDays);
   return trend(counted.filter(point=>!flags.has(point.date)));
+}
+
+/**
+ * The unusual weigh-in check against the weigh-ins that count toward the trend. An unconfirmed marked
+ * day (bloating, a salty meal) is not the level to expect next, or a normal return would read as a drop.
+ */
+export function unusualWeighIn(enteredValue:string,unit:WeightUnit,date:string,weights:readonly Weight[],excludeId?:string){
+  const baseline=countedWeighIns(weights.filter(weight=>!weight.deleted&&weight.id!==excludeId));
+  return unusualWeightDifference(enteredValue,unit,date,baseline);
 }

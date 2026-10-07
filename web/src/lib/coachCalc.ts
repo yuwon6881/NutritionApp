@@ -122,12 +122,13 @@ export function calculateLivePace(
   const goal=p.goal||'maintain';
   const legacyPercent=percentOverride??p.energyAdjustmentPercent;
   const goalRate=p.goalRatePercent??(goal==='lose'?-0.5:goal==='gain'?0.15:0);
+  // Without a stored pace or adjustment the server caps the change by bodyweight, so the preview does too.
   const rawChange=p.goalRatePercent!=null
     ?p.weightKg*goalRate/100*7700/7
     :goal==='lose'
-      ?-expenditure*(legacyPercent??15)/100
+      ?legacyPercent!=null?-expenditure*legacyPercent/100:-Math.min(expenditure*.20,p.weightKg*.005*7700/7)
       :goal==='gain'
-        ?expenditure*(legacyPercent??5)/100
+        ?legacyPercent!=null?expenditure*legacyPercent/100:Math.min(expenditure*.10,p.weightKg*.0015*7700/7)
         :0;
 
   const unconstrainedTarget=expenditure>0?Math.round((expenditure+rawChange)/25)*25:2000;

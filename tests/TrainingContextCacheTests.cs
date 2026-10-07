@@ -24,6 +24,33 @@ public sealed class TrainingContextCacheTests
     }
 
     [Fact]
+    public async Task Published_scale_weight_skips_a_weigh_in_marked_as_temporary()
+    {
+        // Workout prefers a same-day scale weight for bodyweight loads; a bloated morning the user
+        // marked as temporary must not become the reference for a pull-up or dip.
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = new AppUser { IdentitySubject = "alice", DisplayName = "Alice", Revision = 1,
+            ProfileJson = Json.Write(new Profile { Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4, Goal = "maintain", TimeZone = "UTC" }) };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.CurrentUser = user.Id;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        db.Weights.AddRange(
+            new Weight { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-2), Kg = 80 },
+            new Weight { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-1), Kg = 80.1 },
+            new Weight { Id = Guid.NewGuid(), UserId = user.Id, Date = today, Kg = 82.4, Context = "bloating" });
+        await db.SaveChangesAsync();
+
+        var context = await new TrainingContextService(db).Get("alice", default);
+
+        Assert.Equal(80.1, context.ScaleWeightKg);
+        Assert.Equal(today.AddDays(-1), context.ScaleWeightDate);
+    }
+
+    [Fact]
     public async Task Reuses_identical_calculations_and_invalidates_a_backdated_weight_edit()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

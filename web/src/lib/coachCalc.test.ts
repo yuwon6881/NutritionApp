@@ -74,6 +74,16 @@ describe('coachCalc', ()=>{
     expect(floored.change).toBe(-500);
   });
 
+  it('mirrors the server default when neither a pace rate nor an adjustment is stored', ()=>{
+    // Server: loss is the smaller of 20% and 0.5% bodyweight a week; gain the smaller of 10% and 0.15%.
+    const lose=calculateLivePace({...base,goal:'lose',goalRatePercent:null,energyAdjustmentPercent:null});
+    const gain=calculateLivePace({...base,goal:'gain',goalRatePercent:null,energyAdjustmentPercent:null});
+    expect(lose.rawChange).toBe(Math.round(-81*.005*7700/7));
+    expect(lose.target).toBe(2050);
+    expect(gain.rawChange).toBe(Math.round(81*.0015*7700/7));
+    expect(gain.target).toBe(2625);
+  });
+
   it('determines pace status and contextual feedback for loss and gain', ()=>{
     expect(getPaceStatus('lose', -0.3, false, 'kcal', 2263, 2050).tone).toBe('gentle');
     expect(getPaceStatus('lose', -0.75, false, 'kcal', 2263, 1725).tone).toBe('recommended');

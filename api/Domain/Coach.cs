@@ -50,7 +50,7 @@ public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double
 
 public static class Coach
 {
-    public const string Version = "2.2.0";
+    public const string Version = "2.2.1";
     public static double Resting(Profile p) => 10 * p.WeightKg + 6.25 * p.HeightCm - 5 * p.Age + (p.Sex == "male" ? 5 : -161);
 
     /// A stored date of birth is authoritative so age advances with the calendar; Age remains the fallback for profiles saved before it existed.
@@ -78,7 +78,8 @@ public static class Coach
         if (effectiveGoal == "lose" && p.WeightKg / Math.Pow(p.HeightCm / 100, 2) < 18.5)
             return Blocked("Weight-loss coaching is unavailable at an underweight BMI.");
         var expenditure = startingExpenditure ?? previous?.Expenditure ?? p.Maintenance ?? Resting(p) * p.Activity;
-        var estimate = Expenditure.Estimate(days, calorieWeights, expenditure, today, allowAdaptation);
+        // The estimator resolves marked days itself; pre-resolved weights would bypass its share cap and settle weighting.
+        var estimate = Expenditure.Estimate(days, weights, expenditure, today, allowAdaptation);
         var adaptive = adaptiveOverride ?? estimate.Adaptive;
         var reason = p.Maintenance is not null
             ? "Starting from your supplied maintenance estimate. Log complete days and weigh regularly to calibrate it."

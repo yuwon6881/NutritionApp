@@ -2,7 +2,7 @@ import {readFileSync} from 'node:fs';
 import {describe,expect,it} from 'vitest';
 import type {WeightContextCode} from '../types';
 import {weightContextRules} from './weightContext';
-import {cleanTrend,countedWeighIns,outlierDates,weightSignalPolicy,type SignalPoint} from './weightSignal';
+import {cleanTrend,countedWeighIns,outlierDates,unusualWeighIn,weightSignalPolicy,type SignalPoint} from './weightSignal';
 
 type Fixture={
   policy:Record<string,number>;
@@ -53,5 +53,29 @@ describe('clean weight trend',()=>{
   it('keeps a recent marked day out until later weigh-ins exist',()=>{
     const weights=series(index=>index===26?81.6:80,index=>index===26?'stress':undefined);
     expect(countedWeighIns(weights).some(point=>point.date===day(26))).toBe(false);
+  });
+});
+
+describe('unusual weigh-in baseline',()=>{
+  const weigh=(date:string,kg:number,context:WeightContextCode|null=null)=>({id:date,revision:1,deleted:false,date,kg,context});
+
+  it('leaves unconfirmed marked bloating days out of the expected weight',()=>{
+    // Four bloated mornings would otherwise set the expected weight to 82.5 kg and read a normal return as a drop.
+    const weights=[
+      weigh('2026-09-04',80),weigh('2026-09-05',80),
+      weigh('2026-09-06',82.5,'bloating'),weigh('2026-09-07',82.5,'bloating'),
+      weigh('2026-09-08',82.5,'bloating'),weigh('2026-09-09',82.5,'bloating'),
+      weigh('2026-09-10',80),
+    ];
+
+    expect(unusualWeighIn('80','kg','2026-09-11',weights)).toBeNull();
+    expect(unusualWeighIn('82','kg','2026-09-11',weights)?.direction).toBe('up');
+  });
+
+  it('ignores deleted weigh-ins and the record being edited',()=>{
+    const weights=[weigh('2026-09-04',80),weigh('2026-09-06',80),weigh('2026-09-08',80),{...weigh('2026-09-09',90),deleted:true}];
+
+    expect(unusualWeighIn('82','kg','2026-09-11',weights)?.expectedKg).toBe(80);
+    expect(unusualWeighIn('82','kg','2026-09-11',weights,'2026-09-08')).toBeNull();
   });
 });

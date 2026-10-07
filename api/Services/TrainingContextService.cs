@@ -65,9 +65,12 @@ public sealed class TrainingContextService(AppDb db, IMemoryCache? cache = null)
         var phase = await db.PhaseDecisions.AsNoTracking()
             .SingleOrDefaultAsync(d => d.ProfileRevision == user.ProfileRevision && !d.Deleted, ct);
         var trend = WeightSignal.CleanTrend(weights, today);
-        var progress = GoalPolicy.Evaluate(profile, WeightContextPolicy.ForCalorieEstimation(weights), today, phase, user.WeightGoalMetric ?? "scale", trend);
+        var counted = WeightContextPolicy.ForCalorieEstimation(weights);
+        var progress = GoalPolicy.Evaluate(profile, counted, today, phase, user.WeightGoalMetric ?? "scale", trend);
         var effective = progress.Complete ? "maintain" : profile.Goal;
-        var rawLast = weights.LastOrDefault();
+        // Workout freezes this as a bodyweight-load reference: a weigh-in the user marked as a
+        // temporary fluctuation (bloating, a salty meal) is not their weight until later ones confirm it.
+        var rawLast = counted.LastOrDefault();
         var trendLast = trend.LastOrDefault();
         var observed = ObservedLossFromTrend(trend, today);
         double? target = effective == "lose" ? Math.Abs(profile.GoalRatePercent ?? Coach.EffectiveGoalRate(profile, effective)) : null;

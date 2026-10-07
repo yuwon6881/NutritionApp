@@ -10,7 +10,8 @@ import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
 import {displayEnergy,displayWeight,energyLabel,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {weightEntryDirty,weightEntryValues} from '../lib/weightEntry';
-import {unusualWeightDifference,weightContextOptionsFor} from '../lib/weightContext';
+import {weightContextOptionsFor} from '../lib/weightContext';
+import {unusualWeighIn} from '../lib/weightSignal';
 import {recentIntake} from '../lib/weighInEvidence';
 import {targetsForDate} from '../lib/dailyTargets';
 import {useAsyncAction} from './ui/useAsyncAction';
@@ -44,7 +45,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
   },[open,initial?.id,date]);
 
   const existing=state.weights.find(weight=>weight.date===values.date);
-  const unusual=unusualWeightDifference(values.kg,units.weight,values.date,state.weights,initial?.id);
+  const unusual=unusualWeighIn(values.kg,units.weight,values.date,state.weights,initial?.id);
   const intake=unusual?recentIntake(state.entries,state.days,values.date):null;
   const accepted=state.plans.find(plan=>!plan.deleted);
   const target=accepted?targetsForDate(JSON.parse(accepted.resultJson) as CoachResult,values.date).calories:null;
