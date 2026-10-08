@@ -3,7 +3,8 @@
  *
  * History holds three kinds of entry:
  * - page entries (`__nutritionPage`, `__nutritionDepth`) pushed by top-level navigation;
- * - one entry per open Modal (`__nutritionModal`, owned by ui/Modal);
+ * - one entry per open Modal (`__nutritionModal`, owned by ui/Modal), listing every dialog
+ *   open beneath it so a stale nested entry is never read as leaving an outer dialog;
  * - at most one guard entry (`__nutritionGuard`) while any lighter layer — selection
  *   mode, a dialog step, a popover — wants Back. Layers are consumed innermost first.
  *
@@ -22,6 +23,18 @@ export const PAGE_KEY='__nutritionPage';
 export const DEPTH_KEY='__nutritionDepth';
 export const MODAL_KEY='__nutritionModal';
 export const GUARD_KEY='__nutritionGuard';
+/** Every dialog open at this entry, outermost first; `MODAL_KEY` names the innermost. */
+export const MODAL_STACK_KEY='__nutritionModals';
+
+export function modalStack(state:HistoryState):string[]{
+  const stack=state[MODAL_STACK_KEY];
+  return Array.isArray(stack)?stack.filter((item):item is string=>typeof item==='string'):[];
+}
+
+/** The entry a dialog pushes over `state`: it becomes the innermost open dialog. */
+export function withModalEntry(state:HistoryState,token:string):HistoryState{
+  return {...state,[MODAL_KEY]:token,[MODAL_STACK_KEY]:[...modalStack(state).filter(item=>item!==token),token]};
+}
 
 export function readState(port:HistoryPort):HistoryState{
   const state=port.state;

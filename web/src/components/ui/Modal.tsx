@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useId,useRef,useState,type ReactNode} from 'react';
 import {X} from 'lucide-react';
 import {Button} from './Button';
+import {GUARD_KEY,MODAL_KEY,modalStack,readState,withModalEntry} from '../../lib/appHistory';
 
 export type ModalWidth='sm'|'md'|'lg'|'xl';
 
@@ -182,18 +183,20 @@ export function Modal({
   // rules.
   useEffect(()=>{
     if(!open||typeof window==='undefined'||historyEntry.current)return;
-    const state=window.history.state&&typeof window.history.state==='object'&&!Array.isArray(window.history.state)
-      ?window.history.state as Record<string,unknown>
-      :{};
-    window.history.pushState({...state,__nutritionModal:historyToken},'');
+    window.history.pushState(withModalEntry(readState(window.history),historyToken),'');
     historyEntry.current=true;
+  },[historyToken,open]);
+
+  // Kept separate from the push so a dirty or protected change re-subscribes
+  // without pushing a second entry.
+  useEffect(()=>{
+    if(!open||typeof window==='undefined')return;
     const onPopState=()=>{
-      if(window.history.state?.__nutritionModal===historyToken||!historyEntry.current)return;
+      // An entry left by a nested surface still lists this dialog; only leaving
+      // this dialog's own entry is Back for it.
+      if(!historyEntry.current||modalStack(readState(window.history)).includes(historyToken))return;
       if(preventDismiss||dirty){
-        const current=window.history.state&&typeof window.history.state==='object'&&!Array.isArray(window.history.state)
-          ?window.history.state as Record<string,unknown>
-          :{};
-        window.history.pushState({...current,__nutritionModal:historyToken},'');
+        window.history.pushState(withModalEntry(readState(window.history),historyToken),'');
         if(!preventDismiss)requestCloseRef.current('cancel');
         return;
       }
@@ -209,6 +212,15 @@ export function Modal({
     historyEntry.current=false;
     window.history.back();
   },[open]);
+
+  // A dialog unmounted while open (rendered behind a condition) never runs its
+  // close path. Remove its entry so a later Back does not land on it.
+  useEffect(()=>()=>{
+    if(typeof window==='undefined'||!historyEntry.current)return;
+    historyEntry.current=false;
+    const state=readState(window.history);
+    if(state[MODAL_KEY]===historyToken&&!(GUARD_KEY in state))window.history.back();
+  },[historyToken]);
 
   const onKeyDown=(event:React.KeyboardEvent<HTMLDialogElement>)=>{
     if(confirming&&event.key==='Escape'){

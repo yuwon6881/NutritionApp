@@ -1,5 +1,5 @@
 import {describe,expect,it,vi} from 'vitest';
-import {createBackCoordinator,hardwareBackAction,GUARD_KEY,MODAL_KEY,PAGE_KEY,DEPTH_KEY,isLayerEntry,type HistoryPort,type HistoryState} from './appHistory';
+import {createBackCoordinator,hardwareBackAction,GUARD_KEY,MODAL_KEY,PAGE_KEY,DEPTH_KEY,isLayerEntry,modalStack,withModalEntry,type HistoryPort,type HistoryState} from './appHistory';
 
 /** Minimal session history: back() is asynchronous like the browser's. */
 function fakeHistory(initial:HistoryState={[PAGE_KEY]:'today',[DEPTH_KEY]:0}){
@@ -129,5 +129,25 @@ describe('back coordinator after a reload',()=>{
     coordinator.replacePage('today');
     expect(history.port.state).toEqual({[PAGE_KEY]:'today',[DEPTH_KEY]:3});
     expect(isLayerEntry(history.port.state as HistoryState)).toBe(false);
+  });
+});
+
+describe('dialog entries',()=>{
+  it('list every dialog open beneath the innermost one',()=>{
+    const page={[PAGE_KEY]:'today',[DEPTH_KEY]:0};
+    const outer=withModalEntry(page,'log-food');
+    const inner=withModalEntry({...outer,[GUARD_KEY]:true},'camera');
+    expect(outer[MODAL_KEY]).toBe('log-food');
+    expect(inner[MODAL_KEY]).toBe('camera');
+    expect(modalStack(inner)).toEqual(['log-food','camera']);
+    // A stale entry left by a nested dialog still belongs to the outer dialog.
+    expect(modalStack(inner)).toContain('log-food');
+    expect(modalStack(page)).toEqual([]);
+    expect(isLayerEntry(inner)).toBe(true);
+  });
+
+  it('re-pushing an open dialog does not duplicate it',()=>{
+    const entry=withModalEntry(withModalEntry({},'a'),'a');
+    expect(modalStack(entry)).toEqual(['a']);
   });
 });

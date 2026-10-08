@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {Camera, Images, LoaderCircle, MessageSquareText, ScanText, Sparkles, UploadCloud, X} from 'lucide-react';
+import {ArrowLeft, Camera, Images, LoaderCircle, MessageSquareText, ScanText, Sparkles, UploadCloud, X} from 'lucide-react';
 import type {FoodScanDraft} from '../lib/foodScans';
 import {Button} from './ui/Button';
 import {TextArea} from './ui/Field';
@@ -172,15 +172,15 @@ export function LogFoodAiForm({
     : mode === 'label' ? 'Read nutrition label' : 'Estimate my meal';
 
   return <Form onSubmit={onSubmit} className="ai-logging-form">
-    {pendingBarcode && (
-      <div className="section-heading">
-        <div>
-          <h3>Scan nutrition label</h3>
-          <p>Barcode {pendingBarcode.code} · review the extracted values before saving.</p>
-        </div>
-        <Button type="button" variant="tertiary" onClick={onBackToBarcode}>Back to barcode</Button>
+    {pendingBarcode && <>
+      <div className="editor-back-nav">
+        <Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={onBackToBarcode}><ArrowLeft size={16} aria-hidden="true"/>Back to barcode</Button>
       </div>
-    )}
+      <div className="ai-barcode-context">
+        <h3>Scan nutrition label</h3>
+        <p>Barcode {pendingBarcode.code} · review the extracted values before saving.</p>
+      </div>
+    </>}
     {!pendingBarcode && <h3>AI logging</h3>}
     {!pendingBarcode && (
       <SegmentedControl<AiMode>

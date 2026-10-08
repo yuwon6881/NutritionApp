@@ -7,7 +7,9 @@
 
 
 .barcode-camera-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.barcode-camera-status>p{margin:0}
+.barcode-camera-status{margin-top:10px}
+.barcode-camera-status>p{margin:0;flex:1 1 180px;font-size:.82rem;line-height:1.5}
+.barcode-camera-status>.button{margin-left:auto}
 
 /* Day selection scrolls independently of the selected date. */
 .food-calendar{order:3;flex-basis:100%;width:100%;min-width:0}

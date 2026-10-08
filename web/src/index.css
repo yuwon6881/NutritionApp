@@ -1520,6 +1520,12 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Shared recipe selection and barcode recovery surfaces */
 .barcode-recovery h4{margin:0 0 6px;color:var(--ink-strong);font-size:.92rem}
 .barcode-recovery p{margin-bottom:12px}
+/* Phones and tablets give every recovery path an equal target instead of a ragged wrap. */
+@media(max-width:1023px){.barcode-recovery .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.barcode-recovery .actions>.button:last-child:nth-child(odd){grid-column:1/-1}}
+.ai-barcode-context{margin-bottom:16px}
+.ai-barcode-context h3{margin-bottom:4px}
+.ai-barcode-context p{margin:0;font-size:.8rem;overflow-wrap:anywhere}
+.portion-definitions>.button{display:flex;width:fit-content;margin-left:auto}
 .barcode-link-notice{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .barcode-link-notice p{margin:0;flex:1;min-width:0}
 .recipe-ingredients-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}

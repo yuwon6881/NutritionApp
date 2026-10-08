@@ -3,21 +3,22 @@
  * A camera feed is dark in either theme, so the viewfinder uses fixed camera
  * tokens rather than the page palette.
  */
-:root{--camera-surface:#0b0e14;--camera-ink:#fff;--camera-ink-soft:rgb(255 255 255 / .65);--camera-scrim:rgb(0 0 0 / .45);--camera-detected:var(--primary)}
+:root{--camera-surface:#0b0e14;--camera-ink:#fff;--camera-scrim:rgb(0 0 0 / .45);--camera-detected:var(--primary)}
 
 .barcode-camera{margin-top:16px}
 .barcode-viewport{position:relative;overflow:hidden;isolation:isolate;border-radius:14px;background:var(--camera-surface);aspect-ratio:4/3;max-height:420px}
 .barcode-video{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
 .barcode-camera>p{margin:10px 0 0;font-size:.8rem}
 
-/* Wide like a retail barcode; everything outside the frame is dimmed. */
-.barcode-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:84%;max-width:420px;aspect-ratio:2.8;border:1px solid var(--camera-ink-soft);border-radius:12px;box-shadow:0 0 0 100vmax var(--camera-scrim);pointer-events:none}
-.barcode-frame>i{position:absolute;width:24px;height:24px;border:3px solid var(--camera-ink)}
-.barcode-frame>i:nth-child(1){left:-2px;top:-2px;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
-.barcode-frame>i:nth-child(2){right:-2px;top:-2px;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
-.barcode-frame>i:nth-child(3){right:-2px;bottom:-2px;border-left:0;border-top:0;border-radius:0 0 12px 0}
-.barcode-frame>i:nth-child(4){left:-2px;bottom:-2px;border-right:0;border-top:0;border-radius:0 0 0 12px}
-.barcode-frame.detected{border-color:var(--camera-detected)}
+/* Wide like a retail barcode; everything outside the frame is dimmed. The corner
+   brackets alone mark the frame, drawn inside its rounded edge so the scrim cutout
+   and the brackets share one outline. */
+.barcode-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:84%;max-width:420px;aspect-ratio:2.8;border-radius:12px;box-shadow:0 0 0 100vmax var(--camera-scrim);pointer-events:none}
+.barcode-frame>i{position:absolute;width:28px;height:28px;border:3px solid var(--camera-ink)}
+.barcode-frame>i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+.barcode-frame>i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+.barcode-frame>i:nth-child(3){right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 12px 0}
+.barcode-frame>i:nth-child(4){left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 12px}
 .barcode-frame.detected>i{border-color:var(--camera-detected)}
 .barcode-silhouette{position:absolute;inset:22% 12%;display:flex;gap:3px;opacity:.22}
 .barcode-silhouette>b{display:block;min-width:2px;background:var(--camera-ink);border-radius:1px}
