@@ -10,5 +10,5 @@
     if(signedIn&&(saved==='light'||saved==='dark'))theme=saved;
   }catch{/* Storage can be unavailable; the browser or OS appearance applies. */}
   document.documentElement.dataset.theme=theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='dark'?'#0b0e14':'#fcfcfc');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='dark'?'#000000':'#f4f4f5');
 })();

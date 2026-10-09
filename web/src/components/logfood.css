@@ -19,7 +19,7 @@
 .food-selection .segmented-control.food-methods,
 .ai-logging-form .segmented-control.ai-mode-choice{gap:2px;margin:0 0 20px;padding:4px;border-radius:14px;background:var(--muted);border:1px solid var(--border)}
 .food-methods .selection-indicator-marker,
-.ai-mode-choice .selection-indicator-marker{border-radius:11px;background:var(--card);box-shadow:0 0 0 1px var(--border),var(--shadow)}
+.ai-mode-choice .selection-indicator-marker{border-radius:11px;background:var(--raised);box-shadow:0 0 0 1px var(--border),var(--shadow)}
 .food-methods .selection-indicator-marker::after,
 .ai-mode-choice .selection-indicator-marker::after{display:none}
 .food-selection .segmented-control.food-methods>.button,
@@ -136,13 +136,13 @@
 .day-energy-preview-detail{display:flex;align-items:center;gap:8px;margin:0;font-size:.8rem;font-variant-numeric:tabular-nums}
 .day-energy-preview-note{font-size:.8rem;margin:0}
 .day-energy-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.day-energy-swatch.logged{background:var(--primary)}
+.day-energy-swatch.logged{background:var(--energy)}
 .day-energy-preview .energy-ring{width:108px;max-width:36%}
 /* The preview ring is small, so its centre reads larger than the Dashboard ring's; going over the target takes the destructive tone. */
 .day-energy-preview .energy-ring .ring-value{font-size:24px}
 .day-energy-preview .energy-ring .ring-label{font-size:14px;font-weight:550}
 .day-energy-preview .energy-ring .ring-over{fill:var(--destructive)}
-.ring-pending{stroke:color-mix(in srgb,var(--primary) 40%,var(--track));stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease),stroke-dashoffset var(--motion-layout) var(--motion-ease)}
+.ring-pending{stroke:color-mix(in srgb,var(--energy) 40%,var(--track));stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease),stroke-dashoffset var(--motion-layout) var(--motion-ease)}
 @media (max-width:639px){.day-energy-preview{padding:12px 14px;gap:12px}.day-energy-preview .energy-ring{width:92px}}
 .food-search-spinner{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;color:var(--muted-foreground)}
 .food-search-spinner>svg{animation:spin 900ms linear infinite}

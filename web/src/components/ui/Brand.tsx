@@ -1,4 +1,7 @@
-/** The application mark, drawn from semantic tokens so it follows the active theme. */
+/**
+ * The application mark: one rounded stroke that reads as an N and a falling trend line. The geometry
+ * matches scripts/generate-icons.mjs; colours come from semantic tokens so the mark follows the theme.
+ */
 export function Brand({size=27,className=''}:{size?:number;className?:string}){
   return (
     <svg
@@ -10,8 +13,15 @@ export function Brand({size=27,className=''}:{size?:number;className?:string}){
       aria-label="Nutrition"
       focusable="false"
     >
-      <rect width="192" height="192" rx="44" className="brand-mark-plate"/>
-      <path d="M50 137V55h20l52 61V55h20v82h-20L70 76v61z" className="brand-mark-letter"/>
+      <rect width="192" height="192" rx="43" className="brand-mark-plate"/>
+      <path
+        d="M62 130V62C100 62 92 130 130 130V62"
+        className="brand-mark-letter"
+        fill="none"
+        strokeWidth="24"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

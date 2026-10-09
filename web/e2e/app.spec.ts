@@ -178,10 +178,10 @@ test('explicit light and dark themes persist without following the browser',asyn
   const appearance=page.getByRole('group',{name:'Appearance',exact:true});await expect(appearance.getByRole('button')).toHaveText(['Light','Dark']);
   await appearance.getByRole('button',{name:'Dark',exact:true}).click();await expect(appearance.getByRole('button',{name:'Dark',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.emulateMedia({colorScheme:'light'});await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#0b0e14');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#000000');
   await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();await page.getByRole('group',{name:'Appearance',exact:true}).getByRole('button',{name:'Light',exact:true}).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#fcfcfc');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#f4f4f5');
 });
 test('changed food dialog asks before closing while AI input stays transient',async({page,context})=>{
   await signIn(context.request);await page.goto('/');const launcher=page.getByRole('button',{name:'Add entry'}).first();await launcher.click();

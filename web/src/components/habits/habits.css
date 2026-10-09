@@ -6,9 +6,9 @@
 .habit-calendars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-bottom:24px}
 .habit-calendars>.panel{margin-bottom:0}
 /* The trigger carries the padding; doubling it with the panel's own made the cards needlessly tall. */
-.panel.habit-calendar{--habit-on:var(--primary);--habit-on-ink:var(--on-primary);padding:0;overflow:hidden}
-.habit-calendar.habit-weight,.habit-months.habit-weight{--habit-on:var(--success);--habit-on-ink:var(--card)}
-.habit-months.habit-food{--habit-on:var(--primary);--habit-on-ink:var(--on-primary)}
+.panel.habit-calendar{--habit-on:var(--energy);--habit-on-ink:var(--card);padding:0;overflow:hidden}
+.habit-calendar.habit-weight,.habit-months.habit-weight{--habit-on:var(--weight);--habit-on-ink:var(--card)}
+.habit-months.habit-food{--habit-on:var(--energy);--habit-on-ink:var(--card)}
 
 .habit-calendar-trigger{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head grid" "count grid" "streak grid";align-items:start;column-gap:20px;width:100%;min-height:44px;padding:20px 24px;margin:0;border:0;border-radius:inherit;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color var(--motion-control) ease}
 @media (hover:hover) and (pointer:fine){

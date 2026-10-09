@@ -11,10 +11,10 @@
 
 .check-in-orb-button{position:relative;z-index:1;width:64px;min-width:64px;height:64px;min-height:64px;padding:0;border-radius:50%;display:grid;place-items:center;line-height:1}
 .check-in-orb-button:disabled{opacity:1}
-.check-in-orb.is-actionable .check-in-orb-button{box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 32%,transparent);transition:background-color var(--motion-control) ease,box-shadow var(--motion-control) ease,transform var(--motion-control) var(--motion-ease)}
+.check-in-orb.is-actionable .check-in-orb-button{box-shadow:var(--shadow-raised);transition:background-color var(--motion-control) ease,box-shadow var(--motion-control) ease,transform var(--motion-control) var(--motion-ease)}
 /* Scale inside the ring instead of the shared lift, which would pull the control off-centre. */
-@media (hover:hover) and (pointer:fine){.check-in-orb.is-actionable .check-in-orb-button:hover:not(:disabled){transform:scale(1.05);box-shadow:0 8px 22px color-mix(in srgb,var(--primary) 38%,transparent)}}
-.check-in-orb.is-actionable .check-in-orb-button:active:not(:disabled){transform:scale(.95);box-shadow:0 3px 10px color-mix(in srgb,var(--primary) 28%,transparent)}
+@media (hover:hover) and (pointer:fine){.check-in-orb.is-actionable .check-in-orb-button:hover:not(:disabled){transform:scale(1.05);box-shadow:var(--shadow-raised)}}
+.check-in-orb.is-actionable .check-in-orb-button:active:not(:disabled){transform:scale(.95);box-shadow:none}
 .check-in-orb.is-waiting .check-in-orb-button,.check-in-orb.is-blocked .check-in-orb-button{background:var(--card);border-color:var(--border);color:var(--muted-foreground);cursor:default}
 .check-in-orb-count{display:grid;justify-items:center;gap:3px}
 .check-in-orb-count strong{font-size:1.3rem;line-height:1;font-variant-numeric:tabular-nums}

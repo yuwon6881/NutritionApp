@@ -19,7 +19,7 @@
 /* Today is boxed whether or not it is selected, as in MacroFactor. */
 .week-day[data-today]{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ink-strong) 55%,transparent)}
 .week-day-bars{display:grid;gap:4px;width:100%}
-.week-day-bar{--bar:var(--primary);position:relative;display:block;height:6px;border-radius:999px;background:var(--track);overflow:hidden}
+.week-day-bar{--bar:var(--energy);position:relative;display:block;height:6px;border-radius:999px;background:var(--track);overflow:hidden}
 .week-day-bar.protein{--bar:var(--protein)}
 .week-day-bar.carbs{--bar:var(--carbs)}
 .week-day-bar.fat{--bar:var(--fat)}
@@ -35,7 +35,7 @@
 .week-nutrition-readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 0;padding-top:16px;border-top:1px solid var(--border)}
 .week-nutrition-figure{min-width:0}
 .week-nutrition-figure dt{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted-foreground)}
-.week-nutrition-figure dt::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0}
+.week-nutrition-figure dt::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--energy);flex-shrink:0}
 .week-nutrition-figure.protein dt::before{background:var(--protein)}
 .week-nutrition-figure.carbs dt::before{background:var(--carbs)}
 .week-nutrition-figure.fat dt::before{background:var(--fat)}
@@ -69,9 +69,9 @@
 .dashboard-insight-text small{font-size:.74rem}
 .dashboard-insight-chevron{color:var(--muted-foreground);transition:transform var(--motion-control) var(--motion-ease),color var(--motion-control) ease}
 .dashboard-sparkline{width:100%;height:52px;overflow:visible}
-.sparkline-line{fill:none;stroke:var(--primary);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
-.sparkline-stop-top{stop-color:var(--primary);stop-opacity:.22}
-.sparkline-stop-bottom{stop-color:var(--primary);stop-opacity:0}
+.sparkline-line{fill:none;stroke:var(--weight);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.sparkline-stop-top{stop-color:var(--weight);stop-opacity:.22}
+.sparkline-stop-bottom{stop-color:var(--weight);stop-opacity:0}
 
 /* Landing cascade: bars grow from the left after their card rises; no transform outlives it. */
 @keyframes weekBarGrow{from{transform:scaleX(0)}}

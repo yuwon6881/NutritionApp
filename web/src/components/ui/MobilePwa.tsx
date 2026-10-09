@@ -231,7 +231,7 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
       const reminder=parseNutritionReminderPayload(event.data.payload,window.location.origin);
       if(!reminder)return;
       void waitForAppServiceWorker().then(registration=>registration.showNotification('Nutrition check-in',{
-        body:'Open Nutrition to review your check-in.',icon:'/icon-192.png',badge:'/icon-192.png',
+        body:'Open Nutrition to review your check-in.',icon:'/icon-192.png',badge:'/badge-96.png',
         tag:'nutrition-check-in',data:{route:reminder.route}
       })).catch(()=>{});
     };
@@ -262,7 +262,7 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
           const route=reminder.route;
           void waitForAppServiceWorker().then(registration=>registration.showNotification(
             payload.notification?.title??'Nutrition check-in',
-            {body:payload.notification?.body??'Open Nutrition to review your check-in.',icon:'/icon-192.png',badge:'/icon-192.png',tag:'nutrition-check-in',data:{route}}
+            {body:payload.notification?.body??'Open Nutrition to review your check-in.',icon:'/icon-192.png',badge:'/badge-96.png',tag:'nutrition-check-in',data:{route}}
           )).catch(()=>{});
         });
         if(disposed)unsubscribe();

@@ -3,7 +3,7 @@
  * A camera feed is dark in either theme, so the viewfinder uses fixed camera
  * tokens rather than the page palette.
  */
-:root{--camera-surface:#0b0e14;--camera-ink:#fff;--camera-scrim:rgb(0 0 0 / .45);--camera-detected:var(--primary)}
+:root{--camera-surface:#000;--camera-ink:#fff;--camera-scrim:rgb(0 0 0 / .45);--camera-detected:#5dba87}
 
 .barcode-camera{margin-top:16px}
 .barcode-viewport{position:relative;overflow:hidden;isolation:isolate;border-radius:14px;background:var(--camera-surface);aspect-ratio:4/3;max-height:420px}

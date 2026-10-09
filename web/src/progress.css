@@ -41,15 +41,15 @@
 .legend-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;flex-shrink:0}
 .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .legend-line{display:inline-block;width:16px;height:0;border-top:2px solid;flex-shrink:0}
-.swatch-intake,.swatch-steps{background:var(--primary)}
-.swatch-partial,.swatch-steps-partial{background:var(--primary);opacity:.45}
+.swatch-intake,.swatch-steps{background:var(--energy)}
+.swatch-partial,.swatch-steps-partial{background:var(--energy);opacity:.45}
 .swatch-missing{background:var(--border)}
 .swatch-maintenance,.swatch-average{border-top-style:dashed;border-color:var(--ink-strong)}
 .swatch-surplus{background:var(--carbs)}
 .swatch-deficit{background:var(--protein)}
 .swatch-scale{background:var(--muted-foreground)}
-.swatch-trend{border-color:var(--primary);border-top-width:3px}
-.swatch-coaching-maintenance{border-top:3px solid var(--primary);border-top-style:solid}
+.swatch-trend{border-color:var(--weight);border-top-width:3px}
+.swatch-coaching-maintenance{border-top:3px solid var(--energy);border-top-style:solid}
 .swatch-coaching-goal{border-top:2px dashed var(--protein);border-top-style:dashed}
 .swatch-coaching-accepted{border-top:2px dotted var(--muted-foreground);border-top-style:dotted;opacity:.8}
 .legend-hint{font-size:.68rem;color:var(--muted-foreground);margin-left:2px}
@@ -62,8 +62,8 @@
 
 /* Weight chart. */
 .weight-chart-panel .section-heading>div>p{max-width:52ch}
-.trend-fill-start{stop-color:var(--primary);stop-opacity:.2}
-.trend-fill-end{stop-color:var(--primary);stop-opacity:0}
+.trend-fill-start{stop-color:var(--weight);stop-opacity:.2}
+.trend-fill-end{stop-color:var(--weight);stop-opacity:0}
 .trend-area{pointer-events:none}
 .scale-dot.is-selected,.trend-dot.is-selected{stroke:var(--card);stroke-width:2}
 .weight-chart-panel .chart-readout{margin-bottom:10px}

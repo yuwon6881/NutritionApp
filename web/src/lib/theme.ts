@@ -25,7 +25,7 @@ export const initialTheme=():Theme=>hasSavedSession()?activeTheme():systemTheme(
 
 export function applyTheme(theme:Theme){
   document.documentElement.dataset.theme=theme;
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content',theme==='dark'?'#0b0e14':'#fcfcfc');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content',theme==='dark'?'#000000':'#f4f4f5');
 }
 
 /** An explicit choice is remembered per device and applies once signed in. */
