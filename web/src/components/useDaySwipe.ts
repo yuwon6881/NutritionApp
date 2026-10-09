@@ -63,6 +63,9 @@ export function useDaySwipe({enabled,date,canPrevious,canNext,onNavigate}:{
     const node=content.current;
     if(!node)return;
     if(reduced){clear();return;}
+    const hasTransform=Boolean(node.style.transform&&!/^translate3d\(0px?,\s*0px?,\s*0px?\)$/.test(node.style.transform));
+    const hasOpacity=Boolean(node.style.opacity&&node.style.opacity!=='1');
+    if(!hasTransform&&!hasOpacity&&!animation.current){clear();return;}
     const from=currentFrame();
     animation.current?.cancel();
     const settled=node.animate([from,{transform:'translate3d(0,0,0)',opacity:'1'}],{...motionTiming('--motion-exit',180),fill:'forwards'});

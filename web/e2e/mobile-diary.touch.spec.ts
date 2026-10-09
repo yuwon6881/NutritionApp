@@ -62,8 +62,10 @@ test('bulk actions sit above the bottom navigation and bulk delete is undoable',
   await card(page,'Chicken rice bowl').click();
   const bar=page.getByRole('toolbar',{name:'Bulk selection actions'});
   const viewport=page.viewportSize()!;
-  const barBox=(await bar.boundingBox())!;
-  expect(barBox.y+barBox.height).toBeGreaterThan(viewport.height*0.7);
+  await expect.poll(async()=>{
+    const barBox=await bar.boundingBox();
+    return barBox?barBox.y+barBox.height:0;
+  }).toBeGreaterThan(viewport.height*0.7);
 
   await bar.getByRole('button',{name:'Delete 2 selected foods',exact:true}).click();
   await expect(page.locator('.undo-toast')).toContainText('Deleted 2 foods');
