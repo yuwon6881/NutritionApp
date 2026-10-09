@@ -12,19 +12,19 @@ try {
   sharp = require(workspaceRoot);
 }
 
-// The mark is the N alone, centred on the 192 grid. Keep it in step with
+// The mark is the N alone, centred on the 192 grid. Keep its path in step with
 // components/ui/Brand.tsx, public/icon.svg, and the Android launcher vector.
 const mark = `<path d="M50 137V55h20l52 61V55h20v82h-20L70 76v61z" fill="#ffffff" />`;
 const plate = '<rect width="192" height="192" fill="#0b0e14" />';
 const canvas = body => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="1024" height="1024">${body}</svg>`;
 
-const svg = canvas(plate + mark);
-// Launchers crop maskable icons to as little as the central 80% circle; the
-// slightly smaller mark keeps comfortable margin inside it.
-const maskableSvg = canvas(`${plate}<g transform="translate(96 96) scale(0.86) translate(-96 -96)">${mark}</g>`);
+const paddedMark = `<g transform="translate(96 96) scale(0.85 1) translate(-96 -96)">${mark}</g>`;
+const svg = canvas(plate + paddedMark);
+// Keep the same padded mark for regular, maskable, and Android launcher assets.
+const maskableSvg = svg;
 // Legacy (pre-adaptive, API 24–25) Android launcher icons.
-const roundSvg = canvas(`<circle cx="96" cy="96" r="96" fill="#0b0e14" />${mark}`);
-const foregroundSvg = canvas(mark);
+const roundSvg = canvas(`<circle cx="96" cy="96" r="96" fill="#0b0e14" />${paddedMark}`);
+const foregroundSvg = canvas(paddedMark);
 
 const res = 'android/app/src/main/res';
 const densities = [['mdpi', 108], ['hdpi', 162], ['xhdpi', 216], ['xxhdpi', 324], ['xxxhdpi', 432]];
