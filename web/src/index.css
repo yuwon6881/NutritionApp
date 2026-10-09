@@ -1864,7 +1864,7 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 .goal-summary-note{margin:10px 0 0}
 
 /* Signed-out Nutrition keeps the same Ayu surfaces and type scale as the diary. */
-.auth-page{display:grid;place-items:center;min-height:100dvh;padding:32px 20px;background:radial-gradient(ellipse at 50% 0%,var(--primary-tint),transparent 34rem),var(--background)}
+.auth-page{display:grid;place-items:center;min-height:100dvh;padding:32px 20px;background:var(--background)}
 .auth-shell{width:min(100%,460px)}
 .auth-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
 .auth-header .brand{gap:10px;font-size:1.55rem;letter-spacing:-.055em}

@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {ArrowRight} from 'lucide-react';
+import {ArrowRight,LoaderCircle} from 'lucide-react';
 import {Button} from './ui/Button';
 import {Brand} from './ui/Brand';
 import {CardFeedback} from './ui/CardFeedback';
@@ -36,16 +36,16 @@ export function Auth({onLogin:_onLogin,sessionExpired=false}:{onLogin?:(id:strin
             title={errorCode==='access_denied'?'Sign-in cancelled':'Sign-in could not be completed'}
             message={errorCode==='access_denied'?'You’re still signed out. Sign in again when you’re ready to allow access to Nutrition.':centralAuthError(errorCode)}
           />}
-          <Button className="auth-submit" variant="primary" type="button" disabled={starting} onClick={()=>{
+          <Button className="auth-submit" variant="primary" type="button" disabled={starting} aria-busy={starting} onClick={()=>{
             if(navigationStarted.current)return;
             navigationStarted.current=true;
             try{localStorage.removeItem('nutrition-signed-out');}catch{}
             setStarting(true);
             window.setTimeout(()=>window.location.assign('/api/auth/central/start'),120);
           }}>
-            {starting?'Opening Fitness Account…':'Sign in with Fitness Account'}{!starting&&<ArrowRight size={18}/>}
+            <span>{starting?'Opening Fitness Account…':'Sign in with Fitness Account'}</span>
+            {starting?<LoaderCircle size={18} className="spin" aria-hidden="true"/>:<ArrowRight size={18}/>}
           </Button>
-          {starting&&<p className="auth-status" role="status">Starting secure sign-in…</p>}
           <p className="auth-registration">New to Nutrition? You can create an account on the next screen.</p>
         </section>
         <footer className="auth-footer">Food diary <span aria-hidden="true">·</span> Nutrition targets <span aria-hidden="true">·</span> Progress</footer>

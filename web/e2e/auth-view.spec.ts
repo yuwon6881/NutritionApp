@@ -29,7 +29,7 @@ test('signed-out Nutrition login follows the browser theme, ignores a saved choi
       expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width);
       expect(geometry.card?.width).toBeGreaterThan(0);
       expect(geometry.background).not.toBe('rgba(0, 0, 0, 0)');
-      expect(geometry.backgroundImage).toContain('radial-gradient');
+      expect(geometry.backgroundImage).toBe('none');
       await page.screenshot({path: test.info().outputPath(`nutrition-login-${width}-${theme}.png`), fullPage: true, animations: 'disabled'});
     }
   }
@@ -81,7 +81,6 @@ test('Nutrition leaves the Fitness Account theme to the browser and restores the
   const request = page.waitForRequest(item => item.url().includes('/api/auth/central/start'));
   const navigation = page.waitForURL('**/api/auth/central/start', {waitUntil: 'domcontentloaded'});
   await button.click();
-  await expect(page.getByRole('status')).toHaveText('Starting secure sign-in…');
   await expect(page.getByRole('button', {name: 'Opening Fitness Account…'})).toBeDisabled();
   expect(new URL((await request).url()).searchParams.has('theme')).toBe(false);
   releaseRoute();
