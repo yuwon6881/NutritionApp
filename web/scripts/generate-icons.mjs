@@ -20,6 +20,10 @@ const MARK_PATH = 'M62 130V62C100 62 92 130 130 130V62';
 const MARK_STROKE = 24;
 const TILE = '#000000';
 const INK = '#ffffff';
+// The mark spans 54% of a web or iOS tile (its raw extent is 48%), the same optical size as the
+// sibling apps' icons (Financial, Workout, Calendar), so the four sit evenly on a home screen. The
+// Android adaptive vectors below are already sized to match the launcher.
+const TILE_SCALE = 1.13;
 
 const markAt = scale =>
   `<g transform="translate(96 96) scale(${scale}) translate(-96 -96)"><path d="${MARK_PATH}" fill="none" stroke="${INK}" stroke-width="${MARK_STROKE}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
@@ -30,10 +34,10 @@ const square = `<rect width="192" height="192" fill="${TILE}"/>`;
 const rounded = `<rect width="192" height="192" rx="43" fill="${TILE}"/>`;
 const circle = `<circle cx="96" cy="96" r="96" fill="${TILE}"/>`;
 
-const anyIcon = canvas(rounded + markAt(1));
-// The maskable safe zone is a centred circle of radius 76.8; the mark's farthest edge sits at 60.
-const maskableIcon = canvas(square + markAt(1));
-const legacyRound = canvas(circle + markAt(0.92));
+const anyIcon = canvas(rounded + markAt(TILE_SCALE));
+// The maskable safe zone is a centred circle of radius 76.8; the mark's farthest edge sits at 73.
+const maskableIcon = canvas(square + markAt(TILE_SCALE));
+const legacyRound = canvas(circle + markAt(TILE_SCALE * 0.92));
 // Android notification badges use only the alpha channel, so the badge is the bare mark.
 const badge = canvas(markAt(1.7));
 
@@ -57,7 +61,7 @@ for (const [source, size, out] of jobs) {
   console.log(`wrote ${out} (${size}x${size})`);
 }
 
-writeFileSync('public/icon.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">${rounded}${markAt(1)}</svg>\n`);
+writeFileSync('public/icon.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">${rounded}${markAt(TILE_SCALE)}</svg>\n`);
 console.log('wrote public/icon.svg');
 
 const vector = (dp, scale) => `<vector xmlns:android="http://schemas.android.com/apk/res/android"
