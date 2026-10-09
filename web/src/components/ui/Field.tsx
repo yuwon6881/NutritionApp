@@ -13,9 +13,10 @@ export function Field({
   action,
   insideAction,
   labelAction,
+  leading,
   autoComplete = 'off',
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & {label: string; hint?: string; validate?:()=>string|undefined; action?: ReactNode; insideAction?: ReactNode; labelAction?: ReactNode}) {
+}: InputHTMLAttributes<HTMLInputElement> & {label: string; hint?: string; validate?:()=>string|undefined; action?: ReactNode; insideAction?: ReactNode; labelAction?: ReactNode; leading?: ReactNode}) {
   const generated=useId();
   const id=props.id??generated;
   const name=props.name??props.id??id;
@@ -40,8 +41,12 @@ export function Field({
   );
   // `null` keeps the wrapper mounted with an empty slot: an indicator that appears while someone
   // types must not reparent the focused input, or the remount closes the on-screen keyboard.
-  const fieldInput = insideAction !== undefined ? (
-    <div className="field-input-wrapper">{inputEl}{insideAction != null && <div className="field-inside-action">{insideAction}</div>}</div>
+  // A decorative leading icon (a search glass) sits inside the field's start edge.
+  const fieldInput = insideAction !== undefined || leading != null ? (
+    <div className={`field-input-wrapper${leading != null ? ' has-leading' : ''}`}>
+      {leading != null && <span className="field-leading" aria-hidden="true">{leading}</span>}
+      {inputEl}{insideAction != null && <div className="field-inside-action">{insideAction}</div>}
+    </div>
   ) : inputEl;
   return (
     <FieldFrame label={label} validate={validate} className={`field ${className}`.trim()}>

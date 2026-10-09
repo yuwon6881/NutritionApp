@@ -3,7 +3,7 @@ import {CheckCheck,Copy,MoreVertical,Plus,Trash2} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {useHistoryWindow} from '../useHistoryWindow';
-import {today} from '../lib/format';
+import {longDate,today} from '../lib/format';
 import {shiftDate} from '../lib/energyBalance';
 import {dayStatus} from '../lib/loggingDay';
 import {mealReadOnly,moveEntry,showsDeviceOnlyToday,type TimelineView} from '../lib/foodDiary';
@@ -119,6 +119,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     await pasteEntriesTo(clipboard.clipboard.entries,date,time);
   };
 
+  // Relative names for the days around today; any other date reads "Monday, Oct 5", never an ISO string.
+  const dayTitle=date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':longDate(date);
   return <div className="food-log-page">
     <header className="page-heading">
       <div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time, copy or move them, and remove mistakes.</p></div>
@@ -213,13 +215,13 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     {!state&&history.error&&<DiaryEmptyState status="unavailable" unavailable/>}
     {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
     {!state&&!history.error&&<section className="panel food-day-summary skeleton" aria-busy="true">
-      <div className="section-heading"><div><h2>{date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':date}</h2><p>Loading diary date…</p></div></div>
+      <div className="section-heading"><div><h2>{dayTitle}</h2><p>Loading diary date…</p></div></div>
     </section>}
     {!state&&!history.error&&<FoodDaySkeleton/>}
     {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>
       <FoodDaySummary
-        title={date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':date}
+        title={dayTitle}
         statusText={status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':date===latest?'Planning ahead':'No food logged'}
         entries={entries}
         day={day}
@@ -351,7 +353,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
       open={confirmingClearDay}
       onClose={()=>setConfirmingClearDay(false)}
       title="Clear day?"
-      description={`Remove all ${entries.length} food ${entries.length===1?'entry':'entries'} logged for ${date}?`}
+      description={`Remove all ${entries.length} food ${entries.length===1?'entry':'entries'} logged for ${longDate(date)}?`}
       width="sm"
     >
       <div className="modal-actions">

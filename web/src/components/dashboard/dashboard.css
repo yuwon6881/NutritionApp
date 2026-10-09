@@ -1,0 +1,111 @@
+/* Dashboard insight cards: this week's nutrition against targets and the weight trend. */
+
+/* Goal and trend share a row when there is room; the week and Workout cards span it. */
+.dashboard-insight-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:0 22px}
+.dashboard-insight-pair>.panel{min-width:0}
+
+/* This week: four bars per day after MacroFactor's Nutrition & Targets card. */
+.week-nutrition{--week-gap:8px}
+.week-nutrition-heading{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px;margin-bottom:16px}
+.week-nutrition-heading .eyebrow{margin:0!important}
+.week-nutrition-caption{margin:0;font-size:.78rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.week-nutrition-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--week-gap)}
+.week-nutrition-days .selection-indicator-marker{border-radius:14px;background:var(--primary-tint);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 30%,transparent)}
+.week-day{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;min-height:44px;padding:12px 6px 8px;margin:0;border:0;border-radius:14px;background:transparent;color:var(--foreground);font:inherit;cursor:pointer;touch-action:manipulation;transition:color var(--motion-control) ease,background-color var(--motion-control) ease}
+.week-day:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+@media (hover:hover) and (pointer:fine){
+  .week-day:hover:not([aria-pressed=true]){background:color-mix(in srgb,var(--muted) 70%,transparent)}
+}
+/* Today is boxed whether or not it is selected, as in MacroFactor. */
+.week-day[data-today]{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ink-strong) 55%,transparent)}
+.week-day-bars{display:grid;gap:4px;width:100%}
+.week-day-bar{--bar:var(--primary);position:relative;display:block;height:6px;border-radius:999px;background:var(--track);overflow:hidden}
+.week-day-bar.protein{--bar:var(--protein)}
+.week-day-bar.carbs{--bar:var(--carbs)}
+.week-day-bar.fat{--bar:var(--fat)}
+.week-day-bar>span{position:absolute;inset:0;border-radius:inherit;background:var(--bar);transform:scaleX(var(--share));transform-origin:left center;transition:transform var(--motion-layout) var(--motion-ease)}
+.week-day-bar[data-untargeted]{background:color-mix(in srgb,var(--bar) 28%,var(--track))}
+.week-day[data-status=future] .week-day-bar{background:transparent;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--border) 80%,transparent)}
+.week-day[data-status=unknown] .week-day-bar{background:transparent;box-shadow:inset 0 0 0 1px var(--border);opacity:.6}
+.week-day-name{font-size:.66rem;font-weight:600;line-height:1;letter-spacing:.04em;text-align:center;color:var(--muted-foreground);margin-top:4px}
+.week-day-date{font-size:.86rem;font-weight:600;line-height:1.1;text-align:center;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.week-day[data-status=future] .week-day-date,.week-day[data-status=unknown] .week-day-date{color:var(--muted-foreground);font-weight:500}
+.week-day[aria-pressed=true] .week-day-name,.week-day[aria-pressed=true] .week-day-date{color:var(--primary-ink)}
+
+.week-nutrition-readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 0;padding-top:16px;border-top:1px solid var(--border)}
+.week-nutrition-figure{min-width:0}
+.week-nutrition-figure dt{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted-foreground)}
+.week-nutrition-figure dt::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0}
+.week-nutrition-figure.protein dt::before{background:var(--protein)}
+.week-nutrition-figure.carbs dt::before{background:var(--carbs)}
+.week-nutrition-figure.fat dt::before{background:var(--fat)}
+.week-nutrition-figure dd{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 4px;margin:4px 0 0;font-variant-numeric:tabular-nums}
+.week-nutrition-figure strong{font-size:1.12rem;font-weight:600;letter-spacing:-.02em}
+.week-nutrition-figure small{font-size:.72rem;white-space:nowrap}
+.week-nutrition-note{margin:12px 0 0;font-size:.76rem;line-height:1.5}
+
+/* Wide windows put the figures beside the week so the bars keep a readable length. */
+@media(min-width:1024px){
+  .week-nutrition{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,1fr);grid-template-areas:"heading heading" "days readout" "note readout";column-gap:32px;align-items:start}
+  .week-nutrition-heading{grid-area:heading}
+  .week-nutrition-days{grid-area:days}
+  .week-nutrition-readout{grid-area:readout;align-self:stretch;align-content:center;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px;margin:0;padding:0 0 0 28px;border-top:0;border-left:1px solid var(--border)}
+  .week-nutrition-note{grid-area:note}
+}
+
+/* Weight trend: value and change beside a thirty-day sparkline; the card opens Progress. */
+.panel.dashboard-trend-panel{padding:0;overflow:hidden}
+.dashboard-insight-trigger{display:grid;grid-template-columns:minmax(0,1fr) minmax(72px,132px) auto;align-items:center;gap:16px;width:100%;min-height:44px;height:100%;padding:28px;margin:0;border:0;border-radius:inherit;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color var(--motion-control) ease}
+.dashboard-insight-trigger:focus-visible{outline:2px solid var(--ring);outline-offset:-3px}
+@media (hover:hover) and (pointer:fine){
+  .dashboard-insight-trigger:hover{background:color-mix(in srgb,var(--muted) 55%,transparent)}
+  .dashboard-insight-trigger:hover .dashboard-insight-chevron{transform:translateX(2px);color:var(--primary-ink)}
+}
+.dashboard-insight-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dashboard-insight-text .eyebrow{margin:0 0 10px!important}
+.dashboard-insight-value{font-size:.8rem;color:var(--muted-foreground)}
+.dashboard-insight-value strong{font-size:1.75rem;font-weight:600;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
+.dashboard-insight-change{font-size:.8rem;font-weight:550;color:var(--foreground);font-variant-numeric:tabular-nums}
+.dashboard-insight-text small{font-size:.74rem}
+.dashboard-insight-chevron{color:var(--muted-foreground);transition:transform var(--motion-control) var(--motion-ease),color var(--motion-control) ease}
+.dashboard-sparkline{width:100%;height:52px;overflow:visible}
+.sparkline-line{fill:none;stroke:var(--primary);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.sparkline-stop-top{stop-color:var(--primary);stop-opacity:.22}
+.sparkline-stop-bottom{stop-color:var(--primary);stop-opacity:0}
+
+/* Landing cascade: bars grow from the left after their card rises; no transform outlives it. */
+@keyframes weekBarGrow{from{transform:scaleX(0)}}
+@keyframes sparklineDraw{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.dashboard-intro .week-day-bar>span{animation:weekBarGrow 820ms var(--motion-ease) 360ms backwards}
+.dashboard-intro .week-day:nth-child(3) .week-day-bar>span{animation-delay:390ms}
+.dashboard-intro .week-day:nth-child(4) .week-day-bar>span{animation-delay:420ms}
+.dashboard-intro .week-day:nth-child(5) .week-day-bar>span{animation-delay:450ms}
+.dashboard-intro .week-day:nth-child(6) .week-day-bar>span{animation-delay:480ms}
+.dashboard-intro .week-day:nth-child(7) .week-day-bar>span{animation-delay:510ms}
+.dashboard-intro .week-day:nth-child(8) .week-day-bar>span{animation-delay:540ms}
+.dashboard-intro .dashboard-sparkline{animation:sparklineDraw 900ms var(--motion-ease) 420ms backwards}
+
+@media(max-width:1279px){
+  .dashboard-insight-trigger{padding:22px}
+}
+@media(max-width:1023px){
+  .dashboard-insight-trigger{padding:24px}
+}
+@media(max-width:639px){
+  /* Seven 44 px day targets need the card's side padding on a 360 px phone: the row reaches
+     into it with no gaps, and each day keeps its own inner spacing so the bars stay apart. */
+  .week-nutrition{--week-gap:0px}
+  .week-nutrition-days{margin-inline:-12px}
+  .week-day{padding:10px 6px 6px;gap:5px}
+  .week-day-bars{gap:3px}
+  .week-day-bar{height:5px}
+  .week-nutrition-readout{gap:8px;margin-top:14px;padding-top:14px}
+  .week-nutrition-figure strong{font-size:1rem}
+  .week-nutrition-figure dd{flex-direction:column;align-items:flex-start}
+  .week-nutrition-figure small{white-space:normal}
+  .dashboard-insight-trigger{grid-template-columns:minmax(0,1fr) minmax(64px,108px) auto;gap:12px;padding:20px}
+  .dashboard-insight-value strong{font-size:1.55rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .week-day-bar>span,.dashboard-insight-chevron{transition:none}
+}

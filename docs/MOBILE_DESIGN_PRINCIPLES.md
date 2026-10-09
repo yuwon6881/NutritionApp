@@ -7,7 +7,7 @@ Phones are the primary surface. This document narrows `UI_UX_DESIGN_PRINCIPLES.m
 - Each sheet or step has one primary action. It is the only `primary` button visible, and on compact/medium it sits full width in the thumb zone (sticky footer inside the sheet, returned to the flow while the on-screen keyboard is open).
 - Shortcuts are not the primary path. In Log food, Quick add and Manual entry are calm `muted` buttons; search, recents, and the method tabs carry the weight.
 - Remove chrome that repeats what the screen already says: a tab named Search does not need a visible "Food search" heading (keep it `sr-only` for structure), and a date header reads "Today · Tuesday, Sep 29", not an ISO string.
-- A secondary line of copy earns its place by telling the person something they would otherwise get wrong. Descriptions that restate a label are hidden below 640 px.
+- A secondary line of copy earns its place by telling the person something they would otherwise get wrong. Descriptions that restate a label are hidden below 640 px: the Food Log page and timeline descriptions are hidden there, and its date field's label is announced but not shown beside the day strip.
 
 ## 2. Reachability and touch
 
@@ -19,7 +19,7 @@ Phones are the primary surface. This document narrows `UI_UX_DESIGN_PRINCIPLES.m
 ## 3. Motion that explains, then gets out of the way
 
 - Durations and easing come from the shared motion tokens. Lists rise in with a ≤28 ms stagger capped at eight items; tab panels cross-fade (`MotionPanel axis="fade"`); totals pop once when their inputs change.
-- The Dashboard plays a one-time landing cascade per launch: cards rise in reading order, the calorie ring draws while its remaining figure counts down, and macro bars grow. Headline values render immediately; the ring's accessible name always carries the true numbers. The asynchronously connected steps card reveals its height and fades in when it arrives; the true values render immediately and the completed animation leaves no height or transform. Returning to the Dashboard uses the normal page transition only.
+- The Dashboard plays a one-time landing cascade per launch: cards rise in reading order, the calorie ring draws while its remaining figure counts down, macro bars grow, the This week bars grow day by day, and the trend sparkline draws in. Headline values render immediately; the ring's accessible name always carries the true numbers. The asynchronously connected steps card reveals its height and fades in when it arrives; the true values render immediately and the completed animation leaves no height or transform. Returning to the Dashboard uses the normal page transition only.
 - Animations use `backwards` fill (or are cancelled on finish) so no transform outlives them. Reduced motion removes all of it — the global CSS rule for stylesheets, `useReducedMotion`/`useIntroProgress` for JS.
 - Active work may show a spinner inside its own button. Idle states never loop.
 

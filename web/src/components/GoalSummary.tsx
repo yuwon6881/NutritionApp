@@ -1,5 +1,5 @@
 import type {GoalProgress,UnitPreferences,WeightGoalMetric} from '../types';
-import {number} from '../lib/format';
+import {number,readableDate} from '../lib/format';
 import {defaultUnits,displayWeight,weightLabel} from '../lib/units';
 
 const heading=(progress:GoalProgress)=>progress.complete?'Goal complete'
@@ -31,8 +31,8 @@ export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale
         <div><dt>Target</dt><dd>{displayWeight(progress.targetWeight,units.weight,1)} <span className="unit">{unit}</span></dd></div>
         <div><dt>Remaining</dt><dd>{displayWeight(progress.remaining,units.weight,1)} <span className="unit">{unit}</span></dd></div>
       </>}
-      {progress.phaseEnd&&<div><dt>Phase end</dt><dd>{progress.phaseEnd}</dd></div>}
-      {weight&&!progress.complete&&!(progress.scaleReached||progress.trendReached)&&<div><dt>Estimated finish</dt><dd className="goal-finish-date">{progress.optimisticFinish??progress.estimatedFinish??'Not yet estimable'}</dd></div>}
+      {progress.phaseEnd&&<div><dt>Phase end</dt><dd>{readableDate(progress.phaseEnd)}</dd></div>}
+      {weight&&!progress.complete&&!(progress.scaleReached||progress.trendReached)&&<div><dt>Estimated finish</dt><dd className="goal-finish-date">{readableDate(progress.optimisticFinish??progress.estimatedFinish??'Not yet estimable')}</dd></div>}
       {progress.weeklyChange!=null&&<div><dt>Weekly change</dt><dd>{displayWeight(progress.weeklyChange,units.weight,2)} <span className="unit">{unit}</span></dd></div>}
     </dl>}
   </div>;

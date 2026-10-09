@@ -1,5 +1,5 @@
 import {useCallback,useState,useRef,useEffect} from 'react';
-import {Copy,MoveRight,Pencil,Trash2} from 'lucide-react';
+import {Copy,MoveRight,Pencil,Plus,Trash2} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {timelineGroups,timelineSlots,moveAnnouncement,type TimelineView} from '../lib/foodDiary';
@@ -147,7 +147,7 @@ export function FoodTimeline({
               className="food-slot-add"
               aria-label={`Add food at ${group.label}`}
               onClick={()=>onAddAtTime(group.time)}
-            >+</Button>}
+            ><Plus size={16} strokeWidth={2.4} aria-hidden="true"/></Button>}
           </div>
         </div>
         <div className={`food-time-cards ${group.entries.length===0?'food-time-cards-empty':''}`}>

@@ -15,6 +15,10 @@ export const shortDate=dateFormat({month:'short',day:'numeric'});
 export const readoutDate=dateFormat({weekday:'short',month:'short',day:'numeric',year:'numeric'});
 /** "Mon": the weekday above a daily bar. */
 export const weekdayShort=dateFormat({weekday:'short'});
+/** "Sep 28, 2026": a standalone date such as a phase start, end, or finish estimate. */
+export const mediumDate=dateFormat({month:'short',day:'numeric',year:'numeric'});
+/** A calendar date (YYYY-MM-DD) as "Sep 28, 2026"; any other text (an explanation) passes through. */
+export const readableDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)?mediumDate(value):value;
 /** "Sep 2026": a monthly bucket. */
 export const monthYear=dateFormat({month:'short',year:'numeric'});
 /** "Sep": the month on a date badge. */

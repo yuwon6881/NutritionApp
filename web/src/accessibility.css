@@ -32,3 +32,8 @@
 /* With very large text, bottom navigation labels shorten rather than spill into neighbours. */
 .nav-mobile-items .button{min-width:0}
 .nav-mobile-items .button>span{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The narrowest phones (360 px) still fit the longest label, "Dashboard", at the default text size. */
+@media(max-width:379px){
+  .sidebar nav .nav-mobile-items .button{padding-inline:0}
+  .nav-mobile-items .button>span{letter-spacing:-.02em}
+}

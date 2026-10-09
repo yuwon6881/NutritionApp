@@ -2,6 +2,7 @@ import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react
 import type {NutritionStore} from '../useNutritionStore';
 import type {ProgressPeriod,ProgressSummary,Weight} from '../types';
 import {readoutDate,today} from '../lib/format';
+import {Plus} from 'lucide-react';
 import {Button} from './ui/Button';
 import {BodyHubSkeleton} from './body/BodyHubSkeleton';
 import {CoachingProgress} from './CoachingProgress';
@@ -135,14 +136,18 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
   const retry = tab === 'weight' ? weight.retry : energy.retry;
 
   return <>
-    <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div><div className="page-heading-actions">{tab==='weight'&&<Button variant="primary" onClick={event=>addWeight(event.currentTarget)}>Add weigh-in</Button>}</div></header>
+    <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div></header>
     <SegmentedControl<Tab> id="progress-tabs" className="section-segments" label="Progress sections" value={tab} onChange={setTab} options={tabs.map(([value,label])=>({value,label}))}/>
     <MotionPanel motionKey={tab} direction={tabDirection}>
     <div role="tabpanel" aria-label={`${tabs.find(([value])=>value===tab)?.[1]??tab} progress`}>
     {tab==='weight'&&<>
-      <div className="history-filter"><SelectField label="Weight history period" value={weightPeriod} onChange={value=>setWeightPeriod(value as ProgressPeriod)}>
-        {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
-      </SelectField></div>
+      {/* The weigh-in action belongs to this tab, so switching tabs never moves the tab bar. */}
+      <div className="history-toolbar">
+        <div className="history-filter"><SelectField label="Weight history period" value={weightPeriod} onChange={value=>setWeightPeriod(value as ProgressPeriod)}>
+          {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+        </SelectField></div>
+        <Button variant="primary" onClick={event=>addWeight(event.currentTarget)}><Plus size={18} aria-hidden="true"/>Add weigh-in</Button>
+      </div>
       {error&&<CardFeedback
         title={summary?'Progress summary needs attention':'Progress summary unavailable'}
         message={`${summary?'Showing saved data.':'Not available offline.'} ${error}`}

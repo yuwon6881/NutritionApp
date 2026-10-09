@@ -10,7 +10,7 @@ import {GoalSummary} from './GoalSummary';
 import {CheckInButton} from './CheckInButton';
 import {checkInSchedule} from '../lib/checkIn';
 import {CheckInDialog} from './CheckInDialog';
-import {displayEnergy,displayWeight,weightLabel,energyLabel,unitsFor} from '../lib/units';
+import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {shouldShowDashboardSteps,useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
 import {StepCalorieCalculator} from './StepCalorieCalculator';
@@ -20,15 +20,17 @@ import {MotionPanel} from './ui/Motion';
 import {HabitCalendars} from './habits/HabitCalendars';
 import {DashboardSkeleton} from './ui/Skeleton';
 import {useOnlineStatus} from './ui/useOnlineStatus';
+import {WeekNutritionCard} from './dashboard/WeekNutritionCard';
+import {WeightTrendCard} from './dashboard/WeightTrendCard';
 
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
 
-export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:()=>void;onSettings?:()=>void}){
+export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStore;onCoach:()=>void;onProgress:()=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
   // The same cleaned trend the coach uses: marked temporary days and statistical outliers stay out.
-  const latestWeight=useMemo(()=>cleanTrend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date).at(-1),[state.weightTrendSeed,state.weights,date]);
+  const weightTrend=useMemo(()=>cleanTrend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date),[state.weightTrendSeed,state.weights,date]);
   const energyUnit=unitsFor(state.settings).energy;
   const [checkInOpen,setCheckInOpen]=useState(false);
   const [intro]=useState(()=>!dashboardIntroPlayed);
@@ -109,10 +111,13 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
       </section>
       <section className="dashboard-section dashboard-section-insights" aria-labelledby="dashboard-insights-title">
       <h2 id="dashboard-insights-title" className="dashboard-section-title">Insights &amp; analytics</h2>
-      {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
-        <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
-      </section>}
-      <section className="panel dashboard-trend-panel"><p className="eyebrow">TREND WEIGHT</p><h2>{displayWeight(latestWeight?.kg,unitsFor(state.settings).weight,1)} <span className="unit">{weightLabel(unitsFor(state.settings).weight)}</span></h2><small>{latestWeight?`As of ${latestWeight.date}`:"No weigh-in yet"}</small></section>
+      <WeekNutritionCard state={state} current={date} energyUnit={energyUnit} checkInDue={checkInReady}/>
+      <div className="dashboard-insight-pair">
+        {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
+          <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
+        </section>}
+        <WeightTrendCard points={weightTrend} current={date} unit={unitsFor(state.settings).weight} onOpen={onProgress}/>
+      </div>
       <TrainingSummaryCard syncedAt={state.trainingSyncedAt} summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings} onRetry={()=>void loadTrainingSummaries?.(true)}/>
       </section>
       </div>

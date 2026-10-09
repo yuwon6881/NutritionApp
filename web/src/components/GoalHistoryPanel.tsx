@@ -2,6 +2,7 @@ import {ArrowRight,Calendar} from 'lucide-react';
 import type {CoachingSettings,Plan} from '../types';
 import {buildGoalHistory,goalLabel,type GoalHistoryEntry} from '../lib/goalHistory';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
+import {mediumDate} from '../lib/format';
 
 const statusText=(entry:GoalHistoryEntry)=>entry.status==='completed'?'Completed':entry.status==='changed'?'Changed':'In progress';
 const goalCategory=(goal:string)=>goal==='lose'?'DEFICIT':goal==='gain'?'SURPLUS':'MAINTENANCE';
@@ -21,7 +22,7 @@ export function GoalHistoryPanel({plans,settings}:{plans:readonly Plan[];setting
       {entries.map(entry=>{
         const isCurrent=entry.status==='active';
         const change=(entry.startKg!=null&&entry.endKg!=null)?entry.endKg-entry.startKg:null;
-        const endDate=isCurrent?'Present':(entry.endDate??'—');
+        const endDate=isCurrent?'Present':(entry.endDate?mediumDate(entry.endDate):'—');
         return <article key={`${entry.startDate}-${entry.goal}`} className={`goal-history-card ${isCurrent?'goal-history-card-active':''}`}>
           <div className="goal-history-card-header">
             <div className="goal-history-title-group">
@@ -35,7 +36,7 @@ export function GoalHistoryPanel({plans,settings}:{plans:readonly Plan[];setting
           </div>
           <div className="goal-history-dates">
             <Calendar size={13} aria-hidden="true"/>
-            <time dateTime={entry.startDate}>{entry.startDate}</time>
+            <time dateTime={entry.startDate}>{mediumDate(entry.startDate)}</time>
             <span className="goal-history-date-sep" aria-hidden="true">→</span>
             <time dateTime={entry.endDate??undefined}>{endDate}</time>
           </div>

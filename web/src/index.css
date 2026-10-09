@@ -460,9 +460,11 @@ summary{cursor:pointer}
 /* The time sits above its add button so the label never runs out of room beside it. */
 .food-log-page .food-time-label{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;gap:6px;padding-top:17px}
 .food-time-label-main{white-space:nowrap}
-.food-slot-add{width:36px;min-width:36px;min-height:36px;padding:4px;border-radius:50%;font-size:1.2rem;line-height:1;color:var(--primary-ink);background:var(--primary-tint)!important;border-color:var(--border)!important}
+/* A quiet add affordance under each time: a small filled circle inside the full touch target. */
+.food-slot-add{--slot-fill:var(--muted);width:36px;min-width:36px;min-height:36px;padding:0;border-radius:50%;color:var(--muted-foreground);border:0!important;background:radial-gradient(circle at center,var(--slot-fill) 0 14px,transparent 14.5px)!important;transition:color var(--motion-control) ease,transform 100ms var(--motion-ease)}
 @media (hover:hover) and (pointer:fine){
-.food-slot-add:hover{border-color:var(--primary)!important}}
+.food-slot-add:hover{--slot-fill:var(--primary-tint);color:var(--primary-ink)}}
+.food-slot-add:active{transform:scale(.92)}
 .food-time-cards-empty{min-height:54px;align-items:center;padding-top:8px;padding-bottom:24px;border-left-style:dashed}
 .food-empty-slot-action{justify-content:flex-start;min-height:42px;width:max-content;max-width:100%;padding:8px 12px;color:var(--muted-foreground);border:1px dashed var(--border)!important}
 @media (hover:hover) and (pointer:fine){
@@ -477,6 +479,9 @@ summary{cursor:pointer}
   .food-slot-add{width:34px;min-width:34px;min-height:34px}
 }
 @media(max-width:639px){
+  .food-log-page .page-heading>div>p,.food-timeline-toolbar>div>p{display:none}
+  .food-log-page .page-heading>div>h1{margin-bottom:0}
+  .food-date-navigation .date-picker-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   .food-log-page .food-time-row{grid-template-columns:4.0625rem minmax(0,1fr);gap:12px}
   .food-log-page .food-time-cards{padding-left:12px}
   .food-log-page .food-time-card.panel{padding:14px}
@@ -674,7 +679,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .segmented-control.chart-view-toggle{flex:0 1 420px;width:100%}
 .segmented-control.chart-view-toggle>.button{white-space:nowrap;word-break:keep-all;overflow-wrap:normal}
 @media(max-width:639px){.segmented-control.chart-view-toggle>.button{padding-inline:4px;font-size:.76rem}}
-.page-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;min-height:44px}
+.page-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:nowrap;flex-shrink:0;min-height:44px}
 @media(max-width:639px){
   .page-heading-actions{width:100%;display:flex;align-items:stretch;justify-content:stretch;gap:10px;min-height:44px}
   .page-heading-actions>.button{flex:1 1 0;width:100%;min-height:44px;justify-content:center;text-align:center;white-space:nowrap}
@@ -938,6 +943,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .daily-grid{align-items:stretch;margin-bottom:20px}
 .daily-grid>.panel{margin-bottom:0}
 .history-filter{max-width:260px;margin-bottom:22px}
+.history-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:22px}
+.history-toolbar>.history-filter{flex:1 1 220px;margin-bottom:0}
+.history-toolbar>.button{flex-shrink:0}
 .history-filter>.field{margin:0}
 .stats-grid{gap:16px;margin-bottom:24px}
 .stats-grid>.panel{margin-bottom:0}
@@ -996,7 +1004,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .macros>.eyebrow{grid-column:1/-1;margin-bottom:18px!important}
   .macro{grid-template-columns:1fr;gap:8px;margin-bottom:0}
   .macro strong{font-size:.85rem}
-  .macro strong small{display:block;margin-top:3px}
+  .macro strong small{white-space:nowrap}
 }
 @media(max-width:639px){
   .sidebar{overflow:visible;padding-inline:max(10px,env(safe-area-inset-left));box-shadow:none}
@@ -1451,6 +1459,13 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Field input insideAction and embedded button */
 .field-input-wrapper{position:relative;display:flex;align-items:center;width:100%;min-width:0;flex:1}
 .field-input-wrapper>input{width:100%;padding-right:44px}
+.field-input-wrapper.has-leading>input{padding-left:42px}
+.field-leading{position:absolute;left:14px;top:50%;transform:translateY(-50%);display:flex;color:var(--muted-foreground);pointer-events:none;z-index:1}
+.field-input-wrapper.has-leading:focus-within>.field-leading{color:var(--primary-ink)}
+.field-search>label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.field-search input{border-radius:14px;background:var(--muted);border-color:transparent;transition:border-color var(--motion-control) ease,background-color var(--motion-control) ease}
+.field-search input:focus{background:var(--card);border-color:var(--ring)}
+.field-search input::placeholder{color:var(--muted-foreground);opacity:1}
 .field-input-wrapper:has(.barcode-camera-btn)>input{padding-right:52px}
 .field-inside-action{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;z-index:2;margin:0!important}
 .field-inside-action>.button{min-height:32px!important;height:32px!important;width:32px!important;min-width:32px!important;padding:0!important;margin:0!important;border:none!important;background:transparent!important;color:var(--muted-foreground);border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
@@ -1914,3 +1929,10 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 .energy-ring-intro .ring-fill{transition:none}
 
 .dashboard-intro .dashboard-steps-reveal .steps-panel{animation:none}
+
+/* Page section tabs (Progress, Coach) on wider windows: natural-width tabs on a hairline. */
+@media(min-width:640px){
+  .segmented-control.section-segments[data-layout]{display:flex;justify-content:flex-start;gap:6px;margin:-4px -4px 26px;padding:4px 4px 0;border-radius:0;box-shadow:none;background:linear-gradient(var(--border),var(--border)) no-repeat 4px 100%/calc(100% - 8px) 1px}
+  .segmented-control.section-segments[data-layout]>.button{flex:0 0 auto;min-width:104px;padding-inline:20px}
+  .segmented-control.section-segments .selection-indicator-marker::after{bottom:0;width:calc(100% - 24px);height:3px;transform:translateX(-50%);border-radius:3px 3px 0 0}
+}

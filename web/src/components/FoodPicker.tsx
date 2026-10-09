@@ -1,5 +1,5 @@
 import {useEffect,useId,useRef,useState,type CSSProperties} from 'react';
-import {Camera, LoaderCircle, ScanBarcode, Star} from 'lucide-react';
+import {Camera, LoaderCircle, ScanBarcode, Search, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api,ApiError} from '../lib/api';
 import {number} from '../lib/format';
@@ -184,6 +184,10 @@ export function FoodPicker({
           autoCorrect="off"
           spellCheck={false}
           label={tab==='barcode'?'Barcode digits':searchLabel}
+          // Text search reads like a search bar: a glass and a prompt in the field, the label kept for assistive technology.
+          className={tab==='barcode'?undefined:'field-search'}
+          leading={tab==='barcode'?undefined:<Search size={18}/>}
+          placeholder={tab==='barcode'?undefined:searchLabel==='Search term'?'Search foods by name or brand':'Search ingredients by name or brand'}
           hint={tab==='barcode'?'Enter 8–14 digits or scan with the camera.':undefined}
           required
           value={query}
