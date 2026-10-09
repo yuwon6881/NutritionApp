@@ -1,10 +1,18 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TrainingSummaryCard } from './TrainingSummaryCard';
 import type { TrainingSummary } from '../types';
 
 describe('TrainingSummaryCard', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-07T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it('renders weekly scheduled workouts in program position order excluding rests', () => {
     const summaries: TrainingSummary[] = [
       {
