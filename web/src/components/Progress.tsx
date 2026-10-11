@@ -137,7 +137,7 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
 
   return <>
     <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div></header>
-    <SegmentedControl<Tab> id="progress-tabs" className="section-segments" label="Progress sections" value={tab} onChange={setTab} options={tabs.map(([value,label])=>({value,label}))}/>
+    <SegmentedControl<Tab> id="progress-tabs" layout="equal" className="section-segments" label="Progress sections" value={tab} onChange={setTab} options={tabs.map(([value,label])=>({value,label:<span className="progress-tab-label">{label}</span>}))}/>
     <MotionPanel motionKey={tab} direction={tabDirection}>
     <div role="tabpanel" aria-label={`${tabs.find(([value])=>value===tab)?.[1]??tab} progress`}>
     {tab==='weight'&&<>

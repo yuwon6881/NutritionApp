@@ -6,7 +6,10 @@
 /* Minimum text size: nothing smaller than about 11-12 px at the default root size. */
 .eyebrow,.stats-grid .eyebrow,.auth-story .eyebrow{font-size:.7rem!important}
 .topbar>span{font-size:.72rem}
-.nav-mobile-items .button,.sidebar nav .button{font-size:.72rem}
+.nav-mobile-items .button{font-size:.72rem}
+@media(max-width:1023px){
+  .sidebar nav .button{font-size:.72rem}
+}
 .food-description small,.food-row>strong small,.recent-food-energy small,.check-in-orb-count small,.circular-slider-bound .bound-tag{font-size:.7rem}
 
 /* Windows High Contrast and other forced-colour modes: keep state visible without our palette. */
@@ -26,14 +29,22 @@
 
 /* People who ask for more contrast get firmer borders and full-strength secondary text. */
 @media (prefers-contrast:more){
-  :root{--border:color-mix(in srgb,var(--foreground) 55%,var(--background));--muted-foreground:var(--foreground)}
+  :root{--border:color-mix(in srgb,var(--foreground) 55%,var(--background));--control-border:color-mix(in srgb,var(--foreground) 75%,var(--background));--muted-foreground:var(--foreground)}
 }
 
 /* With very large text, bottom navigation labels shorten rather than spill into neighbours. */
 .nav-mobile-items .button{min-width:0}
 .nav-mobile-items .button>span{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* The narrowest phones (360 px) still fit the longest label, "Dashboard", at the default text size. */
+/* The narrowest phones (320-360 px) fit the longest label, "Dashboard", at default text size. */
 @media(max-width:379px){
   .sidebar nav .nav-mobile-items .button{padding-inline:0}
   .nav-mobile-items .button>span{letter-spacing:-.02em}
+}
+@media(max-width:359px){
+  .sidebar nav .nav-mobile-items .button{padding:7px 0}
+}
+@media(max-width:339px){
+  .sidebar{padding-inline:6px}
+  .nav-mobile-items{gap:2px}
+  .nav-mobile-items .button>span{letter-spacing:-.04em}
 }

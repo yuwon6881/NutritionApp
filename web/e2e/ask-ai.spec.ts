@@ -15,12 +15,17 @@ for (const width of [320, 390, 640, 768, 1024, 1440, 1920]) {
       await context.addCookies(session.cookies);
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.addInitScript(t => { localStorage.setItem('nutrition-theme', t); }, theme);
       await page.route('**/api/ai/conversation', route => route.fulfill({ json: snapshot }));
       await page.goto('/');
-      await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+      await expect(page.locator('.account-name')).toHaveText('ask-ai-review', { timeout: 30000 });
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await page.getByRole('button', { name: 'Ask AI', exact: true }).last().click();
       const dialog = page.getByRole('dialog', { name: 'Ask AI', exact: true });
       await expect(dialog.getByText('Your saved answer.')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      const expectedBg = theme === 'dark' ? 'rgb(28, 37, 32)' : 'rgb(255, 255, 255)';
+      await expect(dialog.locator('.modal-surface')).toHaveCSS('background-color', expectedBg);
       await expect(dialog.getByLabel('Message', { exact: true })).toBeEnabled();
       expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBeTruthy();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();

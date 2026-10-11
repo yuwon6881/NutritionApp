@@ -1,0 +1,170 @@
+/* Weight trend and insights: goal summary, sparkline, and progress entry point. */
+
+/* Goal and trend share a row when there is room; the week and Workout cards span it. */
+.dashboard-insight-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 0 22px;
+}
+
+.dashboard-insight-pair > .panel {
+  min-width: 0;
+}
+
+/* Goal progress panel overrides: eliminate redundant nested card styling */
+.dashboard-goal-panel .goal-summary {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.dashboard-goal-panel .goal-scale {
+  font-size: 0.8125rem;
+}
+
+.dashboard-goal-panel .goal-figures dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.dashboard-goal-panel .goal-figures dd {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+/* Weight trend: value and change beside a thirty-day sparkline; the card opens Progress. */
+.panel.dashboard-trend-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.dashboard-insight-trigger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 132px) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 44px;
+  height: 100%;
+  padding: 28px;
+  margin: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-control) ease;
+}
+
+.dashboard-insight-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dashboard-insight-trigger:hover {
+    background: color-mix(in srgb, var(--muted) 55%, transparent);
+  }
+  .dashboard-insight-trigger:hover .dashboard-insight-chevron {
+    transform: translateX(2px);
+    color: var(--primary-ink);
+  }
+}
+
+.dashboard-insight-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboard-insight-text .eyebrow {
+  margin: 0 0 10px !important;
+}
+
+.dashboard-insight-value {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.dashboard-insight-value strong {
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-strong);
+}
+
+.dashboard-insight-change {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-insight-text small {
+  font-size: 0.8125rem;
+}
+
+.dashboard-insight-chevron {
+  color: var(--muted-foreground);
+  transition: transform var(--motion-control) var(--motion-ease), color var(--motion-control) ease;
+}
+
+.dashboard-sparkline {
+  width: 100%;
+  height: 52px;
+  overflow: visible;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: var(--weight);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparkline-stop-top {
+  stop-color: var(--weight);
+  stop-opacity: 0.22;
+}
+
+.sparkline-stop-bottom {
+  stop-color: var(--weight);
+  stop-opacity: 0;
+}
+
+@keyframes sparklineDraw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+.dashboard-intro .dashboard-sparkline {
+  animation: sparklineDraw 900ms var(--motion-ease) 420ms backwards;
+}
+
+@media (max-width: 1279px) {
+  .dashboard-insight-trigger { padding: 22px; }
+}
+
+@media (max-width: 1023px) {
+  .dashboard-insight-trigger { padding: 24px; }
+}
+
+@media (max-width: 639px) {
+  .dashboard-insight-trigger {
+    grid-template-columns: minmax(0, 1fr) minmax(64px, 108px) auto;
+    gap: 12px;
+    padding: 20px;
+  }
+  .dashboard-insight-value strong { font-size: 1.6rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-insight-chevron {
+    transition: none;
+  }
+}

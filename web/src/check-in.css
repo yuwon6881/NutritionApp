@@ -1,4 +1,4 @@
-/* Weekly check-in: orb control and the calorie-change dialog. */
+/* Weekly check-in: orb control, calorie-change dialog, and Coach target summaries. */
 
 .check-in-orb{position:relative;width:88px;height:88px;display:grid;place-items:center;flex:0 0 auto}
 .check-in-orb-ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible;transform:rotate(-90deg)}
@@ -18,17 +18,17 @@
 .check-in-orb.is-waiting .check-in-orb-button,.check-in-orb.is-blocked .check-in-orb-button{background:var(--card);border-color:var(--border);color:var(--muted-foreground);cursor:default}
 .check-in-orb-count{display:grid;justify-items:center;gap:3px}
 .check-in-orb-count strong{font-size:1.3rem;line-height:1;font-variant-numeric:tabular-nums}
-.check-in-orb-count small{font-size:.62rem;line-height:1;color:inherit}
+.check-in-orb-count small{font-size:.6875rem;line-height:1;color:inherit}
 
 .check-in-loading{display:grid;justify-items:center;gap:12px;padding:34px 12px;text-align:center}
-.check-in-loading p{margin:0}
+.check-in-loading p{margin:0;font-size:.875rem;color:var(--muted-foreground)}
 .check-in-dialog-content{animation:checkInContentIn var(--motion-panel) var(--motion-ease) both}
 @keyframes checkInContentIn{from{opacity:0;transform:translateY(6px)}}
 
 .check-in-calorie{display:grid;justify-items:center;gap:10px;padding:26px 12px 22px;text-align:center}
-.check-in-calorie-label{font-size:.7rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);animation:checkInLabelIn var(--motion-panel) ease both}
+.check-in-calorie-label{font-size:.75rem;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);animation:checkInLabelIn var(--motion-panel) ease both}
 @keyframes checkInLabelIn{from{opacity:0}}
-.check-in-calorie-value{display:flex;align-items:baseline;gap:8px;color:var(--ink-strong);font-size:clamp(2.4rem,8vw,3.8rem);font-weight:650;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.check-in-calorie-value{display:flex;align-items:baseline;gap:8px;color:var(--ink-strong);font-size:clamp(2.4rem,8vw,3.8rem);font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
 .check-in-calorie-value .coach-number{display:inline-block;transform-origin:50% 70%}
 .check-in-calorie-value .unit{font-size:1rem;letter-spacing:0}
 .check-in-calorie.is-revealed.is-counted .check-in-calorie-value .coach-number{animation:checkInSettle 320ms var(--motion-ease)}
@@ -37,11 +37,11 @@
 /* Space is reserved from the first frame so the reveal never moves the actions. */
 .check-in-calorie-change{display:grid;justify-items:center;gap:6px;opacity:0;transform:translateY(6px);transition:opacity var(--motion-panel) ease,transform var(--motion-panel) var(--motion-ease)}
 .check-in-calorie.is-revealed .check-in-calorie-change{opacity:1;transform:none}
-.check-in-calorie-change small{font-size:.74rem;font-variant-numeric:tabular-nums}
-.check-in-calorie-delta{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 13px;border:1px solid var(--border);border-radius:999px;background:var(--muted);color:var(--muted-foreground);font-size:.82rem;font-weight:650;font-variant-numeric:tabular-nums}
+.check-in-calorie-change small{font-size:.8125rem;font-variant-numeric:tabular-nums;color:var(--muted-foreground)}
+.check-in-calorie-delta{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:6px 14px;border:1px solid var(--border);border-radius:999px;background:var(--muted);color:var(--muted-foreground);font-size:.875rem;font-weight:650;font-variant-numeric:tabular-nums}
 .check-in-calorie.direction-up .check-in-calorie-delta,.check-in-calorie.direction-down .check-in-calorie-delta{background:var(--primary-tint);border-color:color-mix(in srgb,var(--primary) 35%,var(--border));color:var(--primary-ink)}
 
-.check-in-context{margin:-6px auto 4px;max-width:44ch;text-align:center;font-size:.75rem;line-height:1.5}
+.check-in-context{margin:-6px auto 4px;max-width:44ch;text-align:center;font-size:.875rem;line-height:1.5;color:var(--muted-foreground)}
 
 @media(max-width:639px){
   .check-in-dialog-content .modal-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -55,4 +55,65 @@
 .energy-check-in{display:grid;justify-items:center;gap:8px;flex-shrink:0;min-width:128px;text-align:center}
 .energy-check-in .check-in-orb{width:112px;height:112px}
 .energy-check-in .check-in-orb-button{width:80px;min-width:80px;height:80px;min-height:80px}
-.energy-check-in-label{margin:0!important;font-size:.76rem!important;font-weight:600;color:var(--primary-ink)}
+.energy-check-in-label{margin:0!important;font-size:.8125rem!important;font-weight:600;color:var(--primary-ink)}
+
+/* ==========================================================================
+   Coach Target Summary & Proposal Hierarchy
+   ========================================================================== */
+
+/* Active targets and proposed plan cards */
+.active-targets-card{background:var(--primary-tint);border:1px solid color-mix(in srgb,var(--primary) 28%,var(--border));border-radius:var(--radius);padding:24px;margin-bottom:24px;box-shadow:var(--shadow)}
+.proposal-card{background:var(--card);border:2px solid var(--primary);border-radius:var(--radius);padding:24px;margin-top:22px;box-shadow:var(--shadow-raised)}
+
+/* Coherent target figures layout */
+.target-figures{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px;align-items:stretch}
+.target-energy-figures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.target-energy-figures>div{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.target-energy-figures p{font-size:.75rem;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground);margin:0 0 6px}
+.target-energy-figures strong{display:block;font-size:1.6rem;letter-spacing:-.03em;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink-strong)}
+.target-energy-figures .unit{font-size:.875rem;font-weight:500;color:var(--muted-foreground)}
+
+.target-macros-section{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;min-width:0;justify-content:center}
+.target-macros-section .macro-summary-bar{height:7px;border-radius:999px;overflow:hidden;display:flex;width:100%;background:var(--track)}
+.target-macros-figures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.target-macros-figures>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.target-macros-figures p{font-size:.75rem;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground);margin:0;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.target-macros-figures strong{display:block;font-size:1.35rem;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums;color:var(--ink-strong)}
+.target-macros-figures .unit{font-size:.8125rem;font-weight:500;color:var(--muted-foreground)}
+.target-macro-pct{font-size:.8125rem;font-weight:550;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+
+.target-weekly-summary{padding:14px 18px;border-radius:14px;border:1px solid var(--border);background:var(--card);margin-top:14px}
+.target-weekly-summary p{font-size:.75rem;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground);margin:0 0 4px}
+.target-weekly-summary strong{font-size:1.35rem;font-weight:700;color:var(--ink-strong)}
+
+/* Review step summary */
+.macro-review-summary{margin-top:14px}
+.summary-metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:16px 0}
+.summary-metric-tile{padding:14px 16px;border-radius:14px;background:color-mix(in srgb,var(--muted) 55%,var(--card));border:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+.summary-metric-label{font-size:.75rem;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+.summary-metric-val{font-size:1.25rem;font-weight:700;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.summary-metric-val.highlight{color:var(--primary-ink)}
+.summary-metric-sub{font-size:.8125rem;color:var(--muted-foreground)}
+
+.macro-review-chip{padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card)}
+.weekly-chips-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:10px}
+.weekly-day-chip{padding:10px 8px;border-radius:12px;border:1px solid var(--border);background:var(--card);text-align:center}
+.weekly-day-chip .weekly-day-name{font-size:.72rem;font-weight:600;color:var(--muted-foreground)}
+.weekly-day-chip .weekly-day-val{font-size:.875rem;font-weight:700;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+
+@media(max-width:1023px){
+  .target-figures{grid-template-columns:1fr;gap:12px}
+  .weekly-chips-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:639px){
+  .active-targets-card{padding:18px 16px;border-radius:18px}
+  .proposal-card{padding:18px 16px;border-radius:18px}
+  .target-figures{gap:10px}
+  .target-energy-figures{gap:10px}
+  .target-energy-figures>div{padding:12px 14px}
+  .target-energy-figures strong{font-size:1.35rem}
+  .target-macros-section{padding:12px 14px;gap:8px}
+  .target-macros-figures{gap:6px}
+  .target-macros-figures strong{font-size:1.2rem}
+  .weekly-chips-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

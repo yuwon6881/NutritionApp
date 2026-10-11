@@ -31,7 +31,7 @@ Phones are the primary surface. This document narrows `UI_UX_DESIGN_PRINCIPLES.m
 | Hardware/predictive Back | **Used.** Back unwinds popover → step → selection → sheet → page via `useBackLayer`/`Modal` history. | Everywhere |
 | ML Kit barcode scanner | **Used** in the Android app with the in-page camera as fallback. | Barcode tab |
 | Camera vs. gallery chooser | **Used.** Camera first, gallery one tap away. | AI photo/label |
-| Edge-to-edge, safe areas, themed status bar | **Used.** Sheets and sticky footers add `env(safe-area-inset-bottom)`. | Shell, sheets |
+| Edge-to-edge, safe areas, themed status bar | **Used.** Sheets and sticky footers add `env(safe-area-inset-bottom)`. Native status bar dynamically matches the active theme: `#121916` (light icons) in dark, `#F5F3EE` (dark icons) in light. | Shell, sheets |
 | Push notifications | **Only for the weekly check-in reminder.** An "estimate ready" notification was rejected: AI scans take seconds, the draft is saved and resumes on return, and a new local-notification permission would cost more trust than it earns. | Settings |
 | Live Updates / Xiaomi HyperOS island (Focus notifications) | **Not used.** They need native ongoing-notification code for long-running tasks (rides, timers). No NutritionApp task runs long enough to justify one. Revisit only for a genuinely long background job. | — |
 | Share target (share a photo into the app) | **Candidate, not built.** Useful for logging a gallery photo from another app; requires manifest `share_target` and an Android intent filter. | — |

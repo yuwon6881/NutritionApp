@@ -17,26 +17,26 @@
 .bar-missing{fill:var(--border)}
 .maintenance-line{fill:none;stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.75}
 .average-line{stroke:var(--ink-strong);stroke-width:1.5;stroke-dasharray:5 4;opacity:.55}
-.bar-chart-nav{display:flex;align-items:center;justify-content:center;min-height:28px;margin:4px 0}
-.bar-chart-range{flex:1;margin:0;text-align:center;font-size:.76rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.bar-chart-nav{display:flex;align-items:center;justify-content:center;min-height:32px;margin:6px 0}
+.bar-chart-range{flex:1;margin:0;text-align:center;font-size:.8125rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
 .bar-chart-hint{display:none}
 /* Mouse users page earlier and later from buttons over the plot edges; touch windows scroll by finger. */
 .bar-chart-frame{position:relative}
 .button.bar-chart-edge{display:none}
 
 /* Readout: the selected date's values in fixed cells, so a new selection never moves the chart. */
-.chart-readout.chart-readout-grid{display:grid;gap:6px;align-items:start;padding:10px 14px;margin-bottom:4px}
-.chart-readout-date{font-size:.84rem}
-.chart-readout-grid dl{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px;margin:0}
+.chart-readout.chart-readout-grid{display:grid;gap:8px;align-items:start;padding:12px 16px;margin-bottom:6px;border-radius:12px;background:var(--muted)}
+.chart-readout-date{font-size:.9375rem;font-weight:600;color:var(--ink-strong)}
+.chart-readout-grid dl{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px;margin:0}
 .chart-readout-grid dl>div{min-width:0}
-.chart-readout-grid dt{display:flex;align-items:center;gap:6px;font-size:.68rem;letter-spacing:.02em;color:var(--muted-foreground)}
-.chart-readout-grid dd{margin:2px 0 0;font-size:.86rem;font-weight:600;color:var(--ink-strong)}
+.chart-readout-grid dt{display:flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)}
+.chart-readout-grid dd{margin:3px 0 0;font-size:1.1rem;font-weight:700;color:var(--ink-strong)}
 .chart-readout-grid dd small{font-weight:400;color:var(--muted-foreground)}
-.chart-readout-grid dd.is-surplus{color:var(--carbs)}
-.chart-readout-grid dd.is-deficit{color:var(--protein)}
+.chart-readout-grid dd.is-surplus{color:var(--energy)}
+.chart-readout-grid dd.is-deficit{color:var(--energy)}
 
 /* Legends show the mark itself next to its meaning. */
-.chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;list-style:none;margin:10px 0 0;padding:0;font-size:.74rem;line-height:1.4;color:var(--muted-foreground)}
+.chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;list-style:none;margin:12px 0 0;padding:0;font-size:.8125rem;line-height:1.45;color:var(--muted-foreground)}
 .chart-legend li{display:inline-flex;align-items:center;gap:6px}
 .legend-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;flex-shrink:0}
 .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -45,20 +45,20 @@
 .swatch-partial,.swatch-steps-partial{background:var(--energy);opacity:.45}
 .swatch-missing{background:var(--border)}
 .swatch-maintenance,.swatch-average{border-top-style:dashed;border-color:var(--ink-strong)}
-.swatch-surplus{background:var(--carbs)}
-.swatch-deficit{background:var(--protein)}
+.swatch-surplus{background:var(--energy)}
+.swatch-deficit{background:var(--muted-foreground)}
 .swatch-scale{background:var(--muted-foreground)}
 .swatch-trend{border-color:var(--weight);border-top-width:3px}
 .swatch-coaching-maintenance{border-top:3px solid var(--energy);border-top-style:solid}
-.swatch-coaching-goal{border-top:2px dashed var(--protein);border-top-style:dashed}
+.swatch-coaching-goal{border-top:2px dashed var(--ink-strong);border-top-style:dashed}
 .swatch-coaching-accepted{border-top:2px dotted var(--muted-foreground);border-top-style:dotted;opacity:.8}
-.legend-hint{font-size:.68rem;color:var(--muted-foreground);margin-left:2px}
+.legend-hint{font-size:.72rem;color:var(--muted-foreground);margin-left:2px}
 
 /* Energy: two charts of one period, one scroll position. */
 .chart-block{margin-top:6px}
 .chart-block+.chart-block{margin-top:28px;padding-top:24px;border-top:1px solid var(--border)}
-.chart-block>h3{margin:0 0 4px;font-size:.95rem}
-.chart-description{margin:0 0 12px;font-size:.78rem;line-height:1.5;max-width:62ch}
+.chart-block>h3{margin:0 0 6px;font-size:1.05rem;font-weight:650;color:var(--ink-strong)}
+.chart-description{margin:0 0 14px;font-size:.875rem;line-height:1.5;max-width:62ch;color:var(--muted-foreground)}
 
 /* Weight chart. */
 .weight-chart-panel .section-heading>div>p{max-width:52ch}
@@ -70,18 +70,18 @@
 
 /* Latest weigh-ins: a date badge, the value with its change, and icon actions. */
 .weigh-in-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.weigh-in-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:8px 8px 8px 8px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
-.weigh-in-date{display:grid;justify-items:center;align-content:center;gap:1px;width:52px;min-height:58px;border-radius:10px;background:var(--muted);line-height:1.15}
-.weigh-in-month{font-size:.6rem;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-ink)}
-.weigh-in-day{font-size:1.2rem;font-weight:650;color:var(--ink-strong)}
-.weigh-in-weekday{font-size:.62rem;color:var(--muted-foreground)}
+.weigh-in-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.weigh-in-date{display:grid;justify-items:center;align-content:center;gap:1px;width:54px;min-height:58px;border-radius:10px;background:var(--muted);line-height:1.15}
+.weigh-in-month{font-size:.6875rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-ink)}
+.weigh-in-day{font-size:1.3rem;font-weight:700;color:var(--ink-strong)}
+.weigh-in-weekday{font-size:.72rem;color:var(--muted-foreground)}
 .weigh-in-value{min-width:0}
 .weigh-in-value p{margin:0}
-.weigh-in-kg{font-size:1.05rem;line-height:1.3;color:var(--ink-strong)}
-.weigh-in-kg .figure{font-weight:600}
-.weigh-in-meta{font-size:.74rem;line-height:1.4;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.weigh-in-kg{font-size:1.15rem;line-height:1.3;color:var(--ink-strong)}
+.weigh-in-kg .figure{font-weight:650}
+.weigh-in-meta{font-size:.8125rem;line-height:1.4;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .weigh-in-source{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:6px;border-radius:6px;background:var(--muted);color:var(--muted-foreground);vertical-align:2px}
-.weigh-in-actions{display:flex;gap:2px}
+.weigh-in-actions{display:flex;gap:4px}
 .weigh-in-actions .button{color:var(--muted-foreground)}
 .weigh-in-actions .weigh-in-delete{color:var(--destructive)}
 
@@ -89,13 +89,13 @@
   .bar-chart-hint{display:inline}
   .chart-readout-grid dl{gap:8px}
   /* Two lines are reserved for every value, so a longer one never pushes the chart down. */
-  .chart-readout-grid dd{min-height:2.6em;font-size:.8rem;line-height:1.3}
+  .chart-readout-grid dd{min-height:2.6em;font-size:.875rem;line-height:1.3}
   .chart-readout-grid dd small{display:block}
-  .chart-legend{justify-content:center;gap:6px 12px;text-align:center}
+  .chart-legend{justify-content:center;gap:6px 14px;text-align:center}
   .chart-block+.chart-block{margin-top:24px;padding-top:20px}
   .weigh-in-row{gap:12px}
 }
-.weigh-in-more{display:flex;justify-content:center;margin-top:12px}
+.weigh-in-more{display:flex;justify-content:center;margin-top:14px}
 @media(min-width:1024px){
   .button.bar-chart-edge{display:inline-flex;position:absolute;z-index:2;width:36px;min-width:36px;height:36px;min-height:36px;padding:0;border-radius:999px;background:var(--card);box-shadow:var(--shadow);transition:opacity var(--motion-control) ease,background-color var(--motion-control) ease}
   .bar-chart-edge-back{left:calc(52px + 6px)}
@@ -106,44 +106,73 @@
 /* Energy readout: a status chip and three cells; the cells the chart is drawing are emphasised. */
 .chart-heading{margin-bottom:14px}
 .chart-heading h3{margin:0}
-.chart-readout.energy-readout{display:grid;gap:10px;align-items:stretch;padding:12px;margin-bottom:6px}
-.energy-readout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:26px}
-.energy-readout-status{padding:3px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-size:.7rem;line-height:1.4;white-space:nowrap;color:var(--muted-foreground)}
-.energy-readout-status.is-complete{color:var(--ink-strong)}
-.energy-readout-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
-.energy-readout-cells>div{display:grid;align-content:start;gap:2px;min-width:0;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--card);transition:border-color var(--motion-control) ease}
+.chart-readout.energy-readout{display:grid;gap:10px;align-items:stretch;padding:14px 16px;margin-bottom:8px;border-radius:14px;background:var(--muted)}
+.energy-readout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px}
+.energy-readout-status{padding:4px 12px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-size:.78rem;font-weight:550;line-height:1.4;white-space:nowrap;color:var(--muted-foreground)}
+.energy-readout-status.is-complete{color:var(--ink-strong);font-weight:600}
+.energy-readout-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+.energy-readout-cells>div{display:grid;align-content:start;gap:3px;min-width:0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--card);transition:border-color var(--motion-control) ease}
 .energy-readout-cells>div.is-active{border-color:color-mix(in srgb,var(--primary) 45%,var(--border))}
-.energy-readout-cells dt{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;min-width:0;font-size:.68rem;letter-spacing:.02em;color:var(--muted-foreground)}
-.energy-readout-cells dd{margin:0;font-size:1.05rem;line-height:1.3;font-weight:600;color:var(--ink-strong);overflow-wrap:anywhere}
-.energy-readout-cells dd .unit{font-size:.7rem}
+.energy-readout-cells dt{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;min-width:0;font-size:.75rem;font-weight:600;letter-spacing:.02em;color:var(--muted-foreground)}
+.energy-readout-cells dd{margin:0;font-size:1.25rem;line-height:1.25;font-weight:700;color:var(--ink-strong);overflow-wrap:anywhere}
+.energy-readout-cells dd .unit{font-size:.8125rem;font-weight:500}
 .energy-readout-cells dd .is-unknown{color:var(--muted-foreground)}
-.energy-readout-cells small{display:block;min-height:1.5em;font-size:.68rem;line-height:1.4}
-.energy-readout-cells .is-surplus dd{color:var(--carbs)}
-.energy-readout-cells .is-deficit dd{color:var(--protein)}
+.energy-readout-cells .is-surplus dd{color:var(--energy)}
+.energy-readout-cells .is-deficit dd{color:var(--energy)}
 /* Phones give each figure its own row: name and note on the left, the value on the trailing edge. */
 @media(max-width:639px){
   .chart-readout.energy-readout{padding:12px;gap:10px}
   .energy-readout-cells{grid-template-columns:minmax(0,1fr);gap:6px}
-  .energy-readout-cells>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;padding:9px 12px;border-radius:10px}
-  .energy-readout-cells dt{grid-area:label;flex-wrap:nowrap;gap:6px;font-size:.74rem;white-space:nowrap}
-  .energy-readout-cells dd{grid-area:value;font-size:1rem;white-space:nowrap;text-align:right}
-  .energy-readout-cells small{grid-area:note;min-height:0;font-size:.7rem}
+  .energy-readout-cells>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;padding:10px 12px;border-radius:10px}
+  .energy-readout-cells dt{grid-area:label;flex-wrap:nowrap;gap:6px;font-size:.8125rem;white-space:nowrap}
+  .energy-readout-cells dd{grid-area:value;font-size:1.15rem;white-space:nowrap;text-align:right}
+  .energy-readout-cells small{grid-area:note;min-height:0;font-size:.75rem}
 }
 
 /* Period totals: three tiles on wider windows, a divided list on phones. */
-.energy-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 24px}
-.energy-stats>div{display:grid;align-content:start;gap:4px;min-width:0;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--muted) 45%,var(--card))}
-.energy-stats dt{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground)}
-.energy-stats dd{margin:2px 0 0;font-size:1.35rem;font-weight:600;line-height:1.25;letter-spacing:-.02em;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
-.energy-stats dd .unit{font-size:.78rem;letter-spacing:0}
-.energy-stats small{font-size:.74rem}
-.energy-stats .is-surplus dd{color:var(--carbs)}
-.energy-stats .is-deficit dd{color:var(--protein)}
+.energy-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 24px}
+.energy-stats>div{display:grid;align-content:start;gap:4px;min-width:0;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.energy-stats dt{font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
+.energy-stats dd{margin:2px 0 0;font-size:1.5rem;font-weight:700;line-height:1.2;letter-spacing:-.025em;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
+.energy-stats dd .unit{font-size:.875rem;letter-spacing:0;font-weight:500}
+.energy-stats small{font-size:.8125rem;color:var(--muted-foreground)}
+.energy-stats .is-surplus dd{color:var(--energy)}
+.energy-stats .is-deficit dd{color:var(--energy)}
 @media(max-width:639px){
-  .energy-stats{grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--muted) 45%,var(--card))}
-  .energy-stats>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;row-gap:2px;padding:12px 14px;border:0;border-radius:0;background:transparent}
+  .energy-stats{grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+  .energy-stats>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;row-gap:2px;padding:14px 16px;border:0;border-radius:0;background:transparent}
   .energy-stats>div+div{border-top:1px solid var(--border)}
-  .energy-stats dt{grid-area:label;font-size:.66rem}
-  .energy-stats dd{grid-area:value;margin:0;font-size:1.1rem;text-align:right}
+  .energy-stats dt{grid-area:label;font-size:.72rem}
+  .energy-stats dd{grid-area:value;margin:0;font-size:1.25rem;text-align:right}
   .energy-stats small{grid-area:note}
+}
+
+/* Progress section tabs: phone equal-width slots with 44px control height, visible labels, and enlarged-text wrap/scroll */
+@media(max-width:639px){
+  #progress-tabs.section-segments{
+    gap:4px;
+    padding:3px;
+    overflow-x:auto;
+  }
+  #progress-tabs.section-segments>.button{
+    min-width:0;
+    padding-inline:6px;
+    padding-block:6px;
+    font-size:.875rem;
+    line-height:1.2;
+    height:auto;
+    min-height:44px;
+    overflow-wrap:break-word;
+    word-break:normal;
+    white-space:normal;
+  }
+  #progress-tabs.section-segments .progress-tab-label{
+    display:block;
+    min-width:0;
+    width:100%;
+    overflow-wrap:break-word;
+    word-break:normal;
+    white-space:normal;
+    text-align:center;
+  }
 }

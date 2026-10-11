@@ -1,4 +1,5 @@
-import {useEffect, useId, useRef, useState, type KeyboardEvent} from 'react';
+import {useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent} from 'react';
+import {createPortal} from 'react-dom';
 import {Clock} from 'lucide-react';
 import {FieldFrame} from './Form';
 import {useDismissablePopover} from './useDismissablePopover';
@@ -75,21 +76,134 @@ export function TimePicker({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverPosition, setPopoverPosition] = useState<{left: number; top: number} | null>(null);
 
   const {hour12, minute, period} = parseTimeParts(value);
 
-  useDismissablePopover(isOpen, [containerRef], () => setIsOpen(false));
+  const closePopover = () => {
+    setIsOpen(false);
+    setPopoverPosition(null);
+    triggerRef.current?.focus({preventScroll: true});
+  };
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const align = () => {
+      const popover = popoverRef.current;
+      const anchor = triggerRef.current;
+      if (!popover || !anchor) return;
+
+      const vv = window.visualViewport;
+      const viewportLeft = vv?.pageLeft ?? window.scrollX;
+      const viewportTop = vv?.pageTop ?? window.scrollY;
+      const viewportWidth = vv?.width ?? window.innerWidth;
+      const viewportHeight = vv?.height ?? window.innerHeight;
+
+      // Cap maximum popover height to available visual viewport minus 24px margin
+      const maxAvailableHeight = Math.max(120, viewportHeight - 24);
+      popover.style.maxHeight = `${maxAvailableHeight}px`;
+
+      const anchorRect = anchor.getBoundingClientRect();
+      const host = containerRef.current?.closest('dialog');
+      const hostRect = host?.getBoundingClientRect();
+
+      const popoverWidth = popover.offsetWidth;
+      const popoverHeight = popover.offsetHeight;
+
+      // Anchor coords in page coordinate space
+      const anchorPageLeft = anchorRect.left + window.scrollX;
+      const anchorPageTop = anchorRect.top + window.scrollY;
+      const anchorPageBottom = anchorRect.bottom + window.scrollY;
+
+      // Horizontal clamp within visual viewport bounds
+      const minLeft = viewportLeft + 12;
+      const maxLeft = viewportLeft + viewportWidth - popoverWidth - 12;
+      const pageLeft = Math.max(minLeft, Math.min(anchorPageLeft, Math.max(minLeft, maxLeft)));
+
+      // Vertical placement: preferred is below anchor, flip to above if below does not fit
+      const spaceBelow = (viewportTop + viewportHeight) - (anchorPageBottom + 6);
+      const spaceAbove = (anchorPageTop - 6) - viewportTop;
+
+      let preferredTop: number;
+      if (spaceBelow >= popoverHeight || spaceBelow >= spaceAbove) {
+        preferredTop = anchorPageBottom + 6;
+      } else {
+        preferredTop = anchorPageTop - 6 - popoverHeight;
+      }
+
+      // Clamp vertical position strictly within visual viewport [viewportTop + 12, viewportTop + viewportHeight - popoverHeight - 12]
+      const minTop = viewportTop + 12;
+      const maxTop = Math.max(minTop, viewportTop + viewportHeight - popoverHeight - 12);
+      const pageTop = Math.max(minTop, Math.min(preferredTop, maxTop));
+
+      if (hostRect) {
+        const hostPageLeft = hostRect.left + window.scrollX;
+        const hostPageTop = hostRect.top + window.scrollY;
+        setPopoverPosition({
+          left: pageLeft - hostPageLeft,
+          top: pageTop - hostPageTop,
+        });
+      } else {
+        setPopoverPosition({
+          left: pageLeft,
+          top: pageTop,
+        });
+      }
+    };
+
+    setPopoverPosition(null);
+    align();
+
+    window.addEventListener('resize', align);
+    window.addEventListener('scroll', align, true);
+    window.visualViewport?.addEventListener('resize', align);
+    window.visualViewport?.addEventListener('scroll', align);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && popoverRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        align();
+      });
+      resizeObserver.observe(popoverRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', align);
+      window.removeEventListener('scroll', align, true);
+      window.visualViewport?.removeEventListener('resize', align);
+      window.visualViewport?.removeEventListener('scroll', align);
+      resizeObserver?.disconnect();
+    };
+  }, [isOpen]);
+
+  useDismissablePopover(isOpen, [containerRef, popoverRef], () => {
+    setIsOpen(false);
+    setPopoverPosition(null);
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closePopover();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Tab' && isOpen) {
       setIsOpen(false);
+      setPopoverPosition(null);
       return;
     }
     if (e.key === 'Escape' && isOpen) {
       e.preventDefault();
       e.stopPropagation();
-      setIsOpen(false);
-      triggerRef.current?.focus({preventScroll: true});
+      closePopover();
     }
   };
 
@@ -125,7 +239,7 @@ export function TimePicker({
         <button
           ref={triggerRef}
           id={`${timeId}-trigger`}
-          data-modal-autofocus={dataModalAutofocus||undefined}
+          data-modal-autofocus={dataModalAutofocus || undefined}
           type="button"
           disabled={disabled}
           className={`custom-time-trigger ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
@@ -151,8 +265,18 @@ export function TimePicker({
           tabIndex={-1}
         />
 
-        {isOpen && (
-          <div className="custom-time-popover" role="dialog" aria-label={`Choose ${label}`}>
+        {isOpen && createPortal(
+          <div
+            ref={popoverRef}
+            className="custom-time-popover"
+            role="dialog"
+            aria-label={`Choose ${label}`}
+            style={{
+              left: popoverPosition?.left ?? 0,
+              top: popoverPosition?.top ?? 0,
+              visibility: popoverPosition ? 'visible' : 'hidden',
+            }}
+          >
             <div className="custom-time-header">
               <span className="custom-time-current">{format12Display(value)}</span>
               <button
@@ -233,15 +357,13 @@ export function TimePicker({
               <button
                 type="button"
                 className="button primary custom-time-done-btn"
-                onClick={() => {
-                  setIsOpen(false);
-                  triggerRef.current?.focus();
-                }}
+                onClick={closePopover}
               >
                 Done
               </button>
             </div>
-          </div>
+          </div>,
+          containerRef.current?.closest('dialog') ?? document.body
         )}
       </div>
       {hint && <small id={`${timeId}-hint`}>{hint}</small>}

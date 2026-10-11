@@ -1,0 +1,288 @@
+/* Today nutrition layout: unified daily grid, energy overview, and macronutrients. */
+
+/* ==========================================================================
+   Dominant Today Nutrition Surface (.daily-grid)
+   ========================================================================== */
+.daily-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: stretch;
+  gap: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.daily-grid > .panel {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 24px;
+  margin: 0;
+}
+
+/* Energy panel: row layout for due check-in (orb button on right, text on left) */
+.daily-grid > .energy-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Overview mode: column layout with eyebrow atop the 3-column energy overview */
+.daily-grid > .energy-panel-overview {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.daily-grid > .macros,
+.daily-grid > .panel + .panel {
+  border-left: 1px solid var(--border);
+  padding-left: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Skeleton placeholder loading inside .daily-grid: match unified bounds and child padding */
+.dashboard-skeleton .daily-grid > .skeleton-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Energy overview triplet: left/over on left, ring in middle, target on right */
+.energy-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.daily-grid .energy-overview .energy-ring,
+.energy-panel .energy-overview .energy-ring,
+.energy-overview .energy-ring {
+  width: 120px;
+  height: 120px;
+  max-width: none;
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+.energy-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.energy-side.energy-target {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.energy-side strong {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.energy-side .energy-over,
+.energy-side strong.energy-over {
+  color: var(--energy);
+}
+
+.energy-side span {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  line-height: 1.35;
+}
+
+/* Macronutrients grouped inside the Today surface */
+.macros .eyebrow {
+  margin-bottom: 16px !important;
+}
+
+.macro {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 0.875rem;
+}
+
+.macro:last-child {
+  margin-bottom: 0;
+}
+
+.macro > span {
+  font-weight: 550;
+  color: var(--foreground);
+  font-size: 0.875rem;
+}
+
+.macro strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.macro strong small {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+  display: inline-block;
+}
+
+.macro progress {
+  appearance: none;
+  height: 7px;
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  grid-column: 1 / -1;
+  background: var(--track);
+  overflow: hidden;
+}
+
+/* Steps card directly below the Today card */
+.dashboard-steps-reveal {
+  margin-top: -6px;
+  margin-bottom: 24px;
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  /* Tablet stacked Today card with 3-column macros under eyebrow */
+  .dashboard-section-today .daily-grid,
+  .dashboard-skeleton .daily-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-section-today .daily-grid > .panel + .panel,
+  .dashboard-skeleton .daily-grid > .panel + .panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 24px;
+    padding-top: 20px;
+  }
+
+  .dashboard-section-today .daily-grid > .panel.macros {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 18px;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 24px;
+    padding-top: 20px;
+  }
+
+  .dashboard-section-today .macros .eyebrow,
+  .dashboard-section-today .daily-grid > .macros > .eyebrow {
+    grid-column: 1 / -1;
+    margin-bottom: 16px !important;
+  }
+
+  .dashboard-section-today .daily-grid .macro {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    margin-bottom: 0;
+    min-width: 0;
+  }
+
+  .dashboard-section-today .daily-grid .macro > span {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .dashboard-section-today .daily-grid .macro strong {
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .dashboard-section-today .daily-grid .macro strong small {
+    display: inline;
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-skeleton .daily-grid > .skeleton-panel:last-child {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 18px;
+  }
+}
+
+@media (max-width: 639px) {
+  /* Mobile stack for Today nutrition surface */
+  .daily-grid {
+    grid-template-columns: 1fr;
+    margin-bottom: 18px;
+    border-radius: 18px;
+  }
+
+  .daily-grid > .panel {
+    padding: 18px 16px;
+  }
+
+  .daily-grid > .macros,
+  .daily-grid > .panel + .panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+    padding-left: 16px;
+  }
+
+  .dashboard-steps-reveal {
+    margin-top: -4px;
+    margin-bottom: 18px;
+  }
+
+  .energy-overview {
+    gap: 10px;
+  }
+
+  .daily-grid .energy-overview .energy-ring,
+  .energy-panel .energy-overview .energy-ring,
+  .energy-overview .energy-ring {
+    width: 112px;
+    height: 112px;
+    max-width: none;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .energy-side strong {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 379px) {
+  .energy-overview {
+    gap: 6px;
+  }
+
+  .daily-grid .energy-overview .energy-ring,
+  .energy-panel .energy-overview .energy-ring,
+  .energy-overview .energy-ring {
+    width: 104px;
+    height: 104px;
+    max-width: none;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

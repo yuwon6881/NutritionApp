@@ -30,11 +30,22 @@ test.beforeAll(async({request})=>{
 });
 
 async function contained(page:Page){
-  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  const width=page.viewportSize()!.width;
+  await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width+1);
 }
+
 async function capture(page:Page,name:string){
   await contained(page);
-  for(const body of await page.locator('.modal-body:visible').all())expect(await body.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
+  for(const body of await page.locator('.modal-body:visible').all()){
+    expect(await body.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
+  }
+  await page.evaluate(async()=>{
+    const anims=document.getAnimations().filter(a=>{
+      const t=a.effect?.getTiming();
+      return !t||t.iterations!==Infinity;
+    });
+    await Promise.all(anims.map(a=>a.finished.catch(()=>{})));
+  });
   await page.screenshot({path:`artifacts/ui-uplift/${name}.png`,fullPage:true,animations:'disabled'});
   await page.screenshot({path:`artifacts/ui-uplift/${name}-viewport.png`,animations:'disabled'});
 }
@@ -60,7 +71,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       await expect(nav.locator('button:visible')).toHaveCount(7);
       expect(sidebar!.x).toBe(0);
       expect(sidebar!.height).toBe(900);
-      expect(sidebar!.width).toBe(width<1024?88:228);
+      expect(sidebar!.width).toBe(width<1024?88:224);
       await page.evaluate(()=>window.scrollTo(0,400));
       const scrolledSidebar=await page.locator('.sidebar').boundingBox();
       expect(Math.abs(scrolledSidebar!.y)).toBeLessThanOrEqual(1);
@@ -72,6 +83,18 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     for(const name of ['Dashboard','Food Log','Progress','Coach','Settings']){
       await page.getByRole('button',{name,exact:true}).click();
       await expect(page.locator('[data-page-heading]')).toHaveText(name);
+      if(name==='Dashboard'){
+        await expect(page.locator('.energy-ring')).not.toHaveClass(/energy-ring-intro/);
+        await expect(page.locator('.energy-ring .ring-value')).toHaveText('1,060');
+      }
+      if(name==='Food Log'){
+        await expect(page.locator('[data-time-row="08:00"]')).toBeVisible();
+        await expect(page.locator('.food-day-skeleton, [aria-busy="true"].food-day-summary')).toHaveCount(0);
+      }
+      if(name==='Progress'){
+        await expect(page.locator('.stats-grid:not(.skeleton)')).toBeVisible();
+        await expect(page.locator('.skeleton[aria-busy="true"]')).toHaveCount(0);
+      }
       await capture(page,`${theme}-${width}-${name.replaceAll(' ','-')}`);
       if(name==='Food Log'){
         await expect(page.locator('[data-time-row="08:00"] .food-macro-summary')).toHaveAttribute('aria-label','Macros: Protein 28 g, Carbs 52 g, Fat 12 g');
@@ -108,31 +131,53 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.getByRole('button',{name:'Progress',exact:true}).click();
     for(const section of ['Energy','Body']){
       await page.getByRole('button',{name:section,exact:true}).click();
+      if(section==='Body'){
+        await expect(page.getByRole('button',{name:'Add photo set',exact:true})).toBeVisible();
+        await expect(page.locator('.body-hub-skeleton, .physique-photo-home[aria-busy="true"]')).toHaveCount(0);
+      }
+      if(section==='Energy'){
+        await expect(page.locator('.energy-stats')).toBeVisible();
+        await expect(page.locator('.energy-readout')).toBeVisible();
+        await expect(page.locator('.energy-history .skeleton[aria-busy="true"], [role="status"][aria-busy="true"]')).toHaveCount(0);
+      }
       await capture(page,`${theme}-${width}-Progress-${section}`);
     }
     await page.getByRole('button',{name:'Add photo set',exact:true}).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    const photoDialog=page.getByRole('dialog',{name:'Upload physique photo set',exact:true});
+    await expect(photoDialog).toBeVisible();
+    await expect(photoDialog.getByRole('heading',{name:'Upload physique photo set',exact:true})).toBeVisible();
     await capture(page,`${theme}-${width}-Photo-dialog`);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
+
     await launcher.click();
     const addDialog=page.getByRole('dialog',{name:'Add',exact:true});
     await expect(addDialog).toBeVisible();
+    await expect(addDialog.getByRole('button',{name:'Log food'})).toBeVisible();
     await capture(page,`${theme}-${width}-Add-dialog`);
+
     await addDialog.getByRole('button',{name:'Log food'}).click();
     const foodDialog=page.getByRole('dialog',{name:'Log food',exact:true});
     await expect(foodDialog).toBeVisible();
+    await expect(foodDialog.getByRole('button',{name:'Manual entry',exact:true})).toBeVisible();
     await capture(page,`${theme}-${width}-Food-dialog`);
+
     await foodDialog.getByRole('button',{name:'Manual entry',exact:true}).click();
+    const reviewDialog=page.getByRole('dialog',{name:'Review food',exact:true});
+    await expect(reviewDialog.getByLabel('Food name')).toBeVisible();
     await capture(page,`${theme}-${width}-Manual-entry`);
+
     await page.keyboard.press('Escape');
     await expect(foodDialog.getByRole('button',{name:'Manual entry',exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(launcher).toBeFocused();
+
     await launcher.click();
     await addDialog.getByRole('button',{name:'Log weight'}).click();
-    await expect(page.getByRole('dialog',{name:'Log weight',exact:true})).toBeVisible();
+    const weightDialog=page.getByRole('dialog',{name:'Log weight',exact:true});
+    await expect(weightDialog).toBeVisible();
+    await expect(weightDialog.getByRole('button',{name:'Update weigh-in',exact:true})).toBeVisible();
     await capture(page,`${theme}-${width}-Weight-dialog`);
     await page.keyboard.press('Escape');
     await expect(launcher).toBeFocused();

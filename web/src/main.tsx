@@ -1,4 +1,4 @@
-import '@fontsource-variable/inter/index.css';
+import '@fontsource-variable/manrope/index.css';
 import {createRoot} from 'react-dom/client';
 import {registerAppServiceWorker} from './lib/registerAppServiceWorker';
 import {initializeNativeApp,isNativeApp} from './lib/nativeApp';

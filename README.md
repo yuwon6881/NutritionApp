@@ -1,6 +1,6 @@
 # Nutrition
 
-A separate two-user, mobile-first nutrition PWA. React/TypeScript/Vite frontend, ASP.NET Core 10 API, PostgreSQL on Neon, Vercel hosting for the PWA and Cloud Run hosting for the API. FinancialApp is not a runtime dependency.
+A separate two-user, mobile-first nutrition PWA with a calm editorial visual direction: warm ivory (`#F5F3EE`) in light mode, deep forest (`#121916`) in dark mode, forest-green primary actions, bundled Manrope Variable typography with tabular numerals, and dedicated data colours for calories, macros, and weight. React/TypeScript/Vite frontend, ASP.NET Core 10 API, PostgreSQL on Neon, Vercel hosting for the PWA and Cloud Run hosting for the API. FinancialApp is not a runtime dependency.
 
 ## Local development
 
