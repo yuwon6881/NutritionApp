@@ -1,4 +1,5 @@
 import type {PhysiqueAngle,PhysiquePhotoSet} from '../../types';
+import {readableDate} from '../../lib/format';
 import {angleLabel,angles} from '../../lib/bodyMeasurements';
 import {SegmentedControl} from '../ui/SegmentedControl';
 import {PhotoFrame} from './PhotoFrame';
@@ -28,9 +29,9 @@ export function PhotoSetViewer({sets,index,angle,hasMore,busy,onAngle,onOlder,on
   const newer=index>0?onNewer:undefined;
   return <section className="panel photo-viewer-panel">
     <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={angle} onChange={onAngle} options={angles.map(value=>({value,label:angleLabel(value)}))}/>
-    <PhotoFrame src={photoSrc(current,angle)} alt={`${angleLabel(angle)} physique photo from ${current.date}`}
+    <PhotoFrame src={photoSrc(current,angle)} alt={`${angleLabel(angle)} physique photo from ${readableDate(current.date)}`}
       emptyTitle={angleLabel(angle)} emptyText="Not uploaded"
       preloadSrc={photoSrc(sets[index+1],angle)??photoSrc(sets[index-1],angle)} onOlder={older} onNewer={newer}/>
-    <RecordNavigator noun="Set" index={index} total={sets.length} moreOlder={hasMore} date={current.date} busy={busy} onOlder={older} onNewer={newer}/>
+    <RecordNavigator noun="Set" index={index} total={sets.length} moreOlder={hasMore} date={readableDate(current.date)} busy={busy} onOlder={older} onNewer={newer}/>
   </section>;
 }

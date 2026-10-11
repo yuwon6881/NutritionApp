@@ -127,7 +127,7 @@
 .food-day-skeleton-row>.panel{margin:0;padding:14px}
 
 /* Chart readout: the selected date's values, set by touch, mouse, or arrow keys. */
-.chart-readout{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;min-height:var(--touch-target);margin:0 0 6px;padding:8px 12px;border-radius:10px;background:var(--muted);font-size:.875rem;font-variant-numeric:tabular-nums;color:var(--foreground)}
+.chart-readout{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;min-height:var(--touch-target);margin:0 0 6px;padding:8px 0;border-block:1px solid var(--border);font-size:.875rem;font-variant-numeric:tabular-nums;color:var(--foreground)}
 .chart-readout strong{font-weight:600}
 .chart-scrub{border-radius:10px}
 .chart-scrub:focus-visible{outline:2px solid var(--ring);outline-offset:4px}

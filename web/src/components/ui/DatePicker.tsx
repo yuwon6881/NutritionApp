@@ -3,6 +3,8 @@ import {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Calendar, Check, ChevronDown, ChevronLeft, ChevronRight} from 'lucide-react';
 import {useDismissablePopover} from './useDismissablePopover';
+import {readableDate} from '../../lib/format';
+import {useProfileClock} from './ProfileClock';
 
 interface CalendarDropdownProps {
   label: string;
@@ -207,12 +209,8 @@ function toIso(d: Date): string {
 
 function formatDisplay(iso: string): string {
   if (!iso) return 'Select date';
-  const parts = iso.split('-');
-  if (parts.length === 3) {
-    const [yyyy, mm, dd] = parts;
-    return `${dd}/${mm}/${yyyy}`;
-  }
-  return iso;
+  // A spelled-out month: 11/10 reads as two different days to different people.
+  return readableDate(iso);
 }
 
 export function DatePicker({
@@ -274,7 +272,8 @@ export function DatePicker({
     };
   },[isOpen]);
 
-  const initialDate = value ? parseIso(value) : new Date();
+  const clock = useProfileClock();
+  const initialDate = parseIso(value || clock.today());
   const [viewYear, setViewYear] = useState(initialDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(initialDate.getMonth());
 
@@ -305,7 +304,7 @@ export function DatePicker({
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
   const minimumYear = min ? parseIso(min).getFullYear() : 1900;
-  const maximumYear = max ? parseIso(max).getFullYear() : Math.max(new Date().getFullYear(), viewYear);
+  const maximumYear = max ? parseIso(max).getFullYear() : Math.max(parseIso(clock.today()).getFullYear(), viewYear);
   const calendarYears = Array.from({length:Math.max(1,maximumYear-minimumYear+1)},(_,index)=>minimumYear+index);
   const monthOptions = MONTHS.map((month, index) => ({value: index, label: month}));
   const yearOptions = calendarYears.map(year => ({value: year, label: String(year)}));
@@ -342,7 +341,7 @@ export function DatePicker({
     closeCalendar();
   };
 
-  const todayIso = toIso(new Date());
+  const todayIso = clock.today();
 
   // Build grid of 42 cells (6 weeks)
   const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
@@ -500,8 +499,7 @@ export function DatePicker({
                 type="button"
                 className="calendar-action-btn"
                 onClick={() => {
-                  const now = new Date();
-                  const iso = toIso(now);
+                  const iso = clock.today();
                   if ((!min || iso >= min) && (!max || iso <= max)) {
                     onChange(iso);
                     closeCalendar();

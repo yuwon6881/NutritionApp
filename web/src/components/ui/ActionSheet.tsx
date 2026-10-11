@@ -46,6 +46,5 @@ export function ActionSheet({
         <ChevronRight size={18} className="action-sheet-item-chevron"/>
       </Button>)}
     </div>
-    <div className="modal-actions"><Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button></div>
   </Modal>;
 }

@@ -21,6 +21,7 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBa
     private static readonly TimeSpan MaxSearchWait=TimeSpan.FromSeconds(3);
     private static readonly TimeSpan BusyBackoff=TimeSpan.FromSeconds(10);
     private static readonly TimeSpan BarcodeInterval=TimeSpan.FromSeconds(4.1);
+    private static readonly TimeSpan MaxBarcodeWait=TimeSpan.FromSeconds(5);
     // /api/v2/search allows ten reads per minute per IP. A one-second slot could exceed that as soon
     // as two instances shared the egress address, so hydration stays best-effort and paced below it.
     private static readonly TimeSpan BatchProductInterval=TimeSpan.FromSeconds(6.1);
@@ -79,10 +80,12 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBa
 
     public async Task<FoodResult?> Barcode(string code,CancellationToken ct)
     {
-        // No slot is returned on failure: the request reached a metered endpoint and counted
-        // against its allowance whatever it answered.
-        if(!await BarcodeGate.TryClaim(BarcodeInterval,ct))
+        // A second package scanned straight after the first waits for its slot, as a search does;
+        // only a queue deeper than one slot is refused. No slot is returned on failure: the request
+        // reached a metered endpoint and counted against its allowance whatever it answered.
+        if(await BarcodeGate.Reserve(BarcodeInterval,MaxBarcodeWait,ct) is not { } slot)
             throw new FoodProviderException(ProviderId,FoodProviderFailure.Throttled,BarcodeInterval);
+        if(slot.Wait>TimeSpan.Zero)await Task.Delay(slot.Wait,ct);
         using var response=await Send($"{ProductUrl}{code}?fields={ProductFields}",ct);
         if(response.StatusCode==HttpStatusCode.NotFound)return null;
         if(response.StatusCode==HttpStatusCode.TooManyRequests)throw new FoodProviderException(ProviderId,FoodProviderFailure.Busy);

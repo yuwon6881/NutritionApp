@@ -1,6 +1,6 @@
 import {useId} from 'react';
 import {Footprints, ArrowUpRight} from 'lucide-react';
-import {number} from '../lib/format';
+import {number,readableDate} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, calculateKnownDayAverage} from '../lib/googleHealth';
 import {niceTicks} from '../lib/barChart';
 import {bucketAxisLabel, bucketReadoutLabel, dateSpan} from '../lib/chartLabels';
@@ -163,7 +163,7 @@ export function GoogleHealthProgressChart({
           <tbody>
             {days.map(d => (
               <tr key={d.date}>
-                <td>{d.date}</td>
+                <td>{readableDate(d.date)}</td>
                 <td>{d.count !== null ? number(d.count) : 'Not recorded'}</td>
               </tr>
             ))}

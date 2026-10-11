@@ -18,27 +18,27 @@ async function openNewestRecord(page:Page){
   await page.getByRole('button',{name:'Progress',exact:true}).first().click();
   await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Open history',exact:true}).click();
-  await page.getByRole('button',{name:/^2026-09-26/}).click();
+  await page.getByRole('button',{name:/^Sep 26, 2026/}).click();
   await expect(page.getByRole('heading',{name:'Body record',exact:true})).toBeVisible();
 }
 
 test('record viewer steps between cycles with buttons and arrow keys, keeping the angle',async({page})=>{
   await openNewestRecord(page);
   const navigation=page.getByRole('navigation',{name:'Record navigation'});
-  await expect(navigation).toContainText('2026-09-26');await expect(navigation).toContainText('Record 1 of 4');
+  await expect(navigation).toContainText('Sep 26, 2026');await expect(navigation).toContainText('Record 1 of 4');
   await expect(page.getByRole('button',{name:'Newer record',exact:true})).toBeDisabled();
   await page.getByRole('button',{name:'Side',exact:true}).click();
   await page.getByRole('button',{name:'Older record',exact:true}).click();
-  await expect(navigation).toContainText('2026-09-05');
+  await expect(navigation).toContainText('Sep 5, 2026');
   await expect(page.getByRole('button',{name:'Side',exact:true})).toHaveAttribute('aria-pressed','true');
   await expect(page.getByText('Not uploaded',{exact:true})).toBeVisible();
 
-  const frame=page.getByRole('group',{name:/Side physique photo from 2026-09-05/});
+  const frame=page.getByRole('group',{name:/Side physique photo from Sep 5, 2026/});
   await frame.focus();await page.keyboard.press('ArrowRight');
-  await expect(navigation).toContainText('2026-09-26');
-  await expect(page.getByRole('img',{name:'Side physique photo from 2026-09-26'})).toBeVisible();
+  await expect(navigation).toContainText('Sep 26, 2026');
+  await expect(page.getByRole('img',{name:'Side physique photo from Sep 26, 2026'})).toBeVisible();
   await page.keyboard.press('ArrowLeft');await page.keyboard.press('ArrowLeft');await page.keyboard.press('ArrowLeft');
-  await expect(navigation).toContainText('2026-07-20');
+  await expect(navigation).toContainText('Jul 20, 2026');
   await expect(page.getByRole('button',{name:'Older record',exact:true})).toBeDisabled();
 });
 
@@ -49,7 +49,7 @@ test('compare pickers step one record at a time and keep one Back button',async(
   await expect(page.getByRole('button',{name:'Back',exact:true})).toHaveCount(1);
   await expect(page.getByRole('button',{name:'Older past record',exact:true})).toBeDisabled();
   await page.getByRole('button',{name:'Newer past record',exact:true}).click();
-  await expect(page.getByText('Change from 2026-08-15 to 2026-09-26.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Change from Aug 15, 2026 to Sep 26, 2026.',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Newer present record',exact:true})).toBeDisabled();
   for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});

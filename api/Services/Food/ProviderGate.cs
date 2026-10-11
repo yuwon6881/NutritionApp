@@ -49,20 +49,6 @@ public sealed class ProviderGate
         try { if(until>next)next=until; }
         finally { sync.Release(); }
     }
-
-    /// <summary>Claims a slot only when one is free now; metered calls never queue.</summary>
-    public async Task<bool> TryClaim(TimeSpan interval,CancellationToken ct)
-    {
-        await sync.WaitAsync(ct);
-        try
-        {
-            var now=DateTime.UtcNow;
-            if(now<next)return false;
-            next=now.Add(interval);
-            return true;
-        }
-        finally { sync.Release(); }
-    }
 }
 
 /// <summary>

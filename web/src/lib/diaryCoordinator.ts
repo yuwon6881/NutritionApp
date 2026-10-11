@@ -80,7 +80,9 @@ export class DiaryCoordinator {
     }
     for(const date of dates){
       if((this.cachedDays.get(date)?.revision??0)>revision)continue;
-      if(!this.cachedDays.has(date))this.cachedDays.set(date,{date,entries:[],revision:0,fetchedAt:0});
+      // A date never loaded here holds only what this edit put on it; it must stay stale so the server's other entries still load.
+      const loaded=this.cachedDays.has(date);
+      if(!loaded)this.cachedDays.set(date,{date,entries:[],revision:0,fetchedAt:0});
       const projected=this.projectDate(date,[op]);
       if(!projected)continue;
       const entry=projected.entries.find(item=>item.id===op.recordId);
@@ -88,7 +90,7 @@ export class DiaryCoordinator {
       if(projected.day)projected.day.revision=revision;
       const saved=canonical?.find(day=>day.date===date);
       if(saved)projected.day=saved;
-      this.cachedDays.set(date,{...projected,revision,fetchedAt:Date.now()});
+      this.cachedDays.set(date,{...projected,revision,fetchedAt:loaded?Date.now():0});
     }
     this.notify();
   }

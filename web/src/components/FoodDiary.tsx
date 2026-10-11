@@ -123,7 +123,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
   const dayTitle=date===current?'Today':date===shiftDate(current,-1)?'Yesterday':date===latest?'Tomorrow':longDate(date);
   return <div className="food-log-page">
     <header className="page-heading">
-      <div><h1 data-page-heading tabIndex={-1}>Food Log</h1><p>Review entries by time, copy or move them, and remove mistakes.</p></div>
+      <div><h1 data-page-heading tabIndex={-1}>Food Log</h1></div>
       <div className="page-heading-actions">
         {(selection.isSelecting||clipboard.count>0)&&(
           <Button
@@ -233,7 +233,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
       />
       {readOnly?<DiaryEmptyState status={status} archived detailDays={state.detailDays} summary={`${count} food ${count===1?'entry':'entries'}${count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}`}/>:<>
         <div className="food-timeline-toolbar">
-          <div><h2>Food timeline</h2><p>Show only logged times or every hour from 12 AM through 11 PM.</p></div>
+          <h2>Food timeline</h2>
           <SegmentedControl<TimelineView> id="food-timeline-view" label="Food timeline hours" value={timelineView} onChange={setTimelineView} options={[{value:'data',label:'Hours with data'},{value:'full',label:'Full day'}]}/>
         </div>
         {!entries.length&&timelineView==='data'&&<DiaryEmptyState status={status} offline={currentUncached} onLog={()=>onLog()}/>}

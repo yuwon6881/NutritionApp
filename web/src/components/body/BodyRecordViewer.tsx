@@ -1,5 +1,5 @@
 import type {BodyMeasurementKey,BodyRecord,PhysiqueAngle} from '../../types';
-import {number} from '../../lib/format';
+import {number,readableDate} from '../../lib/format';
 import {displayWeight,weightLabel} from '../../lib/units';
 import {angleLabel,angles,measurementGroups,measurementLabel} from '../../lib/bodyMeasurements';
 import {SegmentedControl} from '../ui/SegmentedControl';
@@ -33,14 +33,14 @@ export function BodyRecordViewer({records,index,angle,weightUnit,onAngle,onIndex
     return current==null||older==null?null:current-older;
   };
   return <section className="panel body-viewer-panel">
-    <div className="section-heading"><div><h2>{record.date}</h2><p>{record.weightContext.provenance==='legacy-unavailable'?'Weight snapshot unavailable':'Weight snapshot captured when saved'}{previous?' · Changes since '+previous.date:''}</p></div></div>
+    <div className="section-heading"><div><h2>{readableDate(record.date)}</h2><p>{record.weightContext.provenance==='legacy-unavailable'?'Weight snapshot unavailable':'Weight snapshot captured when saved'}{previous?' · Changes since '+readableDate(previous.date):''}</p></div></div>
     <div className="body-viewer-layout">
       <div className="body-viewer-photo-column">
         <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={angle} onChange={onAngle} options={angles.map(value=>({value,label:angleLabel(value)}))}/>
-        <PhotoFrame src={photoSrc(record,angle)} alt={angleLabel(angle)+' physique photo from '+record.date}
+        <PhotoFrame src={photoSrc(record,angle)} alt={angleLabel(angle)+' physique photo from '+readableDate(record.date)}
           emptyTitle={angleLabel(angle)} emptyText={pending?'Upload pending':'Not uploaded'}
           preloadSrc={photoSrc(records[index+1],angle)??photoSrc(records[index-1],angle)} onOlder={onOlder} onNewer={onNewer}/>
-        <RecordNavigator noun="Record" index={index} total={records.length} date={record.date} onOlder={onOlder} onNewer={onNewer}/>
+        <RecordNavigator noun="Record" index={index} total={records.length} date={readableDate(record.date)} onOlder={onOlder} onNewer={onNewer}/>
       </div>
       <div className="body-measurement-summary">
         <div className="body-summary-heading"><h3>Measurements</h3><span>cm</span></div>

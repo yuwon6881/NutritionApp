@@ -1,4 +1,5 @@
 import {useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent} from 'react';
+import {useProfileClock} from './ProfileClock';
 import {createPortal} from 'react-dom';
 import {Clock} from 'lucide-react';
 import {FieldFrame} from './Form';
@@ -18,13 +19,13 @@ export interface TimePickerProps {
   dataModalAutofocus?: boolean;
 }
 
-function parseTimeParts(val: string): {hour12: number; minute: number; period: 'AM' | 'PM'} {
+function parseTimeParts(val: string, now: string): {hour12: number; minute: number; period: 'AM' | 'PM'} {
   if (!val || !val.includes(':')) {
-    const now = new Date();
-    const h24 = now.getHours();
+    const [nowHour, nowMinute] = now.split(':').map(Number);
+    const h24 = nowHour;
     return {
       hour12: h24 % 12 || 12,
-      minute: now.getMinutes(),
+      minute: nowMinute,
       period: h24 >= 12 ? 'PM' : 'AM',
     };
   }
@@ -79,7 +80,8 @@ export function TimePicker({
   const popoverRef = useRef<HTMLDivElement>(null);
   const [popoverPosition, setPopoverPosition] = useState<{left: number; top: number} | null>(null);
 
-  const {hour12, minute, period} = parseTimeParts(value);
+  const clock = useProfileClock();
+  const {hour12, minute, period} = parseTimeParts(value, clock.time());
 
   const closePopover = () => {
     setIsOpen(false);
@@ -208,10 +210,7 @@ export function TimePicker({
   };
 
   const handleSetNow = () => {
-    const now = new Date();
-    const h24 = now.getHours();
-    const m = now.getMinutes();
-    onChange(`${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    onChange(clock.time());
   };
 
   const updateHour = (h: number) => {

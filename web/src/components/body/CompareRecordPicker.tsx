@@ -1,4 +1,5 @@
 import {ChevronLeft,ChevronRight} from 'lucide-react';
+import {readableDate} from '../../lib/format';
 import type {BodyRecord} from '../../types';
 import {stepRecordId} from '../../lib/bodyMeasurements';
 import {Button} from '../ui/Button';
@@ -22,7 +23,7 @@ export function CompareRecordPicker({role,records,value,onChange}:CompareRecordP
     <div className="compare-picker-row">
       <Button variant="secondary" size="icon" className="compare-picker-step" disabled={!older} onClick={()=>older&&onChange(older)} aria-label={`Older ${role.toLowerCase()} record`}><ChevronLeft size={18} aria-hidden="true"/></Button>
       <SelectField label={`${role} record`} value={value} onChange={onChange}>
-        {records.map((record,index)=><option key={record.id} value={record.id}>{`${record.date}${suffix(index)}`}</option>)}
+        {records.map((record,index)=><option key={record.id} value={record.id}>{`${readableDate(record.date)}${suffix(index)}`}</option>)}
       </SelectField>
       <Button variant="secondary" size="icon" className="compare-picker-step" disabled={!newer} onClick={()=>newer&&onChange(newer)} aria-label={`Newer ${role.toLowerCase()} record`}><ChevronRight size={18} aria-hidden="true"/></Button>
     </div>

@@ -245,13 +245,13 @@ test('photo gallery paginates complete sets and keeps missing angles explicit',a
   });
   await page.goto('/');await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Open gallery',exact:true}).click();await expect(page.getByRole('heading',{name:'Gallery',exact:true})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'2026-09-12',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Load more',exact:true})).toBeVisible();
-  await expect(page.locator('.photo-gallery-row').first().getByText('Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Load more',exact:true}).click();await expect(page.getByRole('heading',{name:'2026-09-01',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Sep 12, 2026',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Load more',exact:true})).toBeVisible();
+  await expect(page.locator('.photo-gallery-row').first().getByText('Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Load more',exact:true}).click();await expect(page.getByRole('heading',{name:'Sep 1, 2026',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Step through sets',exact:true}).click();await expect(page.getByRole('heading',{name:'Photo sets',exact:true})).toBeVisible();
-  const setNavigation=page.getByRole('navigation',{name:'Set navigation'});await expect(setNavigation).toContainText('2026-09-12');await expect(setNavigation).toContainText('Set 1 of 2');
+  const setNavigation=page.getByRole('navigation',{name:'Set navigation'});await expect(setNavigation).toContainText('Sep 12, 2026');await expect(setNavigation).toContainText('Set 1 of 2');
   await page.getByRole('button',{name:'Side',exact:true}).click();await expect(page.getByText('Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Older set',exact:true}).click();
-  await expect(setNavigation).toContainText('2026-09-01');await expect(page.getByRole('img',{name:'Side physique photo from 2026-09-01'})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Older set',exact:true})).toBeDisabled();await page.getByRole('button',{name:'Newer set',exact:true}).click();await expect(setNavigation).toContainText('2026-09-12');
+  await expect(setNavigation).toContainText('Sep 1, 2026');await expect(page.getByRole('img',{name:'Side physique photo from Sep 1, 2026'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Older set',exact:true})).toBeDisabled();await page.getByRole('button',{name:'Newer set',exact:true}).click();await expect(setNavigation).toContainText('Sep 12, 2026');
   await page.getByRole('button',{name:'Back to Gallery',exact:true}).click();
   await page.getByRole('button',{name:'Edit',exact:true}).first().click();await expect(page.getByRole('dialog',{name:'Edit physique photo set'})).toBeVisible();await page.getByRole('button',{name:'Delete',exact:true}).first().click();
   const deleteDialog=page.getByRole('dialog',{name:'Delete front photo?'});await expect(deleteDialog).toBeVisible();await deleteDialog.getByRole('button',{name:'Keep view',exact:true}).click();await expect(deleteDialog).not.toBeVisible();

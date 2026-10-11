@@ -179,4 +179,20 @@ describe('DiaryCoordinator', () => {
     expect(coordinator.projectDate('2026-09-18',[])?.entries).toEqual([]);
     expect(coordinator.projectDate('2026-09-19',[])?.entries[0]).toMatchObject({calories:500,revision:6});
   });
+  it('revalidates a date it had never loaded after an edit lands there, so its other entries are not hidden',async()=>{
+    const entry:Entry={id:'copy',date:'2026-09-19',name:'Oats',calories:500,quantity:100,unit:'g',source:'manual',revision:1,deleted:false,protein:null,carbs:null,fat:null,fiber:null};
+    await coordinator.acknowledge({id:'copy-op',kind:'entry',recordId:entry.id,expectedRevision:0,delete:false,data:entry},5);
+    // The synthetic day holds only the acknowledged entry, so it must not count as freshly fetched.
+    expect(coordinator.isFresh('2026-09-19','2026-09-25')).toBe(false);
+    vi.mocked(apiWithMeta).mockResolvedValueOnce({data:{entries:[entry,{...entry,id:'existing',name:'Rice',revision:2}],days:[],revision:6},notModified:false,etag:'range'});
+    await coordinator.requestDate('2026-09-19','2026-09-25');
+    expect(apiWithMeta).toHaveBeenCalledOnce();
+    expect(coordinator.projectDate('2026-09-19',[])?.entries.map(item=>item.id).sort()).toEqual(['copy','existing']);
+  });
+  it('keeps a date it already loaded fresh after an acknowledged edit',async()=>{
+    coordinator.primeDays([{date:'2026-09-19',entries:[],revision:1,fetchedAt:Date.now()}]);
+    const entry:Entry={id:'add',date:'2026-09-19',name:'Oats',calories:500,quantity:100,unit:'g',source:'manual',revision:1,deleted:false,protein:null,carbs:null,fat:null,fiber:null};
+    await coordinator.acknowledge({id:'add-op',kind:'entry',recordId:entry.id,expectedRevision:0,delete:false,data:entry},5);
+    expect(coordinator.isFresh('2026-09-19','2026-09-25')).toBe(true);
+  });
 });

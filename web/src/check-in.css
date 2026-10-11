@@ -66,14 +66,15 @@
 .proposal-card{background:var(--card);border:2px solid var(--primary);border-radius:var(--radius);padding:24px;margin-top:22px;box-shadow:var(--shadow-raised)}
 
 /* Coherent target figures layout */
-.target-figures{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px;align-items:stretch}
+.target-figures{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:0 32px;align-items:stretch}
 .target-energy-figures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.target-energy-figures>div{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.target-energy-figures>div{padding:4px 0;display:flex;flex-direction:column;justify-content:center;min-width:0}
 .target-energy-figures p{font-size:.75rem;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground);margin:0 0 6px}
 .target-energy-figures strong{display:block;font-size:1.6rem;letter-spacing:-.03em;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink-strong)}
 .target-energy-figures .unit{font-size:.875rem;font-weight:500;color:var(--muted-foreground)}
 
-.target-macros-section{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;min-width:0;justify-content:center}
+.target-macros-section{display:flex;flex-direction:column;gap:12px;border-left:1px solid var(--border);padding:4px 0 4px 32px;min-width:0;justify-content:center}
+@media(max-width:1023px){.target-figures{grid-template-columns:1fr;gap:20px}.target-macros-section{border-left:0;border-top:1px solid var(--border);padding:20px 0 0}}
 .target-macros-section .macro-summary-bar{height:7px;border-radius:999px;overflow:hidden;display:flex;width:100%;background:var(--track)}
 .target-macros-figures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .target-macros-figures>div{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -108,11 +109,10 @@
 @media(max-width:639px){
   .active-targets-card{padding:18px 16px;border-radius:18px}
   .proposal-card{padding:18px 16px;border-radius:18px}
-  .target-figures{gap:10px}
-  .target-energy-figures{gap:10px}
-  .target-energy-figures>div{padding:12px 14px}
+  .target-figures{gap:16px}
+  .target-energy-figures{gap:12px}
   .target-energy-figures strong{font-size:1.35rem}
-  .target-macros-section{padding:12px 14px;gap:8px}
+  .target-macros-section{padding:16px 0 0;gap:10px}
   .target-macros-figures{gap:6px}
   .target-macros-figures strong{font-size:1.2rem}
   .weekly-chips-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

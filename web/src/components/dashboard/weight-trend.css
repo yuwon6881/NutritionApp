@@ -38,6 +38,7 @@
 .panel.dashboard-trend-panel {
   padding: 0;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .dashboard-insight-trigger {
@@ -58,6 +59,28 @@
   text-align: left;
   cursor: pointer;
   transition: background-color var(--motion-control) ease;
+}
+
+/* A narrow card (a tablet pair) gives the figures the full row and puts the sparkline beneath, rather than wrapping the change over four lines. */
+@container (max-width: 359px) {
+  .dashboard-insight-trigger {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 24px;
+  }
+
+  .dashboard-insight-text {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-sparkline {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .dashboard-insight-chevron {
+    grid-column: 2;
+    grid-row: 2;
+  }
 }
 
 .dashboard-insight-trigger:focus-visible {

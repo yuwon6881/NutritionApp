@@ -402,7 +402,7 @@ export function LogFood({
 
   const selection=<div ref={selectionRef} className="dialog-step food-selection">
     {selectionPurpose==='recipe'&&<div className="editor-back-nav"><Button type="button" variant="tertiary" size="sm" className="subpage-back-button" onClick={cancelRecipeIngredient}><ArrowLeft size={16} aria-hidden="true"/>Back to recipe</Button></div>}
-    {selectionPurpose==='log'&&!editing&&<div className="dialog-toolbar food-entry-shortcuts"><Button variant="secondary" size="sm" onClick={()=>go('quick')}><Zap size={16} aria-hidden="true"/>Quick add</Button><Button variant="secondary" size="sm" onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}><PencilLine size={16} aria-hidden="true"/>Manual entry</Button></div>}
+    {selectionPurpose==='log'&&!editing&&<div className="dialog-toolbar food-entry-shortcuts"><Button variant="tertiary" size="sm" onClick={()=>go('quick')}><Zap size={16} aria-hidden="true"/>Quick add</Button><Button variant="tertiary" size="sm" onClick={()=>{setSaveFood(false);setDraft({...blankNutrients,quantity:1,unit:'serving',time:newTime()});go('editor');}}><PencilLine size={16} aria-hidden="true"/>Manual entry</Button></div>}
     <SegmentedControl<'search'|'saved'|'barcode'|'ai'> layout="equal" className="section-segments food-methods" label="Food logging method" value={tab} options={[
       {value:'search',label:<><Search size={16}/><span>Search</span></>,ariaLabel:'Search'},
       {value:'saved',label:<><Star size={16}/><span className="tab-label-full">Your foods</span><span className="tab-label-short">Saved</span></>,ariaLabel:'Your foods'},

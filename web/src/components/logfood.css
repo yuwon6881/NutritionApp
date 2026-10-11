@@ -7,13 +7,11 @@
 /* Entrance for list items: a short rise, staggered by --i (capped at 8 by the caller). */
 @keyframes logFoodRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes logFoodPop{0%{transform:scale(.94);opacity:.6}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
-
-/* Quick add and Manual entry are shortcuts, not the primary path: calm, equal, one row. */
-.food-modal .food-entry-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}
-.food-modal .food-entry-shortcuts>.button{width:100%;min-height:44px;gap:8px;font-size:.875rem;font-weight:550;background:var(--muted);border-color:transparent;color:var(--ink-strong);border-radius:12px}
+/* Quick add and manual entry are fallbacks, so they read as quiet text actions beside the method tabs, not as a second row of primary choices. */
+.food-modal .dialog-toolbar.food-entry-shortcuts{display:flex;flex-direction:row;justify-content:flex-end;gap:4px;width:auto;margin-bottom:8px}
+.food-modal .dialog-toolbar.food-entry-shortcuts>.button{width:auto;min-height:44px;gap:6px;font-size:.875rem;font-weight:550;color:var(--primary-ink);border-radius:12px}
 .food-modal .food-entry-shortcuts>.button svg{color:var(--primary-ink)}
-@media (hover:hover) and (pointer:fine){.food-modal .food-entry-shortcuts>.button:hover{border-color:var(--border);background:color-mix(in srgb,var(--muted) 80%,var(--card))}}
-@media (min-width:1024px){.food-modal .food-entry-shortcuts{display:flex;justify-content:flex-end}.food-modal .food-entry-shortcuts>.button{width:auto;min-height:38px}}
+@media (min-width:1024px){.food-modal .food-entry-shortcuts>.button{min-height:36px}}
 
 /* Method choices sit in a sunken track; the raised card slides between them. */
 .food-selection .segmented-control.food-methods,

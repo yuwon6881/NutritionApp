@@ -3,7 +3,8 @@ import {ArrowLeft,Camera,Scale,ArrowLeftRight} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {BodyPage,BodyRecord,PhysiqueAngle,PhysiquePhotoPage,PhysiquePhotoSet} from '../types';
 import {api} from '../lib/api';
-import {clampIndex} from '../lib/bodyMeasurements';
+import {allMeasurementKeys,clampIndex} from '../lib/bodyMeasurements';
+import {readableDate} from '../lib/format';
 import {Button} from './ui/Button';
 import {PhotoUploadDialog} from './PhotoUploadDialog';
 import {unitsFor} from '../lib/units';
@@ -15,6 +16,8 @@ import {BodyRecordViewer} from './body/BodyRecordViewer';
 import {PhotoSetViewer} from './body/PhotoSetViewer';
 import {BodyDraftNotice,BodyHistoryRow,BodyListSkeleton,PhotoDraftNotice,PhotoSetRow} from './body/BodyListRows';
 import './body/body.css';
+
+const measurementTotal=(record:BodyRecord)=>allMeasurementKeys.filter(key=>record.measurements[key]!=null).length;
 
 type BodyView='home'|'history'|'body-viewer'|'gallery'|'viewer'|'compare';
 
@@ -90,7 +93,8 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
 
   useEffect(()=>{
     if(page==='gallery'&&!loaded)void loadPage(true);
-    if((page==='history'||page==='compare')&&!bodyLoaded)void loadBodyPage(true);
+    if((page==='home'||page==='history'||page==='compare')&&!bodyLoaded)void loadBodyPage(true);
+    if(page==='home'&&!loaded)void loadPage(true);
     if(page==='gallery'){
       const frame=window.requestAnimationFrame(()=>window.scrollTo({top:galleryScroll.current,behavior:'auto'}));
       return()=>window.cancelAnimationFrame(frame);
@@ -124,6 +128,11 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
   const weightUnit=unitsFor(store.state!.settings).weight;
   const retained=drafts.length+bodyDrafts.length;
   const back=(label:string,onClick:()=>void)=><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={onClick}><ArrowLeft size={16} aria-hidden="true"/>{label}</Button>;
+
+  // The hub says what is already on file, so it reads as a summary rather than a menu.
+  const latestMeasurements=bodyRecords[0]?measurementTotal(bodyRecords[0]):0;
+  const bodyStatus=bodyError?'Records are unavailable right now.':!bodyLoaded?'Checking your records…':bodyRecords.length?`Latest record ${readableDate(bodyRecords[0].date)} · ${latestMeasurements} measurement${latestMeasurements===1?'':'s'}`:'No records yet. Measurements, body fat and photos live here.';
+  const photoStatus=error?'The gallery is unavailable right now.':!loaded?'Checking your photos…':sets.length?`Latest set ${readableDate(sets[0].date)} · ${sets[0].photos.length} of 3 views`:'No photo sets yet. Front, side and back photos stay private.';
 
   let view: React.ReactNode;
   if(page==='compare'){
@@ -165,37 +174,31 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
     </>;
   }else{
     view=<>
-      <section className="panel physique physique-photo-home"><div className="section-heading"><div><h2>Body</h2></div></div>
-        <div className="body-hub-grid">
-          <article className="body-hub-card">
-            <div className="body-hub-card-header">
-              <div className="body-hub-icon-wrap" aria-hidden="true"><Scale size={20}/></div>
-              <div>
-                <h3>Measurements & records</h3>
-                <p>Measurements, body fat, photos, and weight.</p>
-              </div>
+      <section className="panel physique physique-photo-home">
+        <div className="section-heading"><div><h2>Body</h2></div><Button variant="secondary" size="md" disabled={bodyRecords.length<2} title={bodyRecords.length<2?"Comparing needs two body records":undefined} onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/><span className="tab-label-full">Compare past & present</span><span className="tab-label-short">Compare</span></Button></div>
+        <div className="body-hub-list">
+          <section className="body-hub-row" aria-labelledby="body-hub-records">
+            <div className="body-hub-icon-wrap" aria-hidden="true"><Scale size={20}/></div>
+            <div className="body-hub-text">
+              <h3 id="body-hub-records">Measurements & records</h3>
+              <p>{bodyStatus}</p>
             </div>
-            <div className="body-hub-card-footer">
+            <div className="body-hub-actions">
               <Button variant="primary" aria-label="Add body record" onClick={event=>openBodyEditor(undefined,event.currentTarget)}><span className="tab-label-full">Add body record</span><span className="tab-label-short">Add record</span></Button>
               <Button variant="secondary" onClick={openHistory}>Open history</Button>
             </div>
-          </article>
-          <article className="body-hub-card">
-            <div className="body-hub-card-header">
-              <div className="body-hub-icon-wrap" aria-hidden="true"><Camera size={20}/></div>
-              <div>
-                <h3>Photo gallery</h3>
-                <p>Private front, side, and back photos.</p>
-              </div>
+          </section>
+          <section className="body-hub-row" aria-labelledby="body-hub-photos">
+            <div className="body-hub-icon-wrap" aria-hidden="true"><Camera size={20}/></div>
+            <div className="body-hub-text">
+              <h3 id="body-hub-photos">Photo gallery</h3>
+              <p>{photoStatus}</p>
             </div>
-            <div className="body-hub-card-footer">
+            <div className="body-hub-actions">
               <Button variant="secondary" onClick={event=>openUpload(undefined,event.currentTarget)}>Add photo set</Button>
               <Button variant="secondary" onClick={openGallery}>Open gallery</Button>
             </div>
-          </article>
-        </div>
-        <div className="body-hub-compare-cta">
-          <Button variant="secondary" size="md" onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare past & present</Button>
+          </section>
         </div>
         {retained>0&&<p className="source body-hub-status">{retained} {retained===1?'change':'changes'} waiting to sync.</p>}
       </section>

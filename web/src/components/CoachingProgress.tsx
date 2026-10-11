@@ -22,8 +22,10 @@ export function CoachingProgress({store}:{store:NutritionStore}){
   const values=points.flatMap(point=>[point.expenditure,point.suggestedCalories].filter((value):value is number=>value!=null));
   const accepted=state.acceptedTargetIntervals??[];
   const allValues=[...values,...accepted.flatMap(interval=>interval.dailyCalories??(interval.calories==null?[]:[interval.calories]))];
-  const min=(allValues.length?Math.min(...allValues):2000)-100;
-  const max=(allValues.length?Math.max(...allValues):2500)+100;
+  // Round outward to whole 250s so the axis reads 1,750 / 2,000 / 2,250 rather than the data's own extremes.
+  const min=Math.floor(((allValues.length?Math.min(...allValues):2000)-100)/250)*250;
+  const max=Math.ceil(((allValues.length?Math.max(...allValues):2500)+100)/250)*250;
+  const ticks=[min,(min+max)/2,max];
   const start=points[0]?.date??state.start;
   const end=points.at(-1)?.date??state.end;
   const duration=Math.max(1,Date.parse(end)-Date.parse(start));
@@ -40,11 +42,10 @@ export function CoachingProgress({store}:{store:NutritionStore}){
     </div>
     {!points.length?<p className="notice">Not enough data yet.</p>:<>
       <svg ref={chart.ref} viewBox={`0 0 ${chart.width} 245`} className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
-        <line x1={chart.left} y1="185" x2={chart.right} y2="185" className="chart-grid"/>
+        {ticks.map(value=><g key={value}><line x1={chart.left} y1={y(value)} x2={chart.right} y2={y(value)} className="chart-grid"/><text x={chart.left-8} y={y(value)+4} textAnchor="end">{displayEnergy(value,units.energy)}</text></g>)}
         {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);return target==null?null:<line key={interval.start} x1={x(interval.start)} x2={x(interval.end>end?end:interval.end)} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{mediumDate(interval.start)} to {mediumDate(interval.end)}: accepted target {displayEnergy(target,units.energy)} {energyUnit}/day (active plan)</title></line>;})}
         {maintenance.map((segment,index)=><polyline key={`maintenance-${index}`} className="trend-line" points={segment.join(' ')}><title>Maintenance: estimated daily energy expenditure to keep weight steady</title></polyline>)}
         {goal.map((segment,index)=><polyline key={`goal-${index}`} className="goal-trend-line" points={segment.join(' ')}><title>Provisional goal: suggested daily intake calculated by coach</title></polyline>)}
-        <text x={chart.left-8} y="55" textAnchor="end">{displayEnergy(max,units.energy)}</text><text x={chart.left-8} y="185" textAnchor="end">{displayEnergy(min,units.energy)}</text>
         <text x={chart.left} y="220">{mediumDate(start)}</text><text x={chart.right} y="220" textAnchor="end">{mediumDate(end)}</text>
       </svg>
       <ul className="chart-legend coaching-legend" aria-label="Coaching guidance key">

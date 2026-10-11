@@ -76,4 +76,17 @@ public class DayDecisionSyncTests
         await sync.Apply(Day(id,saved,date,"fasting"),default);
         Assert.Equal("fasting",(await db.Days.SingleAsync()).Status);
     }
+    [Fact] public async Task A_units_or_unlogged_day_edit_that_omits_the_weight_goal_basis_keeps_the_saved_basis()
+    {
+        var (db,connection,user)=await Open();await using var _db=db;await using var _connection=connection;
+        var sync=new SyncService(db);
+        var revision=await sync.Apply(new(Guid.NewGuid(),"settings",user.Id,user.CoachingSettingsRevision,
+            JsonSerializer.SerializeToElement(new{checkInWeekday=1,weightGoalMetric="trend"},Json.Options)),default);
+        // Coach's unit toggles and the unlogged-day shortcut send their own fields only.
+        await sync.Apply(new(Guid.NewGuid(),"settings",user.Id,revision,
+            JsonSerializer.SerializeToElement(new{checkInWeekday=1,weightUnit="lb",missingDayAction="fasting"},Json.Options)),default);
+        var saved=await db.Users.SingleAsync(item=>item.Id==user.Id);
+        Assert.Equal("trend",saved.WeightGoalMetric);
+        Assert.Equal("lb",saved.WeightUnit);
+    }
 }

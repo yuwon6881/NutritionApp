@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {NutritionStore} from '../../useNutritionStore';
 import type {BodyDraft,BodyRecord,PhysiqueDraft,PhysiquePhoto,PhysiquePhotoSet} from '../../types';
-import {number} from '../../lib/format';
+import {number,readableDate} from '../../lib/format';
 import {allMeasurementKeys,angleLabel,angles,measurementLabel} from '../../lib/bodyMeasurements';
 import {Button} from '../ui/Button';
 import {SkeletonBlock} from '../ui/Skeleton';
@@ -14,12 +14,12 @@ export function BodyHistoryRow({record,onOpen,onEdit}:{record:BodyRecord;onOpen:
   const summary=allMeasurementKeys.filter(key=>record.measurements[key]!=null).slice(0,2).map(key=>measurementLabel(key)+' '+number(record.measurements[key],1)+(key==='bodyFatPercent'?'%':' cm')).join(' · ');
   return <article className="body-history-row">
     <Button presentation="plain" className="body-history-main" onClick={onOpen}>
-      <span className="body-history-date">{record.date}</span>
+      <span className="body-history-date">{readableDate(record.date)}</span>
       <span className="body-history-meta">{count} measurement{count===1?'':'s'}{record.photos.length?' · '+record.photos.length+' photo'+(record.photos.length===1?'':'s'):''}</span>
       {summary&&<span className="body-history-meta">{summary}</span>}
       {record.weightContext.provenance!=='legacy-unavailable'&&<span className="body-history-meta">Weight snapshot {record.weightContext.scaleKg==null&&record.weightContext.trendKg==null?'unavailable':'attached'}</span>}
     </Button>
-    {preview?<img className="body-history-thumb" src={'/api/photos/'+preview.id+'/content'} alt={'Body record '+record.date}/>:<div className="body-history-thumb body-history-thumb-empty" aria-hidden="true">No photo</div>}
+    {preview?<img className="body-history-thumb" src={'/api/photos/'+preview.id+'/content'} alt={'Body record '+readableDate(record.date)}/>:<div className="body-history-thumb body-history-thumb-empty" aria-hidden="true">No photo</div>}
     <Button variant="tertiary" size="md" onClick={event=>onEdit(event.currentTarget)}>Edit</Button>
   </article>;
 }
@@ -27,17 +27,17 @@ export function BodyHistoryRow({record,onOpen,onEdit}:{record:BodyRecord;onOpen:
 export function BodyDraftNotice({draft,store}:{draft:BodyDraft;store:NutritionStore}){
   const count=Object.values(draft.measurements).filter(value=>value!=null).length;
   const detail=draft.action==='delete'?'Delete pending':count+' measurement'+(count===1?'':'s')+(draft.photos.length?' · '+draft.photos.length+' photo'+(draft.photos.length===1?'':'s'):'');
-  return <div className="notice body-draft-notice"><p>{draft.date} · {detail} · {draft.error??'Saved locally; syncing when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryBody(draft.mutationId)}>Retry Body record</Button>}<Button variant="tertiary" onClick={()=>void store.removeBodyDraft(draft.mutationId)}>Discard local Body record</Button></div></div>;
+  return <div className="notice body-draft-notice"><p>{readableDate(draft.date)} · {detail} · {draft.error??'Saved locally; syncing when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryBody(draft.mutationId)}>Retry Body record</Button>}<Button variant="tertiary" onClick={()=>void store.removeBodyDraft(draft.mutationId)}>Discard local Body record</Button></div></div>;
 }
 
 export function PhotoDraftNotice({draft,store}:{draft:PhysiqueDraft;store:NutritionStore}){
-  return <div className="notice"><p>{draft.date} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.versionId??draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.versionId??draft.id)}>Discard local photo set</Button></div></div>;
+  return <div className="notice"><p>{readableDate(draft.date)} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.versionId??draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.versionId??draft.id)}>Discard local photo set</Button></div></div>;
 }
 
 export function PhotoSetRow({set,onEdit}:{set:PhysiquePhotoSet;onEdit:(set:PhysiquePhotoSet,trigger:HTMLElement)=>void}){
-  return <article className="photo-gallery-row"><div className="photo-gallery-row-heading"><h3>{set.date}</h3><Button variant="tertiary" onClick={event=>onEdit(set,event.currentTarget)}>Edit</Button></div><div className="photo-gallery-previews">{angles.map(angle=>{
+  return <article className="photo-gallery-row"><div className="photo-gallery-row-heading"><h3>{readableDate(set.date)}</h3><Button variant="tertiary" onClick={event=>onEdit(set,event.currentTarget)}>Edit</Button></div><div className="photo-gallery-previews">{angles.map(angle=>{
     const photo=set.photos.find(item=>item.angle===angle);
-    return <figure key={angle}>{photo?<LazyPhoto photo={photo} label={angleLabel(angle)+' view from '+set.date}/>:<div className="photo-slot-empty"><strong>{angleLabel(angle)}</strong><span>Not uploaded</span></div>}{photo&&<figcaption>{angleLabel(angle)}</figcaption>}</figure>;
+    return <figure key={angle}>{photo?<LazyPhoto photo={photo} label={angleLabel(angle)+' view from '+readableDate(set.date)}/>:<div className="photo-slot-empty"><strong>{angleLabel(angle)}</strong><span>Not uploaded</span></div>}{photo&&<figcaption>{angleLabel(angle)}</figcaption>}</figure>;
   })}</div></article>;
 }
 

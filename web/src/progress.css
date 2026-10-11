@@ -25,7 +25,7 @@
 .button.bar-chart-edge{display:none}
 
 /* Readout: the selected date's values in fixed cells, so a new selection never moves the chart. */
-.chart-readout.chart-readout-grid{display:grid;gap:8px;align-items:start;padding:12px 16px;margin-bottom:6px;border-radius:12px;background:var(--muted)}
+.chart-readout.chart-readout-grid{display:grid;gap:8px;align-items:start;padding:12px 0;margin-bottom:6px;border-block:1px solid var(--border)}
 .chart-readout-date{font-size:.9375rem;font-weight:600;color:var(--ink-strong)}
 .chart-readout-grid dl{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px;margin:0}
 .chart-readout-grid dl>div{min-width:0}
@@ -69,8 +69,9 @@
 .weight-chart-panel .chart-readout{margin-bottom:10px}
 
 /* Latest weigh-ins: a date badge, the value with its change, and icon actions. */
-.weigh-in-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.weigh-in-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.weigh-in-list{list-style:none;margin:0;padding:0;display:grid}
+.weigh-in-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.weigh-in-row:last-child{border-bottom:0}
 .weigh-in-date{display:grid;justify-items:center;align-content:center;gap:1px;width:54px;min-height:58px;border-radius:10px;background:var(--muted);line-height:1.15}
 .weigh-in-month{font-size:.6875rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-ink)}
 .weigh-in-day{font-size:1.3rem;font-weight:700;color:var(--ink-strong)}
@@ -83,7 +84,9 @@
 .weigh-in-source{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:6px;border-radius:6px;background:var(--muted);color:var(--muted-foreground);vertical-align:2px}
 .weigh-in-actions{display:flex;gap:4px}
 .weigh-in-actions .button{color:var(--muted-foreground)}
-.weigh-in-actions .weigh-in-delete{color:var(--destructive)}
+/* Deletion already asks for date-and-weight confirmation, so the resting icon stays quiet and only reads destructive when it is about to be used. */
+@media (hover:hover) and (pointer:fine){.weigh-in-actions .weigh-in-delete:hover{color:var(--destructive)}}
+.weigh-in-actions .weigh-in-delete:focus-visible{color:var(--destructive)}
 
 @media(max-width:639px){
   .bar-chart-hint{display:inline}
@@ -106,13 +109,14 @@
 /* Energy readout: a status chip and three cells; the cells the chart is drawing are emphasised. */
 .chart-heading{margin-bottom:14px}
 .chart-heading h3{margin:0}
-.chart-readout.energy-readout{display:grid;gap:10px;align-items:stretch;padding:14px 16px;margin-bottom:8px;border-radius:14px;background:var(--muted)}
+.chart-readout.energy-readout{display:grid;gap:10px;align-items:stretch;padding:14px 0 6px;margin-bottom:8px;border-block-start:1px solid var(--border)}
 .energy-readout-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px}
-.energy-readout-status{padding:4px 12px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-size:.78rem;font-weight:550;line-height:1.4;white-space:nowrap;color:var(--muted-foreground)}
+.energy-readout-status{padding:4px 12px;border-radius:999px;background:var(--muted);font-size:.78rem;font-weight:550;line-height:1.4;white-space:nowrap;color:var(--muted-foreground)}
 .energy-readout-status.is-complete{color:var(--ink-strong);font-weight:600}
-.energy-readout-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
-.energy-readout-cells>div{display:grid;align-content:start;gap:3px;min-width:0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--card);transition:border-color var(--motion-control) ease}
-.energy-readout-cells>div.is-active{border-color:color-mix(in srgb,var(--primary) 45%,var(--border))}
+.energy-readout-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0}
+.energy-readout-cells>div{display:grid;align-content:start;gap:3px;min-width:0;padding:10px 16px 10px 0;border-top:2px solid transparent;transition:border-color var(--motion-control) ease}
+.energy-readout-cells>div+div{padding-left:16px;box-shadow:inset 1px 0 0 var(--border)}
+.energy-readout-cells>div.is-active{border-top-color:var(--primary)}
 .energy-readout-cells dt{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;min-width:0;font-size:.75rem;font-weight:600;letter-spacing:.02em;color:var(--muted-foreground)}
 .energy-readout-cells dd{margin:0;font-size:1.25rem;line-height:1.25;font-weight:700;color:var(--ink-strong);overflow-wrap:anywhere}
 .energy-readout-cells dd .unit{font-size:.8125rem;font-weight:500}
@@ -121,17 +125,20 @@
 .energy-readout-cells .is-deficit dd{color:var(--energy)}
 /* Phones give each figure its own row: name and note on the left, the value on the trailing edge. */
 @media(max-width:639px){
-  .chart-readout.energy-readout{padding:12px;gap:10px}
-  .energy-readout-cells{grid-template-columns:minmax(0,1fr);gap:6px}
-  .energy-readout-cells>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;padding:10px 12px;border-radius:10px}
+  .chart-readout.energy-readout{padding:12px 0 4px;gap:8px}
+  .energy-readout-cells{grid-template-columns:minmax(0,1fr);gap:0}
+  .energy-readout-cells>div,.energy-readout-cells>div+div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;padding:10px 0;border-top:0;border-left:3px solid transparent;padding-left:10px;box-shadow:none}
+  .energy-readout-cells>div+div{box-shadow:inset 0 1px 0 var(--border)}
+  .energy-readout-cells>div.is-active{border-top-color:transparent;border-left-color:var(--primary)}
   .energy-readout-cells dt{grid-area:label;flex-wrap:nowrap;gap:6px;font-size:.8125rem;white-space:nowrap}
   .energy-readout-cells dd{grid-area:value;font-size:1.15rem;white-space:nowrap;text-align:right}
   .energy-readout-cells small{grid-area:note;min-height:0;font-size:.75rem}
 }
 
 /* Period totals: three tiles on wider windows, a divided list on phones. */
-.energy-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 24px}
-.energy-stats>div{display:grid;align-content:start;gap:4px;min-width:0;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.energy-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0 0 24px;border-block:1px solid var(--border)}
+.energy-stats>div{display:grid;align-content:start;gap:4px;min-width:0;padding:16px 20px 16px 0}
+.energy-stats>div+div{padding-left:20px;box-shadow:inset 1px 0 0 var(--border)}
 .energy-stats dt{font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
 .energy-stats dd{margin:2px 0 0;font-size:1.5rem;font-weight:700;line-height:1.2;letter-spacing:-.025em;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
 .energy-stats dd .unit{font-size:.875rem;letter-spacing:0;font-weight:500}
@@ -139,9 +146,9 @@
 .energy-stats .is-surplus dd{color:var(--energy)}
 .energy-stats .is-deficit dd{color:var(--energy)}
 @media(max-width:639px){
-  .energy-stats{grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
-  .energy-stats>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;row-gap:2px;padding:14px 16px;border:0;border-radius:0;background:transparent}
-  .energy-stats>div+div{border-top:1px solid var(--border)}
+  .energy-stats{grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:20px}
+  .energy-stats>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;row-gap:2px;padding:14px 0}
+  .energy-stats>div+div{padding-left:0;box-shadow:inset 0 1px 0 var(--border)}
   .energy-stats dt{grid-area:label;font-size:.72rem}
   .energy-stats dd{grid-area:value;margin:0;font-size:1.25rem;text-align:right}
   .energy-stats small{grid-area:note}

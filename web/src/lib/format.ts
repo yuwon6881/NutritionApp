@@ -23,3 +23,9 @@ export const readableDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)?medi
 export const monthYear=dateFormat({month:'short',year:'numeric'});
 /** "Sep": the month on a date badge. */
 export const monthShort=dateFormat({month:'short'});
+
+/** Two letters for an avatar: first letters of the first two words, else the first two characters. */
+export function initials(name:string){
+  const words=name.trim().split(/[\s._-]+/).filter(Boolean);
+  return (words.length>1?words[0][0]+words[1][0]:name.trim().slice(0,2)).toUpperCase()||'?';
+}

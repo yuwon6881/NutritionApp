@@ -321,7 +321,6 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       <div className="section-heading">
         <div>
           <h2>Active targets</h2>
-          <p>Accepted daily nutrition plan and macronutrient distribution.</p>
         </div>
         <div className="actions">
           <Button variant="secondary" size="md" disabled={busy||!!acceptance.current} onClick={()=>openPlan()}><Sliders size={16}/>Edit plan</Button>
@@ -333,7 +332,6 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       <div className="section-heading">
         <div>
           <h2>Strategy</h2>
-          <p>Phase configuration and baseline profile parameters.</p>
         </div>
       </div>
       <dl className="strategy-figures">

@@ -4,7 +4,7 @@ import type {BodyMeasurementKey,BodyRecord,PhysiqueAngle} from '../types';
 import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayWeight,weightLabel} from '../lib/units';
-import {number} from '../lib/format';
+import {number,readableDate} from '../lib/format';
 import {angleLabel,angles,measurementGroups,measurementLabel} from '../lib/bodyMeasurements';
 import {CompareOverlay} from './CompareOverlay';
 import {CompareRecordPicker} from './body/CompareRecordPicker';
@@ -74,8 +74,8 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
   const photoCard=(side:'Past'|'Present',record:BodyRecord,photo:typeof pastPhoto)=><article className="compare-photo-card">
     <div className="compare-photo-card-head">
       <span className={`tag ${side==='Past'?'past-tag':'present-tag'}`}>{side}</span>
-      <strong>{record.date}</strong>
-      <Button variant="tertiary" size="sm" onClick={()=>onEditRecord(record)} aria-label={`Edit ${side.toLowerCase()} record from ${record.date}`}>Edit</Button>
+      <strong>{readableDate(record.date)}</strong>
+      <Button variant="tertiary" size="sm" onClick={()=>onEditRecord(record)} aria-label={`Edit ${side.toLowerCase()} record from ${readableDate(record.date)}`}>Edit</Button>
     </div>
     <div className="compare-photo-frame">
       {photo?<img key={photo.id} className="body-photo-frame-image" src={`/api/photos/${photo.id}/content`} alt={`${side} ${angleLabel(angle)} physique from ${record.date}`}/>:<div className="photo-slot-empty"><strong>{angleLabel(angle)}</strong><span>Not uploaded</span></div>}
@@ -129,7 +129,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
         <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={angle} onChange={setAngle} options={angles.map(a=>({value:a,label:angleLabel(a)}))}/>
       </div>
       {bothPhotos&&<SegmentedControl<'overlay'|'side'> className="section-segments compare-layout-segments" label="Photo layout" value={photoLayout} onChange={setPhotoLayout} options={[{value:'overlay',label:'Overlay'},{value:'side',label:'Side by side'}]}/>}
-      {bothPhotos&&photoLayout==='overlay'&&<CompareOverlay pastSrc={`/api/photos/${pastPhoto!.id}/content`} presentSrc={`/api/photos/${presentPhoto!.id}/content`} pastLabel={`Past ${angleLabel(angle)} physique from ${pastRecord.date}`} presentLabel={`Present ${angleLabel(angle)} physique from ${presentRecord.date}`}/>}
+      {bothPhotos&&photoLayout==='overlay'&&<CompareOverlay pastSrc={`/api/photos/${pastPhoto!.id}/content`} presentSrc={`/api/photos/${presentPhoto!.id}/content`} pastLabel={`Past ${angleLabel(angle)} physique from ${readableDate(pastRecord.date)}`} presentLabel={`Present ${angleLabel(angle)} physique from ${readableDate(presentRecord.date)}`}/>}
       <div className="compare-photos-grid" hidden={bothPhotos&&photoLayout==='overlay'}>
         {photoCard('Past',pastRecord,pastPhoto)}
         {photoCard('Present',presentRecord,presentPhoto)}
@@ -137,10 +137,10 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
     </div>}
 
     {(mode==='all'||mode==='measurements')&&<div className="compare-measurements-section">
-      <div className="section-heading"><div><h3>Circumference & body composition</h3><p>Change from {pastRecord.date} to {presentRecord.date}.</p></div></div>
+      <div className="section-heading"><div><h3>Circumference & body composition</h3><p>Change from {readableDate(pastRecord.date)} to {readableDate(presentRecord.date)}.</p></div></div>
       <div className="compare-table-wrap">
         <table className="compare-table">
-          <thead><tr><th scope="col">Measurement</th><th scope="col">Past ({pastRecord.date})</th><th scope="col">Present ({presentRecord.date})</th><th scope="col">Change</th></tr></thead>
+          <thead><tr><th scope="col">Measurement</th><th scope="col">Past ({readableDate(pastRecord.date)})</th><th scope="col">Present ({readableDate(presentRecord.date)})</th><th scope="col">Change</th></tr></thead>
           <tbody>
             {measurementGroups.map(([group,keys])=><Fragment key={group}>
               <tr className="compare-table-group-header"><th colSpan={4} scope="colgroup">{group}</th></tr>

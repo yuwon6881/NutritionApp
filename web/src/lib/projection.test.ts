@@ -50,6 +50,13 @@ it('coalesces settings data without changing the in-flight revision',()=>{
   const op:Mutation={...queued,id:'next',data:{heightUnit:'cm'}};
   expect(enqueueMutation(current,op).queue).toEqual([{...queued,data:{weightUnit:'kg',heightUnit:'cm'}}]);
 });
+it('keeps the weight goal basis when a units or unlogged-day edit omits it',()=>{
+  const trending={...state,settings:{checkInWeekday:1,revision:4,weightGoalMetric:'trend' as const}};
+  const units:Mutation={id:'units',kind:'settings',recordId:'a',expectedRevision:4,delete:false,data:{checkInWeekday:1,weightUnit:'lb'}};
+  const decision:Mutation={id:'decision',kind:'settings',recordId:'a',expectedRevision:4,delete:false,data:{checkInWeekday:1,missingDayAction:'fasting'}};
+  const queue=enqueueMutation({state:trending,queue:[units]},decision).queue;
+  expect(project(trending,queue).settings).toMatchObject({weightGoalMetric:'trend',weightUnit:'lb',missingDayAction:'fasting'});
+});
 it('never sends a legacy review marker as mutation content',()=>{const op={id:'m',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{},error:'conflict'} as Mutation;expect(wireMutation(op)).not.toHaveProperty('error');});
 it('projects cadence edits without changing the active profile revision',()=>{
   const withPlan={...state,profileRevision:7,settings:{checkInWeekday:1,revision:4}};

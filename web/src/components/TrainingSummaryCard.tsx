@@ -1,6 +1,6 @@
 import {Dumbbell, ArrowUpRight, LoaderCircle, Check} from 'lucide-react';
 import type {TrainingSummary, CoachingSettings} from '../types';
-import {today} from '../lib/format';
+import {shortDate, today} from '../lib/format';
 import {displayWeight, unitsFor, weightLabel} from '../lib/units';
 import {Button} from './ui/Button';
 import {CardFeedback} from './ui/CardFeedback';
@@ -145,7 +145,7 @@ export function TrainingSummaryCard({
           const isInProgress=item.status==='in_progress';
           const displayDate = item.actualDate ?? (item.programPosition != null ? (item.finishedAt ? item.localDate : null) : item.localDate);
           // A program day has no calendar date, so it shows no date rather than today's.
-          const when=isUpcoming?'Up next':`${item.localDate} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
+          const when=isUpcoming?'Up next':`${shortDate(item.localDate)} · ${completed?'Completed':scheduled?'Scheduled':'In progress'}`;
           return <div className={`training-summary-row ${isUpcoming?'training-row-upcoming':''} ${isInProgress?'training-row-in-progress':''} ${completed?'training-row-completed':''}`} key={item.id || `${item.localDate}-${item.workoutName}-${index}`}>
             <div className="training-row-main">
               <strong>{item.workoutName}</strong>
@@ -163,7 +163,7 @@ export function TrainingSummaryCard({
                       <Check size={11} strokeWidth={2.5} aria-hidden="true" />
                       Completed
                     </span>
-                    {displayDate && <span className="training-row-date">{displayDate}</span>}
+                    {displayDate && <span className="training-row-date">{shortDate(displayDate)}</span>}
                   </span>
                 ) : (
                   <span>{when}</span>

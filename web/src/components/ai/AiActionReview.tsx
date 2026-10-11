@@ -1,5 +1,6 @@
 import { Button } from '../ui/Button';
 import type { AiActionBatch, AiActionType } from '../../lib/api/ai';
+import { readableDate } from '../../lib/format';
 
 const actionLabels: Record<AiActionType, string> = {
   openFoodLog: 'View food diary',
@@ -21,7 +22,8 @@ export function AiActionReview({ batch, disabled, onResolve }: Props) {
     <span className="ai-chat-review-tag">Suggested screen</span>
     <p className="ai-chat-review-title">{batch.actions.map(action => actionLabels[action.type]).join(', ')}</p>
     {batch.actions.map((action, index) => {
-      const detail = [action.payload.query, action.payload.date, action.payload.time]
+      const date = typeof action.payload.date === 'string' ? readableDate(action.payload.date) : undefined;
+      const detail = [action.payload.query, date, action.payload.time]
         .filter(value => typeof value === 'string').join(' · ');
       return detail ? <p className="ai-chat-action-detail" key={index}>{detail}</p> : null;
     })}

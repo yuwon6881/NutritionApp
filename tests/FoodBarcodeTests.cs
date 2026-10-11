@@ -54,6 +54,33 @@ public sealed class FoodBarcodeTests : IAsyncLifetime
         Assert.Equal(0,handler.Calls);
     }
 
+    private sealed class ProductHandler:HttpMessageHandler
+    {
+        public int Calls{get;private set;}
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken cancellationToken)
+        {
+            Calls++;
+            var code=request.RequestUri!.AbsolutePath.Split('/').Last().Replace(".json","");
+            var body="""{"status":1,"product":{"code":"CODE","product_name":"Biscuit CODE","nutriments":{"energy-kcal_100g":480}}}""".Replace("CODE",code);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(body)});
+        }
+    }
+
+    [Fact]
+    public async Task Scanning_another_uncached_barcode_waits_for_its_slot_instead_of_failing()
+    {
+        var handler=new ProductHandler();
+        var provider=new OpenFoodFactsProvider(new HttpClient(handler));
+        var first=await provider.Barcode("9551234560011",default);
+        // A second package scanned straight after the first is paced behind it, not answered with a 429.
+        var started=DateTime.UtcNow;
+        var second=await provider.Barcode("9551234560028",default);
+        Assert.Equal("9551234560011",first!.Code);
+        Assert.Equal("9551234560028",second!.Code);
+        Assert.Equal(2,handler.Calls);
+        Assert.InRange(DateTime.UtcNow-started,TimeSpan.FromSeconds(2),TimeSpan.FromSeconds(8));
+    }
+
     [Fact]
     public async Task Food_barcode_updates_preserve_omitted_legacy_fields_and_reject_duplicates()
     {

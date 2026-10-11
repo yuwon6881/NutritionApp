@@ -3,7 +3,7 @@ import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {shiftDate} from '../lib/energyBalance';
-import {today} from '../lib/format';
+import {readableDate,today} from '../lib/format';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
@@ -48,7 +48,7 @@ export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocu
     onClose={onClose}
     restoreFocus={restoreFocus}
     title="Copy day"
-    description={`Copy ${entries.length} food ${entries.length===1?'entry':'entries'} from ${sourceDate}.`}
+    description={`Copy ${entries.length} food ${entries.length===1?'entry':'entries'} from ${readableDate(sourceDate)}.`}
     dirty={destination!==initial.current}
     width="sm"
   >

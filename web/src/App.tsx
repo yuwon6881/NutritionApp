@@ -1,17 +1,18 @@
 import {resetGoogleHealthState} from './lib/googleHealth';
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Utensils,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles} from 'lucide-react';
+import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
 import {getLocalDatabaseFailure} from './lib/local';
 import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
-import {longDate,today} from './lib/format';
+import {initials,longDate,today} from './lib/format';
 import {watchTheme} from './lib/theme';
 import {useNutritionStore} from './useNutritionStore';
 import type {Entry,Weight} from './types';
 import {Button} from './components/ui/Button';
 import {Brand} from './components/ui/Brand';
+import {ProfileClockProvider} from './components/ui/ProfileClock';
 import {ConnectionFeedback} from './components/ui/ConnectionFeedback';
 import {ActionSheet,type ActionSheetOption} from './components/ui/ActionSheet';
 import {Auth} from './components/Auth';
@@ -226,7 +227,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   };
   const foodSavedPage=foodOriginPage==='food'?'food':'today';
   const nav=[
-    {id:'today',label:'Dashboard',icon:Utensils},
+    {id:'today',label:'Dashboard',icon:LayoutDashboard},
     {id:'food',label:'Food Log',icon:BookOpen},
     {id:'progress',label:'Progress',icon:ChartNoAxesCombined},
     {id:'coach',label:'Coach',icon:Compass},
@@ -236,13 +237,13 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   // Background sync indicators update independently of the live page's data.
   const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onProgress={()=>navigate('progress')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,date,onLogout]);
 
-  return <div className="app-shell">
+  return <ProfileClockProvider zone={store.state?.profile?.timeZone}><div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside className="sidebar">
       <a className="brand" href="/" aria-label="Nutrition home"><Brand/><span>Nutrition</span></a>
       <nav aria-label="Main navigation">
         <SelectionIndicator active={page} className="nav-mobile-items nav-selection">
-          <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><Utensils size={20}/><span>Dashboard</span></Button>
+          <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><LayoutDashboard size={20}/><span>Dashboard</span></Button>
           <Button data-selection-key="food" disabled={needsProfile} variant="tertiary" className={page==='food'?'nav-active':''} aria-current={page==='food'?'page':undefined} onClick={()=>navigate('food')}><BookOpen size={20}/><span>Food Log</span></Button>
           <Button disabled={needsProfile} variant="primary" className="nav-center-add" aria-label="Add entry" onClick={event=>{setAddReturnFocus(event.currentTarget);setShowAddSheet(true);}}><Plus size={22} className="nav-icon"/><span>Add</span></Button>
           <Button data-selection-key="progress" disabled={needsProfile} variant="tertiary" className={page==='progress'?'nav-active':''} aria-current={page==='progress'?'page':undefined} onClick={()=>navigate('progress')}><ChartNoAxesCombined size={20}/><span>Progress</span></Button>
@@ -254,10 +255,14 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
           <Button disabled={needsProfile} variant="tertiary" className="nav-ai-button" aria-label="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={21}/><span>Ask AI</span></Button>
         </SelectionIndicator>
       </nav>
+      <div className="sidebar-account" title={store.state?.displayName}>
+        <span className="account-avatar" aria-hidden="true">{store.state?initials(store.state.displayName):''}</span>
+        <span className="account-name">{store.state?.displayName}</span>
+      </div>
     </aside>
     <main id="main-content" className="main-content" tabIndex={-1}>
       <div className="topbar">
-        <span className="account-name">{store.state?.displayName}</span>
+        <span className="topbar-brand" aria-hidden="true"><Brand size={24}/><span>Nutrition</span></span>
         <div className="topbar-activity" role="status" aria-label="Activity indicator" aria-live="polite">
           {store.isActivityActive && (
             <span className="topbar-activity-indicator" aria-label="Working…">
@@ -266,7 +271,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
           )}
         </div>
         {needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}
-        <Button disabled={needsProfile} variant="tertiary" size="icon" aria-label="Ask AI" title="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={20}/></Button>
+        <Button disabled={needsProfile} variant="tertiary" size="icon" className="topbar-ai" aria-label="Ask AI" title="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={20}/></Button>
         <Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button>
       </div>
       <SyncStatus store={store}/>
@@ -285,7 +290,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       {aiOpen&&<Suspense fallback={null}><AiAssistantPanel isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page}/></Suspense>}
     </main>
     <ActionSheet isOpen={showAddSheet} onClose={()=>setShowAddSheet(false)} restoreFocus={addReturnFocus} title="Add" subtitle={`${selectedEntryDate===activeDate?'Today · ':''}${longDate(selectedEntryDate)}`} options={addOptions}/>
-  </div>;
+  </div></ProfileClockProvider>;
 }
 
 export default function App({onUsable}:{onUsable?:()=>void}={}){

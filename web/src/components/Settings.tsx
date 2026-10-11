@@ -3,6 +3,7 @@ import {NativeBuildInfo} from './NativeBuildInfo';
 import {Bell,Compass,HardDrive,Link2,LogOut,SlidersHorizontal} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import {activeTheme,chooseTheme,type Theme} from '../lib/theme';
+import {initials} from '../lib/format';
 import {Button} from './ui/Button';
 import {CardFeedback} from './ui/CardFeedback';
 import {GoogleHealthSettings} from './GoogleHealthSettings';
@@ -19,11 +20,6 @@ const sections:SettingsSectionLink[]=[
   {id:'settings-connections',label:'Connected Apps',icon:Link2},
   {id:'settings-device',label:'This device',icon:HardDrive}
 ];
-
-function initials(name:string){
-  const words=name.trim().split(/[\s._-]+/).filter(Boolean);
-  return (words.length>1?words[0][0]+words[1][0]:name.trim().slice(0,2)).toUpperCase()||'?';
-}
 
 export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Promise<void>}){
   const [error,setError]=useState('');

@@ -16,17 +16,17 @@ test('a horizontal swipe on the photo moves between Body records; a vertical one
   await page.getByRole('button',{name:'Progress',exact:true}).first().click();
   await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Open history',exact:true}).click();
-  await page.getByRole('button',{name:/^2026-09-26/}).click();
+  await page.getByRole('button',{name:/^Sep 26, 2026/}).click();
   const navigation=page.getByRole('navigation',{name:'Record navigation'});
-  await expect(navigation).toContainText('2026-09-26');
+  await expect(navigation).toContainText('Sep 26, 2026');
 
   const frame=page.locator('.body-photo-frame');
   const center=await centerOf(frame);
   await swipe(page,{x:center.x-120,y:center.y},{x:center.x+120,y:center.y});
-  await expect(navigation).toContainText('2026-09-05');
+  await expect(navigation).toContainText('Sep 5, 2026');
   await swipe(page,{x:center.x+120,y:center.y},{x:center.x-120,y:center.y});
-  await expect(navigation).toContainText('2026-09-26');
+  await expect(navigation).toContainText('Sep 26, 2026');
   await swipe(page,{x:center.x,y:center.y+120},{x:center.x+20,y:center.y-120});
-  await expect(navigation).toContainText('2026-09-26');
+  await expect(navigation).toContainText('Sep 26, 2026');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
 });

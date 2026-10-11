@@ -1,6 +1,6 @@
 # NutritionApp redesign — Gemini implementation brief
 
-Status: proposed implementation, not implemented.
+Status: implemented in commit `cc9e7a1` and refined by later UI passes (flat grouping, shell account placement, readable dates). Kept as the original brief; the two design documents are the living contract.
 
 ## Objective and scope
 

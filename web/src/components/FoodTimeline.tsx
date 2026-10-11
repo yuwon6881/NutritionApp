@@ -1,4 +1,5 @@
 import {useCallback,useState,useRef,useEffect} from 'react';
+import {readableDate} from '../lib/format';
 import {Copy,MoveRight,Pencil,Plus,Trash2} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
@@ -130,7 +131,7 @@ export function FoodTimeline({
 
   return <>
     {announcement&&<p role="status" className="sr-only">{announcement}</p>}
-    <ol className="food-timeline" aria-label={`Food timeline for ${date}`}>
+    <ol className="food-timeline" aria-label={`Food timeline for ${readableDate(date)}`}>
       {groups.map(group=><li
         className="food-time-row"
         key={group.time}
