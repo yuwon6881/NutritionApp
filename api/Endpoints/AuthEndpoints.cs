@@ -18,8 +18,27 @@ public static class AuthEndpoints
                 {
                     await db.Database.CloseConnectionAsync();
                     SqliteConnection.ClearAllPools();
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
                 }
-                await db.Database.EnsureDeletedAsync(ct);
+                for (var attempt = 0; attempt < 5; attempt++)
+                {
+                    try
+                    {
+                        await db.Database.EnsureDeletedAsync(ct);
+                        break;
+                    }
+                    catch (IOException) when (attempt < 4)
+                    {
+                        if (db.Database.IsSqlite())
+                        {
+                            SqliteConnection.ClearAllPools();
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                        }
+                        await Task.Delay(200, ct);
+                    }
+                }
                 await db.Database.EnsureCreatedAsync(ct);
                 return Results.Ok(new { reset = true });
             });

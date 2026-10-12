@@ -127,7 +127,7 @@ test('failed push revocation does not block sign-out and runs before session log
   });
 
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();
-  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  await page.getByLabel('Fitness Account').getByRole('button',{name:'Sign out',exact:true}).click();
 
   await expect(page.getByRole('button',{name:'Sign in with Fitness Account',exact:true})).toBeVisible();
   expect(requests).toEqual(['revoke','logout']);
