@@ -31,7 +31,7 @@ export function WeightTrendCard({points,current,unit,onOpen}:{points:readonly Tr
   return <article className="panel dashboard-trend-panel">
     <Button presentation="plain" className="dashboard-insight-trigger" aria-label={label} onClick={onOpen}>
       <span className="dashboard-insight-text">
-        <span className="eyebrow">TREND WEIGHT</span>
+        <span className="eyebrow">Trend weight</span>
         <span className="dashboard-insight-value">
           <strong>{insight?displayWeight(insight.latest.kg,unit,1):'—'}</strong> <span className="unit">{weightLabel(unit)}</span>
         </span>

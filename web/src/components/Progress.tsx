@@ -21,6 +21,7 @@ import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {CardFeedback} from './ui/CardFeedback';
 import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {progressDataKey} from '../lib/progressFreshness';
+import {useDelayedPending} from './ui/useDelayedPending';
 import {WeightSummary} from './WeightSummary';
 import {WeightDeleteDialog} from './WeightDeleteDialog';
 
@@ -36,7 +37,8 @@ function useProgressSummary(store:NutritionStore,period:ProgressPeriod,enabled:b
     if(cached)setRetained(cached);
   },[cached]);
   const activeSummary=cached??retained;
-  const [loading,setLoading]=useState(!cached&&enabled);
+  const isFetching=!cached&&enabled;
+  const [loading,setLoading]=useState(isFetching);
   const cachedRef=useRef(cached);
   cachedRef.current=cached;
   const refreshProgress=store.refreshProgress;
@@ -49,7 +51,13 @@ function useProgressSummary(store:NutritionStore,period:ProgressPeriod,enabled:b
   },[enabled,period,refreshProgress]);
   const revision=progressDataKey(store.local?.state);
   useEffect(()=>{void load();},[load,revision,store.calendarDate]);
-  return {summary:activeSummary,error,loading,retry:load};
+  return {
+    summary:activeSummary,
+    displayedPeriod:cached?period:(retained?.period??period),
+    error,
+    loading:loading||isFetching,
+    retry:load
+  };
 }
 
 export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()=>void}){
@@ -62,6 +70,8 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
   const weight=useProgressSummary(store,weightPeriod,tab==='weight');
   const energy=useProgressSummary(store,energyPeriod,tab==='energy');
+  const weightPending=useDelayedPending(weight.loading&&Boolean(weight.summary));
+  const energyPending=useDelayedPending(energy.loading&&Boolean(energy.summary));
   const {state:ghState,loading:ghLoading}=useGoogleHealth(tab==='activity');
   const state=store.state!;
   // Depend on the stable loader, not the store object: every commit returns a new store, so a
@@ -81,8 +91,9 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
   const addWeight=(trigger?:HTMLElement|null)=>{setWeightEdit(undefined);setWeightReturnFocus(trigger??null);setWeightOpen(true);};
   const editWeight=(weight:Weight,trigger:HTMLElement)=>{setWeightEdit(weight);setWeightReturnFocus(trigger);setWeightOpen(true);};
   const localToday = today(state.profile?.timeZone);
-  const range = useMemo(() => projectedProgressRange(weightPeriod, localToday, weight.summary, state.weights, store.local?.queue ?? []),
-    [weightPeriod, localToday, weight.summary, state.weights, store.local?.queue]);
+  const displayedWeightPeriod = weight.displayedPeriod;
+  const range = useMemo(() => projectedProgressRange(displayedWeightPeriod, localToday, weight.summary, state.weights, store.local?.queue ?? []),
+    [displayedWeightPeriod, localToday, weight.summary, state.weights, store.local?.queue]);
   const projectedWeightSummary = useMemo(() => {
     return projectProgressWeightSummary(
       range,
@@ -104,7 +115,7 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
     }
     if (!weight.summary && projectedWeightSummary) {
       return {
-        period: weightPeriod,
+        period: displayedWeightPeriod,
         start: range.start,
         end: range.end,
         revision: state.revision,
@@ -128,7 +139,7 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
       };
     }
     return weight.summary;
-  }, [weight.summary, projectedWeightSummary, weightPeriod, range.start, range.end, state.revision]);
+  }, [weight.summary, projectedWeightSummary, displayedWeightPeriod, range.start, range.end, state.revision]);
 
   const summary = tab === 'weight' ? activeWeightProgressSummary : energy.summary;
   const error = tab === 'weight' ? weight.error : energy.error;
@@ -140,7 +151,7 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
     <SegmentedControl<Tab> id="progress-tabs" layout="equal" className="section-segments" label="Progress sections" value={tab} onChange={setTab} options={tabs.map(([value,label])=>({value,label:<span className="progress-tab-label">{label}</span>}))}/>
     <MotionPanel motionKey={tab} direction={tabDirection}>
     <div role="tabpanel" aria-label={`${tabs.find(([value])=>value===tab)?.[1]??tab} progress`}>
-    {tab==='weight'&&<>
+    {tab==='weight'&&<div className="progress-tab-content" data-pending={weightPending||undefined}>
       {/* The weigh-in action belongs to this tab, so switching tabs never moves the tab bar. */}
       <div className="history-toolbar">
         <div className="history-filter"><SelectField label="Weight history period" value={weightPeriod} onChange={value=>setWeightPeriod(value as ProgressPeriod)}>
@@ -158,17 +169,17 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
         title="History unavailable offline"
         message="Showing weigh-ins saved on this device."
       />}
-      {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">WEIGH-INS</p><h2>—</h2></section></div>}
+      {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">Trend weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Average scale weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Weigh-ins</p><h2>—</h2></section></div>}
       {summary&&<WeightSummary summary={summary} units={units} pending={pending||Boolean(summary.awaitingSynchronization)} onEdit={editWeight} onDelete={(weight,trigger)=>setWeightDelete({weight,trigger})} pendingDeletes={pendingWeightDeletes}/>}
-    </>}
-    {tab==='energy'&&<>
+    </div>}
+    {tab==='energy'&&<div className="progress-tab-content" data-pending={energyPending||undefined}>
       <div className="history-filter"><SelectField label="Energy history period" value={energyPeriod} onChange={value=>setEnergyPeriod(value as ProgressPeriod)}>
         {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
       </SelectField></div>
-      <EnergyBalance store={store} period={energyPeriod} summary={energy.summary} error={energy.error}/>
+      <EnergyBalance store={store} period={energy.displayedPeriod} summary={energy.summary} error={energy.error}/>
       {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading…</p>}
       <CoachingProgress store={store}/>
-    </>}
+    </div>}
     {tab==='body'&&<Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>}
     {tab==='activity'&&<div className="activity-progress-hub">
       <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>

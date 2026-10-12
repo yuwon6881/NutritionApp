@@ -51,7 +51,7 @@ export function IntakeChart({rows,grouping,energyUnit,viewport,selected,plotProp
       const x=slot*(index+.5)-bar/2;
       if(row.intake==null)return <rect key={row.date} className="bar-missing" x={x} y={BASE-3} width={bar} height={3} rx={1.5}/>;
       const top=y(row.intake);
-      return <rect key={row.date} className={row.complete?'energy-intake':'energy-intake partial-bar'} x={x} y={top} width={bar} height={Math.max(2,BASE-top)} rx={Math.min(4,bar/3)}>
+      return <rect key={row.date} className={row.complete?'energy-intake':'energy-intake partial-bar'} x={x} y={top} width={bar} height={Math.max(2,BASE-top)} rx={Math.min(6,bar/2.2)}>
         <title>{readableDate(row.date)}: {displayEnergy(row.intake,energyUnit)} {unit} logged{row.complete?'':', not fully logged'}</title>
       </rect>;
     })}
@@ -80,7 +80,7 @@ export function BalanceChart({rows,grouping,energyUnit,viewport,selected,plotPro
       const x=slot*(index+.5)-bar/2;
       if(row.balance==null)return <rect key={row.date} className="bar-missing" x={x} y={middle-1.5} width={bar} height={3} rx={1.5}/>;
       const end=y(row.balance);
-      return <rect key={row.date} className={row.balance>=0?'energy-surplus':'energy-deficit'} x={x} y={Math.min(middle,end)} width={bar} height={Math.max(2,Math.abs(end-middle))} rx={Math.min(4,bar/3)}>
+      return <rect key={row.date} className={row.balance>=0?'energy-surplus':'energy-deficit'} x={x} y={Math.min(middle,end)} width={bar} height={Math.max(2,Math.abs(end-middle))} rx={Math.min(6,bar/2.2)}>
         <title>{readableDate(row.date)}: {row.balance>=0?'surplus':'deficit'} of {displayEnergy(Math.abs(row.balance),energyUnit)} {unit}</title>
       </rect>;
     })}

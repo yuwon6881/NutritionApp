@@ -3,6 +3,7 @@ import {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Calendar, Check, ChevronDown, ChevronLeft, ChevronRight} from 'lucide-react';
 import {useDismissablePopover} from './useDismissablePopover';
+import {useViewportAlign} from './useViewportAlign';
 import {readableDate} from '../../lib/format';
 import {useProfileClock} from './ProfileClock';
 
@@ -239,38 +240,28 @@ export function DatePicker({
   const [popoverPosition, setPopoverPosition] = useState<{left:number;top:number}|null>(null);
   const closeCalendar = () => {setIsOpen(false);setActiveDropdown(null);setPopoverPosition(null);triggerRef.current?.focus({preventScroll:true});};
 
-  useLayoutEffect(() => {
-    if (!isOpen) return;
-    const align = () => {
-      const popover=popoverRef.current;
-      const anchor=triggerRef.current;
-      if(!popover||!anchor)return;
-      const anchorRect=anchor.getBoundingClientRect();
-      const host=containerRef.current?.closest('dialog');
-      const hostRect=host?.getBoundingClientRect();
-      const viewportWidth=window.visualViewport?.width??window.innerWidth;
-      const viewportHeight=window.visualViewport?.height??window.innerHeight;
-      const popoverWidth=popover.offsetWidth;
-      const popoverHeight=popover.offsetHeight;
-      const left=Math.max(12,Math.min(anchorRect.left,viewportWidth-popoverWidth-12));
-      const below=anchorRect.bottom+6;
-      const above=anchorRect.top-6-popoverHeight;
-      const top=below+popoverHeight<=viewportHeight-12||above<12?Math.max(12,below):above;
-      setPopoverPosition(hostRect
-        ?{left:left-hostRect.left,top:top-hostRect.top}
-        :{left:left+window.scrollX,top:top+window.scrollY});
-    };
-    setPopoverPosition(null);
-    align();
-    window.addEventListener('resize',align);
-    window.addEventListener('scroll',align,true);
-    window.visualViewport?.addEventListener('resize',align);
-    return()=>{
-      window.removeEventListener('resize',align);
-      window.removeEventListener('scroll',align,true);
-      window.visualViewport?.removeEventListener('resize',align);
-    };
-  },[isOpen]);
+  const alignPopover = () => {
+    const popover=popoverRef.current;
+    const anchor=triggerRef.current;
+    if(!popover||!anchor)return;
+    const anchorRect=anchor.getBoundingClientRect();
+    const host=containerRef.current?.closest('dialog');
+    const hostRect=host?.getBoundingClientRect();
+    const viewportWidth=window.visualViewport?.width??window.innerWidth;
+    const viewportHeight=window.visualViewport?.height??window.innerHeight;
+    const popoverWidth=popover.offsetWidth;
+    const popoverHeight=popover.offsetHeight;
+    const left=Math.max(12,Math.min(anchorRect.left,viewportWidth-popoverWidth-12));
+    const below=anchorRect.bottom+6;
+    const above=anchorRect.top-6-popoverHeight;
+    const top=below+popoverHeight<=viewportHeight-12||above<12?Math.max(12,below):above;
+    setPopoverPosition(hostRect
+      ?{left:left-hostRect.left,top:top-hostRect.top}
+      :{left:left+window.scrollX,top:top+window.scrollY});
+  };
+  // A fresh opening starts unplaced (hidden) until the first measurement.
+  useLayoutEffect(()=>{if(isOpen)setPopoverPosition(null);},[isOpen]);
+  useViewportAlign(isOpen,alignPopover);
 
   const clock = useProfileClock();
   const initialDate = parseIso(value || clock.today());

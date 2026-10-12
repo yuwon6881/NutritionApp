@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { ArrowUp, Square } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { TextArea } from '../ui/Field';
@@ -24,14 +24,6 @@ export function AiComposer({ value, onChange, onSubmit, onStop, isSending, disab
   // The shared TextArea does not forward a ref, so the field is found inside its frame.
   const field = () => box.current?.querySelector('textarea') ?? null;
 
-  useLayoutEffect(() => {
-    const element = field();
-    if (!element) return;
-    element.style.height = 'auto';
-    element.style.height = `${Math.min(element.scrollHeight, MAX_HEIGHT)}px`;
-    element.style.overflowY = element.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
-  }, [value]);
-
   // A disabled field drops focus, so hand it back once a reply, reset, or reload settles.
   useEffect(() => {
     if (!disabled && hasFinePointer()) field()?.focus({ preventScroll: true });
@@ -39,7 +31,7 @@ export function AiComposer({ value, onChange, onSubmit, onStop, isSending, disab
 
   return <form className="ai-chat-composer" onSubmit={event => { event.preventDefault(); onSubmit(); }}>
     <div className="ai-chat-composer-box" ref={box}>
-      <TextArea label="Message" rows={1} maxLength={MAX_LENGTH} value={value} disabled={disabled}
+      <TextArea label="Message" rows={1} maxHeight={MAX_HEIGHT} maxLength={MAX_LENGTH} value={value} disabled={disabled}
         {...(hasFinePointer() ? { 'data-modal-autofocus': true } : {})}
         placeholder="Ask about your nutrition" onChange={event => onChange(event.target.value)}
         onKeyDown={event => {

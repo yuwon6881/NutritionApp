@@ -1,0 +1,79 @@
+/* Dashboard surfaces for the Lavender / Midnight Lime themes. Semantic tokens only.
+   Selectors are prefixed with .dashboard-cards because the dashboard's own sheets load lazily,
+   after this layer. */
+
+/* Sections breathe: bold sentence-case titles with room above. */
+.dashboard-cards .dashboard-section-title{margin:6px 2px 14px;font-size:1.125rem;font-weight:720;letter-spacing:-.02em;text-transform:none;color:var(--ink-strong)}
+.dashboard-cards .dashboard-section+.dashboard-section .dashboard-section-title{margin-top:28px}
+
+/* Today hero: the ring is the centrepiece, flanked by two large figures. */
+.dashboard-cards .daily-grid{border-radius:var(--radius)}
+.dashboard-cards .daily-grid>.panel{padding:26px 28px}
+.dashboard-cards .energy-overview{gap:20px}
+.dashboard-cards .daily-grid .energy-overview .energy-ring{width:164px;height:164px;max-width:none}
+.dashboard-cards .daily-grid .energy-panel{min-height:0}
+.dashboard-cards .energy-ring .ring-value{font-size:22px}
+.dashboard-cards .energy-ring .ring-label{font-size:9.5px;fill:var(--muted-foreground)}
+.dashboard-cards .energy-side{gap:2px}
+.dashboard-cards .energy-side strong{font-size:clamp(1.6rem,2.6vw,2.1rem);font-weight:760;letter-spacing:-.04em;line-height:1.05}
+.dashboard-cards .energy-side span{font-size:.8125rem;font-weight:550}
+
+/* Macros: three columns, each a soft tile in its colour (protein · carbs · fat). */
+.dashboard-cards .daily-grid>.panel.macros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:center;gap:12px}
+.dashboard-cards .daily-grid>.macros>.eyebrow{grid-column:1/-1;margin-bottom:2px!important}
+.dashboard-cards .daily-grid .macro{--macro:var(--energy);display:flex;flex-direction:column;gap:6px;min-width:0;margin:0;padding:14px 14px 16px;border-radius:18px;background:color-mix(in srgb,var(--macro) 9%,transparent)}
+.dashboard-cards .daily-grid .macro.protein{--macro:var(--protein)}
+.dashboard-cards .daily-grid .macro.carbs{--macro:var(--carbs)}
+.dashboard-cards .daily-grid .macro.fat{--macro:var(--fat)}
+.dashboard-cards .daily-grid .macro>span{display:flex;align-items:center;gap:6px;font-size:.8125rem;font-weight:620;color:var(--foreground);overflow-wrap:anywhere}
+.dashboard-cards .daily-grid .macro>span::before{content:'';width:8px;height:8px;flex:0 0 8px;border-radius:999px;background:var(--macro)}
+.dashboard-cards .daily-grid .macro strong{font-size:1.5rem;font-weight:760;letter-spacing:-.035em;line-height:1.1;color:var(--ink-strong);overflow-wrap:anywhere}
+.dashboard-cards .daily-grid .macro strong small{display:block;margin-top:2px;font-size:.75rem;font-weight:550;letter-spacing:0;color:var(--muted-foreground)}
+.dashboard-cards .daily-grid .macro progress{height:8px;margin-top:auto;background:color-mix(in srgb,var(--macro) 16%,var(--track))}
+.dashboard-cards .daily-grid .macro progress::-webkit-progress-bar{background:color-mix(in srgb,var(--macro) 16%,var(--track))}
+
+@media(min-width:640px) and (max-width:899px){
+  .dashboard-cards .daily-grid>.panel.macros{gap:12px;padding:22px 24px 24px}
+}
+@media(max-width:639px){
+  .dashboard-cards .daily-grid>.panel{padding:22px 18px}
+  .dashboard-cards .daily-grid>.panel.macros{gap:8px;padding:20px 14px 16px;border-top:1px solid var(--border)}
+  .dashboard-cards .daily-grid>.macros>.eyebrow{padding-inline:4px}
+  .dashboard-cards .daily-grid .macro{padding:12px 10px 12px;border-radius:16px}
+  .dashboard-cards .daily-grid .macro strong{font-size:1.3rem}
+  .dashboard-cards .energy-overview{gap:8px}
+  .dashboard-cards .daily-grid .energy-overview .energy-ring{width:min(146px,40vw);height:auto}
+  .dashboard-cards .energy-side strong{font-size:clamp(1.3rem,5.6vw,1.6rem)}
+}
+@media(max-width:379px){
+  .dashboard-cards .daily-grid>.panel{padding-inline:14px}
+  .dashboard-cards .daily-grid .energy-overview .energy-ring{width:min(120px,36vw)}
+  .dashboard-cards .energy-side strong{font-size:1.2rem}
+  .dashboard-cards .daily-grid>.panel.macros{gap:6px;padding-inline:10px}
+  .dashboard-cards .daily-grid .macro{padding:10px 8px}
+  /* The bar carries the colour, so the dot gives way to keep the name on one line. */
+  .dashboard-cards .daily-grid .macro>span::before{display:none}
+  .dashboard-cards .daily-grid .macro strong{font-size:1.15rem}
+}
+
+/* Habits: rounded cells and a bold weekly figure. */
+.dashboard-cards .habit-calendar-count{font-size:1.6rem;font-weight:760;letter-spacing:-.035em}
+.dashboard-cards .habit-cell{border-radius:5px}
+.dashboard-cards .habit-grid-compact{gap:5px}
+@media(max-width:639px){
+  .dashboard-cards .habit-calendar-count{font-size:1.3rem}
+  .dashboard-cards .habit-grid-compact{gap:4px}
+  .dashboard-cards .habit-cell{border-radius:4px}
+}
+
+/* Insights: large readouts, accent chips for icons. */
+.dashboard-cards .weight-trend-value,.dashboard-cards .goal-summary h2{letter-spacing:-.035em}
+
+/* This week: today gets a quiet ring, the selection a filled accent pill, bars a touch heavier. */
+.dashboard-cards .week-nutrition-days .selection-indicator-marker{border-radius:16px;background:var(--primary-tint);box-shadow:none}
+.dashboard-cards .week-day{border-radius:16px}
+.dashboard-cards .week-day[data-today]{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--primary) 45%,transparent)}
+.dashboard-cards .week-day-bar{height:7px}
+.dashboard-cards .week-day-name{text-transform:uppercase;letter-spacing:.06em}
+.dashboard-cards .dashboard-insight-value strong{font-size:2.1rem;font-weight:760;letter-spacing:-.04em}
+.dashboard-cards .sparkline-line{stroke-width:2.5}

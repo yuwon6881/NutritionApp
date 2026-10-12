@@ -1,0 +1,276 @@
+/* Food Log Timeline & Meal Cards surfaces.
+   Consumes semantic tokens only, defined in index.css. */
+
+/* ==========================================================================
+   Timeline & Meal Cards (FoodTimeline, FoodTimeCard)
+   ========================================================================== */
+.food-timeline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 28px 0 16px;
+}
+.food-timeline-toolbar h2 {
+  font-size: 1.25rem;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+  margin: 0;
+}
+@media (max-width: 1023px) {
+  .food-timeline-toolbar {
+    align-items: stretch;
+  }
+}
+
+.food-timeline {
+  margin: 16px 0 32px;
+}
+.food-time-row {
+  display: grid;
+  grid-template-columns: 5.25rem minmax(0, 1fr);
+  gap: 16px;
+  min-height: 58px;
+}
+@media (max-width: 639px) {
+  .food-time-row {
+    grid-template-columns: 3.75rem minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
+.food-time-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border-left: 2px solid var(--border);
+  padding: 2px 0 20px 16px;
+  margin-top: -2px;
+  min-width: 0;
+}
+@media (max-width: 639px) {
+  .food-time-cards {
+    padding-left: 14px;
+    gap: 8px;
+  }
+}
+
+/* Time rail dot in --primary */
+.food-time-label::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: -21px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px var(--background);
+}
+@media (max-width: 639px) {
+  .food-time-label::after {
+    right: -19px;
+    width: 8px;
+    height: 8px;
+    top: 7px;
+  }
+}
+
+/* Meal row cards (Reference image 2) */
+.food-time-card.panel {
+  position: relative;
+  border-radius: 18px;
+  padding: 14px 18px;
+  background: var(--card);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: baseline;
+  gap: 4px 12px;
+  transition: border-color var(--motion-control) ease, box-shadow var(--motion-control) ease, transform 100ms ease;
+}
+:root[data-theme=dark] .food-time-card.panel {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .food-time-card.panel:hover {
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+    transform: translateY(-1px);
+  }
+  :root[data-theme=dark] .food-time-card.panel:hover {
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  }
+}
+
+.food-time-card-title {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.food-time-card-title-text {
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.food-time-card-energy {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 1.15rem;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  justify-content: flex-end;
+}
+.food-time-card-energy svg {
+  display: none !important;
+}
+.food-time-card-energy small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.food-time-card-details {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font-size: 0.8125rem;
+  min-width: 0;
+}
+.food-time-card-portion {
+  display: inline !important;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.food-time-card-dot {
+  display: inline !important;
+  color: var(--muted-foreground);
+  opacity: 0.6;
+  margin-inline: 1px;
+}
+.food-time-card-mass {
+  display: none !important;
+}
+
+/* Coloured P/C/F macro letters */
+.food-macro-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px 8px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+.food-macro {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.food-macro b {
+  font-weight: 750;
+}
+.food-macro.protein b { color: var(--protein); }
+.food-macro.carbs b { color: var(--carbs); }
+.food-macro.fat b { color: var(--fat); }
+.food-macro.fiber b { color: var(--muted-foreground); }
+
+@media (max-width: 639px) {
+  .food-time-card.panel {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .food-time-card .food-time-card-title { grid-column: 2; }
+  .food-time-card .food-time-card-details { grid-column: 2; margin-top: 2px; }
+  .food-time-card .food-time-card-aside { grid-column: 3; grid-row: 1 / span 2; margin: 0 0 0 10px; }
+  .food-time-card-title-text {
+    font-size: 0.92rem;
+  }
+  .food-time-card-energy {
+    font-size: 1.05rem;
+  }
+  .food-time-card-details,
+  .food-macro-summary {
+    font-size: 0.78rem;
+    gap: 4px 6px;
+  }
+}
+
+/* Swipe actions with token colours */
+.food-card-swipe,
+.food-card-swipe-actions {
+  border-radius: 18px;
+}
+.food-card-swipe-actions {
+  gap: 6px;
+  padding: 4px;
+}
+.food-card-swipe-actions > .button {
+  border-radius: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.food-card-swipe-actions > .button:nth-child(1) {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.food-card-swipe-actions > .button:nth-child(2) {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+  border-color: color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.food-card-swipe-actions > .button.destructive {
+  background: color-mix(in srgb, var(--destructive) 14%, var(--card));
+  color: var(--destructive);
+  border-color: color-mix(in srgb, var(--destructive) 25%, transparent);
+}
+
+/* Phones: a full-width name above portion and macros, with energy on the trailing edge. The older
+   four-column phone template in logging.css would otherwise squeeze the name into an auto track. */
+@media (max-width: 639px) {
+  .food-time-card.panel {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .food-time-card .food-time-card-title { grid-column: 2; }
+  .food-time-card .food-time-card-details { grid-column: 2; margin-top: 2px; }
+  .food-time-card .food-time-card-aside { grid-column: 3; grid-row: 1 / span 2; margin: 0 0 0 10px; }
+  /* Narrow cards let a long name use a second line instead of clipping it early. */
+  .food-time-card .food-time-card-title-text {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
+/* The timeline heading stays on the leading edge when the toolbar stacks below 1024 px. */
+@media (max-width: 1023px) {
+  .food-timeline-toolbar { align-items: stretch; }
+}
+
+/* The lifted copy is a clone of the card appended to <body>; it must stay viewport-fixed even though
+   the card rule above positions cards relatively. */
+.food-time-card.panel.food-drag-ghost {
+  position: fixed;
+}

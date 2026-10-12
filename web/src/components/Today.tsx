@@ -79,24 +79,24 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
         {checkInReady&&checkIn
           ?<article className="panel energy-panel">
             <div>
-              <p className="eyebrow">ENERGY</p>
+              <p className="eyebrow">Energy</p>
               <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
               <p>Review your check-in to see today's target</p>
             </div>
             <div className="energy-check-in"><CheckInButton schedule={checkIn} label="Review this week" onClick={openCheckIn}/><p className="energy-check-in-label">Check-in ready</p></div>
           </article>
           :<article className="panel energy-panel energy-panel-overview">
-            <p className="eyebrow">ENERGY</p>
+            <p className="eyebrow">Energy</p>
             <EnergyOverview total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>
           </article>}
         <article className="panel macros">
-          <p className="eyebrow">MACRONUTRIENTS</p>
+          <p className="eyebrow">Macronutrients</p>
           {(['protein','carbs','fat'] as const).map(key=>{
             const known=entries.filter(e=>e[key]!=null);
             const sum=savedDay?.archived?(savedDay[key]??0):known.reduce((s,e)=>s+e[key]!,0);
             const incomplete=savedDay?.archived?savedDay[key]==null:known.length!==entries.length;
             return <div className={'macro '+key} key={key}>
-              <span>{key==='carbs'?'Carbohydrate':key[0].toUpperCase()+key.slice(1)}</span>
+              <span>{key==='carbs'?'Carbs':key[0].toUpperCase()+key.slice(1)}</span>
               <strong>{savedDay?.archived&&savedDay[key]==null?'—':entries.length&&!known.length?'—':number(sum)}<small> / {number(targets[key])} g{incomplete?' · partial':''}</small></strong>
               <progress aria-label={`${key} logged`} value={targets[key]==null?0:sum} max={targets[key]==null?1:Math.max(targets[key],1)}/>
             </div>;

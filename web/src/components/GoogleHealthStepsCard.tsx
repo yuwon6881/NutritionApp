@@ -43,7 +43,7 @@ export function GoogleHealthStepsCard({
     <article className="panel steps-panel steps-panel-compact" aria-labelledby="today-steps-title">
       <div className="steps-header">
         <div>
-          <p className="eyebrow" id="today-steps-title">GOOGLE HEALTH STEPS</p>
+          <p className="eyebrow" id="today-steps-title">Google Health steps</p>
           <h2>
             {count !== null ? (
               <>

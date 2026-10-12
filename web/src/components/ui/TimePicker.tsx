@@ -4,6 +4,7 @@ import {createPortal} from 'react-dom';
 import {Clock} from 'lucide-react';
 import {FieldFrame} from './Form';
 import {useDismissablePopover} from './useDismissablePopover';
+import {useViewportAlign} from './useViewportAlign';
 
 export interface TimePickerProps {
   label: string;
@@ -89,95 +90,71 @@ export function TimePicker({
     triggerRef.current?.focus({preventScroll: true});
   };
 
-  useLayoutEffect(() => {
-    if (!isOpen) return;
-    const align = () => {
-      const popover = popoverRef.current;
-      const anchor = triggerRef.current;
-      if (!popover || !anchor) return;
+  const alignPopover = () => {
+    const popover = popoverRef.current;
+    const anchor = triggerRef.current;
+    if (!popover || !anchor) return;
 
-      const vv = window.visualViewport;
-      const viewportLeft = vv?.pageLeft ?? window.scrollX;
-      const viewportTop = vv?.pageTop ?? window.scrollY;
-      const viewportWidth = vv?.width ?? window.innerWidth;
-      const viewportHeight = vv?.height ?? window.innerHeight;
+    const vv = window.visualViewport;
+    const viewportLeft = vv?.pageLeft ?? window.scrollX;
+    const viewportTop = vv?.pageTop ?? window.scrollY;
+    const viewportWidth = vv?.width ?? window.innerWidth;
+    const viewportHeight = vv?.height ?? window.innerHeight;
 
-      // Cap maximum popover height to available visual viewport minus 24px margin
-      const maxAvailableHeight = Math.max(120, viewportHeight - 24);
-      popover.style.maxHeight = `${maxAvailableHeight}px`;
+    // Cap maximum popover height to available visual viewport minus 24px margin
+    const maxAvailableHeight = Math.max(120, viewportHeight - 24);
+    popover.style.maxHeight = `${maxAvailableHeight}px`;
 
-      const anchorRect = anchor.getBoundingClientRect();
-      const host = containerRef.current?.closest('dialog');
-      const hostRect = host?.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const host = containerRef.current?.closest('dialog');
+    const hostRect = host?.getBoundingClientRect();
 
-      const popoverWidth = popover.offsetWidth;
-      const popoverHeight = popover.offsetHeight;
+    const popoverWidth = popover.offsetWidth;
+    const popoverHeight = popover.offsetHeight;
 
-      // Anchor coords in page coordinate space
-      const anchorPageLeft = anchorRect.left + window.scrollX;
-      const anchorPageTop = anchorRect.top + window.scrollY;
-      const anchorPageBottom = anchorRect.bottom + window.scrollY;
+    // Anchor coords in page coordinate space
+    const anchorPageLeft = anchorRect.left + window.scrollX;
+    const anchorPageTop = anchorRect.top + window.scrollY;
+    const anchorPageBottom = anchorRect.bottom + window.scrollY;
 
-      // Horizontal clamp within visual viewport bounds
-      const minLeft = viewportLeft + 12;
-      const maxLeft = viewportLeft + viewportWidth - popoverWidth - 12;
-      const pageLeft = Math.max(minLeft, Math.min(anchorPageLeft, Math.max(minLeft, maxLeft)));
+    // Horizontal clamp within visual viewport bounds
+    const minLeft = viewportLeft + 12;
+    const maxLeft = viewportLeft + viewportWidth - popoverWidth - 12;
+    const pageLeft = Math.max(minLeft, Math.min(anchorPageLeft, Math.max(minLeft, maxLeft)));
 
-      // Vertical placement: preferred is below anchor, flip to above if below does not fit
-      const spaceBelow = (viewportTop + viewportHeight) - (anchorPageBottom + 6);
-      const spaceAbove = (anchorPageTop - 6) - viewportTop;
+    // Vertical placement: preferred is below anchor, flip to above if below does not fit
+    const spaceBelow = (viewportTop + viewportHeight) - (anchorPageBottom + 6);
+    const spaceAbove = (anchorPageTop - 6) - viewportTop;
 
-      let preferredTop: number;
-      if (spaceBelow >= popoverHeight || spaceBelow >= spaceAbove) {
-        preferredTop = anchorPageBottom + 6;
-      } else {
-        preferredTop = anchorPageTop - 6 - popoverHeight;
-      }
-
-      // Clamp vertical position strictly within visual viewport [viewportTop + 12, viewportTop + viewportHeight - popoverHeight - 12]
-      const minTop = viewportTop + 12;
-      const maxTop = Math.max(minTop, viewportTop + viewportHeight - popoverHeight - 12);
-      const pageTop = Math.max(minTop, Math.min(preferredTop, maxTop));
-
-      if (hostRect) {
-        const hostPageLeft = hostRect.left + window.scrollX;
-        const hostPageTop = hostRect.top + window.scrollY;
-        setPopoverPosition({
-          left: pageLeft - hostPageLeft,
-          top: pageTop - hostPageTop,
-        });
-      } else {
-        setPopoverPosition({
-          left: pageLeft,
-          top: pageTop,
-        });
-      }
-    };
-
-    setPopoverPosition(null);
-    align();
-
-    window.addEventListener('resize', align);
-    window.addEventListener('scroll', align, true);
-    window.visualViewport?.addEventListener('resize', align);
-    window.visualViewport?.addEventListener('scroll', align);
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined' && popoverRef.current) {
-      resizeObserver = new ResizeObserver(() => {
-        align();
-      });
-      resizeObserver.observe(popoverRef.current);
+    let preferredTop: number;
+    if (spaceBelow >= popoverHeight || spaceBelow >= spaceAbove) {
+      preferredTop = anchorPageBottom + 6;
+    } else {
+      preferredTop = anchorPageTop - 6 - popoverHeight;
     }
 
-    return () => {
-      window.removeEventListener('resize', align);
-      window.removeEventListener('scroll', align, true);
-      window.visualViewport?.removeEventListener('resize', align);
-      window.visualViewport?.removeEventListener('scroll', align);
-      resizeObserver?.disconnect();
-    };
-  }, [isOpen]);
+    // Clamp vertical position strictly within visual viewport [viewportTop + 12, viewportTop + viewportHeight - popoverHeight - 12]
+    const minTop = viewportTop + 12;
+    const maxTop = Math.max(minTop, viewportTop + viewportHeight - popoverHeight - 12);
+    const pageTop = Math.max(minTop, Math.min(preferredTop, maxTop));
+
+    if (hostRect) {
+      const hostPageLeft = hostRect.left + window.scrollX;
+      const hostPageTop = hostRect.top + window.scrollY;
+      setPopoverPosition({
+        left: pageLeft - hostPageLeft,
+        top: pageTop - hostPageTop,
+      });
+    } else {
+      setPopoverPosition({
+        left: pageLeft,
+        top: pageTop,
+      });
+    }
+  };
+  // A fresh opening starts unplaced (hidden) until the first measurement.
+  useLayoutEffect(() => { if (isOpen) setPopoverPosition(null); }, [isOpen]);
+  useViewportAlign(isOpen, alignPopover, popoverRef);
 
   useDismissablePopover(isOpen, [containerRef, popoverRef], () => {
     setIsOpen(false);

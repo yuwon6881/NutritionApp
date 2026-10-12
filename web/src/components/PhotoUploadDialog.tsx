@@ -113,7 +113,6 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onCha
               disabled={busyPending}
               label={`${label} photo`}
               accept="image/*"
-              hint="JPEG or PNG; compressed to 750 KB or less."
               onChange={event=>void select(slot.angle,event)}
             />
           </section>;

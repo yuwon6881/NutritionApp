@@ -37,19 +37,19 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.goto('/');
     await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
 
-    // 1. Manrope Variable font face is loaded into document memory and applied to body
+    // 1. Plus Jakarta Sans Variable font face is loaded into document memory and applied to body
     await expect.poll(async()=>page.evaluate(async()=>{
       await document.fonts.ready;
       const bodyFont=getComputedStyle(document.body).fontFamily;
-      const hasLoadedFace=Array.from(document.fonts).some(f=>f.family.includes('Manrope')&&f.status==='loaded');
-      return bodyFont.includes('Manrope')&&hasLoadedFace;
-    }),{message:'Manrope Variable font must be loaded in document memory and applied to body'}).toBe(true);
+      const hasLoadedFace=Array.from(document.fonts).some(f=>f.family.includes('Plus Jakarta Sans')&&f.status==='loaded');
+      return bodyFont.includes('Plus Jakarta Sans')&&hasLoadedFace;
+    }),{message:'Plus Jakarta Sans Variable font must be loaded in document memory and applied to body'}).toBe(true);
 
     // 2. Consistent warm theme / HTML theme-color
     const metaTheme=await page.locator('meta[name="theme-color"]').getAttribute('content');
-    expect(metaTheme?.toLowerCase()).toBe(theme==='dark'?'#121916':'#f5f3ee');
+    expect(metaTheme?.toLowerCase()).toBe(theme==='dark'?'#08080a':'#f4f2fa');
     const bodyBg=await page.evaluate(()=>getComputedStyle(document.body).backgroundColor);
-    expect(bodyBg).toBe(theme==='dark'?'rgb(18, 25, 22)':'rgb(245, 243, 238)');
+    expect(bodyBg).toBe(theme==='dark'?'rgb(8, 8, 10)':'rgb(244, 242, 250)');
 
     // 3. Desktop nav labels not accidentally reduced by accessibility.css to .72rem (~11.5px)
     if(width>=1024){

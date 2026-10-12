@@ -1,0 +1,135 @@
+@import './theme/dashboard.css';
+@import './theme/food.css';
+@import './theme/progress.css';
+@import './theme/coach.css';
+@import './theme/settings.css';
+@import './theme/body.css';
+
+/* Surface layer for the Lavender (light) and Midnight Lime (dark) themes. Loaded after the feature
+   sheets so the shared shell, cards, controls, and data marks read as one system; it consumes only the
+   semantic tokens defined in index.css and never introduces colours of its own. */
+
+
+/* Type: display weight headings with tight tracking, quiet sentence-case section labels. */
+h1,h2,h3{font-weight:700;letter-spacing:-.03em}
+h1{font-size:clamp(1.9rem,3vw,2.35rem);line-height:1.12}
+h2{font-weight:680;letter-spacing:-.022em}
+.page-heading h1{font-weight:760;letter-spacing:-.035em}
+.eyebrow{text-transform:none!important;letter-spacing:-.005em!important;font-size:.875rem!important;font-weight:620!important;color:var(--muted-foreground)}
+.dashboard-section-title{text-transform:none;letter-spacing:-.02em;font-size:1.125rem;font-weight:720;color:var(--ink-strong)}
+
+/* Cards: borderless white floats on lavender; dark cards keep a hairline on near-black. */
+.panel{border-color:transparent;border-radius:var(--radius)}
+:root[data-theme=dark] .panel{border-color:var(--border)}
+.daily-grid{border-color:transparent}
+:root[data-theme=dark] .daily-grid{border-color:var(--border)}
+.modal-surface{border-color:transparent;border-radius:28px;box-shadow:0 30px 80px -20px rgba(20,12,60,.35)}
+:root[data-theme=dark] .modal-surface{border-color:var(--border);box-shadow:0 30px 80px -20px rgba(0,0,0,.8)}
+
+/* Buttons: pills. Primary carries the accent glow on hover only. */
+.button{border-radius:999px;font-weight:620}
+.button.size-icon{border-radius:999px}
+.button.primary{font-weight:680;letter-spacing:-.005em}
+.button.secondary{background:var(--card);border-color:var(--border)}
+:root[data-theme=dark] .button.secondary{background:var(--raised);border-color:transparent}
+
+/* Fields: soft filled wells that sharpen to the accent on focus. */
+input:not([type=checkbox]):not([type=range]),select,textarea{border-radius:14px;background:var(--muted);border-color:color-mix(in srgb,var(--control-border) 55%,transparent);transition:border-color var(--motion-control) ease,background-color var(--motion-control) ease,box-shadow var(--motion-control) ease}
+input:not([type=checkbox]):not([type=range]):focus,select:focus,textarea:focus{background:var(--card);border-color:var(--primary)}
+
+/* Segmented choices: a sunken pill track with a raised pill on the selection (Week · Month · Year). */
+.segmented-control{background:var(--muted);padding:4px;margin:0;gap:4px;border-radius:999px}
+:root[data-theme=dark] .segmented-control{background:var(--card);box-shadow:inset 0 0 0 1px var(--border)}
+.segmented-control .selection-indicator-marker{background:var(--card);box-shadow:0 1px 2px rgba(38,28,92,.08),0 4px 12px -4px rgba(38,28,92,.18)}
+:root[data-theme=dark] .segmented-control .selection-indicator-marker{background:var(--raised);box-shadow:none}
+.segmented-control .selection-indicator-marker::after{display:none}
+.segmented-control>[data-selection-key]{color:var(--muted-foreground);font-weight:600}
+.segmented-control>[data-selection-key].segment-active{color:var(--ink-strong);font-weight:700}
+@media (hover:hover) and (pointer:fine){.segmented-control>[data-selection-key]:hover:not(:disabled){color:var(--ink-strong);transform:none}}
+
+/* Progress: thick rounded tracks. */
+.macro progress{height:8px;border-radius:999px}
+progress::-webkit-progress-bar{border-radius:999px}
+progress::-webkit-progress-value{border-radius:999px}
+progress::-moz-progress-bar{border-radius:999px}
+
+/* Energy ring: a heavy stroke with round caps, the logged figure as the hero number. */
+.energy-ring .ring-track{stroke-width:11}
+.energy-ring .ring-fill,.energy-ring .ring-pending{stroke-width:11;stroke-linecap:round}
+.energy-ring .ring-value{font-weight:760;letter-spacing:-.03em}
+
+/* Desktop sidebar: a floating column of pills. */
+.sidebar{background:transparent;border-right-color:transparent}
+.sidebar>.brand{font-weight:760;letter-spacing:-.04em}
+.nav-selection .selection-indicator-marker{border-radius:999px;background:var(--card);box-shadow:var(--shadow)}
+:root[data-theme=dark] .nav-selection .selection-indicator-marker{background:var(--raised);box-shadow:none}
+.nav-selection .selection-indicator-marker::before{display:none}
+.nav-selection>[data-selection-key]{border-radius:999px;color:var(--muted-foreground)}
+.nav-selection>[data-selection-key].nav-active{color:var(--ink-strong);font-weight:680}
+.sidebar nav .nav-add-desktop{border-radius:999px;box-shadow:var(--shadow-raised)}
+.sidebar-account{border-top-color:transparent}
+.account-avatar{border-radius:999px}
+
+/* Medium rail: icon pills on the canvas. */
+@media(min-width:640px) and (max-width:1023px){
+  .sidebar{background:transparent;border-right-color:var(--border)}
+  .sidebar nav .button{border-radius:20px}
+  .nav-desktop-items .selection-indicator-marker{border-radius:20px;background:var(--card)}
+  :root[data-theme=dark] .nav-desktop-items .selection-indicator-marker{background:var(--raised)}
+  .sidebar nav .nav-add-desktop{border-radius:999px}
+}
+
+/* Compact: a floating glass dock with the raised round Add in its centre. */
+@media(max-width:639px){
+  .sidebar{left:12px;right:auto;bottom:calc(10px + env(safe-area-inset-bottom));width:calc(100vw - 24px);max-width:none;padding:6px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);border-radius:30px;background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 18px 40px -14px rgba(38,28,92,.35)}
+  :root[data-theme=dark] .sidebar{background:color-mix(in srgb,var(--card) 86%,transparent);box-shadow:0 18px 40px -10px rgba(0,0,0,.85)}
+  .nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 64px minmax(0,1fr) minmax(0,1fr);gap:2px}
+  .sidebar nav .button{min-height:56px;padding-inline:0;border-radius:24px;font-size:.66rem;font-weight:600;letter-spacing:-.01em;color:var(--muted-foreground)}
+  .nav-mobile-items .selection-indicator-marker{border-radius:24px;background:var(--primary-tint);box-shadow:none}
+  .nav-mobile-items>[data-selection-key].nav-active{color:var(--primary-ink);font-weight:720}
+  .sidebar nav .button.nav-center-add{width:56px;height:56px;min-height:56px;border-radius:999px;padding:0;gap:0;font-weight:700;color:var(--on-primary);box-shadow:var(--shadow-raised)}
+  .sidebar nav .button.nav-center-add .nav-icon{width:22px;height:22px}
+  .main-content{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+  /* The narrowest phones keep every label whole at the readability floor (accessibility.css): a slimmer
+     inset and a smaller centre slot give the side labels room. */
+  @media(max-width:379px){.sidebar{left:4px;width:calc(100vw - 8px);padding:3px}.nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px minmax(0,1fr) minmax(0,1fr);gap:0}.sidebar nav .button.nav-center-add{width:48px;height:48px;min-height:48px}.sidebar nav .nav-mobile-items>.button{letter-spacing:-.03em}.sidebar nav .nav-mobile-items>.button>span{overflow:visible;text-overflow:clip}}
+  .topbar{border-bottom-color:transparent}
+}
+@media(max-width:1023px){.topbar{border-bottom-color:transparent}}
+
+/* Labels read in sentence case, like the references ("Avg protein", "Under target"). Only weekday
+   and month initials stay in capitals. Some feature sheets force capitals with !important. */
+.eyebrow,.stat-card .eyebrow,.auth-card .eyebrow,.energy-stats dt,.target-energy-figures p,.target-energy-figures>div p,.target-macros-figures p,.target-weekly-summary p,
+.strategy-figures dt,.goal-history-stat-label,.settings-account-copy h2,.live-calorie-tag,.check-in-calorie-label,.summary-metric-label,.chart-readout-grid dt,
+.recent-foods-heading h4,.compare-picker-label,.metadata-item .label,.body-measurement-group h4,.body-weight-context h4,.custom-time-col-header,
+.macro-preset-badge,.ai-chat-review-tag,.circular-slider-bound .bound-tag,.compare-table thead th,.compare-table-group-header th{text-transform:none!important;letter-spacing:-.005em!important}
+.energy-stats dt,.target-energy-figures p,.target-macros-figures p,.target-weekly-summary p,.strategy-figures dt,.goal-history-stat-label,.settings-account-copy h2,
+.live-calorie-tag,.check-in-calorie-label,.summary-metric-label,.chart-readout-grid dt,.recent-foods-heading h4,.compare-picker-label,.metadata-item .label{font-size:.8125rem!important;font-weight:600}
+
+/* Method tabs and other segmented buttons sit flat on the track; only the marker is raised. */
+.segmented-control>.button[data-selection-key],:root[data-theme] .segmented-control>.button[data-selection-key]{background:transparent;border-color:transparent;box-shadow:none}
+/* Page section tabs keep the pill track on wide windows too, sized to their labels. */
+@media(min-width:640px){
+  .segmented-control.section-segments[data-layout]{display:inline-flex;width:auto;max-width:100%;gap:4px;margin:0 0 26px;padding:4px;border-radius:999px;background:var(--muted)}
+  :root[data-theme=dark] .segmented-control.section-segments[data-layout]{background:var(--card)}
+  .segmented-control.section-segments[data-layout]>.button{min-width:96px}
+}
+/* Two-line sheet options read better as rounded cards than as pills. */
+.action-sheet-item.button{border-radius:20px}
+
+@media(min-width:1024px){
+  .sidebar{padding-bottom:20px}
+}
+
+/* Dialog scrims are a flat dim layer. A backdrop blur re-blurs the whole page on every animation
+   frame, which made opening Ask AI (and other dialogs) stutter on wide windows. ::backdrop cannot
+   read theme custom properties in every engine, so the scrim colour is written out. */
+.modal-shell::backdrop{background:rgba(10,8,20,.6);backdrop-filter:none;-webkit-backdrop-filter:none}
+.modal-confirmation-layer{backdrop-filter:none;-webkit-backdrop-filter:none}
+
+/* Selection marks stay flat: a neutral lift instead of a coloured glow. */
+.circular-slider.is-dragging .circular-slider-thumb{filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
+.bar-group.selected .bar-rect{filter:none}
+
+/* Desktop and rail account block: the avatar and Sign out read as two separate things. */
+@media(min-width:640px){.sidebar-account{gap:14px}}

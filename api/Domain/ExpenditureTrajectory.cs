@@ -14,8 +14,8 @@ public sealed record TrajectoryPoint(
 
 public static class ExpenditureTrajectory
 {
-    // v7: rebuilds see the mutation that triggered them and load intake-step lookback history.
-    public const string AlgorithmVersion = "v7-intake-history";
+    // v8: corrected profile inputs reset the seed using dated age and diary trend weight.
+    public const string AlgorithmVersion = "v8-profile-seed";
 
     public static TrajectoryPoint Calculate(
         Profile profile,

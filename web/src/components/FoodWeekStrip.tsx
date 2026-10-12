@@ -5,6 +5,7 @@ import {shiftDate} from '../lib/energyBalance';
 import {sharedDiaryCoordinator} from '../lib/diaryCoordinator';
 import {projectedDayIntakes} from '../lib/dayIntake';
 import {calendarTarget,calorieProgress} from '../lib/calendarProgress';
+import {needsReveal} from '../lib/foodStrip';
 import {Button} from './ui/Button';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 
@@ -13,7 +14,7 @@ const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const dayWidth=64;
 // Wide windows fit over 16 days, so a fixed fortnight would leave nothing to scroll back into.
 const initialDaysBack=30;
-const outline='M30 1 H47 A12 12 0 0 1 59 13 V47 A12 12 0 0 1 47 59 H13 A12 12 0 0 1 1 47 V13 A12 12 0 0 1 13 1 Z';
+const outline='M 28 1.5 A 26.5 26.5 0 0 1 54.5 28 V 50 A 26.5 26.5 0 0 1 28 76.5 A 26.5 26.5 0 0 1 1.5 50 V 28 A 26.5 26.5 0 0 1 28 1.5 Z';
 
 export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:string;store:NutritionStore;onChange:(date:string)=>void}){
   const [range,setRange]=useState(()=>({from:shiftDate(date,-initialDaysBack)<earliest?earliest:shiftDate(date,-initialDaysBack),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)}));
@@ -22,16 +23,32 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
   const track=useRef<HTMLDivElement>(null);
   const prependWidth=useRef(0);
   const reveal=useRef(true);
+  const userPicked=useRef<string|null>(null);
 
   useEffect(()=>sharedDiaryCoordinator.subscribe(()=>update(value=>value+1)),[]);
   useEffect(()=>{
-    reveal.current=true;
-    if(date<range.from||date>range.to)setRange({from:shiftDate(date,-initialDaysBack)<earliest?earliest:shiftDate(date,-initialDaysBack),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)});
-    else {
-      track.current?.querySelector<HTMLElement>(`[data-date="${date}"]`)?.scrollIntoView({block:'nearest',inline:'center',behavior:'instant'});
+    if(userPicked.current===date){
+      userPicked.current=null;
+      reveal.current=false;
+      return;
+    }
+    userPicked.current=null;
+    if(date<range.from||date>range.to){
+      reveal.current=true;
+      setRange({from:shiftDate(date,-initialDaysBack)<earliest?earliest:shiftDate(date,-initialDaysBack),to:shiftDate(date,14)>shiftDate(today,7)?shiftDate(today,7):shiftDate(date,14)});
+    } else {
+      const element=track.current;
+      const selected=element?.querySelector<HTMLElement>(`[data-date="${date}"]`);
+      if(element&&selected){
+        const stripRect=element.getBoundingClientRect();
+        const dayRect=selected.getBoundingClientRect();
+        if(needsReveal(stripRect,dayRect)){
+          selected.scrollIntoView({block:'nearest',inline:'center',behavior:'instant'});
+        }
+      }
       reveal.current=false;
     }
-  },[date]);
+  },[date,range.from,range.to,today]);
 
   useLayoutEffect(()=>{
     const element=track.current;
@@ -95,12 +112,12 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
         const progress=calorieProgress(intake,target);
         const weekday=weekdays[new Date(`${day}T12:00:00Z`).getUTCDay()];
         const label=`${day}, ${weekday}${day===today?', today':''}${day===shiftDate(today,1)?', tomorrow':day>today?', future':progress==null?', calorie progress unavailable':`, ${displayEnergy(intake!,energyUnit)} of ${displayEnergy(target!,energyUnit)} ${energyLabel(energyUnit)}, ${Math.round(progress*100)}% of target`}`;
-        return <Button key={day} data-date={day} variant="tertiary" presentation="plain" className="food-week-day" disabled={day>shiftDate(today,1)} aria-current={day===date?'date':undefined} aria-label={label} onClick={()=>onChange(day)} onKeyDown={event=>{
+        return <Button key={day} data-date={day} data-today={day===today||undefined} variant="tertiary" presentation="plain" className="food-week-day" disabled={day>shiftDate(today,1)} aria-current={day===date?'date':undefined} aria-label={label} onClick={()=>{userPicked.current=day;onChange(day);}} onKeyDown={event=>{
           if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
           const next=(event.key==='ArrowLeft'?event.currentTarget.previousElementSibling:event.currentTarget.nextElementSibling) as HTMLButtonElement|null;
           if(next&&!next.disabled){event.preventDefault();next.focus();}
         }}>
-          <svg className="food-day-progress" viewBox="0 0 60 60" aria-hidden="true">
+          <svg className="food-day-progress" viewBox="0 0 56 78" aria-hidden="true">
             <path className="food-day-progress-track" d={outline}/>
             {progress!=null&&progress>0&&<path className="food-day-progress-fill" pathLength="100" strokeDasharray={`${progress*100} 100`} d={outline}/>}
           </svg>

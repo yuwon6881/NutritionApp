@@ -65,7 +65,10 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       await expect(nav.locator('button:visible')).toHaveCount(5);
       const add=await launcher.boundingBox();
       expect(Math.abs(add!.x+add!.width/2-width/2)).toBeLessThanOrEqual(1);
-      expect(Math.abs(sidebar!.y+sidebar!.height-900)).toBeLessThanOrEqual(1);
+      // The phone dock floats just above the bottom edge (and the safe area).
+      const dockGap=900-(sidebar!.y+sidebar!.height);
+      expect(dockGap).toBeGreaterThanOrEqual(0);
+      expect(dockGap).toBeLessThanOrEqual(16);
     }else{
       // Add entry, five pages, and Ask AI.
       await expect(nav.locator('button:visible')).toHaveCount(7);

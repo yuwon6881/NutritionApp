@@ -25,6 +25,12 @@ export const monthYear=dateFormat({month:'short',year:'numeric'});
 export const monthShort=dateFormat({month:'short'});
 
 /** Two letters for an avatar: first letters of the first two words, else the first two characters. */
+/** Splits an email-style name before its "@" so a narrow column can wrap there instead of mid-word. */
+export function splitAtSign(name:string):[string,string]{
+  const at=name.indexOf('@');
+  return at>0?[name.slice(0,at),name.slice(at)]:[name,''];
+}
+
 export function initials(name:string){
   const words=name.trim().split(/[\s._-]+/).filter(Boolean);
   return (words.length>1?words[0][0]+words[1][0]:name.trim().slice(0,2)).toUpperCase()||'?';

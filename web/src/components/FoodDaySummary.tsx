@@ -1,6 +1,7 @@
 import type {Day,Entry} from '../types';
 import {number} from '../lib/format';
 import {displayEnergy,energyLabel,type EnergyUnit} from '../lib/units';
+import {SelectField} from './ui/Field';
 
 type Macro='protein'|'carbs'|'fat';
 
@@ -28,7 +29,22 @@ function remainingText(total:number,target:number,unit:EnergyUnit){
  * progress bars; phones keep the compact figures only. A target that is not known
  * (no accepted plan for the date) shows no bar rather than an empty one.
  */
-export function FoodDaySummary({title,statusText,entries,day,count,fasting,total,targets,energyUnit}:{
+export function FoodDaySummary({
+  title,
+  statusText,
+  entries,
+  day,
+  count,
+  fasting,
+  total,
+  targets,
+  energyUnit,
+  isPastDay = false,
+  statusValue = 'incomplete',
+  statusDisabled = false,
+  canFast = false,
+  onStatusChange,
+}:{
   title:string;
   statusText:string;
   entries:Entry[];
@@ -38,13 +54,38 @@ export function FoodDaySummary({title,statusText,entries,day,count,fasting,total
   total:number;
   targets:DayTargets;
   energyUnit:EnergyUnit;
+  isPastDay?:boolean;
+  statusValue?:string;
+  statusDisabled?:boolean;
+  canFast?:boolean;
+  onStatusChange?:(value:string)=>void;
 }){
   const archived=!!day?.archived;
   const energyKnown=count>0||fasting;
   const calorieTarget=targets.calories;
   return <section className="panel food-day-summary">
     <div className="section-heading">
-      <div><h2>{title}</h2><p>{statusText}</p></div>
+      <div className="food-day-title-group">
+        <h2>{title}</h2>
+        {/* Only a past day without food has a choice to make; otherwise the status is plain text. */}
+        {isPastDay && !statusDisabled ? (
+          <div className="food-day-status-control">
+            <SelectField
+              label="Logging status"
+              className="food-day-status-select"
+              disabled={statusDisabled}
+              value={statusValue}
+              onChange={onStatusChange ?? (() => {})}
+            >
+              <option value="incomplete">{count ? 'Complete automatically' : 'No food logged'}</option>
+              <option value="not_logged" disabled={statusDisabled}>Not logging</option>
+              <option value="fasting" disabled={!canFast}>Fasting</option>
+            </SelectField>
+          </div>
+        ) : (
+          <p className="food-day-status-text">{statusText}</p>
+        )}
+      </div>
       <div className="food-day-energy">
         <strong className="figure-inline">{energyKnown?displayEnergy(total,energyUnit):'—'} <span className="unit">{energyLabel(energyUnit)}</span></strong>
         {calorieTarget!=null&&<small className="food-day-target">of {displayEnergy(calorieTarget,energyUnit)}{energyKnown?` · ${remainingText(total,calorieTarget,energyUnit)}`:''}</small>}

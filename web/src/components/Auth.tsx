@@ -23,7 +23,7 @@ export function Auth({onLogin:_onLogin,sessionExpired=false}:{onLogin?:(id:strin
           <div className="brand"><Brand size={32}/> Nutrition</div>
         </header>
         <section className="panel auth-card" aria-labelledby="auth-heading">
-          <p className="eyebrow">YOUR FOOD DIARY</p>
+          <p className="eyebrow">Your food diary</p>
           <h1 id="auth-heading">Sign in to Nutrition</h1>
           <p className="auth-description">Use your Fitness Account to access your diary, nutrition targets, and progress.</p>
           {sessionExpired&&!errorCode&&<CardFeedback

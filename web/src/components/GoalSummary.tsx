@@ -17,7 +17,7 @@ export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale
   return <div className={`goal-summary${progress.complete?' goal-reached':''}`}>
     <div className="goal-summary-head">
       <div className="goal-summary-title-group">
-        <p className="eyebrow">GOAL PROGRESS</p>
+        <p className="eyebrow">Goal progress</p>
         <h3 id="dashboard-goal-title">{heading(progress)}</h3>
       </div>
       {progress.percent!=null&&<strong className="goal-percent">{number(progress.percent,1)}%</strong>}

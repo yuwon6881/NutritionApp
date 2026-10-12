@@ -87,7 +87,7 @@ export function GoogleHealthProgressChart({
 
       <div className="stats-grid google-health-stats">
         <div className="stat-card">
-          <p className="eyebrow">AVERAGE</p>
+          <p className="eyebrow">Average</p>
           <h2>
             <span className="tabular-num">{average !== null ? number(average) : '—'}</span>{' '}
             <span className="unit">steps / day</span>
@@ -135,7 +135,7 @@ export function GoogleHealthProgressChart({
               }
               const top = y(day.count);
               return <g key={day.date}>
-                <rect className={`bar-rect${day.count === 0 ? ' zero-bar' : ''}${day.date === todayDate ? ' partial-bar' : ''}`} x={x} y={Math.min(top, BASE - 2)} width={bar} height={Math.max(2, BASE - top)} rx={Math.min(4, bar / 3)}/>
+                <rect className={`bar-rect${day.count === 0 ? ' zero-bar' : ''}${day.date === todayDate ? ' partial-bar' : ''}`} x={x} y={Math.min(top, BASE - 2)} width={bar} height={Math.max(2, BASE - top)} rx={Math.min(6, bar / 2.2)}/>
                 {label}
               </g>;
             })}

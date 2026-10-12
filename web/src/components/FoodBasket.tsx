@@ -86,7 +86,7 @@ export function FoodBasket({
     {announcement&&<p role="status" className="sr-only">{announcement}</p>}
     <div className="live-calorie-card">
       <div className="live-calorie-header">
-        <span className="live-calorie-tag">BATCH TOTAL</span>
+        <span className="live-calorie-tag">Batch total</span>
         <div className="live-calorie-value" key={totals.count}>
           <strong>{displayEnergy(totals.calories,units.energy)}</strong> <span className="unit">{energyLabel(units.energy)}</span>
         </div>

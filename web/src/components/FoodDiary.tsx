@@ -10,7 +10,6 @@ import {mealReadOnly,moveEntry,showsDeviceOnlyToday,type TimelineView} from '../
 import {useOnlineStatus} from './ui/useOnlineStatus';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
-import {SelectField} from './ui/Field';
 import {FoodTimeline} from './FoodTimeline';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
@@ -190,21 +189,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
         <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
       </div>
       <FoodWeekStrip date={date} today={current} store={store} onChange={changeDate}/>
-      {date<current&&<div className="food-diary-toolbar-right">
-        <SelectField
-          label="Logging status"
-          disabled={count>0}
-          value={status==='fasting'||status==='not_logged'?status:'incomplete'}
-          onChange={value=>{
-            if(count>0)return;
-            void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}));
-          }}
-        >
-          <option value="incomplete">{count?'Complete automatically':'No food logged'}</option>
-          <option value="not_logged" disabled={count>0}>Not logging</option>
-          <option value="fasting" disabled={count>0||total>0}>Fasting</option>
-        </SelectField>
-      </div>}
     </div>
     <div className="food-day-content" ref={swipe.contentRef}>
     {history.error&&<CardFeedback
@@ -230,6 +214,14 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
         total={total}
         targets={targetsForDate(planForDate(store.state!,date),date)}
         energyUnit={energyUnit}
+        isPastDay={date<current}
+        statusValue={status==='fasting'||status==='not_logged'?status:'incomplete'}
+        statusDisabled={count>0}
+        canFast={count===0&&total===0}
+        onStatusChange={value=>{
+          if(count>0)return;
+          void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}));
+        }}
       />
       {readOnly?<DiaryEmptyState status={status} archived detailDays={state.detailDays} summary={`${count} food ${count===1?'entry':'entries'}${count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}`}/>:<>
         <div className="food-timeline-toolbar">

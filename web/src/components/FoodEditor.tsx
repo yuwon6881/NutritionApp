@@ -169,7 +169,7 @@ export function FoodEditor({
 
           <div className="live-calorie-card">
             <div className="live-calorie-header">
-              <span className="live-calorie-tag">CALORIES</span>
+              <span className="live-calorie-tag">Calories</span>
               <div className="live-calorie-value">
                 <strong>{inputEnergy(draft.calories, energyUnit, 0)}</strong> <span className="unit">{energyLabel(energyUnit)}</span>
               </div>

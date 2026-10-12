@@ -1,4 +1,4 @@
-import {useId,useEffect,useRef,useState,type InputHTMLAttributes,type ReactNode,type TextareaHTMLAttributes} from 'react';
+import {useId,useEffect,useLayoutEffect,useRef,useState,type InputHTMLAttributes,type ReactNode,type TextareaHTMLAttributes} from 'react';
 import {Select} from './Select';
 import {TimePicker} from './TimePicker';
 import {FieldFrame} from './Form';
@@ -64,9 +64,23 @@ export function Field({
   );
 }
 
-export function TextArea({label,hint,...props}:TextareaHTMLAttributes<HTMLTextAreaElement>&{label:string;hint?:string}){
+/**
+ * A multi-line field that grows with its text and offers no drag handle; past maxHeight it scrolls.
+ * The height is measured after each value change, before paint.
+ */
+export function TextArea({label,hint,maxHeight=320,...props}:TextareaHTMLAttributes<HTMLTextAreaElement>&{label:string;hint?:string;maxHeight?:number}){
   const generated=useId();const id=props.id??generated;const name=props.name??props.id??id;
-  return <FieldFrame label={label} className="field"><label htmlFor={id}>{label}</label><textarea {...props} autoComplete={props.autoComplete ?? 'off'} id={id} name={name} aria-describedby={hint?`${id}-hint`:undefined}/>{hint&&<small id={`${id}-hint`}>{hint}</small>}</FieldFrame>;
+  const field=useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(()=>{
+    const element=field.current;
+    if(!element)return;
+    element.style.height='auto';
+    const border=element.offsetHeight-element.clientHeight;
+    const needed=element.scrollHeight+border;
+    element.style.height=`${Math.min(needed,maxHeight)}px`;
+    element.style.overflowY=needed>maxHeight?'auto':'hidden';
+  },[props.value,maxHeight]);
+  return <FieldFrame label={label} className="field"><label htmlFor={id}>{label}</label><textarea {...props} ref={field} autoComplete={props.autoComplete ?? 'off'} id={id} name={name} aria-describedby={hint?`${id}-hint`:undefined}/>{hint&&<small id={`${id}-hint`}>{hint}</small>}</FieldFrame>;
 }
 
 export {Select, Select as SelectField} from './Select';

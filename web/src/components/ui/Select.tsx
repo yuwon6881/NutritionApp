@@ -4,13 +4,17 @@ import {
   isValidElement,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import {createPortal} from 'react-dom';
 import {Check, ChevronDown} from 'lucide-react';
 import {useDismissablePopover} from './useDismissablePopover';
+import {useViewportAlign} from './useViewportAlign';
 
 export interface SelectOption {
   value: string;
@@ -75,7 +79,51 @@ export function Select({
 
   const selectedOption = options.find(o => o.value === value);
 
-  useDismissablePopover(isOpen, [containerRef], () => setIsOpen(false));
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
+
+  useDismissablePopover(isOpen, [containerRef, listRef], () => setIsOpen(false));
+
+  const alignMenu = () => {
+    const trigger = triggerRef.current;
+    const menu = listRef.current;
+    if (!trigger) return;
+
+    const anchorRect = trigger.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const viewportHeight = vv?.height ?? window.innerHeight;
+    const viewportWidth = vv?.width ?? window.innerWidth;
+
+    const width = Math.min(Math.max(anchorRect.width, 140), viewportWidth - 16);
+    const spaceBelow = viewportHeight - anchorRect.bottom - 6;
+    const spaceAbove = anchorRect.top - 6;
+
+    const menuHeight = menu ? menu.offsetHeight : 240;
+    const flipAbove = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+
+    let top: number;
+    let maxHeight: number;
+
+    if (flipAbove) {
+      maxHeight = Math.min(240, Math.max(60, spaceAbove));
+      const effectiveHeight = menu ? Math.min(menu.scrollHeight + 10, maxHeight) : maxHeight;
+      top = anchorRect.top - 6 - effectiveHeight;
+    } else {
+      maxHeight = Math.min(240, Math.max(60, spaceBelow));
+      top = anchorRect.bottom + 6;
+    }
+
+    const left = Math.max(8, Math.min(anchorRect.left, viewportWidth - width - 8));
+
+    setMenuStyle({
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${width}px`,
+      maxHeight: `${maxHeight}px`,
+    });
+  };
+  // Closing drops the placement so the next opening measures afresh; the menu stays hidden until then.
+  useLayoutEffect(() => { if (!isOpen) setMenuStyle(null); }, [isOpen]);
+  useViewportAlign(isOpen, alignMenu);
 
   // Scroll focused option into view
   useEffect(() => {
@@ -190,7 +238,7 @@ export function Select({
           ))}
         </select>
 
-        {isOpen && (
+        {isOpen && createPortal(
           <ul
             id={`${selectId}-list`}
             ref={listRef}
@@ -198,6 +246,7 @@ export function Select({
             role="listbox"
             aria-label={label}
             tabIndex={-1}
+            style={menuStyle ?? {visibility: 'hidden'}}
           >
             {options.map((opt, idx) => {
               const isSelected = opt.value === value;
@@ -223,7 +272,8 @@ export function Select({
                 </li>
               );
             })}
-          </ul>
+          </ul>,
+          containerRef.current?.closest('dialog') ?? document.body
         )}
       </div>
 

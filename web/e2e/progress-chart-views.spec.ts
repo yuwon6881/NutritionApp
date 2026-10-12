@@ -24,7 +24,7 @@ test.beforeEach(async({page,request,context})=>{
 });
 
 test('saved weigh-ins beyond the listed rows do not leave the sync notice or a pending trend',async({page})=>{
-  await expect(page.getByText('TREND WEIGHT',{exact:true})).toBeVisible();
+  await expect(page.locator('.stats-grid').getByText('Trend weight',{exact:true})).toBeVisible();
   await expect(page.getByText('Recent edits will update after sync.')).toHaveCount(0);
   await expect(page.getByText('Pending sync')).toHaveCount(0);
 });

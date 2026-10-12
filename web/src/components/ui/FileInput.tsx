@@ -166,7 +166,8 @@ export function FileInput({
         onDrop={handleDrop}
         data-validation-focus
         aria-label={`Upload ${label.toLowerCase()}`}
-        aria-describedby={hint?`${id}-hint`:undefined}
+        // The format line inside the drop area describes it unless the caller gives its own hint.
+        aria-describedby={hint?`${id}-hint`:selectedFileName?undefined:`${id}-format`}
         role="button"
         tabIndex={disabled ? -1 : 0}
         onKeyDown={e => {
@@ -211,7 +212,7 @@ export function FileInput({
           <div className="dropzone-prompt">
             <UploadCloud size={24} className="dropzone-icon" />
             <span className="dropzone-main-text">{touchFirst ? (capture ? 'Take a photo' : 'Take or choose a photo') : 'Choose a photo or drag & drop'}</span>
-            <small className="dropzone-subtext">JPEG or PNG · compressed on this device to {maxSizeLabel} or less</small>
+            <small id={`${id}-format`} className="dropzone-subtext">JPEG or PNG · compressed on this device to {maxSizeLabel} or less</small>
           </div>
         )}
       </div>

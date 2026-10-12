@@ -142,7 +142,7 @@ export function RecipeEditor({
 
       <div className="live-calorie-card" style={{margin:'12px 0 18px'}}>
         <div className="live-calorie-header">
-          <span className="live-calorie-tag">INGREDIENT CONTRIBUTION</span>
+          <span className="live-calorie-tag">Ingredient contribution</span>
           <div className="live-calorie-value">
             <strong>{displayEnergy(calcCalories,energyUnit)}</strong> <span className="unit">{energyLabel(energyUnit)}</span>
           </div>
@@ -255,7 +255,7 @@ export function RecipeEditor({
           <div><h3>Recipe nutrition preview</h3><p>Based on {draft.items.length} {draft.items.length===1?'ingredient':'ingredients'} · {draft.yieldGrams} g cooked yield</p></div>
         </div>
         <div className="stats-grid" style={{marginBottom:10}}>
-          <div className="stat-card"><span className="eyebrow">TOTAL BATCH</span><h2>{displayEnergy(totalCalories,energyUnit)} <small className="unit">{energyLabel(energyUnit)}</small></h2><p className="food-macro-summary" style={{margin:0}}><span className="food-macro protein"><b>P</b> {number(totalProtein,1)} g</span><span className="food-macro carbs"><b>C</b> {number(totalCarbs,1)} g</span><span className="food-macro fat"><b>F</b> {number(totalFat,1)} g</span></p></div>
+          <div className="stat-card"><span className="eyebrow">Total batch</span><h2>{displayEnergy(totalCalories,energyUnit)} <small className="unit">{energyLabel(energyUnit)}</small></h2><p className="food-macro-summary" style={{margin:0}}><span className="food-macro protein"><b>P</b> {number(totalProtein,1)} g</span><span className="food-macro carbs"><b>C</b> {number(totalCarbs,1)} g</span><span className="food-macro fat"><b>F</b> {number(totalFat,1)} g</span></p></div>
           <div className="stat-card"><span className="eyebrow">PER SERVING ({draft.servings})</span><h2>{displayEnergy(perServingCalories,energyUnit)} <small className="unit">{energyLabel(energyUnit)}</small></h2><p className="food-macro-summary" style={{margin:0}}><span className="food-macro protein"><b>P</b> {number(perServingProtein,1)} g</span><span className="food-macro carbs"><b>C</b> {number(perServingCarbs,1)} g</span><span className="food-macro fat"><b>F</b> {number(perServingFat,1)} g</span></p></div>
           <div className="stat-card"><span className="eyebrow">PER 100 G COOKED</span><h2>{displayEnergy(per100Calories,energyUnit)} <small className="unit">{energyLabel(energyUnit)}</small></h2><p className="food-macro-summary" style={{margin:0}}><span className="food-macro protein"><b>P</b> {number(per100Protein,1)} g</span><span className="food-macro carbs"><b>C</b> {number(per100Carbs,1)} g</span><span className="food-macro fat"><b>F</b> {number(per100Fat,1)} g</span></p></div>
         </div>

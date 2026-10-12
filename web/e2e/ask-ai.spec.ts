@@ -24,7 +24,7 @@ for (const width of [320, 390, 640, 768, 1024, 1440, 1920]) {
       const dialog = page.getByRole('dialog', { name: 'Ask AI', exact: true });
       await expect(dialog.getByText('Your saved answer.')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-      const expectedBg = theme === 'dark' ? 'rgb(28, 37, 32)' : 'rgb(255, 255, 255)';
+      const expectedBg = theme === 'dark' ? 'rgb(20, 20, 23)' : 'rgb(255, 255, 255)';
       await expect(dialog.locator('.modal-surface')).toHaveCSS('background-color', expectedBg);
       await expect(dialog.getByLabel('Message', { exact: true })).toBeEnabled();
       expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBeTruthy();

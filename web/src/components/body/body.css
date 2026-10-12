@@ -2,16 +2,16 @@
    Loaded with the lazy Body page, after index.css, so these rules extend the shared ones. */
 
 /* One fixed 3:4 frame for every physique photo so stepping records never shifts layout. */
-.body-photo-frame{position:relative;display:grid;place-items:center;width:min(100%,calc(min(70vh,720px)*3/4));aspect-ratio:3/4;margin-inline:auto;border-radius:16px;background:var(--muted);overflow:hidden;touch-action:pan-y}
+.body-photo-frame{position:relative;display:grid;place-items:center;width:min(100%,calc(min(70vh,720px)*3/4));aspect-ratio:3/4;margin-inline:auto;border-radius:18px;background:var(--muted);overflow:hidden;touch-action:pan-y}
 .body-photo-frame[data-navigable]:focus-visible{outline:2px solid var(--ring);outline-offset:3px}
-.body-photo-frame .photo-slot-empty{width:100%;height:100%;border:0}
+.body-photo-frame .photo-slot-empty{width:100%;height:100%}
 .body-photo-frame-image{display:block;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;animation:body-photo-in var(--motion-exit) var(--motion-ease) backwards}
 .compare-photo-frame .body-photo-frame-image{object-fit:contain}
 @keyframes body-photo-in{from{opacity:0}}
 
 /* Older on the leading edge, newer on the trailing edge; the position readout sits between. */
 .record-navigator{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin-top:14px}
-.record-navigator-step{min-height:44px;gap:4px;padding-inline:14px;border-radius:12px}
+.record-navigator-step{min-height:44px;gap:4px;padding-inline:14px;border-radius:999px}
 .record-navigator-position{display:grid;justify-items:center;gap:2px;margin:0;text-align:center;min-width:0}
 .record-navigator-position strong{white-space:nowrap;font-size:1rem;font-weight:650;color:var(--ink-strong);font-variant-numeric:tabular-nums}
 .record-navigator-position span{font-size:.8125rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
@@ -72,7 +72,7 @@
 .body-fat-estimate-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .body-fat-estimate-action>.button{min-height:44px;gap:6px}
 .body-fat-estimate-note{flex:1 1 240px;margin:0;font-size:.8125rem;line-height:1.45;color:var(--muted-foreground)}
-.body-fat-estimate-result{display:grid;gap:10px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.body-fat-estimate-result{display:grid;gap:10px;padding:16px 18px;border:1px solid var(--border);border-radius:18px;background:var(--card)}
 .body-fat-estimate-result[data-stale]{border-style:dashed}
 .body-fat-estimate-headline{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
 .body-fat-estimate-headline h4{margin:0;font-size:1.15rem;font-weight:650;color:var(--ink-strong);font-variant-numeric:tabular-nums}
@@ -82,7 +82,7 @@
 .body-fat-estimate-stale{margin:0}
 .body-fat-estimate-explanation{margin:0;font-size:.875rem;line-height:1.55}
 .body-fat-estimate-cues{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
-.body-fat-estimate-cues li{padding:4px 10px;border-radius:8px;background:var(--muted);font-size:.8125rem;font-weight:550;color:var(--foreground)}
+.body-fat-estimate-cues li{padding:4px 10px;border-radius:999px;background:var(--muted);font-size:.8125rem;font-weight:550;color:var(--foreground)}
 .body-fat-estimate-inputs{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;margin:0;font-size:.8125rem}
 .body-fat-estimate-inputs dt{color:var(--muted-foreground);font-weight:550}
 .body-fat-estimate-inputs dd{margin:0;overflow-wrap:anywhere}

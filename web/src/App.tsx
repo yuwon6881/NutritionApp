@@ -1,12 +1,12 @@
 import {resetGoogleHealthState} from './lib/googleHealth';
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles} from 'lucide-react';
+import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
 import {getLocalDatabaseFailure} from './lib/local';
 import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
-import {initials,longDate,today} from './lib/format';
+import {initials,longDate,splitAtSign,today} from './lib/format';
 import {watchTheme} from './lib/theme';
 import {useNutritionStore} from './useNutritionStore';
 import type {Entry,Weight} from './types';
@@ -24,7 +24,7 @@ import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncStatus} from './components/ui/SyncStatus';
 import {UndoToastHost} from './components/ui/UndoToast';
-import {DashboardSkeleton} from './components/ui/Skeleton';
+import {PageSkeleton} from './components/ui/PageSkeletons';
 import {ForegroundNotificationHandler,PwaUpdateNotice} from './components/ui/MobilePwa';
 import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
@@ -237,6 +237,8 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   // Background sync indicators update independently of the live page's data.
   const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onProgress={()=>navigate('progress')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,date,onLogout]);
 
+  const [accountHead,accountTail]=splitAtSign(store.state?.displayName??'');
+
   return <ProfileClockProvider zone={store.state?.profile?.timeZone}><div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside className="sidebar">
@@ -255,9 +257,12 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
           <Button disabled={needsProfile} variant="tertiary" className="nav-ai-button" aria-label="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={21}/><span>Ask AI</span></Button>
         </SelectionIndicator>
       </nav>
-      <div className="sidebar-account" title={store.state?.displayName}>
-        <span className="account-avatar" aria-hidden="true">{store.state?initials(store.state.displayName):''}</span>
-        <span className="account-name">{store.state?.displayName}</span>
+      <div className="sidebar-account">
+        <div className="account-identity" title={store.state?.displayName}>
+          <span className="account-avatar" aria-hidden="true">{store.state?initials(store.state.displayName):''}</span>
+          <span className="account-name">{accountHead}<wbr/>{accountTail}</span>
+        </div>
+        <Button variant="tertiary" size="sm" className="account-signout" title="Sign out" onClick={()=>void onLogout()}><LogOut size={18} aria-hidden="true"/><span className="account-signout-label">Sign out</span></Button>
       </div>
     </aside>
     <main id="main-content" className="main-content" tabIndex={-1}>
@@ -270,7 +275,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
             </span>
           )}
         </div>
-        {needsProfile&&<Button variant="tertiary" onClick={()=>void onLogout()}>Sign out</Button>}
+        {needsProfile&&<Button variant="tertiary" size="icon" className="topbar-signout" aria-label="Sign out" title="Sign out" onClick={()=>void onLogout()}><LogOut size={20} aria-hidden="true"/></Button>}
         <Button disabled={needsProfile} variant="tertiary" size="icon" className="topbar-ai" aria-label="Ask AI" title="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={20}/></Button>
         <Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button>
       </div>
@@ -278,7 +283,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       <UndoToastHost/>
       <PwaUpdateNotice/>
       <ConnectionFeedback message={store.error} drain={store.drain} refresh={store.refresh}/>
-      {!store.state?<><DashboardSkeleton label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<DashboardSkeleton label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
+      {!store.state?<><PageSkeleton page={page} label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<PageSkeleton page={needsProfile?'coach':page} label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
         {pageContent}
       </MotionScene></Suspense>}
       {store.state?.profile&&<MissedDays store={store}/>}

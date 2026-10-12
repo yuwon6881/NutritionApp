@@ -166,7 +166,19 @@ public static class GoalPolicy
     public static double? CarryExpenditure(Profile before, Profile after, double? learned)
     {
         if (before.Maintenance != after.Maintenance) return null;
+        // Corrected equation inputs invalidate the old starting estimate. Goal/pace changes
+        // retain it; a birthday alone does not count as a correction when birth date is known.
+        if (before.HeightCm != after.HeightCm || before.WeightKg != after.WeightKg ||
+            before.Sex != after.Sex || before.DateOfBirth != after.DateOfBirth ||
+            (after.DateOfBirth is null && before.Age != after.Age)) return null;
         if (learned is not {} value) return null;
-        return Math.Clamp(value * after.Activity / before.Activity, 1000, 7000);
+        // A revised default must not reprice learned maintenance for the same choice.
+        // Explicit choice changes use the current relative multipliers; legacy numeric profiles
+        // still use their saved activity values.
+        var beforeActivity = before.ActivityLevel is { } beforeLevel && ActivityLevels.All.Contains(beforeLevel)
+            ? ActivityLevels.Multiplier(beforeLevel) : before.Activity;
+        var afterActivity = after.ActivityLevel is { } afterLevel && ActivityLevels.All.Contains(afterLevel)
+            ? ActivityLevels.Multiplier(afterLevel) : after.Activity;
+        return Math.Clamp(value * afterActivity / beforeActivity, 1000, 7000);
     }
 }

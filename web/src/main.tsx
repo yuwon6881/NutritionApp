@@ -1,4 +1,4 @@
-import '@fontsource-variable/manrope/index.css';
+import '@fontsource-variable/plus-jakarta-sans/index.css';
 import {createRoot} from 'react-dom/client';
 import {registerAppServiceWorker} from './lib/registerAppServiceWorker';
 import {initializeNativeApp,isNativeApp} from './lib/nativeApp';
@@ -12,6 +12,7 @@ import './logging.css';
 import './check-in.css';
 import './progress.css';
 import './barcode.css';
+import './surfaces.css';
 import './accessibility.css';
 import {measurePerformance} from './lib/performance';
 import {ErrorBoundary} from './components/ui/ErrorBoundary';

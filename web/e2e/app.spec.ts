@@ -43,7 +43,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   const user=await (await context.request.get('/api/state')).json();
   await page.getByLabel('Date of birth',{exact:true}).fill('1996-03-14');await page.getByLabel('Height (cm)').fill('170');
   await page.getByLabel('Starting weight (kg)').fill('81');
-  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('female');
+  await page.getByLabel('Gender',{exact:true}).selectOption('female');
   await page.getByRole('button',{name:/^Next: Activity/}).click();
   await page.getByRole('radio',{name:/^None or relaxed activity\b/}).check();
   await page.getByRole('button',{name:/^Next: Goal/}).click();
@@ -139,7 +139,8 @@ test('responsive screens have no horizontal overflow and working touch targets',
       if(name==='Progress'){
         const historyField=page.locator('.select-field').filter({hasText:'Weight history period'}).first();
         await historyField.locator('.custom-select-trigger').click();
-        const menu=historyField.locator('.custom-select-menu');
+        // The menu renders in the page's top layer (body or dialog), not inside its field.
+        const menu=page.getByRole('listbox',{name:'Weight history period'});
         await expect(menu).toBeVisible();
         await expect.poll(()=>menu.evaluate(element=>getComputedStyle(element).scrollbarColor)).not.toBe('auto');
         await page.keyboard.press('Escape');
@@ -178,10 +179,10 @@ test('explicit light and dark themes persist without following the browser',asyn
   const appearance=page.getByRole('group',{name:'Appearance',exact:true});await expect(appearance.getByRole('button')).toHaveText(['Light','Dark']);
   await appearance.getByRole('button',{name:'Dark',exact:true}).click();await expect(appearance.getByRole('button',{name:'Dark',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.emulateMedia({colorScheme:'light'});await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#121916');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#08080A');
   await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();await page.getByRole('group',{name:'Appearance',exact:true}).getByRole('button',{name:'Light',exact:true}).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#F5F3EE');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#F4F2FA');
 });
 test('changed food dialog asks before closing while AI input stays transient',async({page,context})=>{
   await signIn(context.request);await page.goto('/');const launcher=page.getByRole('button',{name:'Add entry'}).first();await launcher.click();
@@ -295,8 +296,8 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
   expect((await (await context.request.get('/api/state')).json()).plans).toHaveLength(2);
   const state=await (await context.request.get('/api/state')).json();const result=JSON.parse(state.plans[0].resultJson);
-  // Onboarding chose "None or relaxed activity", the ×1.3 multiplier.
-  expect(result.expenditure).toBeCloseTo(2029.95,2);expect(result.calories).toBe(1725);expect(state.profile.goalRatePercent).toBe(-0.35);
+  // Onboarding chose "None or relaxed activity", the ×1.2 multiplier.
+  expect(result.expenditure).toBeCloseTo(1873.8,2);expect(result.calories).toBe(1575);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
   // Balance is its own chart view; it explains why no bar is drawn.

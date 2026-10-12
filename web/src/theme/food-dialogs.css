@@ -1,0 +1,245 @@
+/* Food Log dialogs, action sheet, search & review surfaces.
+   Consumes semantic tokens only, defined in index.css. */
+
+/* ==========================================================================
+   Action Sheet & Bottom Sheet Modal Shell
+   ========================================================================== */
+@media (max-width: 639px) {
+  .modal-surface,
+  .food-modal .modal-surface {
+    border-radius: 28px 28px 0 0 !important;
+  }
+  .modal-surface::before,
+  .food-modal .modal-surface::before {
+    content: '' !important;
+    position: absolute !important;
+    z-index: 10 !important;
+    top: 10px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 42px !important;
+    height: 5px !important;
+    border-radius: 999px !important;
+    background: color-mix(in srgb, var(--control-border) 45%, var(--border)) !important;
+    pointer-events: none !important;
+  }
+  .modal-header,
+  .food-modal .modal-header {
+    padding: 22px 22px 14px !important;
+  }
+  .modal-body,
+  .food-modal .modal-body {
+    padding: 20px 22px calc(24px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+.action-sheet-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.action-sheet-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 14px 18px;
+  border-radius: 20px;
+  min-height: 68px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(38, 28, 92, 0.03);
+  transition: background-color var(--motion-control) ease, border-color var(--motion-control) ease, transform 100ms ease;
+}
+:root[data-theme=dark] .action-sheet-item {
+  background: var(--raised);
+  border-color: var(--border);
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .action-sheet-item:hover {
+    background: color-mix(in srgb, var(--primary) 6%, var(--card));
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+    transform: translateY(-1px);
+  }
+  :root[data-theme=dark] .action-sheet-item:hover {
+    background: color-mix(in srgb, var(--primary) 10%, var(--raised));
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  }
+}
+.action-sheet-item-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.action-sheet-item-text strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+.action-sheet-item-text small {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin-top: 1px;
+}
+.action-sheet-item-chevron {
+  color: var(--muted-foreground);
+  margin-left: auto;
+}
+
+/* ==========================================================================
+   Log Food Dialog, Method Tabs, Search Field
+   ========================================================================== */
+.food-selection .segmented-control.food-methods {
+  display: flex;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--muted);
+  padding: 4px;
+  gap: 4px;
+  margin: 0 0 20px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+:root[data-theme=dark] .food-selection .segmented-control.food-methods {
+  background: var(--card);
+  border-color: var(--border);
+}
+.food-selection .segmented-control.food-methods > .button {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  border-radius: 999px;
+  min-height: 42px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+@media (max-width: 1023px) {
+  .food-selection .segmented-control.food-methods > .button {
+    min-height: 52px;
+    border-radius: 20px;
+  }
+}
+
+/* Rounded search bar */
+.food-modal .search-line .field input {
+  border-radius: 999px;
+  background: var(--muted);
+  border: 1.5px solid color-mix(in srgb, var(--control-border) 45%, transparent);
+  padding: 12px 20px 12px 44px;
+  font-size: 1rem;
+  transition: background-color var(--motion-control) ease, border-color var(--motion-control) ease, box-shadow var(--motion-control) ease;
+}
+.food-modal .search-line .field input:focus {
+  background: var(--card);
+  border-color: var(--primary);
+}
+.food-modal .search-line .field-leading-icon {
+  left: 16px;
+  color: var(--muted-foreground);
+}
+
+/* Recent foods list & search result rows */
+.food-modal .recent-food-card,
+.food-modal .food-row.interactive {
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(38, 28, 92, 0.02);
+  transition: border-color var(--motion-control) ease, background-color var(--motion-control) ease, transform 100ms ease;
+}
+:root[data-theme=dark] .food-modal .recent-food-card,
+:root[data-theme=dark] .food-modal .food-row.interactive {
+  background: var(--raised);
+  border-color: var(--border);
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .food-modal .recent-food-card:hover,
+  .food-modal .food-row.interactive:hover {
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+    background: color-mix(in srgb, var(--primary) 5%, var(--card));
+    transform: translateY(-1px);
+  }
+}
+.food-modal .recent-food-name,
+.food-modal .food-row.interactive strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+.food-modal .recent-food-portion,
+.food-modal .food-row.interactive small {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+.food-modal .recent-food-energy {
+  font-size: 1.05rem;
+  font-weight: 780;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Primary-tint chips */
+.food-modal .food-initial,
+.barcode-scan-hero-icon,
+.diary-empty-icon {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+  border-radius: 14px;
+}
+
+/* ==========================================================================
+   Live Calorie & Batch Review
+   ========================================================================== */
+.live-calorie-card {
+  border-radius: 20px;
+  padding: 20px 22px;
+  background: var(--primary-tint);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.live-calorie-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.live-calorie-value strong {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--primary-ink);
+}
+.day-energy-preview,
+.batch-food {
+  border-radius: 20px;
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.batch-food {
+  border-radius: 16px;
+}
+:root[data-theme=dark] .day-energy-preview,
+:root[data-theme=dark] .batch-food {
+  background: var(--raised);
+  border-color: var(--border);
+}
+
+/* Bulk selection bar */
+.food-selection-bar {
+  border-radius: 20px;
+  padding: 12px 14px 12px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-raised);
+}
+:root[data-theme=dark] .food-selection-bar {
+  background: var(--card);
+  border-color: var(--border);
+}

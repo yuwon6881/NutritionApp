@@ -25,9 +25,9 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
   return <>
     {pending&&<p className="notice" role="status">Recent edits will update after sync.</p>}
     <div className="stats-grid">
-      <section className="panel"><p className="eyebrow">TREND WEIGHT</p><h2>{isTrendPending?'—':displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{unit}</span></h2>{isTrendPending&&<p>Pending sync</p>}</section>
-      <section className="panel"><p className="eyebrow">AVERAGE SCALE WEIGHT</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{stats.count} {stats.count===1?'weigh-in':'weigh-ins'}</p></section>
-      <section className="panel"><p className="eyebrow">CHANGE IN TREND</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending sync':dateSpan(summary.start,summary.end)}</p></section>
+      <section className="panel"><p className="eyebrow">Trend weight</p><h2>{isTrendPending?'—':displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{unit}</span></h2>{isTrendPending&&<p>Pending sync</p>}</section>
+      <section className="panel"><p className="eyebrow">Average scale weight</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{stats.count} {stats.count===1?'weigh-in':'weigh-ins'}</p></section>
+      <section className="panel"><p className="eyebrow">Change in trend</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending sync':dateSpan(summary.start,summary.end)}</p></section>
     </div>
     <WeightChart series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end}/>
     <section className="panel weight-history-panel" aria-labelledby="latest-weigh-ins-title">

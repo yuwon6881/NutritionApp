@@ -195,7 +195,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
                 {slot.existing&&!slot.deleted&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busyPending} onClick={()=>setSlots(curr=>curr.map(item=>item.angle===slot.angle?{...item,deleted:true}:item))}>Delete</Button>}
               </div>
               {preview&&<img className="photo-preview" src={preview} alt={`${slot.changed?'Selected':'Current'} ${slot.angle} physique photo`}/>}
-              <FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busyPending} label={angleLabel(slot.angle)+' photo'} accept="image/*" hint="JPEG or PNG; ≤750 KB." onChange={e=>void selectPhoto(slot.angle,e)}/>
+              <FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busyPending} label={angleLabel(slot.angle)+' photo'} accept="image/*" onChange={e=>void selectPhoto(slot.angle,e)}/>
             </section>;
           })}
         </div>

@@ -16,7 +16,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     const calendar=page.getByRole('group',{name:'Choose a food day'});
     await expect(calendar).toBeVisible();
     await expect(calendar.locator('[aria-current="date"]')).toHaveAccessibleName(/today/);
-    expect((await calendar.locator('[aria-current="date"]').boundingBox())!.height).toBeCloseTo(60,1);
+    expect((await calendar.locator('[aria-current="date"]').boundingBox())!.height).toBeCloseTo(78,1);
     await expect(page.getByRole('button',{name:'Previous food day'})).toHaveCount(0);
     await expect(page.locator('.diary-empty-state')).toContainText('No food entries for this day.');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

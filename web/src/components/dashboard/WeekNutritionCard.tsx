@@ -57,7 +57,7 @@ export function WeekNutritionCard({state,current,energyUnit,checkInDue=false}:{s
   const note=day?dayStatusText(day)||(checkInDue&&day.date>=current?'calorie targets appear after your check-in':''):average.days?'':'logged days before today appear here';
   return <article className="panel week-nutrition" aria-labelledby="week-nutrition-title">
     <div className="week-nutrition-heading">
-      <p id="week-nutrition-title" className="eyebrow">THIS WEEK</p>
+      <p id="week-nutrition-title" className="eyebrow">This week</p>
       <p className="week-nutrition-caption" aria-live="polite">{caption}</p>
     </div>
     <SelectionIndicator active={selected} className="week-nutrition-days" role="group" ariaLabel="Days this week">

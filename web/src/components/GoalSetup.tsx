@@ -167,7 +167,7 @@ export function GoalPaceSetup({
       <p className="source">{blockedReason}</p>
     </div>:<div className="live-calorie-card">
       <div className="live-calorie-header">
-        <span className="live-calorie-tag">ESTIMATED TARGET</span>
+        <span className="live-calorie-tag">Estimated target</span>
         <div className="live-calorie-value">
         <strong><CoachNumber>{displayEnergy(live.target,units.energy)}</CoachNumber></strong> <span className="unit">{energyLabel(units.energy)} / day</span>
         </div>

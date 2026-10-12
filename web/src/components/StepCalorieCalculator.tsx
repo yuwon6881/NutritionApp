@@ -46,7 +46,7 @@ export function StepCalorieCalculator({store,variant}:{store:NutritionStore;vari
     ?<Button variant="tertiary" className="step-calculator-open" onClick={()=>setOpen(true)}><Calculator size={16} aria-hidden="true"/>Steps calculator</Button>
     :<section className="panel step-calculator-panel" aria-labelledby={headingId}>
       <div className="step-calculator-copy">
-        <p className="eyebrow" id={headingId}>STEPS CALCULATOR</p>
+        <p className="eyebrow" id={headingId}>Steps calculator</p>
         <p className="source">Find the extra walking that burns a calorie target, from your own weight and height.</p>
       </div>
       <Button variant="secondary" className="step-calculator-action" onClick={()=>setOpen(true)}><Calculator size={16} aria-hidden="true"/>Steps for an energy target</Button>

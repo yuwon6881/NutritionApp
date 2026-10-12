@@ -105,13 +105,13 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
             .Where(item => item.Date < start && item.AlgorithmVersion == ExpenditureTrajectory.AlgorithmVersion)
             .OrderByDescending(item => item.Date)
             .FirstOrDefaultAsync(ct);
-        var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, ct, profileChanged);
         var days = await LoadDays(start.AddDays(-Expenditure.HistoryDays), today, today, ct);
         var weights = await db.Weights
             .Where(weight => !weight.Deleted && weight.Date >= start.AddDays(-120) && weight.Date <= today)
             .OrderBy(weight => weight.Date)
             .Select(weight => new WeightPoint(weight.Date, weight.Kg, weight.Context))
             .ToListAsync(ct);
+        var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, weights, ct, profileChanged);
 
         foreach (var tracked in db.ChangeTracker.Entries<DailyExpenditureEstimate>().ToList())
             tracked.State = EntityState.Detached;
@@ -153,7 +153,8 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         return await db.ExpenditureEstimates.AsNoTracking().OrderByDescending(item => item.Date).FirstOrDefaultAsync(ct);
     }
 
-    private async Task<double> StartingExpenditure(Profile profile, DateOnly before, CancellationToken ct, bool profileChanged = false)
+    private async Task<double> StartingExpenditure(Profile profile, DateOnly before, IReadOnlyList<WeightPoint> weights,
+        CancellationToken ct, bool profileChanged = false)
     {
         var query = db.Plans.AsQueryable();
         if (!profileChanged) query = query.Where(item => item.Date < before);
@@ -165,7 +166,15 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
             var carried = GoalPolicy.CarryExpenditure(Json.Read<Profile>(plan.ProfileJson), profile, result.Expenditure);
             if (carried is {} expenditure && double.IsFinite(expenditure)) return expenditure;
         }
-        return profile.Maintenance ?? Coach.Resting(profile) * profile.Activity;
+        // A corrected profile starts from today's equation inputs, just like Coach.Calculate.
+        // Diary trend weight takes precedence over the profile's starting weight.
+        var referenceDate = profileChanged ? Today(profile) : before;
+        var equationProfile = profile with
+        {
+            Age = Coach.AgeAt(profile, referenceDate),
+            WeightKg = WeightSignal.CleanTrend(weights, referenceDate).LastOrDefault()?.Kg ?? profile.WeightKg
+        };
+        return profile.Maintenance ?? Coach.Resting(equationProfile) * profile.Activity;
     }
 
     private async Task<List<NutritionDay>> LoadDays(DateOnly start, DateOnly end, DateOnly current, CancellationToken ct)

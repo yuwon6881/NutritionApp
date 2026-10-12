@@ -63,7 +63,7 @@ export function HabitCalendarCard({title,tone,recent,history,summary,week,curren
       onClick={event=>{setTrigger(event.currentTarget);setOpened(opened+1);setOpen(true);}}
     >
       <span className="habit-calendar-heading">
-        <span className="eyebrow">{title.toUpperCase()}</span>
+        <span className="eyebrow">{title}</span>
         <Maximize2 size={14} aria-hidden="true" className="habit-calendar-expand"/>
       </span>
       <strong className="habit-calendar-count">{weekText(week)}</strong>

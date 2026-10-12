@@ -78,7 +78,7 @@ export function TrainingSummaryCard({
   return <section className="panel training-summary" aria-labelledby="training-summary-title">
     <div className="training-summary-header">
       <div>
-        <p className="eyebrow" id="training-summary-title">WORKOUTS</p>
+        <p className="eyebrow" id="training-summary-title">Workouts</p>
         <h2>Recent and upcoming</h2>
       </div>
       <div className={`training-icon-badge ${loading && settled ? 'training-refreshing' : ''}`} aria-hidden="true">

@@ -15,6 +15,7 @@ import {DatePicker} from './ui/DatePicker';
 import {GoalPaceSetup,GoalPhaseSetup,GoalSelection} from './GoalSetup';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
+import {WeeklyScheduleReview} from './coach/WeeklyScheduleReview';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
@@ -28,6 +29,7 @@ import {CardFeedback} from './ui/CardFeedback';
 import {MotionPanel} from './ui/Motion';
 import {ActivitySelection} from './ActivitySelection';
 import {activityFields} from '../lib/activityLevels';
+import {carryExpenditure,equationProfile,prepareCoachingProfile} from '../lib/profileExpenditure';
 
 const defaults:ProfileDraft={
   age:0,
@@ -202,19 +204,22 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const retryRefresh=async()=>{await refreshTargets();if(proposalFlow.operation!=='refresh-error')setReview(false);};
 
   const latestExpenditure=store.state!.energyEstimates?.filter(point=>point.expenditure!=null).sort((left,right)=>left.date.localeCompare(right.date)).at(-1)?.expenditure;
-  const live=calculateLivePace(profile,undefined,latestExpenditure??acceptedPlan?.expenditure,current);
+  const acceptedExpenditure=accepted?.profileRevision===store.state!.profileRevision?acceptedPlan?.expenditure:null;
+  const draftExpenditure=carryExpenditure(store.state!.profile,profile,latestExpenditure??acceptedExpenditure);
+  const previewProfile=equationProfile(profile,[...store.state!.weightTrendSeed??[],...store.state!.weights.filter(weight=>!weight.deleted)],current);
+  const live=calculateLivePace(previewProfile,undefined,draftExpenditure,current);
   const weeklyValues=weeklyDraft??(profile.distributionShares?.length===7
     ?allocateWeeklyCalories(live.weeklyCalories,profile.distributionShares)
     :live.dailyCalories);
   const weeklyValid=weeklyValues.length===7&&weeklyValues.every(value=>Number.isInteger(value)&&value>=0)&&Math.abs(weeklyValues.reduce((sum,value)=>sum+value,0)-Math.round(live.weeklyCalories))<=2;
   const coachDefaultSplit=effectiveSplit({
-    ...profile,
+    ...previewProfile,
     proteinPercent:null,
     carbsPercent:null,
     fatPercent:null,
     macroPreset:null,
     proteinGrams:null
-  },acceptedPlan?.expenditure,current);
+  },draftExpenditure,current);
   const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const selectedPreset=macroPresets.find(preset=>preset.id===selectedPresetId);
   const split=selectedPresetId==='auto'
@@ -248,11 +253,13 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     if(live.carbsBlocked){setError(CARBS_BLOCKED_MESSAGE);return;}
     locked.current=true;setError('');
     try{
+    const submittedProfile=prepareCoachingProfile(profile,current,currentGoalWeight);
+    setProfile(submittedProfile);
     await runSave(()=>store.mutate({
         kind:'profile',
         recordId:store.state!.id,
         expectedRevision:store.state!.profileRevision,
-        data:{...profile,phaseStart:current,phaseStartWeightKg:currentGoalWeight,targetWeightKg:profile.goal==='maintain'?null:profile.targetWeightKg},
+        data:submittedProfile,
         delete:false
       }));
     setProposal(undefined);
@@ -424,10 +431,10 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
             </FieldFrame>
           )}
           <Field id="coach-weight" name="weightKg" label={`Starting weight (${weightLabel(units.weight)})`} type="number" required min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.weightKg?inputWeight(profile.weightKg,units.weight,1):''} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('weightKg',Number.isFinite(next)?next:0);}} labelAction={<MiniUnitToggle<'kg'|'lb'> label="Weight unit" value={units.weight} onChange={v=>updateUnits({weight:v})} options={[{value:'kg',label:'kg'},{value:'lb',label:'lb'}]}/>}/>
-          <SelectField id="coach-sex" name="sex" required label="Sex parameter for equation" value={profile.sex} onChange={v=>set('sex',v)}>
-            <option value="" disabled>Choose an equation parameter</option>
-            <option value="female">Female equation</option>
-            <option value="male">Male equation</option>
+          <SelectField id="coach-sex" name="sex" required label="Gender" value={profile.sex} onChange={v=>set('sex',v)}>
+            <option value="" disabled>Choose gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
           </SelectField>
         </div>
         <div className="step-actions">
@@ -482,7 +489,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       </div>}
 
       {step==='pace'&&<div className="step-content">
-        <GoalPaceSetup profile={profile} set={set} acceptedExpenditure={acceptedPlan?.expenditure} units={units}/>
+        <GoalPaceSetup profile={previewProfile} set={set} acceptedExpenditure={draftExpenditure} units={units}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('goal-details')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('macros');}}>
@@ -629,28 +636,11 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
             </div>
           </div>
 
-          <div className="weekly-review-summary">
-            <div className="weekly-summary-head">
-              <strong>Daily calorie schedule</strong>
-              <span className="weekly-summary-sub">
-                {profile.distributionShares && !profile.distributionShares.every((v, _, a) => Math.abs(v - a[0]) < 0.01)
-                  ? 'Custom schedule'
-                  : 'Balanced daily targets'}
-              </span>
-            </div>
-            <div className="weekly-chips-grid">
-              {weeklyValues.map((value, index) => {
-                const dayName = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index];
-                const isDiff = Math.abs(value - live.target) > 5;
-                return (
-                  <div key={index} className={`weekly-day-chip ${isDiff ? 'variable' : ''}`}>
-                    <span className="weekly-day-name">{dayName}</span>
-                    <strong className="weekly-day-val">{displayEnergy(value, units.energy)}</strong>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <WeeklyScheduleReview
+            weeklyValues={weeklyValues}
+            shares={profile.distributionShares}
+            energyUnit={units.energy}
+          />
         </section>
         {live.carbsBlocked&&<div className="macro-error-notice" style={{marginTop:'16px'}}><CardFeedback message={CARBS_BLOCKED_MESSAGE}/></div>}
         <div className="step-actions">

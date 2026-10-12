@@ -11,10 +11,10 @@ public sealed class ActivityLevelTests
     };
 
     [Theory]
-    [InlineData(ActivityLevels.None, 1.3, false)]
-    [InlineData(ActivityLevels.Lifting, 1.5, true)]
-    [InlineData(ActivityLevels.Cardio, 1.6, false)]
-    [InlineData(ActivityLevels.CardioAndLifting, 1.75, true)]
+    [InlineData(ActivityLevels.None, 1.2, false)]
+    [InlineData(ActivityLevels.Lifting, 1.375, true)]
+    [InlineData(ActivityLevels.Cardio, 1.5, false)]
+    [InlineData(ActivityLevels.CardioAndLifting, 1.65, true)]
     public void Each_level_sets_the_multiplier_and_lifting_protein(string level, double multiplier, bool lifts)
     {
         var applied = ActivityLevels.Apply(Base with { ActivityLevel = level, Activity = 2.0, ResistanceTraining = !lifts });
@@ -26,6 +26,20 @@ public sealed class ActivityLevelTests
     [Fact]
     public void A_profile_without_a_level_keeps_its_saved_multiplier()
         => Assert.Equal(1.4, ActivityLevels.Apply(Base).Activity);
+
+    [Fact]
+    public void Lifting_starts_from_a_conservative_estimate_for_the_example_profile()
+    {
+        var profile = ActivityLevels.Apply(Base with
+        {
+            Age = 25, HeightCm = 173, WeightKg = 66, Goal = "maintain",
+            ActivityLevel = ActivityLevels.Lifting
+        });
+        var result = Coach.Calculate(profile, [], [], null, new DateOnly(2026, 10, 12));
+        Assert.Equal(1621.25, Coach.Resting(profile));
+        Assert.Equal(2229.21875, result.Expenditure);
+        Assert.Equal(2225, result.Calories);
+    }
 
     [Fact]
     public void An_unknown_level_is_rejected()

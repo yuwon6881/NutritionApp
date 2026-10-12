@@ -70,6 +70,8 @@ export function createDragGhost(card:HTMLElement,originX:number,originY:number):
   };
 }
 
+const FLOATING_INSET=24;
+
 /** Fixed or sticky chrome hugging the top or bottom edge covers part of the viewport. */
 export function visibleScrollBand():ScrollBand{
   const height=window.visualViewport?.height??window.innerHeight;
@@ -81,8 +83,9 @@ export function visibleScrollBand():ScrollBand{
     if(position!=='fixed'&&position!=='sticky')return;
     const rect=element.getBoundingClientRect();
     if(rect.height===0||rect.height>height/3)return;
-    if(rect.top<=1&&rect.bottom>top)top=rect.bottom;
-    else if(rect.bottom>=height-1&&rect.top<bottom)bottom=rect.top;
+    // Chrome within a small inset still covers the edge: the phone dock floats just above the bottom.
+    if(rect.top<=FLOATING_INSET&&rect.bottom>top)top=rect.bottom;
+    else if(rect.bottom>=height-FLOATING_INSET&&rect.top<bottom)bottom=rect.top;
   });
   return {top,bottom};
 }

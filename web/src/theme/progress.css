@@ -1,0 +1,483 @@
+/* Progress surfaces for the Lavender / Midnight Lime themes. Semantic tokens only. */
+.progress-tab-content[data-pending] {
+  opacity: 0.72;
+  transition: opacity var(--motion-layout) var(--motion-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-tab-content[data-pending] { transition: none; }
+}
+
+/* ==========================================================================
+   1. PROGRESS
+   ========================================================================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stats-grid > .panel,
+.stat-card {
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  text-align: left;
+  gap: 4px;
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow);
+  transition: border-color var(--motion-control) ease, box-shadow var(--motion-control) ease, transform var(--motion-control) var(--motion-ease);
+}
+
+:root[data-theme=dark] .stats-grid > .panel,
+:root[data-theme=dark] .stat-card {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stat-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+    transform: translateY(-1px);
+  }
+}
+
+.stats-grid .eyebrow,
+.stat-card .eyebrow {
+  margin: 0 0 6px !important;
+  font-size: 0.8125rem !important;
+  font-weight: 620 !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+  color: var(--muted-foreground) !important;
+  line-height: 1.2;
+  text-align: left !important;
+}
+
+.stats-grid h2,
+.stat-card h2 {
+  font-size: clamp(1.85rem, 2.5vw, 2.45rem);
+  font-weight: 760;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  color: var(--ink-strong);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  text-align: left;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stats-grid h2 .unit,
+.stat-card h2 .unit {
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted-foreground);
+}
+
+.stats-grid p:not(.eyebrow),
+.stat-card p:not(.eyebrow),
+.stat-card .source {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin: 4px 0 0;
+  line-height: 1.35;
+  text-align: left;
+}
+
+/* Compact layout (<640px) for stat tiles: clean 3-tile grid like reference image 2 */
+@media (max-width: 639px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 20px !important;
+  }
+  .stats-grid > *:last-child {
+    grid-column: auto !important;
+  }
+  .stats-grid > .panel:last-child {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .stats-grid > .panel:last-child > h2,
+  .stats-grid > .panel:last-child > p:last-child {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+  .stats-grid > .panel,
+  .stat-card {
+    padding: 14px 10px !important;
+    border-radius: 18px !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+  .stats-grid .eyebrow,
+  .stat-card .eyebrow {
+    font-size: 0.68rem !important;
+    line-height: 1.2 !important;
+    min-height: 2.3em;
+    margin-bottom: 2px !important;
+    text-align: left !important;
+  }
+  .stats-grid h2,
+  .stat-card h2 {
+    font-size: 1.25rem !important;
+    letter-spacing: -0.03em;
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+  .stats-grid h2 .unit,
+  .stat-card h2 .unit {
+    font-size: 0.72rem;
+  }
+  .stats-grid p:not(.eyebrow),
+  .stat-card p:not(.eyebrow),
+  .stat-card .source {
+    font-size: 0.68rem;
+    line-height: 1.25;
+    text-align: left !important;
+  }
+}
+
+/* Energy tab stats tiles */
+.energy-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+  border-block: 0;
+}
+
+.energy-stats > div {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 4px;
+  min-width: 0;
+}
+
+:root[data-theme=dark] .energy-stats > div {
+  background: var(--raised);
+  border-color: var(--border);
+}
+
+.energy-stats dt {
+  font-size: 0.72rem;
+  font-weight: 680;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  text-align: left;
+}
+
+.energy-stats dd {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 760;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 3px;
+}
+
+.energy-stats dd .unit {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.energy-stats small {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  text-align: left;
+}
+
+.energy-stats .is-surplus dd,
+.energy-stats .is-deficit dd {
+  color: var(--energy);
+}
+
+@media (max-width: 639px) {
+  .energy-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 20px !important;
+  }
+  .energy-stats > div {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+    padding: 12px 10px !important;
+    border-radius: 14px !important;
+    gap: 2px !important;
+  }
+  .energy-stats dt {
+    font-size: 0.65rem !important;
+    line-height: 1.2 !important;
+    min-height: 2.2em;
+    text-align: left !important;
+  }
+  .energy-stats dd {
+    font-size: 1.15rem !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+  .energy-stats dd .unit {
+    font-size: 0.72rem !important;
+  }
+  .energy-stats small {
+    font-size: 0.68rem !important;
+    line-height: 1.2;
+    text-align: left !important;
+  }
+}
+
+/* Charts: subtle gridlines, muted axis text, smooth trend line with gradient area */
+.chart-grid {
+  stroke: var(--border) !important;
+  stroke-width: 1px !important;
+  stroke-dasharray: 4 4 !important;
+  opacity: 0.55 !important;
+}
+
+.chart-baseline {
+  stroke: var(--border) !important;
+  stroke-width: 1.5px !important;
+  opacity: 0.8 !important;
+}
+
+.chart-crosshair {
+  stroke: color-mix(in srgb, var(--primary) 40%, var(--border)) !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 3 3 !important;
+}
+
+.bar-chart-axis text,
+.bar-chart-plot text,
+.weight-chart text,
+.bar-axis-label {
+  fill: var(--muted-foreground) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.bar-chart-plot .bar-axis-label.is-selected {
+  fill: var(--ink-strong) !important;
+  font-weight: 700 !important;
+}
+
+.bar-chart-nav {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 550;
+}
+
+/* Weight trend line: vibrant accent line with soft glowing area beneath */
+.trend-line {
+  stroke: var(--weight) !important;
+  stroke-width: 3.5px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.trend-fill-start {
+  stop-color: var(--weight) !important;
+  stop-opacity: 0.32 !important;
+}
+
+.trend-fill-end,
+:root[data-theme=dark] .trend-fill-end {
+  stop-color: var(--weight) !important;
+  stop-opacity: 0 !important;
+}
+
+:root[data-theme=dark] .trend-fill-start {
+  stop-color: var(--weight) !important;
+  stop-opacity: 0.24 !important;
+}
+
+.scale-line {
+  stroke: var(--muted-foreground) !important;
+  stroke-width: 1.5px !important;
+  opacity: 0.45 !important;
+}
+
+.scale-dot {
+  fill: var(--card) !important;
+  stroke: var(--muted-foreground) !important;
+  stroke-width: 2px !important;
+}
+
+.trend-dot {
+  fill: var(--weight) !important;
+  stroke: var(--card) !important;
+  stroke-width: 2px !important;
+}
+
+.scale-dot.is-selected,
+.trend-dot.is-selected {
+  stroke: var(--ink-strong) !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Rounded bar tops in bar charts */
+.energy-intake,
+.energy-surplus,
+.energy-deficit,
+.gh-bar {
+  rx: 6px;
+}
+
+/* Energy chart readout */
+.chart-readout.energy-readout {
+  padding: 14px 0 8px;
+  margin-bottom: 12px;
+  border-block-start: 1px solid var(--border);
+  border-block-end: 1px solid var(--border);
+}
+
+.energy-readout-status {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+:root[data-theme=dark] .energy-readout-status {
+  background: var(--raised);
+  border: 1px solid var(--border);
+}
+
+.energy-readout-status.is-complete {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+}
+
+:root[data-theme=dark] .energy-readout-status.is-complete {
+  background: var(--primary-tint);
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* Latest weigh-ins list: rounded square date chip, tidy rows, quiet icon buttons */
+.weight-history-panel {
+  padding: 24px;
+}
+
+.weigh-in-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.weigh-in-row:last-child {
+  border-bottom: 0;
+}
+
+.weigh-in-date {
+  width: 52px;
+  height: 54px;
+  min-height: 54px;
+  border-radius: 14px;
+  background: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+:root[data-theme=dark] .weigh-in-date {
+  background: var(--raised);
+  border-color: var(--border);
+}
+
+.weigh-in-month {
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-ink);
+  line-height: 1;
+}
+
+:root[data-theme=dark] .weigh-in-month {
+  color: var(--primary);
+}
+
+.weigh-in-day {
+  font-size: 1.25rem;
+  font-weight: 780;
+  line-height: 1.1;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.weigh-in-weekday {
+  font-size: 0.68rem;
+  font-weight: 550;
+  line-height: 1;
+  color: var(--muted-foreground);
+}
+
+.weigh-in-kg {
+  font-size: 1.2rem;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+  color: var(--ink-strong);
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.weigh-in-kg .unit {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.weigh-in-meta {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  margin: 2px 0 0;
+}
+
+.weigh-in-actions { display: flex; gap: 6px; align-items: center; }
+.weigh-in-actions .button {
+  width: 44px; height: 44px; min-height: 44px; border-radius: 999px;
+  background: transparent; border-color: transparent; color: var(--muted-foreground); padding: 0;
+  transition: background-color var(--motion-control) ease, color var(--motion-control) ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .weigh-in-actions .button:hover { background: var(--muted); color: var(--ink-strong); }
+  .weigh-in-actions .weigh-in-delete:hover { background: color-mix(in srgb, var(--destructive) 12%, transparent); color: var(--destructive); }
+}
+.weigh-in-actions .button:focus-visible { outline: 2px solid var(--ring); }

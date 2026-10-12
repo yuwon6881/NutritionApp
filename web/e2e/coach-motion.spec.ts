@@ -86,6 +86,27 @@ async function changeGoal(page:Page){
   await savePlan(page);
 }
 
+test('body corrections refresh the live maintenance estimate and server proposal',async({page,context})=>{
+  const state=await (await context.request.get('/api/state')).json();
+  const before={...profile,dateOfBirth:'2001-01-01',age:25,heightCm:180,weightKg:80,sex:'male',maintenance:null,activityLevel:'lifting',goal:'lose',goalRatePercent:-0.5,energyAdjustmentPercent:15,phaseMode:'duration',durationWeeks:8,phaseStart:new Date().toISOString().slice(0,10)};
+  expect((await context.request.post('/api/sync',{headers,data:{id:randomUUID(),kind:'profile',recordId:state.id,expectedRevision:state.profileRevision,data:before}})).ok()).toBeTruthy();
+  const preview=await (await context.request.get('/api/coach/preview')).json();
+  expect((await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:preview.revision}})).ok()).toBeTruthy();
+  await page.reload();
+  await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByLabel('Height (cm)',{exact:true}).fill('173');
+  await page.getByLabel('Starting weight (kg)',{exact:true}).fill('66');
+  await step(page,'Pace');
+  await expect(page.locator('.live-calorie-meta')).toContainText('Maintenance ~2,229 kcal');
+  await savePlan(page);
+  await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled();
+  const corrected=await (await context.request.get('/api/coach/preview')).json();
+  expect(corrected.result.expenditure).toBeCloseTo(2229.21875);
+  const retained=await (await context.request.get('/api/state')).json();
+  expect(JSON.parse(retained.plans[0].resultJson).expenditure).toBe(preview.result.expenditure);
+});
+
 test('activity step offers the four activity choices and omits removed controls',async({page,context})=>{
   await page.getByRole('button',{name:'Plan',exact:true}).click();
   await step(page,'Activity');
@@ -97,7 +118,7 @@ test('activity step offers the four activity choices and omits removed controls'
   await expect(page.getByLabel('Medically managed nutrition',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Known maintenance calories (optional)',{exact:true})).toHaveCount(0);
   await step(page,'Body');
-  await page.getByLabel('Sex parameter for equation',{exact:true}).selectOption('male');
+  await page.getByLabel('Gender',{exact:true}).selectOption('male');
   await step(page,'Activity');
   await page.getByRole('radio',{name:/^Cardio & Lifting\b/}).check();
   await expect(page.getByRole('radio',{name:/^Cardio & Lifting\b/})).toBeChecked();

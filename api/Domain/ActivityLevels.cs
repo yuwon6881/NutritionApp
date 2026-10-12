@@ -5,6 +5,8 @@ namespace Nutrition.Api.Domain;
 /// its own multiplier until it is saved again. Mirrored by web/src/lib/activityLevels.ts.
 public static class ActivityLevels
 {
+    // Conservative starting assumptions for mostly sedentary days. Exercise type alone
+    // cannot measure daily expenditure; complete intake and weigh-ins calibrate the seed.
     public const string None = "none";
     public const string Lifting = "lifting";
     public const string Cardio = "cardio";
@@ -14,10 +16,10 @@ public static class ActivityLevels
 
     public static double Multiplier(string level) => level switch
     {
-        Lifting => 1.5,
-        Cardio => 1.6,
-        CardioAndLifting => 1.75,
-        _ => 1.3
+        Lifting => 1.375,
+        Cardio => 1.5,
+        CardioAndLifting => 1.65,
+        _ => 1.2
     };
 
     public static bool Lifts(string level) => level is Lifting or CardioAndLifting;
