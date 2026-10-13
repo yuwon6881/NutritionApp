@@ -54,13 +54,7 @@ export function MissedDays({store}:{store:NutritionStore}){
             kind:'settings',
             recordId:latest.id,
             expectedRevision:settings.revision,
-            data:{
-              checkInWeekday:settings.checkInWeekday,
-              weightUnit:settings.weightUnit,
-              energyUnit:settings.energyUnit,
-              heightUnit:settings.heightUnit,
-              missingDayAction:status
-            },
+            data:{missingDayAction:status},
             delete:false
           },...dayDecisions(latest,dates,status)]);
         }else{

@@ -13,3 +13,5 @@ Committed day, weight and Body acknowledgements are stored with their mutation r
 Body-fat sync uses the actual Body record identity and saved after-state: missing measurement keys retain values and explicit null clears them. Legacy mappings are repaired only with an account-scoped matching mutation receipt, unchanged record revision, date and value. Ambiguous associations preserve Google copies, block blind new creates and report mapping review. No external cleanup is performed.
 
 Check-in cadence has its own revision/date in account settings and accepted snapshots. Only weekday changes update cadence. The additive migration leaves unchanged weekdays at their existing cadence and carries the prior changed date when the latest accepted weekday differs. Accepted targets and equations are unchanged.
+
+Settings controls queue only the fields the user changes. The retained queue merges these patches against its latest durable contents, and the server preserves omitted preferences. Rapid unit, cadence, unlogged-day, and weight-goal edits therefore cannot overwrite each other with values from an earlier render.

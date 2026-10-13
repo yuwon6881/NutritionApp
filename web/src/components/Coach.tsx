@@ -195,8 +195,12 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const busy=savingPending||proposalFlow.busy;
 
   const updateUnits=(patch:Partial<UnitPreferences>)=>{
-    const next={...units,...patch};
-    void store.mutate({kind:'settings',recordId:store.state!.id,expectedRevision:settings.revision,data:{checkInWeekday:settings.checkInWeekday,weightUnit:next.weight,energyUnit:next.energy,heightUnit:next.height,missingDayAction:settings.missingDayAction??'ask'},delete:false});
+    const data={
+      ...(patch.weight!==undefined?{weightUnit:patch.weight}:{}),
+      ...(patch.energy!==undefined?{energyUnit:patch.energy}:{}),
+      ...(patch.height!==undefined?{heightUnit:patch.height}:{})
+    };
+    void store.mutate({kind:'settings',recordId:store.state!.id,expectedRevision:settings.revision,data,delete:false});
   };
 
   const set=(key:keyof Profile,value:unknown)=>{

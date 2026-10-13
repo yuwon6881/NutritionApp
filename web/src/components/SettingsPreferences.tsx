@@ -29,7 +29,7 @@ function TouchFeedbackSetting(){
   </SettingRow>;
 }
 
-/** One settings mutation path: every change sends the whole preference record at the current revision. */
+/** Send only the edited fields so queued changes survive a stale render. */
 export function useSettingsSave(store:NutritionStore){
   const state=store.state!;
   const settings=state.settings??{checkInWeekday:1,revision:0};
@@ -42,7 +42,7 @@ export function useSettingsSave(store:NutritionStore){
     missingDayAction:settings.missingDayAction??'ask',
     weightGoalMetric:settings.weightGoalMetric??'scale'
   };
-  const save=(patch:Partial<SettingsData>)=>store.mutate({kind:'settings',recordId:state.id,expectedRevision:settings.revision,data:{...current,...patch},delete:false});
+  const save=(patch:Partial<SettingsData>)=>store.mutate({kind:'settings',recordId:state.id,expectedRevision:settings.revision,data:patch,delete:false});
 
   const queued=store.local?.queue.find(operation=>operation.kind==='settings');
   const saved=store.local?.state.settings;

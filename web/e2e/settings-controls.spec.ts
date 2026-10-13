@@ -27,6 +27,47 @@ async function openSettings(page:Page){
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();
 }
 
+test('rapid offline preferences survive reload and sync without overwriting each other',async({page,context})=>{
+  await openSettings(page);
+  const initial=await (await context.request.get('/api/state')).json();
+  const reset=await context.request.post('/api/sync',{
+    headers:{Origin:new URL(page.url()).origin,'X-Nutrition-Request':'1'},
+    data:{id:randomUUID(),kind:'settings',recordId:initial.id,expectedRevision:initial.settings.revision,
+      delete:false,data:{weightUnit:'kg',energyUnit:'kcal',heightUnit:'cm',checkInWeekday:1}}
+  });
+  expect(reset.ok(),await reset.text()).toBeTruthy();
+  await page.reload();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await context.setOffline(true);
+  // All handlers see the same render, while IndexedDB commits serialize afterwards.
+  await page.evaluate(()=>{
+    for(const id of ['settings-weight-unit-lb','settings-energy-unit-kj','settings-height-unit-ft-in']){
+      document.getElementById(id)!.click();
+    }
+    const weekday=document.getElementById('coaching-check-in-weekday') as HTMLSelectElement;
+    weekday.value='5';
+    weekday.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  const assertPreferences=async()=>{
+    await expect(page.locator('#coaching-check-in-weekday')).toHaveValue('5');
+    for(const id of ['settings-weight-unit-lb','settings-energy-unit-kj','settings-height-unit-ft-in']){
+      await expect(page.locator(`#${id}`)).toHaveAttribute('aria-pressed','true');
+    }
+  };
+  await assertPreferences();
+  await page.reload();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await assertPreferences();
+  await context.setOffline(false);
+  await expect.poll(async()=>{
+    const state=await (await context.request.get('/api/state')).json();
+    return {
+      weightUnit:state.settings.weightUnit,energyUnit:state.settings.energyUnit,
+      heightUnit:state.settings.heightUnit,checkInWeekday:state.settings.checkInWeekday
+    };
+  }).toEqual({weightUnit:'lb',energyUnit:'kj',heightUnit:'ft-in',checkInWeekday:5});
+});
+
 for(const theme of ['light','dark'])test(`${theme} 1440: reminder day and time share a row and open the app time picker`,async({page})=>{
   await page.setViewportSize({width:1440,height:1000});
   await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);

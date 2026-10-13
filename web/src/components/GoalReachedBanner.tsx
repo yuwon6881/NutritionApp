@@ -57,14 +57,7 @@ export function GoalReachedBanner({progress,onChooseGoal,action='Choose your nex
         kind:'settings',
         recordId:store.state!.id,
         expectedRevision:settings.revision,
-        data:{
-          checkInWeekday:settings.checkInWeekday,
-          weightUnit:units.weight,
-          energyUnit:units.energy,
-          heightUnit:units.height,
-          missingDayAction:settings.missingDayAction??'ask',
-          weightGoalMetric:'trend'
-        },
+        data:{weightGoalMetric:'trend'},
         delete:false
       });
     }
