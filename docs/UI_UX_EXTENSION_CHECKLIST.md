@@ -44,6 +44,10 @@ Do not reimplement a button, field, form validator, select, date/time picker, mo
 
 ## 3. Implement the contract, not just the happy path
 
+For short derived date metadata, use `DatePicker hintPlacement="label"` and preserve its accessible description; keep longer guidance below the field. Coach age is derived from the selected birth date and displayed as “24 years old” beside the date label.
+
+Keep bundled font subsets as same-origin files in production CSS, including subsets below Vite's asset inlining threshold; the font CSP permits only same-origin resources.
+
 For held deletion feedback, reuse the themed `UndoToast` card, wrapping message and 44 px secondary Undo action. Weigh-in deletion requires date/weight confirmation before queuing; verify Cancel, Escape/Back, focus restoration and the unchanged five-second Undo window.
 
 For each new interaction, define and render the states that apply:

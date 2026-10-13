@@ -156,6 +156,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
       if(width<1024)expect(await page.locator('.coach-tab-scene button:visible').evaluateAll(nodes=>nodes.filter(n=>!n.classList.contains('mini-unit-btn')&&n.getBoundingClientRect().height<43).map(n=>n.textContent))).toEqual([]);
       await page.screenshot({path:`artifacts/coach-${theme}-${width}-${name}.png`,fullPage:true});
       if(name==='Body'){
+        await expect(page.getByRole('button',{name:'Choose date of birth'})).toHaveAccessibleDescription(/\d+ years old/);
         await page.locator('.custom-date-trigger').click();
         const calendar=page.getByRole('dialog',{name:'Date of birth'});await expect(calendar).toBeVisible();
         const bounds=await calendar.boundingBox();expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(width);

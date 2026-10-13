@@ -18,7 +18,7 @@ Undo notices use the shared `UndoToast` host: a neutral `--card` surface, semant
 
 The visual foundation is centralized in `web/src/index.css`.
 
-- Typography uses the bundled `Plus Jakarta Sans Variable` family (`@fontsource-variable/plus-jakarta-sans/index.css`). Do not add remote fonts or feature-specific font families.
+- Typography uses the bundled `Plus Jakarta Sans Variable` family (`@fontsource-variable/plus-jakarta-sans/index.css`). Production builds emit every font subset as a same-origin file, including small subsets, to comply with the self-only font CSP. Do not add remote fonts or feature-specific font families.
   - Root establishes `font-variant-numeric: tabular-nums` for calories, weights, grams, dates, percentages, chart values, and comparison data.
   - Base typography is anchored around 16 px body text and inputs (`1rem`), with ~14 px secondary / metadata labels (`small`), prominent page headings (`h1`, 28–32 px), and distinct section headings and hero figures.
   - Headings (`h2`, `h3`) and hero readouts establish clear visual hierarchy, but individual feature surfaces and responsive layouts intentionally apply compact overrides (e.g. compact cards, bottom sheets, timeline labels, and chart axes) to preserve data density rather than enforcing blanket enlargement.
@@ -86,6 +86,8 @@ Before adding a component, search `web/src/components/ui`, `web/src/index.css`, 
 Coach plan review uses compact two-line macro rows below 640 px: name and percentage first, grams and energy second, with values on the trailing edge. Daily schedule rows place the day on the leading edge and energy on the trailing edge, reserving a separate column only for an existing boost badge. Wider layouts keep their macro and schedule grids. The initial review action is labelled "Create estimate", with more phone-row width than Back and a concise "Saving…" pending label.
 
 ## Accessibility and interaction
+
+Date fields may place short derived metadata beside the label with `DatePicker hintPlacement="label"`; keep it secondary and linked through the trigger's accessible description. Coach displays the date-derived age as “24 years old” in this position. Longer guidance stays below the field.
 
 - Every interactive control needs a stable accessible name, visible focus, keyboard activation, and a target of at least 44 px on mobile and tablet. Icon-only controls use an explicit `aria-label`.
 - Rows that act like buttons must support Enter and Space without letting nested controls trigger the row action. Visible mobile menus must remain available alongside swipe affordances.

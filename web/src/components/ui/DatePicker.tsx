@@ -181,6 +181,7 @@ export interface DatePickerProps {
   required?: boolean;
   disabled?: boolean;
   hint?: string;
+  hintPlacement?: 'below' | 'label';
   validate?:()=>string|undefined;
   id?: string;
   name?: string;
@@ -223,6 +224,7 @@ export function DatePicker({
   required = false,
   disabled = false,
   hint,
+  hintPlacement = 'below',
   validate,
   id: idProp,
   name: nameProp,
@@ -375,6 +377,7 @@ export function DatePicker({
     <FieldFrame label={label} validate={validate} className={`field date-picker-field ${className}`.trim()} ref={containerRef} onKeyDown={event=>{if(isOpen&&event.key==='Tab'){closeCalendar();return;}if(!activeDropdown&&isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();}}}>
       <label htmlFor={id} className="date-picker-label" onClick={e => { e.preventDefault(); triggerRef.current?.focus(); setIsOpen(o => !o); }}>
         <span>{label}</span>
+        {hint && hintPlacement === 'label' && <small id={`${id}-hint`}>{hint}</small>}
       </label>
 
       <div className="date-picker-wrapper">
@@ -512,7 +515,7 @@ export function DatePicker({
         )}
       </div>
 
-      {hint && <small id={`${id}-hint`}>{hint}</small>}
+      {hint && hintPlacement === 'below' && <small id={`${id}-hint`}>{hint}</small>}
     </FieldFrame>
   );
 }
