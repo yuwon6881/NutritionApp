@@ -60,7 +60,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   const previewShares=await page.getByRole('button',{name:'Coach default',exact:true}).locator('.macro-stat strong').allTextContents();
   await page.getByRole('button',{name:/^Next: Distribution/}).click();
   await page.getByRole('button',{name:/^Next: Review/}).click();
-  await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
+  await page.getByRole('button',{name:'Create estimate',exact:true}).click();
   await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled({timeout:30000});
   await expect(page.locator('.target-macro-pct')).toHaveText(previewShares);
   const proposalGrams=await page.locator('.target-macros-figures strong').allTextContents();
@@ -80,7 +80,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
     await page.getByRole('button',{name:/^Next:/}).click();
     await expect(page.locator('[data-step-heading]')).not.toHaveText(previous!);
   }
-  await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
+  await page.getByRole('button',{name:'Create estimate',exact:true}).click();
   await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled();
   await page.getByRole('button',{name:'Accept this plan'}).click();
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();

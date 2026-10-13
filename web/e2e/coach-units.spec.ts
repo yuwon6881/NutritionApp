@@ -1,7 +1,58 @@
-import {test,expect} from '@playwright/test';
+import {test,expect,type Page} from '@playwright/test';
 import {signIn} from './signIn';
 
 const headers={Origin:process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088','X-Nutrition-Request':'1'};
+
+async function verifyReviewLayout(page:Page, schedule:string) {
+  for (const width of [360,390,768,1440]) {
+    for (const theme of ['light','dark']) {
+      await page.setViewportSize({width,height:900});
+      await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+      const create=page.getByRole('button',{name:'Create estimate',exact:true});
+      await expect(create).toBeEnabled();
+      const label=await create.evaluate(button=>{
+        const range=document.createRange();
+        range.selectNodeContents(button);
+        const text=range.getBoundingClientRect();
+        const bounds=button.getBoundingClientRect();
+        return {lines:range.getClientRects().length,textWidth:text.width,width:bounds.width,
+          fits:text.left>=bounds.left && text.right<=bounds.right,height:bounds.height};
+      });
+      await page.locator('.step-actions').last().screenshot({path:`artifacts/coach-controls-${schedule}-${theme}-${width}.png`});
+      expect(label.lines,JSON.stringify(label)).toBe(1);
+      expect(label.fits).toBeTruthy();
+      expect(label.height).toBeGreaterThanOrEqual(44);
+      if (width<640) {
+        for (const chip of await page.locator('.macro-review-chip').all()) {
+          const head=(await chip.locator('.macro-chip-head').boundingBox())!;
+          const percent=(await chip.locator('.macro-chip-pct').boundingBox())!;
+          const meta=(await chip.locator('.macro-chip-meta').boundingBox())!;
+          expect(Math.abs(head.y+head.height/2-percent.y-percent.height/2)).toBeLessThan(2);
+          expect(percent.x).toBeGreaterThanOrEqual(head.x+head.width);
+          expect(Math.abs(percent.x+percent.width-meta.x-meta.width)).toBeLessThan(2);
+          expect((await chip.boundingBox())!.height).toBeLessThan(85);
+        }
+        for (const chip of await page.locator('.weekly-day-chip').all()) {
+          const day=(await chip.locator('.weekly-day-name').boundingBox())!;
+          const value=(await chip.locator('.weekly-day-val').boundingBox())!;
+          const bounds=(await chip.boundingBox())!;
+          const badge=chip.locator('.weekly-chip-badge');
+          expect(value.x).toBeGreaterThan(day.x+day.width);
+          if (await badge.count()) {
+            const boost=(await badge.boundingBox())!;
+            expect(boost.x).toBeGreaterThanOrEqual(value.x+value.width+7);
+            expect(bounds.x+bounds.width-boost.x-boost.width).toBeCloseTo(15,0);
+          } else {
+            expect(bounds.x+bounds.width-value.x-value.width).toBeCloseTo(15,0);
+          }
+        }
+      }
+      await page.locator('.macro-summary-section').screenshot({path:`artifacts/coach-macros-${schedule}-${theme}-${width}.png`});
+      await page.locator('.weekly-review-summary').screenshot({path:`artifacts/coach-schedule-${schedule}-${theme}-${width}.png`});
+    }
+  }
+}
 
 test.describe('Coach unit selection', () => {
   test.beforeEach(async ({request}) => {
@@ -187,6 +238,13 @@ test.describe('Coach unit selection', () => {
     // Daily calorie schedule chips
     const dayChips = reviewSummary.locator('.weekly-day-chip');
     await expect(dayChips).toHaveCount(7);
+
+    await verifyReviewLayout(page,'balanced');
+    await page.getByRole('button',{name:'Back',exact:true}).click();
+    await page.getByRole('button',{name:'Higher on weekends',exact:true}).click();
+    await page.getByRole('button',{name:/^Next: Review/}).click();
+    await expect(reviewSummary.locator('.weekly-chip-badge')).toHaveCount(2);
+    await verifyReviewLayout(page,'weekend');
 
     // Capture Step 7 review screenshots in both dark and light themes
     await page.screenshot({path: 'artifacts/coach-step7-review-dark.png', fullPage: false});

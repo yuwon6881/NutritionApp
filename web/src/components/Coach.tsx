@@ -641,7 +641,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('distribution')}><ArrowLeft size={16}/> Back</Button>
           <Button variant="primary" size="md" type="submit" disabled={busy||!weeklyValid||live.carbsBlocked}>
-            {operation==='saving'?'Saving on this device…':isInitialSetup?'Create my starting estimate':'Save profile'}
+            {operation==='saving'?'Saving…':isInitialSetup?'Create estimate':'Save profile'}
           </Button>
         </div>
       </div>}

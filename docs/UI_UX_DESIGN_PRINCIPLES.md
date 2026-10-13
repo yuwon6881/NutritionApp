@@ -83,6 +83,8 @@ Reuse these components and hooks before writing local equivalents:
 
 Before adding a component, search `web/src/components/ui`, `web/src/index.css`, and the nearest feature component for the behavior. If a pattern is likely to be used twice, extend the shared component and update this inventory instead of copying it.
 
+Coach plan review uses compact two-line macro rows below 640 px: name and percentage first, grams and energy second, with values on the trailing edge. Daily schedule rows place the day on the leading edge and energy on the trailing edge, reserving a separate column only for an existing boost badge. Wider layouts keep their macro and schedule grids. The initial review action is labelled "Create estimate", with more phone-row width than Back and a concise "Saving…" pending label.
+
 ## Accessibility and interaction
 
 - Every interactive control needs a stable accessible name, visible focus, keyboard activation, and a target of at least 44 px on mobile and tablet. Icon-only controls use an explicit `aria-label`.

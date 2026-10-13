@@ -465,7 +465,26 @@
 :root[data-theme=dark] .weekly-preview-badge { color: var(--primary); }
 /* Phones: the seven days read as a compact list (day, value, boost) instead of a grid that strands Sunday. */
 @media (max-width: 639px) {
+  .coach-step-stage[data-step="review"] .step-actions > .button.primary { flex-grow: 1.5; }
   .weekly-review-summary .weekly-chips-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
-  .weekly-review-summary .weekly-day-chip { display: grid; grid-template-columns: 3.25rem 1fr auto; align-items: center; gap: 8px; padding: 10px 14px; text-align: start; }
+  .weekly-review-summary .weekly-day-chip { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 10px 14px; text-align: start; }
+  .weekly-review-summary .weekly-day-chip.is-boosted { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .weekly-review-summary .weekly-day-val { justify-self: end; text-align: right; }
   .weekly-review-summary .weekly-day-chip .weekly-chip-badge { margin: 0; }
+
+  .macro-review-chip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 12px;
+  }
+  .macro-chip-pct { text-align: right; }
+  .macro-chip-meta {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 8px;
+  }
+  .macro-chip-meta small { font-size: inherit; }
 }
