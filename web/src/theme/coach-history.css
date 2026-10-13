@@ -1,0 +1,137 @@
+/* Coach History tab rows and goal cards for Lavender / Midnight Lime themes. */
+
+.goal-history-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.goal-history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  transition: border-color var(--motion-control) ease, box-shadow var(--motion-control) ease;
+}
+
+:root[data-theme=dark] .goal-history-card {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.goal-history-card.goal-history-card-active {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+  box-shadow: var(--shadow-raised);
+}
+
+:root[data-theme=dark] .goal-history-card.goal-history-card-active {
+  border-color: var(--primary);
+}
+
+.goal-history-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goal-history-title-group .eyebrow {
+  margin: 0 0 2px !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  color: var(--muted-foreground) !important;
+}
+
+.goal-history-title {
+  font-size: 1.2rem;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+  color: var(--ink-strong);
+  margin: 0;
+}
+
+.goal-history-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.goal-history-status-badge.active {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+:root[data-theme=dark] .goal-history-status-badge.active {
+  color: var(--primary);
+}
+
+.goal-history-status-badge.completed {
+  background: color-mix(in srgb, var(--success) 14%, var(--card));
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+}
+
+.goal-history-dates {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.goal-history-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  padding: 12px 18px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+:root[data-theme=dark] .goal-history-stats {
+  background: var(--raised);
+  border-color: var(--border);
+}
+
+.goal-history-stat-label {
+  font-size: 0.68rem;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.goal-history-stat-val {
+  font-size: 1.1rem;
+  font-weight: 750;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.goal-history-stat-val .unit {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.goal-history-stat-arrow {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}

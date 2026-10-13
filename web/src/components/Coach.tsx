@@ -108,7 +108,33 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
         </div>
       </div>
     </div>
-    {result.dailyCalories?.length===7&&<div className="target-weekly-summary"><p>Weekly budget</p><strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong><small>{result.dailyCalories.map((calories,index)=><span key={index}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]} {displayEnergy(calories,units.energy)} {energyLabel(units.energy)}</span>)}</small></div>}
+    {result.dailyCalories?.length===7&&(
+      <div className="target-weekly-summary">
+        <div className="target-weekly-header">
+          <p>Weekly budget</p>
+          <strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
+        </div>
+        <div className="target-weekly-chips">
+          {(() => {
+            const avg = Math.round((result.weeklyCalories ?? result.dailyCalories.reduce((t, c) => t + c, 0)) / 7);
+            return result.dailyCalories.map((calories, index) => {
+              const dayName = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index];
+              const isBoosted = calories > avg;
+              return (
+                <div
+                  key={index}
+                  className={`weekly-day-chip ${isBoosted ? 'is-boosted' : ''}`}
+                  aria-label={`${dayName}: ${displayEnergy(calories, units.energy)} ${energyLabel(units.energy)}`}
+                >
+                  <span className="weekly-day-name" aria-hidden="true">{dayName}</span>
+                  <strong className="weekly-day-val" aria-hidden="true">{displayEnergy(calories, units.energy)}</strong>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      </div>
+    )}
   </div>;
 }
 

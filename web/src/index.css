@@ -861,7 +861,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .chart-key-goal{color:var(--protein)}
 .chart-key-accepted{color:var(--muted-foreground)}
 @media(max-width:1023px){.weekly-program-grid,.weekly-preview-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:899px){.target-weekly-summary small{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:639px){.weekly-program{padding:14px}.weekly-program .section-heading{flex-direction:column;align-items:stretch;gap:10px}.weekly-heading-actions{justify-content:flex-start}.weekly-row-controls{gap:6px}.weekly-number input{width:82px;min-width:82px;padding:7px 6px}.weekly-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.weekly-custom-toolbar{flex-direction:column;align-items:stretch;gap:8px}}
 @media(max-width:480px){.weekly-row-controls{flex-wrap:wrap;gap:8px 10px}.weekly-row-controls .weekly-range{order:2;width:100%;flex:1 1 100%;min-width:0}.weekly-row-controls .weekly-lock-btn{order:1}.weekly-row-controls .weekly-number{order:1;margin-left:auto}}
 

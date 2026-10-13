@@ -1,0 +1,361 @@
+/* Coach target figures and weekly budget surfaces for Lavender / Midnight Lime themes. */
+
+/* Active targets card */
+.active-targets-card {
+  background: var(--card);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 26px 28px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+:root[data-theme=dark] .active-targets-card {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.target-figures {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 2.8fr);
+  gap: 0 32px;
+  align-items: stretch;
+}
+
+.target-energy-figures {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.target-energy-figures > div:first-child p {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin: 0 0 4px;
+}
+
+.target-energy-figures > div:first-child strong {
+  font-size: clamp(2.3rem, 3.5vw, 3rem);
+  font-weight: 780;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.target-energy-figures > div:first-child strong .unit {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  letter-spacing: 0;
+}
+
+.target-energy-figures > div:nth-child(2) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--muted);
+  width: fit-content;
+}
+
+:root[data-theme=dark] .target-energy-figures > div:nth-child(2) {
+  background: var(--raised);
+  border: 1px solid var(--border);
+}
+
+.target-energy-figures > div:nth-child(2) p {
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+.target-energy-figures > div:nth-child(2) strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+  letter-spacing: -0.01em;
+}
+
+.target-energy-figures > div:nth-child(2) strong .unit {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+/* Macro split bar: rounded segments with gaps */
+.target-macros-section {
+  border-left: 1px solid var(--border);
+  padding: 4px 0 4px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+
+.target-macros-section .macro-summary-bar {
+  height: 10px;
+  border-radius: 999px;
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  background: transparent;
+  overflow: visible;
+}
+
+.target-macros-section .macro-bar-segment {
+  border-radius: 999px;
+  min-width: 8px;
+  transition: width var(--motion-layout) var(--motion-ease);
+}
+
+.target-macros-section .macro-bar-segment.protein { background: var(--protein); }
+.target-macros-section .macro-bar-segment.carbs { background: var(--carbs); }
+.target-macros-section .macro-bar-segment.fat { background: var(--fat); }
+
+.target-macros-figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.target-macros-figures > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--muted);
+}
+
+:root[data-theme=dark] .target-macros-figures > div {
+  background: var(--raised);
+  border: 1px solid var(--border);
+}
+
+.target-macros-figures p {
+  font-size: 0.72rem;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.target-macros-figures .macro-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.target-macros-figures .macro-dot.protein { background: var(--protein); }
+.target-macros-figures .macro-dot.carbs { background: var(--carbs); }
+.target-macros-figures .macro-dot.fat { background: var(--fat); }
+
+.target-macros-figures strong {
+  font-size: 1.35rem;
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.target-macros-figures strong .unit {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.target-macro-pct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+/* Target figures: weekly budget summary */
+.target-weekly-summary {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--muted);
+  padding: 16px 18px;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:root[data-theme=dark] .target-weekly-summary {
+  background: var(--raised);
+  border-color: var(--border);
+}
+
+.target-weekly-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.target-weekly-header p {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+.target-weekly-header strong {
+  font-size: 1.35rem;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.target-weekly-header strong .unit {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.target-weekly-chips {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.target-weekly-chips .weekly-day-chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+  min-width: 0;
+}
+
+:root[data-theme=dark] .target-weekly-chips .weekly-day-chip {
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+  border-color: var(--border);
+}
+
+.target-weekly-chips .weekly-day-chip.is-boosted {
+  background: var(--primary-tint);
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.target-weekly-chips .weekly-day-chip.is-boosted .weekly-day-name,
+.target-weekly-chips .weekly-day-chip.is-boosted .weekly-day-val {
+  color: var(--primary-ink);
+}
+
+:root[data-theme=dark] .target-weekly-chips .weekly-day-chip.is-boosted .weekly-day-name,
+:root[data-theme=dark] .target-weekly-chips .weekly-day-chip.is-boosted .weekly-day-val {
+  color: var(--primary);
+}
+
+@media (max-width: 1023px) {
+  .target-figures {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .target-energy-figures {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .target-macros-section {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding: 18px 0 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .active-targets-card {
+    padding: 20px 16px;
+    border-radius: 20px;
+  }
+  .proposal-card {
+    padding: 20px 16px;
+    border-radius: 20px;
+  }
+  .target-energy-figures {
+    gap: 8px 12px;
+  }
+  .target-energy-figures > div:first-child strong {
+    font-size: clamp(1.75rem, 6.5vw, 2.1rem);
+    gap: 4px;
+  }
+  .target-energy-figures > div:nth-child(2) {
+    padding: 5px 10px;
+    gap: 6px;
+  }
+  .target-energy-figures > div:nth-child(2) p {
+    font-size: 0.68rem;
+  }
+  .target-energy-figures > div:nth-child(2) strong {
+    font-size: 0.875rem;
+  }
+  .target-macros-figures {
+    gap: 6px;
+  }
+  .target-macros-figures > div {
+    padding: 10px 8px;
+    border-radius: 12px;
+  }
+  .target-macros-figures strong {
+    font-size: 1.15rem;
+  }
+  .target-weekly-summary {
+    padding: 14px 12px;
+    border-radius: 14px;
+    gap: 10px;
+  }
+  .target-weekly-chips {
+    gap: 4px;
+    grid-template-columns: repeat(7, minmax(34px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .target-weekly-chips .weekly-day-chip {
+    padding: 7px 2px;
+    border-radius: 10px;
+  }
+  .target-weekly-chips .weekly-day-name {
+    font-size: 0.68rem;
+  }
+  .target-weekly-chips .weekly-day-val {
+    font-size: 0.8rem;
+  }
+}
