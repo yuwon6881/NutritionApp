@@ -15,7 +15,7 @@ import {DatePicker} from './ui/DatePicker';
 import {GoalPaceSetup,GoalPhaseSetup,GoalSelection} from './GoalSetup';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
-import {WeeklyScheduleReview} from './coach/WeeklyScheduleReview';
+import {WeeklyScheduleReview,getWeeklyScheduleSubtitle} from './coach/WeeklyScheduleReview';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
@@ -111,15 +111,19 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
     {result.dailyCalories?.length===7&&(
       <div className="target-weekly-summary">
         <div className="target-weekly-header">
-          <p>Weekly budget</p>
-          <strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
+          <div>
+            <p>Weekly budget</p>
+            <strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
+          </div>
+          <span className="target-weekly-badge">{getWeeklyScheduleSubtitle(result.dailyCalories)}</span>
         </div>
         <div className="target-weekly-chips">
           {(() => {
             const avg = Math.round((result.weeklyCalories ?? result.dailyCalories.reduce((t, c) => t + c, 0)) / 7);
             return result.dailyCalories.map((calories, index) => {
               const dayName = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index];
-              const isBoosted = calories > avg;
+              const diff = calories - avg;
+              const isBoosted = diff > 0;
               return (
                 <div
                   key={index}
@@ -128,6 +132,11 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
                 >
                   <span className="weekly-day-name" aria-hidden="true">{dayName}</span>
                   <strong className="weekly-day-val" aria-hidden="true">{displayEnergy(calories, units.energy)}</strong>
+                  {isBoosted && (
+                    <span className="weekly-chip-badge" aria-label={`+${displayEnergy(diff, units.energy)} ${energyLabel(units.energy)}`}>
+                      +{displayEnergy(diff, units.energy)}
+                    </span>
+                  )}
                 </div>
               );
             });

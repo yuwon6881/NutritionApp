@@ -211,6 +211,14 @@
 
 .target-weekly-header {
   display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.target-weekly-header > div:first-child {
+  display: flex;
   flex-direction: column;
   gap: 2px;
 }
@@ -239,6 +247,25 @@
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--muted-foreground);
+}
+
+.target-weekly-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  align-self: flex-start;
+}
+
+:root[data-theme=dark] .target-weekly-badge {
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+  border-color: var(--border);
 }
 
 .target-weekly-chips {
@@ -336,26 +363,49 @@
     font-size: 1.15rem;
   }
   .target-weekly-summary {
-    padding: 14px 12px;
-    border-radius: 14px;
-    gap: 10px;
+    padding: 16px 14px;
+    border-radius: 16px;
+    gap: 12px;
+  }
+  .target-weekly-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 8px 12px;
+  }
+  .target-weekly-badge {
+    align-self: auto;
   }
   .target-weekly-chips {
-    gap: 4px;
-    grid-template-columns: repeat(7, minmax(34px, 1fr));
-    overflow-x: auto;
-    padding-bottom: 2px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    overflow-x: visible;
+    padding-bottom: 0;
   }
   .target-weekly-chips .weekly-day-chip {
-    padding: 7px 2px;
-    border-radius: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    text-align: start;
+    border-radius: 12px;
+  }
+  .target-weekly-chips .weekly-day-chip.is-boosted {
+    grid-template-columns: minmax(0, 1fr) auto auto;
   }
   .target-weekly-chips .weekly-day-name {
-    font-size: 0.68rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
   }
   .target-weekly-chips .weekly-day-val {
-    font-size: 0.8rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    justify-self: end;
+    text-align: right;
+  }
+  .target-weekly-chips .weekly-day-chip .weekly-chip-badge {
+    margin: 0;
   }
 }
