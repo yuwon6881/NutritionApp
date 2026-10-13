@@ -39,9 +39,12 @@ import './logfood.css';
 import {findSavedFood} from '../lib/savedFoods';
 import {saveFoodBasketDraft} from '../lib/local';
 import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
+import {useFoodDetail} from './useFoodDetail';
+import {FoodDetailReview} from './FoodDetailReview';
+import {applyVerifiedFoods} from '../lib/foodVerification';
 
 type SearchResult=import('../types').FoodSearchResult;
-type FoodStep='selection'|'quick'|'editor'|'recipe'|'batch';
+type FoodStep='selection'|'detail'|'quick'|'editor'|'recipe'|'batch';
 type AiJob={id:string;status:string;resultJson?:string|null;error?:string|null};
 
 export function LogFood({
@@ -73,9 +76,6 @@ export function LogFood({
   const [tab,setTab]=useState(defaultTab);
   const [query,setQuery]=useState('');
   const [savedFilter,setSavedFilter]=useState<SavedFilter>('all');
-  const selectionRequest=useRef(0);
-  const [detail,setDetail]=useState<{food:SearchResult;error?:string}|null>(null);
-  useEffect(()=>{selectionRequest.current++;setDetail(null);return()=>{selectionRequest.current++;};},[open,step,tab,query]);
   const [results,setResults]=useState<SearchResult[]>([]);
   const [draft,setDraft]=useState<Partial<Entry&Food>|undefined>(editing);
   const [saveFood,setSaveFood]=useState<Food|true|false>(false);
@@ -85,6 +85,7 @@ export function LogFood({
   const {busy,run:runAction,pending:busyPending}=useAsyncAction();
   const [camera,setCamera]=useState(false);
   const selectionRef=useRef<HTMLDivElement>(null);
+  const selectionFocus=useRef<HTMLElement|null>(null);
   // Leaving a review returns to the same query, answers, and scroll position.
   const searchCache=useRef(new Map<string,SearchResult[]>());
   const selectionScroll=useRef<number|null>(null);
@@ -134,7 +135,7 @@ export function LogFood({
     selectionScroll.current=null;
   },[step,tab]);
 
-  useFoodStepFocus(open,step,tab);
+  useFoodStepFocus(open,step,tab,selectionFocus);
 
   const run=async(fn:()=>Promise<void>)=>{setError('');try{await runAction(fn);}catch(ex){hapticTick('warning');setError((ex as Error).message);}};
   const toggleFavourite=(food:SearchResult)=>{
@@ -182,13 +183,15 @@ export function LogFood({
   // unsaved input falls through to the Modal's own discard confirmation.
   const choosingIngredient=step==='selection'&&selectionPurpose==='recipe';
   useBackLayer(open&&!editing&&!stepDirty&&!recipeDirty&&(step!=='selection'||choosingIngredient),()=>{
-    if(choosingIngredient)cancelRecipeIngredient();
+    if(step==='detail')leaveDetail();
+    else if(choosingIngredient)cancelRecipeIngredient();
     else if(step==='recipe')cancelRecipe();
     else if(step==='editor')leaveEditor();
     else go('selection');
   });
   const cancel=()=>{
     if(editing)onClose();
+    else if(step==='detail')leaveDetail();
     else if(choosingIngredient)cancelRecipeIngredient();
     else if(step==='recipe')cancelRecipe();
     else if(step==='editor')leaveEditor();
@@ -313,11 +316,11 @@ export function LogFood({
       go('batch');
     }
   };
-  const resolveBarcode=async(code:string):Promise<SearchResult>=>{
+  const resolveBarcode=async(code:string,signal?:AbortSignal):Promise<SearchResult>=>{
     const normalized=code.trim();
     const local=store.state!.foods.find(food=>!food.deleted&&food.barcode?.trim()===normalized);
     if(local)return foodToSearchResult(local);
-    return api<SearchResult>('/foods/barcode/'+encodeURIComponent(normalized));
+    return api<SearchResult>('/foods/barcode/'+encodeURIComponent(normalized),undefined,'GET',{signal});
   };
   const retryBarcode=()=>{
     const recovery=barcodeRecovery;
@@ -337,23 +340,29 @@ export function LogFood({
   };
   const choose=(food:SearchResult)=>{
     if(step==='selection')selectionScroll.current=selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTop??0;
-    selectionRequest.current++;setDetail(null);setBarcodeRecovery(undefined);setSaveFood(false);setDraft({...lineFromPer100(food),time:newTime()});go('editor');};
+    setBarcodeRecovery(undefined);setSaveFood(false);setDraft({...lineFromPer100(food),time:newTime()});go('editor');};
   const chooseRecipe=(food:SearchResult)=>{
-    setDetail(null);
     setBarcodeRecovery(undefined);
     recipe.pickIngredient(food);
     setStep('recipe');
   };
   const chooseForPurpose=(food:SearchResult)=>selectionPurpose==='recipe'?chooseRecipe(food):choose(food);
-  const chooseSearch=async(food:SearchResult)=>{
-    const code=barcodeValue(food.code);
-    if(tab!=='search'||!code||food.portions?.length){chooseForPurpose(food);return;}
-    const id=++selectionRequest.current;
-    setDetail({food});
-    try{
-      const resolved=await resolveBarcode(code);
-      if(id===selectionRequest.current)chooseForPurpose(resolved);
-    }catch(ex){if(id===selectionRequest.current)setDetail({food,error:(ex as Error).message});}
+  const detailLookup=useFoodDetail({enabled:open&&step==='detail',resolve:resolveBarcode,onResolved:food=>{
+    // A successful opening also repairs this dialog's unresolved search rows.
+    for(const [key,rows] of searchCache.current){
+      searchCache.current.set(key,applyVerifiedFoods(rows,[food]));
+    }
+    setResults(rows=>applyVerifiedFoods(rows,[food]));
+    chooseForPurpose(food);
+  }});
+  const leaveDetail=()=>{detailLookup.cancel();go('selection',true);};
+  const chooseSearch=(food:SearchResult)=>{
+    selectionFocus.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    // A confirmed 100 g result is ready even when the provider declares no serving.
+    if(food.basis==='per100g'){chooseForPurpose(food);return;}
+    selectionScroll.current=selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTop??0;
+    go('detail');
+    void detailLookup.load(food);
   };
   const allSavedFoods=useMemo(()=>open?store.state!.foods.filter(food=>!food.deleted):[],[open,store.state!.foods]);
   const zone=store.state!.profile?.timeZone;
@@ -410,10 +419,6 @@ export function LogFood({
       ...(selectionPurpose==='log'?[{value:'ai' as const,label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}]:[]),
     ]} onChange={selectTab}/>
     <MotionPanel motionKey={tab} axis="fade" className="food-method-panel">
-    {detail&&<div className="food-detail-status" role="status" aria-busy={!detail.error}>
-      <p>{detail.error?`Serving details unavailable for ${detail.food.name}. ${detail.error}`:`Loading serving details for ${detail.food.name}…`}</p>
-      <div className="actions">{detail.error&&<Button onClick={()=>void chooseSearch(detail.food)}>Retry serving lookup</Button>}<Button onClick={()=>chooseForPurpose(detail.food)}>Review using 100 g</Button></div>
-    </div>}
     {tab==='saved'&&<LogFoodSavedFoods
       purpose={selectionPurpose}
       linkBarcode={pendingLinkBarcode?.code}
@@ -460,6 +465,10 @@ export function LogFood({
 
   const child=step==='batch'
     ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{if(tab==='ai'){go('selection');}else{selectTab('search');go('selection');}}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime} onScanAnother={tab==='barcode'?()=>{selectTab('barcode');go('selection');setCamera(true);}:undefined}/>
+    :step==='detail'&&detailLookup.detail?<FoodDetailReview detail={detailLookup.detail} onBack={leaveDetail} onRetry={()=>void detailLookup.load(detailLookup.detail!.food)} onManual={selectionPurpose==='log'?()=>{
+      const food=detailLookup.detail!.food;
+      detailLookup.cancel();setSaveFood(false);setDraft({...blankNutrients,name:food.name,quantity:100,unit:'g',time:newTime()});go('editor');
+    }:undefined}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(editing)onClose();else leaveEditor();}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor
@@ -468,11 +477,11 @@ export function LogFood({
       onCancelIngredient={cancelRecipeIngredient} onClose={cancelRecipe} onSaved={finishRecipe}
     />
     :selection;
-  const steps:FoodStep[]=['selection','quick','editor','recipe','batch'];
+  const steps:FoodStep[]=['selection','detail','quick','editor','recipe','batch'];
   const previousStep=useRef(step);
   const stepDirection:1|-1=steps.indexOf(step)>=steps.indexOf(previousStep.current)?1:-1;
   useEffect(()=>{previousStep.current=step;},[step]);
-  const animatedChild=<MotionPanel motionKey={step} direction={stepDirection} axis="fade">{child}</MotionPanel>;
+  const animatedChild=<MotionPanel motionKey={step==='detail'?'editor':step} direction={stepDirection} axis="fade">{child}</MotionPanel>;
 
   const content=!history.state?<div className="dialog-step"><p role="status" aria-busy="true">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>:mealReadOnly(history.state,date)?<div className="dialog-step"><p>Meal detail is available for the latest {history.state.detailDays??90} days. Previously summarized days remain read-only.</p></div>:animatedChild;
   const readyContent=!basket.ready?<div className="dialog-step"><p role="status" aria-busy="true">Restoring your unfinished food batch…</p></div>:basket.storageError?<div className="dialog-step"><p className="notice" role="alert">{basket.storageError}</p><Button variant="secondary" onClick={()=>void basket.retrySave().catch(()=>{})}>Retry saving this batch</Button>{animatedChild}</div>:animatedChild;

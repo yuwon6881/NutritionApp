@@ -13,10 +13,15 @@ import {isFatSecretSource} from '../lib/foodSources';
 import {useSearchAsYouType,type SearchCache} from './useSearchAsYouType';
 import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScanner';
 import {NativeBarcodeScanner} from './NativeBarcodeScanner';
+import {FoodMacroSummary} from './FoodMacroSummary';
+import {lineFromPer100} from '../lib/foodBasket';
+import './food-picker.css';
 
 type SearchResult = import('../types').FoodSearchResult;
 
 export function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit='kcal'){
+  // The search index can mislabel serving values as per 100 g; only product-confirmed values show.
+  if(result.basis!=='per100g')return 'Nutrition loads when opened';
   const serving=result.portions?.[0];
   if(serving){
     const calories=result.servingCalories??result.calories*serving.grams/100;
@@ -27,12 +32,7 @@ export function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit='kcal
       :/\d\s*g\b/i.test(trimmed)?trimmed:`${trimmed} (${number(serving.grams,1)} g)`;
     return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${label}`;
   }
-  if(result.basis==='per100g'){
-    return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
-  }
-  // Open Food Facts' search index can label serving values as per 100 g; the product is
-  // looked up when chosen, and only then are its nutrients known to be per 100 g.
-  return 'Nutrition loads when opened';
+  return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
 }
 
 export interface FoodPickerProps {
@@ -239,6 +239,7 @@ export function FoodPicker({
     {results.length>0&&<div className="food-search-results">
       {results.map((result,index)=>{
         const starred=isSaved?isSaved(result):false;
+        const nutrition=result.basis==='per100g'?lineFromPer100(result):null;
         const id=`${rowId}-${index}`;
         return <div
           className="food-row interactive"
@@ -246,10 +247,11 @@ export function FoodPicker({
           key={`${result.source}|${result.name}|${index}`}
         >
           {/* Covers the row so the whole card chooses the food; the star stays a separate control above it. */}
-          <Button presentation="plain" className="food-row-choose" aria-labelledby={`${id}-name`} aria-describedby={`${id}-summary`} onClick={()=>onChoose(result)}/>
+          <Button presentation="plain" className="food-row-choose" data-food-key={`${result.source}|${result.name}|${result.code??''}`} aria-labelledby={`${id}-name`} aria-describedby={`${id}-summary`} onClick={()=>onChoose(result)}/>
           <div className="food-description">
             <strong id={`${id}-name`}>{result.name}</strong>
             <small id={`${id}-summary`}>{nutritionSummary(result,energyUnit)}{!isFatSecretSource(result.source)?` · ${result.source}`:''}</small>
+            {nutrition&&<FoodMacroSummary protein={nutrition.protein} carbs={nutrition.carbs} fat={nutrition.fat}/>}
           </div>
           <Button
             variant="tertiary"

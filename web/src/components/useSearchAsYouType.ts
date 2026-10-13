@@ -1,7 +1,8 @@
 import {useCallback,useEffect,useRef,useState,type RefObject} from 'react';
 import type {FoodSearchResult} from '../types';
 import {api} from '../lib/api';
-import {applyVerifiedFoods,verifiableCodes,VERIFYING_PROVIDER} from '../lib/foodVerification';
+import {applyVerifiedFoods,VERIFYING_PROVIDER} from '../lib/foodVerification';
+import {FoodVerificationRecovery} from '../lib/foodVerificationRecovery';
 
 /** Wait for a pause in typing: food search shares one paced provider quota with every user. */
 export const TYPEAHEAD_DELAY_MS=800;
@@ -38,25 +39,26 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
   // The query on screen, so a confirmation that lands after the person moved on only updates memory.
   const shownKey=useRef('');
   const onResultsRef=useRef(onResults);
-  // Rows the search returned before Open Food Facts confirmed their basis are confirmed in one
-  // follow-up read and filled in place; a failure leaves them as "loads when opened".
-  const confirm=useCallback((key:string,results:FoodSearchResult[])=>{
-    const codes=verifiableCodes(results);
-    if(codes.length===0)return;
-    void api<FoodSearchResult[]>(`/foods/verify?provider=${VERIFYING_PROVIDER}&codes=${codes.join(',')}`)
-      .then(verified=>{
-        const current=cache.current.get(key)??results;
+  const verification=useRef<FoodVerificationRecovery|null>(null);
+  const confirm=useCallback((key:string)=>{
+    if(!verification.current)verification.current=new FoodVerificationRecovery({
+      read:codes=>api<FoodSearchResult[]>(`/foods/verify?provider=${VERIFYING_PROVIDER}&codes=${codes.join(',')}`),
+      results:key=>cache.current.get(key)??[],
+      active:key=>shownKey.current===key,
+      apply:(key,verified)=>{
+        const current=cache.current.get(key)??[];
         const next=applyVerifiedFoods(current,verified);
         if(next.every((row,index)=>row===current[index]))return;
         cache.current.set(key,next);
         if(shownKey.current===key)onResultsRef.current(next);
-      })
-      .catch(()=>{/* confirmation is an improvement; the unconfirmed rows still open normally */});
+      },
+    });
+    verification.current.confirm(key);
   },[cache]);
   const search=useCallback((value:string)=>{
     const key=value.trim().toLowerCase();
     const cached=cache.current.get(key);
-    if(cached)return Promise.resolve(cached);
+    if(cached){confirm(key);return Promise.resolve(cached);}
     const existing=requests.current.get(key);
     if(existing)return existing.promise;
     const controller=new AbortController();
@@ -65,7 +67,7 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
         if(!controller.signal.aborted){
           cache.current.set(key,results);
           if(cache.current.size>64)cache.current.delete(cache.current.keys().next().value!);
-          confirm(key,results);
+          confirm(key);
         }
         return results;
       }).finally(()=>{if(requests.current.get(key)?.promise===promise)requests.current.delete(key);});
@@ -89,7 +91,7 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
       return;
     }
     const cached=cache.current.get(key);
-    if(cached){onResultsRef.current(cached);return;}
+    if(cached){onResultsRef.current(cached);confirm(key);return;}
     let active=true;
     const timer=window.setTimeout(()=>{
       setInFlight(key);
@@ -105,8 +107,14 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
         .finally(()=>setInFlight(current=>current===key?null:current));
     },TYPEAHEAD_DELAY_MS);
     return()=>{active=false;window.clearTimeout(timer);};
-  },[enabled,query,search]);
-  useEffect(()=>()=>{for(const request of requests.current.values())request.controller.abort();requests.current.clear();},[]);
+  },[enabled,query,search,confirm]);
+  useEffect(()=>()=>{
+    shownKey.current='';
+    verification.current?.dispose();
+    verification.current=null;
+    for(const request of requests.current.values())request.controller.abort();
+    requests.current.clear();
+  },[]);
   const searching=enabled&&inFlight!==null&&inFlight===query.trim().toLowerCase();
   return {search,searching};
 }

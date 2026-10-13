@@ -89,7 +89,7 @@ test('custom date controls receive first-invalid focus without opening their pop
 
 test('coaching validates the active step and retains an empty macro draft',async({page,context})=>{
   await context.addCookies(session.cookies);await page.goto('/');await page.getByRole('button',{name:'Coach',exact:true}).click();
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   let writes=0;page.on('request',request=>{if(request.url().endsWith('/api/sync')&&request.method()==='POST')writes++;});
   await page.getByLabel('Height (cm)',{exact:true}).fill('79');await page.getByRole('button',{name:/Next: Activity/}).click();
   await expect(page.getByText('Enter 80 or more.')).toBeVisible();await expect(page.getByLabel('Height (cm)',{exact:true})).toBeFocused();

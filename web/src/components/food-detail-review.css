@@ -1,0 +1,38 @@
+.food-detail-review {
+  min-height: 360px;
+}
+
+.food-detail-review .review-food-heading h3 {
+  overflow-wrap: anywhere;
+}
+
+.food-detail-loading-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: var(--muted-foreground);
+  font-size: .875rem;
+}
+
+.food-detail-loading-status svg {
+  flex-shrink: 0;
+  animation: spin 900ms linear infinite;
+}
+
+.food-detail-loading .live-calorie-card {
+  display: grid;
+  gap: 16px;
+}
+
+.food-detail-fields > div {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .food-detail-loading-status svg {
+    animation: none;
+  }
+}

@@ -35,7 +35,7 @@ h2{font-weight:680;letter-spacing:-.022em}
 
 /* Fields: soft filled wells that sharpen to the accent on focus. */
 input:not([type=checkbox]):not([type=range]),select,textarea{border-radius:14px;background:var(--muted);border-color:color-mix(in srgb,var(--control-border) 55%,transparent);transition:border-color var(--motion-control) ease,background-color var(--motion-control) ease,box-shadow var(--motion-control) ease}
-input:not([type=checkbox]):not([type=range]):focus,select:focus,textarea:focus{background:var(--card);border-color:var(--primary)}
+input:not([type=checkbox]):not([type=range]):focus,input:not([type=checkbox]):not([type=range]):focus-visible,select:focus,select:focus-visible,textarea:focus,textarea:focus-visible{background:var(--card);border-color:var(--primary);outline:none;box-shadow:none}
 
 /* Segmented choices: a sunken pill track with a raised pill on the selection (Week · Month · Year). */
 .segmented-control{background:var(--muted);padding:4px;margin:0;gap:4px;border-radius:999px}

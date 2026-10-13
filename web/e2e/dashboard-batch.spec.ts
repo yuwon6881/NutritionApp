@@ -87,20 +87,44 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await expect(page.getByRole('button',{name:/Add reviewed meal/})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Resume estimate',exact:true})).toHaveCount(0);
   const textRow=page.locator('.batch-food').filter({hasText:'Text meal'});
-  if(width<1024){await page.getByRole('button',{name:'Actions for Text meal'}).focus();await page.keyboard.press('Enter');}
-  await textRow.getByRole('button',{name:'Edit',exact:true}).click();
+  if(width<1024){
+    const surface=textRow.locator('.batch-food-summary');
+    await surface.evaluate(el=>el.scrollIntoView({block:'center'}));
+    const box=(await surface.boundingBox())!;
+    const touch=await context.newCDPSession(page);
+    await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width-100,y:box.y+25}]});
+    await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width-200,y:box.y+25}]});
+    await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await touch.detach();
+    await expect(textRow).toHaveClass(/actions-open/);
+    await textRow.locator('.batch-food-actions').getByRole('button',{name:'Edit',exact:true}).click();
+  }else{
+    await textRow.getByRole('button',{name:'Edit',exact:true}).click();
+  }
   await expect(page.getByLabel('Food name',{exact:true})).toBeFocused();
   await expect(page.getByLabel('Protein (g)',{exact:true})).toHaveValue('');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
-  if(width<1024)await expect(page.getByRole('button',{name:'Actions for Text meal'})).toBeFocused();
-  else await expect(textRow.getByRole('button',{name:'Edit',exact:true})).toBeFocused();
-  await page.getByRole('button',{name:'Remove Text meal',exact:true}).click();
+  if(width>=1024){
+    await expect(textRow.getByRole('button',{name:'Edit',exact:true})).toBeFocused();
+    await page.getByRole('button',{name:'Remove Text meal',exact:true}).click();
+  }else{
+    const surface=textRow.locator('.batch-food-summary');
+    await surface.evaluate(el=>el.scrollIntoView({block:'center'}));
+    const box=(await surface.boundingBox())!;
+    const touch=await context.newCDPSession(page);
+    await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width-100,y:box.y+25}]});
+    await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width-200,y:box.y+25}]});
+    await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await touch.detach();
+    await expect(textRow).toHaveClass(/actions-open/);
+    await textRow.locator('.batch-food-actions').getByRole('button',{name:'Remove Text meal',exact:true}).click();
+  }
   await page.getByRole('button',{name:'Add more food'}).click();
   await page.getByRole('button',{name:'AI logging',exact:true}).click();
   await expect(page.getByLabel('Meal description and portions')).toHaveValue('');
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
   await page.getByRole('button',{name:'New recipe',exact:true}).click();
-  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[{name:'API oats',source:'Test provider',calories:380,protein:12,carbs:60,fat:7,fiber:null,servingGrams:100}]}));
+  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[{name:'API oats',basis:'per100g',source:'Test provider',calories:380,protein:12,carbs:60,fat:7,fiber:null,servingGrams:100}]}));
   await page.getByRole('button',{name:'Add ingredient',exact:true}).click();
   await expect.poll(async()=>page.locator('.food-modal .modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
   const ingredientSearch=page.getByLabel('Search ingredients');
@@ -108,7 +132,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   // Nested method panels must not clip focus rings either.
   expect(await page.locator('.food-modal .motion-panel').evaluateAll(panels=>panels.every(panel=>getComputedStyle(panel).overflowX==='visible'))).toBe(true);
   await ingredientSearch.focus();
-  await expect(ingredientSearch).toHaveCSS('outline-offset','3px');
+  await expect(ingredientSearch).toHaveCSS('outline-style','none');
   const horizontalMotion=await page.locator('.food-modal .motion-panel').evaluateAll(panels=>panels.some(element=>element.getAnimations().some(animation=>animation.effect?.getKeyframes().some(frame=>String(frame.transform??'').includes('translateX(')&&frame.transform!=='translateX(0)'))));
   expect(horizontalMotion).toBe(false);
   await ingredientSearch.fill('oats');

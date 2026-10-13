@@ -300,7 +300,7 @@ test('weekly check-in is a reduced-motion-safe bottom sheet with focus restorati
 
 test('phase pace and target-weight goals preserve learned maintenance',async({page,context})=>{
   await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Coach',exact:true}).click();
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   await page.getByRole('button',{name:/^Next: Activity/}).click();
   await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
@@ -402,7 +402,7 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   const afterSettings=await (await context.request.get('/api/state')).json();expect(afterSettings.profileRevision).toBe(state.profileRevision);expect(afterSettings.plans[0].id).toBe(state.plans[0].id);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('#coaching-check-in-weekday').selectOption('1');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday;}).toBe(1);
-  await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByText('kJ',{exact:true}).first()).toBeVisible();await expect(page.getByText(/lb/).first()).toBeVisible();await page.getByRole('button',{name:'Plan',exact:true}).click();await expect(page.getByLabel('Height (feet)',{exact:true})).toBeVisible();await expect(page.getByLabel('Starting weight (lb)',{exact:true})).toHaveValue('178.6');
+  await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByText('kJ',{exact:true}).first()).toBeVisible();await expect(page.getByText(/lb/).first()).toBeVisible();await page.getByRole('button',{name:'Edit plan',exact:true}).click();await expect(page.getByLabel('Height (feet)',{exact:true})).toBeVisible();await expect(page.getByLabel('Starting weight (lb)',{exact:true})).toHaveValue('178.6');
   await page.reload();await resolveMissingDays(page);
   await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('#settings-weight-unit-kg').click();await page.locator('#settings-energy-unit-kcal').click();await page.locator('#settings-height-unit-cm').click();await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.weightUnit==='kg'&&latest.settings?.energyUnit==='kcal'&&latest.settings?.heightUnit==='cm';}).toBeTruthy();
 });
@@ -501,12 +501,23 @@ test('mobile scan shortcut supports food photos and label autofill before review
     const foodName=mode==='label'?'Label yoghurt':'Photo meal';
     if(mode==='photo'){
       await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
-      await page.getByRole('button',{name:'Actions for '+foodName}).click();
-      await page.getByRole('button',{name:'Edit',exact:true}).click();
+      const row=page.locator('.batch-food').filter({hasText:foodName});
+      const surface=row.locator('.batch-food-summary');
+      const box=(await surface.boundingBox())!;
+      await page.mouse.move(box.x+box.width*.8,box.y+box.height/2);
+      await page.mouse.down();
+      await page.mouse.move(box.x+box.width*.2,box.y+box.height/2,{steps:6});
+      await page.mouse.up();
+      await row.locator('.batch-food-actions').getByRole('button',{name:'Edit',exact:true}).click();
       await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');
       await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
       await page.getByRole('button',{name:'Save changes',exact:true}).click();
-      await page.getByRole('button',{name:'Remove '+foodName,exact:true}).click();
+      const boxAfter=(await surface.boundingBox())!;
+      await page.mouse.move(boxAfter.x+boxAfter.width*.8,boxAfter.y+boxAfter.height/2);
+      await page.mouse.down();
+      await page.mouse.move(boxAfter.x+boxAfter.width*.2,boxAfter.y+boxAfter.height/2,{steps:6});
+      await page.mouse.up();
+      await row.locator('.batch-food-actions').getByRole('button',{name:'Remove '+foodName,exact:true}).click();
       await page.getByRole('button',{name:'Add more food'}).click();
     }else{
       await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');

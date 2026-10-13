@@ -1,5 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
 import {seedMobileUser} from './helpers/seed';
+import {swipe} from './helpers/touch';
 
 // Fast logging keeps the batch review: a recent food reaches "Log" in one tap
 // from the dialog. Dashboard stays focused on daily summaries.
@@ -146,8 +147,14 @@ test('Back steps out of review, batch line edit, and batch without closing the f
   await page.getByRole('button',{name:'Add to batch',exact:true}).click();
   const batch=page.getByRole('dialog',{name:'Batch (1 food)',exact:true});
   await expect(batch).toBeVisible();
-  await batch.getByRole('button',{name:'Actions for Boiled egg',exact:true}).click();
-  await batch.getByRole('button',{name:'Edit',exact:true}).click();
+  const row=batch.locator('.batch-food').filter({hasText:'Boiled egg'});
+  const revealActions=async()=>{
+    const box=(await row.locator('.batch-food-summary').boundingBox())!;
+    await swipe(page,{x:box.x+box.width-60,y:box.y+25},{x:box.x+box.width-180,y:box.y+25});
+    await expect(row).toHaveClass(/actions-open/);
+  };
+  await revealActions();
+  await row.locator('.batch-food-actions').getByRole('button',{name:'Edit',exact:true}).click();
   await expect(batch.getByLabel('Food name',{exact:true})).toBeVisible();
 
   await page.goBack();
@@ -160,8 +167,8 @@ test('Back steps out of review, batch line edit, and batch without closing the f
 
   // Leave no batch behind for the tests that follow.
   await logDialog.getByRole('button',{name:'View batch, 1 foods',exact:true}).click();
-  await batch.getByRole('button',{name:'Actions for Boiled egg',exact:true}).click();
-  await batch.getByRole('button',{name:'Remove Boiled egg',exact:true}).click();
+  await revealActions();
+  await row.locator('.batch-food-actions').getByRole('button',{name:'Remove Boiled egg',exact:true}).click();
   await expect(page.getByRole('button',{name:'Remove Boiled egg',exact:true})).toHaveCount(0);
 });
 

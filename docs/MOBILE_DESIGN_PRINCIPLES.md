@@ -22,6 +22,7 @@ Phones are the primary surface. This document narrows `UI_UX_DESIGN_PRINCIPLES.m
 - The Dashboard plays a one-time landing cascade per launch: cards rise in reading order, the calorie ring draws while its remaining figure counts down, macro bars grow, the This week bars grow day by day, and the trend sparkline draws in. Headline values render immediately; the ring's accessible name always carries the true numbers. The asynchronously connected steps card reveals its height and fades in when it arrives; the true values render immediately and the completed animation leaves no height or transform. Returning to the Dashboard uses the normal page transition only.
 - Animations use `backwards` fill (or are cancelled on finish) so no transform outlives them. Reduced motion removes all of it — the global CSS rule for stylesheets, `useReducedMotion`/`useIntroProgress` for JS.
 - Active work may show a spinner inside its own button. Idle states never loop.
+- An unresolved food selection opens its review immediately, with the selected name, static nutrition/field placeholders and Back in view. Nutrition arrives inside that destination without another entrance animation. Leaving cancels the lookup and returns to the selected result; source failures use the shared neutral feedback and a retry action.
 
 ## 4. Android platform features — used where they help
 

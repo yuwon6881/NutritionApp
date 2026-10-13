@@ -691,9 +691,9 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       <div><h1 data-page-heading tabIndex={-1}>Coach</h1></div>
     </header>
 
-    {!isInitialSetup&&<SegmentedControl<MainTab> className="section-segments" label="Coach sections" value={mainTab}
-      options={[{value:'targets',label:'Targets'},{value:'plan',label:'Plan',disabled:operation==='accepting'||operation==='updating'||operation==='refreshing'||!!acceptance.current},{value:'history',label:'History'}]}
-      onChange={value=>{if(value==='plan')openPlan(step);else {setMessage('');setMainTab(value);}}}/>}
+    {!isInitialSetup&&mainTab!=='plan'&&<SegmentedControl<MainTab> className="section-segments" label="Coach sections" value={mainTab}
+      options={[{value:'targets',label:'Targets'},{value:'history',label:'History'}]}
+      onChange={value=>{setMessage('');setMainTab(value);}}/>}
 
     {message&&<p className="status-banner coach-success" role="status"><Check size={18} aria-hidden="true"/>{message}</p>}
     {error&&operation!=='error'&&operation!=='refresh-error'&&<CardFeedback title="Coach update needs attention" message={error}/>}

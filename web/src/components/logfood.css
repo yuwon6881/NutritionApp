@@ -76,8 +76,16 @@
 
 /* AI logging. */
 .ai-logging-form>h3{margin-bottom:14px}
-.ai-photo-mobile-controls{display:flex;flex-direction:column;align-items:stretch;gap:0;padding:0;margin:0 0 16px;border:none;background:transparent;min-height:unset;cursor:default;-webkit-tap-highlight-color:transparent}
-.ai-photo-mobile-controls:active{background:transparent!important;border-color:transparent!important}
+.ai-photo-mobile-controls,
+.custom-file-dropzone.ai-photo-mobile-controls,
+.ai-photo-mobile-controls:active,
+.custom-file-dropzone.ai-photo-mobile-controls:active,
+.ai-photo-mobile-controls:focus-within,
+.custom-file-dropzone.ai-photo-mobile-controls:focus-within{display:flex;flex-direction:column;align-items:stretch;gap:0;padding:0;margin:0 0 16px;border:none!important;background:transparent!important;box-shadow:none!important;outline:none!important;min-height:unset;cursor:default;-webkit-tap-highlight-color:transparent}
+@media (hover:hover){
+  .ai-photo-mobile-controls:hover,
+  .custom-file-dropzone.ai-photo-mobile-controls:hover{background:transparent!important;border:none!important;box-shadow:none!important;outline:none!important}
+}
 .ai-photo-mobile-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;-webkit-tap-highlight-color:transparent}
 .ai-photo-btn{min-height:48px;font-size:.88rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;border-radius:12px}
 .ai-photo-desktop-dropzone{min-height:115px;margin:0 0 16px}

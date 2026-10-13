@@ -22,7 +22,7 @@ async function settled(page:Page){
   await page.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});
 }
 test('Coach destination controls and focus do not wait for animation completion',async({page})=>{
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   await settled(page);
   await page.evaluate(()=>{
     const original=Element.prototype.animate;
@@ -79,7 +79,7 @@ async function savePlan(page:Page){
   await reviewMacros(page);await page.getByRole('button',{name:'Save profile',exact:true}).click();
 }
 async function changeGoal(page:Page){
-  await page.getByRole('button',{name:'Plan',exact:true}).click();await step(page,'Goal');
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();await step(page,'Goal');
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
   await step(page,'Goal details');
   await page.getByRole('slider',{name:'Target weight (kg)'}).press('ArrowLeft');
@@ -94,7 +94,7 @@ test('body corrections refresh the live maintenance estimate and server proposal
   expect((await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:preview.revision}})).ok()).toBeTruthy();
   await page.reload();
   await page.getByRole('button',{name:'Coach',exact:true}).click();
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   await page.getByLabel('Height (cm)',{exact:true}).fill('173');
   await page.getByLabel('Starting weight (kg)',{exact:true}).fill('66');
   await step(page,'Pace');
@@ -108,7 +108,7 @@ test('body corrections refresh the live maintenance estimate and server proposal
 });
 
 test('activity step offers the four activity choices and omits removed controls',async({page,context})=>{
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   await step(page,'Activity');
   for(const name of [/^None or relaxed activity\b/,/^Lifting\b/,/^Cardio\b(?! &)/,/^Cardio & Lifting\b/])
     await expect(page.getByRole('radio',{name})).toBeVisible();
@@ -145,7 +145,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   // Between check-ins the Dashboard shows no check-in card; only a due check-in replaces the calorie ring.
   await expect(page.locator('.check-in-orb[data-check-in-state="waiting"]')).toHaveCount(0);
   await page.getByRole('button',{name:'Coach',exact:true}).click();
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:900});
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
@@ -217,7 +217,7 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
 });
 
 test('custom macro slider supports a held mouse drag',async({page})=>{
-  await page.getByRole('button',{name:'Plan',exact:true}).click();
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   await step(page,'Macros');
   await expect(page.locator('.macro-range')).toHaveCount(0);
   await page.getByRole('button',{name:'Custom',exact:true}).click();
@@ -297,7 +297,7 @@ test('lost acceptance response replays the exact identity and revision',async({p
 });
 
 test('offline profile retention and acceptance refresh failure recover without duplicate acceptance',async({page,context})=>{
-  await page.getByRole('button',{name:'Plan',exact:true}).click();await step(page,'Goal');
+  await page.getByRole('button',{name:'Edit plan',exact:true}).click();await step(page,'Goal');
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();await step(page,'Goal details');
   await page.getByRole('slider',{name:'Target weight (kg)'}).press('ArrowLeft');await reviewMacros(page);
   await context.setOffline(true);await page.getByRole('button',{name:'Save profile',exact:true}).click();

@@ -1,5 +1,9 @@
 # NutritionApp enhancement plan
 
+## Complete food-search nutrition — 2026-10-13
+
+See [the food-search investigation](docs/FOOD_SEARCH_MACROS_INVESTIGATION_2026-10-13.md) for source, live-provider, production request-log, and controlled reproduction evidence. The user chose to preserve unresolved food choices; complete-row filtering is an alternative with a coverage cost, not the selected direction. Follow-up behavior is recorded in the implemented index and UI guidance. Remaining proposed work: release cancelled bulk queue reservations, coalesce server verification, distinguish temporary failures from genuinely incomplete products, and confirm a new unverified favourite snapshot before persisting it as a private 100-g food (existing private mappings remain authoritative). A local canonical catalogue can reduce live-provider dependence; every matching product cannot be guaranteed to have complete macros. These remaining findings are not implemented fixes.
+
 ## Android feature audit — 2026-10-03
 
 See [the source-grounded Android audit](docs/ANDROID_FEATURE_AUDIT_2026-10-03.md) for implemented native features, device-proof boundaries and prioritized candidates. Main gaps: native barcode detections are not bounded by the viewfinder, reminder readiness does not inspect disabled channels, incoming photo sharing and APK launcher shortcuts are absent. Live Updates / Xiaomi Super Island remain deferred because current diary/reminder tasks do not justify ongoing activity notifications; Xiaomi also requires scenario/access approval. These are findings and proposed work, not implemented fixes.

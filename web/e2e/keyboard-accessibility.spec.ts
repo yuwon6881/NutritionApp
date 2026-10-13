@@ -35,7 +35,7 @@ test.beforeAll(async({request})=>{
 test('keyboard actions submit forms and activate only the focused control',async({page,context})=>{
   await context.addCookies(session.cookies);
   await page.route('**/api/foods/search*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify([
-    {name:'Keyboard nasi goreng',calories:81,protein:5.3,carbs:12.1,fat:0.6,fiber:null,source:'Open Food Facts / ODbL / 20422677',servingGrams:100},
+    {name:'Keyboard nasi goreng',calories:81,protein:5.3,carbs:12.1,fat:0.6,fiber:null,source:'Open Food Facts / ODbL / 20422677',servingGrams:100,basis:'per100g'},
   ])}));
   await page.goto('/');
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();

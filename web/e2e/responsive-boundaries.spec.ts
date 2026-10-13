@@ -124,23 +124,25 @@ for(const width of BOUNDARY_WIDTHS)for(const theme of ['light','dark'] as const)
     await page.getByRole('button',{name:'Coach',exact:true}).click();
     await expect(page.locator('[data-page-heading]')).toHaveText('Coach');
     await assertMobileNavFit(page);
-    for(const tabName of ['Plan','History'] as const){
-      await page.getByRole('button',{name:tabName,exact:true}).click();
-      if(tabName==='Plan'){
-        await expect(page.locator('.coach-plan-heading h2')).toBeVisible();
-      }
-      if(tabName==='History'){
-        const historyHeading=page.getByRole('heading',{name:'Goal history',exact:true});
-        await expect(historyHeading).toBeVisible();
-        const historyPanel=historyHeading.locator('xpath=ancestor::section[contains(@class,"panel")]');
-        await expect(historyPanel.locator('.goal-history-list, .empty')).toBeVisible();
-      }
-      await waitSettled(page);
-      await assertContained(page);
-      await assertPanelsFitViewport(page);
-      await assertMobileNavFit(page);
-      await captureBoundary(page,`${theme}-${width}-Coach-${tabName}`);
-    }
+    await page.getByRole('button',{name:'Edit plan',exact:true}).click();
+    await expect(page.locator('.coach-plan-heading h2')).toBeVisible();
+    await waitSettled(page);
+    await assertContained(page);
+    await assertPanelsFitViewport(page);
+    await assertMobileNavFit(page);
+    await captureBoundary(page,`${theme}-${width}-Coach-Plan`);
+
+    await page.getByRole('button',{name:'Targets',exact:true}).click();
+    await page.getByRole('button',{name:'History',exact:true}).click();
+    const historyHeading=page.getByRole('heading',{name:'Goal history',exact:true});
+    await expect(historyHeading).toBeVisible();
+    const historyPanel=historyHeading.locator('xpath=ancestor::section[contains(@class,"panel")]');
+    await expect(historyPanel.locator('.goal-history-list, .empty')).toBeVisible();
+    await waitSettled(page);
+    await assertContained(page);
+    await assertPanelsFitViewport(page);
+    await assertMobileNavFit(page);
+    await captureBoundary(page,`${theme}-${width}-Coach-History`);
   });
 }
 

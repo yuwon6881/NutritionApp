@@ -1,0 +1,9 @@
+.food-modal .food-row .food-description .food-macro-summary {
+  margin: 6px 0 0;
+}
+
+.food-modal .food-row .food-description .food-macro-summary small {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
+}
