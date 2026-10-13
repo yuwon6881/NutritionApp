@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {expect,test,type Page} from '@playwright/test';
 import {signInApi} from './signIn';
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
@@ -9,7 +10,7 @@ const shifted=(days:number)=>new Date(Date.parse(`${current}T00:00:00Z`)+days*86
 
 async function seed(page:Page,proteinGrams:number|null=null){
   expect((await page.request.post('/api/auth/dev-reset',{headers})).ok()).toBeTruthy();
-  expect((await signInApi(page.request)).ok()).toBeTruthy();
+  expect((await signInApi(page.request,proteinGrams==null?'test-alice':'blocked-protein-user')).ok()).toBeTruthy();
   const state=await (await page.request.get('/api/state')).json();
   expect((await page.request.post('/api/sync',{headers,data:{id:randomUUID(),kind:'settings',recordId:state.id,expectedRevision:state.settings.revision,delete:false,data:{...state.settings,missingDayAction:'not_logged'}}})).ok()).toBeTruthy();
   expect((await page.request.post('/api/sync',{headers,data:{id:randomUUID(),kind:'profile',recordId:state.id,expectedRevision:state.profileRevision,delete:false,data:{dateOfBirth:'1996-03-14',age:30,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'maintain',maintenance:2500,timeZone:'Asia/Kuala_Lumpur',phaseMode:'open',proteinGrams}}})).ok()).toBeTruthy();
@@ -18,6 +19,7 @@ async function seed(page:Page,proteinGrams:number|null=null){
   }
   expect((await page.request.post('/api/sync',{headers,data:{id:randomUUID(),kind:'day',recordId:randomUUID(),expectedRevision:0,delete:false,data:{date:shifted(-1),status:'not_logged'}}})).ok()).toBeTruthy();
   expect((await page.request.post('/api/sync',{headers,data:{id:randomUUID(),kind:'entry',recordId:randomUUID(),expectedRevision:0,delete:false,data:{date:current,time:'12:00',name:'Review meal',calories:300,protein:20,carbs:40,fat:6,fiber:null,source:'manual',quantity:1,unit:'serving'}}})).ok()).toBeTruthy();
+  if(proteinGrams==null)await ensureAcceptedPlan(page.request);
   await page.goto('/');
 }
 

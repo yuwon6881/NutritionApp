@@ -16,6 +16,7 @@ import {ProfileClockProvider} from './components/ui/ProfileClock';
 import {ConnectionFeedback} from './components/ui/ConnectionFeedback';
 import {ActionSheet,type ActionSheetOption} from './components/ui/ActionSheet';
 import {Auth} from './components/Auth';
+import {AiAssistantLauncher,warmAiAssistant} from './components/AiAssistantLauncher';
 import {Today} from './components/Today';
 import {FoodDiary} from './components/FoodDiary';
 import {WeightEntryDialog} from './components/WeightEntryDialog';
@@ -41,7 +42,6 @@ const Settings=lazy(()=>import('./components/Settings').then(module=>({default:m
 // The food dialog mounts on first use; its chunk is warmed once the app is idle.
 const loadLogFood=()=>import('./components/LogFood');
 const LogFood=lazy(()=>loadLogFood().then(module=>({default:module.LogFood})));
-const AiAssistantPanel=lazy(()=>import('./components/AiAssistantPanel').then(module=>({default:module.AiAssistantPanel})));
 
 type Page='today'|'food'|'progress'|'coach'|'settings';
 const PAGES:readonly Page[]=['today','food','progress','coach','settings'];
@@ -67,7 +67,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   if(foodOpen)foodMounted.current=true;
   useEffect(()=>{
     if(!store.state)return;
-    const warm=()=>{void loadLogFood().catch(()=>{});};
+    const warm=()=>{void loadLogFood().catch(()=>{});void warmAiAssistant().catch(()=>{});};
     if(typeof window.requestIdleCallback==='function'){const id=window.requestIdleCallback(warm,{timeout:4000});return()=>window.cancelIdleCallback(id);}
     const timer=window.setTimeout(warm,2000);
     return()=>window.clearTimeout(timer);
@@ -116,7 +116,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       }
     }
   };
-  const needsProfile=!!store.state&&!store.state.profile;
+  const needsProfile=!!store.state&&(!store.state.profile||!store.state.plans.some(plan=>!plan.deleted));
 
   const pageRef=useRef(page);
   pageRef.current=page;
@@ -190,7 +190,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const activeDate=store.state?.profile?today(store.state.profile.timeZone):date;
   const selectedEntryDate=page==='food'?foodDate:activeDate;
   useEffect(()=>{
-    if(!authReady||!store.state?.profile)return;
+    if(!authReady||!store.state?.profile||needsProfile)return;
     let action:ReturnType<typeof consumeReadyNutritionShortcut>=null;
     try{action=consumeReadyNutritionShortcut(window.localStorage,{authenticated:authReady,profileReady:!!store.state?.profile});}catch{/* Browser storage can be unavailable; keep the app usable. */}
     if(!action)return;
@@ -210,7 +210,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       setWeightReturnFocus(null);
       setWeightOpen(true);
     }
-  },[authReady,store.state?.profile,activeDate]);
+  },[authReady,store.state?.profile,activeDate,needsProfile]);
   const addOptions:ActionSheetOption[]=[
     {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
@@ -286,13 +286,13 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       {!store.state?<><PageSkeleton page={page} label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<PageSkeleton page={needsProfile?'coach':page} label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
         {pageContent}
       </MotionScene></Suspense>}
-      {store.state?.profile&&<MissedDays store={store}/>}
+      {!needsProfile&&store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
         {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}
-      {aiOpen&&<Suspense fallback={null}><AiAssistantPanel isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page}/></Suspense>}
+      <AiAssistantLauncher isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page}/>
     </main>
     <ActionSheet isOpen={showAddSheet} onClose={()=>setShowAddSheet(false)} restoreFocus={addReturnFocus} title="Add" subtitle={`${selectedEntryDate===activeDate?'Today · ':''}${longDate(selectedEntryDate)}`} options={addOptions}/>
   </div></ProfileClockProvider>;

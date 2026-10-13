@@ -263,8 +263,9 @@ export function Select({
                   onClick={() => {
                     if (!opt.disabled) handleSelect(opt.value);
                   }}
-                  onMouseEnter={() => {
-                    if (!opt.disabled) setFocusedIndex(idx);
+                  onMouseMove={event => {
+                    // Opening/repositioning under a stationary pointer must not undo keyboard navigation.
+                    if (!opt.disabled && (event.movementX || event.movementY)) setFocusedIndex(idx);
                   }}
                 >
                   <span className="option-label">{opt.label}</span>

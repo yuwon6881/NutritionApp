@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {test, expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn} from './signIn';
@@ -36,6 +37,7 @@ for (const theme of ['light', 'dark']) {
         }});
         expect(response.ok(), await response.text()).toBeTruthy();
       }
+      await ensureAcceptedPlan(page.request);
       await page.goto('/');
       await page.getByRole('button', {name: 'Dashboard', exact: true}).click();
       const card = page.locator('.steps-panel');

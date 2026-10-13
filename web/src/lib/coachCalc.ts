@@ -178,10 +178,10 @@ export function calculateLivePace(
   };
 }
 
-/** The split shown when nothing is stored: the coach default expressed as shares. */
-export function effectiveSplit(p:ProfileDraft,acceptedExpenditure?:number|null,current?:string):MacroSplit{
-  const live=calculateLivePace(p,undefined,acceptedExpenditure,current);
-  return live.split??normalise({protein:30,carbs:40,fat:30});
+/** Preview Coach default independently of the currently selected preset or legacy gram override. */
+export function calculateDefaultPace(p:ProfileDraft,acceptedExpenditure?:number|null,current?:string):LivePaceResult{
+  return calculateLivePace({...p,proteinPercent:null,carbsPercent:null,fatPercent:null,
+    macroPreset:null,proteinGrams:null},undefined,acceptedExpenditure,current);
 }
 
 export const splitsEqual=(left:MacroSplit|null,right:MacroSplit|null)=>

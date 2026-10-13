@@ -1,14 +1,19 @@
-import type {AppState,LocalData,ProgressSummary} from '../src/types';
+import type {AppState,CoachResult,LocalData,ProgressSummary} from '../src/types';
 
 export function performanceFixture(days:number,outbox=0):LocalData {
   const date=(offset:number)=>new Date(Date.now()-offset*86400000).toISOString().slice(0,10);
   const end=date(0);
+  const accepted:CoachResult={eligible:true,adaptive:false,calories:2400,expenditure:2400,
+    protein:128,fat:80,carbs:292,explanation:'Accepted fixture plan',version:'fixture',
+    effectiveGoal:'maintain',proteinFixed:true};
   const state:AppState={id:'performance-account',displayName:'Performance',revision:1,profileRevision:1,
     diaryRevision:1,trajectoryRevision:1,bodyRevision:1,foodRevision:1,
     profile:{age:30,dateOfBirth:null,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'maintain',maintenance:2400,
       proteinGrams:null,resistanceTraining:false,pregnancyOrBreastfeeding:false,medicalNutrition:false,timeZone:'UTC'},
     settings:{checkInWeekday:1,revision:1},start:date(89),end,detailCutoff:date(89),detailDays:90,
-    entries:[],weights:[],foods:[],days:[],plans:[],checkIns:[],phaseDecisions:[],trainingSummaries:[],workoutConnected:false};
+    entries:[],weights:[],foods:[],days:[],
+    plans:[{id:'accepted-fixture-plan',revision:1,deleted:false,date:end,inputRevision:1,profileRevision:1,resultJson:JSON.stringify(accepted)}],
+    checkIns:[],phaseDecisions:[],trainingSummaries:[],workoutConnected:false};
   for(let i=0;i<days;i++) {
     state.weights.push({id:`weight-${i}`,revision:1,deleted:false,date:date(i),kg:80+i%4*.1});
     state.days.push({id:`day-${i}`,revision:1,deleted:false,date:date(i),status:'complete',archived:i>=90,entryCount:8,calories:1600});

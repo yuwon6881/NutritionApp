@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {calculateResting,calculateLivePace,getPaceStatus} from './coachCalc';
+import {calculateResting,calculateLivePace,calculateDefaultPace,getPaceStatus} from './coachCalc';
 
 const base={
   age:30,
@@ -24,6 +24,19 @@ const base={
 };
 
 describe('coachCalc', ()=>{
+  it('preserves weight-based grams instead of converting rounded default shares back to grams',()=>{
+    const pace=calculateDefaultPace({...base,weightKg:66.5,goalRatePercent:-0.5,
+      proteinPercent:40,carbsPercent:35,fatPercent:25,proteinGrams:180},2240);
+    expect(pace.target).toBe(1875);
+    expect(pace.protein).toBe(106);
+    expect(pace.carbs).toBe(222.1);
+    expect(pace.fat).toBe(62.5);
+    expect(pace.split).toEqual({protein:23,carbs:47,fat:30});
+    const lifting=calculateDefaultPace({...base,weightKg:66.5,goalRatePercent:-0.5,resistanceTraining:true},2240);
+    expect(lifting.protein).toBe(133);
+    expect(lifting.carbs).toBe(195.1);
+    expect(lifting.split).toEqual({protein:28,carbs:42,fat:30});
+  });
   it('calculates resting energy expenditure according to Mifflin-St Jeor', ()=>{
     // Male: 10*80 + 6.25*180 - 5*30 + 5 = 800 + 1125 - 150 + 5 = 1780
     expect(calculateResting({age:30,heightCm:180,weightKg:80,sex:'male'})).toBe(1780);

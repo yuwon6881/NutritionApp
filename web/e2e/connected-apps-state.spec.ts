@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import { randomUUID } from 'node:crypto';
 import {expect,test,type Page} from '@playwright/test';
 import {signIn} from './signIn';
@@ -32,6 +33,7 @@ async function openSignedInApp(page: Page) {
     }});
     expect(profile.ok(),await profile.text()).toBeTruthy();
   }
+  await ensureAcceptedPlan(page.request);
   await page.goto('/');
 }
 

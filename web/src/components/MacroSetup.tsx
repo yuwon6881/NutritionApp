@@ -29,6 +29,7 @@ export function MacroSetup({
   mode='all',
   presetId,
   coachDefault,
+  coachDefaultGrams,
   customSplit,
 }:{
   calories:number;
@@ -38,6 +39,7 @@ export function MacroSetup({
   mode?:'all'|'presets'|'adjustments';
   presetId?:string;
   coachDefault?:MacroSplit;
+  coachDefaultGrams?:MacroSplit;
   customSplit?:MacroSplit;
 }){
   const [gramDrafts,setGramDrafts]=useState<Partial<Record<MacroKey,string>>>({});
@@ -55,7 +57,9 @@ export function MacroSetup({
         {presetOptions.map(preset=>{
           const isSelected=active===preset.id;
           const targetSplit=preset.split??split;
-          const targetGrams=gramsFromSplit(calories,targetSplit);
+          // Whole-percent labels are for display; preserve the weight-based coach calculation.
+          const calculatedGrams=preset.id==='auto'&&coachDefaultGrams?coachDefaultGrams:gramsFromSplit(calories,targetSplit);
+          const targetGrams={protein:Math.round(calculatedGrams.protein),carbs:Math.round(calculatedGrams.carbs),fat:Math.round(calculatedGrams.fat)};
           return (
             <Button
               key={preset.id}

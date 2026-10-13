@@ -1,6 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn} from './signIn';
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 
 async function openSettings(page:Page){
   await page.route('**/api/notifications/status*',route=>route.fulfill({json:{
@@ -21,6 +22,8 @@ async function openSettings(page:Page){
     expect(response.ok(),await response.text()).toBeTruthy();
     await page.reload();
   }
+  await ensureAcceptedPlan(page.request);
+  await page.reload();
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();
 }
 

@@ -108,7 +108,7 @@ export function DiarySettings({store}:{store:NutritionStore}){
         {value:'scale',label:'Scale'},{value:'trend',label:'Trend'}
       ]}/>
     </SettingRow>
-    {state.profile&&<SettingRow label="Check-in day" description={<>Next check-in <strong>{longDate(next)}</strong>. Changing the day keeps the active plan in place.</>}>
+    {state.profile&&<SettingRow label="Check-in day" description={<><span>Next check-in:<strong className="settings-check-in-date">{longDate(next)}</strong>.</span><span>Changing the day keeps the active plan in place.</span></>}>
       <SelectField id="coaching-check-in-weekday" name="checkInWeekday" label="Check-in weekday" value={String(current.checkInWeekday)} onChange={value=>void save({checkInWeekday:Number(value)})}>
         {weekdays.map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </SelectField>

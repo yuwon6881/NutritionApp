@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
@@ -14,7 +15,8 @@ test.beforeAll(async({request})=>{
     age:30,dateOfBirth:'1996-03-14',heightCm:170,weightKg:80,sex:'female',activity:1.4,goal:'maintain',maintenance:2500,
     proteinGrams:null,resistanceTraining:false,pregnancyOrBreastfeeding:false,medicalNutrition:false,timeZone:'Asia/Kuala_Lumpur',phaseMode:'open',energyAdjustmentPercent:0,
   }}});
-  expect(saved.ok(),await saved.text()).toBeTruthy();session=await request.storageState();
+  expect(saved.ok(),await saved.text()).toBeTruthy();await ensureAcceptedPlan(request);
+  session=await request.storageState();
 });
 async function food(page:Page){
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
@@ -87,6 +89,7 @@ test('custom date controls receive first-invalid focus without opening their pop
 
 test('coaching validates the active step and retains an empty macro draft',async({page,context})=>{
   await context.addCookies(session.cookies);await page.goto('/');await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await page.getByRole('button',{name:'Plan',exact:true}).click();
   let writes=0;page.on('request',request=>{if(request.url().endsWith('/api/sync')&&request.method()==='POST')writes++;});
   await page.getByLabel('Height (cm)',{exact:true}).fill('79');await page.getByRole('button',{name:/Next: Activity/}).click();
   await expect(page.getByText('Enter 80 or more.')).toBeVisible();await expect(page.getByLabel('Height (cm)',{exact:true})).toBeFocused();

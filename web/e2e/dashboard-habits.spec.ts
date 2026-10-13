@@ -1,6 +1,7 @@
 import {test,expect,type APIRequestContext,type Locator} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
@@ -44,6 +45,7 @@ test.beforeAll(async({request})=>{
   for(const offset of [0,2,4,6,8,10])await save('weight',{date:daysAgo(offset),kg:80+offset*.05});
   await save('day',{date:daysAgo(6),status:'fasting'});
   await save('day',{date:daysAgo(7),status:'not_logged'});
+  await ensureAcceptedPlan(request);
   session=await request.storageState();
 });
 

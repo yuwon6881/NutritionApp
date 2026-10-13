@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn} from './signIn';
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 
 async function signInWithProfile(page:import('@playwright/test').Page){
   await signIn(page);
@@ -16,6 +17,8 @@ async function signInWithProfile(page:import('@playwright/test').Page){
     expect(response.ok(),await response.text()).toBeTruthy();
     await page.reload();
   }
+  await ensureAcceptedPlan(page.request);
+  await page.reload();
   await expect(page.getByRole('button',{name:'Settings',exact:true}).first()).toBeEnabled();
 }
 

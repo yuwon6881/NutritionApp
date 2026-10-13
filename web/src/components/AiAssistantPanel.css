@@ -1,15 +1,4 @@
 /* Ask AI is a conversation in the diary's voice: avatar-led soft bubbles, suggestion pills, and a pill composer. */
-.ai-assistant-modal .modal-surface {
-  height: min(84dvh, 740px);
-}
-
-.ai-assistant-modal .modal-body {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-}
-
 /* The header action sits beside Close rather than trailing the title. */
 .ai-assistant-modal.modal-shell .modal-header:has(.modal-header-actions) .modal-header-actions {
   margin-left: auto;

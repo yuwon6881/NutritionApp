@@ -8,6 +8,10 @@ const state=(extra:Partial<AppState>={}):Pick<AppState,'plans'|'profileRevision'
 });
 
 describe('Monday check-ins',()=>{
+  it('does not offer a weekly check-in before the first plan is accepted',()=>{
+    expect(checkInDue(state({plans:[]}),'2026-09-14')).toBe(false);
+    expect(checkInDue(state({plans:[{...state().plans[0],deleted:true}]}),'2026-09-14')).toBe(false);
+  });
   it('uses Monday as the week boundary',()=>{
     expect(weekStart('2026-09-06')).toBe('2026-08-31');
     expect(weekStart('2026-09-07')).toBe('2026-09-07');

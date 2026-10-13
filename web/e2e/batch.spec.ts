@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
@@ -34,6 +35,7 @@ test.beforeAll(async({request})=>{
   }});
   expect(food2.ok(),await food2.text()).toBeTruthy();
 
+  await ensureAcceptedPlan(request);
   session=await request.storageState();
 });
 
@@ -81,14 +83,14 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   await expect(calorieCard.getByText('116')).toBeVisible();
   await expect(calorieCard.getByText('2 foods')).toBeVisible();
 
-  // Without an accepted plan the day preview still adds the batch to the empty day, but draws no ring.
+  // Completed setup supplies the accepted target while the preview adds the batch to the empty day.
   const dayPreview=page.getByRole('region',{name:'Day total after logging'});
   // The batch total heads the review, so the preview shows only the day: its new total and what was logged before.
   await expect(dayPreview.getByText('+116 kcal')).toHaveCount(0);
   await expect(dayPreview.locator('.day-energy-preview-total strong')).toHaveText('116 kcal');
   await expect(dayPreview.getByText('0 kcal already logged')).toBeVisible();
-  await expect(dayPreview.getByText('No target set')).toBeVisible();
-  await expect(dayPreview.getByRole('img')).toHaveCount(0);
+  await expect(dayPreview).toContainText('2,700');
+  await expect(dayPreview.getByRole('img')).toBeVisible();
 
   // Rescale quantity of Greek Yogurt from 100g to 200g (59 * 2 = 118 + 57 = 175 kcal)
   await expect(page.locator('.batch-food input')).toHaveCount(0);

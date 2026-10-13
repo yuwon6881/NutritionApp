@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
@@ -18,6 +19,7 @@ test.beforeAll(async({request})=>{
     }
   }});
   expect(saved.ok(),await saved.text()).toBeTruthy();
+  await ensureAcceptedPlan(request);
   session=await request.storageState();
 });
 

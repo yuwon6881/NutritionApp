@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
@@ -38,6 +39,7 @@ test.beforeAll(async({request})=>{
     }});
     expect(day.ok(),await day.text()).toBeTruthy();
   }
+  await ensureAcceptedPlan(request);
   session=await request.storageState();
 });
 
@@ -53,8 +55,12 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   // A spike offers retention causes first; not-logging days never appear as intake evidence.
   await expect(dialog.locator('.weight-context-evidence')).toHaveText('Up 2 kg from the expected 80 kg.');
   const contextChoice=dialog.getByRole('button',{name:'Choose possible temporary context'});
+  // Leave the pointer where the menu will appear: hover must not override keyboard navigation.
+  const choiceBox=(await contextChoice.boundingBox())!;
+  await page.mouse.move(choiceBox.x+20,choiceBox.y+choiceBox.height+20);
   await contextChoice.focus();
   await page.keyboard.press('Space');
+  await expect(dialog.getByRole('listbox',{name:'Possible temporary context'})).toBeVisible();
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   await expect(contextChoice).toHaveText('Salty food');

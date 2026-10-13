@@ -49,7 +49,7 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
   const online=useOnlineStatus();
   // A due check-in takes the ring's place: the target may change, so remaining calories stay
   // hidden until the check-in is accepted or declined, which recomputes the schedule.
-  const checkIn=state.profile?checkInSchedule(state,date):undefined;
+  const checkIn=state.profile&&accepted?checkInSchedule(state,date):undefined;
   const checkInReady=Boolean(checkIn?.due)&&loaded;
   const openCheckIn=(trigger:HTMLElement)=>{setCheckInRestore(trigger);setCheckInOpen(true);};
   const {state: ghState,loading: ghLoading}=useGoogleHealth();

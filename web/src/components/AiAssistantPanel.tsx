@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { SquarePen } from 'lucide-react';
-import { Modal } from './ui/Modal';
+import {createPortal} from 'react-dom';
 import { Button } from './ui/Button';
 import { CardFeedback } from './ui/CardFeedback';
 import { AiActionReview } from './ai/AiActionReview';
@@ -15,6 +15,7 @@ import type { AiUiAction } from '../lib/api/ai';
 import './AiAssistantPanel.css';
 
 interface Props {
+  headerTarget: HTMLElement | null;
   isOpen: boolean;
   onClose: () => void;
   onActions: (actions: AiUiAction[]) => void | Promise<void>;
@@ -23,18 +24,18 @@ interface Props {
   surface?: string;
 }
 
-export function AiAssistantPanel({ isOpen, onClose, onActions, invocation, onInvocationConsumed, surface = 'dashboard' }: Props) {
+export function AiAssistantPanel({ headerTarget, isOpen, onClose, onActions, invocation, onInvocationConsumed, surface = 'dashboard' }: Props) {
   const defaultContext = useMemo(() => ({ surface }), [surface]);
   const chat = useAiConversation({ isOpen, onClose, onActions, invocation, onInvocationConsumed, defaultContext });
   const disabled = chat.isSending || chat.isHydrating || chat.isResetting || chat.isResolving;
   const isEmpty = !chat.isHydrating && chat.messages.length === 0 && !chat.pendingReply;
   if (!isOpen) return null;
   return (
-    <Modal open={isOpen} title="Ask AI" description="Nutrition assistant" onClose={onClose} width="lg" className="ai-assistant-modal"
-      headerActions={chat.hasConversation && <Button variant="tertiary" size="sm" className="ai-chat-new" aria-label="New chat" disabled={disabled}
+    <>
+      {headerTarget && chat.hasConversation && createPortal(<Button variant="tertiary" size="sm" className="ai-chat-new" aria-label="New chat" disabled={disabled}
         onClick={() => void chat.resetConversation()}>
         <SquarePen size={16} aria-hidden="true" /><span>{chat.isResetting ? 'Resetting…' : 'New chat'}</span>
-      </Button>}>
+      </Button>,headerTarget)}
       <div className="ai-chat">
         <AiLog messages={chat.messages} pendingReply={chat.pendingReply} actionBatches={chat.pendingActionBatches}>
           {chat.isHydrating && <p className="ai-chat-loading" role="status">Loading conversation…</p>}
@@ -54,6 +55,6 @@ export function AiAssistantPanel({ isOpen, onClose, onActions, invocation, onInv
         <AiComposer value={chat.input} onChange={chat.setInput} onSubmit={() => void chat.sendMessage()}
           onStop={chat.stopTurn} isSending={chat.isSending} disabled={disabled} />
       </div>
-    </Modal>
+    </>
   );
 }

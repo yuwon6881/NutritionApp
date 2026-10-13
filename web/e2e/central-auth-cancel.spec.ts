@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {expect,test} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn} from './signIn';
@@ -31,6 +32,7 @@ test('canceling Workout consent returns to Settings and a retry starts cleanly',
     }});
     expect(profile.ok(),await profile.text()).toBeTruthy();
   }
+  await ensureAcceptedPlan(page.request);
   await page.goto('/');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();

@@ -35,7 +35,8 @@ export function checkInSchedule(state:Pick<AppState,'plans'|'profileRevision'|'c
   const plans=state.plans.filter(plan=>!plan.deleted).sort((a,b)=>b.revision-a.revision);
   const last=plans[0];
   const weekday=state.settings?.checkInWeekday??1;
-  if(!last||last.profileRevision!==state.profileRevision)return {due:true,nextDate:current,daysUntil:0,declined:false};
+  if(!last)return {due:false,nextDate:current,daysUntil:0,declined:false};
+  if(last.profileRevision!==state.profileRevision)return {due:true,nextDate:current,daysUntil:0,declined:false};
 
   const currentPeriod=periodStart(current,weekday);
   const declined=(state.checkIns??[]).some(checkIn=>!checkIn.deleted&&checkIn.weekStart===currentPeriod&&(checkIn.checkInWeekday??1)===weekday&&checkIn.decision==='declined');

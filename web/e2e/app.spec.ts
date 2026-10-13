@@ -56,11 +56,36 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'Keto',exact:true}).click();
   await page.getByRole('button',{name:'Coach default',exact:true}).click();
+  const previewGrams=await page.getByRole('button',{name:'Coach default',exact:true}).locator('.macro-stat small').allTextContents();
+  const previewShares=await page.getByRole('button',{name:'Coach default',exact:true}).locator('.macro-stat strong').allTextContents();
   await page.getByRole('button',{name:/^Next: Distribution/}).click();
   await page.getByRole('button',{name:/^Next: Review/}).click();
   await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled({timeout:30000});await page.getByRole('button',{name:'Accept this plan'}).click();
+  await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled({timeout:30000});
+  await expect(page.locator('.target-macro-pct')).toHaveText(previewShares);
+  const proposalGrams=await page.locator('.target-macros-figures strong').allTextContents();
+  expect(proposalGrams.map(value=>value.replace(/\s/g,''))).toEqual(previewGrams);
+  for(const name of ['Dashboard','Food Log','Progress','Settings','Ask AI','Add entry']){
+    for(const button of await page.getByRole('button',{name,exact:true}).all())await expect(button).toBeDisabled();
+  }
+  await page.getByRole('button',{name:'Back to edit',exact:true}).click();
+  await expect(page.locator('[data-step-heading]')).toHaveText('Review');
+  await expect(page.locator('.macro-chip-meta')).toHaveText(previewGrams.map(value=>new RegExp(`^${value.replace('g',' g')} `)));
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Set up profile',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Dashboard',exact:true})).toBeDisabled();
+  await expect(page.getByText('Check-in ready',{exact:true})).toHaveCount(0);
+  while(await page.locator('[data-step-heading]').textContent()!=='Review'){
+    const previous=await page.locator('[data-step-heading]').textContent();
+    await page.getByRole('button',{name:/^Next:/}).click();
+    await expect(page.locator('[data-step-heading]')).not.toHaveText(previous!);
+  }
+  await page.getByRole('button',{name:'Create my starting estimate',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Accept this plan'})).toBeEnabled();
+  await page.getByRole('button',{name:'Accept this plan'}).click();
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Dashboard',exact:true})).toBeEnabled();
+  await expect(page.getByText('Check-in ready',{exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Nasi lemak reviewed portion');await page.getByLabel('Calories (kcal)',{exact:true}).fill('520');
   await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();

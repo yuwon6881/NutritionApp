@@ -1,3 +1,4 @@
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn} from './signIn';
@@ -44,6 +45,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
     expect(profile.ok(),await profile.text()).toBeTruthy();
   }
 
+  await ensureAcceptedPlan(page.request);
   await page.goto('/');
   await expect(page.locator('.steps-panel')).toHaveCount(0);
   // The SPA keeps navigation client-side, so use the real Settings control.
@@ -168,6 +170,7 @@ test('Google Health step chart selects a day by click and keyboard',async({page}
     expect(profile.ok(),await profile.text()).toBeTruthy();
   }
 
+  await ensureAcceptedPlan(page.request);
   await page.goto('/');
   await page.getByRole('button',{name:'Progress',exact:true}).click();
   await page.getByRole('button',{name:'Activity',exact:true}).click();
@@ -217,6 +220,7 @@ for (const width of [390,768,1440]) for (const theme of ['light','dark']) {
       await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[]}});
     });
     await signIn(page,'test-alice');
+    await ensureAcceptedPlan(page.request);
     await page.goto('/');
     await expect(page.locator('.steps-panel')).toBeVisible();
     await expect.poll(()=>page.evaluate(()=>(window as unknown as {stepReveals:number}).stepReveals)).toBe(1);

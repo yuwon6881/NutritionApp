@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { seedMobileUser } from './helpers/seed';
 
+// Exercise the network-bound first load; a precached service worker bypasses route interception.
+test.use({serviceWorkers:'block'});
+
 const conversationId = '11111111-1111-1111-1111-111111111111';
 const batchId = '22222222-2222-2222-2222-222222222222';
 const snapshot = { conversationId, conversationVersion: 1, state: null,
@@ -8,6 +11,38 @@ const snapshot = { conversationId, conversationVersion: 1, state: null,
   pendingActionBatches: [] };
 let session: Awaited<ReturnType<typeof seedMobileUser>>;
 test.beforeAll(async ({ request }) => { session = await seedMobileUser(request, 'ask-ai-review', []); });
+
+test('first Ask AI launch responds before its chunk loads and remains dismissible',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  let release!:()=>void;
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  let requested!:()=>void;
+  const warming=new Promise<void>(resolve=>{requested=resolve;});
+  let conversations=0;
+  await page.route('**/assets/AiAssistantPanel-*.js',async route=>{
+    requested();await held;await route.continue();
+  });
+  await page.route('**/api/ai/conversation',route=>{conversations++;return route.fulfill({json:snapshot});});
+  await page.goto('/',{waitUntil:'domcontentloaded'});
+  // Idle warming downloads code only; it does not start a conversation or call an AI provider.
+  await warming;
+  expect(conversations).toBe(0);
+  const trigger=page.getByRole('button',{name:'Ask AI',exact:true}).last();
+  const dialog=page.getByRole('dialog',{name:'Ask AI',exact:true});
+  try{
+    await trigger.click();
+    await expect(dialog).toBeVisible({timeout:1000});
+    await expect(dialog.getByRole('status')).toHaveText('Loading conversation…');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await trigger.click();
+  }finally{release();}
+  await expect(dialog.getByText('Your saved answer.')).toBeVisible();
+  await expect(dialog.getByLabel('Message',{exact:true})).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
 
 for (const width of [320, 390, 640, 768, 1024, 1440, 1920]) {
   for (const theme of ['light', 'dark']) {

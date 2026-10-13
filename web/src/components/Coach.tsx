@@ -6,8 +6,8 @@ import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
 import {normalizeProfileSex,profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
-import {calculateLivePace,effectiveSplit,storedSplit} from '../lib/coachCalc';
-import {gramsFromSplit,macroKeys,macroLabels,macroPresets,normalise,splitFromGrams,type MacroSplit} from '../lib/macros';
+import {calculateLivePace,calculateDefaultPace,storedSplit} from '../lib/coachCalc';
+import {macroKeys,macroLabels,macroPresets,normalise,splitFromGrams,type MacroSplit} from '../lib/macros';
 import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Field,SelectField} from './ui/Field';
@@ -212,14 +212,8 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     ?allocateWeeklyCalories(live.weeklyCalories,profile.distributionShares)
     :live.dailyCalories);
   const weeklyValid=weeklyValues.length===7&&weeklyValues.every(value=>Number.isInteger(value)&&value>=0)&&Math.abs(weeklyValues.reduce((sum,value)=>sum+value,0)-Math.round(live.weeklyCalories))<=2;
-  const coachDefaultSplit=effectiveSplit({
-    ...previewProfile,
-    proteinPercent:null,
-    carbsPercent:null,
-    fatPercent:null,
-    macroPreset:null,
-    proteinGrams:null
-  },draftExpenditure,current);
+  const coachDefault=calculateDefaultPace(previewProfile,draftExpenditure,current);
+  const coachDefaultSplit=coachDefault.split??normalise({protein:30,carbs:40,fat:30});
   const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const selectedPreset=macroPresets.find(preset=>preset.id===selectedPresetId);
   const split=selectedPresetId==='auto'
@@ -287,7 +281,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const stepIndex=steps.findIndex(s=>s.id===step);
   const activeStepIndex=stepIndex>=0?stepIndex:0;
 
-  const reviewGrams=gramsFromSplit(live.target,split);
+  const reviewGrams={protein:Math.round(live.protein),carbs:Math.round(live.carbs),fat:Math.round(live.fat)};
   const weeklyError=`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`;
   const canNavigateTo=(targetStep:StepKey)=>{
     const targetIndex=steps.findIndex(item=>item.id===targetStep);
@@ -320,7 +314,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     {(busy||operation==='waiting')&&<CoachWait label={operationLabel} active={operation!=='waiting'||(online&&!store.error)}/>}
     {operation==='error'&&(proposal?<CardFeedback message={error}/>:<CardFeedback title="Target calculation failed" message={error??'Targets could not be calculated.'} action={{label:'Retry calculation',onClick:()=>void loadProposal(),disabled:!online||pending||changed}}/>)}
     {operation==='refresh-error'&&<CardFeedback title="Active targets unavailable" message={error??'The active targets could not be loaded.'} action={{label:'Retry loading targets',onClick:()=>void retryRefresh()}}/>}
-    <div className="coach-review-actions"><Button variant="tertiary" disabled={savingPending||!!acceptance.current||operation==='saving'||operation==='accepting'||operation==='updating'||operation==='refreshing'} onClick={()=>openPlan('macros')}><ArrowLeft size={16}/>Back to edit</Button></div>
+    <div className="coach-review-actions"><Button variant="tertiary" disabled={savingPending||!!acceptance.current||operation==='saving'||operation==='accepting'||operation==='updating'||operation==='refreshing'} onClick={()=>openPlan('review')}><ArrowLeft size={16}/>Back to edit</Button></div>
   </CoachLayout></section>:null;
 
   const targetsTab=<>
@@ -506,6 +500,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
           mode="presets"
           presetId={selectedPresetId}
           coachDefault={coachDefaultSplit}
+          coachDefaultGrams={coachDefault}
           customSplit={customSplit}
           onChange={next=>setSplit(next,'custom')}
           onPreset={(id,next)=>setSplit(next,id==='auto'?null:id)}
