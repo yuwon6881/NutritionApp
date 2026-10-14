@@ -28,10 +28,10 @@ test('a recent food goes straight to the batch review with its last portion',asy
   const before=await foodCards(page,'Porridge').count();
   await page.getByRole('button',{name:'Log food',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Log food',exact:true});
-  const recents=dialog.getByRole('region',{name:'Recent and frequent'});
-  await expect(recents).toBeVisible();
+  // Porridge is a habit at 07:00 or, at other hours, simply the latest food: either section offers it.
+  await expect(dialog.getByRole('region',{name:/picks$|^Recent and frequent$/}).first()).toBeVisible();
 
-  await recents.getByRole('button',{name:/^Porridge,/}).click();
+  await dialog.getByRole('button',{name:/^Porridge,/}).click();
   const batch=page.getByRole('dialog',{name:'Batch (1 food)',exact:true});
   await expect(batch).toBeVisible();
   const logButton=batch.getByRole('button',{name:'Log all 1 food',exact:true});
@@ -45,7 +45,7 @@ test('a recent food goes straight to the batch review with its last portion',asy
 test('the batch review previews the day total with the batch drawn after logged food',async({page})=>{
   await openFoodLog(page);
   await page.getByRole('button',{name:'Log food',exact:true}).click();
-  const recents=page.getByRole('dialog',{name:'Log food',exact:true}).getByRole('region',{name:'Recent and frequent'});
+  const recents=page.getByRole('dialog',{name:'Log food',exact:true});
   await recents.getByRole('button',{name:/^Porridge,/}).click();
   const preview=page.getByRole('dialog',{name:'Batch (1 food)',exact:true}).getByRole('region',{name:'Day total after logging'});
   await expect(preview.getByText('TODAY AFTER LOGGING')).toBeVisible();

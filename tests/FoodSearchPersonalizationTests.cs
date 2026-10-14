@@ -81,4 +81,40 @@ public sealed class FoodSearchPersonalizationTests
 
         Assert.Equal("Banana · Gamma",ranked[0].Name);
     }
+
+    [Fact]
+    public void Foods_the_query_names_precede_products_that_only_start_with_the_word()
+    {
+        FoodResult Food(string name,bool generic=true)=>new(name,130,null,null,null,null,"test",IsGeneric:generic);
+        var cake=Food("Rice cake");
+        var crackers=Food("Rice crackers");
+        var flour=Food("Rice flour, white, unenriched");
+        var brown=Food("Rice, brown, cooked");
+        var logged=Food("White Rice",generic:false);
+        var plain=Food("Rice");
+
+        var ranked=FoodRanking.PrioritizeResults(
+            [cake,crackers,flour,brown,logged,plain],
+            "rice",
+            new Dictionary<string,int>(StringComparer.Ordinal){[FoodRanking.UsageKey(logged)]=3});
+
+        // Exact match first within the foods named "rice"; the logged food leads the rest of them.
+        Assert.Equal(["White Rice","Rice","Rice, brown, cooked"],ranked.Take(3).Select(result=>result.Name));
+        Assert.Equal(["Rice cake","Rice crackers","Rice flour, white, unenriched"],ranked.Skip(3).Select(result=>result.Name));
+    }
+
+    [Fact]
+    public void A_logged_food_leads_the_foods_a_multi_word_query_names()
+    {
+        var generic=new FoodResult("Rice, white, long-grain, cooked",130,null,null,null,null,"test",IsGeneric:true);
+        var logged=new FoodResult("White Rice",130,null,null,null,null,"test");
+        var derived=new FoodResult("White rice flour",360,null,null,null,null,"test");
+
+        var ranked=FoodRanking.PrioritizeResults(
+            [derived,generic,logged],
+            "white rice",
+            new Dictionary<string,int>(StringComparer.Ordinal){[FoodRanking.UsageKey(logged)]=2});
+
+        Assert.Equal(["White Rice","Rice, white, long-grain, cooked","White rice flour"],ranked.Select(result=>result.Name));
+    }
 }

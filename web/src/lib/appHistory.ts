@@ -68,12 +68,26 @@ export interface BackCoordinator {
   pushPage(page:string):void;
   replacePage(page:string):void;
   hasLayers():boolean;
+  /**
+   * Runs `action` once no guard removal is travelling through history. A dialog opened while the
+   * removal is pending would have its own entry popped by it and close at once, so openers that
+   * also dismiss a layer wait here. Runs immediately when nothing is pending.
+   */
+  afterLayersSettle(action:()=>void):void;
 }
 
 export function createBackCoordinator(port:HistoryPort):BackCoordinator{
   const handlers:Array<()=>void>=[];
   let guarded=false;
   let removingGuard=false;
+  let settled:Array<()=>void>=[];
+
+  const flushSettled=()=>{
+    if(removingGuard)return;
+    const actions=settled;
+    settled=[];
+    actions.forEach(action=>action());
+  };
 
   const pushGuard=()=>{
     port.pushState({...readState(port),[GUARD_KEY]:true},'');
@@ -108,6 +122,7 @@ export function createBackCoordinator(port:HistoryPort):BackCoordinator{
       if(removingGuard){
         removingGuard=false;
         sync();
+        flushSettled();
         return true;
       }
       const state=readState(port);
@@ -138,6 +153,10 @@ export function createBackCoordinator(port:HistoryPort):BackCoordinator{
       guarded=false;
     },
     hasLayers:()=>handlers.length>0,
+    afterLayersSettle(action){
+      settled.push(action);
+      flushSettled();
+    },
   };
 }
 

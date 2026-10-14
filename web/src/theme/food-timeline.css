@@ -264,6 +264,48 @@
   }
 }
 
+/* From 640 px the macros sit in their own fixed-width columns between the name and the energy, so a
+   long portion ("2.3 cup cooked · 363.4 g") never pushes them sideways and P/C/F line up down the
+   timeline. Selection mode adds a leading checkbox column instead of overlapping the name. */
+@media (min-width: 640px) {
+  .food-time-card.panel {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "title macros energy" "portion macros energy";
+    column-gap: 16px;
+    row-gap: 2px;
+    align-items: center;
+  }
+  .food-time-card.panel.food-time-card-selecting {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "check title macros energy" "check portion macros energy";
+  }
+  .food-time-card .food-card-select-checkbox { grid-area: check; margin-right: 0; }
+  .food-time-card .food-time-card-title { grid-area: title; }
+  .food-time-card .food-time-card-details { display: contents; }
+  .food-time-card .food-time-card-portion {
+    grid-area: portion;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .food-time-card .food-time-card-dot { display: none !important; }
+  .food-time-card .food-macro-summary {
+    grid-area: macros;
+    display: grid;
+    grid-template-columns: repeat(3, 3.75rem);
+    gap: 0 4px;
+    justify-items: start;
+  }
+  .food-time-card .food-macro-summary .food-macro { white-space: nowrap; }
+  .food-time-card .food-macro-summary .food-macro:not(:last-child)::after { content: none; }
+  .food-time-card .food-time-card-aside { grid-area: energy; margin: 0; justify-self: end; }
+  .food-time-card > .sync-label { grid-column: 1 / -1; }
+}
+@media (min-width: 1024px) {
+  .food-time-card .food-macro-summary { grid-template-columns: repeat(3, 5rem); gap: 0 12px; }
+}
+
 /* The timeline heading stays on the leading edge when the toolbar stacks below 1024 px. */
 @media (max-width: 1023px) {
   .food-timeline-toolbar { align-items: stretch; }

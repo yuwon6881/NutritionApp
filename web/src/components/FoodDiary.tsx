@@ -15,6 +15,7 @@ import {SegmentedControl} from './ui/SegmentedControl';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {CardFeedback} from './ui/CardFeedback';
 import {useFoodSelection} from '../lib/useFoodSelection';
+import {useAfterLayersSettle} from '../lib/useAfterLayersSettle';
 import {useFoodClipboard,createPasteMutations} from '../lib/useFoodClipboard';
 import {FoodSelectionBar} from './FoodSelectionBar';
 import {FoodWeekStrip} from './FoodWeekStrip';
@@ -49,6 +50,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     clipboard.clear();
     selection.exitSelection();
   };
+  // Leaving selection mode removes its Back guard; the edit dialog opens once that has settled.
+  const editAfterSelection=useAfterLayersSettle<Entry>(onEdit);
 
   const current=today(store.state!.profile?.timeZone);
   const online=useOnlineStatus();
@@ -242,7 +245,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
             if(selectedEntries.length===1){
               const target=selectedEntries[0];
               exitSelectionAndCopy();
-              onEdit(target);
+              editAfterSelection(target);
             }
           }}
           onCopy={()=>{

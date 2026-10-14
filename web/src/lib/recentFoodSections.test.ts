@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {Entry} from '../types';
-import {recentFoodSections} from './recentFoodSections';
+import {picksHourLabel,recentFoodSections} from './recentFoodSections';
 
 let id=0;
 function entry(name:string,date:string,time:string|null):Entry{
@@ -50,5 +50,27 @@ describe('recent food sections',()=>{
     expect(aroundNow).toHaveLength(1);
     expect(aroundNow[0].date).toBe('2026-09-25');
     expect(latest).toHaveLength(0);
+  });
+
+  it('widens the time window only while fewer than three foods fit the narrow one',()=>{
+    const noon={date:'2026-09-26',minutes:12*60};
+    const habit=(name:string,time:string)=>[entry(name,'2026-09-24',time),entry(name,'2026-09-25',time)];
+    const narrow=recentFoodSections([...habit('Rice','12:10'),...habit('Chicken','11:40'),...habit('Salad','12:30')],noon);
+    expect(narrow.windowMinutes).toBe(90);
+    expect(narrow.aroundNow).toHaveLength(3);
+    const widened=recentFoodSections([...habit('Rice','12:10'),...habit('Chicken','11:40'),...habit('Tea','14:00'),...habit('Dinner','19:00')],noon);
+    expect(widened.windowMinutes).toBe(150);
+    expect(widened.aroundNow.map(item=>item.name)).toEqual(['Tea','Rice','Chicken']);
+    expect(widened.latest.map(item=>item.name)).toEqual(['Dinner']);
+    const sparse=recentFoodSections(habit('Rice','12:10'),noon);
+    expect(sparse.windowMinutes).toBe(240);
+    expect(sparse.aroundNow).toHaveLength(1);
+  });
+
+  it('names the nearest hour for the picks heading',()=>{
+    expect(picksHourLabel(12*60)).toBe('12 PM');
+    expect(picksHourLabel(12*60+40)).toBe('1 PM');
+    expect(picksHourLabel(7*60+10)).toBe('7 AM');
+    expect(picksHourLabel(23*60+50)).toBe('12 AM');
   });
 });

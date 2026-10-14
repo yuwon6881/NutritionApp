@@ -36,13 +36,16 @@ public sealed class UsdaGenericProvider(UsdaGenericDataset dataset):IFoodProvide
     /// <summary>
     /// Lower sorts first: a food whose leading word is one the person typed ("Bananas, raw") beats
     /// one that only mentions it ("Bread, banana"); whole-word matches beat prefixes ("egg" is not
-    /// "eggplant"); words in the first comma segment beat preparation details; shorter names win.
+    /// "eggplant"); a leading segment made only of typed words ("Rice, white, cooked") beats one
+    /// with extra words ("Rice cake", "Rice flour"), which are other foods; words in the first
+    /// comma segment beat preparation details; shorter names win.
     /// </summary>
-    private readonly record struct Score(int Lead,int Prefixed,int OutsideLead,int Length):IComparable<Score>
+    private readonly record struct Score(int Lead,int Extra,int Prefixed,int OutsideLead,int Length):IComparable<Score>
     {
         public int CompareTo(Score other)
         {
             var result=Lead.CompareTo(other.Lead);
+            if(result==0)result=Extra.CompareTo(other.Extra);
             if(result==0)result=Prefixed.CompareTo(other.Prefixed);
             if(result==0)result=OutsideLead.CompareTo(other.OutsideLead);
             return result!=0?result:Length.CompareTo(other.Length);
@@ -65,6 +68,6 @@ public sealed class UsdaGenericProvider(UsdaGenericDataset dataset):IFoodProvide
             if(exact>=entry.LeadSegmentLength)outsideLead++;
         }
         var lead=Array.IndexOf(wanted,entry.Stems[0])>=0?0:1;
-        return new Score(lead,prefixed,outsideLead,entry.Stems.Length);
+        return new Score(lead,Math.Max(0,entry.LeadSegmentLength-wanted.Length),prefixed,outsideLead,entry.Stems.Length);
     }
 }

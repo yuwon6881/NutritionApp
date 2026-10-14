@@ -71,6 +71,19 @@ describe('back coordinator',()=>{
     expect(next).toHaveBeenCalledTimes(1);
   });
 
+  it('holds an action until a pending guard removal has travelled through history',()=>{
+    const history=fakeHistory();
+    const coordinator=createBackCoordinator(history.port);
+    const action=vi.fn();
+    coordinator.register(()=>{})();
+    coordinator.afterLayersSettle(action);
+    expect(action).not.toHaveBeenCalled();
+    history.flush(()=>coordinator.handlePop());
+    expect(action).toHaveBeenCalledTimes(1);
+    coordinator.afterLayersSettle(action);
+    expect(action).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps Back armed when a handler declines to close its layer',()=>{
     const history=fakeHistory();
     const coordinator=createBackCoordinator(history.port);

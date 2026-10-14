@@ -8,8 +8,11 @@ public static class FoodRanking
 {
     /// <summary>
     /// Keeps name relevance ahead of personal frequency, then prefers a declared gram serving and
-    /// the incoming order. Frequency is counted from logged diary entries and only breaks equivalent
-    /// name matches, so personalization cannot make a weakly related result outrank a better match.
+    /// the incoming order. The foods the query names come first ("rice" lists "White rice" and
+    /// "Rice, brown, cooked" before "Rice cake" and "Rice flour", which only start with the word),
+    /// and among those the foods this account has logged lead. Frequency is counted from logged
+    /// diary entries and only orders results of the same relevance tier, so personalization cannot
+    /// make a weakly related result outrank a better match.
     /// Open Food Facts' search index has no serving fields, so this must run after hydration.
     /// Providers also return loose matches that share no word with the query (fatsecret answers
     /// "sunglo" with restaurant dishes); once any result does match, those are dropped. When none
@@ -26,6 +29,7 @@ public static class FoodRanking
                 result,
                 index,
                 nameRank=SearchNameRank(result.Name,needle,queryTokens),
+                isPlain=IsPlainFood(result.Name,queryTokens),
                 frequency=Frequency(result,frequencies),
                 hasServing=result.Portions?.Count>0,
             })
@@ -33,12 +37,13 @@ public static class FoodRanking
         if(ranked.Any(item=>item.nameRank<NoMatch))ranked=ranked.Where(item=>item.nameRank<NoMatch).ToArray();
         var preference=KindPreference(ranked.Select(item=>item.result).ToArray(),queryTokens);
         return ranked
-            // Exact and prefix matches form one tier so the generic/branded preference can order
-            // "Bananas, raw" against "Banana · Dole"; weaker name matches never jump that tier.
-            .OrderBy(item=>item.nameRank<=1?0:item.nameRank)
+            // The foods the query names form the first tier; exact and prefix matches share the
+            // next, so a food that merely starts with the word stays behind them. Weaker name
+            // matches never jump a tier.
+            .OrderBy(item=>item.isPlain&&item.nameRank<=AllTokensRank?0:item.nameRank<=1?1:item.nameRank)
+            .ThenByDescending(item=>item.frequency)
             .ThenBy(item=>preference(item.result))
             .ThenBy(item=>item.nameRank)
-            .ThenByDescending(item=>item.frequency)
             .ThenByDescending(item=>item.hasServing)
             .ThenBy(item=>item.index)
             .Select(item=>item.result)
@@ -47,6 +52,21 @@ public static class FoodRanking
 
     private const int GenericQueryMaxTokens=3;
     private const int NoMatch=100;
+    private const int AllTokensRank=3;
+
+    /// <summary>
+    /// True when the name's leading phrase (before a comma or the brand) is what the query asks
+    /// for: it uses only words the person typed ("Rice, white, cooked" for "white rice"), or it
+    /// ends in the typed noun ("White rice", "Banana" for "rice", "banana"). "Rice cake", "Rice
+    /// flour" and "Banana smoothie" lead with the word but name another food.
+    /// </summary>
+    private static bool IsPlainFood(string name,IReadOnlyList<string> queryTokens)
+    {
+        var lead=SearchTokens(name.Split(" · ",2,StringSplitOptions.None)[0].Split(',')[0]);
+        if(lead.Length==0||queryTokens.Count==0)return false;
+        return lead.All(word=>queryTokens.Any(token=>TokenMatches(word,token)))
+            ||TokenMatches(lead[^1],queryTokens[^1]);
+    }
 
     /// <summary>
     /// A short query that names no brand ("banana", "white rice") wants the plain food first; a

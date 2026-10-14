@@ -86,4 +86,14 @@ public sealed class UsdaGenericProviderTests
         var results=await new UsdaGenericProvider(dataset).Search("banana",null,default);
         Assert.Contains(results,result=>result.Name.StartsWith("Banana",StringComparison.Ordinal)&&result.Portions?.Count>0);
     }
+
+    [Fact]
+    public async Task A_plain_food_query_lists_the_food_before_products_made_from_it()
+    {
+        var results=await new UsdaGenericProvider(UsdaGenericDataset.Embedded()!).Search("rice",null,default);
+
+        Assert.NotEmpty(results);
+        // "Rice cake", "Rice flour" and "Rice milk" are other foods; "Rice, white, cooked" is rice.
+        Assert.All(results,result=>Assert.StartsWith("Rice,",result.Name,StringComparison.Ordinal));
+    }
 }

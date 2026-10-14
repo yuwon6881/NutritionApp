@@ -1,8 +1,13 @@
 import type {Entry} from '../types';
+import {timeLabel} from './foodDiary';
 import {RECENT_WINDOW_DAYS,type RecentFoodContext} from './recentFoods';
 
-/** How far either side of now a past entry still counts as eaten "around this time". */
-export const AROUND_NOW_MINUTES=90;
+/**
+ * How far either side of now a past entry still counts as eaten "around this time". The picks
+ * start at the narrowest window and widen only while fewer than `MIN_PICKS` foods qualify.
+ */
+export const AROUND_NOW_WINDOWS=[90,150,240] as const;
+const MIN_PICKS=3;
 /** A food must have been logged near this time on more than one day to count as usual. */
 const USUAL_DAYS=2;
 export const SECTION_LIMIT=10;
@@ -10,8 +15,15 @@ export const SECTION_LIMIT=10;
 export interface RecentFoodSections {
   /** Foods usually logged around this time of day, most habitual first. */
   aroundNow:Entry[];
+  /** Minutes either side of now that the picks span; widened when few foods fit a narrow window. */
+  windowMinutes:number;
   /** The most recently logged other foods, newest first. */
   latest:Entry[];
+}
+
+/** The nearest whole hour to `minutes` in the app's clock style, for the "12 PM picks" heading. */
+export function picksHourLabel(minutes:number){
+  return timeLabel(`${String(Math.round(minutes/60)%24).padStart(2,'0')}:00`);
 }
 
 function dayNumber(date:string){
@@ -36,7 +48,8 @@ const newerFirst=(a:Entry,b:Entry)=>b.date.localeCompare(a.date)||(b.time??'').l
  * the last portion. "Around now" scores each food over the last four weeks: every day it was
  * logged within 90 minutes of the current time adds a weight that fades from 1 (today) towards 0
  * at four weeks, so a recent habit outranks an old one. It needs two or more such days, which
- * keeps a one-off meal out. "Latest" lists the remaining foods by when they were last logged.
+ * keeps a one-off meal out. When fewer than three foods qualify the window widens to 2.5 and then
+ * 4 hours. "Latest" lists the remaining foods by when they were last logged.
  */
 export function recentFoodSections(entries:readonly Entry[],context:RecentFoodContext,limit=SECTION_LIMIT):RecentFoodSections{
   const today=dayNumber(context.date);
@@ -47,22 +60,28 @@ export function recentFoodSections(entries:readonly Entry[],context:RecentFoodCo
     const group=groups.get(key);
     if(group)group.push(entry);else groups.set(key,[entry]);
   }
-  const foods=[...groups.values()].map(group=>{
-    group.sort(newerFirst);
+  const histories=[...groups.values()].map(group=>{group.sort(newerFirst);return group;});
+  const picksWithin=(window:number)=>histories.map(group=>{
     const nearDays=new Map<string,number>();
     for(const entry of group){
       const age=today-dayNumber(entry.date);
       const minutes=minutesOf(entry.time);
-      if(age>=RECENT_WINDOW_DAYS||minutes===null||circularDistance(minutes,context.minutes)>AROUND_NOW_MINUTES)continue;
+      if(age>=RECENT_WINDOW_DAYS||minutes===null||circularDistance(minutes,context.minutes)>window)continue;
       nearDays.set(entry.date,1-age/RECENT_WINDOW_DAYS);
     }
     const score=[...nearDays.values()].reduce((sum,weight)=>sum+weight,0);
     return {latest:group[0],usual:nearDays.size>=USUAL_DAYS,score};
-  });
-  const aroundNow=foods.filter(food=>food.usual)
+  }).filter(food=>food.usual)
     .sort((a,b)=>b.score-a.score||newerFirst(a.latest,b.latest)||a.latest.name.localeCompare(b.latest.name))
     .slice(0,limit).map(food=>food.latest);
+  let windowMinutes:number=AROUND_NOW_WINDOWS[0];
+  let aroundNow=picksWithin(windowMinutes);
+  for(const window of AROUND_NOW_WINDOWS.slice(1)){
+    if(aroundNow.length>=MIN_PICKS)break;
+    windowMinutes=window;
+    aroundNow=picksWithin(window);
+  }
   const shown=new Set(aroundNow);
-  const latest=foods.map(food=>food.latest).filter(entry=>!shown.has(entry)).sort(newerFirst).slice(0,limit);
-  return {aroundNow,latest};
+  const latest=histories.map(group=>group[0]).filter(entry=>!shown.has(entry)).sort(newerFirst).slice(0,limit);
+  return {aroundNow,windowMinutes,latest};
 }

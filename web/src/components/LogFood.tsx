@@ -447,7 +447,7 @@ export function LogFood({
       isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
-    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} energyUnit={energyUnit} onPick={quickLogRecent}/>}
+    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={quickLogRecent}/>}
     {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
       date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}

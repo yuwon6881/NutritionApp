@@ -61,7 +61,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
       <Button variant="destructive" size="sm" aria-label={`Delete ${entry.name}`} onClick={()=>onDelete?.(entry)}><Trash2 size={16} aria-hidden="true"/>Delete</Button>
     </div>}
     <article
-      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''}`.trim()}
+      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${isSelecting?'food-time-card-selecting':''}`.trim()}
       data-selected={isSelected?true:undefined}
       onClick={isSelecting?()=>onToggleSelect(entry.id):undefined}
       {...pointerProps}
