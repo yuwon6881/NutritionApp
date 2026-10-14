@@ -550,6 +550,13 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<double?>("Fiber")
                         .HasColumnType("double precision");
 
+                    b.Property<string>("Measure")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasDefaultValue("g");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -626,6 +633,13 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<string>("IngredientsJson")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Measure")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasDefaultValue("g");
 
                     b.Property<string>("Name")
                         .IsRequired()

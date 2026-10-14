@@ -58,11 +58,23 @@ public sealed class UsdaBrandedProviderTests
     }
 
     [Fact]
-    public async Task A_volume_serving_keeps_its_nutrients_but_not_a_gram_basis()
+    public async Task A_volume_serving_is_per_100_ml_with_a_millilitre_portion()
     {
         var juice=CornFlakes.Replace("\"servingSizeUnit\":\"g\"","\"servingSizeUnit\":\"ml\"",StringComparison.Ordinal);
 
         var result=await Provider(new Api(HttpStatusCode.OK,juice)).Barcode("038000000966",default);
+
+        Assert.Equal("per100g",result!.Basis);
+        Assert.Equal("ml",result.Measure);
+        Assert.Single(result.Portions!);
+    }
+
+    [Fact]
+    public async Task A_serving_in_another_unit_stays_unverified_without_a_portion()
+    {
+        var ounces=CornFlakes.Replace("\"servingSizeUnit\":\"g\"","\"servingSizeUnit\":\"oz\"",StringComparison.Ordinal);
+
+        var result=await Provider(new Api(HttpStatusCode.OK,ounces)).Barcode("038000000966",default);
 
         Assert.Equal("unverified",result!.Basis);
         Assert.Empty(result.Portions!);

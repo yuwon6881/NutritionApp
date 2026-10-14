@@ -3,6 +3,7 @@ import {Plus,Star} from 'lucide-react';
 import type {EnergyUnit,Entry,Food} from '../types';
 import {isRecipe} from '../lib/logFood';
 import {displayEnergy,energyLabel} from '../lib/units';
+import {measureOf} from '../lib/portions';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
 import {SegmentedControl} from './ui/SegmentedControl';
@@ -77,7 +78,7 @@ export function LogFoodSavedFoods({
         {recipes.has(food.id)&&<span className="food-badge recipe-badge">Recipe</span>}
       </div>
       <div className="saved-food-meta" id={`saved-${food.id}-summary`}>
-        <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 g</span>
+        <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 {measureOf(food)}</span>
         {(food.protein!=null||food.carbs!=null||food.fat!=null)&&(
           <FoodMacroSummary protein={food.protein} carbs={food.carbs} fat={food.fat} className="food-macro-summary-inline"/>
         )}

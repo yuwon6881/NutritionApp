@@ -1,3 +1,4 @@
+using Nutrition.Api.Domain;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
@@ -75,17 +76,16 @@ public sealed class UsdaBrandedProvider(HttpClient http,UsdaBrandedOptions optio
                     nutrients.TryAdd(number,value);
         double? Get(string number)=>nutrients.TryGetValue(number,out var value)?value:null;
         if(Get("208") is not { } calories)return null;
-        // Branded nutrients are per 100 of the serving unit. For a volume serving that is 100 ml,
-        // which is not 100 g, so the basis is left unverified and no gram portion is offered.
-        var unit=FoodResults.Text(food,"servingSizeUnit")?.ToLowerInvariant();
-        var grams=unit is "g" or "grm";
-        var portions=grams&&FoodResults.Number(food,"servingSize") is { } size
+        // Branded nutrients are per 100 of the serving unit: per 100 g for a weight serving and per
+        // 100 ml for a volume serving. Any other unit leaves the basis unverified, with no portion.
+        var measure=Measures.FromProviderUnit(FoodResults.Text(food,"servingSizeUnit"));
+        var portions=measure is not null&&FoodResults.Number(food,"servingSize") is { } size
             ?FoodResults.LimitPortions([new FoodPortion(FoodResults.PortionLabel(FoodResults.Text(food,"householdServingFullText")??"")??"serving",size)])
             :[];
         var name=Readable(FoodResults.Text(food,"description")??"Packaged food");
         var brand=FoodResults.Text(food,"brandName")??FoodResults.Text(food,"brandOwner");
         return new FoodResult(FoodResults.Label(name,brand is null?null:Readable(brand)),calories,Get("203"),Get("204"),Get("205"),Get("291"),
-            "USDA FoodData Central / "+code,100,portions,code,FoodResults.ServingCalories(calories,portions),grams?"per100g":"unverified");
+            "USDA FoodData Central / "+code,100,portions,code,FoodResults.ServingCalories(calories,portions),measure is null?"unverified":"per100g",measure??Measures.Grams);
     }
 
     /// <summary>Branded descriptions are stored in capitals; title case reads as a product name.</summary>

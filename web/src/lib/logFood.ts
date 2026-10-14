@@ -1,6 +1,6 @@
 import type {AiEstimate,Entry,Food,FoodSearchResult} from '../types';
 import {blankNutrients} from '../types';
-import {parsePortions,serializePortions} from './portions';
+import {measureOf,parsePortions,serializePortions} from './portions';
 import type {FoodDraft} from '../components/FoodEditor';
 
 export function isRecipe(food:Food):boolean{
@@ -32,6 +32,7 @@ export function foodToSearchResult(food:Food):FoodSearchResult{
     portions:parsePortions(food.portionsJson),
     code:barcodeValue(food.barcode),
     basis:'per100g',
+    ...(food.measure==='ml'?{measure:'ml' as const}:{}),
   };
 }
 
@@ -95,15 +96,17 @@ export function labelManualEntryDraft(food:AiEstimate['foods'][number],time?:str
   };
 }
 
-/** A barcode food is stored per 100 g; the entered serving must state its weight. */
+const amountPhrase=(data:{measure?:'g'|'ml'})=>measureOf(data)==='ml'?'volume in millilitres':'weight in grams';
+
+/** A barcode food is stored per 100 g (or per 100 ml); the entered serving must state its amount. */
 export function barcodeFoodPer100(data:FoodDraft,barcode:string):FoodDraft{
   if(data.unit==='serving'&&(!data.portionLabel||data.portionGrams==null))
-    throw new Error('Enter the serving label and weight in grams before saving this barcode food.');
+    throw new Error(`Enter the serving label and ${amountPhrase(data)} before saving this barcode food.`);
   const grams=data.unit==='g'
     ?data.quantity
     :(data.portionGrams!=null&&data.quantity>0?data.quantity*data.portionGrams:null);
   if(grams==null||!Number.isFinite(grams)||grams<=0)
-    throw new Error('Enter the serving weight in grams before saving this barcode food.');
+    throw new Error(`Enter the serving ${amountPhrase(data)} before saving this barcode food.`);
   const ratio=100/grams;
   const portions=data.unit==='serving'&&data.portionLabel&&data.portionGrams!=null
     ?serializePortions([{label:data.portionLabel,grams:data.portionGrams}])

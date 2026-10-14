@@ -1,3 +1,5 @@
+import type {Measure} from '../types';
+
 export type Portion = {label: string; grams: number};
 
 const MAX_PORTIONS = 12;
@@ -45,7 +47,7 @@ export function validatePortions(list: Portion[]): Portion[] {
   const seen = new Set<string>();
   return list.map(item => {
     const portion = normalized(item);
-    if (!portion) throw new Error('Each portion needs a label from 1–24 characters and a weight from 0.1–10,000 g.');
+    if (!portion) throw new Error('Each portion needs a label from 1–24 characters and an amount from 0.1–10,000 (g or ml).');
     const key = portion.label.toLocaleLowerCase();
     if (seen.has(key)) throw new Error('Portion labels must be unique.');
     seen.add(key);
@@ -64,7 +66,16 @@ export type PortionBasis = {
   unit: 'g' | 'serving';
   portionLabel: string | null;
   portionGrams: number | null;
+  measure?: Measure;
 };
+
+/**
+ * Amounts are stored in `quantity`/`portionGrams`, which hold grams for solids and millilitres for
+ * liquids. Records saved before millilitres existed carry no measure and are grams.
+ */
+export function measureOf(source: {measure?: Measure | null} | null | undefined): Measure {
+  return source?.measure === 'ml' ? 'ml' : 'g';
+}
 
 export function resolveGrams(basis: Partial<PortionBasis>): number | null {
   const quantity = basis.quantity;
@@ -85,7 +96,7 @@ export function resolveGrams(basis: Partial<PortionBasis>): number | null {
  */
 export function displayMass(basis: Partial<PortionBasis>): string {
   const grams = resolveGrams(basis);
-  return grams == null ? displayPortion(basis) : `${displayNumber(Math.round(grams * 10) / 10)} g`;
+  return grams == null ? displayPortion(basis) : `${displayNumber(Math.round(grams * 10) / 10)} ${measureOf(basis)}`;
 }
 
 function displayNumber(value: number): string {
@@ -95,7 +106,8 @@ function displayNumber(value: number): string {
 export function displayPortion(basis: Partial<PortionBasis>): string {
   const qty = typeof basis.quantity === 'number' && Number.isFinite(basis.quantity) ? basis.quantity : 0;
   const quantity = typeof basis.quantity === 'number' && Number.isFinite(basis.quantity) ? displayNumber(basis.quantity) : '—';
-  if (basis.unit === 'g') return `${quantity} g`;
+  const measure = measureOf(basis);
+  if (basis.unit === 'g') return `${quantity} ${measure}`;
   if (basis.portionLabel && typeof basis.portionGrams === 'number' && Number.isFinite(basis.portionGrams) && basis.portionGrams > 0) {
     const totalGrams = displayNumber(basis.portionGrams * qty);
     const label = basis.portionLabel.trim();
@@ -103,13 +115,13 @@ export function displayPortion(basis: Partial<PortionBasis>): string {
     if (match) {
       const baseNum = Number(match[1]);
       const rest = match[2];
-      if (qty === 1) return `${label} · ${totalGrams} g`;
+      if (qty === 1) return `${label} · ${totalGrams} ${measure}`;
       if (Number.isFinite(baseNum) && baseNum > 0) {
         const scaled = displayNumber(qty * baseNum);
-        return `${scaled}${rest ? ` ${rest}` : ''} · ${totalGrams} g`;
+        return `${scaled}${rest ? ` ${rest}` : ''} · ${totalGrams} ${measure}`;
       }
     }
-    return `${quantity} ${label} · ${totalGrams} g`;
+    return `${quantity} ${label} · ${totalGrams} ${measure}`;
   }
   return `${quantity} serving`;
 }

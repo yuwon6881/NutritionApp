@@ -99,6 +99,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                     Validation.Nutrients(e); Date(e.Date,user.ProfileJson,true); Validation.Number(e.Quantity, .001, 100000, "Quantity");
                     Validation.Require(e.Time==null || System.Text.RegularExpressions.Regex.IsMatch(e.Time,@"\A(?:[01][0-9]|2[0-3]):[0-5][0-9]\z"),"Choose a valid meal time (HH:mm).");
                     Validation.Require(e.Unit is "g" or "serving", "Invalid unit.");
+                    Validation.Require(Measures.IsValid(e.Measure), "Invalid measure.");
                     Validation.EntryPortion(e);
                 }, ct); break;
             case "food":
@@ -107,6 +108,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 await Upsert<Food>(op, revision, f =>
                 {
                     Validation.Nutrients(f); Validation.Number(f.ServingGrams, .1, 100000, "Serving weight");
+                    Validation.Require(Measures.IsValid(f.Measure), "Invalid measure.");
                     Validation.Barcode(f.Barcode);
                     Validation.Require(f.IngredientsJson.Length <= 12000, "Recipe is too large.");
                     Validation.Portions(f.PortionsJson);
@@ -249,9 +251,13 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         {
             if(!op.Data.TryGetProperty("portionLabel",out _)) portionEntry.PortionLabel=savedPortionEntry.PortionLabel;
             if(!op.Data.TryGetProperty("portionGrams",out _)) portionEntry.PortionGrams=savedPortionEntry.PortionGrams;
+            // A client that predates millilitres omits the measure; an edit must not turn saved millilitres into grams.
+            if(!op.Data.TryGetProperty("measure",out _)) portionEntry.Measure=savedPortionEntry.Measure;
         }
         if(next is Food food&&existing is Food savedFood&&!op.Data.TryGetProperty("portionsJson",out _))
             food.PortionsJson=savedFood.PortionsJson;
+        if(next is Food measuredFood&&existing is Food savedMeasuredFood&&!op.Data.TryGetProperty("measure",out _))
+            measuredFood.Measure=savedMeasuredFood.Measure;
         if(next is Weight weight&&existing is Weight savedWeight&&!op.Data.TryGetProperty("context",out _))
             weight.Context=savedWeight.Context;
         if(next is Food barcodeFood&&existing is Food savedBarcodeFood&&!op.Data.TryGetProperty("barcode",out _))

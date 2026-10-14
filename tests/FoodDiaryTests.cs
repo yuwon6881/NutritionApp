@@ -37,6 +37,39 @@ public class FoodDiaryTests
         Assert.Equal("00:00",entry.Time);Assert.Equal(500,entry.Calories);
     });
 
+    [Fact] public Task A_millilitre_entry_keeps_its_measure_through_an_older_clients_edit()=>WithDiary(async(db,user,config)=>
+    {
+        var sync=new SyncService(db,null,new RetentionService(db,config));
+        var date=RetentionService.Today(user.ProfileJson);
+        var id=Guid.NewGuid();
+        var revision=await sync.Apply(new(Guid.NewGuid(),"entry",id,0,JsonSerializer.SerializeToElement(new {date,name="Milk",calories=100,quantity=250,unit="g",measure="ml"})),default);
+        Assert.Equal("ml",(await db.Entries.SingleAsync()).Measure);
+        // An older client omits the measure; saving its edit must not turn the saved millilitres into grams.
+        await sync.Apply(new(Guid.NewGuid(),"entry",id,revision,JsonSerializer.SerializeToElement(new {date,name="Milk",calories=120,quantity=300,unit="g",portionLabel=(string?)null,portionGrams=(double?)null})),default);
+        var entry=await db.Entries.SingleAsync();
+        Assert.Equal("ml",entry.Measure);Assert.Equal(120,entry.Calories);
+    });
+
+    [Fact] public Task An_unknown_measure_is_rejected_and_grams_is_the_default()=>WithDiary(async(db,user,config)=>
+    {
+        var sync=new SyncService(db,null,new RetentionService(db,config));
+        var date=RetentionService.Today(user.ProfileJson);
+        await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,name="Milk",calories=100,measure="oz"})),default));
+        await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(new(Guid.NewGuid(),"food",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {name="Milk",calories=50,measure="cup"})),default));
+        await sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,name="Rice",calories=100})),default);
+        Assert.Equal("g",(await db.Entries.SingleAsync()).Measure);
+    });
+
+    [Fact] public Task A_saved_millilitre_food_keeps_its_measure_through_an_older_clients_edit()=>WithDiary(async(db,user,config)=>
+    {
+        var sync=new SyncService(db,null,new RetentionService(db,config));
+        var id=Guid.NewGuid();
+        var revision=await sync.Apply(new(Guid.NewGuid(),"food",id,0,JsonSerializer.SerializeToElement(new {name="Milk",calories=50,servingGrams=250,measure="ml"})),default);
+        await sync.Apply(new(Guid.NewGuid(),"food",id,revision,JsonSerializer.SerializeToElement(new {name="Milk",calories=52,servingGrams=250})),default);
+        var food=await db.Foods.SingleAsync();
+        Assert.Equal("ml",food.Measure);Assert.Equal(52,food.Calories);
+    });
+
     [Theory]
     [InlineData("24:00")][InlineData("12:60")][InlineData("9:00")][InlineData("12:00\n")]
     public Task Invalid_time_is_rejected(string time)=>WithDiary(async(db,user,config)=>

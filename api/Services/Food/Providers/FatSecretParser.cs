@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services.FoodLookup;
 
@@ -24,29 +25,32 @@ public static partial class FatSecretParser
     }
 
     /// <summary>
-    /// Builds a per-100 g result from food.get servings. Nutrients come from a gram-measured serving
-    /// (100 g when offered); servings measured in millilitres or ounces-only are not portions here.
+    /// Builds a per-100 result from food.get servings. Nutrients come from a gram-measured serving
+    /// (100 g when offered); a food with only millilitre servings is per 100 ml, and ounces-only servings
+    /// are not portions here. Servings in the other measure are left out rather than converted.
     /// </summary>
     public static FoodResult? Detail(JsonElement root,SearchHit hit,string? code=null)
     {
         if(!root.TryGetProperty("food",out var food)||!food.TryGetProperty("servings",out var servings)||!servings.TryGetProperty("serving",out var list))return null;
-        var gram=Items(list).Where(serving=>GramAmount(serving) is > 0).ToArray();
-        var basis=gram.FirstOrDefault(serving=>GramAmount(serving)==100);
+        var all=Items(list).ToArray();
+        var measure=all.Any(serving=>Amount(serving,Measures.Grams) is > 0)?Measures.Grams:Measures.Millilitres;
+        var gram=all.Where(serving=>Amount(serving,measure) is > 0).ToArray();
+        var basis=gram.FirstOrDefault(serving=>Amount(serving,measure)==100);
         if(basis.ValueKind==JsonValueKind.Undefined)basis=gram.FirstOrDefault();
-        if(basis.ValueKind==JsonValueKind.Undefined||GramAmount(basis) is not { } grams)return null;
+        if(basis.ValueKind==JsonValueKind.Undefined||Amount(basis,measure) is not { } grams)return null;
         double? Per100(string name)=>FoodResults.Number(basis,name) is { } value?value*100/grams:null;
         if(Per100("calories") is not { } calories)return null;
         var portions=FoodResults.LimitPortions(gram
             .Select(serving=>FoodResults.Text(serving,"serving_description") is { } description&&FoodResults.PortionLabel(description) is { } label
-                ?new FoodPortion(label,GramAmount(serving)!.Value)
+                ?new FoodPortion(label,Amount(serving,measure)!.Value)
                 :null)
             .OfType<FoodPortion>());
-        return Result(hit,calories,Per100("protein"),Per100("fat"),Per100("carbohydrate"),Per100("fiber"),portions,code);
+        return Result(hit,calories,Per100("protein"),Per100("fat"),Per100("carbohydrate"),Per100("fiber"),portions,code,measure);
     }
 
     /// <summary>
     /// The search summary ("Per 100g - Calories: 89kcal | Fat: 0.33g | ...") is only usable when it is
-    /// already per 100 g; "Per 1 serving" has no weight, and guessing one would invent a basis.
+    /// already per 100 g or 100 ml; "Per 1 serving" has no weight, and guessing one would invent a basis.
     /// </summary>
     public static FoodResult? FromDescription(SearchHit hit)
     {
@@ -54,7 +58,8 @@ public static partial class FatSecretParser
         var match=Summary().Match(description);
         if(!match.Success)return null;
         double? Value(string group)=>match.Groups[group].Success&&double.TryParse(match.Groups[group].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out var value)?value:null;
-        return Value("kcal") is { } calories?Result(hit,calories,Value("protein"),Value("fat"),Value("carbs"),null,[],null):null;
+        var measure=Measures.FromProviderUnit(match.Groups["unit"].Value)!;
+        return Value("kcal") is { } calories?Result(hit,calories,Value("protein"),Value("fat"),Value("carbs"),null,[],null,measure):null;
     }
 
     public static IEnumerable<JsonElement> Items(JsonElement value)=>value.ValueKind switch
@@ -64,13 +69,13 @@ public static partial class FatSecretParser
         _=>[],
     };
 
-    private static FoodResult Result(SearchHit hit,double calories,double? protein,double? fat,double? carbs,double? fiber,IReadOnlyList<FoodPortion> portions,string? code)
+    private static FoodResult Result(SearchHit hit,double calories,double? protein,double? fat,double? carbs,double? fiber,IReadOnlyList<FoodPortion> portions,string? code,string measure=Measures.Grams)
         =>new(FoodResults.Label(hit.Name,hit.Brand),calories,protein,fat,carbs,fiber,FatSecretProvider.Attribution,100,portions,code,
-            FoodResults.ServingCalories(calories,portions),"per100g",IsGeneric:hit.Generic);
+            FoodResults.ServingCalories(calories,portions),"per100g",measure,IsGeneric:hit.Generic);
 
-    private static double? GramAmount(JsonElement serving)
-        =>string.Equals(FoodResults.Text(serving,"metric_serving_unit"),"g",StringComparison.OrdinalIgnoreCase)?FoodResults.Number(serving,"metric_serving_amount"):null;
+    private static double? Amount(JsonElement serving,string measure)
+        =>Measures.FromProviderUnit(FoodResults.Text(serving,"metric_serving_unit"))==measure?FoodResults.Number(serving,"metric_serving_amount"):null;
 
-    [GeneratedRegex(@"^Per 100g - Calories: (?<kcal>[\d.]+)kcal(?: \| Fat: (?<fat>[\d.]+)g)?(?: \| Carbs: (?<carbs>[\d.]+)g)?(?: \| Protein: (?<protein>[\d.]+)g)?",RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^Per 100(?<unit>g|ml) - Calories: (?<kcal>[\d.]+)kcal(?: \| Fat: (?<fat>[\d.]+)g)?(?: \| Carbs: (?<carbs>[\d.]+)g)?(?: \| Protein: (?<protein>[\d.]+)g)?",RegexOptions.IgnoreCase)]
     private static partial Regex Summary();
 }

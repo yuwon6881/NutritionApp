@@ -37,3 +37,11 @@ describe('food verification',()=>{
     expect(applyVerifiedFoods(results,[row('Milk','9556404123223','unverified')])[0]).toBe(results[0]);
   });
 });
+
+describe('food verification measure',()=>{
+  it('takes the confirmed measure from the product read',()=>{
+    const unverified=row('Milk','9556404123223','unverified');
+    const verified={...row('Milk','9556404123223','per100g'),measure:'ml' as const};
+    expect(applyVerifiedFoods([unverified],[verified])[0].measure).toBe('ml');
+  });
+});

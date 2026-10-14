@@ -147,7 +147,7 @@ public sealed class FoodCatalog
         if(local is not null)
         {
             var portions=FoodResults.ParseStoredPortions(local.PortionsJson);
-            return new FoodResult(local.Name,local.Calories,local.Protein,local.Fat,local.Carbs,local.Fiber,local.Source,local.ServingGrams,portions,code,FoodResults.ServingCalories(local.Calories,portions),"per100g");
+            return new FoodResult(local.Name,local.Calories,local.Protein,local.Fat,local.Carbs,local.Fiber,local.Source,local.ServingGrams,portions,code,FoodResults.ServingCalories(local.Calories,portions),"per100g",local.Measure);
         }
         var key="barcode:"+code;
         if(cache.TryGetValue<FoodResult>(key,out var saved))return saved!;

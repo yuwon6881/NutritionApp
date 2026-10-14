@@ -97,3 +97,12 @@ it('restores saved portions and rejects invalid serving weights',()=>{
   expect(lineFromPer100({...food,portionsJson:'[{"label":"scoop","grams":30}]'}).calories).toBe(120);
   expect(lineFromPer100({...food,portions:[{label:'scoop',grams:0}]})).toMatchObject({quantity:100,unit:'g',calories:400});
 });
+
+it('carries a liquid food measure from the search result into the batch line and its entry',()=>{
+  const line=lineFromPer100({name:'Milk',calories:50,protein:3.4,fat:1.6,carbs:5,fiber:null,source:'Open Food Facts',measure:'ml',portions:[{label:'serving',grams:200}]});
+  expect(line.measure).toBe('ml');
+  expect(line.quantity).toBe(1);
+  const [entry]=basketEntries([line],{date:'2026-10-14',time:null});
+  expect(entry.measure).toBe('ml');
+  expect(lineFromPer100({name:'Oats',calories:389,protein:null,fat:null,carbs:null,fiber:null,source:'x'}).measure).toBeUndefined();
+});

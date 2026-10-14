@@ -1,3 +1,4 @@
+using Nutrition.Api.Domain;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -31,7 +32,7 @@ public static partial class OpenFoodFactsParser
             calories,N("proteins"),N("fat"),N("carbohydrates"),N("fiber"),
             code is null?Attribution:Attribution+" / "+code,
             100,portions,code,FoodResults.ServingCalories(calories,portions),
-            basis??(scanned is not null?"per100g":"unverified"));
+            basis??(scanned is not null?"per100g":"unverified"),ProductMeasure(product));
     }
 
     /// <summary>
@@ -54,7 +55,8 @@ public static partial class OpenFoodFactsParser
             Portions=hydrated.Portions,
             Code=hydrated.Code??searchResult.Code,
             ServingCalories=hydrated.ServingCalories,
-            Basis=hydrated.Basis
+            Basis=hydrated.Basis,
+            Measure=hydrated.Measure
         };
 
     /// <summary>
@@ -81,40 +83,58 @@ public static partial class OpenFoodFactsParser
     }
 
     /// <summary>
-    /// A declared serving becomes one portion. Servings measured in millilitres are left out: this
-    /// app weighs portions in grams, and only water-like liquids convert one to one. Free-text hits
-    /// can arrive without serving metadata; the search path hydrates those fields in bulk.
+    /// Open Food Facts publishes liquids per 100 ml under the same `_100g` keys. The product's own
+    /// unit fields decide the measure; when neither is present, an explicit gram or millilitre amount in
+    /// the serving or quantity text does. Nothing else (a category, a name) is used to guess a liquid.
+    /// </summary>
+    public static string ProductMeasure(JsonElement product)
+    {
+        foreach(var key in new[]{"product_quantity_unit","serving_quantity_unit"})
+            if(Measures.FromProviderUnit(FoodResults.Text(product,key)) is {} unit)return unit;
+        foreach(var key in new[]{"serving_size","quantity"})
+            if(FoodResults.Text(product,key) is {} text&&MetricAmount().Match(text) is {Success:true} match)
+                return Measures.FromProviderUnit(match.Groups["unit"].Value)!;
+        return Measures.Grams;
+    }
+
+    /// <summary>
+    /// A declared serving becomes one portion in the product's measure. A serving stated in the other
+    /// measure, or without a unit the label confirms, is left out: no density converts millilitres
+    /// to grams. Free-text hits can arrive without serving metadata; the search path hydrates those
+    /// fields in bulk.
     /// </summary>
     public static IReadOnlyList<FoodPortion> MapPortions(JsonElement product)
     {
-        if(!product.TryGetProperty("serving_quantity",out var quantity)||!FoodResults.TryNumber(quantity,out var grams))return [];
-        var unit=product.TryGetProperty("serving_quantity_unit",out var unitElement)&&unitElement.ValueKind==JsonValueKind.String
-            ? unitElement.GetString()?.Trim()
-            : null;
-        if(!string.IsNullOrEmpty(unit)&&!string.Equals(unit,"g",StringComparison.OrdinalIgnoreCase))return [];
+        if(!product.TryGetProperty("serving_quantity",out var quantity)||!FoodResults.TryNumber(quantity,out var amount))return [];
+        var measure=ProductMeasure(product);
         var label=FoodResults.Text(product,"serving_size");
-        if(string.IsNullOrEmpty(unit))
+        if(Measures.FromProviderUnit(FoodResults.Text(product,"serving_quantity_unit")) is {} unit)
         {
-            // Older records omit the normalized unit. Require an explicit gram weight
-            // in their label rather than interpreting a scoop or liquid as grams.
-            var match=GramLabel().Match(label??"");
-            if(!match.Success||!double.TryParse(match.Groups["grams"].Value.Replace(',','.'),NumberStyles.Float,CultureInfo.InvariantCulture,out var declared)||declared!=grams)return [];
+            if(unit!=measure)return [];
         }
-        // A label that is only a weight ("30.4g") says nothing the gram figure does not, so the
-        // portion is called a serving. A 100 g "serving" merely repeats the per-100 g basis and
-        // would make 100 g look like the product's declared serving.
+        else
+        {
+            // Older records omit the normalized unit. Require an explicit amount in the product's
+            // measure in their label rather than interpreting a scoop as grams or millilitres.
+            var match=MetricAmount().Match(label??"");
+            if(!match.Success||Measures.FromProviderUnit(match.Groups["unit"].Value)!=measure
+                ||!double.TryParse(match.Groups["amount"].Value.Replace(',','.'),NumberStyles.Float,CultureInfo.InvariantCulture,out var declared)||declared!=amount)return [];
+        }
+        // A label that is only an amount ("30.4g", "200 ml") says nothing the figure does not, so the
+        // portion is called a serving. A serving of exactly 100 merely repeats the per-100 basis and
+        // would make 100 look like the product's declared serving.
         var metricOnly=label is null||MetricOnlyLabel().IsMatch(label);
-        if(metricOnly&&Math.Abs(grams-100)<.001)return [];
-        return FoodResults.LimitPortions([new FoodPortion(metricOnly?"serving":label!,grams)]);
+        if(metricOnly&&Math.Abs(amount-100)<.001)return [];
+        return FoodResults.LimitPortions([new FoodPortion(metricOnly?"serving":label!,amount)]);
     }
 
-    [GeneratedRegex(@"^\s*\d+(?:[.,]\d+)?\s*g?\s*$",RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*\d+(?:[.,]\d+)?\s*(?:g|ml)?\s*$",RegexOptions.IgnoreCase)]
     private static partial Regex MetricOnlyLabel();
 
     private static double? Nutrient(JsonElement product,string key)=>
         product.TryGetProperty("nutriments",out var nutrients)&&nutrients.ValueKind==JsonValueKind.Object
         &&nutrients.TryGetProperty(key+"_100g",out var value)&&FoodResults.TryNumber(value,out var number)?number:null;
 
-    [GeneratedRegex(@"(?<grams>\d+(?:[.,]\d+)?)\s*g\b",RegexOptions.IgnoreCase)]
-    private static partial Regex GramLabel();
+    [GeneratedRegex(@"(?<amount>\d+(?:[.,]\d+)?)\s*(?<unit>g|ml)\b",RegexOptions.IgnoreCase)]
+    private static partial Regex MetricAmount();
 }

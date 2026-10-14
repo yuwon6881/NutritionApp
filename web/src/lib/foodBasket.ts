@@ -1,4 +1,4 @@
-import type {AiFood,Entry,Nutrients,Portion} from '../types';
+import type {AiFood,Entry,Measure,Nutrients,Portion} from '../types';
 import {rescaleNutrients} from './nutrients';
 import {parsePortions} from './portions';
 
@@ -8,6 +8,8 @@ export interface BasketLine extends Nutrients {
   unit:'g'|'serving';
   portionLabel:string|null;
   portionGrams:number|null;
+  /** What `quantity` and `portionGrams` are measured in; absent means grams. */
+  measure?:Measure;
   portions:Portion[];
 }
 
@@ -19,7 +21,7 @@ export function aiFoodLineKey(operationId:string,index:number):string{
   return `ai:${operationId}:${index}`;
 }
 
-export function lineFromPer100(item:Nutrients&{name:string;source:string;portions?:Portion[];portionsJson?:string}):BasketLine{
+export function lineFromPer100(item:Nutrients&{name:string;source:string;portions?:Portion[];portionsJson?:string;measure?:Measure}):BasketLine{
   const portions=parsePortions(item.portions?JSON.stringify(item.portions):item.portionsJson);
   const line:BasketLine={
     key:lineKey(item.name,item.source),
@@ -28,6 +30,7 @@ export function lineFromPer100(item:Nutrients&{name:string;source:string;portion
     unit:'g',
     portionLabel:null,
     portionGrams:null,
+    ...(item.measure==='ml'?{measure:'ml' as const}:{}),
     portions,
     calories:item.calories,
     protein:item.protein,

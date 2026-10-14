@@ -15,6 +15,7 @@ import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScanner';
 import {NativeBarcodeScanner} from './NativeBarcodeScanner';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {lineFromPer100} from '../lib/foodBasket';
+import {measureOf} from '../lib/portions';
 import './food-picker.css';
 
 type SearchResult = import('../types').FoodSearchResult;
@@ -22,17 +23,18 @@ type SearchResult = import('../types').FoodSearchResult;
 export function nutritionSummary(result:SearchResult,energyUnit:EnergyUnit='kcal'){
   // The search index can mislabel serving values as per 100 g; only product-confirmed values show.
   if(result.basis!=='per100g')return 'Nutrition loads when opened';
+  const measure=measureOf(result);
   const serving=result.portions?.[0];
   if(serving){
     const calories=result.servingCalories??result.calories*serving.grams/100;
     const trimmed=serving.label.trim();
-    // "1 Bottle (330 g)" already states its weight; repeating it would read "(330 g) (330 g)".
-    const label=/^\d+(?:[.,]\d+)?\s*g$/i.test(trimmed)
-      ?`${number(serving.grams,1)} g`
-      :/\d\s*g\b/i.test(trimmed)?trimmed:`${trimmed} (${number(serving.grams,1)} g)`;
+    // "1 Bottle (330 g)" already states its amount; repeating it would read "(330 g) (330 g)".
+    const label=/^\d+(?:[.,]\d+)?\s*(?:g|ml)$/i.test(trimmed)
+      ?`${number(serving.grams,1)} ${measure}`
+      :/\d\s*(?:g|ml)\b/i.test(trimmed)?trimmed:`${trimmed} (${number(serving.grams,1)} ${measure})`;
     return `${displayEnergy(calories,energyUnit)} ${energyLabel(energyUnit)} / ${label}`;
   }
-  return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 g`;
+  return `${displayEnergy(result.calories,energyUnit)} ${energyLabel(energyUnit)} / 100 ${measure}`;
 }
 
 export interface FoodPickerProps {

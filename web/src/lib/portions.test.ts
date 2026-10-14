@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {displayMass,displayPortion,parsePortions,resolveGrams,serializePortions,validatePortions} from './portions';
+import {displayMass,displayPortion,measureOf,parsePortions,resolveGrams,serializePortions,validatePortions} from './portions';
 
 it('tolerates malformed and hostile portion JSON without exposing invalid values',()=>{
   expect(parsePortions('{')).toEqual([]);
@@ -42,4 +42,15 @@ it('displays only the mass when one is known, and the serving otherwise',()=>{
   expect(displayMass({quantity:1,unit:'serving',portionLabel:'1 tart',portionGrams:52})).toBe('52 g');
   expect(displayMass({quantity:1.5,unit:'serving',portionLabel:'bowl',portionGrams:210})).toBe('315 g');
   expect(displayMass({quantity:1,unit:'serving',portionLabel:null,portionGrams:null})).toBe('1 serving');
+});
+
+it('shows liquid amounts in millilitres and legacy records in grams',()=>{
+  const ml={measure:'ml' as const,quantity:250,unit:'g' as const,portionLabel:null,portionGrams:null};
+  expect(displayPortion(ml)).toBe('250 ml');
+  expect(displayMass({...ml,unit:'serving',portionLabel:'glass',portionGrams:200,quantity:1.5})).toBe('300 ml');
+  expect(displayPortion({measure:'ml',quantity:2,unit:'serving',portionLabel:'200 ml carton',portionGrams:200})).toBe('400 ml carton · 400 ml');
+  expect(displayPortion({quantity:250,unit:'g',portionLabel:null,portionGrams:null})).toBe('250 g');
+  expect(measureOf({measure:'ml'})).toBe('ml');
+  expect(measureOf({})).toBe('g');
+  expect(measureOf(null)).toBe('g');
 });

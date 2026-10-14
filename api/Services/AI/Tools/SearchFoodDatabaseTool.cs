@@ -75,6 +75,8 @@ public sealed class SearchFoodDatabaseTool : IAiTool
             source = f.Source,
             basis = f.Basis,
             servingGrams = f.ServingGrams,
+            // "g" or "ml": the per-100 figures and servingGrams are in this measure.
+            measure = f.Measure,
             caloriesPer100g = f.Basis == "per100g" ? AiNutritionValues.Energy(f.Calories, context) : null,
             servingCalories = AiNutritionValues.Energy(f.ServingCalories, context),
             proteinPer100g = f.Protein.HasValue ? (double?)Math.Round(f.Protein.Value, 1) : null,
