@@ -93,6 +93,8 @@ progress::-moz-progress-bar{border-radius:999px}
   /* The narrowest phones keep every label whole at the readability floor (accessibility.css): a slimmer
      inset and a smaller centre slot give the side labels room. */
   @media(max-width:379px){.sidebar{left:4px;width:calc(100vw - 8px);padding:3px}.nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 58px minmax(0,1fr) minmax(0,1fr);gap:0}.sidebar nav .button.nav-center-add{width:56px;height:56px;min-height:56px}.sidebar nav .nav-mobile-items>.button{letter-spacing:-.03em}.sidebar nav .nav-mobile-items>.button>span{overflow:visible;text-overflow:clip}}
+  /* Below 360px the side labels need the room more than the Add button needs the size. */
+  @media(max-width:359px){.nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px minmax(0,1fr) minmax(0,1fr)}.sidebar nav .button.nav-center-add{width:48px;height:48px;min-height:48px}}
   .topbar{border-bottom-color:transparent}
 }
 @media(max-width:1023px){.topbar{border-bottom-color:transparent}}
