@@ -172,9 +172,23 @@ test('a stale stored Workout warning stays hidden until the live read answers',a
   await page.route('**/api/bootstrap',async route=>{
     const requestHeaders={...route.request().headers()};
     delete requestHeaders['if-none-match'];
-    const response=await route.fetch({headers:requestHeaders});
+    delete requestHeaders['If-None-Match'];
+    const response=await route.fetch({headers:{...requestHeaders,'cache-control':'no-cache'}});
     const state=await response.json();
-    await route.fulfill({response,json:{...state,displayName:refreshed?'Refreshed nutrition':state.displayName,workoutConnected:true,workoutWarning:'Workout training summaries are temporarily unavailable. Try again later.'}});
+    await route.fulfill({
+      status:200,
+      headers:{
+        ...response.headers(),
+        etag:refreshed?'"refreshed-etag"':'"initial-etag"',
+        'cache-control':'no-store',
+      },
+      json:{
+        ...state,
+        displayName:refreshed?'Refreshed nutrition':state.displayName,
+        workoutConnected:true,
+        workoutWarning:'Workout training summaries are temporarily unavailable. Try again later.',
+      },
+    });
   });
   let complete:()=>void=()=>{};
   const waiting=new Promise<void>(resolve=>{complete=resolve;});
@@ -183,7 +197,9 @@ test('a stale stored Workout warning stays hidden until the live read answers',a
     await route.fulfill({status:200,json:{summaries:[],workoutConnected:true,workoutWarning:null}});
   });
   try{
+    const initialBootstrap=page.waitForResponse(r=>r.url().includes('/api/bootstrap'));
     await seed(page);
+    await initialBootstrap;
     await expect(page.getByText('Loading workouts',{exact:true})).toBeVisible();
     await expect(page.getByText('Workout sync needs attention',{exact:true})).toHaveCount(0);
     await expect(page.getByText('No workouts',{exact:true})).toHaveCount(0);
@@ -193,7 +209,9 @@ test('a stale stored Workout warning stays hidden until the live read answers',a
     // Imported weights refresh bootstrap independently of the peer read. Its stored
     // outcome must not replace a newer successful live response.
     refreshed=true;
+    const refreshBootstrap=page.waitForResponse(r=>r.url().includes('/api/bootstrap'));
     await page.evaluate(()=>window.dispatchEvent(new Event('nutrition:imported-weights')));
+    await refreshBootstrap;
     await expect(page.locator('.account-name')).toHaveText('Refreshed nutrition');
     await expect(page.getByText('Workout sync needs attention',{exact:true})).toHaveCount(0);
   }finally{
