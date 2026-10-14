@@ -58,6 +58,35 @@ public sealed class FatSecretProviderTests
         =>new(new HttpClient(api),new FatSecretOptions{ClientId="client-"+Guid.NewGuid(),ClientSecret="secret",Barcode=barcode,DailyLimit=dailyLimit,Region=region});
 
     [Fact]
+    public async Task A_food_with_only_millilitre_servings_is_per_100_ml_with_millilitre_portions()
+    {
+        const string milk="""
+            {"food":{"food_id":"1","food_name":"Whole Milk","food_type":"Generic","servings":{"serving":[
+              {"serving_description":"1 cup","metric_serving_amount":"244.000","metric_serving_unit":"ml","calories":"149","protein":"7.69","fat":"7.93","carbohydrate":"11.7"},
+              {"serving_description":"100 ml","metric_serving_amount":"100.000","metric_serving_unit":"ml","calories":"61","protein":"3.15","fat":"3.25","carbohydrate":"4.8"}
+            ]}}}
+            """;
+        var hit=new FatSecretParser.SearchHit("1","Whole Milk",null,true,null);
+
+        var result=FatSecretParser.Detail(System.Text.Json.JsonDocument.Parse(milk).RootElement,hit)!;
+
+        Assert.Equal("ml",result.Measure);
+        Assert.Equal(61,result.Calories);
+        Assert.Equal([new FoodPortion("1 cup",244)],result.Portions);
+    }
+
+    [Fact]
+    public void A_per_100_ml_search_summary_is_a_millilitre_basis()
+    {
+        var hit=new FatSecretParser.SearchHit("1","Whole Milk",null,true,"Per 100ml - Calories: 61kcal | Fat: 3.25g | Carbs: 4.80g | Protein: 3.15g");
+
+        var result=FatSecretParser.FromDescription(hit)!;
+
+        Assert.Equal("ml",result.Measure);
+        Assert.Equal(61,result.Calories);
+    }
+
+    [Fact]
     public async Task Search_converts_gram_servings_to_per_100g_and_keeps_portions()
     {
         var results=await Provider(new Api(Catalogue)).Search("banana",null,default);
@@ -68,6 +97,7 @@ public sealed class FatSecretProviderTests
         Assert.Equal(89,banana.Calories);
         Assert.Equal(2.6,banana.Fiber);
         Assert.Equal("per100g",banana.Basis);
+        Assert.Equal("g",banana.Measure);
         Assert.Equal(FatSecretProvider.Attribution,banana.Source);
         Assert.Equal([new FoodPortion("1 medium",118)],banana.Portions);
 

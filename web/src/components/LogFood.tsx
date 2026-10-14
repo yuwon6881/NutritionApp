@@ -283,6 +283,7 @@ export function LogFood({
           portions:parsePortions(savedData.portionsJson),
           code:savedData.barcode??barcodeContext.code,
           basis:'per100g',
+          ...(savedData.measure==='ml'?{measure:'ml' as const}:{}),
         };
         if(barcodeContext.purpose==='recipe'){
           setSelectionPurpose('recipe');
@@ -311,6 +312,7 @@ export function LogFood({
         unit:data.unit,
         portionLabel:data.portionLabel,
         portionGrams:data.portionGrams,
+        ...(data.measure==='ml'?{measure:'ml' as const}:{}),
         portions:parsePortions(data.portionsJson),
       });
       go('batch');
@@ -470,7 +472,7 @@ export function LogFood({
       detailLookup.cancel();setSaveFood(false);setDraft({...blankNutrients,name:food.name,quantity:100,unit:'g',time:newTime()});go('editor');
     }:undefined}/>
     :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
-    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(editing)onClose();else leaveEditor();}} onDirtyChange={setStepDirty}/>
+    :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g or ml':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(editing)onClose();else leaveEditor();}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor
       store={store} draft={recipe.draft} onDraftChange={recipe.setDraft} selected={recipe.selected} quantity={recipe.quantity}
       onQuantityChange={recipe.setQuantity} onAddIngredient={recipe.addIngredient} onBeginIngredient={beginRecipeIngredient}

@@ -71,6 +71,7 @@ export function lineFromEntry(entry:Entry):BasketLine{
     unit:entry.unit,
     portionLabel:entry.portionLabel??null,
     portionGrams:entry.portionGrams??null,
+    ...(entry.measure==='ml'?{measure:'ml' as const}:{}),
     portions:entry.portionLabel&&entry.portionGrams!=null?[{label:entry.portionLabel,grams:entry.portionGrams}]:[],
   };
 }

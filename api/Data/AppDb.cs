@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Data;
 
@@ -44,6 +45,8 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<AppUser>().Property(x => x.MissingDayAction).HasDefaultValue("ask");
         m.Entity<AppUser>().Property(x => x.WeightGoalMetric).HasDefaultValue("scale");
         m.Entity<Food>().Property(x => x.PortionsJson).HasDefaultValue("[]");
+        m.Entity<Food>().Property(x => x.Measure).HasDefaultValue(Measures.Grams).HasMaxLength(2);
+        m.Entity<DiaryEntry>().Property(x => x.Measure).HasDefaultValue(Measures.Grams).HasMaxLength(2);
         m.Entity<Weight>().Property(x => x.Context).HasMaxLength(32);
         m.Entity<Weight>().Property(x => x.Source).HasMaxLength(16).HasDefaultValue(WeightSources.Manual);
         m.Entity<Weight>().Property(x => x.ExternalId).HasMaxLength(256);

@@ -1,10 +1,12 @@
 export type RecordBase={id:string;revision:number;deleted:boolean};
 export type Nutrients={name:string;calories:number;protein:number|null;fat:number|null;carbs:number|null;fiber:number|null;source:string};
+/** What a food's per-100 nutrients, servings and portions are measured in; liquids published per 100 ml use 'ml'. */
+export type Measure='g'|'ml';
 export type Portion={label:string;grams:number};
-export type FoodSearchResult=Nutrients&{servingGrams:number;servingCalories?:number|null;portions?:Portion[];code?:string|null;basis?:'per100g'|'unverified'};
-export type PortionBasis={quantity:number;unit:'g'|'serving';portionLabel:string|null;portionGrams:number|null};
-export type Entry=RecordBase&Nutrients&{date:string;time?:string|null;portionLabel?:string|null;portionGrams?:number|null;quantity:number;unit:'g'|'serving'};
-export type Food=RecordBase&Nutrients&{servingGrams:number;favourite:boolean;barcode?:string|null;ingredientsJson:string;portionsJson:string;cookedYieldGrams:number|null};
+export type FoodSearchResult=Nutrients&{servingGrams:number;servingCalories?:number|null;portions?:Portion[];code?:string|null;basis?:'per100g'|'unverified';measure?:Measure};
+export type PortionBasis={quantity:number;unit:'g'|'serving';portionLabel:string|null;portionGrams:number|null;measure?:Measure};
+export type Entry=RecordBase&Nutrients&{date:string;time?:string|null;portionLabel?:string|null;portionGrams?:number|null;quantity:number;unit:'g'|'serving';measure?:Measure};
+export type Food=RecordBase&Nutrients&{servingGrams:number;measure?:Measure;favourite:boolean;barcode?:string|null;ingredientsJson:string;portionsJson:string;cookedYieldGrams:number|null};
 export type WeightContextCode='high_sodium'|'high_carb'|'alcohol'|'poor_sleep'|'stress'|'hard_training'|'bloating'|'menstrual_cycle'|'digestion'|'dehydration'|'low_carb'|'illness'|'travel'|'other_temporary'|'genuine_change'|'unsure';
 // An imported weigh-in came from Google Health; any edit makes it the user's own (manual).
 export type WeightSource='manual'|'google_health';

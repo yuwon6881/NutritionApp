@@ -1,3 +1,5 @@
+using Nutrition.Api.Domain;
+
 namespace Nutrition.Api.Data;
 
 public class AppUser
@@ -97,10 +99,14 @@ public class DiaryEntry : NutrientRecord
     public string Unit { get; set; } = "serving";
     public string? PortionLabel { get; set; }
     public double? PortionGrams { get; set; }
+    /// What <see cref="Quantity"/> (unit "g") and <see cref="PortionGrams"/> are measured in: "g" or "ml".
+    public string Measure { get; set; } = Measures.Grams;
 }
 public class Food : NutrientRecord
 {
     public double ServingGrams { get; set; } = 100;
+    /// The measure the nutrients are per 100 of, and that serving and portion amounts are in: "g" or "ml".
+    public string Measure { get; set; } = Measures.Grams;
     public bool Favourite { get; set; }
     public string? Barcode { get; set; }
     public string IngredientsJson { get; set; } = "[]";

@@ -70,6 +70,7 @@ public sealed class GetFoodLogTool : IAiTool
             time = e.Time,
             quantity = e.Quantity,
             unit = e.Unit,
+            measure = e.Measure,
             portionLabel = e.PortionLabel,
             portionGrams = e.PortionGrams,
             calories = AiNutritionValues.Energy(e.Calories, context),

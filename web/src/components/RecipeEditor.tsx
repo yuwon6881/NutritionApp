@@ -8,6 +8,7 @@ import {Field,SelectField} from './ui/Field';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {number} from '../lib/format';
+import {measureOf} from '../lib/portions';
 
 export interface RecipeIngredient {
   food:FoodSearchResult;
@@ -43,6 +44,7 @@ function toIngredientFood(food:FoodSearchResult):FoodSearchResult {
     portions: food.portions ?? [],
     code: food.code ?? null,
     basis: food.basis,
+    ...(food.measure==='ml'?{measure:'ml' as const}:{}),
   };
 }
 
@@ -129,6 +131,8 @@ export function RecipeEditor({
     const calcCarbs=calc('carbs');
     const calcFat=calc('fat');
     const calcFiber=calc('fiber');
+    const unit=measureOf(selected);
+    const unitWord=unit==='ml'?'millilitres':'grams';
     return <div className="dialog-step recipe-quantity-step" aria-labelledby="recipe-quantity-title">
       <div className="section-heading">
         <div>
@@ -170,7 +174,7 @@ export function RecipeEditor({
               const portion=selected.portions?.find(item=>item.label===value);
               onQuantityChange({...quantity,selectedPortionLabel:value,grams:portion?Math.round(quantity.portionMultiplier*portion.grams*10)/10:quantity.grams});
             }}
-            options={[{value:'g',label:'Custom grams (g)'},...selected.portions.map(portion=>({value:portion.label,label:`${portion.label} (${portion.grams} g)`}))]}
+            options={[{value:'g',label:`Custom ${unitWord} (${unit})`},...selected.portions.map(portion=>({value:portion.label,label:`${portion.label} (${portion.grams} ${unit})`}))]}
           />
           {quantity.selectedPortionLabel!=='g'&&<Field
             id="recipe-portion-multiplier"
@@ -192,7 +196,7 @@ export function RecipeEditor({
           id="recipe-ingredient-grams"
           name="grams"
           required
-          label="Ingredient grams"
+          label={`Ingredient ${unitWord}`}
           type="number"
           min="0.1"
           max="100000"
@@ -234,7 +238,7 @@ export function RecipeEditor({
               </div>
               <div className="recipe-ingredient-actions">
                 <Field
-                  label={`Grams for ${item.food.name}`}
+                  label={`${measureOf(item.food)==='ml'?'Millilitres':'Grams'} for ${item.food.name}`}
                   type="number"
                   min="0.1"
                   max="100000"

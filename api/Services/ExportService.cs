@@ -139,11 +139,11 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
     private async Task<int> WriteEntries(ZipArchive archive, CancellationToken ct)
         => await WriteCsv(archive, "entries.csv", async writer =>
         {
-            await writer.WriteAsync(Csv.Line("id", "date", "time", "name", "quantity", "unit", "portion_label", "portion_grams", "calories", "protein_g", "fat_g", "carbs_g", "fiber_g", "source", "revision"));
+            await writer.WriteAsync(Csv.Line("id", "date", "time", "name", "quantity", "unit", "portion_label", "portion_grams", "measure", "calories", "protein_g", "fat_g", "carbs_g", "fiber_g", "source", "revision"));
             var count = 0;
             await foreach (var item in db.Entries.AsNoTracking().Where(entry => !entry.Deleted).OrderBy(entry => entry.Date).ThenBy(entry => entry.Time).ThenBy(entry => entry.Id).AsAsyncEnumerable().WithCancellation(ct))
             {
-                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Date), Csv.Field(item.Time), Csv.Field(item.Name), Csv.Field(item.Quantity), Csv.Field(item.Unit), Csv.Field(item.PortionLabel), Csv.Field(item.PortionGrams), Csv.Field(item.Calories), Csv.Field(item.Protein), Csv.Field(item.Fat), Csv.Field(item.Carbs), Csv.Field(item.Fiber), Csv.Field(item.Source), Csv.Field(item.Revision)));
+                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Date), Csv.Field(item.Time), Csv.Field(item.Name), Csv.Field(item.Quantity), Csv.Field(item.Unit), Csv.Field(item.PortionLabel), Csv.Field(item.PortionGrams), Csv.Field(item.Measure), Csv.Field(item.Calories), Csv.Field(item.Protein), Csv.Field(item.Fat), Csv.Field(item.Carbs), Csv.Field(item.Fiber), Csv.Field(item.Source), Csv.Field(item.Revision)));
                 count++;
             }
             return count;
@@ -178,11 +178,11 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
     private async Task<int> WriteFoods(ZipArchive archive, CancellationToken ct)
         => await WriteCsv(archive, "foods.csv", async writer =>
         {
-            await writer.WriteAsync(Csv.Line("id", "name", "calories", "protein_g", "fat_g", "carbs_g", "fiber_g", "serving_grams", "portions_json", "ingredients_json", "cooked_yield_grams", "favourite", "barcode", "source", "revision"));
+            await writer.WriteAsync(Csv.Line("id", "name", "calories", "protein_g", "fat_g", "carbs_g", "fiber_g", "serving_grams", "measure", "portions_json", "ingredients_json", "cooked_yield_grams", "favourite", "barcode", "source", "revision"));
             var count = 0;
             await foreach (var item in db.Foods.AsNoTracking().Where(food => !food.Deleted).OrderBy(food => food.Name).ThenBy(food => food.Id).AsAsyncEnumerable().WithCancellation(ct))
             {
-                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Name), Csv.Field(item.Calories), Csv.Field(item.Protein), Csv.Field(item.Fat), Csv.Field(item.Carbs), Csv.Field(item.Fiber), Csv.Field(item.ServingGrams), Csv.Field(item.PortionsJson), Csv.Field(item.IngredientsJson), Csv.Field(item.CookedYieldGrams), Csv.Field(item.Favourite), Csv.Field(item.Barcode), Csv.Field(item.Source), Csv.Field(item.Revision)));
+                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Name), Csv.Field(item.Calories), Csv.Field(item.Protein), Csv.Field(item.Fat), Csv.Field(item.Carbs), Csv.Field(item.Fiber), Csv.Field(item.ServingGrams), Csv.Field(item.Measure), Csv.Field(item.PortionsJson), Csv.Field(item.IngredientsJson), Csv.Field(item.CookedYieldGrams), Csv.Field(item.Favourite), Csv.Field(item.Barcode), Csv.Field(item.Source), Csv.Field(item.Revision)));
                 count++;
             }
             return count;

@@ -79,7 +79,12 @@ public sealed class PublicFoodCache(AppDb db)
 
     private static FoodResult? TryRead(string json)
     {
-        try { return Json.Read<FoodResult>(json); }
+        try
+        {
+            // Rows cached before results carried a measure cannot say whether a liquid is per 100 ml.
+            using var document=JsonDocument.Parse(json);
+            return document.RootElement.TryGetProperty("measure",out _)?Json.Read<FoodResult>(json):null;
+        }
         catch(JsonException) { return null; }
         catch(DomainException) { return null; }
     }

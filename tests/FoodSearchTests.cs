@@ -219,27 +219,70 @@ public sealed class FoodSearchTests
     }
 
     [Fact]
-    public void A_serving_measured_in_millilitres_yields_no_portion()
+    public void A_serving_measured_in_millilitres_is_a_millilitre_portion_of_a_millilitre_product()
     {
-        var product=Product("""{"serving_quantity":1000,"serving_quantity_unit":"ml","serving_size":"1l"}""");
+        var product=Product("""{"serving_quantity":200,"serving_quantity_unit":"ml","serving_size":"200 ml","product_quantity_unit":"ml","nutriments":{"energy-kcal_100g":50}}""");
 
-        Assert.Empty(OpenFoodFactsParser.MapPortions(product));
+        var result=OpenFoodFactsParser.ReadProduct(product,"8888026520014")!;
+
+        Assert.Equal("ml",result.Measure);
+        var portion=Assert.Single(result.Portions!);
+        Assert.Equal("serving",portion.Label);
+        Assert.Equal(200,portion.Grams);
+        Assert.Equal(100,result.ServingCalories);
+    }
+
+    [Theory]
+    [InlineData("""{"serving_quantity":200,"serving_quantity_unit":"g","serving_size":"200 g","product_quantity_unit":"ml"}""")]
+    [InlineData("""{"serving_quantity":200,"serving_quantity_unit":"ml","serving_size":"200 ml","product_quantity_unit":"g"}""")]
+    public void A_serving_in_the_other_measure_than_the_product_is_not_converted(string json)
+        => Assert.Empty(OpenFoodFactsParser.MapPortions(Product(json)));
+
+    [Theory]
+    [InlineData("""{"quantity":"1 L"}""","g")]
+    [InlineData("""{"quantity":"330 ml"}""","ml")]
+    [InlineData("""{"serving_size":"250 ml"}""","ml")]
+    [InlineData("""{"serving_size":"30 g","quantity":"400 ml"}""","g")]
+    [InlineData("""{"product_quantity_unit":"ml","serving_size":"30 g"}""","ml")]
+    [InlineData("""{"product_quantity_unit":"g","serving_size":"30 ml"}""","g")]
+    [InlineData("""{}""","g")]
+    public void The_measure_comes_from_unit_fields_then_explicit_amounts_and_otherwise_stays_grams(string json,string expected)
+        => Assert.Equal(expected,OpenFoodFactsParser.ProductMeasure(Product(json)));
+
+    [Fact]
+    public void Hydration_carries_the_confirmed_measure_to_the_search_row()
+    {
+        var search=OpenFoodFactsParser.ReadProduct(Product("""{"code":"9557305000309","product_name":"HL Low Fat Milk","nutriments":{"energy-kcal_100g":51}}"""),null)!;
+        var product=OpenFoodFactsParser.ReadProduct(Product("""{"code":"9557305000309","product_name":"HL Low Fat Milk","product_quantity_unit":"ml","nutriments":{"energy-kcal_100g":51}}"""),"9557305000309")!;
+
+        Assert.Equal("g",search.Measure);
+        Assert.Equal("ml",OpenFoodFactsParser.ApplyHydratedProduct(search,product).Measure);
     }
 
     [Fact]
-    public void A_serving_without_a_normalized_unit_requires_grams_in_its_label()
+    public void A_serving_without_a_normalized_unit_requires_an_amount_in_its_label()
     {
         var product=Product("""{"serving_quantity":30,"serving_size":"1 biscuit (30 g)"}""");
 
         Assert.Equal(30,Assert.Single(OpenFoodFactsParser.MapPortions(product)).Grams);
     }
 
+    [Fact]
+    public void A_millilitre_serving_without_a_normalized_unit_is_read_from_its_label()
+    {
+        var product=Product("""{"serving_quantity":250,"serving_size":"1 glass (250 ml)"}""");
+
+        var portion=Assert.Single(OpenFoodFactsParser.MapPortions(product));
+        Assert.Equal("1 glass (250 ml)",portion.Label);
+        Assert.Equal(250,portion.Grams);
+    }
+
     [Theory]
     [InlineData("1 scoop")]
-    [InlineData("30 ml")]
     [InlineData("")]
     [InlineData("15 g")]
-    public void An_ambiguous_or_conflicting_serving_weight_is_not_assumed_to_be_grams(string label)
+    [InlineData("15 ml")]
+    public void An_ambiguous_or_conflicting_serving_amount_is_not_assumed(string label)
     {
         var product=Product(JsonSerializer.Serialize(new {serving_quantity=30,serving_size=label}));
         Assert.Empty(OpenFoodFactsParser.MapPortions(product));

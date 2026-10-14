@@ -1,13 +1,13 @@
 import {Form} from './ui/Form';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {Trash2,Plus,ArrowLeft} from 'lucide-react';
-import type {EnergyUnit,Entry,Food,Nutrients} from '../types';
+import type {EnergyUnit,Entry,Food,Measure,Nutrients} from '../types';
 import {blankNutrients} from '../types';
 import {Button} from './ui/Button';
 import {Field,SelectField,TimePicker} from './ui/Field';
 
 import {nutrientRescaleWarning,rescaleNutrients} from '../lib/nutrients';
-import {parsePortions,serializePortions,validatePortions} from '../lib/portions';
+import {measureOf,parsePortions,serializePortions,validatePortions} from '../lib/portions';
 import {energyLabel,inputAmount,inputEnergy,parseEnergy} from '../lib/units';
 import {number} from '../lib/format';
 import {useAsyncAction} from './ui/useAsyncAction';
@@ -21,6 +21,8 @@ export type FoodDraft=Nutrients&{
   portionGrams:number|null;
   portionsJson:string;
   barcode?:string|null;
+  /** What the per-100 nutrients and portion amounts are measured in. */
+  measure?:Measure;
 };
 
 type FoodEditorInitial=Partial<Entry&Food>&{portionsJson?:string;portions?:{label:string;grams:number}[]};
@@ -43,6 +45,7 @@ function makeDraft(initial?:FoodEditorInitial):FoodDraft{
     portionGrams:initial?.portionGrams??null,
     portionsJson:serializePortions(portions),
     barcode:initial?.barcode??null,
+    measure:measureOf(initial),
   };
 }
 
@@ -106,15 +109,17 @@ export function FoodEditor({
   };
 
   const portions=parsePortions(draft.portionsJson);
+  const measure=measureOf(draft);
+  const amountNoun=measure==='ml'?'volume':'weight';
   const isProviderFood = !title.startsWith('Edit batch') && !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add' && (draft.source !== 'AI label estimate' || Boolean((draft as {key?: string}).key));
   const unitChoice=draft.unit==='g'?'g':draft.portionLabel?`portion:${draft.portionLabel}`:'serving';
   const unitOptions=[
-    {value:'g',label:'Grams'},
-    ...portions.map(portion=>({value:`portion:${portion.label}`,label:`${portion.label} · ${portion.grams} g`})),
+    {value:'g',label:measure==='ml'?'Millilitres':'Grams'},
+    ...portions.map(portion=>({value:`portion:${portion.label}`,label:`${portion.label} · ${portion.grams} ${measure}`})),
     ...(draft.portionLabel&&!portions.some(portion=>portion.label.toLocaleLowerCase()===draft.portionLabel!.toLocaleLowerCase())
-      ?[{value:`portion:${draft.portionLabel}`,label:`${draft.portionLabel}${draft.portionGrams==null?'':` · ${draft.portionGrams} g`}`}]
+      ?[{value:`portion:${draft.portionLabel}`,label:`${draft.portionLabel}${draft.portionGrams==null?'':` · ${draft.portionGrams} ${measure}`}`}]
       :[]),
-    // A provider food's nutrients are per 100 g, so a serving without a weight cannot be
+    // A provider food's nutrients are per 100 g (or ml), so a serving without an amount cannot be
     // scaled from them; it is offered only for hand-entered food or when already chosen.
     ...(!isProviderFood||unitChoice==='serving'?[{value:'serving',label:'Serving (weight unknown)'}]:[]),
   ];
@@ -208,6 +213,7 @@ export function FoodEditor({
                 if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
               }
             }} options={unitOptions}/>
+            {title.startsWith('Save food')&&<SelectField id="food-measure" name="measure" className="form-grid-span-all" label="Measured in" value={measure} onChange={value=>set('measure',value==='ml'?'ml':'g')} options={[{value:'g',label:'Grams (g)'},{value:'ml',label:'Millilitres (ml)'}]} hint="Match the food's label: drinks are usually per 100 ml."/>}
             <Field id="food-calories" name="calories" label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={inputEnergy(draft.calories,energyUnit,0)} onChange={event=>{const parsed=parseEnergy(event.target.value,energyUnit);set('calories',Number.isFinite(parsed)?parsed:0);}}/>
             {(['protein','carbs','fat','fiber'] as const).map(key=><Field id={`food-${key}`} name={key} key={key} className={key==='fiber'?'form-grid-span-all':undefined} label={`${key[0].toUpperCase()+key.slice(1)} (g)`} type="number" min="0" max="3000" step="any" value={inputAmount(draft[key])} placeholder="Unknown" onChange={event=>set(key,event.target.value===''?null:Number(event.target.value))}/>)}
           </div>
@@ -216,7 +222,7 @@ export function FoodEditor({
       {labelNote&&<p className="notice" role="status">{labelNote}</p>}
       {!isProviderFood && draft.unit==='serving'&&<div className="form-grid">
         <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
-        <Field id="food-portion-grams" name="portionGrams" label="Portion weight (g)" type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
+        <Field id="food-portion-grams" name="portionGrams" label={`Portion ${amountNoun} (${measure})`} type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
       </div>}
       {title.startsWith('Save food')&&<Field
         id="food-barcode"
@@ -230,10 +236,10 @@ export function FoodEditor({
         hint="Link this saved food to a packaged product for faster scans."
       />}
       {isProviderFood&&portions.length===0&&<fieldset className="portion-definitions">
-        <legend>Serving weight</legend>
+        <legend>Serving {amountNoun}</legend>
         <div className="form-grid">
           <Field id="review-serving-label" name="servingLabel" label="Serving label" maxLength={24} value={customServing.label} onChange={event=>setCustomServing(current=>({...current,label:event.target.value}))}/>
-          <Field id="review-serving-grams" name="servingGrams" label="Serving weight (g)" type="number" min="0.1" max="10000" step="any" value={customServing.grams} onChange={event=>setCustomServing(current=>({...current,grams:event.target.value}))}/>
+          <Field id="review-serving-grams" name="servingGrams" label={`Serving ${amountNoun} (${measure})`} type="number" min="0.1" max="10000" step="any" value={customServing.grams} onChange={event=>setCustomServing(current=>({...current,grams:event.target.value}))}/>
         </div>
         <Button type="button" disabled={!customServing.label.trim()||!Number.isFinite(Number(customServing.grams))||Number(customServing.grams)<0.1||Number(customServing.grams)>10000} onClick={()=>{
           const portion={label:customServing.label.trim(),grams:Number(customServing.grams)};
@@ -245,10 +251,10 @@ export function FoodEditor({
       {basisWarning&&<p className="notice" role="status">{basisWarning}</p>}
       {!isProviderFood && showPortionDefinitions&&<fieldset className="portion-definitions">
         <legend>Saved portion definitions</legend>
-        <p className="source">Optional household portions for this food. Nutrients remain per 100 g.</p>
+        <p className="source">Optional household portions for this food. Nutrients remain per 100 {measure}.</p>
         {portionDrafts.map((portion,index)=><div className="portion-definition-row" key={index}>
           <Field id={`food-portion-definition-${index}-label`} name={`portion_${index}_label`} label="Label" maxLength={24} value={portion.label} onChange={event=>syncPortionDrafts(portionDrafts.map((item,itemIndex)=>itemIndex===index?{...item,label:event.target.value}:item))}/>
-          <Field id={`food-portion-definition-${index}-grams`} name={`portion_${index}_grams`} label="Weight (g)" type="number" min="0.1" max="10000" step="any" value={portion.grams} onChange={event=>syncPortionDrafts(portionDrafts.map((item,itemIndex)=>itemIndex===index?{...item,grams:event.target.value}:item))}/>
+          <Field id={`food-portion-definition-${index}-grams`} name={`portion_${index}_grams`} label={`${amountNoun[0].toUpperCase()+amountNoun.slice(1)} (${measure})`} type="number" min="0.1" max="10000" step="any" value={portion.grams} onChange={event=>syncPortionDrafts(portionDrafts.map((item,itemIndex)=>itemIndex===index?{...item,grams:event.target.value}:item))}/>
           <Button type="button" variant="tertiary" aria-label={`Remove portion ${portion.label||index+1}`} onClick={()=>syncPortionDrafts(portionDrafts.filter((_,itemIndex)=>itemIndex!==index))}><Trash2 size={16}/></Button>
         </div>)}
         <Button type="button" variant="secondary" onClick={()=>setPortionDrafts(current=>[...current,{label:'',grams:''}])}><Plus size={16}/>Add portion</Button>

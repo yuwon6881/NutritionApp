@@ -44,6 +44,7 @@ export function applyVerifiedFoods(results:readonly FoodSearchResult[],verified:
       portions:product.portions,
       servingCalories:product.servingCalories,
       basis:'per100g',
+      measure:product.measure,
     };
   });
 }

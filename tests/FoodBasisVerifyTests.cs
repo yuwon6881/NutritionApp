@@ -88,6 +88,24 @@ public sealed class FoodBasisVerifyTests : IAsyncLifetime
         Assert.Equal(0,handler.Calls);
     }
 
+    [Fact]
+    public async Task A_cached_row_saved_before_results_had_a_measure_is_refetched_not_read_as_grams()
+    {
+        await using var db=Db();
+        var cache=new PublicFoodCache(db);
+        var stored=Branded("HL Milk","8888026520014",50) with {Basis="per100g",Measure="ml"};
+        await cache.Store(OpenFoodFactsProvider.ProviderId,[stored],DateTime.UtcNow.AddDays(1),default);
+
+        Assert.Equal("ml",Assert.Single(await cache.Read(OpenFoodFactsProvider.ProviderId,["8888026520014"],default)).Value.Measure);
+
+        var row=await db.PublicFoodProducts.SingleAsync();
+        row.ResultJson=row.ResultJson.Replace(",\"measure\":\"ml\"","",StringComparison.Ordinal);
+        Assert.DoesNotContain("measure",row.ResultJson,StringComparison.Ordinal);
+        await db.SaveChangesAsync();
+
+        Assert.Empty(await cache.Read(OpenFoodFactsProvider.ProviderId,["8888026520014"],default));
+    }
+
     private sealed class VerifyingProvider(string id):IFoodProvider,IFoodBasisVerifier
     {
         public string Id=>id;
