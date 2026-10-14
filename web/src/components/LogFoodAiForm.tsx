@@ -252,7 +252,7 @@ export function LogFoodAiForm({
                 onClick={triggerGallery}
               >
                 <Images size={18} aria-hidden="true" />
-                <span>{photo ? 'Upload another' : 'Upload photo'}</span>
+                <span>{photo ? 'Change photo' : 'Upload photo'}</span>
               </Button>
             </div>
           </div>

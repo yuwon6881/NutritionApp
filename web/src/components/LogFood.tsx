@@ -464,7 +464,7 @@ export function LogFood({
   </div>;
 
   const child=step==='batch'
-    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{if(tab==='ai'){go('selection');}else{selectTab('search');go('selection');}}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime} onScanAnother={tab==='barcode'?()=>{selectTab('barcode');go('selection');setCamera(true);}:undefined}/>
+    ?<FoodBasket basket={basket} store={store} date={date} onBack={()=>{selectTab('search');go('selection');}} onSaved={onSaved} initialTime={batchTime} onTimeChange={setBatchTime} onScanAnother={tab==='barcode'?()=>{selectTab('barcode');go('selection');setCamera(true);}:undefined}/>
     :step==='detail'&&detailLookup.detail?<FoodDetailReview detail={detailLookup.detail} onBack={leaveDetail} onRetry={()=>void detailLookup.load(detailLookup.detail!.food)} onManual={selectionPurpose==='log'?()=>{
       const food=detailLookup.detail!.food;
       detailLookup.cancel();setSaveFood(false);setDraft({...blankNutrients,name:food.name,quantity:100,unit:'g',time:newTime()});go('editor');
