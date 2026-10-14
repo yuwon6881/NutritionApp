@@ -26,8 +26,11 @@ export const weightContextRules:readonly WeightContextRule[]=[
 
 export const weightContextOptions:{value:WeightContextCode;label:string}[]=weightContextRules.map(rule=>({value:rule.code,label:rule.label}));
 
-/** A spike offers retention causes and a drop offers depletion causes; neutral answers are always available. */
-export function weightContextOptionsFor(direction:'up'|'down'){
+/**
+ * A spike offers retention causes and a drop offers depletion causes; neutral answers are always available and
+ * are all that an ambiguous movement ('either') offers.
+ */
+export function weightContextOptionsFor(direction:'up'|'down'|'either'){
   return weightContextRules.filter(rule=>rule.direction==='either'||rule.direction===direction).map(rule=>({value:rule.code,label:rule.label}));
 }
 
@@ -41,9 +44,21 @@ export interface UnusualWeightDifference {
   expectedKg:number;
   differenceKg:number;
   thresholdKg:number;
+  /** Which side of the expected value the entry falls on. */
   direction:'up'|'down';
+  /** The most recent earlier weigh-in the entry is compared with by eye. */
+  latestKg:number;
+  /**
+   * Which causes make sense. A steady cut carries the expected value below the last reading, so a value that is
+   * lower than the last weigh-in can still sit above the expected one. Offering retention causes for what looks
+   * like a drop (or depletion causes for a rise) is confusing, so a disagreement between the two comparisons
+   * offers neutral causes only.
+   */
+  contextDirection:'up'|'down'|'either';
 }
 
+/** A change this small against the last reading is the same weight, not a direction. */
+const MOVEMENT_EPSILON_KG=.05;
 const dayNumber=(date:string)=>Date.parse(`${date}T00:00:00Z`)/86400000;
 
 export function median(values:readonly number[]){
@@ -92,7 +107,12 @@ export function unusualWeightDifference(
   const signed=enteredKg-expectedKg;
   const differenceKg=Math.abs(signed);
   const thresholdKg=Math.max(1,expectedKg*.015);
-  return differenceKg>thresholdKg?{medianKg,expectedKg,differenceKg,thresholdKg,direction:signed>0?'up':'down'}:null;
+  if(differenceKg<=thresholdKg)return null;
+  const direction=signed>0?'up':'down';
+  const latestKg=earlier.reduce((latest,point)=>point.day>=latest.day?point:latest).kg;
+  const movement=enteredKg-latestKg;
+  const contextDirection=Math.abs(movement)<MOVEMENT_EPSILON_KG||(movement>0)!==(direction==='up')?'either':direction;
+  return {medianKg,expectedKg,differenceKg,thresholdKg,direction,latestKg,contextDirection};
 }
 
 export function weightContextLabel(context:WeightContextCode|undefined|null){

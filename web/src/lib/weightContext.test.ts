@@ -64,6 +64,37 @@ describe('unusual weigh-in detection',()=>{
   });
 });
 
+describe('ambiguous movement',()=>{
+  const date=(index:number)=>new Date(Date.UTC(2026,7,28)+index*86400000).toISOString().slice(0,10);
+  const cut=weights(Array.from({length:14},(_,index):[string,number]=>[date(index),82.8-.2*index]));
+
+  it('offers neutral causes only when the entry is below the last weigh-in but above the trend',()=>{
+    // A clear drop: lower than the last reading (80.2 kg) and the expected value (80 kg).
+    const lowerThanTrend=unusualWeightDifference('78.5','kg','2026-09-11',cut);
+    expect(lowerThanTrend?.direction).toBe('down');
+    expect(lowerThanTrend?.contextDirection).toBe('down');
+
+    // Back after a week off a steady cut: the trend expects 78.8 kg, so 80 kg is above it, yet it is lower
+    // than the last reading (80.2 kg). That is neither clearly a spike nor a drop.
+    const result=unusualWeightDifference('80','kg',date(20),cut);
+    expect(result?.direction).toBe('up');
+    expect(result?.latestKg).toBeCloseTo(80.2,6);
+    expect(result?.contextDirection).toBe('either');
+  });
+
+  it('keeps a spike above the last reading a spike',()=>{
+    const result=unusualWeightDifference('81.4','kg','2026-09-11',cut);
+    expect(result?.contextDirection).toBe('up');
+  });
+
+  it('never offers retention or depletion causes for an ambiguous movement',()=>{
+    const neutral=weightContextOptionsFor('either').map(option=>option.value);
+    expect(neutral).toContain('illness');
+    expect(neutral).toContain('genuine_change');
+    for(const code of ['bloating','high_sodium','dehydration','low_carb'] as const)expect(neutral).not.toContain(code);
+  });
+});
+
 describe('direction-aware context options',()=>{
   it('offers retention causes for a spike and depletion causes for a drop',()=>{
     const spike=weightContextOptionsFor('up').map(option=>option.value);

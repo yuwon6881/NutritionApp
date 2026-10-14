@@ -74,3 +74,20 @@ Rules: write a regression test first for every behaviour change (`tests/`), bump
 ## Work split
 
 The 06:00 companion session worked on `BODY_FAT_AI_PLAN.md`, so this session implemented both the server and client halves.
+
+
+## Formula audit — 2026-10-14
+
+Source and unit-test review plus web references; the .NET suite and browser tests were not run in this review environment.
+
+| Area | Result |
+| --- | --- |
+| Resting energy (`Coach.Resting`) | Mifflin–St Jeor coefficients are correct (10·kg + 6.25·cm − 5·age, +5 male / −161 female). A systematic review found it the most reliable common equation (within 10% of measured for about 82% of non-obese and 70% of obese adults), with real individual error; hence the "starting estimate" wording and the adaptive correction. |
+| 7,700 kcal/kg (`Expenditure`, `Coach`, `ExpenditureTrajectory`) | A blended constant. Hall et al. (Lancet 2011) give about 9,440 kcal/kg for fat and about 1,820 kcal/kg for lean mass, so the true value depends on composition and falls at the start of a deficit or in a bulk. Used consistently for observed expenditure and for rate-based targets. Kept: the 28-day window, intake-step detection and settle period bound the error. A composition-aware density remains unimplemented. |
+| Glycogen and water | About 3 g water per g glycogen is the commonly cited ratio, so a carbohydrate change can move 1–2 kg in days (consumer-level sources; no primary study checked). The 3–7 day settle windows and the 15% / 250 kcal `IntakeStep` are the right order of magnitude. |
+| Outlier filter, slope, trend | Hampel filter (3 × 1.4826·MAD with a 0.3 kg floor), weighted Theil–Sen and the 7-day half-life EWMA (about 9.4% per day) are standard robust choices and match the shared fixture. MacroFactor documents trend smoothing and manual deletion rather than a published outlier rule, so there is no external benchmark for the thresholds. |
+| Context effect on calories | A context never adds or subtracts calories. It only excludes the marked day and down-weights the following settle days in the slope, so it changes the estimate only through those weights; the 30% cap and the three-weigh-in confirmation stop labels from hiding a real change. |
+| Unusual-weigh-in prompt | The prompt direction was measured against a trend-carried expected value. After a gap on a steady cut the expected value sits below the last reading, so an entry lower than the last weigh-in could be labelled "up" and offer retention causes such as bloating. The cause list now follows the movement from the last weigh-in too; when the two disagree only neutral causes are offered and the copy shows the last weigh-in (`contextDirection` in `web/src/lib/weightContext.ts`). The server stores any valid code and does not check direction. |
+| Remaining | Prompt threshold (max(1 kg, 1.5%)) and filter floor (0.9 kg) differ by design but are not documented together; composition-aware energy density; multi-select contexts. |
+
+Sources: Hall et al., Lancet 2011 (PMC3880593); Frankenfield et al. systematic review of resting-energy equations (PubMed 15883556); MacroFactor help centre (weight trend).

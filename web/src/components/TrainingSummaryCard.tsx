@@ -172,9 +172,9 @@ export function TrainingSummaryCard({
             </div>
             <div className="training-summary-metrics">
               {item.workingSetCount>0&&<span>{item.workingSetCount} {item.workingSetCount===1?'set':'sets'}</span>}
-              {item.externalVolumeKg!=null&&<span>{displayWeight(item.externalVolumeKg,unit,0)} {weightLabel(unit)} external volume</span>}
-              {item.systemVolumeKg!=null&&<span>{displayWeight(item.systemVolumeKg,unit,0)} {weightLabel(unit)} system volume</span>}
-              {item.averageRpe!=null&&<span>Avg RPE {item.averageRpe.toFixed(1)}</span>}
+              {item.externalVolumeKg!=null&&<span title="External volume">{displayWeight(item.externalVolumeKg,unit,0)} {weightLabel(unit)} volume</span>}
+              {item.systemVolumeKg!=null&&<span title="System volume (including body weight)">{displayWeight(item.systemVolumeKg,unit,0)} {weightLabel(unit)} system</span>}
+              {item.averageRpe!=null&&<span title="Average RPE">RPE {item.averageRpe.toFixed(1)}</span>}
             </div>
           </div>;
         })}

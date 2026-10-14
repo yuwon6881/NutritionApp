@@ -92,6 +92,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
         <h3 id="weight-context-heading">This differs from your recent weigh-ins</h3>
         <p className="weight-context-evidence">
           {unusual.direction==='up'?'Up':'Down'} {displayWeight(unusual.differenceKg,units.weight,1)} {weightLabel(units.weight)} from the expected {displayWeight(unusual.expectedKg,units.weight,1)} {weightLabel(units.weight)}.
+          {unusual.contextDirection==='either'&&<> Your last weigh-in was {displayWeight(unusual.latestKg,units.weight,1)} {weightLabel(units.weight)}, so this is not clearly a rise or a drop.</>}
           {intake&&<> Your last {intake.days} logged days averaged {displayEnergy(intake.averageKcal,units.energy)} {energyLabel(units.energy)}{target?<> against a {displayEnergy(target,units.energy)} {energyLabel(units.energy)} target</>:null}.</>}
         </p>
         <p>A temporary factor keeps this scale value in history but leaves it out of calorie-estimation trends, and the next few days count less while water settles. If later weigh-ins stay at this level, it counts again. A reason never adds or subtracts calories directly.</p>
@@ -100,7 +101,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
           label="Possible temporary context"
           value={values.context}
           placeholder="Choose an optional context"
-          options={[{value:'',label:'No context'},...weightContextOptionsFor(unusual.direction)]}
+          options={[{value:'',label:'No context'},...weightContextOptionsFor(unusual.contextDirection)]}
           onChange={context=>setValues(previous=>({...previous,context:context as typeof previous.context}))}
         />
       </section>}

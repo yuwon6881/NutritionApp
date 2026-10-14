@@ -83,16 +83,16 @@ progress::-moz-progress-bar{border-radius:999px}
 @media(max-width:639px){
   .sidebar{left:12px;right:auto;bottom:calc(10px + env(safe-area-inset-bottom));width:calc(100vw - 24px);max-width:none;padding:6px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);border-radius:30px;background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 18px 40px -14px rgba(38,28,92,.35)}
   :root[data-theme=dark] .sidebar{background:color-mix(in srgb,var(--card) 86%,transparent);box-shadow:0 18px 40px -10px rgba(0,0,0,.85)}
-  .nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 64px minmax(0,1fr) minmax(0,1fr);gap:2px}
+  .nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 72px minmax(0,1fr) minmax(0,1fr);gap:2px}
   .sidebar nav .button{min-height:56px;padding-inline:0;border-radius:24px;font-size:.66rem;font-weight:600;letter-spacing:-.01em;color:var(--muted-foreground)}
   .nav-mobile-items .selection-indicator-marker{border-radius:24px;background:var(--primary-tint);box-shadow:none}
   .nav-mobile-items>[data-selection-key].nav-active{color:var(--primary-ink);font-weight:720}
-  .sidebar nav .button.nav-center-add{width:56px;height:56px;min-height:56px;border-radius:999px;padding:0;gap:0;font-weight:700;color:var(--on-primary);box-shadow:var(--shadow-raised)}
-  .sidebar nav .button.nav-center-add .nav-icon{width:22px;height:22px}
+  .sidebar nav .button.nav-center-add{width:64px;height:64px;min-height:64px;border-radius:999px;padding:0;gap:0;font-weight:700;color:var(--on-primary);box-shadow:var(--shadow-raised)}
+  .sidebar nav .button.nav-center-add .nav-icon{width:26px;height:26px}
   .main-content{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
   /* The narrowest phones keep every label whole at the readability floor (accessibility.css): a slimmer
      inset and a smaller centre slot give the side labels room. */
-  @media(max-width:379px){.sidebar{left:4px;width:calc(100vw - 8px);padding:3px}.nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px minmax(0,1fr) minmax(0,1fr);gap:0}.sidebar nav .button.nav-center-add{width:48px;height:48px;min-height:48px}.sidebar nav .nav-mobile-items>.button{letter-spacing:-.03em}.sidebar nav .nav-mobile-items>.button>span{overflow:visible;text-overflow:clip}}
+  @media(max-width:379px){.sidebar{left:4px;width:calc(100vw - 8px);padding:3px}.nav-mobile-items{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 58px minmax(0,1fr) minmax(0,1fr);gap:0}.sidebar nav .button.nav-center-add{width:56px;height:56px;min-height:56px}.sidebar nav .nav-mobile-items>.button{letter-spacing:-.03em}.sidebar nav .nav-mobile-items>.button>span{overflow:visible;text-overflow:clip}}
   .topbar{border-bottom-color:transparent}
 }
 @media(max-width:1023px){.topbar{border-bottom-color:transparent}}

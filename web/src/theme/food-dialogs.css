@@ -34,8 +34,9 @@
 }
 
 .action-sheet-options {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  /* Rows share the tallest option's height so a shorter description never shrinks its row. */
+  grid-auto-rows: 1fr;
   gap: 12px;
 }
 .action-sheet-item {
