@@ -25,6 +25,7 @@ async function openSettings(page:Page){
   await ensureAcceptedPlan(page.request);
   await page.reload();
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();
+  await expect(page.locator('#settings-weight-unit-lb')).toBeVisible();
 }
 
 test('rapid offline preferences survive reload and sync without overwriting each other',async({page,context})=>{
@@ -38,6 +39,7 @@ test('rapid offline preferences survive reload and sync without overwriting each
   expect(reset.ok(),await reset.text()).toBeTruthy();
   await page.reload();
   await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await expect(page.locator('#settings-weight-unit-lb')).toBeVisible();
   await context.setOffline(true);
   // All handlers see the same render, while IndexedDB commits serialize afterwards.
   await page.evaluate(()=>{

@@ -2,6 +2,7 @@ import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn as signInPage} from './signIn';
 import {longDate} from '../src/lib/format';
+import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 const headers={'Origin':(process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088'),'X-Nutrition-Request':'1'};
 async function getMockAuthorization(request:APIRequestContext,url:string){
   for(let attempt=0;;attempt++){
@@ -478,7 +479,9 @@ test('mobile scan shortcut supports food photos and label autofill before review
   await signIn(context.request);
   const state=await (await context.request.get('/api/state')).json();
   if(!state.profile)await context.request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:state.id,kind:'profile',expectedRevision:state.profileRevision,data:{age:30,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'maintain'}}});
+  await ensureAcceptedPlan(context.request);
   await page.setViewportSize({width:390,height:900});await page.goto('/');
+  await resolveMissingDays(page);
   await page.getByRole('button',{name:'Add entry',exact:true}).click();
   await page.getByRole('button',{name:'Scan food or label',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Log food',exact:true})).toBeVisible();
@@ -512,13 +515,17 @@ test('mobile scan shortcut supports food photos and label autofill before review
       await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');
       await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
       await page.getByRole('button',{name:'Save changes',exact:true}).click();
+      await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
       const boxAfter=(await surface.boundingBox())!;
       await page.mouse.move(boxAfter.x+boxAfter.width*.8,boxAfter.y+boxAfter.height/2);
       await page.mouse.down();
       await page.mouse.move(boxAfter.x+boxAfter.width*.2,boxAfter.y+boxAfter.height/2,{steps:6});
       await page.mouse.up();
       await row.locator('.batch-food-actions').getByRole('button',{name:'Remove '+foodName,exact:true}).click();
+      await expect(row).toHaveCount(0);
       await page.getByRole('button',{name:'Add more food'}).click();
+      await page.getByRole('button',{name:'AI logging',exact:true}).click();
+      await expect(page.getByRole('heading',{name:'AI logging',exact:true})).toBeVisible();
     }else{
       await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('120');
       await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
