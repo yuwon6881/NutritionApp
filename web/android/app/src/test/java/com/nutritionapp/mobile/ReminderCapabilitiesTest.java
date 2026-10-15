@@ -15,6 +15,33 @@ import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 33)
 public class ReminderCapabilitiesTest {
+    @Test @Config(sdk = 24)
+    public void legacyAndroidReportsAppPermissionWithoutChannels() throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        var capabilities = ReminderCapabilities.read(context);
+        assertTrue(capabilities.getBoolean("appPermission"));
+        assertTrue(capabilities.getBoolean("channelExists"));
+        assertFalse(capabilities.getBoolean("channelDisabled"));
+        assertEquals(-1, capabilities.getInt("channelImportance"));
+        assertTrue(capabilities.getBoolean("soundConfigured"));
+        assertFalse(capabilities.getBoolean("channelSettingsAvailable"));
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ReminderCapabilities.settings(context, true).getAction());
+        Shadows.shadowOf(manager).setNotificationsEnabled(false);
+        assertFalse(ReminderCapabilities.read(context).getBoolean("appPermission"));
+    }
+
+    @Test @Config(sdk = 26)
+    public void firstChannelApiReportsImportanceAndDisabledState() throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        String id = context.getString(R.string.nutrition_push_channel_id);
+        assertEquals(-1, ReminderCapabilities.read(context).getInt("channelImportance"));
+        manager.createNotificationChannel(new NotificationChannel(id, "Reminders", NotificationManager.IMPORTANCE_NONE));
+        assertTrue(ReminderCapabilities.read(context).getBoolean("channelDisabled"));
+        assertEquals(NotificationManager.IMPORTANCE_NONE, ReminderCapabilities.read(context).getInt("channelImportance"));
+    }
+
     @Test public void readsMissingAndDisabledChannelsWithoutCreatingOne() throws Exception {
         Context context = RuntimeEnvironment.getApplication();
         NotificationManager manager = context.getSystemService(NotificationManager.class);
