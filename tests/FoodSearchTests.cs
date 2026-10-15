@@ -233,10 +233,23 @@ public sealed class FoodSearchTests
     }
 
     [Theory]
-    [InlineData("""{"serving_quantity":200,"serving_quantity_unit":"g","serving_size":"200 g","product_quantity_unit":"ml"}""")]
-    [InlineData("""{"serving_quantity":200,"serving_quantity_unit":"ml","serving_size":"200 ml","product_quantity_unit":"g"}""")]
+    [InlineData("""{"serving_quantity":200,"serving_quantity_unit":"g","serving_size":"1 glass","product_quantity_unit":"ml"}""")]
+    [InlineData("""{"serving_quantity":200,"serving_quantity_unit":"ml","serving_size":"1 glass","product_quantity_unit":"g"}""")]
     public void A_serving_in_the_other_measure_than_the_product_is_not_converted(string json)
         => Assert.Empty(OpenFoodFactsParser.MapPortions(Product(json)));
+
+    [Fact]
+    public void A_serving_label_stating_millilitres_wins_over_a_unit_field_left_at_grams()
+    {
+        var product=Product("""{"serving_quantity":200,"serving_quantity_unit":"g","serving_size":"1 serving (200 ml)","nutriments":{"energy-kcal_100g":50}}""");
+
+        var result=OpenFoodFactsParser.ReadProduct(product,"8888026520014")!;
+
+        Assert.Equal("ml",result.Measure);
+        var portion=Assert.Single(result.Portions!);
+        Assert.Equal("1 serving (200 ml)",portion.Label);
+        Assert.Equal(200,portion.Grams);
+    }
 
     [Theory]
     [InlineData("""{"quantity":"1 L"}""","g")]
@@ -244,6 +257,8 @@ public sealed class FoodSearchTests
     [InlineData("""{"serving_size":"250 ml"}""","ml")]
     [InlineData("""{"serving_size":"30 g","quantity":"400 ml"}""","g")]
     [InlineData("""{"product_quantity_unit":"ml","serving_size":"30 g"}""","ml")]
+    [InlineData("""{"serving_quantity":30,"serving_size":"30 g","product_quantity_unit":"ml"}""","g")]
+    [InlineData("""{"serving_quantity":200,"serving_quantity_unit":"g","serving_size":"1 serving (200 ml)"}""","ml")]
     [InlineData("""{"product_quantity_unit":"g","serving_size":"30 ml"}""","g")]
     [InlineData("""{}""","g")]
     public void The_measure_comes_from_unit_fields_then_explicit_amounts_and_otherwise_stays_grams(string json,string expected)

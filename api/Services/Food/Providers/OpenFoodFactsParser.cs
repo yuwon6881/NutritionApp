@@ -83,18 +83,32 @@ public static partial class OpenFoodFactsParser
     }
 
     /// <summary>
-    /// Open Food Facts publishes liquids per 100 ml under the same `_100g` keys. The product's own
-    /// unit fields decide the measure; when neither is present, an explicit gram or millilitre amount in
-    /// the serving or quantity text does. Nothing else (a category, a name) is used to guess a liquid.
+    /// Open Food Facts publishes liquids per 100 ml under the same `_100g` keys. A serving label that
+    /// states an amount equal to `serving_quantity` ("1 serving (200 ml)") decides the measure, because
+    /// the unit fields are sometimes left at "g" for a drink and would contradict the label shown beside
+    /// them. Otherwise the product's unit fields decide, then an explicit amount in the serving or
+    /// quantity text. Nothing else (a category, a name) is used to guess a liquid.
     /// </summary>
     public static string ProductMeasure(JsonElement product)
     {
+        if(LabelMeasure(product) is {} declared)return declared;
         foreach(var key in new[]{"product_quantity_unit","serving_quantity_unit"})
             if(Measures.FromProviderUnit(FoodResults.Text(product,key)) is {} unit)return unit;
         foreach(var key in new[]{"serving_size","quantity"})
             if(FoodResults.Text(product,key) is {} text&&MetricAmount().Match(text) is {Success:true} match)
                 return Measures.FromProviderUnit(match.Groups["unit"].Value)!;
         return Measures.Grams;
+    }
+
+    /// <summary>The measure of the serving label's amount, when that amount is the declared serving quantity.</summary>
+    private static string? LabelMeasure(JsonElement product)
+    {
+        if(!product.TryGetProperty("serving_quantity",out var quantity)||!FoodResults.TryNumber(quantity,out var amount))return null;
+        var match=MetricAmount().Match(FoodResults.Text(product,"serving_size")??"");
+        return match.Success
+            &&double.TryParse(match.Groups["amount"].Value.Replace(',','.'),NumberStyles.Float,CultureInfo.InvariantCulture,out var declared)&&declared==amount
+            ?Measures.FromProviderUnit(match.Groups["unit"].Value)
+            :null;
     }
 
     /// <summary>
@@ -108,17 +122,11 @@ public static partial class OpenFoodFactsParser
         if(!product.TryGetProperty("serving_quantity",out var quantity)||!FoodResults.TryNumber(quantity,out var amount))return [];
         var measure=ProductMeasure(product);
         var label=FoodResults.Text(product,"serving_size");
-        if(Measures.FromProviderUnit(FoodResults.Text(product,"serving_quantity_unit")) is {} unit)
+        // A label that states the amount has already set the measure; otherwise the unit field must agree
+        // with the product, and a unit-less record needs an explicit amount in its label.
+        if(LabelMeasure(product) is null)
         {
-            if(unit!=measure)return [];
-        }
-        else
-        {
-            // Older records omit the normalized unit. Require an explicit amount in the product's
-            // measure in their label rather than interpreting a scoop as grams or millilitres.
-            var match=MetricAmount().Match(label??"");
-            if(!match.Success||Measures.FromProviderUnit(match.Groups["unit"].Value)!=measure
-                ||!double.TryParse(match.Groups["amount"].Value.Replace(',','.'),NumberStyles.Float,CultureInfo.InvariantCulture,out var declared)||declared!=amount)return [];
+            if(Measures.FromProviderUnit(FoodResults.Text(product,"serving_quantity_unit")) is not {} unit||unit!=measure)return [];
         }
         // A label that is only an amount ("30.4g", "200 ml") says nothing the figure does not, so the
         // portion is called a serving. A serving of exactly 100 merely repeats the per-100 basis and
