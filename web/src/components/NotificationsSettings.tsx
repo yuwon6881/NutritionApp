@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {Bell,BellOff} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {CheckInReminder,NotificationStatus} from '../lib/notifications';
@@ -18,6 +18,7 @@ import {useMobilePwa} from './ui/MobilePwa';
 import {SettingRow} from './ui/SettingRow';
 import {checkNativeNotificationPermission,isNativeAndroid,isNativePushConfigured,registerNativePushAndGetToken,requestNativeNotificationPermission} from '../lib/push/nativeNotifications';
 import {disableLocalPushForPlatform} from '../lib/push/deviceLifecycle';
+const ReminderReadiness=lazy(()=>import('./ReminderReadiness').then(module=>({default:module.ReminderReadiness})));
 
 const weekdays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -226,6 +227,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
   const fieldsDisabled=busy||!canManageSchedule;
 
   return <div className="notification-settings" data-pwa-dirty={reminderDirty?'true':undefined}>
+    {isNativeAndroid()&&<Suspense fallback={null}><ReminderReadiness onRegister={enableThisDevice}/></Suspense>}
     {loading&&<p className="settings-loading" role="status" aria-busy="true">Checking notification availability…</p>}
     {loadError&&<CardFeedback tone="warning" title="Notification settings unavailable" message={loadError}/>}
     {!loading&&supportError&&<CardFeedback tone="info" message={supportError}/>}

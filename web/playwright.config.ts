@@ -5,6 +5,7 @@ const signedIn = { storageState: process.env.NUTRITION_TEST_AUTH_PATH ?? 'e2e/.a
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/*.native.spec.ts',
   fullyParallel: false,
   workers: 1,
   timeout: 60000,
@@ -18,7 +19,7 @@ export default defineConfig({
     { name: 'setup', testMatch: 'auth.setup.ts' },
     {
       name: 'chromium',
-      testIgnore: ['auth.setup.ts', '**/*.touch.spec.ts'],
+      testIgnore: ['auth.setup.ts', '**/*.touch.spec.ts', '**/*.native.spec.ts'],
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], ...signedIn }
     },

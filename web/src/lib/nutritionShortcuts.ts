@@ -23,6 +23,7 @@ export const NUTRITION_SHORTCUTS = [
 ] as const;
 
 export type NutritionShortcutAction = typeof NUTRITION_SHORTCUTS[number]['action'];
+export const NATIVE_SHORTCUT_READY = 'nutrition-shortcut-ready';
 
 const STORAGE_KEY = 'nutrition-pending-shortcut-v1';
 const PENDING_LIFETIME_MS = 30 * 60 * 1000;

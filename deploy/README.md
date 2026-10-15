@@ -55,3 +55,5 @@ Set the exact backend origin in the checked routing configuration before deploym
 An authenticated JSON export is not a disaster-recovery backup. Use `pg_dump --format=custom --no-owner` against the direct Neon endpoint with credentials injected securely. Store encrypted logical backups outside Neon, with a separate retention/budget policy. Restore into an isolated empty database using `pg_restore --no-owner`, then verify counts, login, accepted programs and user isolation. Never use the live database for a restore test. Neon time-travel retention is finite and does not replace these backups.
 
 The migrations enable row-level security with no browser policies. The backend database role owns the tables; its application query filters and write ownership checks remain mandatory. Database credentials never reach the browser.
+
+Android signed APK channels, certificate variables, artifact manifests and the physical-device publication gate are documented in [Android reliability](../docs/ANDROID_RELIABILITY.md). The manual CI release job now prepares both an APK and an AAB; it does not publish a GitHub Release.

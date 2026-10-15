@@ -1,4 +1,4 @@
-import {useEffect,useId,useRef,useState,type CSSProperties} from 'react';
+import {lazy,Suspense,useEffect,useId,useRef,useState,type CSSProperties} from 'react';
 import {Camera, LoaderCircle, ScanBarcode, Search, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api,ApiError} from '../lib/api';
@@ -11,8 +11,8 @@ import {Modal} from './ui/Modal';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {isFatSecretSource} from '../lib/foodSources';
 import {useSearchAsYouType,type SearchCache} from './useSearchAsYouType';
-import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScanner';
-import {NativeBarcodeScanner} from './NativeBarcodeScanner';
+import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScannerAvailability';
+const NativeBarcodeScanner=lazy(()=>import('./NativeBarcodeScanner').then(module=>({default:module.NativeBarcodeScanner})));
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {lineFromPer100} from '../lib/foodBasket';
 import {measureOf} from '../lib/portions';
@@ -225,12 +225,12 @@ export function FoodPicker({
       </div>
     </Form>
 
-    {scanning&&scanner==='native'&&<NativeBarcodeScanner
+    {scanning&&scanner==='native'&&<Suspense fallback={<p role="status">Starting camera…</p>}><NativeBarcodeScanner
       onDetected={detected}
       onClose={()=>setCamera(false)}
       onUnavailable={()=>setScanner('in-page')}
       onError={cameraFailed}
-    />}
+    /></Suspense>}
     {scanning&&scanner==='in-page'&&<Modal open={camera} onClose={()=>setCamera(false)} width="sm" title="Scan barcode" closeLabel="Stop barcode camera">
       <div className="barcode-scanner-modal">
         <p className="source">Point your camera at a food barcode or product QR code to scan it automatically.</p>

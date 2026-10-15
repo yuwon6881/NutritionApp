@@ -7,12 +7,13 @@
     "node": "24.x"
   },
   "scripts": {
+    "postinstall": "node scripts/patch-barcode-coordinates.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && node scripts/build.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 5088 --strictPort",
     "test": "vitest run --maxWorkers=1",
     "test:visual": "npm run build && playwright test",
-    "android:sync": "npm run build && npm run check:android-firebase && cap sync android",
+    "android:sync": "node scripts/generate-android-shortcuts.mjs && npm run build && npm run check:android-firebase && cap sync android",
     "android:open": "cap open android",
     "android:run": "npm run android:sync && cap run android",
     "typecheck": "tsc -b",

@@ -169,3 +169,4 @@ export function backCoordinator():BackCoordinator{
   }
   return browserCoordinator;
 }
+export const BACK_TO_HOME_EVENT = 'nutrition-back-home';

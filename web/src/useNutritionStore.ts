@@ -270,6 +270,8 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
           const {acknowledgeLocalWrite}=await import('./lib/nutritionAcknowledgement');
           await commit(current=>acknowledgeLocalWrite(current,op,revision,acknowledgement));
           await sharedDiaryCoordinator.acknowledge(op,revision,acknowledgement.days??undefined);
+          // Advisory diagnostics must never turn a confirmed write into a synchronization error.
+          void import('./lib/confirmedSync').then(module=>module.recordConfirmedSync(user)).catch(()=>undefined);
         } catch (ex) {
           const failure = classifySyncFailure(ex);
           if (failure === 'session-expired') expireSession();

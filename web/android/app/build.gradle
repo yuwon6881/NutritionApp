@@ -11,6 +11,7 @@ def debugSigningKeyPassword = System.getenv('ANDROID_DEBUG_KEY_PASSWORD')
 def hasStableDebugSigningKey = debugSigningStoreFile && debugSigningKeyAlias && debugSigningStorePassword && debugSigningKeyPassword
 
 android {
+    buildFeatures { buildConfig true }
     namespace = "com.nutritionapp.mobile"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
@@ -48,11 +49,15 @@ android {
     }
     buildTypes {
         debug {
+            buildConfigField 'String', 'DISTRIBUTION_CHANNEL', '"device-test"'
+            manifestPlaceholders.distributionChannel = 'device-test'
             if (hasStableDebugSigningKey) {
                 signingConfig signingConfigs.deviceTestDebug
             }
         }
         release {
+            buildConfigField 'String', 'DISTRIBUTION_CHANNEL', '"release"'
+            manifestPlaceholders.distributionChannel = 'release'
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             if (signingStoreFile && signingKeyAlias && signingStorePassword && signingKeyPassword) {
@@ -60,6 +65,7 @@ android {
             }
         }
     }
+    testOptions { unitTests.includeAndroidResources = true }
 }
 
 repositories {
@@ -74,7 +80,12 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    // The app adapter extends the existing scanner; runtime libraries remain owned by that plugin.
+    compileOnly "androidx.camera:camera-view:$androidxCameraViewVersion"
+    compileOnly "com.google.mlkit:barcode-scanning:$mlkitBarcodeScanningVersion"
     testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.robolectric:robolectric:4.16.1"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_log_food">Log food</string>
+  <string name="shortcut_scan_barcode">Scan barcode</string>
+  <string name="shortcut_log_weight">Log weight</string>
+</resources>

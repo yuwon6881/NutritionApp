@@ -18,6 +18,7 @@ export function NativeBarcodeScanner({onDetected,onClose,onUnavailable,onError}:
   onError:(message:string)=>void;
 }){
   const dialog=useRef<HTMLDialogElement>(null);
+  const frame=useRef<HTMLDivElement>(null);
   const session=useRef<NativeScanSession|null>(null);
   const callbacks=useRef({onDetected,onClose,onUnavailable,onError});
   callbacks.current={onDetected,onClose,onUnavailable,onError};
@@ -31,6 +32,8 @@ export function NativeBarcodeScanner({onDetected,onClose,onUnavailable,onError}:
     if(element&&!element.open)element.showModal();
     let unmounted=false;
     void startNativeScan({
+      getFrame:()=>frame.current?.getBoundingClientRect()??null,
+      onSuspend:()=>{if(!unmounted)setTorchOn(false);},
       onCode:code=>{
         if(unmounted)return;
         hapticTick();
@@ -72,7 +75,7 @@ export function NativeBarcodeScanner({onDetected,onClose,onUnavailable,onError}:
     <div className="native-barcode-top">
       <Button variant="secondary" size="icon" aria-label="Stop barcode camera" onClick={()=>callbacks.current.onClose()}><X size={20} aria-hidden="true"/></Button>
     </div>
-    <BarcodeViewfinder/>
+    <BarcodeViewfinder ref={frame}/>
     <div className="native-barcode-bottom">
       <p role="status">{ready?'Line up the barcode or QR code inside the frame.':'Starting camera…'}</p>
       {torchAvailable&&<Button variant="secondary" aria-pressed={torchOn} onClick={toggleTorch}>

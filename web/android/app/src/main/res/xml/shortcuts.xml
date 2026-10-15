@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from nutritionShortcuts.ts; run generate-android-shortcuts.mjs. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut android:shortcutId="log-food" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/shortcut_log_food">
+    <intent android:action="com.nutritionapp.mobile.SHORTCUT" android:targetPackage="com.nutritionapp.mobile" android:targetClass="com.nutritionapp.mobile.MainActivity">
+      <extra android:name="nutrition_action" android:value="log-food" />
+    </intent>
+  </shortcut>
+  <shortcut android:shortcutId="scan-barcode" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/shortcut_scan_barcode">
+    <intent android:action="com.nutritionapp.mobile.SHORTCUT" android:targetPackage="com.nutritionapp.mobile" android:targetClass="com.nutritionapp.mobile.MainActivity">
+      <extra android:name="nutrition_action" android:value="scan-barcode" />
+    </intent>
+  </shortcut>
+  <shortcut android:shortcutId="log-weight" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/shortcut_log_weight">
+    <intent android:action="com.nutritionapp.mobile.SHORTCUT" android:targetPackage="com.nutritionapp.mobile" android:targetClass="com.nutritionapp.mobile.MainActivity">
+      <extra android:name="nutrition_action" android:value="log-weight" />
+    </intent>
+  </shortcut>
+</shortcuts>

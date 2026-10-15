@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {Style} from '@capacitor/status-bar';
-import {statusBarStyleForTheme} from './nativeApp';
+import {statusBarStyleForTheme} from './nativeAppBridge';
 
 describe('native status bar contrast',()=>{
   it('uses light icons against the dark theme',()=>{

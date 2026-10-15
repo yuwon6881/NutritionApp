@@ -1,6 +1,7 @@
-import {useEffect,useState} from 'react';
+import {lazy,Suspense,useEffect,useState} from 'react';
 import {App} from '@capacitor/app';
 import {isNativeApp} from '../lib/nativeApp';
+const ApkUpdateSettings=lazy(()=>import('./ApkUpdateSettings').then(module=>({default:module.ApkUpdateSettings})));
 
 export function NativeBuildInfo(){
   const [build,setBuild]=useState<string|null>(null);
@@ -13,5 +14,5 @@ export function NativeBuildInfo(){
     return()=>{active=false;};
   },[]);
   if(!build)return null;
-  return <p className="source">Android version {build}. Install a newer APK to update this app.</p>;
+  return <div><p className="source">Android version {build}.</p><Suspense fallback={null}><ApkUpdateSettings/></Suspense></div>;
 }

@@ -32,11 +32,13 @@ import {getOrCreatePushDeviceId} from './lib/push/deviceId';
 import {drainPendingPushRevocations} from './lib/push/revocations';
 import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
 import {backCoordinator,isLayerEntry,readState,PAGE_KEY} from './lib/appHistory';
-import {BACK_TO_HOME_EVENT} from './lib/nativeApp';
-import {captureNutritionShortcut,clearPendingNutritionShortcut,consumeReadyNutritionShortcut} from './lib/nutritionShortcuts';
+import {BACK_TO_HOME_EVENT,isNativeApp} from './lib/nativeApp';
+import {captureNutritionShortcut,clearPendingNutritionShortcut} from './lib/nutritionShortcuts';
+import {useReadyNutritionShortcut} from './components/useReadyNutritionShortcut';
 
 // Dashboard and Food Log stay in the first bundle; the other views load on first visit and are precached for offline use.
 const Progress=lazy(()=>import('./components/Progress').then(module=>({default:module.Progress})));
+const IncomingPhoto=lazy(()=>import('./components/IncomingPhoto').then(module=>({default:module.IncomingPhoto})));
 const Coach=lazy(()=>import('./components/Coach').then(module=>({default:module.Coach})));
 const Settings=lazy(()=>import('./components/Settings').then(module=>({default:module.Settings})));
 // The food dialog mounts on first use; its chunk is warmed once the app is idle.
@@ -189,11 +191,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   };
   const activeDate=store.state?.profile?today(store.state.profile.timeZone):date;
   const selectedEntryDate=page==='food'?foodDate:activeDate;
-  useEffect(()=>{
-    if(!authReady||!store.state?.profile||needsProfile)return;
-    let action:ReturnType<typeof consumeReadyNutritionShortcut>=null;
-    try{action=consumeReadyNutritionShortcut(window.localStorage,{authenticated:authReady,profileReady:!!store.state?.profile});}catch{/* Browser storage can be unavailable; keep the app usable. */}
-    if(!action)return;
+  useReadyNutritionShortcut(authReady,!!store.state?.profile&&!needsProfile,action=>{
     setPage('today');
     setDate(activeDate);
     if(action==='log-food'||action==='scan-barcode'){
@@ -210,7 +208,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       setWeightReturnFocus(null);
       setWeightOpen(true);
     }
-  },[authReady,store.state?.profile,activeDate,needsProfile]);
+  });
   const addOptions:ActionSheetOption[]=[
     {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
@@ -289,6 +287,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       {!needsProfile&&store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
         {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
+        {isNativeApp()&&authReady&&!needsProfile&&store.state&&<Suspense fallback={null}><IncomingPhoto key={user} accountId={user} displayName={store.state.displayName} initialDate={activeDate} blocked={foodOpen||weightOpen} onAttached={day=>openFood(day,undefined,'ai',null)}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
       </>}

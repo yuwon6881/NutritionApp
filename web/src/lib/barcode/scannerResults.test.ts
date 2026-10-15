@@ -1,14 +1,12 @@
 import {expect,it} from 'vitest';
 import {firstProductCode} from './frameDecoder';
-import {productCodeFromDetections} from './nativeScanner';
+import {selectTargetedProduct} from './nativeTargeting';
 
-it('takes the first product number from an ML Kit batch and skips unrelated QR codes',()=>{
-  expect(productCodeFromDetections([
-    {rawValue:'https://brand.example/promo',format:'QR_CODE'},
-    {rawValue:'04252614',format:'UPC_E'},
-  ])).toBe('042100005264');
-  expect(productCodeFromDetections([{rawValue:'https://brand.example/promo',format:'QR_CODE'}])).toBeNull();
-  expect(productCodeFromDetections([{format:'EAN_13'}])).toBeNull();
+it('keeps UPC expansion inside the targeted native frame',()=>{
+  const bounds={left:0,top:0,width:100,height:100};
+  expect(selectTargetedProduct([
+    {rawValue:'04252614',format:'UPC_E',cornerPoints:[[40,40],[60,40],[60,60],[40,60]]},
+  ],{imageWidth:100,imageHeight:100,preview:bounds,webview:bounds},bounds,bounds)).toBe('042100005264');
 });
 
 it('reads a GS1 Digital Link QR from the browser detector',()=>{
