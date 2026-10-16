@@ -17,6 +17,19 @@ Additional source finding: the existing favourite path (`useFoodFavourite.ts` â†
 - The full `npm.cmd run test:visual` gate did not pass and remains incomplete. It was stopped after repeated failures outside the food changes: coaching tests still selecting the renamed Plan button or old heading, batch tests selecting a removed Actions control, and search focus tests requiring an outline the concurrently edited styling removes. Its food fixture collision and missing-basis keyboard fixture were corrected and passed their focused reruns. Concurrent feature/style work was preserved.
 - No commit, push, deployment, physical Android check, or authenticated live-provider UX reproduction was performed. Source/browser evidence does not guarantee external provider availability.
 
+## Follow-up 2026-10-16: bulk read diagnostics and fallback
+
+A user report (Sunglo yogurt, all visible Open Food Facts rows unresolved while opening each row worked) points at a request-level bulk failure, since individually incomplete products would also fail when opened. The cause was inferred from source; Open Food Facts was not reachable from the investigation environment, so the actual status code is unconfirmed. Changes:
+
+- `OpenFoodFactsProvider.ReadProducts` logs a refused or unusable bulk read (HTTP status, code count, retry-after) instead of swallowing it. Search `external.request.count` with `service=open_food_facts` and these warnings to read the real status after deployment.
+- A bulk 429 honours `Retry-After` (default 10 s) by holding the bulk gate.
+- A slot cancelled before its request was sent is handed back for both the bulk and barcode gates (only while no later call has claimed one).
+- The confirming read (`VerifyBasis`) falls back to the per-product endpoint for the first three unresolved rows after a failed bulk read and stops at the first refusal. Confirmed rows go to the durable cache. The search itself makes only the single bulk attempt.
+
+- The three pacing gates moved from static fields into `OpenFoodFactsPacing` (one shared instance in production, injectable for tests), so tests no longer depend on slots other tests spent.
+
+Coverage: `tests/FoodBulkRecoveryTests.cs`. This reduces the placeholder rather than guaranteeing it away; the logged status decides what comes next.
+
 ## Conclusion
 
 Keeping unresolved rows preserves products whose nutrition can be retrieved when opened. This is the selected direction: improve confirmation and the loading review without reducing food choices. The app cannot guarantee complete nutrition for every matching product from the current external catalogues. More retries cannot create nutrients a provider has never recorded.

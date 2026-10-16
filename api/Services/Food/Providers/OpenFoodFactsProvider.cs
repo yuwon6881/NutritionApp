@@ -9,7 +9,7 @@ namespace Nutrition.Api.Services.FoodLookup;
 /// and serving hydration use the product API. Search results are hydrated in one bulk request so
 /// the list and editor share the same declared gram serving.
 /// </summary>
-public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBasisVerifier
+public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsProvider>? log=null,OpenFoodFactsPacing? gates=null):IFoodProvider,IFoodBasisVerifier
 {
     public const string ProviderId="off";
     private const string SearchUrl="https://search.openfoodfacts.org/search";
@@ -25,12 +25,15 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBa
     // /api/v2/search allows ten reads per minute per IP. A one-second slot could exceed that as soon
     // as two instances shared the egress address, so hydration stays best-effort and paced below it.
     private static readonly TimeSpan BatchProductInterval=TimeSpan.FromSeconds(6.1);
+    // Rows confirmed one by one when the bulk read fails; each waits for a 4.1 s barcode slot.
+    private const int FallbackReads=3;
     // Search-a-licious does not index the serving fields; the bulk product request fills them.
     private const string SearchFields="code,product_name,product_name_en,brands,nutriments";
     private const string ProductFields="code,product_name,product_name_en,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,quantity,product_quantity_unit";
-    private static readonly ProviderGate SearchGate=new();
-    private static readonly ProviderGate BarcodeGate=new();
-    private static readonly ProviderGate BatchProductGate=new();
+    private readonly OpenFoodFactsPacing pacing=gates??OpenFoodFactsPacing.Shared;
+    private ProviderGate SearchGate=>pacing.Search;
+    private ProviderGate BarcodeGate=>pacing.Barcode;
+    private ProviderGate BatchProductGate=>pacing.BatchProduct;
 
     public string Id=>ProviderId;
     public string Name=>"Open Food Facts";
@@ -85,7 +88,7 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBa
         // reached a metered endpoint and counted against its allowance whatever it answered.
         if(await BarcodeGate.Reserve(BarcodeInterval,MaxBarcodeWait,ct) is not { } slot)
             throw new FoodProviderException(ProviderId,FoodProviderFailure.Throttled,BarcodeInterval);
-        if(slot.Wait>TimeSpan.Zero)await Task.Delay(slot.Wait,ct);
+        await WaitForSlot(BarcodeGate,slot,ct);
         using var response=await Send($"{ProductUrl}{code}?fields={ProductFields}",ct);
         if(response.StatusCode==HttpStatusCode.NotFound)return null;
         if(response.StatusCode==HttpStatusCode.TooManyRequests)throw new FoodProviderException(ProviderId,FoodProviderFailure.Busy);
@@ -99,20 +102,26 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBa
     private async Task Hydrate(List<FoodResult> results,PublicFoodCache? durable,CancellationToken ct)
     {
         var codes=results.Select(result=>result.Code).OfType<string>().Where(code=>code.Length>0).Distinct(StringComparer.Ordinal).ToArray();
-        foreach(var (code,hydrated) in await ReadProducts(codes,durable,ct))Apply(results,code,hydrated);
+        // No per-product fallback here: the search is already inside the merge grace, so it only
+        // makes the one bulk attempt and leaves the rest to the confirming read.
+        foreach(var (code,hydrated) in await ReadProducts(codes,durable,false,ct))Apply(results,code,hydrated);
     }
 
     /// <summary>
     /// The confirming read a search could not finish in time (its paced slot, or Open Food Facts
-    /// shedding the bulk read). It is the same single bulk request, so asking afterwards costs no
-    /// more of the shared allowance than the search would have, and products already confirmed come
-    /// from the durable cache without a call.
+    /// refusing the bulk read). Products already confirmed come from the durable cache without a
+    /// call; if the bulk read fails again, the first few rows are read one by one from the product
+    /// endpoint, the same one that answers when a row is opened.
     /// </summary>
     public async Task<IReadOnlyList<FoodResult>> VerifyBasis(IReadOnlyCollection<string> codes,PublicFoodCache durable,CancellationToken ct)
-        =>[..(await ReadProducts(codes,durable,ct)).Values];
+        =>[..(await ReadProducts(codes,durable,true,ct)).Values];
 
-    /// <summary>Per-100 g products by code: the durable cache first, then one paced bulk read for the rest.</summary>
-    private async Task<Dictionary<string,FoodResult>> ReadProducts(IReadOnlyCollection<string> codes,PublicFoodCache? durable,CancellationToken ct)
+    /// <summary>
+    /// Per-100 g products by code: the durable cache first, then one paced bulk read for the rest.
+    /// A failed bulk read never fails the search; it is logged, and with <paramref name="fallback"/>
+    /// the leading rows are confirmed through the product endpoint instead.
+    /// </summary>
+    private async Task<Dictionary<string,FoodResult>> ReadProducts(IReadOnlyCollection<string> codes,PublicFoodCache? durable,bool fallback,CancellationToken ct)
     {
         var found=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
         if(codes.Count==0)return found;
@@ -126,30 +135,104 @@ public sealed class OpenFoodFactsProvider(HttpClient http):IFoodProvider,IFoodBa
             }
         }
         if(missing.Count==0)return found;
+        var bulkFailed=false;
         try
         {
-            var slot=await BatchProductGate.Reserve(BatchProductInterval,null,ct);
-            if(slot!.Value.Wait>TimeSpan.Zero)await Task.Delay(slot.Value.Wait,ct);
+            var slot=(await BatchProductGate.Reserve(BatchProductInterval,null,ct))!.Value;
+            await WaitForSlot(BatchProductGate,slot,ct);
             using var response=await http.GetAsync($"{BatchProductUrl}?code={Uri.EscapeDataString(string.Join(',',missing))}&fields={Uri.EscapeDataString(ProductFields)}&page_size={missing.Count}",ct);
-            if(!response.IsSuccessStatusCode)return found;
-            using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-            if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)return found;
-            var read=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
-            foreach(var product in products.EnumerateArray())
+            if(!response.IsSuccessStatusCode)
             {
-                var code=OpenFoodFactsParser.Code(product);
-                if(code is {Length:>0}&&OpenFoodFactsParser.ReadProduct(product,code,"per100g") is {} hydrated)read[code]=hydrated;
+                bulkFailed=true;
+                await NoteBulkRefusal(response,missing.Count);
             }
-            foreach(var (code,hydrated) in read)found[code]=hydrated;
-            if(durable is not null&&read.Count>0)
-                await durable.Store(ProviderId,read.Values,DateTime.UtcNow.Add(DurableLifetime!.Value),ct);
+            else
+            {
+                using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+                if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)
+                {
+                    bulkFailed=true;
+                    log?.LogWarning("Open Food Facts bulk product read for {Count} codes returned no product list.",missing.Count);
+                }
+                else
+                {
+                    var read=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
+                    foreach(var product in products.EnumerateArray())
+                    {
+                        var code=OpenFoodFactsParser.Code(product);
+                        if(code is {Length:>0}&&OpenFoodFactsParser.ReadProduct(product,code,"per100g") is {} hydrated)read[code]=hydrated;
+                    }
+                    foreach(var (code,hydrated) in read)found[code]=hydrated;
+                    await StoreConfirmed(durable,read.Values,ct);
+                }
+            }
         }
         catch(OperationCanceledException) when(ct.IsCancellationRequested){throw;}
-        catch
+        catch(Exception error)
         {
             // Serving hydration improves the search list but must not make free-text search fail.
+            bulkFailed=true;
+            log?.LogWarning(error,"Open Food Facts bulk product read for {Count} codes failed before an answer.",missing.Count);
         }
+        if(bulkFailed&&fallback)await ReadEach(codes.Where(missing.Contains).Take(FallbackReads),durable,found,ct);
         return found;
+    }
+
+    /// <summary>A 429 carries the pause Open Food Facts wants; the gate keeps later bulk reads behind it.</summary>
+    private async Task NoteBulkRefusal(HttpResponseMessage response,int count)
+    {
+        TimeSpan? retryAfter=null;
+        if(response.StatusCode==HttpStatusCode.TooManyRequests)
+        {
+            retryAfter=response.Headers.RetryAfter?.Delta??BusyBackoff;
+            await BatchProductGate.Hold(DateTime.UtcNow.Add(retryAfter.Value));
+        }
+        log?.LogWarning("Open Food Facts bulk product read for {Count} codes was refused: HTTP {Status}, retry after {RetryAfter}.",count,(int)response.StatusCode,retryAfter);
+    }
+
+    /// <summary>
+    /// Confirms rows one by one when the bulk read failed. It stops at the first failure: a refusal
+    /// means the endpoint is busy, and a full list of single reads would exhaust its allowance.
+    /// </summary>
+    private async Task ReadEach(IEnumerable<string> codes,PublicFoodCache? durable,Dictionary<string,FoodResult> found,CancellationToken ct)
+    {
+        var attempted=0;
+        var confirmed=new List<FoodResult>();
+        foreach(var code in codes)
+        {
+            attempted++;
+            try
+            {
+                if(await Barcode(code,ct) is not {} product)continue;
+                found[code]=product;
+                confirmed.Add(product);
+            }
+            catch(FoodProviderException failure)
+            {
+                log?.LogWarning("Open Food Facts product read for {Code} failed: {Failure}.",code,failure.Failure);
+                if(failure.Failure!=FoodProviderFailure.Incomplete)break;
+            }
+        }
+        await StoreConfirmed(durable,confirmed,ct);
+        log?.LogInformation("Open Food Facts per-product fallback confirmed {Confirmed} of {Attempted} rows.",confirmed.Count,attempted);
+    }
+
+    private async Task StoreConfirmed(PublicFoodCache? durable,IEnumerable<FoodResult> products,CancellationToken ct)
+    {
+        var rows=products.ToArray();
+        if(durable is not null&&rows.Length>0)
+            await durable.Store(ProviderId,rows,DateTime.UtcNow.Add(DurableLifetime!.Value),ct);
+    }
+
+    /// <summary>Waits for a reserved slot; a request cancelled before it was sent hands the slot back.</summary>
+    private static async Task WaitForSlot(ProviderGate gate,ProviderGate.Slot slot,CancellationToken ct)
+    {
+        try { if(slot.Wait>TimeSpan.Zero)await Task.Delay(slot.Wait,ct); }
+        catch(OperationCanceledException)
+        {
+            await gate.Return(slot);
+            throw;
+        }
     }
 
     private static void Apply(List<FoodResult> results,string code,FoodResult hydrated)

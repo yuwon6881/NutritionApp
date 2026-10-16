@@ -2,7 +2,7 @@ namespace Nutrition.Api.Services.FoodLookup;
 
 /// <summary>
 /// Paces calls to one provider endpoint. Every request here leaves from the one Cloud Run egress
-/// address, so pacing is process-wide: providers hold their gates in static fields.
+/// address, so pacing is process-wide: providers share one set of gates for the whole process.
 /// </summary>
 public sealed class ProviderGate
 {
