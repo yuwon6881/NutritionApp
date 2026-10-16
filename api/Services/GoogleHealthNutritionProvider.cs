@@ -117,8 +117,10 @@ internal static class GoogleHealthNutritionProvider
         {
             throw;
         }
-        catch (HttpRequestException) when (create)
+        catch (HttpRequestException ex) when (create)
         {
+            if (GoogleHealthCreateFailure.NeverReachedServer(ex))
+                throw new GoogleHealthNutritionProviderException("provider_unavailable", "Google Health was unreachable; the upload will retry automatically.", true);
             throw new GoogleHealthNutritionProviderException("upload_status_unknown", "The create response was lost; check Google Health before retrying.", unknownCreate: true);
         }
         catch (JsonException) when (create)

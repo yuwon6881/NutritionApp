@@ -15,6 +15,9 @@ export interface FoodScanDraft {
   error?:string|null;
   pendingBarcode?:{code:string;purpose:'log'|'recipe'};
   updatedAt?:number;
+  /** When the photo/description was first captured, before any upload attempt. Logged
+   * meal time is derived from this, not from whenever a delayed AI review completes. */
+  capturedAt?:number;
 }
 
 export interface FoodScanJob {
@@ -57,8 +60,8 @@ export async function resumeFoodScanJob(
   return job;
 }
 
-export function createFoodScanDraft(input:Omit<FoodScanDraft,'version'|'id'|'status'>,id:string=crypto.randomUUID()):FoodScanDraft{
-  return {version:1,id,status:'captured',...input};
+export function createFoodScanDraft(input:Omit<FoodScanDraft,'version'|'id'|'status'|'capturedAt'>,id:string=crypto.randomUUID()):FoodScanDraft{
+  return {version:1,id,status:'captured',capturedAt:Date.now(),...input};
 }
 
 export type FoodScanDraftInput=Pick<FoodScanDraft,'date'|'mode'|'description'|'imageBase64'|'pendingBarcode'>;

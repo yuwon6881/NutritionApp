@@ -37,6 +37,17 @@ internal static class GoogleHealthSyncLeases
         => deleted && string.IsNullOrWhiteSpace(resourceName) && string.IsNullOrWhiteSpace(operationName);
 }
 
+/// Classifies a create request's transport failure so only a genuinely ambiguous one becomes "unknown".
+internal static class GoogleHealthCreateFailure
+{
+    /// These errors happen before any application data crosses the wire (name resolution, TCP
+    /// connect, TLS handshake, proxy tunnel): Google's server never saw the request, so there is no
+    /// duplicate-create risk and the attempt is an ordinary transient failure, not an unknown one.
+    public static bool NeverReachedServer(HttpRequestException ex)
+        => ex.HttpRequestError is HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
+            or HttpRequestError.SecureConnectionError or HttpRequestError.ProxyTunnelError;
+}
+
 public sealed record GoogleHealthOutboundSyncResult(
     GoogleHealthWeightSyncProcessResult Weight,
     GoogleHealthNutritionSyncProcessResult Nutrition,

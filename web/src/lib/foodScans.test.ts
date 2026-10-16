@@ -1,12 +1,23 @@
-import {describe,it,expect,vi} from 'vitest';
+import {describe,it,expect,vi,afterEach} from 'vitest';
 import {ApiError} from './api';
-import {foodScanDraftForAttempt,getOrCreateFoodScanJob,resumeFoodScanJob,type FoodScanDraft,type FoodScanJob,type ScanApi} from './foodScans';
+import {createFoodScanDraft,foodScanDraftForAttempt,getOrCreateFoodScanJob,resumeFoodScanJob,type FoodScanDraft,type FoodScanJob,type ScanApi} from './foodScans';
 
 function draft(overrides:Partial<FoodScanDraft>={}):FoodScanDraft{
   return {version:1,id:'scan-1',date:'2026-09-21',mode:'photo',description:'',imageBase64:'jpeg-data',status:'submitted',...overrides};
 }
 
+afterEach(()=>vi.useRealTimers());
+
 describe('recoverable food scan identity',()=>{
+  it('stamps a fresh draft with the capture moment, and a delayed retry keeps that original moment',()=>{
+    vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-14T09:00:00Z'));
+    const created=createFoodScanDraft({date:'2026-10-14',mode:'photo',description:'',imageBase64:'jpeg-data'});
+    expect(created.capturedAt).toBe(new Date('2026-10-14T09:00:00Z').getTime());
+    vi.setSystemTime(new Date('2026-10-14T14:24:00Z'));
+    const input={date:created.date,mode:created.mode,description:created.description,imageBase64:created.imageBase64};
+    const resumed=foodScanDraftForAttempt({...created,status:'submitted'},input,()=>'unexpected-id');
+    expect(resumed.capturedAt).toBe(created.capturedAt);
+  });
   it('reuses unresolved request identities but starts a new counted attempt after confirmed AI failure',()=>{
     const submitted=draft({status:'submitted'});
     const input={date:submitted.date,mode:submitted.mode,description:submitted.description,imageBase64:submitted.imageBase64};

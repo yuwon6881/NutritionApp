@@ -1,6 +1,6 @@
 import {afterEach,expect,it,vi} from 'vitest';
 import type {AppState,Entry,LocalData,Mutation} from '../types';
-import {mealReadOnly,mealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget,showsDeviceOnlyToday} from './foodDiary';
+import {mealReadOnly,mealTime,scanMealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget,showsDeviceOnlyToday} from './foodDiary';
 import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
 import {createPasteMutations} from './useFoodClipboard';
@@ -38,6 +38,19 @@ it('uses the profile time zone and keeps already archived days read-only',()=>{
   expect(mealReadOnly(state,'2026-06-12')).toBe(false);
   expect(mealReadOnly(state,'2026-06-11')).toBe(true);
   expect(mealReadOnly({...state,days:[{id:'d',date:'2026-09-01',archived:true,status:'complete',revision:1,deleted:false}]},'2026-09-01')).toBe(true);
+});
+it('derives meal time from an explicit moment instead of the current time',()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-14T22:24:00Z'));
+  // A 2026-10-14T09:00:00Z capture reads as afternoon in Kuala Lumpur even though "now" is night.
+  expect(mealTime('Asia/Kuala_Lumpur',new Date('2026-10-14T09:00:00Z'))).toBe('17:00');
+  expect(mealTime('Asia/Kuala_Lumpur')).toBe('06:24');
+});
+it('stamps a logged AI scan with its original capture time, not the delayed review time',()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-14T22:24:00Z'));
+  const capturedAt=new Date('2026-10-14T09:00:00Z').getTime();
+  expect(scanMealTime({capturedAt},'Asia/Kuala_Lumpur')).toBe('17:00');
+  expect(scanMealTime(null,'Asia/Kuala_Lumpur')).toBe('06:24');
+  expect(scanMealTime({capturedAt:undefined},'Asia/Kuala_Lumpur')).toBe('06:24');
 });
 it('projects retained quick adds into cached days without replacing the main window',()=>{
   const food=entry('e','09:00');

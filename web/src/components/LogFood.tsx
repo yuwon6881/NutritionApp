@@ -16,7 +16,7 @@ import {useRecipeDraft} from './useRecipeDraft';
 import {QuickAdd} from './QuickAdd';
 import {FoodPicker} from './FoodPicker';
 import {FoodBasket} from './FoodBasket';
-import {mealReadOnly,mealTime} from '../lib/foodDiary';
+import {mealReadOnly,mealTime,scanMealTime} from '../lib/foodDiary';
 import {useHistoryWindow} from '../useHistoryWindow';
 import {useFoodBasket} from '../useFoodBasket';
 import {useBackLayer} from '../lib/useBackLayer';
@@ -176,6 +176,9 @@ export function LogFood({
   const finishRecipe=cancelRecipe;
   const recipeDirty=recipe.dirty;
   const newTime=()=>initialTime??mealTime(store.state!.profile?.timeZone);
+  // An AI scan's review can land long after the photo/description was captured; the
+  // logged time must follow that original capture moment, not whenever review finishes.
+  const scanTime=(scanned:FoodScanDraft)=>initialTime??scanMealTime(scanned,store.state!.profile?.timeZone);
   // A recent food goes straight to the batch review at its last portion; the review step stays.
   const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));hapticTick('selection');setBatchTime(newTime());go('batch');});
   const leaveEditor=()=>{if(saveFood){setSaveFood(false);setPendingBarcode(undefined);setLabelNote('');}setDraft(undefined);go('selection',selectionScroll.current!=null);};
@@ -248,11 +251,14 @@ export function LogFood({
       const food=estimate.foods[0];
       setLabelNote(food.notes||'');
       setSaveFood(false);
-      setDraft(labelManualEntryDraft(food,newTime()));
+      setDraft(labelManualEntryDraft(food,scanTime(requestDraft)));
       await removeScanDraft(date).catch(()=>undefined);
       setDescription('');setPhoto(null);go('editor');
       return;
     }
+    // Only seed the batch's meal time from this capture when the batch is still empty; an
+    // AI food added to an already-started batch must keep that batch's established time.
+    if(!basket.lines.length)setBatchTime(scanTime(requestDraft));
     await basket.addAiFoods(estimate.foods,'AI estimate',requestDraft.id);
     await removeScanDraft(date);
     setDescription('');setPhoto(null);setLabelNote('');go('batch');

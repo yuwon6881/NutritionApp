@@ -1,9 +1,19 @@
 import type {AppState,Entry,Mutation} from '../types';
 import {today} from './format';
 import {shiftDate} from './energyBalance';
+import type {FoodScanDraft} from './foodScans';
 
-export function mealTime(zone='Asia/Kuala_Lumpur'){
-  return new Intl.DateTimeFormat('en-GB',{timeZone:zone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+export function mealTime(zone='Asia/Kuala_Lumpur',at:Date|number=new Date()){
+  return new Intl.DateTimeFormat('en-GB',{timeZone:zone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(at);
+}
+
+/**
+ * An AI scan's result can arrive long after the photo or description was captured (a
+ * retried upload, a backgrounded app). The logged meal time must reflect that original
+ * capture moment, not whenever the review happens to complete.
+ */
+export function scanMealTime(scanDraft:Pick<FoodScanDraft,'capturedAt'>|null|undefined,zone?:string){
+  return scanDraft?.capturedAt!=null?mealTime(zone,scanDraft.capturedAt):mealTime(zone);
 }
 export function timeLabel(time:string){
   const [hour,minute]=time.split(':').map(Number);

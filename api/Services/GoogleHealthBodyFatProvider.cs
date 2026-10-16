@@ -79,8 +79,10 @@ internal static class GoogleHealthBodyFatProvider
         {
             throw;
         }
-        catch (HttpRequestException) when (create)
+        catch (HttpRequestException ex) when (create)
         {
+            if (GoogleHealthCreateFailure.NeverReachedServer(ex))
+                throw new GoogleHealthBodyFatProviderException("provider_unavailable", "Google Health was unreachable; the upload will retry automatically.", true);
             throw new GoogleHealthBodyFatProviderException("upload_status_unknown", "The create response was lost; check Google Health before retrying.", unknownCreate: true);
         }
         catch (JsonException) when (create)
