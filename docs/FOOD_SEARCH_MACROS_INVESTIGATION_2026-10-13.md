@@ -28,7 +28,16 @@ A user report (Sunglo yogurt, all visible Open Food Facts rows unresolved while 
 
 - The three pacing gates moved from static fields into `OpenFoodFactsPacing` (one shared instance in production, injectable for tests), so tests no longer depend on slots other tests spent.
 
-Coverage: `tests/FoodBulkRecoveryTests.cs`. This reduces the placeholder rather than guaranteeing it away; the logged status decides what comes next.
+### Production result and second iteration
+
+Cloud Run logs from the first deployed revision showed the bulk read answering HTTP 503 with no `Retry-After` (not 429), twice in a row about six seconds apart, after which the per-product fallback confirmed 3 of 3 rows; `/verify` took 14.5 s, about six of them waiting for a bulk slot that was certain to fail again. Changes:
+
+- A failed bulk read is remembered for 60 s in `OpenFoodFactsPacing`; while remembered, neither the search nor the confirming read tries it, and the confirming read goes straight to the per-product fallback. A successful bulk read clears the memory.
+- Rows being confirmed show motionless placeholders for the energy line and the P/C/F row (`FoodPicker`, driven by `FoodVerificationRecovery`'s `changed` callback) instead of "Nutrition loads when opened", which returns only if confirmation settles with the row unresolved. The rows stay in the placeholder state through the retry wait, so a first failed attempt does not flash the text.
+
+Coverage: `tests/FoodBulkRecoveryTests.cs`, `web/src/lib/foodVerificationRecovery.test.ts`, and the placeholder cases in `web/e2e/food-review.spec.ts`.
+
+Coverage of the first iteration: `tests/FoodBulkRecoveryTests.cs`. This reduces the placeholder rather than guaranteeing it away; the logged status decides what comes next.
 
 ## Conclusion
 

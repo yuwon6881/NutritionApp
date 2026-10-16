@@ -118,8 +118,8 @@ public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsP
 
     /// <summary>
     /// Per-100 g products by code: the durable cache first, then one paced bulk read for the rest.
-    /// A failed bulk read never fails the search; it is logged, and with <paramref name="fallback"/>
-    /// the leading rows are confirmed through the product endpoint instead.
+    /// A failed bulk read never fails the search; it is logged and remembered for a minute, and with
+    /// <paramref name="fallback"/> the leading rows are confirmed through the product endpoint instead.
     /// </summary>
     private async Task<Dictionary<string,FoodResult>> ReadProducts(IReadOnlyCollection<string> codes,PublicFoodCache? durable,bool fallback,CancellationToken ct)
     {
@@ -135,7 +135,16 @@ public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsP
             }
         }
         if(missing.Count==0)return found;
-        var bulkFailed=false;
+        // A bulk read that just failed is not repeated into another failure (and another wait for its
+        // slot); the confirming read goes straight to the per-product endpoint instead.
+        var bulkRead=!pacing.BulkRecentlyFailed&&await ReadBulk(missing,durable,found,ct);
+        if(!bulkRead&&fallback)await ReadEach(codes.Where(missing.Contains).Take(FallbackReads),durable,found,ct);
+        return found;
+    }
+
+    /// <summary>One paced bulk read for <paramref name="missing"/>; false when Open Food Facts gave no usable answer.</summary>
+    private async Task<bool> ReadBulk(HashSet<string> missing,PublicFoodCache? durable,Dictionary<string,FoodResult> found,CancellationToken ct)
+    {
         try
         {
             var slot=(await BatchProductGate.Reserve(BatchProductInterval,null,ct))!.Value;
@@ -143,44 +152,41 @@ public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsP
             using var response=await http.GetAsync($"{BatchProductUrl}?code={Uri.EscapeDataString(string.Join(',',missing))}&fields={Uri.EscapeDataString(ProductFields)}&page_size={missing.Count}",ct);
             if(!response.IsSuccessStatusCode)
             {
-                bulkFailed=true;
                 await NoteBulkRefusal(response,missing.Count);
+                return false;
             }
-            else
+            using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)
             {
-                using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-                if(!json.RootElement.TryGetProperty("products",out var products)||products.ValueKind!=JsonValueKind.Array)
-                {
-                    bulkFailed=true;
-                    log?.LogWarning("Open Food Facts bulk product read for {Count} codes returned no product list.",missing.Count);
-                }
-                else
-                {
-                    var read=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
-                    foreach(var product in products.EnumerateArray())
-                    {
-                        var code=OpenFoodFactsParser.Code(product);
-                        if(code is {Length:>0}&&OpenFoodFactsParser.ReadProduct(product,code,"per100g") is {} hydrated)read[code]=hydrated;
-                    }
-                    foreach(var (code,hydrated) in read)found[code]=hydrated;
-                    await StoreConfirmed(durable,read.Values,ct);
-                }
+                pacing.NoteBulkFailure();
+                log?.LogWarning("Open Food Facts bulk product read for {Count} codes returned no product list.",missing.Count);
+                return false;
             }
+            var read=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
+            foreach(var product in products.EnumerateArray())
+            {
+                var code=OpenFoodFactsParser.Code(product);
+                if(code is {Length:>0}&&OpenFoodFactsParser.ReadProduct(product,code,"per100g") is {} hydrated)read[code]=hydrated;
+            }
+            foreach(var (code,hydrated) in read)found[code]=hydrated;
+            await StoreConfirmed(durable,read.Values,ct);
+            pacing.NoteBulkSuccess();
+            return true;
         }
         catch(OperationCanceledException) when(ct.IsCancellationRequested){throw;}
         catch(Exception error)
         {
             // Serving hydration improves the search list but must not make free-text search fail.
-            bulkFailed=true;
+            pacing.NoteBulkFailure();
             log?.LogWarning(error,"Open Food Facts bulk product read for {Count} codes failed before an answer.",missing.Count);
+            return false;
         }
-        if(bulkFailed&&fallback)await ReadEach(codes.Where(missing.Contains).Take(FallbackReads),durable,found,ct);
-        return found;
     }
 
     /// <summary>A 429 carries the pause Open Food Facts wants; the gate keeps later bulk reads behind it.</summary>
     private async Task NoteBulkRefusal(HttpResponseMessage response,int count)
     {
+        pacing.NoteBulkFailure();
         TimeSpan? retryAfter=null;
         if(response.StatusCode==HttpStatusCode.TooManyRequests)
         {

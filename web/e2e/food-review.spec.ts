@@ -430,6 +430,33 @@ test('unresolved rows remain selectable while a failed confirmation recovers in 
   expect(confirmations).toBe(2);
 });
 
+for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${theme} ${width}: rows being confirmed show a placeholder that keeps their shape`,async({page,context})=>{
+  await context.addCookies(session.cookies);await page.setViewportSize({width,height:900});
+  await page.addInitScript(theme=>localStorage.setItem('nutrition-theme',theme),theme);
+  let release!:()=>void;
+  const confirmation=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder]}));
+  await page.route('**/api/foods/verify?*',async route=>{
+    await confirmation;
+    await route.fulfill({json:[{...powder,basis:'per100g',portions:[{label:'scoop',grams:30}]}]});
+  });
+  await openLog(page);
+  await page.getByLabel('Search term',{exact:true}).fill('powder');
+  const row=page.locator('.food-row').first();
+  await expect(row.locator('.food-macro-skeleton')).toBeVisible();
+  const summary=row.locator('.food-description > small');
+  await expect(summary).toContainText('Loading nutrition');
+  await expect(summary).not.toContainText('Nutrition loads when opened');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
+  const loading=(await row.boundingBox())!;
+  await page.screenshot({animations:'disabled',path:`artifacts/food-review/${theme}-${width}-confirming.png`});
+  release();
+  await expect(row.locator('.food-macro-summary')).toBeVisible();
+  await expect(row.locator('.food-macro-skeleton')).toHaveCount(0);
+  // The figures take the space the placeholder held; only a wrapped summary line may differ.
+  expect(Math.abs((await row.boundingBox())!.height-loading.height)).toBeLessThanOrEqual(22);
+});
+
 test('failed review retries in place and Escape returns to the selected result in reduced motion',async({page,context})=>{
   await context.addCookies(session.cookies);await page.emulateMedia({reducedMotion:'reduce'});
   const food={...powder,code:'955000000003'};

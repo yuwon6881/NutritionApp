@@ -7,9 +7,24 @@ namespace Nutrition.Api.Services.FoodLookup;
 /// </summary>
 public sealed class OpenFoodFactsPacing
 {
+    /// <summary>How long a failed bulk read is remembered before another is tried.</summary>
+    public static readonly TimeSpan BulkFailureMemory=TimeSpan.FromSeconds(60);
+
     public static OpenFoodFactsPacing Shared { get; }=new();
+
+    private long bulkFailedUntilTicks;
 
     public ProviderGate Search { get; }=new();
     public ProviderGate Barcode { get; }=new();
     public ProviderGate BatchProduct { get; }=new();
+
+    /// <summary>
+    /// True while the bulk read recently failed. Open Food Facts' bulk endpoint fails for stretches
+    /// (503 with no retry hint), and trying it again only adds a wait for its slot before the same failure.
+    /// </summary>
+    public bool BulkRecentlyFailed=>DateTime.UtcNow.Ticks<Interlocked.Read(ref bulkFailedUntilTicks);
+
+    public void NoteBulkFailure()=>Interlocked.Exchange(ref bulkFailedUntilTicks,DateTime.UtcNow.Add(BulkFailureMemory).Ticks);
+
+    public void NoteBulkSuccess()=>Interlocked.Exchange(ref bulkFailedUntilTicks,0);
 }

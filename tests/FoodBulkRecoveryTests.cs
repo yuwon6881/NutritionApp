@@ -72,6 +72,36 @@ public sealed class FoodBulkRecoveryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_confirming_read_skips_a_bulk_read_that_just_failed()
+    {
+        var handler=new RoutingHandler(HttpStatusCode.ServiceUnavailable);
+        var provider=new OpenFoodFactsProvider(new HttpClient(handler),null,new OpenFoodFactsPacing());
+        await using var db=Db();
+
+        // The search's own bulk read fails; the confirming read then goes straight to the product
+        // endpoint instead of waiting for another slot to fail the same way.
+        var row=Assert.Single(await provider.Search("sunglo yogurt",null,default));
+        var verified=await provider.VerifyBasis([row.Code!],new PublicFoodCache(db),default);
+
+        Assert.Equal(1,handler.BulkReads);
+        Assert.Equal(1,handler.ProductReads);
+        Assert.Equal("per100g",Assert.Single(verified).Basis);
+    }
+
+    [Fact]
+    public void A_bulk_failure_is_remembered_until_a_bulk_read_succeeds()
+    {
+        var pacing=new OpenFoodFactsPacing();
+        Assert.False(pacing.BulkRecentlyFailed);
+
+        pacing.NoteBulkFailure();
+        Assert.True(pacing.BulkRecentlyFailed);
+
+        pacing.NoteBulkSuccess();
+        Assert.False(pacing.BulkRecentlyFailed);
+    }
+
+    [Fact]
     public async Task A_bulk_read_cancelled_while_it_waits_hands_its_slot_back()
     {
         var pacing=new OpenFoodFactsPacing();
@@ -94,6 +124,7 @@ public sealed class FoodBulkRecoveryTests : IAsyncLifetime
     {
         public HttpStatusCode ProductStatus { get; init; }=HttpStatusCode.OK;
         public int ProductReads { get; private set; }
+        public int BulkReads { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
@@ -101,6 +132,7 @@ public sealed class FoodBulkRecoveryTests : IAsyncLifetime
             if(url.Host=="search.openfoodfacts.org")return Json("""{"hits":[{"code":"9557337800106","product_name":"Greek Yoghurt","brands":["Sunglo"],"nutriments":{"energy-kcal_100g":80}}]}""");
             if(url.AbsolutePath=="/api/v2/search")
             {
+                BulkReads++;
                 var response=new HttpResponseMessage(bulkStatus);
                 if(bulkStatus==HttpStatusCode.TooManyRequests)response.Headers.RetryAfter=new RetryConditionHeaderValue(TimeSpan.FromSeconds(1));
                 return Task.FromResult(response);

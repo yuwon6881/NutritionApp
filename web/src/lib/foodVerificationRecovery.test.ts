@@ -8,10 +8,12 @@ const confirmed:FoodSearchResult={...hit,calories:385,protein:79,basis:'per100g'
 
 function setup(read:(codes:string[])=>Promise<FoodSearchResult[]>){
   const cache=new Map([['whey',[hit]]]);
+  const states:boolean[]=[];
   let active='whey';
   const recovery=new FoodVerificationRecovery({read,results:key=>cache.get(key)??[],active:key=>active===key,
-    apply:(key,verified)=>cache.set(key,applyVerifiedFoods(cache.get(key)??[],verified))});
-  return {recovery,cache,show:(key:string)=>{active=key;}};
+    apply:(key,verified)=>cache.set(key,applyVerifiedFoods(cache.get(key)??[],verified)),
+    changed:(_key,confirming)=>states.push(confirming)});
+  return {recovery,cache,states,show:(key:string)=>{active=key;}};
 }
 
 afterEach(()=>vi.useRealTimers());
@@ -29,6 +31,31 @@ describe('food verification recovery',()=>{
     expect(cache.get('whey')?.[0].basis).toBe('per100g');
     await vi.advanceTimersByTimeAsync(VERIFY_COOLDOWN_MS);
     expect(read).toHaveBeenCalledTimes(2);
+    recovery.dispose();
+  });
+
+  it('reports confirming through the retry wait and stops once the rows are confirmed',async()=>{
+    vi.useFakeTimers();
+    const read=vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([confirmed]);
+    const {recovery,states}=setup(read);
+    recovery.confirm('whey');
+    expect(states).toEqual([true]);
+    await vi.advanceTimersByTimeAsync(0);
+    // The empty first answer does not flash the plain text: the rows stay confirming while the retry waits.
+    expect(states).toEqual([true]);
+    await vi.advanceTimersByTimeAsync(VERIFY_RETRY_MS);
+    expect(states).toEqual([true,true,false]);
+    recovery.dispose();
+  });
+
+  it('stops reporting confirming when the last attempt leaves rows unresolved',async()=>{
+    vi.useFakeTimers();
+    const read=vi.fn().mockResolvedValue([]);
+    const {recovery,states}=setup(read);
+    recovery.confirm('whey');
+    await vi.advanceTimersByTimeAsync(VERIFY_RETRY_MS);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(states.at(-1)).toBe(false);
     recovery.dispose();
   });
 

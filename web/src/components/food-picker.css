@@ -7,3 +7,18 @@
   margin: 0;
   font-size: inherit;
 }
+
+/* Rows whose nutrition is being confirmed hold the space the figures will take, so nothing moves on arrival. */
+.food-modal .food-row .food-description .food-nutrition-skeleton {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.food-modal .food-row .food-description .food-macro-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 1.008rem;
+  margin: 6px 0 0;
+}

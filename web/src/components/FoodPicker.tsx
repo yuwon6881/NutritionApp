@@ -1,4 +1,4 @@
-import {lazy,Suspense,useEffect,useId,useRef,useState,type CSSProperties} from 'react';
+import {lazy,Suspense,useEffect,useId,useMemo,useRef,useState,type CSSProperties} from 'react';
 import {Camera, LoaderCircle, ScanBarcode, Search, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api,ApiError} from '../lib/api';
@@ -8,6 +8,9 @@ import {Field} from './ui/Field';
 import {Form} from './ui/Form';
 import {BarcodeCamera} from './BarcodeCamera';
 import {Modal} from './ui/Modal';
+import {SkeletonBlock} from './ui/Skeleton';
+import {barcodeValue} from '../lib/logFood';
+import {verifiableCodes} from '../lib/foodVerification';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {isFatSecretSource} from '../lib/foodSources';
 import {useSearchAsYouType,type SearchCache} from './useSearchAsYouType';
@@ -95,7 +98,7 @@ export function FoodPicker({
   const requestId=useRef(0);
   const rowId=useId();
   useEffect(()=>{requestId.current++;return()=>{requestId.current++;};},[tab,step,open]);
-  const {search,searching:typeaheadSearching}=useSearchAsYouType({
+  const {search,searching:typeaheadSearching,confirming}=useSearchAsYouType({
     enabled:tab==='search'&&open&&step==='selection',
     query,
     onResults:found=>{setError('');setResults(found);},
@@ -111,6 +114,8 @@ export function FoodPicker({
   },[]);
   // Typing and the keyboard's search key both search, so either one shows the same indicator.
   const searching=tab==='search'&&(typeaheadSearching||busy);
+  // Only the rows the confirming read actually covers show as loading; the rest keep the plain text.
+  const confirmingCodes=useMemo(()=>confirming?new Set(verifiableCodes(results)):null,[confirming,results]);
   const scanning=tab==='barcode'&&camera&&open&&step==='selection';
   const detected=(code:string)=>{
     setCamera(false);
@@ -242,6 +247,7 @@ export function FoodPicker({
       {results.map((result,index)=>{
         const starred=isSaved?isSaved(result):false;
         const nutrition=result.basis==='per100g'?lineFromPer100(result):null;
+        const loading=result.basis==='unverified'&&confirmingCodes?.has(barcodeValue(result.code)??'')===true;
         const id=`${rowId}-${index}`;
         return <div
           className="food-row interactive"
@@ -252,8 +258,14 @@ export function FoodPicker({
           <Button presentation="plain" className="food-row-choose" data-food-key={`${result.source}|${result.name}|${result.code??''}`} aria-labelledby={`${id}-name`} aria-describedby={`${id}-summary`} onClick={()=>onChoose(result)}/>
           <div className="food-description">
             <strong id={`${id}-name`}>{result.name}</strong>
-            <small id={`${id}-summary`}>{nutritionSummary(result,energyUnit)}{!isFatSecretSource(result.source)?` · ${result.source}`:''}</small>
+            <small id={`${id}-summary`}>
+              {loading
+                ?<><span className="sr-only">Loading nutrition</span><SkeletonBlock width={88} height={10} className="food-nutrition-skeleton"/></>
+                :nutritionSummary(result,energyUnit)}
+              {!isFatSecretSource(result.source)?` · ${result.source}`:''}
+            </small>
             {nutrition&&<FoodMacroSummary protein={nutrition.protein} carbs={nutrition.carbs} fat={nutrition.fat}/>}
+            {loading&&<div className="food-macro-skeleton" aria-hidden="true">{[0,1,2].map(item=><SkeletonBlock key={item} width={44} height={10}/>)}</div>}
           </div>
           <Button
             variant="tertiary"

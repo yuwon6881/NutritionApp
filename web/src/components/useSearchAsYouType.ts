@@ -40,11 +40,14 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
   const shownKey=useRef('');
   const onResultsRef=useRef(onResults);
   const verification=useRef<FoodVerificationRecovery|null>(null);
+  // The query whose unresolved rows are being confirmed, so the list can show them as loading.
+  const [confirmingKey,setConfirmingKey]=useState<string|null>(null);
   const confirm=useCallback((key:string)=>{
     if(!verification.current)verification.current=new FoodVerificationRecovery({
       read:codes=>api<FoodSearchResult[]>(`/foods/verify?provider=${VERIFYING_PROVIDER}&codes=${codes.join(',')}`),
       results:key=>cache.current.get(key)??[],
       active:key=>shownKey.current===key,
+      changed:(key,confirming)=>setConfirmingKey(current=>confirming?key:current===key?null:current),
       apply:(key,verified)=>{
         const current=cache.current.get(key)??[];
         const next=applyVerifiedFoods(current,verified);
@@ -116,5 +119,6 @@ export function useSearchAsYouType({enabled,query,onResults,onError,cache:shared
     requests.current.clear();
   },[]);
   const searching=enabled&&inFlight!==null&&inFlight===query.trim().toLowerCase();
-  return {search,searching};
+  const confirming=enabled&&confirmingKey!==null&&confirmingKey===query.trim().toLowerCase();
+  return {search,searching,confirming};
 }

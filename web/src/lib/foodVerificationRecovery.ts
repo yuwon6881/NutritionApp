@@ -16,6 +16,8 @@ export class FoodVerificationRecovery {
     results:(key:string)=>FoodSearchResult[];
     apply:(key:string,verified:FoodSearchResult[])=>void;
     active:(key:string)=>boolean;
+    /** Reports whether a query's unresolved rows are being confirmed now or waiting for their retry. */
+    changed?:(key:string,confirming:boolean)=>void;
   }){}
 
   confirm(key:string){
@@ -31,6 +33,7 @@ export class FoodVerificationRecovery {
     if(attempt.timer)clearTimeout(attempt.timer);
     attempt.count++;
     attempt.pending=true;
+    this.handlers.changed?.(key,true);
     const current=attempt;
     void this.handlers.read(codes)
       .then(verified=>this.handlers.apply(key,verified))
@@ -38,12 +41,13 @@ export class FoodVerificationRecovery {
       .finally(()=>{
         current.pending=false;
         const unresolved=verifiableCodes(this.handlers.results(key)).length>0;
-        if(!unresolved||this.disposed)return;
+        if(!unresolved||this.disposed){this.handlers.changed?.(key,false);return;}
         const delay=current.count<2?VERIFY_RETRY_MS:VERIFY_COOLDOWN_MS;
         current.retryAt=Date.now()+delay;
         if(current.count<2){
+          // The rows stay "confirming" through the wait, so a failed first attempt does not flash the plain text.
           current.timer=setTimeout(()=>{current.timer=undefined;this.confirm(key);},delay);
-        }
+        }else this.handlers.changed?.(key,false);
       });
   }
 
