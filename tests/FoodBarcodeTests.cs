@@ -66,6 +66,35 @@ public sealed class FoodBarcodeTests : IAsyncLifetime
         }
     }
 
+    private sealed class FixedProductHandler(string body):HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken cancellationToken)
+            =>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(body)});
+    }
+
+    [Fact]
+    public async Task A_scanned_drink_whose_unit_field_says_grams_but_whose_label_says_millilitres_is_per_100_ml_end_to_end()
+    {
+        // The record behind "HL MILK · Marigold": a 200 ml serving label beside a unit field left at g.
+        const string product="""
+            {"status":1,"product":{"code":"8888026520014","product_name":"HL MILK","brands":"Marigold",
+             "serving_size":"1 serving (200 ml)","serving_quantity":200,"serving_quantity_unit":"g",
+             "nutriments":{"energy-kcal_100g":50,"proteins_100g":4.2,"carbohydrates_100g":6.3,"fat_100g":0.9}}}
+            """;
+        var service=new FoodCatalog([new OpenFoodFactsProvider(new HttpClient(new FixedProductHandler(product)))],new MemoryCache(new MemoryCacheOptions{SizeLimit=256}));
+        await using var db=Open();
+
+        var result=await service.Barcode("8888026520014",db,default);
+
+        Assert.Equal("ml",result.Measure);
+        Assert.Equal("per100g",result.Basis);
+        var portion=Assert.Single(result.Portions!);
+        Assert.Equal("1 serving (200 ml)",portion.Label);
+        Assert.Equal(200,portion.Grams);
+        // It reaches the client as JSON with the measure present.
+        Assert.Equal("ml",JsonDocument.Parse(Json.Write(result)).RootElement.GetProperty("measure").GetString());
+    }
+
     [Fact]
     public async Task Scanning_another_uncached_barcode_waits_for_its_slot_instead_of_failing()
     {
