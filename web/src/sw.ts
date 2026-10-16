@@ -8,7 +8,10 @@ const digest=[...version].reduce((n,c)=>Math.imul(n,31)+c.charCodeAt(0)|0,0).toS
 const cacheName='nutrition-app-assets-'+digest;
 const assets=new Set(manifest.map(e=>new URL(e.url,self.location.origin).pathname));
 const precacheUrls=[...new Set([...manifest.map(e=>e.url),'/'])];
-const cacheable=(request:Request,url:URL)=>request.method==='GET'&&url.origin===self.location.origin&&!url.pathname.startsWith('/api/');
+// App Link (`/open`) redirects and asset links are answered by hosting, never by the cached shell.
+const serverRoute=(url:URL)=>url.pathname.startsWith('/api/')||url.pathname.startsWith('/internal/')||url.pathname==='/health'
+  ||url.pathname==='/open'||url.pathname.startsWith('/open/')||url.pathname.startsWith('/.well-known/');
+const cacheable=(request:Request,url:URL)=>request.method==='GET'&&url.origin===self.location.origin&&!serverRoute(url);
 function safeRoute(value:unknown):string{return value==='/coach'?'/coach':'/';}
 self.addEventListener('push',(event:PushEvent)=>{
   event.waitUntil((async()=>{
@@ -73,7 +76,7 @@ self.addEventListener('activate',event=>{
 });
 self.addEventListener('fetch',event=>{
   const request=event.request;const url=new URL(request.url);
-  if(request.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith('/internal/'))return;
+  if(request.method!=='GET'||url.origin!==self.location.origin||serverRoute(url))return;
   if(assets.has(url.pathname)){
     event.respondWith((async()=>{const cache=await caches.open(cacheName);return await cache.match(url.pathname)||fetch(request);})());return;
   }

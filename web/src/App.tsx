@@ -166,14 +166,16 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   },[]);
   useEffect(()=>{if(needsProfile){backCoordinator().replacePage('coach');setPage('coach');}},[needsProfile]);
   useEffect(()=>{
-    const openCoachFromPush=(event:Event)=>{
+    // Push taps route to Coach; App Links may also open the Dashboard or Settings.
+    const openRoute=(event:Event)=>{
       const route=(event as CustomEvent<{route?:string}>).detail?.route;
-      if(route!=='/coach')return;
+      const target=route==='/coach'?'coach':route==='/settings'?'settings':route==='/'?'today':null;
+      if(!target)return;
       setFoodOpen(false);setWeightOpen(false);setCopyOpen(false);setShowAddSheet(false);
-      requestPage('coach');
+      requestPage(target);
     };
-    window.addEventListener('nutrition-push-navigation',openCoachFromPush);
-    return()=>window.removeEventListener('nutrition-push-navigation',openCoachFromPush);
+    window.addEventListener('nutrition-push-navigation',openRoute);
+    return()=>window.removeEventListener('nutrition-push-navigation',openRoute);
   },[]);
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setDate(current);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
 

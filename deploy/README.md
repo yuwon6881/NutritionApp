@@ -57,3 +57,5 @@ An authenticated JSON export is not a disaster-recovery backup. Use `pg_dump --f
 The migrations enable row-level security with no browser policies. The backend database role owns the tables; its application query filters and write ownership checks remain mandatory. Database credentials never reach the browser.
 
 Android signed APK channels, certificate variables, artifact manifests and the physical-device publication gate are documented in [Android reliability](../docs/ANDROID_RELIABILITY.md). The manual CI release job now prepares both an APK and an AAB; it does not publish a GitHub Release.
+
+Android App Links are verified from `web/public/.well-known/assetlinks.json`, which Vercel serves as a static file. It lists the SHA-256 of the stable device-test certificate (`ANDROID_DEBUG_SIGNING_CERT_SHA256`, the APK installed today). When the release job starts producing installed APKs, add `ANDROID_RELEASE_SIGNING_CERT_SHA256` to the same array and deploy before installing it. Verification only claims `/open`, `/open/coach` and `/open/settings`; check it on a device with `adb shell pm get-app-links com.nutritionapp.mobile`.

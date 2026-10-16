@@ -146,6 +146,31 @@ public sealed class GoogleHealthWeightImportTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Moved_upload_with_old_desired_date_is_still_skipped_while_unmapped_reading_is_imported()
+    {
+        db.GoogleHealthWeightSyncWork.Add(new GoogleHealthWeightSyncWork
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            WeightId = Guid.NewGuid(),
+            ProcessingState = "succeeded",
+            DesiredDate = today.AddDays(-200),
+            GoogleResourceName = "users/me/dataTypes/weight/dataPoints/old-work"
+        });
+        await db.SaveChangesAsync();
+        handler.Points.Add(Point("old-work", At(today.AddDays(-3), 7), 72));
+        handler.Points.Add(Point("unmapped", At(today.AddDays(-2), 7), 73));
+
+        var result = await Import().RunAsync(force: true, default);
+
+        Assert.Equal(1, result.Imported);
+        var imported = await db.Weights.SingleAsync();
+        Assert.Equal(today.AddDays(-2), imported.Date);
+        Assert.Equal(73, imported.Kg);
+        Assert.Equal("users/me/dataTypes/weight/dataPoints/unmapped", imported.ExternalId);
+    }
+
+    [Fact]
     public async Task Skips_implausible_values_and_dates_outside_the_window_instead_of_coercing_them()
     {
         handler.Points.Add(Point("too-light", At(today.AddDays(-1), 7), 5));

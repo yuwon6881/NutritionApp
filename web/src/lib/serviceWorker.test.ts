@@ -13,9 +13,11 @@ function worker(){
   const showNotification=vi.fn().mockResolvedValue(undefined);
   const matchAll=vi.fn().mockResolvedValue([]);
   const openWindow=vi.fn().mockResolvedValue(undefined);
-  runInNewContext(compiled,{exports:{},URL,parseNutritionReminderPayload,self:{
+  const caches={open:vi.fn().mockResolvedValue({match:vi.fn().mockResolvedValue(undefined),put:vi.fn().mockResolvedValue(undefined)})};
+  runInNewContext(compiled,{exports:{},URL,parseNutritionReminderPayload,caches,self:{
     __WB_MANIFEST:[],location:{origin:'https://nutrition.test'},registration:{showNotification},
-    clients:{matchAll,openWindow},addEventListener:(name:string,handler:(event:unknown)=>void)=>handlers.set(name,handler)
+    clients:{matchAll,openWindow},addEventListener:(name:string,handler:(event:unknown)=>void)=>handlers.set(name,handler),
+    caches
   }});
   const dispatch=async(name:string,properties:object)=>{
     let pending:Promise<unknown>|undefined;
@@ -59,5 +61,26 @@ describe('service worker reminder lifecycle',()=>{
     expect(instance.openWindow).toHaveBeenCalledWith('https://nutrition.test/coach');
     await instance.dispatch('notificationclick',{notification:{close,data:{route:'https://other.test'}}});
     expect(instance.openWindow).toHaveBeenLastCalledWith('https://nutrition.test/');
+  });
+  it('leaves server routes, App Link redirects and asset links to the network while intercepting assets',async()=>{
+    const instance=worker();
+    const fetchHandler=instance.handlers.get('fetch');
+    expect(fetchHandler).toBeDefined();
+
+    for(const path of ['/api/x','/internal/x','/health','/open','/open/coach','/.well-known/assetlinks.json']){
+      const respondWith=vi.fn();
+      fetchHandler!({
+        request:{method:'GET',mode:'navigate',url:`https://nutrition.test${path}`},
+        respondWith
+      });
+      expect(respondWith).not.toHaveBeenCalled();
+    }
+
+    const respondWith=vi.fn();
+    fetchHandler!({
+      request:{method:'GET',url:'https://nutrition.test/icon-192.png'},
+      respondWith
+    });
+    expect(respondWith).toHaveBeenCalledOnce();
   });
 });

@@ -22,9 +22,25 @@ public static class RecordEndpoints
     {
         app.MapGet("/api/revisions", async (HttpContext http, AppDb db, RetentionService retention, CancellationToken ct) =>
         {
-            var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == db.CurrentUser, ct);
-            var training = await db.WorkoutSummaries.AsNoTracking().Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
-            var google = await db.GoogleHealthConnections.AsNoTracking().Select(x => (long?)x.Revision).SingleOrDefaultAsync(ct) ?? 0;
+            var user = await db.Users.AsNoTracking()
+                .Where(u => u.Id == db.CurrentUser)
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Revision,
+                    u.ProfileRevision,
+                    u.CoachingSettingsRevision,
+                    u.TrajectoryRevision,
+                    u.FoodRevision,
+                    u.DiaryRevision,
+                    u.BodyRevision,
+                    u.ProfileJson,
+                    Training = db.WorkoutSummaries.Select(x => (long?)x.Revision).FirstOrDefault(),
+                    Google = db.GoogleHealthConnections.Select(x => (long?)x.Revision).FirstOrDefault()
+                })
+                .SingleAsync(ct);
+            var training = user.Training ?? 0;
+            var google = user.Google ?? 0;
             var localDay = RetentionService.Today(user.ProfileJson);
             var etag = $"\"revisions:{user.Id:N}:{user.Revision}:{user.ProfileRevision}:{user.CoachingSettingsRevision}:{user.TrajectoryRevision}:{user.FoodRevision}:{user.DiaryRevision}:{user.BodyRevision}:{training}:{google}:{localDay:yyyy-MM-dd}:{retention.DetailDays}\"";
             if (http.Request.Headers.IfNoneMatch == etag)

@@ -80,8 +80,11 @@ public sealed class GoogleHealthWeightImportService(
         // Emptiness is decided under the lock so a weigh-in saved during the provider call always wins.
         var occupied = (await db.Weights.Where(weight => weight.Date >= start && weight.Date <= today)
             .Select(weight => weight.Date).ToListAsync(ct)).ToHashSet();
-        var uploaded = (await db.GoogleHealthWeightSyncWork.Where(work => work.GoogleResourceName != "")
-            .Select(work => work.GoogleResourceName).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
+        var names = readings.Select(reading => reading.ResourceName).Where(name => !string.IsNullOrEmpty(name)).Distinct().ToList();
+        var uploaded = names.Count == 0
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : (await db.GoogleHealthWeightSyncWork.Where(work => names.Contains(work.GoogleResourceName))
+                .Select(work => work.GoogleResourceName).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
         var candidates = GoogleHealthWeightImportPlanner.Plan(readings, today, zone, occupied, uploaded, google.ClientId);
         if (candidates.Count == 0) return 0;
 

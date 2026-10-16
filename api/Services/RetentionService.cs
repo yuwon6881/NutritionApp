@@ -22,13 +22,17 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
         var cutoff=Cutoff(today,DetailDays);
         var dates=await db.Entries.Where(e=>e.Date<cutoff).Select(e=>e.Date)
             .Union(db.Days.Where(d=>d.Date<cutoff&&!d.Archived).Select(d=>d.Date)).Distinct().OrderBy(d=>d).Take(120).ToListAsync(ct);
-        var removed=0;var user=await db.Users.SingleAsync(u=>u.Id==userId,ct);
+        var existingDays=(await db.Days.Where(d=>dates.Contains(d.Date)).ToListAsync(ct)).ToDictionary(d=>d.Date);
+        var entriesByDate=(await db.Entries.AsNoTracking().Where(e=>dates.Contains(e.Date)&&!e.Deleted).ToListAsync(ct))
+            .GroupBy(e=>e.Date).ToDictionary(g=>g.Key,g=>g.ToList());
+        var user=await db.Users.SingleAsync(u=>u.Id==userId,ct);
+        var compacted=new List<DateOnly>();
         foreach(var date in dates)
         {
-            var day=await db.Days.SingleOrDefaultAsync(d=>d.Date==date,ct);
+            var day=existingDays.GetValueOrDefault(date);
             // Already-archived dates cannot acquire new detail through the mutation API.
             if(day?.Archived==true) continue;
-            var entries=await db.Entries.Where(e=>e.Date==date&&!e.Deleted).ToListAsync(ct);
+            var entries=entriesByDate.GetValueOrDefault(date)??[];
             if(day==null){day=new DayStatus { Id=Guid.NewGuid(),UserId=userId,Date=date };db.Days.Add(day);}
             double? Sum(Func<DiaryEntry,double?> select)=>entries.Any(e=>select(e)==null)?null:entries.Sum(e=>select(e)??0);
             day.Calories=entries.Sum(e=>e.Calories);day.Protein=Sum(e=>e.Protein);day.Fat=Sum(e=>e.Fat);day.Carbs=Sum(e=>e.Carbs);day.Fiber=Sum(e=>e.Fiber);
@@ -36,9 +40,10 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
             day.EntryCount=entries.Count;day.Archived=true;day.Revision=++user.Revision;
             day.Deleted=false;
             user.DiaryRevision=user.Revision;
-            await db.SaveChangesAsync(ct);
-            removed+=await db.Entries.Where(e=>e.Date==date).ExecuteDeleteAsync(ct);
+            compacted.Add(date);
         }
+        await db.SaveChangesAsync(ct);
+        var removed=compacted.Count==0?0:await db.Entries.Where(e=>compacted.Contains(e.Date)).ExecuteDeleteAsync(ct);
         // A finished upload row is the edit/delete mapping for its entry. Once compaction has removed
         // the entry nothing can edit it again, so the row only grows the queue. In-flight, failed, and
         // unknown rows stay: they still need delivery or explicit recovery.

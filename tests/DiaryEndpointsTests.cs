@@ -292,4 +292,65 @@ public class DiaryEndpointsTests
             Assert.Single(foods.EnumerateArray().ToList());
         });
     }
+
+    [Fact]
+    public async Task Revisions_etag_scoped_to_current_user_workout_and_google_rows()
+    {
+        await WithClient(async (client, db, userA, userB) =>
+        {
+            var res1 = await client.GetAsync("/api/revisions");
+            Assert.Equal(HttpStatusCode.OK, res1.StatusCode);
+            var etag1 = res1.Headers.ETag?.ToString();
+            Assert.NotNull(etag1);
+
+            // Adding workout and google rows for userB must not change userA's ETag
+            db.WorkoutSummaries.Add(new WorkoutSummaryCache
+            {
+                Id = Guid.NewGuid(),
+                UserId = userB.Id,
+                Revision = 10,
+                SummaryJson = "[]"
+            });
+            db.GoogleHealthConnections.Add(new GoogleHealthConnection
+            {
+                UserId = userB.Id,
+                GoogleIdHash = "userb-google",
+                Revision = 20,
+                Status = "connected"
+            });
+            await db.SaveChangesAsync();
+
+            var res2 = await client.GetAsync("/api/revisions");
+            var etag2 = res2.Headers.ETag?.ToString();
+            Assert.Equal(etag1, etag2);
+
+            // Adding a workout row for userA changes the ETag
+            db.WorkoutSummaries.Add(new WorkoutSummaryCache
+            {
+                Id = Guid.NewGuid(),
+                UserId = userA.Id,
+                Revision = 1,
+                SummaryJson = "[]"
+            });
+            await db.SaveChangesAsync();
+
+            var res3 = await client.GetAsync("/api/revisions");
+            var etag3 = res3.Headers.ETag?.ToString();
+            Assert.NotEqual(etag1, etag3);
+
+            // Adding a Google Health connection for userA changes the ETag
+            db.GoogleHealthConnections.Add(new GoogleHealthConnection
+            {
+                UserId = userA.Id,
+                GoogleIdHash = "usera-google",
+                Revision = 1,
+                Status = "connected"
+            });
+            await db.SaveChangesAsync();
+
+            var res4 = await client.GetAsync("/api/revisions");
+            var etag4 = res4.Headers.ETag?.ToString();
+            Assert.NotEqual(etag3, etag4);
+        });
+    }
 }

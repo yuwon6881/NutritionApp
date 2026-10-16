@@ -12,6 +12,7 @@ import {IntegrationRecovery} from '../../lib/integrationRecovery';
 import {ApiError} from '../../lib/api';
 import {listenForNativePushActions,isNativeAndroid} from '../../lib/push/nativeNotifications';
 import {parseNutritionReminderPayload} from '../../lib/push/pushPayload';
+import {listenForAppLinks} from '../../lib/appLinks';
 import {Button} from './Button';
 
 interface StorageSnapshot {
@@ -246,10 +247,19 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
         if(disposed)stop();
         else stopListening=stop;
       }).catch(()=>{});
+      let stopLinks:(()=>void)|undefined;
+      void listenForAppLinks(route=>{
+        pendingRoute.current=route;
+        openPendingRoute();
+      }).then(stop=>{
+        if(disposed)stop();
+        else stopLinks=stop;
+      }).catch(()=>{});
       return()=>{
         disposed=true;
         navigator.serviceWorker?.removeEventListener('message',foregroundReminder);
         stopListening?.();
+        stopLinks?.();
       };
     }
     const start=async()=>{

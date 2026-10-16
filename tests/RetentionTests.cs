@@ -250,4 +250,138 @@ public class RetentionTests
         Assert.Equal(2, remaining.Count);
         Assert.DoesNotContain(remaining, b => b.Created < now.AddDays(-100));
     }
+
+    [Fact]
+    public async Task Storage_cleanup_prunes_orphaned_succeeded_and_cancelled_body_fat_sync_work()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        var now = DateTime.UtcNow;
+
+        var liveRecord = new BodyRecord { Id = Guid.NewGuid(), UserId = user.Id, Date = DateOnly.FromDateTime(now), CreationOrder = 1, Created = now, Updated = now, Deleted = false, Revision = 1 };
+        var purgedRecord = new BodyRecord { Id = Guid.NewGuid(), UserId = user.Id, Date = DateOnly.FromDateTime(now.AddDays(-120)), CreationOrder = 2, Created = now.AddDays(-120), Updated = now.AddDays(-120), Deleted = true, DeletedAt = now.AddDays(-120), Revision = 2 };
+        db.BodyRecords.AddRange(liveRecord, purgedRecord);
+
+        GoogleHealthBodyFatSyncWork Work(Guid recordId, string state) => new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            BodyRecordId = recordId,
+            ProcessingState = state
+        };
+
+        var purgedSucceeded = Work(purgedRecord.Id, "succeeded");
+        var cancelledOrphan = Work(Guid.NewGuid(), "cancelled");
+        var pendingOrphan = Work(Guid.NewGuid(), "pending");
+        var failedOrphan = Work(Guid.NewGuid(), "failed");
+        var unknownOrphan = Work(Guid.NewGuid(), "unknown");
+        var liveSucceeded = Work(liveRecord.Id, "succeeded");
+
+        db.GoogleHealthBodyFatSyncWork.AddRange(purgedSucceeded, cancelledOrphan, pendingOrphan, failedOrphan, unknownOrphan, liveSucceeded);
+        await db.SaveChangesAsync();
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Retention:TombstoneDays"] = "90"
+        }).Build();
+        var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+        var images = new TemporaryImageStore(new HttpClient(), config);
+        var storage = new StorageService(db, cache, images, config);
+
+        await storage.Cleanup(default);
+
+        var remaining = await db.GoogleHealthBodyFatSyncWork.IgnoreQueryFilters().ToListAsync();
+        Assert.DoesNotContain(remaining, w => w.Id == purgedSucceeded.Id);
+        Assert.DoesNotContain(remaining, w => w.Id == cancelledOrphan.Id);
+        Assert.Contains(remaining, w => w.Id == pendingOrphan.Id);
+        Assert.Contains(remaining, w => w.Id == failedOrphan.Id);
+        Assert.Contains(remaining, w => w.Id == unknownOrphan.Id);
+        Assert.Contains(remaining, w => w.Id == liveSucceeded.Id);
+    }
+
+    [Fact]
+    public async Task Compaction_batches_queries_and_preserves_rules_revisions_and_recent_entries()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Retention:MealDetailDays"] = "7" }).Build();
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+
+        var today = new DateOnly(2026, 9, 7);
+        var old1 = today.AddDays(-10);
+        var old2 = today.AddDays(-9);
+        var old3 = today.AddDays(-8);
+        var recent = today.AddDays(-1);
+
+        // Date 1: 2 entries, one with null Protein
+        var entry1 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old1, Name = "Rice", Calories = 200, Protein = null, Carbs = 40, Fat = 2 };
+        var entry2 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old1, Name = "Egg", Calories = 100, Protein = 6, Carbs = 1, Fat = 7 };
+
+        // Date 2: 2 entries, one Deleted
+        var entry3 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old2, Name = "Chicken", Calories = 250, Protein = 30, Carbs = 0, Fat = 5 };
+        var entry4 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old2, Name = "Deleted snack", Calories = 50, Protein = 2, Carbs = 5, Fat = 1, Deleted = true };
+
+        // Date 3: old not_logged day with no entries
+        var day3 = new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = old3, Status = "not_logged" };
+
+        // Recent entry
+        var recentEntry = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = recent, Name = "Apple", Calories = 80, Protein = 0, Carbs = 20, Fat = 0 };
+
+        db.Entries.AddRange(entry1, entry2, entry3, entry4, recentEntry);
+        db.Days.Add(day3);
+        await db.SaveChangesAsync();
+
+        var retention = new RetentionService(db, config);
+        var removed = await retention.CompactUser(user.Id, today, default);
+
+        Assert.Equal(4, removed);
+
+        var days = (await db.Days.ToListAsync()).ToDictionary(d => d.Date);
+        Assert.Equal(3, days.Count);
+
+        var d1 = days[old1];
+        Assert.True(d1.Archived);
+        Assert.Equal(300, d1.Calories);
+        Assert.Null(d1.Protein);
+        Assert.Equal(41, d1.Carbs);
+        Assert.Equal(9, d1.Fat);
+        Assert.Equal(2, d1.EntryCount);
+        Assert.Equal("complete", d1.Status);
+
+        var d2 = days[old2];
+        Assert.True(d2.Archived);
+        Assert.Equal(250, d2.Calories);
+        Assert.Equal(30, d2.Protein);
+        Assert.Equal(0, d2.Carbs);
+        Assert.Equal(5, d2.Fat);
+        Assert.Equal(1, d2.EntryCount);
+        Assert.Equal("complete", d2.Status);
+
+        var d3 = days[old3];
+        Assert.True(d3.Archived);
+        Assert.Equal(0, d3.Calories);
+        Assert.Equal(0, d3.Protein);
+        Assert.Equal(0, d3.Carbs);
+        Assert.Equal(0, d3.Fat);
+        Assert.Equal(0, d3.EntryCount);
+        Assert.Equal("not_logged", d3.Status);
+
+        Assert.Equal(3, new[] { d1.Revision, d2.Revision, d3.Revision }.Distinct().Count());
+
+        var reloadedUser = await db.Users.SingleAsync(u => u.Id == user.Id);
+        Assert.Equal(reloadedUser.Revision, reloadedUser.DiaryRevision);
+
+        var remainingEntries = await db.Entries.ToListAsync();
+        Assert.Single(remainingEntries);
+        Assert.Equal(recentEntry.Id, remainingEntries[0].Id);
+    }
 }
