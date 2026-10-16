@@ -40,7 +40,7 @@ for (const theme of ['light', 'dark']) {
       await ensureAcceptedPlan(page.request);
       await page.goto('/');
       await page.getByRole('button', {name: 'Dashboard', exact: true}).click();
-      const card = page.locator('.steps-panel');
+      const card = page.locator('.steps-chip');
       await expect(card).toContainText('4,321');
       await expect.poll(() => refreshes).toBe(1);
       await page.evaluate(() => {

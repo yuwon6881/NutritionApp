@@ -8,6 +8,7 @@ import {Button} from './ui/Button';
 import {BAR_AXIS_WIDTH, BarChartFrame, BarChartNav} from './ui/BarChartFrame';
 import {useBarViewport, useRevealBar} from './ui/useBarViewport';
 import {useChartScrub} from './ui/useChartScrub';
+import {SkeletonChart,SkeletonRegion} from './ui/Skeleton';
 
 interface GoogleHealthProgressChartProps {
   days: GoogleHealthDay[];
@@ -101,9 +102,9 @@ export function GoogleHealthProgressChart({
       </div>
 
       {loading && days.length === 0 ? (
-        <div className="chart-skeleton" aria-busy="true">
-          Loading…
-        </div>
+        <SkeletonRegion label="Loading step history…" className="chart-skeleton">
+          <SkeletonChart height={HEIGHT}/>
+        </SkeletonRegion>
       ) : !hasRenderableHistory ? (
         <div className="chart-empty-state" role="status">
           {freshness === 'unavailable'

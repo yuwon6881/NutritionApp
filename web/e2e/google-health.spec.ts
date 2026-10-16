@@ -47,7 +47,7 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
 
   await ensureAcceptedPlan(page.request);
   await page.goto('/');
-  await expect(page.locator('.steps-panel')).toHaveCount(0);
+  await expect(page.locator('.steps-chip')).toHaveCount(0);
   // The SPA keeps navigation client-side, so use the real Settings control.
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();
@@ -116,16 +116,19 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   await expect(accessibleSummary).toHaveCSS('width','1px');
 
   await page.getByRole('button',{name:'Dashboard',exact:true}).click();
-  await expect(page.locator('.steps-panel')).toBeVisible();
-  await expect(page.locator('.steps-panel')).toHaveClass(/steps-panel-compact/);
-  const dashboardGrid=await page.locator('.daily-grid').boundingBox();
-  const stepsPanel=await page.locator('.steps-panel').boundingBox();
-  const trainingSummary=await page.locator('.training-summary').boundingBox();
-  expect(dashboardGrid && stepsPanel && trainingSummary).toBeTruthy();
-  expect(stepsPanel!.y).toBeGreaterThanOrEqual(dashboardGrid!.y+dashboardGrid!.height-1);
-  expect(stepsPanel!.y).toBeLessThan(trainingSummary!.y);
-  await expect(page.locator('.steps-panel').getByText('—')).toBeVisible();
-  await expect(page.locator('.steps-panel').getByText('Daily step history is unavailable right now.',{exact:true})).toBeVisible();
+  // The chip sits inside the Today heading row, which already holds its height.
+  const chip=page.locator('.steps-chip');
+  await expect(chip).toBeVisible();
+  const headRow=await page.locator('.dashboard-section-head').boundingBox();
+  const chipBox=await chip.boundingBox();
+  expect(headRow && chipBox).toBeTruthy();
+  expect(chipBox!.y).toBeGreaterThanOrEqual(headRow!.y-1);
+  expect(chipBox!.y+chipBox!.height).toBeLessThanOrEqual(headRow!.y+headRow!.height+1);
+  await chip.click();
+  const panel=page.getByRole('dialog',{name:'Steps today'}).locator('.steps-panel');
+  await expect(panel).toHaveClass(/steps-panel-compact/);
+  await expect(panel.getByText('—')).toBeVisible();
+  await expect(panel.getByText('Daily step history is unavailable right now.',{exact:true})).toBeVisible();
 });
 
 test('Google Health step chart selects a day by click and keyboard',async({page})=>{
@@ -203,41 +206,37 @@ test('Google Health step chart selects a day by click and keyboard',async({page}
 });
 
 for (const width of [390,768,1440]) for (const theme of ['light','dark']) {
-  test(`delayed steps reveal remains usable at ${width}px in ${theme}`,async({page},testInfo)=>{
+  test(`delayed steps arrive without moving the dashboard at ${width}px in ${theme}`,async({page},testInfo)=>{
     await page.setViewportSize({width,height:900});
-    await page.emulateMedia({reducedMotion:'no-preference'});
-    await page.addInitScript(()=>{
-      const original=Element.prototype.animate;
-      (window as unknown as {stepReveals:number}).stepReveals=0;
-      Element.prototype.animate=function(...args:Parameters<typeof original>){
-        if((this as HTMLElement).dataset.motionPanel==='dashboard-steps')
-          (window as unknown as {stepReveals:number}).stepReveals++;
-        return original.apply(this,args);
-      };
-    });
+    // The landing cascade moves cards; this test is about layout, so measure with motion off.
+    await page.emulateMedia({reducedMotion:'reduce'});
     await page.route('**/api/integrations/google-health/sync',async route=>{
-      await new Promise(resolve=>setTimeout(resolve,250));
+      await new Promise(resolve=>setTimeout(resolve,1500));
       await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[]}});
     });
     await signIn(page,'test-alice');
     await ensureAcceptedPlan(page.request);
     await page.goto('/');
-    await expect(page.locator('.steps-panel')).toBeVisible();
-    await expect.poll(()=>page.evaluate(()=>(window as unknown as {stepReveals:number}).stepReveals)).toBe(1);
+    const habits=page.locator('.dashboard-section-habits');
+    await expect(habits).toBeVisible();
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
-    const panel=page.locator('.dashboard-steps-reveal');
-    await expect.poll(()=>panel.evaluate(node=>node.getAnimations().length)).toBe(0);
+    // The page is laid out before the steps resolve; nothing may move when they do.
+    await expect(page.locator('.steps-chip')).toHaveCount(0);
+    const before=(await habits.boundingBox())!.y;
+    await expect(page.locator('.steps-chip')).toBeVisible();
+    expect(Math.abs((await habits.boundingBox())!.y-before)).toBeLessThan(.5);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
-    const calculator=page.locator('.steps-panel').getByRole('button',{name:/Steps calculator/i});
+    await page.locator('.steps-chip').click();
+    const dialog=page.getByRole('dialog',{name:'Steps today'});
+    const calculator=dialog.getByRole('button',{name:/Steps calculator/i});
     await calculator.click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog',{name:'Steps calculator'})).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(calculator).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('.steps-chip')).toBeFocused();
     await page.screenshot({path:testInfo.outputPath(`steps-${width}-${theme}.png`),fullPage:true});
-    await page.emulateMedia({reducedMotion:'reduce'});
-    await page.reload();
-    await expect(page.locator('.steps-panel')).toBeVisible();
-    expect(await page.evaluate(()=>(window as unknown as {stepReveals:number}).stepReveals)).toBe(0);
   });
 }
 
@@ -249,7 +248,7 @@ test('Google Health recovers after a gateway 429 on reload',async({page})=>{
     await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[]}});
   });
   await signIn(page,'test-alice');
-  await expect(page.locator('.steps-panel')).toBeVisible();
+  await expect(page.locator('.steps-chip')).toBeVisible();
   expect(requests).toBe(2);
 });
 
@@ -291,14 +290,15 @@ test('a failed manual step refresh keeps the previous step total visible',async(
     await route.fulfill({json:{status:'connected',connectedAt:'2026-09-17T08:00:00Z',lastSyncedAt:null,freshness:'fresh',days:[{date,count:5300}]}});
   });
   await signIn(page,'test-alice');
-  await expect(page.locator('.steps-panel')).toContainText('5,300');
+  await expect(page.locator('.steps-chip')).toContainText('5,300');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   failing=true;
   await page.getByRole('button',{name:'Sync now',exact:true}).click();
   await expect(page.getByText('Step sync unavailable',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Dashboard',exact:true}).click();
-  await expect(page.locator('.steps-panel')).toContainText('5,300');
-  await expect(page.locator('.steps-panel')).toContainText('Stale');
+  await expect(page.locator('.steps-chip')).toContainText('5,300');
+  await page.locator('.steps-chip').click();
+  await expect(page.getByRole('dialog',{name:'Steps today'}).locator('.steps-panel')).toContainText('Stale');
 });
 
 test('Retry sync immediately dispatches requeued health uploads',async({page})=>{

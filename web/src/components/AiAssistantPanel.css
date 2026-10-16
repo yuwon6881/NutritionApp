@@ -29,12 +29,6 @@
   overscroll-behavior: contain;
 }
 
-.ai-chat-loading {
-  margin: auto;
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-}
-
 .ai-chat-message {
   display: flex;
   align-items: flex-start;

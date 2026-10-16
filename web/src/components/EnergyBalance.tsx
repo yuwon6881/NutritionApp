@@ -11,6 +11,7 @@ import {BarChartNav} from './ui/BarChartFrame';
 import {BalanceChart,IntakeChart} from './EnergyBalanceCharts';
 import {EnergyReadout,type EnergyView} from './EnergyReadout';
 import {EnergyStats} from './EnergyStats';
+import {SkeletonBlock,SkeletonChart,SkeletonRegion,SkeletonStats} from './ui/Skeleton';
 
 const groupingNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
@@ -30,13 +31,16 @@ export function EnergyBalance({store,period,summary,error}:{store:NutritionStore
   const visibleSpan=rows.length?dateSpan(rows[viewport.edges.first]?.date??rows[0].date,rows[viewport.edges.last]?.end??rows.at(-1)!.end):'';
   const chartProps={rows,grouping,energyUnit:units.energy,viewport,selected:scrub.index,plotProps:scrub.svgProps};
   return <section className="panel energy-history">
-    <div className="section-heading"><div><h2>Energy balance</h2><p>{summary?dateSpan(summary.start,summary.end):'Loading…'}</p></div></div>
+    <div className="section-heading"><div><h2>Energy balance</h2>{summary?<p>{dateSpan(summary.start,summary.end)}</p>:<SkeletonBlock width={150} height={12} className="skeleton-subtitle"/>}</div></div>
     {error&&<CardFeedback
       title={summary?'Energy summary needs attention':'Energy summary unavailable'}
       message={`${summary?'Showing saved data.':'Not available offline.'} ${error}`}
       action={{label:'Retry',onClick:()=>void store.refreshProgress(period)}}
     />}
-    {!summary&&!error&&<div className="skeleton" aria-busy="true" style={{minHeight:320}}/>}
+    {!summary&&!error&&<SkeletonRegion label="Loading energy balance…">
+      <SkeletonStats count={3}/>
+      <SkeletonChart height={240}/>
+    </SkeletonRegion>}
     {summary&&<>
       {summary.awaitingSynchronization&&<p className="notice" role="status">Recent edits will update after sync.</p>}
       <EnergyStats stats={stats} energyUnit={units.energy}/>

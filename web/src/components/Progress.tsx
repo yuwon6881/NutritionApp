@@ -177,7 +177,6 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
         {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
       </SelectField></div>
       <EnergyBalance store={store} period={energy.displayedPeriod} summary={energy.summary} error={energy.error}/>
-      {loading&&!energy.summary&&<p className="source" role="status" aria-busy="true">Loading…</p>}
       <CoachingProgress store={store}/>
     </div>}
     {tab==='body'&&<Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>}

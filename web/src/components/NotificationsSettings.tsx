@@ -18,6 +18,7 @@ import {useMobilePwa} from './ui/MobilePwa';
 import {SettingRow} from './ui/SettingRow';
 import {checkNativeNotificationPermission,isNativeAndroid,isNativePushConfigured,registerNativePushAndGetToken,requestNativeNotificationPermission} from '../lib/push/nativeNotifications';
 import {disableLocalPushForPlatform} from '../lib/push/deviceLifecycle';
+import {SkeletonRegion,SkeletonSettingRows} from './ui/Skeleton';
 const ReminderReadiness=lazy(()=>import('./ReminderReadiness').then(module=>({default:module.ReminderReadiness})));
 
 const weekdays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -228,7 +229,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
 
   return <div className="notification-settings" data-pwa-dirty={reminderDirty?'true':undefined}>
     {isNativeAndroid()&&<Suspense fallback={null}><ReminderReadiness onRegister={enableThisDevice}/></Suspense>}
-    {loading&&<p className="settings-loading" role="status" aria-busy="true">Checking notification availability…</p>}
+    {loading&&<SkeletonRegion label="Checking notification availability…"><SkeletonSettingRows count={1}/></SkeletonRegion>}
     {loadError&&<CardFeedback tone="warning" title="Notification settings unavailable" message={loadError}/>}
     {!loading&&supportError&&<CardFeedback tone="info" message={supportError}/>}
     {!loading&&status?.configured&&<>
@@ -242,7 +243,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
           :<Button variant="secondary" disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16} aria-hidden="true"/>{busy?'Updating…':'Enable notifications on this device'}</Button>}
       </SettingRow>}
       {pushBuildConfigured&&savedReminder?.enabled&&!status.thisDeviceSubscribed&&<CardFeedback tone="warning" title="Reminders are not enabled here" message="Your account reminder is on. Enable this device to receive it here." action={{label:"Enable on this device",onClick:()=>void enableThisDevice(),disabled:busy||!!supportError}}/>}
-      {!scheduleLoaded&&<p className="settings-loading" role="status">Loading reminder settings…</p>}
+      {!scheduleLoaded&&<SkeletonRegion label="Loading reminder settings…"><SkeletonSettingRows count={2}/></SkeletonRegion>}
       {scheduleLoaded&&<div className="setting-row-group">
         <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Turning on subscribes this device and saves your schedule. Other subscribed devices also receive it.">
           <Checkbox id="nutrition-checkin-reminder-enabled" role="switch" aria-label="Send a reminder on my check-in day" checked={reminder.enabled} disabled={fieldsDisabled||(!reminder.enabled&&!!supportError)} onChange={toggleReminder}/>
