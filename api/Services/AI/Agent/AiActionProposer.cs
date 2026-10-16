@@ -73,6 +73,9 @@ public sealed class AiActionProposer(AiToolContext toolContext) : IAiActionPropo
                 {
                     AddEvidence(args, payload, "foodId", AiEvidenceLedger.Food);
                     var query = args.OptionalString("query", 200);
+                    if (query == null && payload.TryGetValue("foodId", out var foodId) && foodId is string id)
+                        query = _toolContext.Evidence.FoodName(id)
+                            ?? throw new AiToolArgumentException("Supply a verified food name as query for this foodId.");
                     if (query != null)
                     {
                         if (!_toolContext.Evidence.Contains("foodName", query))

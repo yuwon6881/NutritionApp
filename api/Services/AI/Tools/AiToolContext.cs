@@ -48,6 +48,19 @@ public sealed class AiEvidenceLedger
         foreach (var id in ids) Record(kind, id);
     }
 
+    public void RecordFood(string id, string name)
+    {
+        Record(Food, id);
+        Record("foodName", name);
+        Record($"foodName:{id}", name);
+    }
+
+    public string? FoodName(string id)
+    {
+        var names = IdsOf($"foodName:{id}");
+        return names.Count == 1 ? names[0] : null;
+    }
+
     public bool Contains(string kind, string? id) =>
         !string.IsNullOrWhiteSpace(id) && _records.Contains((kind, id));
 

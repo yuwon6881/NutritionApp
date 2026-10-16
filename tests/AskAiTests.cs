@@ -63,7 +63,7 @@ public sealed class AskAiTests
         var validFoodCode = "food_12345";
         var unseenFoodCode = "food_99999";
 
-        context.Evidence.Record(AiEvidenceLedger.Food, validFoodCode);
+        context.Evidence.RecordFood(validFoodCode, "Rolled oats");
 
         var proposer = new AiActionProposer(context);
 
@@ -99,6 +99,7 @@ public sealed class AskAiTests
         Assert.True(validFirstResult?["accepted"]?.GetValue<bool>());
         Assert.Single(proposer.Accepted);
         Assert.Equal("openAddFoodDraft", proposer.Accepted[0].Type);
+        Assert.Equal("Rolled oats", proposer.Accepted[0].Payload["query"]);
     }
 
     [Fact]

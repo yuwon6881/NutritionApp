@@ -64,8 +64,7 @@ public sealed class SearchFoodDatabaseTool : IAiTool
 
         foreach (var food in matches)
         {
-            context.Evidence.Record(AiEvidenceLedger.Food, food.Code ?? food.Name);
-            context.Evidence.Record("foodName", food.Name);
+            context.Evidence.RecordFood(food.Code ?? food.Name, food.Name);
         }
 
         var list = matches.Select(f => new

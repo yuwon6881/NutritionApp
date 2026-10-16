@@ -115,6 +115,9 @@ public static class FoodResults
     public static string? PortionLabel(string description)
     {
         static string Clean(string value)=>System.Text.RegularExpressions.Regex.Replace(value,@"\s+"," ").Trim().TrimEnd(',',';').Trim();
+        const string amount = @"[\d.,]+\s*(?:g|grm|grams?|kg|ml|millilit(?:er|re)s?|oz|fl\s*oz|lbs?|pounds?)";
+        // Strip only equivalent amounts; household measures such as cups still carry meaning.
+        if(System.Text.RegularExpressions.Regex.IsMatch(Clean(description),$@"^{amount}\s*(?:\(\s*{amount}\s*\)\s*)*$",System.Text.RegularExpressions.RegexOptions.IgnoreCase))return null;
         var plain=System.Text.RegularExpressions.Regex.Replace(description,@"\([^)]*\)","");
         foreach(var candidate in new[]{Clean(description),Clean(plain),Clean(plain.Split(',')[0])})
         {

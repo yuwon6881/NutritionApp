@@ -118,6 +118,11 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${th
     await row.locator('.batch-food-actions').getByRole('button',{name:'Edit',exact:true}).click();
   }else await row.locator('.batch-food-desktop-actions').getByRole('button',{name:'Edit',exact:true}).click();
   await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('0.5');
+  await expect(page.locator('.review-food-heading')).toContainText(powder.name);
+  await expect(page.locator('#food-calories')).toHaveCount(0);
+  await expect(page.locator('#food-time')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Choose unit',exact:true})).toBeVisible();
+  await page.screenshot({animations:'disabled',path:`artifacts/food-review/${theme}-${width}-batch-edit.png`});
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
   await page.getByRole('button',{name:'Add more food'}).click();
   const header=page.locator('.food-modal .modal-header');

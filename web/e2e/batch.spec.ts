@@ -100,14 +100,15 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
     window.requestAnimationFrame=callback=>original(timestamp=>{window.setTimeout(()=>callback(timestamp),1000);});
   },animationFrame);
   await page.locator('.batch-food').filter({hasText:'Greek Yogurt 0%'}).getByRole('button',{name:'Edit',exact:true}).click();
-  await expect(page.getByLabel('Food name',{exact:true})).toBeVisible();
-  expect(await page.evaluate(()=>document.activeElement?.id)).toBe('food-name');
+  await expect(page.locator('.review-food-heading')).toContainText('Greek Yogurt 0%');
+  await expect(page.getByLabel('Quantity',{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.activeElement?.id)).toBe('food-quantity');
   await page.evaluate(original=>{window.requestAnimationFrame=original;},animationFrame);
   await animationFrame.dispose();
   const qtyInput=page.getByLabel('Quantity',{exact:true});
   await qtyInput.fill('200');
   await expect(qtyInput).toHaveValue('200');
-  await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('118');
+  await expect(page.locator('.live-calorie-value')).toContainText('118');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();
   await expect(calorieCard.getByText('175')).toBeVisible();

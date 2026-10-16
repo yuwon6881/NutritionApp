@@ -111,7 +111,8 @@ export function FoodEditor({
   const portions=parsePortions(draft.portionsJson);
   const measure=measureOf(draft);
   const amountNoun=measure==='ml'?'volume':'weight';
-  const isProviderFood = !title.startsWith('Edit batch') && !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add' && (draft.source !== 'AI label estimate' || Boolean((draft as {key?: string}).key));
+  const isBatchEdit=title.startsWith('Edit batch');
+  const isProviderFood = !title.startsWith('Save food') && draft.source !== 'manual' && draft.source !== 'Quick add' && !(isBatchEdit && draft.source.startsWith('AI')) && (draft.source !== 'AI label estimate' || Boolean((draft as {key?: string}).key));
   const unitChoice=draft.unit==='g'?'g':draft.portionLabel?`portion:${draft.portionLabel}`:'serving';
   const unitOptions=[
     {value:'g',label:measure==='ml'?'Millilitres':'Grams'},
@@ -187,7 +188,7 @@ export function FoodEditor({
           </div>
 
           <div className="form-grid">
-            <Field id="food-quantity" name="quantity" label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
+            <Field id="food-quantity" name="quantity" data-modal-autofocus={isBatchEdit?'':undefined} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
             <SelectField id="food-unit" name="unit" label="Unit" value={unitChoice} onChange={value=>{
               if(value==='g')setBasis({unit:'g',portionLabel:null,portionGrams:null});
               else if(value==='serving')setBasis({quantity:1,unit:'serving',portionLabel:null,portionGrams:null});
@@ -196,13 +197,13 @@ export function FoodEditor({
                 if(selected)setBasis({quantity:1,unit:'serving',portionLabel:selected.label,portionGrams:selected.grams});
               }
             }} options={unitOptions}/>
-            <TimePicker id="food-time" name="time" className="form-grid-span-all" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>
+            {!isBatchEdit&&<TimePicker id="food-time" name="time" className="form-grid-span-all" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
           </div>
         </>
       ) : (
         <>
           <Field id="food-name" name="name" autoComplete="off" data-modal-autofocus={title !== 'Review' ? '' : undefined} label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
-          {!title.startsWith('Save food')&&!title.startsWith('Edit batch')&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
+          {!title.startsWith('Save food')&&!isBatchEdit&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
           <div className="form-grid">
             <Field id="food-quantity" name="quantity" readOnly={title.startsWith('Save food')} label="Quantity" type="number" min="0.001" max="100000" step="any" required value={draft.quantity} onChange={event=>set('quantity',Number(event.target.value))}/>
             <SelectField id="food-unit" name="unit" disabled={title.startsWith('Save food')} label="Unit" value={unitChoice} onChange={value=>{

@@ -1,6 +1,15 @@
 import {expect,it} from 'vitest';
 import {displayMass,displayPortion,measureOf,parsePortions,resolveGrams,serializePortions,validatePortions} from './portions';
 
+it('rejects invalid recipe serving ratios before serialization and accepts boundary amounts',()=>{
+  for(const grams of [2000/0.1,1/10000,NaN,Infinity]){
+    expect(()=>serializePortions([{label:'serving',grams}])).toThrow(/0.1–10,000/);
+  }
+  for(const grams of [0.1,10000,500/4]){
+    expect(JSON.parse(serializePortions([{label:'serving',grams}]))).toEqual([{label:'serving',grams}]);
+  }
+});
+
 it('tolerates malformed and hostile portion JSON without exposing invalid values',()=>{
   expect(parsePortions('{')).toEqual([]);
   expect(parsePortions(JSON.stringify([

@@ -8,7 +8,7 @@ import {Field,SelectField} from './ui/Field';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {number} from '../lib/format';
-import {measureOf} from '../lib/portions';
+import {measureOf,serializePortions} from '../lib/portions';
 
 export interface RecipeIngredient {
   food:FoodSearchResult;
@@ -77,10 +77,18 @@ export function RecipeEditor({
   const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
 
+  const validateServing=()=>{
+    if(!Number.isFinite(draft.servings)||draft.servings<=0)return 'Enter a positive number of servings.';
+    try{serializePortions([{label:'serving',grams:draft.yieldGrams/draft.servings}]);}
+    catch{return 'Each recipe serving must weigh 0.1–10,000 g. Adjust servings or cooked yield.';}
+    return undefined;
+  };
+
   const save=async()=>{
     if(busyPending)return;
     setError('');
     try{
+      const portionsJson=serializePortions([{label:'serving',grams:draft.yieldGrams/draft.servings}]);
       const nutrient=(key:'calories'|'protein'|'fat'|'carbs'|'fiber')=>draft.items.some(item=>item.food[key]==null)?null:draft.items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/draft.yieldGrams*100;
       await run(()=>store.mutate({
         kind:'food',
@@ -96,7 +104,7 @@ export function RecipeEditor({
           fiber:nutrient('fiber'),
           source:'Personal recipe',
           servingGrams:100,
-          portionsJson:JSON.stringify([{label:'serving',grams:draft.yieldGrams/draft.servings}]),
+          portionsJson,
           cookedYieldGrams:draft.yieldGrams,
           ingredientsJson:JSON.stringify(draft.items),
           favourite:true,
@@ -265,7 +273,7 @@ export function RecipeEditor({
         </div>
       </div>}
 
-      <Field id="recipe-servings" name="servings" validate={()=>!Number.isFinite(draft.servings)||draft.servings<=0?'Enter a positive number of servings.':undefined} required label="Servings in cooked yield" type="number" min="0.1" max="10000" step="any" value={draft.servings} onChange={event=>onDraftChange({...draft,servings:Number(event.target.value)})}/>
+      <Field id="recipe-servings" name="servings" validate={validateServing} required label="Servings in cooked yield" type="number" min="0.1" max="10000" step="any" value={draft.servings} onChange={event=>onDraftChange({...draft,servings:Number(event.target.value)})}/>
       <Field id="recipe-cooked-yield" name="yieldGrams" validate={()=>{for(const key of ['calories','protein','fat','carbs','fiber'] as const){if(draft.items.some(item=>item.food[key]==null))continue;const value=draft.items.reduce((sum,item)=>sum+item.food[key]!*item.grams/100,0)/draft.yieldGrams*100;if(!Number.isFinite(value)||value>(key==='calories'?20000:3000))return 'Increase the yield or reduce ingredients to keep per-100 g nutrients within the supported range.';}return undefined;}} required label="Cooked yield (grams)" type="number" min="1" max="100000" value={draft.yieldGrams} onChange={event=>onDraftChange({...draft,yieldGrams:Number(event.target.value)})}/>
       {error&&<p className="error" role="alert">{error}</p>}
       <div className="modal-actions"><Button type="button" variant="secondary" onClick={onClose}>Back</Button><Button variant="primary" disabled={busyPending} type="submit">{busy?'Saving…':'Save recipe'}</Button></div>

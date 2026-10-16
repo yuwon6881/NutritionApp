@@ -129,3 +129,17 @@ test('Ask AI keeps action review until requested and preserves chat when reset f
   await expect(page.getByRole('heading', { name: 'Food Log', exact: true })).toBeVisible();
   expect(resolutions).toBe(2);
 });
+
+test('reviewed food action opens search with the verified name rather than its barcode',async({page,context})=>{
+  await context.addCookies(session.cookies);
+  const action={type:'openAddFoodDraft',payload:{foodId:'12345678',query:'Rolled oats'}};
+  await page.route('**/api/ai/conversation',route=>route.fulfill({json:{...snapshot,pendingActionBatches:[{batchId,actions:[action]}]}}));
+  await page.route('**/api/ai/action-batches/*/resolve',route=>route.fulfill({status:204}));
+  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[]}));
+  await page.goto('/');
+  await page.getByRole('button',{name:'Ask AI',exact:true}).last().click();
+  const dialog=page.getByRole('dialog',{name:'Ask AI',exact:true});
+  await dialog.getByRole('button',{name:'Open',exact:true}).click();
+  await expect(page.getByLabel('Search term',{exact:true})).toHaveValue('Rolled oats');
+  await expect(page.locator('.batch-food')).toHaveCount(0);
+});

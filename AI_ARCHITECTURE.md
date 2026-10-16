@@ -10,7 +10,7 @@ Ask AI is a read-only assistant with reviewable screen-opening proposals. It doe
 - Closing the panel preserves the conversation. New chat clears local state only after the server confirms deletion. Failed requests retain retry input and identity. Streaming `done` is authoritative and replaces provisional text.
 - Baseline context is compact profile metadata plus the same daily-summary tool used by the engine. Additional facts come from read-only tools, never from another preloaded calculation path.
 - Tool definitions live in `api/Services/AI/Tools`; registration is explicit. `AiToolExecutor` validates arguments, caches within the request, bounds results, and publishes evidence only after a successful result is delivered. Returned names, notes, and other tool text are data, not instructions.
-- `AiActionProposer` validates the allowlist, typed payloads, and current-turn evidence. Food IDs and prefilled food names must have been surfaced by a tool. At most one action is accepted per turn. The panel waits for an explicit Open or Dismiss; Open uses the existing diary, food search, weight entry, coaching, expenditure, or barcode flow.
+- `AiActionProposer` validates the allowlist, typed payloads, and current-turn evidence. Food IDs and prefilled food names must have been surfaced by a tool. Food searches retain the returned ID-to-name association in the evidence ledger; an ID-only proposal receives that verified name as its search query, never an opaque code. Ambiguous IDs require an explicit verified name. At most one action is accepted per turn. The panel waits for an explicit Open or Dismiss; Open uses the existing diary, food search, weight entry, coaching, expenditure, or barcode flow.
 
 ## Nutrition semantics
 

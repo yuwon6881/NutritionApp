@@ -155,10 +155,11 @@ test('Back steps out of review, batch line edit, and batch without closing the f
   };
   await revealActions();
   await row.locator('.batch-food-actions').getByRole('button',{name:'Edit',exact:true}).click();
-  await expect(batch.getByLabel('Food name',{exact:true})).toBeVisible();
+  await expect(batch.locator('.review-food-heading')).toContainText('Boiled egg');
+  await expect(batch.getByLabel('Quantity',{exact:true})).toBeFocused();
 
   await page.goBack();
-  await expect(batch.getByLabel('Food name',{exact:true})).toHaveCount(0);
+  await expect(batch.locator('.review-food-heading')).toHaveCount(0);
   await expect(batch.getByRole('button',{name:'Log all 1 food',exact:true})).toBeVisible();
 
   await page.goBack();

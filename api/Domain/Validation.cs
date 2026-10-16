@@ -66,7 +66,7 @@ public static class Validation
                 Require(labelValid,
                     "Each portion needs a label.");
                 double weight = 0;
-                var weightValid = item.ValueKind == JsonValueKind.Object && item.TryGetProperty("grams", out var grams) && grams.TryGetDouble(out weight);
+                var weightValid = item.ValueKind == JsonValueKind.Object && item.TryGetProperty("grams", out var grams) && grams.ValueKind == JsonValueKind.Number && grams.TryGetDouble(out weight);
                 Require(weightValid,
                     "Each portion needs a gram weight.");
                 var normalized = label.GetString()!.Trim();
