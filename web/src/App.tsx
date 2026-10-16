@@ -62,7 +62,6 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   },[!!store.state]);
   const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
-  const [date,setDate]=useState(today());
   const [foodOpen,setFoodOpen]=useState(false);
   const foodOpening=useRef<(()=>void)|undefined>(undefined);
   const foodMounted=useRef(false);
@@ -97,7 +96,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     for(const action of actions){
       switch(action.type){
         case 'openFoodLog':
-          if(typeof action.payload.date==='string'){setDate(action.payload.date);setFoodDate(action.payload.date);}
+          if(typeof action.payload.date==='string')setFoodDate(action.payload.date);
           requestPage('food');
           break;
         case 'openAddFoodDraft':
@@ -177,7 +176,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     window.addEventListener('nutrition-push-navigation',openRoute);
     return()=>window.removeEventListener('nutrition-push-navigation',openRoute);
   },[]);
-  useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setDate(current);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
+  useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
   const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string,initialQuery?:string)=>{
     foodOpening.current?.();
@@ -191,11 +190,11 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const openCopy=(sourceDate:string,entries:Entry[],restoreFocus?:HTMLElement|null)=>{
     setCopyDate(sourceDate);setCopyEntries(entries);setCopyReturnFocus(restoreFocus??null);setCopyOpen(true);
   };
-  const activeDate=store.state?.profile?today(store.state.profile.timeZone):date;
+  // Derived on every render so a long-open app moves to the new day as soon as it next renders after midnight.
+  const activeDate=today(store.state?.profile?.timeZone);
   const selectedEntryDate=page==='food'?foodDate:activeDate;
   useReadyNutritionShortcut(authReady,!!store.state?.profile&&!needsProfile,action=>{
     setPage('today');
-    setDate(activeDate);
     if(action==='log-food'||action==='scan-barcode'){
       setFoodDate(activeDate);
       setFoodEditing(undefined);
@@ -222,7 +221,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       window.scrollTo({top:0,behavior:reduce?'instant':'smooth'});
       return;
     }
-    if(next==='food')setFoodDate(date);
+    if(next==='food')setFoodDate(activeDate);
     requestPage(next);
   };
   const foodSavedPage=foodOriginPage==='food'?'food':'today';
@@ -235,7 +234,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   ] as const;
 
   // Background sync indicators update independently of the live page's data.
-  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onProgress={()=>navigate('progress')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,date,onLogout]);
+  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onProgress={()=>navigate('progress')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,onLogout]);
 
   const [accountHead,accountTail]=splitAtSign(store.state?.displayName??'');
 
@@ -288,7 +287,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       </MotionScene></Suspense>}
       {!needsProfile&&store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setDate(foodDate);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
+        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         {isNativeApp()&&authReady&&!needsProfile&&store.state&&<Suspense fallback={null}><IncomingPhoto key={user} accountId={user} displayName={store.state.displayName} initialDate={activeDate} blocked={foodOpen||weightOpen} onAttached={day=>openFood(day,undefined,'ai',null)}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>

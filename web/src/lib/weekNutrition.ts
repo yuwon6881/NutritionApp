@@ -102,3 +102,16 @@ export function targetShare(intake:number|null,target:number|null):number|null{
   if(intake==null||target==null||!Number.isFinite(intake)||!Number.isFinite(target)||target<=0)return null;
   return Math.max(0,Math.min(intake/target,1));
 }
+
+/** The week card's selection that shows the average of past logged days instead of one day. */
+export const WEEK_AVERAGE='week';
+
+/**
+ * What the week card shows: the average when chosen, the person's own pick while it is still one
+ * of this week's days, otherwise today. A pick that has left the week (Sunday to Monday) or no
+ * pick at all follows today, so the card never shows a selection that matches no day.
+ */
+export function resolveWeekSelection(choice:string|null,week:WeekDay[],current:string):string{
+  if(choice===WEEK_AVERAGE)return WEEK_AVERAGE;
+  return choice!==null&&week.some(day=>day.date===choice)?choice:current;
+}

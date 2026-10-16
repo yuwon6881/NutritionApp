@@ -6,7 +6,7 @@ import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
 import {number,today} from '../lib/format';
 import {normalizeProfileSex,profilesEqual} from '../lib/profile';
 import {ageOn} from '../lib/age';
-import {calculateLivePace,calculateDefaultPace,storedSplit} from '../lib/coachCalc';
+import {calculateLivePace,calculateDefaultPace,carbsBlockedMessage,storedSplit} from '../lib/coachCalc';
 import {macroKeys,macroLabels,macroPresets,normalise,splitFromGrams,type MacroSplit} from '../lib/macros';
 import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
@@ -274,7 +274,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
 
   const openPlan=(target:StepKey='body')=>{if(locked.current||acceptance.current)return;invalidate();setReview(false);setError('');setMessage('');setMainTab('plan');setStep(target);};
 
-  const CARBS_BLOCKED_MESSAGE='Protein and fat exceed the calorie target. Review your protein override.';
+  const CARBS_BLOCKED_MESSAGE=carbsBlockedMessage(profile);
   const submitProfile=async()=>{
     if(locked.current||step!=='review')return;
     if(!canAdvanceBody){setStep('body');setError('Review your body measurements and date of birth.');return;}

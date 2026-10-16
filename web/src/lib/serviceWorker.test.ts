@@ -9,12 +9,15 @@ const source=readFileSync(new URL('../sw.ts',import.meta.url),'utf8').replace(/^
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 
 function worker(){
+  const fetchMock=vi.fn<(request:unknown)=>Promise<Response>>();
   const handlers=new Map<string,(event:unknown)=>void>();
   const showNotification=vi.fn().mockResolvedValue(undefined);
   const matchAll=vi.fn().mockResolvedValue([]);
   const openWindow=vi.fn().mockResolvedValue(undefined);
-  const caches={open:vi.fn().mockResolvedValue({match:vi.fn().mockResolvedValue(undefined),put:vi.fn().mockResolvedValue(undefined)})};
-  runInNewContext(compiled,{exports:{},URL,parseNutritionReminderPayload,caches,self:{
+  const cache={match:vi.fn().mockResolvedValue(undefined),put:vi.fn().mockResolvedValue(undefined)};
+  const caches={open:vi.fn().mockResolvedValue(cache)};
+  // The worker scope owns fetch and Response; the vm sandbox does not inherit Node's globals.
+  runInNewContext(compiled,{exports:{},URL,Response,fetch:fetchMock,parseNutritionReminderPayload,caches,self:{
     __WB_MANIFEST:[],location:{origin:'https://nutrition.test'},registration:{showNotification},
     clients:{matchAll,openWindow},addEventListener:(name:string,handler:(event:unknown)=>void)=>handlers.set(name,handler),
     caches
@@ -24,7 +27,7 @@ function worker(){
     handlers.get(name)?.({...properties,waitUntil:(task:Promise<unknown>)=>{pending=task;}});
     await pending;
   };
-  return {handlers,showNotification,matchAll,openWindow,dispatch};
+  return {handlers,showNotification,matchAll,openWindow,dispatch,fetchMock,cache};
 }
 
 describe('service worker reminder lifecycle',()=>{
@@ -76,11 +79,43 @@ describe('service worker reminder lifecycle',()=>{
       expect(respondWith).not.toHaveBeenCalled();
     }
 
+    instance.fetchMock.mockResolvedValue(new Response('icon'));
     const respondWith=vi.fn();
     fetchHandler!({
       request:{method:'GET',url:'https://nutrition.test/icon-192.png'},
       respondWith
     });
     expect(respondWith).toHaveBeenCalledOnce();
+    await respondWith.mock.calls[0][0];
+  });
+  describe('same-origin resource fetches',()=>{
+    const intercept=async(instance:ReturnType<typeof worker>)=>{
+      const respondWith=vi.fn();
+      instance.handlers.get('fetch')!({request:{method:'GET',url:'https://nutrition.test/icon-192.png'},respondWith});
+      expect(respondWith).toHaveBeenCalledOnce();
+      return await respondWith.mock.calls[0][0] as Response;
+    };
+    it('answers 503 when the network fails and nothing is cached',async()=>{
+      const instance=worker();
+      instance.fetchMock.mockRejectedValue(new TypeError('offline'));
+      const response=await intercept(instance);
+      expect(response.status).toBe(503);
+      expect(response.statusText).toBe('Offline');
+      expect(await response.text()).toBe('Offline resource unavailable.');
+    });
+    it('falls back to the cached copy when the network fails',async()=>{
+      const instance=worker();
+      const cached=new Response('cached');
+      instance.cache.match.mockResolvedValue(cached);
+      instance.fetchMock.mockRejectedValue(new TypeError('offline'));
+      expect(await intercept(instance)).toBe(cached);
+    });
+    it('caches a successful response and returns it',async()=>{
+      const instance=worker();
+      const fresh=new Response('fresh');
+      instance.fetchMock.mockResolvedValue(fresh);
+      expect(await intercept(instance)).toBe(fresh);
+      expect(instance.cache.put).toHaveBeenCalledOnce();
+    });
   });
 });

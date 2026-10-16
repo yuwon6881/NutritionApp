@@ -144,7 +144,9 @@ public static class Coach
             carbs = (target - protein * 4 - fat * 9) / 4;
             proteinFixed = true;
         }
-        if (carbs < 0) return Blocked("Protein and fat exceed the calorie target. Review your protein override.");
+        if (carbs < 0) return Blocked(p.ProteinGrams is null
+            ? "Protein and fat for your body weight exceed the calorie target. Choose a gentler pace or a higher calorie target."
+            : "Protein and fat exceed the calorie target. Review your protein override.");
         var weekly = target * 7;
         return new(true, adaptive, target, expenditure, protein, Math.Round(fat, 1), Math.Round(carbs, 1), reason)
         {

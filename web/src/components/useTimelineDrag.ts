@@ -212,6 +212,8 @@ export function useTimelineDrag({
         targetFrame.schedule(current);
         break;
       case 'drop':{
+        // Releasing a mouse drag over the card would otherwise register as a click and open the editor.
+        swallowNextClick();
         const {entry,currentTargetTime}=current;
         if(currentTargetTime&&currentTargetTime!==(entry.time??null)){
           // The card reappears in its new hour with the moved animation.

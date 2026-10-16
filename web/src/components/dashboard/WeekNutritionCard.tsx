@@ -2,13 +2,12 @@ import {useMemo,useState,type CSSProperties} from 'react';
 import type {AppState,EnergyUnit} from '../../types';
 import {longDate,number,weekdayShort} from '../../lib/format';
 import {displayEnergy,energyLabel} from '../../lib/units';
-import {targetShare,weekAverage,weekNutrition,WEEK_NUTRIENTS,type WeekDay,type WeekNutrient} from '../../lib/weekNutrition';
+import {resolveWeekSelection,targetShare,WEEK_AVERAGE,weekAverage,weekNutrition,WEEK_NUTRIENTS,type WeekDay,type WeekNutrient} from '../../lib/weekNutrition';
 import {Button} from '../ui/Button';
 import {SelectionIndicator} from '../ui/Motion';
 import './dashboard.css';
 
 const LABELS:Record<WeekNutrient,string>={calories:'Calories',protein:'Protein',carbs:'Carbs',fat:'Fat'};
-const WEEK='week';
 
 function amount(key:WeekNutrient,value:number|null,energyUnit:EnergyUnit){
   if(value==null)return '—';
@@ -47,7 +46,9 @@ function dayName(day:WeekDay,current:string,energyUnit:EnergyUnit){
  */
 export function WeekNutritionCard({state,current,energyUnit,checkInDue=false}:{state:AppState;current:string;energyUnit:EnergyUnit;checkInDue?:boolean}){
   const week=useMemo(()=>weekNutrition(state,current,checkInDue?current:undefined),[state,current,checkInDue]);
-  const [selected,setSelected]=useState(current);
+  // null follows today; the resolved value never names a day outside this week.
+  const [choice,setChoice]=useState<string|null>(null);
+  const selected=resolveWeekSelection(choice,week,current);
   const day=week.find(item=>item.date===selected);
   const average=useMemo(()=>weekAverage(week,current),[week,current]);
   const readout=day??{intake:average.intake,target:average.target,partial:{calories:false,protein:false,carbs:false,fat:false},status:average.days?'known':'missing'};
@@ -72,7 +73,7 @@ export function WeekNutritionCard({state,current,energyUnit,checkInDue=false}:{s
           className="week-day"
           aria-pressed={pressed}
           aria-label={dayName(item,current,energyUnit)}
-          onClick={()=>setSelected(pressed?WEEK:item.date)}
+          onClick={()=>setChoice(pressed?WEEK_AVERAGE:item.date===current?null:item.date)}
         >
           <span className="week-day-bars" aria-hidden="true">
             {WEEK_NUTRIENTS.map(key=>{

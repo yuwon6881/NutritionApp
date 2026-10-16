@@ -16,7 +16,6 @@ export interface FoodTimeCardProps {
   isAdded?:boolean;
   isPendingSync:boolean;
   onEdit?:(entry:Entry)=>void;
-  onOpenActions?:(entry:Entry,trigger:HTMLElement)=>void;
   onToggleSelect:(id:string)=>void;
   dragProps:Record<string,unknown>;
   /** Touch swipe state from the timeline: offset in px (≤ 0) and whether actions are open. */
@@ -36,7 +35,6 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   isAdded=false,
   isPendingSync,
   onEdit,
-  onOpenActions,
   onToggleSelect,
   dragProps,
   swipe,
@@ -48,6 +46,10 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   // timeline; see useTimelineDrag. Nothing competes for the same pointer.
   const pointerProps=isSelecting?{}:dragProps;
 
+  // A plain tap, click, or Enter/Space opens the editor. Hold, drag, and swipe are owned by the
+  // timeline gesture (the drag hook swallows the click a mouse release would add), and a card the
+  // viewer cannot change stays inert.
+  const editable=Boolean(onEdit)&&!readOnly&&!isSelecting;
   const showActions=Boolean(swipe&&(swipe.revealed||swipe.dragging||swipe.offset<0));
   return <div
     className={`food-card-swipe${swipe?.dragging?' swiping':''}`}
@@ -63,7 +65,14 @@ export const FoodTimeCard=memo(function FoodTimeCard({
     <article
       className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${isSelecting?'food-time-card-selecting':''}`.trim()}
       data-selected={isSelected?true:undefined}
-      onClick={isSelecting?()=>onToggleSelect(entry.id):undefined}
+      tabIndex={editable?0:undefined}
+      aria-label={editable?`Edit ${entry.name}`:undefined}
+      onClick={isSelecting?()=>onToggleSelect(entry.id):editable?()=>onEdit?.(entry):undefined}
+      onKeyDown={editable?event=>{
+        if(event.target!==event.currentTarget||(event.key!==' '&&event.key!=='Enter'))return;
+        event.preventDefault();
+        onEdit?.(entry);
+      }:undefined}
       {...pointerProps}
     >
       <div className="food-time-card-header">

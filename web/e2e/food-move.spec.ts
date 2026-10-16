@@ -39,9 +39,17 @@ test('food timeline supports single-item move to custom time, move to existing t
   await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Rolled oats',exact:true})).toBeVisible();
 
-  // Clicking anywhere in the item card does nothing (does not trigger edit)
-  await page.locator('.food-time-card').filter({hasText:'Rolled oats'}).first().click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // A plain tap on the card opens the editor; Enter on the focused card does the same.
+  const oatsCard=page.locator('.food-time-card').filter({hasText:'Rolled oats'}).first();
+  await oatsCard.click();
+  await expect(page.getByRole('heading',{name:'Edit food',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading',{name:'Edit food',exact:true})).not.toBeVisible();
+  await oatsCard.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading',{name:'Edit food',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading',{name:'Edit food',exact:true})).not.toBeVisible();
 
   // Log second entry: Black coffee at 08:00
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();
@@ -203,6 +211,8 @@ test('food timeline supports single-item move to custom time, move to existing t
   await page.mouse.up();
   await expect(page.locator('[data-time-row="20:00"] .food-time-card')).toHaveCount(1);
   await expect(page.locator('[data-time-row="20:00"]')).toContainText('Rolled oats');
+  // Releasing the drag is not a tap, so the editor stays closed.
+  await expect(page.getByRole('heading',{name:'Edit food',exact:true})).toHaveCount(0);
 
   // Move to supports a date and time destination
   const copiedOats=page.locator('[data-time-row="21:00"] .food-time-card').filter({hasText:'Rolled oats'}).first();
@@ -239,4 +249,19 @@ test('food timeline supports single-item move to custom time, move to existing t
   const tmrMoveDialog=page.getByRole('dialog',{name:'Move Rolled oats'});
   await tmrMoveDialog.getByRole('button',{name:/Move to tomorrow/i}).click();
   await expect(page.getByText('Rolled oats').first()).toBeVisible();
+});
+
+test('an app left open past local midnight opens the Food Log on the new day',async({page,context})=>{
+  test.setTimeout(120000);
+  await context.addCookies(session.cookies);
+  await page.clock.install();
+  await page.goto('/');
+  await expect(page.locator('.week-nutrition')).toBeVisible();
+  await context.setOffline(true);
+  await page.clock.fastForward(24*60*60*1000);
+  // The store advances its calendar date on a ten-second tick; navigation must use that live day, not the one the app opened on.
+  await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  const selected=page.locator('.food-week-day[aria-current="date"]');
+  await expect(selected).toHaveCount(1);
+  await expect(selected).toHaveAttribute('data-today','true');
 });

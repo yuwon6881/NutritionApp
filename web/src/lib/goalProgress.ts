@@ -65,11 +65,13 @@ export function liveGoalProgress(
   const percent=Math.round(rawPercent*10)/10;
 
   const last=points.slice(-3);
-  const trendReached=points.length>=3&&points.at(-1)!.date>=shift(current,-3)
+  // Same freshness rule as the server: at least three weigh-ins, the latest within three days, so
+  // one or two readings never offer a completion the server would reject.
+  const fresh=points.length>=3&&points.at(-1)!.date>=shift(current,-3);
+  const trendReached=fresh
     &&days(last[0].date,last[2].date)>=2
     &&last.every(w=>profile.goal==='lose'?w.kg<=target:w.kg>=target);
-  const scaleReached=raw.length>0&&raw.at(-1)!.date>=shift(current,-3)
-    &&(profile.goal==='lose'?raw.at(-1)!.kg<=target:raw.at(-1)!.kg>=target);
+  const scaleReached=fresh&&(profile.goal==='lose'?raw.at(-1)!.kg<=target:raw.at(-1)!.kg>=target);
 
   const goalReached=weightGoalMetric==='trend'?trendReached:(scaleReached||trendReached);
   const complete=decision?.decision==='completed';

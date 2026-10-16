@@ -1,4 +1,5 @@
 using Nutrition.Api.Data;
+using System.Text.Json;
 using Nutrition.Api.Domain;
 using Xunit;
 namespace Nutrition.Tests;
@@ -97,5 +98,40 @@ public sealed class GoalPhaseTests
         Assert.Equal(0,emptyProg.Percent);
         Assert.Equal(5,emptyProg.Remaining);
         Assert.NotNull(emptyProg.OptimisticFinish);
+    }
+    private static JsonElement ReachedFixture([System.Runtime.CompilerServices.CallerFilePath] string source="")
+    {
+        // The source path keeps the lookup working when tests build outside the repository.
+        var directory=new DirectoryInfo(Path.GetDirectoryName(source)??AppContext.BaseDirectory);
+        while(directory!=null&&!File.Exists(Path.Combine(directory.FullName,"tests","fixtures","goal-reached.json")))directory=directory.Parent;
+        Assert.NotNull(directory);
+        return JsonDocument.Parse(File.ReadAllText(Path.Combine(directory!.FullName,"tests","fixtures","goal-reached.json"))).RootElement;
+    }
+    [Fact] public void Reached_milestones_match_the_shared_fixture_the_web_mirror_also_follows()
+    {
+        var fixture=ReachedFixture();
+        var today=DateOnly.Parse(fixture.GetProperty("today").GetString()!);
+        foreach(var item in fixture.GetProperty("cases").EnumerateArray())
+        {
+            var name=item.GetProperty("name").GetString();
+            var profile=P(item.GetProperty("goal").GetString()!) with {PhaseMode="weight",TargetWeightKg=item.GetProperty("targetKg").GetDouble(),PhaseStartWeightKg=item.GetProperty("startKg").GetDouble()};
+            var weights=item.GetProperty("weights").EnumerateArray()
+                .Select(w=>new WeightPoint(today.AddDays(-w.GetProperty("daysAgo").GetInt32()),w.GetProperty("kg").GetDouble())).ToArray();
+            var progress=GoalPolicy.Evaluate(profile,weights,today);
+            Assert.True(item.GetProperty("scaleReached").GetBoolean()==progress.ScaleReached,$"{name}: scaleReached");
+            Assert.True(item.GetProperty("trendReached").GetBoolean()==progress.TrendReached,$"{name}: trendReached");
+        }
+    }
+    [Fact] public void Blocked_macro_message_names_the_protein_override_only_when_one_was_set()
+    {
+        // A heavy body weight at the 1000 kcal floor leaves no calories for carbs, with or without an override.
+        var heavy=P() with {WeightKg=150,Maintenance=1400,GoalRatePercent=-1.5,EnergyAdjustmentPercent=null};
+        var automatic=Coach.Calculate(heavy,[],[],null,Today);
+        Assert.False(automatic.Eligible);
+        Assert.DoesNotContain("override",automatic.Explanation);
+        Assert.Contains("body weight",automatic.Explanation);
+        var overridden=Coach.Calculate(heavy with {ProteinGrams=300},[],[],null,Today);
+        Assert.False(overridden.Eligible);
+        Assert.Contains("protein override",overridden.Explanation);
     }
 }

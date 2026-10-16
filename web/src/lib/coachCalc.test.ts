@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {calculateResting,calculateLivePace,calculateDefaultPace,getPaceStatus} from './coachCalc';
+import {calculateResting,calculateLivePace,calculateDefaultPace,carbsBlockedMessage,getPaceStatus} from './coachCalc';
 
 const base={
   age:30,
@@ -114,6 +114,13 @@ describe('coachCalc', ()=>{
     // protein*4 = 1200, fat*9 = 1200*0.3 = 360, total 1560 > 1200 target
     expect(pace.carbsBlocked).toBe(true);
     expect(pace.carbs).toBe(0);
+  });
+
+  it('names the protein override only when one was set',()=>{
+    expect(carbsBlockedMessage({proteinGrams:300})).toBe('Protein and fat exceed the calorie target. Review your protein override.');
+    const automatic=carbsBlockedMessage({proteinGrams:null});
+    expect(automatic).not.toContain('override');
+    expect(automatic).toContain('body weight');
   });
 
   it('does not flag carbsBlocked under normal conditions', ()=>{

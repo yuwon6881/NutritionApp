@@ -103,9 +103,31 @@ function displayNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));
 }
 
+/**
+ * Portion nouns that take a regular English plural. Anything else keeps its own spelling: a label is
+ * user or provider text, so a guessed plural ("leafs", "Big Macs") would invent wording.
+ */
+const REGULAR_PORTION_NOUNS = new Set([
+  'bag', 'bar', 'biscuit', 'bottle', 'bowl', 'box', 'bun', 'can', 'capsule', 'carton', 'cookie', 'cracker', 'cup', 'egg', 'fillet',
+  'glass', 'handful', 'jar', 'link', 'muffin', 'pack', 'packet', 'pancake', 'patty', 'piece', 'plate', 'portion', 'pot', 'roll',
+  'sachet', 'sandwich', 'scoop', 'serving', 'sheet', 'slice', 'spoon', 'stick', 'tablespoon', 'tablet', 'teaspoon', 'tub', 'wedge', 'wrap',
+]);
+
+function pluralNoun(noun: string): string {
+  if (/(s|x|z|ch|sh)$/i.test(noun)) return `${noun}es`;
+  if (/[^aeiou]y$/i.test(noun)) return `${noun.slice(0, -1)}ies`;
+  return `${noun}s`;
+}
+
+/** The unit word for a count: inflected only when it is a known regular noun and the count is not one. */
+function countedUnit(unit: string, count: number): string {
+  return count !== 1 && REGULAR_PORTION_NOUNS.has(unit.toLowerCase()) ? pluralNoun(unit) : unit;
+}
+
 export function displayPortion(basis: Partial<PortionBasis>): string {
-  const qty = typeof basis.quantity === 'number' && Number.isFinite(basis.quantity) ? basis.quantity : 0;
-  const quantity = typeof basis.quantity === 'number' && Number.isFinite(basis.quantity) ? displayNumber(basis.quantity) : '—';
+  const hasQuantity = typeof basis.quantity === 'number' && Number.isFinite(basis.quantity);
+  const qty = hasQuantity ? basis.quantity! : 0;
+  const quantity = hasQuantity ? displayNumber(basis.quantity!) : '—';
   const measure = measureOf(basis);
   if (basis.unit === 'g') return `${quantity} ${measure}`;
   if (basis.portionLabel && typeof basis.portionGrams === 'number' && Number.isFinite(basis.portionGrams) && basis.portionGrams > 0) {
@@ -118,10 +140,13 @@ export function displayPortion(basis: Partial<PortionBasis>): string {
       if (qty === 1) return `${label} · ${totalGrams} ${measure}`;
       if (Number.isFinite(baseNum) && baseNum > 0) {
         const scaled = displayNumber(qty * baseNum);
-        return `${scaled}${rest ? ` ${rest}` : ''} · ${totalGrams} ${measure}`;
+        return `${scaled}${rest ? ` ${countedUnit(rest, qty * baseNum)}` : ''} · ${totalGrams} ${measure}`;
       }
     }
-    return `${quantity} ${label} · ${totalGrams} ${measure}`;
+    // A label with no count of its own is the unit: a familiar noun is inflected, any other is multiplied as written.
+    const unitText = countedUnit(label, qty);
+    const counted = hasQuantity && qty !== 1 && unitText === label ? `${quantity} × ${label}` : `${quantity} ${unitText}`;
+    return `${counted} · ${totalGrams} ${measure}`;
   }
-  return `${quantity} serving`;
+  return `${quantity} ${hasQuantity ? countedUnit('serving', qty) : 'serving'}`;
 }

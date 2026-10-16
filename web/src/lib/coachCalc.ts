@@ -26,6 +26,11 @@ export const storedSplit=(p:ProfileDraft):MacroSplit|null=>
     ?normalise({protein:p.proteinPercent,carbs:p.carbsPercent,fat:p.fatPercent})
     :null;
 
+/** Mirrors the server's blocked-macro wording: only a configured protein override is worth reviewing. */
+export const carbsBlockedMessage=(p:Pick<ProfileDraft,'proteinGrams'>)=>p.proteinGrams==null
+  ?'Protein and fat for your body weight exceed the calorie target. Choose a gentler pace or a higher calorie target.'
+  :'Protein and fat exceed the calorie target. Review your protein override.';
+
 export interface LivePaceResult{
   resting:number;
   expenditure:number;

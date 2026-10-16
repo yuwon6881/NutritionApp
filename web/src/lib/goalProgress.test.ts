@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import {expect,it} from 'vitest';
 import {liveGoalProgress,mergeGoalProgress} from './goalProgress';
 import type {Profile} from '../types';
@@ -66,4 +67,15 @@ it('shows 0% starting progress and optimistic finish date before weigh-ins are r
   expect(emptyProg.remaining).toBe(5);
   expect(emptyProg.optimisticFinish).not.toBeNull();
   expect(emptyProg.estimatedFinish).toBe(emptyProg.optimisticFinish);
+});
+
+type ReachedFixture={today:string;cases:{name:string;goal:'lose'|'gain';startKg:number;targetKg:number;weights:{daysAgo:number;kg:number}[];scaleReached:boolean;trendReached:boolean}[]};
+const reachedFixture=JSON.parse(readFileSync(new URL('../../../tests/fixtures/goal-reached.json',import.meta.url),'utf8')) as ReachedFixture;
+
+it('matches the server on which weigh-ins reach a weight goal (shared fixture)',()=>{
+  for(const item of reachedFixture.cases){
+    const weights=item.weights.map(w=>({date:new Date(Date.parse(reachedFixture.today)-w.daysAgo*86400000).toISOString().slice(0,10),kg:w.kg}));
+    const progress=liveGoalProgress(profile({goal:item.goal,targetWeightKg:item.targetKg,phaseStartWeightKg:item.startKg}),weights,reachedFixture.today)!;
+    expect({name:item.name,scale:progress.scaleReached,trend:progress.trendReached}).toEqual({name:item.name,scale:item.scaleReached,trend:item.trendReached});
+  }
 });

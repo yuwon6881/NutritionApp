@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {AppState,Day,Entry,Plan} from '../types';
-import {targetShare,weekAverage,weekNutrition} from './weekNutrition';
+import {resolveWeekSelection,targetShare,WEEK_AVERAGE,weekAverage,weekNutrition} from './weekNutrition';
 
 const entry=(date:string,calories:number,macros:Partial<Pick<Entry,'protein'|'carbs'|'fat'>>={},deleted=false)=>
   ({id:`e-${date}-${calories}`,revision:0,deleted,date,name:'Oats',calories,protein:10,carbs:50,fat:5,quantity:1,unit:'serving',...macros}) as Entry;
@@ -78,5 +78,27 @@ describe('week nutrition',()=>{
     expect(targetShare(null,2000)).toBeNull();
     expect(targetShare(500,null)).toBeNull();
     expect(targetShare(500,0)).toBeNull();
+  });
+});
+
+describe('week selection',()=>{
+  const thursday='2026-09-10';
+  const mondayAfter='2026-09-14';
+  const weekOf=(current:string)=>weekNutrition(state(),current);
+
+  it('follows today until the person picks something else',()=>{
+    expect(resolveWeekSelection(null,weekOf(thursday),thursday)).toBe(thursday);
+    expect(resolveWeekSelection(null,weekOf('2026-09-11'),'2026-09-11')).toBe('2026-09-11');
+  });
+
+  it('keeps an explicit day or the week average while they remain in the week',()=>{
+    expect(resolveWeekSelection('2026-09-08',weekOf('2026-09-11'),'2026-09-11')).toBe('2026-09-08');
+    expect(resolveWeekSelection(WEEK_AVERAGE,weekOf(thursday),thursday)).toBe(WEEK_AVERAGE);
+  });
+
+  it('falls back to today when the week rolls over and the chosen day has left it',()=>{
+    const selection=resolveWeekSelection('2026-09-13',weekOf(mondayAfter),mondayAfter);
+    expect(selection).toBe(mondayAfter);
+    expect(weekOf(mondayAfter).some(item=>item.date===selection)).toBe(true);
   });
 });

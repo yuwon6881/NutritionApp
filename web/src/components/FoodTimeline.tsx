@@ -1,11 +1,10 @@
 import {useCallback,useState,useRef,useEffect} from 'react';
 import {readableDate} from '../lib/format';
-import {Copy,MoveRight,Pencil,Plus,Trash2} from 'lucide-react';
+import {Plus} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
 import {timelineGroups,timelineSlots,moveAnnouncement,type TimelineView} from '../lib/foodDiary';
 import {Button} from './ui/Button';
-import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
 import {CopyFoodDialog} from './CopyFoodDialog';
 import {MoveFoodDialog} from './MoveFoodDialog';
 import {unitsFor} from '../lib/units';
@@ -55,7 +54,6 @@ export function FoodTimeline({
 }:FoodTimelineProps){
   const [movingEntries,setMovingEntries]=useState<Entry[]|null>(null);
   const [copyingEntry,setCopyingEntry]=useState<Entry|null>(null);
-  const [actionEntry,setActionEntry]=useState<Entry|null>(null);
   const [restoreFocus,setRestoreFocus]=useState<HTMLElement|null>(null);
   const [announcement,setAnnouncement]=useState('');
   const energyUnit=unitsFor(store.state?.settings).energy;
@@ -97,21 +95,6 @@ export function FoodTimeline({
     setAnnouncement(moveAnnouncement(moving.length,time??null));
   };
 
-  const openActions=useCallback((entry:Entry,trigger:HTMLElement)=>{
-    setRestoreFocus(trigger);
-    setActionEntry(entry);
-  },[]);
-
-  const actionOptions:ActionSheetOption[]=actionEntry?[{
-    id:'edit',label:'Edit',description:'Change the logged food or portion.',icon:<Pencil size={20}/>,onClick:()=>onEdit(actionEntry)
-  },{
-    id:'copy',label:'Copy',description:'Add this food to another date or time.',icon:<Copy size={20}/>,onClick:()=>setCopyingEntry(actionEntry)
-  },{
-    id:'move',label:'Move to',description:'Change the date or time without duplicating it.',icon:<MoveRight size={20}/>,onClick:()=>setMovingEntries([actionEntry])
-  },{
-    id:'delete',label:'Delete',description:'Remove this logged entry.',icon:<Trash2 size={20}/>,variant:'destructive',onClick:()=>void Promise.resolve(onDelete(actionEntry)).catch(()=>{})
-  }]:[];
-
   const {draggingEntry,dropOverTime,bindDrag,swipeFor,closeReveal}=useTimelineDrag({
     enabled:!readOnly&&!isSelecting,
     onDrop:(entry,targetTime)=>void handleMove([entry],date,targetTime),
@@ -125,6 +108,9 @@ export function FoodTimeline({
   const stableToggleSelect=useCallback((id:string)=>onToggleSelectRef.current?.(id),[]);
   const onDeleteRef=useRef(onDelete);
   onDeleteRef.current=onDelete;
+  const onEditRef=useRef(onEdit);
+  onEditRef.current=onEdit;
+  const stableCardEdit=useCallback((item:Entry)=>{closeReveal();onEditRef.current(item);},[closeReveal]);
   const stableCardCopy=useCallback((item:Entry,trigger:HTMLElement)=>{closeReveal();setRestoreFocus(trigger);setCopyingEntry(item);},[closeReveal]);
   const stableCardMove=useCallback((item:Entry,trigger:HTMLElement)=>{closeReveal();setRestoreFocus(trigger);setMovingEntries([item]);},[closeReveal]);
   const stableCardDelete=useCallback((item:Entry)=>{closeReveal();void Promise.resolve(onDeleteRef.current(item)).catch(()=>{});},[closeReveal]);
@@ -175,8 +161,7 @@ export function FoodTimeline({
               isMoved={movedIds.has(entry.id)}
               isAdded={addedIds.has(entry.id)}
               isPendingSync={pending.length>0}
-              onEdit={onEdit}
-              onOpenActions={openActions}
+              onEdit={stableCardEdit}
               onToggleSelect={stableToggleSelect}
               dragProps={dragProps}
               swipe={swipeFor(entry)}
@@ -188,14 +173,6 @@ export function FoodTimeline({
         </div>
       </li>)}
     </ol>
-    <ActionSheet
-      isOpen={Boolean(actionEntry)}
-      onClose={()=>setActionEntry(null)}
-      restoreFocus={restoreFocus}
-      title="Food actions"
-      subtitle={actionEntry?.name??'Choose an action'}
-      options={actionOptions}
-    />
     {copyingEntry&&<CopyFoodDialog
       open={Boolean(copyingEntry)}
       entry={copyingEntry}

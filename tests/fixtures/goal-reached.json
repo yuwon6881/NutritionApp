@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "about": "Shared weight-goal reached contract. The server GoalPolicy.Evaluate and the web liveGoalProgress mirror must report the same scaleReached and trendReached for each case; tests on each side load this file. Weigh-ins are given as days before today. Reaching by scale needs at least three weigh-ins with the latest within three days, so one or two low readings never offer 'Complete goal' (POST /api/goal/complete would reject it).",
+  "today": "2026-09-08",
+  "cases": [
+    { "name": "one low weigh-in", "goal": "lose", "startKg": 80, "targetKg": 75, "weights": [{ "daysAgo": 0, "kg": 74 }], "scaleReached": false, "trendReached": false },
+    { "name": "two low weigh-ins", "goal": "lose", "startKg": 80, "targetKg": 75, "weights": [{ "daysAgo": 1, "kg": 74 }, { "daysAgo": 0, "kg": 74 }], "scaleReached": false, "trendReached": false },
+    { "name": "three low recent weigh-ins", "goal": "lose", "startKg": 80, "targetKg": 75, "weights": [{ "daysAgo": 2, "kg": 74 }, { "daysAgo": 1, "kg": 74 }, { "daysAgo": 0, "kg": 74 }], "scaleReached": true, "trendReached": true },
+    { "name": "three low weigh-ins gone stale", "goal": "lose", "startKg": 80, "targetKg": 75, "weights": [{ "daysAgo": 9, "kg": 74 }, { "daysAgo": 8, "kg": 74 }, { "daysAgo": 7, "kg": 74 }], "scaleReached": false, "trendReached": false },
+    { "name": "three weigh-ins above a loss target", "goal": "lose", "startKg": 80, "targetKg": 75, "weights": [{ "daysAgo": 2, "kg": 76 }, { "daysAgo": 1, "kg": 76 }, { "daysAgo": 0, "kg": 76 }], "scaleReached": false, "trendReached": false },
+    { "name": "three high recent weigh-ins for a gain target", "goal": "gain", "startKg": 80, "targetKg": 85, "weights": [{ "daysAgo": 2, "kg": 86 }, { "daysAgo": 1, "kg": 86 }, { "daysAgo": 0, "kg": 86 }], "scaleReached": true, "trendReached": true },
+    { "name": "one low reading after a flat month", "goal": "lose", "startKg": 80, "targetKg": 75, "weights": [{ "daysAgo": 5, "kg": 80 }, { "daysAgo": 4, "kg": 80 }, { "daysAgo": 3, "kg": 80 }, { "daysAgo": 2, "kg": 80 }, { "daysAgo": 1, "kg": 80 }, { "daysAgo": 0, "kg": 74 }], "scaleReached": true, "trendReached": false }
+  ]
+}
