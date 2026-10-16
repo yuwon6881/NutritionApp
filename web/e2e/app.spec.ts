@@ -516,6 +516,7 @@ test('mobile scan shortcut supports food photos and label autofill before review
       await expect(page.getByLabel('Fiber (g)',{exact:true})).toHaveValue('');
       await page.getByRole('button',{name:'Save changes',exact:true}).click();
       await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
+      await expect(row).not.toHaveClass(/actions-open/);
       const boxAfter=(await surface.boundingBox())!;
       await page.mouse.move(boxAfter.x+boxAfter.width*.8,boxAfter.y+boxAfter.height/2);
       await page.mouse.down();

@@ -104,6 +104,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await expect(page.getByLabel('Food name',{exact:true})).toBeFocused();
   await expect(page.getByLabel('Protein (g)',{exact:true})).toHaveValue('');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
+  // Saving returns to the batch with the row back at rest, not still swiped open.
+  await expect(textRow).not.toHaveClass(/actions-open/);
   if(width>=1024){
     await expect(textRow.getByRole('button',{name:'Edit',exact:true})).toBeFocused();
     await page.getByRole('button',{name:'Remove Text meal',exact:true}).click();
