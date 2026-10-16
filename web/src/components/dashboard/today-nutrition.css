@@ -160,11 +160,24 @@
   overflow: hidden;
 }
 
-/* Steps card directly below the Today card */
-.dashboard-steps-reveal {
-  margin-top: -6px;
-  margin-bottom: 24px;
+/* The Today heading row reserves a touch target's height, so the steps chip that arrives late never
+   changes the row's height or moves anything below it. */
+.dashboard-cards .dashboard-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  margin: 6px 2px 14px;
 }
+.dashboard-cards .dashboard-section-head .dashboard-section-title { margin: 0; }
+.steps-chip { flex: none; gap: 6px; font-variant-numeric: tabular-nums; }
+.steps-chip-unit { color: var(--muted-foreground); font-weight: 500; }
+.steps-chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--carbs); }
+@media (prefers-reduced-motion: no-preference) {
+  .steps-chip { animation: stepsChipIn var(--motion-control) ease-out; }
+}
+@keyframes stepsChipIn { from { opacity: 0; } to { opacity: 1; } }
 
 @media (min-width: 640px) and (max-width: 899px) {
   /* Tablet stacked Today card with 3-column macros under eyebrow */
@@ -245,11 +258,6 @@
     border-top: 1px solid var(--border);
     padding-top: 18px;
     padding-left: 16px;
-  }
-
-  .dashboard-steps-reveal {
-    margin-top: -4px;
-    margin-bottom: 18px;
   }
 
   .energy-overview {

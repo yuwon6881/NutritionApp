@@ -65,3 +65,21 @@ test('the day after today can be opened from the strip and arrow keys, without p
   await strip.locator(`[data-date="${todayInTestZone()}"]`).click();
   await expect(page.locator('.food-day-summary h2')).toHaveText('Today');
 });
+
+test('the Energy tab loads into a chart-shaped placeholder, not a line of text',async({page})=>{
+  await page.route('**/api/progress/summary**',async route=>{
+    await new Promise(resolve=>setTimeout(resolve,1500));
+    await route.continue();
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'Progress',exact:true}).click();
+  await page.getByRole('button',{name:'Energy',exact:true}).click();
+  const placeholder=page.locator('.energy-history .skeleton-chart');
+  await expect(placeholder).toBeVisible();
+  await expect(page.locator('.energy-history .skeleton-stats')).toBeVisible();
+  await expect(page.getByText('Loading…',{exact:true})).toHaveCount(0);
+  await expect(page.locator('.energy-history').getByRole('heading',{name:'Energy balance'})).toBeVisible();
+  // The placeholder gives way to the real summary without leaving anything behind.
+  await expect(placeholder).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+});

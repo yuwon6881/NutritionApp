@@ -12,11 +12,9 @@ import {checkInSchedule} from '../lib/checkIn';
 import {CheckInDialog} from './CheckInDialog';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {shouldShowDashboardSteps,useGoogleHealth} from '../lib/googleHealth';
-import {GoogleHealthStepsCard} from './GoogleHealthStepsCard';
-import {StepCalorieCalculator} from './StepCalorieCalculator';
+import {DashboardSteps} from './DashboardSteps';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {EnergyOverview} from './EnergyOverview';
-import {MotionPanel} from './ui/Motion';
 import {HabitCalendars} from './habits/HabitCalendars';
 import {DashboardSkeleton} from './ui/Skeleton';
 import {useOnlineStatus} from './ui/useOnlineStatus';
@@ -74,7 +72,10 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
       </section>:<>
       <div className={intro?'dashboard-cards dashboard-intro':'dashboard-cards'}>
       <section className="dashboard-section dashboard-section-today" aria-labelledby="dashboard-today-title">
-      <h2 id="dashboard-today-title" className="dashboard-section-title">Today</h2>
+      <div className="dashboard-section-head">
+        <h2 id="dashboard-today-title" className="dashboard-section-title">Today</h2>
+        {showGoogleHealthSteps&&<DashboardSteps store={store} health={ghState} todayDate={date} onOpenSettings={onSettings}/>}
+      </div>
       <div className="daily-grid">
         {checkInReady&&checkIn
           ?<article className="panel energy-panel">
@@ -103,7 +104,6 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
           })}
         </article>
       </div>
-      {showGoogleHealthSteps && <MotionPanel motionKey="dashboard-steps" axis="reveal" animateOnMount={intro} className="dashboard-steps-reveal"><GoogleHealthStepsCard status={ghState.status} freshness={ghState.freshness} lastSyncedAt={ghState.lastSyncedAt} days={ghState.days} todayDate={date} warningMessage={ghState.warningMessage} onOpenSettings={onSettings}><StepCalorieCalculator store={store} variant="inline"/></GoogleHealthStepsCard></MotionPanel>}
       </section>
       <section className="dashboard-section dashboard-section-habits" aria-labelledby="dashboard-habits-title">
         <h2 id="dashboard-habits-title" className="dashboard-section-title">Habits</h2>

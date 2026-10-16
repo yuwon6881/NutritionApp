@@ -12,6 +12,7 @@ import { AiMessageContent } from './ai/AiMessageContent';
 import { AiPendingReply } from './ai/AiPendingReply';
 import { useAiConversation, type AiInvocationRequest } from './useAiConversation';
 import type { AiUiAction } from '../lib/api/ai';
+import { SkeletonChat, SkeletonRegion } from './ui/Skeleton';
 import './AiAssistantPanel.css';
 
 interface Props {
@@ -38,7 +39,7 @@ export function AiAssistantPanel({ headerTarget, isOpen, onClose, onActions, inv
       </Button>,headerTarget)}
       <div className="ai-chat">
         <AiLog messages={chat.messages} pendingReply={chat.pendingReply} actionBatches={chat.pendingActionBatches}>
-          {chat.isHydrating && <p className="ai-chat-loading" role="status">Loading conversation…</p>}
+          {chat.isHydrating && <SkeletonRegion label="Loading conversation…"><SkeletonChat /></SkeletonRegion>}
           {isEmpty && <AiEmptyState disabled={disabled || Boolean(chat.error)} onPick={prompt => void chat.sendMessage(prompt)} />}
           {chat.messages.map((message, index) => <div key={index} className={`ai-chat-message ${message.role}`}>
             {message.role === 'assistant' && <AiAvatar />}

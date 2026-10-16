@@ -1599,7 +1599,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .notification-schedule-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 .notification-save-actions{align-items:center;margin-top:4px}
 .settings-inline-notice{margin:0 0 16px}
-.settings-loading{margin:18px 0;font-size:.8rem;color:var(--muted-foreground)}
 .segmented-control.settings-choice{display:inline-grid;gap:2px;min-width:240px;margin:0;padding:3px;border-radius:12px;background:var(--muted);border:1px solid var(--border)}
 .segmented-control.settings-choice .selection-indicator-marker{border-radius:9px;background:var(--raised);box-shadow:0 0 0 1px var(--border),var(--shadow)}
 .segmented-control.settings-choice .selection-indicator-marker::after{display:none}
@@ -1795,7 +1794,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .bar-gap-marker:hover{fill:var(--muted-foreground);opacity:.9}}
 .bar-group.selected .bar-rect{fill:var(--ink-strong);filter:drop-shadow(0 2px 7px color-mix(in srgb,var(--energy) 45%,transparent))}
 .chart-date-axis{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums;margin-top:8px;padding-inline:2px}
-.chart-skeleton{padding:30px 10px;text-align:center;color:var(--muted-foreground);font-size:.82rem}
+.chart-skeleton{padding:8px 0}
 
 /* Disclosure Dialog */
 .google-health-disclosure{display:flex;flex-direction:column;gap:18px}
@@ -1921,7 +1920,6 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 .dashboard-intro .macro:nth-of-type(3) progress::-moz-progress-bar{animation-delay:400ms}
 .energy-ring-intro .ring-fill{transition:none}
 
-.dashboard-intro .dashboard-steps-reveal .steps-panel{animation:none}
 
 /* Page section tabs (Progress, Coach) on wider windows: natural-width tabs on a hairline. */
 @media(min-width:640px){

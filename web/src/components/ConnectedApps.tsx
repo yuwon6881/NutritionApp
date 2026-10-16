@@ -5,6 +5,7 @@ import type {NutritionStore} from '../useNutritionStore';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {CardFeedback} from './ui/CardFeedback';
+import {SkeletonRegion,SkeletonSettingRows} from './ui/Skeleton';
 import {activeTheme} from '../lib/theme';
 
 type Grant = {
@@ -144,9 +145,9 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
       )}
 
       {!loaded && !error && (
-        <p className="source" role="status" aria-busy="true">
-          Loading connected app status…
-        </p>
+        <SkeletonRegion label="Loading connected app status…">
+          <SkeletonSettingRows count={1}/>
+        </SkeletonRegion>
       )}
 
       {loaded && !error && !isConnected && (

@@ -1,4 +1,4 @@
-import type {CSSProperties} from 'react';
+import type {CSSProperties,ReactNode} from 'react';
 
 /**
  * Static placeholders shaped like the content they stand in for, so the
@@ -28,5 +28,50 @@ export function FoodDaySkeleton(){
       <SkeletonBlock width={52} height={12}/>
       <div className="panel skeleton-panel"><SkeletonBlock width="60%"/><SkeletonBlock width="40%" height={10}/></div>
     </div>)}
+  </div>;
+}
+
+/** Wraps placeholders with one polite status line, so a screen reader hears what is loading instead of nothing. */
+export function SkeletonRegion({label,className='',children}:{label:string;className?:string;children:ReactNode}){
+  return <div className={`skeleton-region ${className}`.trim()} aria-busy="true">
+    <p className="sr-only" role="status">{label}</p>
+    {children}
+  </div>;
+}
+
+/** Figure tiles (small label over a value), as in the Progress statistics. */
+export function SkeletonStats({count=3}:{count?:number}){
+  return <div className="stats-grid skeleton-stats" aria-hidden="true">
+    {Array.from({length:count},(_,index)=><div key={index} className="stat-card skeleton-panel">
+      <SkeletonBlock width="55%" height={10}/><SkeletonBlock width="40%" height={26}/>
+    </div>)}
+  </div>;
+}
+
+const CHART_BAR_HEIGHTS=[46,62,38,70,54,80,48,66,42,74,58,50];
+
+/** Bars on a baseline, at the height the chart they stand in for will occupy. */
+export function SkeletonChart({height=220}:{height?:number}){
+  return <div className="skeleton-chart" aria-hidden="true" style={{height}}>
+    {CHART_BAR_HEIGHTS.map((bar,index)=><span key={index} className="skeleton-block" style={{height:`${bar}%`}}/>)}
+  </div>;
+}
+
+/** Setting rows: a label and a hint on the left, the control on the right. */
+export function SkeletonSettingRows({count=2}:{count?:number}){
+  return <div className="skeleton-setting-rows" aria-hidden="true">
+    {Array.from({length:count},(_,index)=><div key={index} className="page-skeleton-row">
+      <div className="skeleton-setting-copy"><SkeletonBlock width="46%" height={14}/><SkeletonBlock width="78%" height={10}/></div>
+      <SkeletonBlock width={96} height={36} radius={999}/>
+    </div>)}
+  </div>;
+}
+
+/** Message bubbles for a conversation that is still opening. */
+export function SkeletonChat(){
+  return <div className="skeleton-chat" aria-hidden="true">
+    <SkeletonBlock width="72%" height={56} radius={18}/>
+    <SkeletonBlock width="46%" height={40} radius={18} className="skeleton-chat-own"/>
+    <SkeletonBlock width="64%" height={72} radius={18}/>
   </div>;
 }

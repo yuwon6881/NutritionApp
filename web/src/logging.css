@@ -133,6 +133,17 @@
 @media(max-width:639px){.page-skeleton-tabs{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}.page-skeleton-tiles{gap:8px}.page-skeleton>.page-skeleton-tiles{margin-bottom:18px}}
 .body-hub-skeleton-lines{display:grid;flex:1;gap:8px;padding-top:4px}
 .food-day-skeleton{display:grid;gap:14px}
+/* Shared loading shapes (Skeleton.tsx): figures, a chart, setting rows and chat bubbles hold their final height. */
+.skeleton-region{display:grid;gap:14px}
+.skeleton-subtitle{margin-top:6px}
+.skeleton-stats{margin:0}
+.skeleton-stats>.stat-card{margin:0}
+.skeleton-chart{display:flex;align-items:flex-end;gap:8px;padding:0 4px;border-bottom:1px solid var(--border)}
+.skeleton-chart>.skeleton-block{flex:1 1 0;min-width:0;border-radius:6px 6px 0 0}
+.skeleton-setting-rows{display:grid;gap:8px}
+.skeleton-setting-copy{display:grid;flex:1;gap:8px}
+.skeleton-chat{display:grid;gap:12px;padding:6px 0}
+.skeleton-chat-own{justify-self:end}
 .food-day-skeleton-row{display:grid;grid-template-columns:72px minmax(0,1fr);gap:16px;align-items:start}
 .food-day-skeleton-row>.panel{margin:0;padding:14px}
 
