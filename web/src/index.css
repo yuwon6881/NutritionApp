@@ -174,6 +174,9 @@ form>.button,.panel>.button{display:flex;margin-left:auto}.copy-day{justify-cont
 .card-feedback strong{color:var(--ink-strong);font-size:.84rem;font-weight:650}
 .card-feedback p{margin:0;color:var(--muted-foreground);font-size:.8rem;line-height:1.6}
 .card-feedback .button{justify-self:end;margin:0;white-space:normal;text-align:center}
+.card-feedback-detail summary{width:fit-content;min-height:24px;color:var(--muted-foreground);font-size:.78rem;font-weight:600;cursor:pointer}
+.card-feedback-detail summary:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+.card-feedback-detail p{margin-top:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem;white-space:pre-line;user-select:text}
 @media(max-width:639px){.card-feedback-content{grid-template-columns:minmax(0,1fr);gap:12px}.card-feedback .button{justify-self:end;min-height:44px}}
 @container (max-width:560px){.card-feedback-content{grid-template-columns:minmax(0,1fr);gap:12px}.card-feedback .button{justify-self:end}}
 

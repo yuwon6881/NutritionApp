@@ -137,6 +137,21 @@
   background: var(--primary);
 }
 
+/* A line that only introduces the sub-list beneath it reads as a label, not another point. */
+.ai-message-content ul > li.ai-message-lead-in {
+  padding-left: 0;
+  font-weight: 650;
+}
+
+.ai-message-content ul > li.ai-message-lead-in::before {
+  display: none;
+}
+
+.ai-message-content ul ul {
+  margin: 6px 0 0 8px;
+  font-weight: 400;
+}
+
 .ai-message-content ol {
   display: grid;
   gap: 6px;

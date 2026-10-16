@@ -5,8 +5,8 @@ import type {Entry,Food} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
 import {api,ApiError} from '../lib/api';
-import {foodScanDraftForAttempt,resumeFoodScanJob,type FoodScanDraft} from '../lib/foodScans';
-import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,labelManualEntryDraft,parseAiEstimate} from '../lib/logFood';
+import {requestFoodScanEstimate,type FoodScanDraft} from '../lib/foodScans';
+import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,labelManualEntryDraft} from '../lib/logFood';
 import {lineFromPer100,lineKey} from '../lib/foodBasket';
 import {serializePortions,parsePortions} from '../lib/portions';
 import {Button} from './ui/Button';
@@ -45,7 +45,6 @@ import {applyVerifiedFoods} from '../lib/foodVerification';
 
 type SearchResult=import('../types').FoodSearchResult;
 type FoodStep='selection'|'detail'|'quick'|'editor'|'recipe'|'batch';
-type AiJob={id:string;status:string;resultJson?:string|null;error?:string|null};
 
 export function LogFood({
   open,
@@ -210,34 +209,17 @@ export function LogFood({
     onClose();
   };
   const submitAiEstimate=async()=>{
-    if(!scan.ready)throw new Error('Checking saved scan work on this device. Try again in a moment.');
-    if(mode!=='description'&&!photo)throw new Error('Choose a photo before continuing.');
-    const input={date,mode,description,imageBase64:mode==='description'?null:photo,pendingBarcode:pendingBarcode?{...pendingBarcode}:undefined};
-    const base=foodScanDraftForAttempt(scanDraftRef.current,input);
-    const useSavedReview=base.status==='review'&&!!base.resultJson;
-    const requestDraft:FoodScanDraft=useSavedReview?base:{...base,...input,status:'submitted',error:null};
-    await persistScanDraft(requestDraft);
-    let job:AiJob;
-    try{
-      if(useSavedReview)job={id:requestDraft.id,status:'complete',resultJson:requestDraft.resultJson};
-      else job=await resumeFoodScanJob(requestDraft);
-    }catch(ex){
-      const message=ex instanceof Error?ex.message:'AI could not estimate this meal. Try again.';
-      await persistScanDraft({...requestDraft,status:'submitted',error:message}).catch(()=>undefined);
-      throw ex;
-    }
-    if(job.status!=='complete'||!job.resultJson){
-      const message=job.error??'AI could not estimate this meal. Try again.';
-      await persistScanDraft({...requestDraft,status:job.status==='failed'?'failed':'submitted',error:message});
-      throw new Error(message);
-    }
-    const estimate=parseAiEstimate(job.resultJson);
+    const {estimate,requestDraft}=await requestFoodScanEstimate({
+      ready:scan.ready,
+      currentDraft:scanDraftRef.current,
+      date,
+      mode,
+      description,
+      photo,
+      pendingBarcode,
+      persist:persistScanDraft,
+    });
     const barcodeContext=pendingBarcode;
-    if(!Array.isArray(estimate.foods)||estimate.foods.length===0){
-      if(barcodeContext&&mode==='label')throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
-      throw new Error(estimate.explanation||'AI could not identify a food. Add more detail and try again.');
-    }
-    await persistScanDraft({...requestDraft,status:'review',imageBase64:null,resultJson:job.resultJson,error:null});
     if(barcodeContext&&mode==='label'){
       if(estimate.foods.length!==1)throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
       const food=estimate.foods[0];

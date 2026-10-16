@@ -7,6 +7,7 @@ import {
   setGoogleHealthBundledSync,
   useGoogleHealth,
 } from '../lib/googleHealth';
+import {describeUploadFailure} from '../lib/googleHealthFailure';
 import {GoogleHealthWeightImportSetting} from './GoogleHealthWeightImportSetting';
 import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
 import {GoogleHealthSyncOptions} from './GoogleHealthSyncOptions';
@@ -55,15 +56,11 @@ export function GoogleHealthSettings() {
     state.nutritionSync.state === 'failed' ||
     state.bodyFatSync.state === 'failed';
 
-  const rawFailureMessage = state.weightSync.failureMessage ||
-    state.nutritionSync.failureMessage ||
-    state.bodyFatSync.failureMessage;
-
-  const failureMessage = hasUnknown
-    ? (rawFailureMessage?.includes('create response was lost')
-        ? 'Create response was lost. Check Google Health before retrying.'
-        : rawFailureMessage || 'Create response was lost. Check Google Health before retrying.')
-    : (rawFailureMessage || 'Google Health rejected an upload.');
+  const uploadFailure = describeUploadFailure([
+    {label: 'Weight', status: state.weightSync},
+    {label: 'Nutrition', status: state.nutritionSync},
+    {label: 'Body fat', status: state.bodyFatSync},
+  ]);
 
   const optionsSummary = `${bundledSyncEnabled ? 'Uploading weight, nutrition & body fat' : 'Uploads off'} · ${state.weightImport.enabled ? 'Weigh-in import on' : 'Weigh-in import off'}${totalPending > 0 ? ` · ${totalPending} pending` : ''}`;
 
@@ -323,14 +320,15 @@ export function GoogleHealthSettings() {
               {latestSyncAt && (
                 <p className="source">Last sync: {formatTimestamp(latestSyncAt)}.</p>
               )}
-              {(hasFailed || hasUnknown) && (
+              {uploadFailure && (
                 <CardFeedback
-                  tone={hasUnknown ? 'warning' : 'error'}
-                  title={hasUnknown ? 'Upload status unknown' : 'Sync needs attention'}
-                  message={failureMessage}
+                  tone={uploadFailure.tone}
+                  title={uploadFailure.title}
+                  message={uploadFailure.message}
+                  detail={uploadFailure.detail}
                   action={{
-                    label: hasUnknown ? 'Check copy and retry' : 'Retry sync',
-                    onClick: () => void handleBundledRecovery(),
+                    label: actionLoading && uploadFailure.action === 'retry' ? 'Retrying…' : uploadFailure.actionLabel,
+                    onClick: uploadFailure.action === 'reconnect' ? () => openDisclosure() : () => void handleBundledRecovery(),
                     disabled: actionLoading,
                   }}
                 />

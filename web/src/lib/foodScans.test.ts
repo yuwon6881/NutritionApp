@@ -1,6 +1,6 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {ApiError} from './api';
-import {createFoodScanDraft,foodScanDraftForAttempt,getOrCreateFoodScanJob,resumeFoodScanJob,type FoodScanDraft,type FoodScanJob,type ScanApi} from './foodScans';
+import {createFoodScanDraft,foodScanDraftForAttempt,getOrCreateFoodScanJob,resumeFoodScanJob,requestFoodScanEstimate,type FoodScanDraft,type FoodScanJob,type ScanApi} from './foodScans';
 
 function draft(overrides:Partial<FoodScanDraft>={}):FoodScanDraft{
   return {version:1,id:'scan-1',date:'2026-09-21',mode:'photo',description:'',imageBase64:'jpeg-data',status:'submitted',...overrides};
@@ -116,5 +116,62 @@ describe('recoverable food scan identity',()=>{
     const request=vi.fn(async<T>():Promise<T>=>{throw new ApiError('Unavailable',503);});
     await expect(getOrCreateFoodScanJob(draft(),request as unknown as ScanApi)).rejects.toThrow('Unavailable');
     expect(request).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('requestFoodScanEstimate',()=>{
+  it('rejects when the scan draft is not ready',async()=>{
+    await expect(requestFoodScanEstimate({
+      ready:false,currentDraft:null,date:'2026-10-17',mode:'photo',description:'',photo:null,persist:async()=>undefined
+    })).rejects.toThrow('Checking saved scan work on this device');
+  });
+
+  it('rejects photo or label modes when no photo is attached',async()=>{
+    await expect(requestFoodScanEstimate({
+      ready:true,currentDraft:null,date:'2026-10-17',mode:'photo',description:'',photo:null,persist:async()=>undefined
+    })).rejects.toThrow('Choose a photo before continuing.');
+  });
+
+  it('reuses a saved review without re-executing the job',async()=>{
+    const currentDraft:FoodScanDraft={
+      version:1,id:'scan-review',date:'2026-10-17',mode:'description',description:'eggs',
+      imageBase64:null,status:'review',resultJson:JSON.stringify({foods:[{name:'Egg',calories:70,protein:6,fat:5,carbs:0,fiber:0}]})
+    };
+    const persisted:FoodScanDraft[]=[];
+    const resumeJob=vi.fn();
+    const result=await requestFoodScanEstimate({
+      ready:true,currentDraft,date:'2026-10-17',mode:'description',description:'eggs',photo:null,
+      persist:async d=>{persisted.push(d);},resumeJob
+    });
+    expect(resumeJob).not.toHaveBeenCalled();
+    expect(result.estimate.foods[0].name).toBe('Egg');
+    expect(persisted).toHaveLength(2);
+    expect(persisted[1].status).toBe('review');
+  });
+
+  it('resumes a job, parses the estimate, and saves the review status',async()=>{
+    const persisted:FoodScanDraft[]=[];
+    const resumeJob=vi.fn(async()=>({
+      id:'scan-new',status:'complete',resultJson:JSON.stringify({foods:[{name:'Banana',calories:105,protein:1,fat:0,carbs:27,fiber:3}]})
+    }));
+    const result=await requestFoodScanEstimate({
+      ready:true,currentDraft:null,date:'2026-10-17',mode:'description',description:'banana',photo:null,
+      persist:async d=>{persisted.push(d);},resumeJob
+    });
+    expect(resumeJob).toHaveBeenCalledTimes(1);
+    expect(result.estimate.foods[0].name).toBe('Banana');
+    expect(persisted[0].status).toBe('submitted');
+    expect(persisted[1].status).toBe('review');
+    expect(persisted[1].imageBase64).toBeNull();
+  });
+
+  it('fails when no foods are recognized',async()=>{
+    const resumeJob=vi.fn(async()=>({
+      id:'scan-empty',status:'complete',resultJson:JSON.stringify({foods:[],explanation:'Unclear image'})
+    }));
+    await expect(requestFoodScanEstimate({
+      ready:true,currentDraft:null,date:'2026-10-17',mode:'description',description:'xyz',photo:null,
+      persist:async()=>undefined,resumeJob
+    })).rejects.toThrow('Unclear image');
   });
 });
