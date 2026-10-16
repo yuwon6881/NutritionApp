@@ -89,6 +89,9 @@ export function Select({
     if (!trigger) return;
 
     const anchorRect = trigger.getBoundingClientRect();
+    const host = containerRef.current?.closest('dialog') ?? trigger.closest('dialog');
+    const hostRect = host?.getBoundingClientRect();
+
     const vv = window.visualViewport;
     const viewportHeight = vv?.height ?? window.innerHeight;
     const viewportWidth = vv?.width ?? window.innerWidth;
@@ -115,15 +118,15 @@ export function Select({
     const left = Math.max(8, Math.min(anchorRect.left, viewportWidth - width - 8));
 
     setMenuStyle({
-      left: `${left}px`,
-      top: `${top}px`,
+      left: hostRect ? `${left - hostRect.left}px` : `${left + window.scrollX}px`,
+      top: hostRect ? `${top - hostRect.top}px` : `${top + window.scrollY}px`,
       width: `${width}px`,
       maxHeight: `${maxHeight}px`,
     });
   };
   // Closing drops the placement so the next opening measures afresh; the menu stays hidden until then.
   useLayoutEffect(() => { if (!isOpen) setMenuStyle(null); }, [isOpen]);
-  useViewportAlign(isOpen, alignMenu);
+  useViewportAlign(isOpen, alignMenu, listRef);
 
   // Scroll focused option into view
   useEffect(() => {
@@ -274,7 +277,7 @@ export function Select({
               );
             })}
           </ul>,
-          containerRef.current?.closest('dialog') ?? document.body
+          containerRef.current?.closest('dialog') ?? triggerRef.current?.closest('dialog') ?? document.body
         )}
       </div>
 

@@ -232,3 +232,41 @@ test('360x800 normal and 200% root text portion unit and meal time reachability 
   await assertElementUncovered(commitButton);
   await assertViewportContained(page);
 });
+
+test('1280x800 desktop unit select dropdown inside food review modal is aligned with trigger and unclipped',async({page})=>{
+  await preparePage(page,1280,800);
+
+  const addTrigger=page.getByRole('button',{name:'Add entry',exact:true});
+  await addTrigger.click();
+  const addSheet=page.getByRole('dialog',{name:'Add',exact:true});
+  await expect(addSheet).toBeVisible();
+  await addSheet.getByRole('button',{name:'Log food',exact:true}).click();
+
+  const foodModal=page.getByRole('dialog',{name:'Log food',exact:true});
+  await expect(foodModal).toBeVisible();
+  await foodModal.getByRole('button',{name:'Manual entry',exact:true}).click();
+
+  const reviewModal=page.getByRole('dialog',{name:'Review food',exact:true});
+  await expect(reviewModal).toBeVisible();
+
+  const unitTrigger=reviewModal.getByRole('button',{name:'Choose unit',exact:true});
+  await expect(unitTrigger).toBeVisible();
+  await unitTrigger.click();
+
+  const unitListbox=reviewModal.getByRole('listbox',{name:'Unit',exact:true});
+  await expect(unitListbox).toBeVisible();
+  await assertPopoverUnclipped(unitListbox);
+
+  const triggerBox=(await unitTrigger.boundingBox())!;
+  const menuBox=(await unitListbox.boundingBox())!;
+
+  expect(Math.abs(menuBox.x-triggerBox.x)).toBeLessThanOrEqual(2);
+  expect(menuBox.y).toBeGreaterThanOrEqual(triggerBox.y+triggerBox.height);
+  expect(menuBox.y).toBeLessThanOrEqual(triggerBox.y+triggerBox.height+12);
+
+  const gramsOption=unitListbox.getByRole('option',{name:'Grams',exact:true});
+  await assertElementUncovered(gramsOption);
+  await gramsOption.click();
+  await expect(unitListbox).toHaveCount(0);
+  await expect(reviewModal.locator('#food-unit-value')).toHaveText('Grams');
+});
