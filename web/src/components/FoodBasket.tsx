@@ -121,7 +121,7 @@ export function FoodBasket({
         </p>
 
         <div className="batch-food-list">
-          {basket.lines.map(line=><BatchFoodRow key={line.key} line={line} energyUnit={units.energy} open={actionsKey===line.key} onOpen={open=>setActionsKey(open?line.key:undefined)} onEdit={()=>setEditingKey(line.key)} onRemove={()=>{void basket.removeLine(line.key).then(()=>{setActionsKey(undefined);setAnnouncement('Removed '+line.name+' from batch.');}).catch(()=>setActionsKey(undefined));}}/>)}
+          {basket.lines.map(line=><BatchFoodRow key={line.key} line={line} energyUnit={units.energy} open={actionsKey===line.key} onOpen={open=>setActionsKey(open?line.key:undefined)} onEdit={()=>{setActionsKey(undefined);setEditingKey(line.key);}} onRemove={()=>{void basket.removeLine(line.key).then(()=>{setActionsKey(undefined);setAnnouncement('Removed '+line.name+' from batch.');}).catch(()=>setActionsKey(undefined));}}/>)}
         </div>
       </FieldFrame>
 
