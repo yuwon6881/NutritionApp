@@ -21,6 +21,25 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class AndroidRecoveryJourneyTest {
+    /**
+     * Recreating while the first page is still loading tears the WebView down mid-startup, which on slow
+     * emulators ends the instrumentation process instead of exercising recreation. Wait for a live page first.
+     */
+    private static void awaitDocumentComplete(ActivityScenario<MainActivity> scenario) throws InterruptedException {
+        long deadline = SystemClock.elapsedRealtime() + 30000;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            CountDownLatch answered = new CountDownLatch(1);
+            AtomicReference<String> state = new AtomicReference<>("");
+            scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript("document.readyState", value -> {
+                state.set(value);
+                answered.countDown();
+            }));
+            if (answered.await(5, TimeUnit.SECONDS) && "\"complete\"".equals(state.get())) return;
+            SystemClock.sleep(200);
+        }
+        fail("The web view did not finish loading.");
+    }
+
     @Test public void shortcutColdLaunchAndRecreationConsumeOnlyOnce() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertEquals("com.nutritionapp.mobile", context.getPackageName());
@@ -29,6 +48,7 @@ public class AndroidRecoveryJourneyTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(intent)) {
             // The native receiver removes the intent extra; React retains it through authentication.
             scenario.onActivity(activity -> assertFalse(activity.getIntent().hasExtra("nutrition_action")));
+            awaitDocumentComplete(scenario);
             scenario.recreate();
             scenario.onActivity(activity -> assertFalse(activity.getIntent().hasExtra("nutrition_action")));
         }
@@ -46,6 +66,7 @@ public class AndroidRecoveryJourneyTest {
         JSObject image = store.stage(new ByteArrayInputStream(output.toByteArray()));
         store.accept(image, null);
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitDocumentComplete(scenario);
             scenario.recreate();
             assertEquals(image.getString("id"), store.peek().getString("id"));
             assertFalse(store.read(image.getString("id")).isEmpty());
