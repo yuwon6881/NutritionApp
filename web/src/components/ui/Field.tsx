@@ -1,6 +1,7 @@
 import {useId,useEffect,useLayoutEffect,useRef,useState,type InputHTMLAttributes,type ReactNode,type TextareaHTMLAttributes} from 'react';
 import {Select} from './Select';
 import {TimePicker} from './TimePicker';
+import {TimeInput} from './TimeInput';
 import {FieldFrame} from './Form';
 import {numericInputMode} from '../../lib/inputMode';
 import {numberFieldText} from '../../lib/numberFieldText';
@@ -17,6 +18,21 @@ export function Field({
   autoComplete = 'off',
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {label: string; hint?: string; validate?:()=>string|undefined; action?: ReactNode; insideAction?: ReactNode; labelAction?: ReactNode; leading?: ReactNode}) {
+  if (props.type === 'time') {
+    return (
+      <TimeInput
+        {...props}
+        label={label}
+        hint={hint}
+        validate={validate}
+        className={className}
+        action={action}
+        insideAction={insideAction}
+        labelAction={labelAction}
+        leading={leading}
+      />
+    );
+  }
   const generated=useId();
   const id=props.id??generated;
   const name=props.name??props.id??id;
@@ -85,3 +101,5 @@ export function TextArea({label,hint,maxHeight=320,...props}:TextareaHTMLAttribu
 
 export {Select, Select as SelectField} from './Select';
 export {TimePicker, TimePicker as TimeField} from './TimePicker';
+export {TimeInput} from './TimeInput';
+

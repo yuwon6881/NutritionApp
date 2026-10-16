@@ -19,7 +19,8 @@ const KIB = 1024;
 // dialog-anchored custom select alignment adds a small allowance.
 // Page-shaped loading placeholders and the Dashboard steps chip with its lazily loaded details add a small allowance.
 // Tap-to-edit food cards, midnight date navigation, goal parity, and portion wording add a small offline allowance.
-const budgets = { firstLoad: 471 * KIB, precache: 1296 * KIB };
+// Segmented time input with uplifted hour and minute highlighting adds a small offline allowance.
+const budgets = { firstLoad: 476 * KIB, precache: 1304 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

@@ -55,10 +55,15 @@ export function GoogleHealthSettings() {
     state.nutritionSync.state === 'failed' ||
     state.bodyFatSync.state === 'failed';
 
-  const failureMessage = state.weightSync.failureMessage ||
+  const rawFailureMessage = state.weightSync.failureMessage ||
     state.nutritionSync.failureMessage ||
-    state.bodyFatSync.failureMessage ||
-    'Google Health rejected an upload.';
+    state.bodyFatSync.failureMessage;
+
+  const failureMessage = hasUnknown
+    ? (rawFailureMessage?.includes('create response was lost')
+        ? 'Create response was lost. Check Google Health before retrying.'
+        : rawFailureMessage || 'Create response was lost. Check Google Health before retrying.')
+    : (rawFailureMessage || 'Google Health rejected an upload.');
 
   const optionsSummary = `${bundledSyncEnabled ? 'Uploading weight, nutrition & body fat' : 'Uploads off'} · ${state.weightImport.enabled ? 'Weigh-in import on' : 'Weigh-in import off'}${totalPending > 0 ? ` · ${totalPending} pending` : ''}`;
 
@@ -324,7 +329,7 @@ export function GoogleHealthSettings() {
                   title={hasUnknown ? 'Upload status unknown' : 'Sync needs attention'}
                   message={failureMessage}
                   action={{
-                    label: hasUnknown ? 'Check Google copy and retry' : 'Retry sync',
+                    label: hasUnknown ? 'Check copy and retry' : 'Retry sync',
                     onClick: () => void handleBundledRecovery(),
                     disabled: actionLoading,
                   }}

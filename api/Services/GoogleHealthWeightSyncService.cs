@@ -506,7 +506,7 @@ public sealed class GoogleHealthWeightSyncService(
         work.LeaseUntil = null;
         work.LeaseId = "";
         work.LastErrorCategory = "upload_status_unknown";
-        work.LastErrorMessage = "The create response was lost. Check Google Health for a copy before requesting another upload.";
+        work.LastErrorMessage = "Create response was lost. Check Google Health before retrying.";
         work.UpdatedAt = DateTime.UtcNow;
     }
 
