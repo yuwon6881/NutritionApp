@@ -1,5 +1,5 @@
 import {ensureAcceptedPlan} from './helpers/acceptedPlan';
-import {test,expect} from '@playwright/test';
+import {test,expect,type Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signIn} from './signIn';
 import {todayInTestZone} from './helpers/seed';
@@ -301,6 +301,35 @@ test('a failed manual step refresh keeps the previous step total visible',async(
   await expect(page.getByRole('dialog',{name:'Steps today'}).locator('.steps-panel')).toContainText('Stale');
 });
 
+/** Settings stays disabled until setup is accepted, so these tests cannot rely on an earlier test having done it. */
+async function ensureOnboardedUser(page:Page){
+  const state=await (await page.request.get('/api/state')).json();
+  if(!state.profile){
+    const profile=await page.request.post('/api/sync',{headers,data:{
+      id:randomUUID(),
+      recordId:state.id,
+      kind:'profile',
+      expectedRevision:state.profileRevision,
+      delete:false,
+      data:{
+        dateOfBirth:'1996-03-14',
+        age:30,
+        heightCm:170,
+        weightKg:81,
+        sex:'female',
+        activity:1.4,
+        goal:'maintain',
+        maintenance:2500,
+        timeZone:'Asia/Kuala_Lumpur',
+        phaseMode:'open',
+        energyAdjustmentPercent:0,
+      },
+    }});
+    expect(profile.ok(),await profile.text()).toBeTruthy();
+  }
+  await ensureAcceptedPlan(page.request);
+}
+
 test('Retry sync immediately dispatches requeued health uploads',async({page})=>{
   let recovered=false;
   let forced=0;
@@ -316,10 +345,12 @@ test('Retry sync immediately dispatches requeued health uploads',async({page})=>
     await route.fulfill({json:{...item,state:'pending',pendingCount:1}});
   });
   await signIn(page,'test-alice');
+  await ensureOnboardedUser(page);
+  await page.goto('/');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   const feedback=page.locator('.card-feedback').filter({hasText:'Weight upload was interrupted.'});
   await expect(feedback).toBeVisible();
-  await feedback.getByRole('button',{name:'Retry sync',exact:true}).click();
+  await feedback.getByRole('button',{name:'Retry upload',exact:true}).click();
   await expect.poll(()=>forced).toBe(1);
   await expect(page.locator('.google-health-weight-sync')).toContainText('Last sync:');
   await expect(feedback).toHaveCount(0);
@@ -340,6 +371,8 @@ test('weigh-in import is offered at connect and turning it off keeps imported we
     await route.fulfill({json:weightImport});
   });
   await signIn(page,'test-alice');
+  await ensureOnboardedUser(page);
+  await page.goto('/');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
 
   await page.getByRole('button',{name:'Connect Google Health',exact:true}).click();
