@@ -3,9 +3,11 @@ using Nutrition.Api.Data;
 
 namespace Nutrition.Api.Domain;
 
-public sealed class DomainException(string message, int status = 400) : Exception(message)
+public sealed class DomainException(string message, int status = 400, TimeSpan? retryAfter = null) : Exception(message)
 {
     public int Status { get; } = status;
+    /// <summary>Sent as Retry-After; a 429 without it makes the client assume a full minute.</summary>
+    public TimeSpan? RetryAfter { get; } = retryAfter;
 }
 public static class Validation
 {

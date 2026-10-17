@@ -5,20 +5,25 @@ namespace Nutrition.Api.Services.FoodLookup;
 /// <summary>
 /// The only place provider failures become user text. Each message names the remedy it actually
 /// has: a shed or paced request is a wait, an outage is a retry, missing data is a label scan.
+/// A wait always carries its length, because the client otherwise assumes the account's own
+/// one-minute limit and holds every food lookup for that long.
 /// </summary>
 public static class FoodLookupErrors
 {
-    public static DomainException Search(string providerName,FoodProviderFailure failure)=>failure switch
+    private static readonly TimeSpan PacedWait=TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan BusyWait=TimeSpan.FromSeconds(10);
+
+    public static DomainException Search(string providerName,FoodProviderFailure failure,TimeSpan? retryAfter=null)=>failure switch
     {
-        FoodProviderFailure.Busy=>new DomainException($"Food search is busy at {providerName}. Wait a few seconds and search again, or use custom food, recent foods, or AI describe.",429),
-        FoodProviderFailure.Throttled=>new DomainException("Please wait a moment before searching again.",429),
+        FoodProviderFailure.Busy=>new DomainException($"Food search is busy at {providerName}. Wait a few seconds and search again, or use custom food, recent foods, or AI describe.",429,retryAfter??BusyWait),
+        FoodProviderFailure.Throttled=>new DomainException("Please wait a moment before searching again.",429,retryAfter??PacedWait),
         _=>new DomainException("Food search is temporarily unavailable. Your diary is still available.",503),
     };
 
-    public static DomainException Barcode(string providerName,FoodProviderFailure failure)=>failure switch
+    public static DomainException Barcode(string providerName,FoodProviderFailure failure,TimeSpan? retryAfter=null)=>failure switch
     {
-        FoodProviderFailure.Throttled=>new DomainException("Wait a few seconds before another barcode lookup.",429),
-        FoodProviderFailure.Busy=>new DomainException($"Barcode lookup is busy at {providerName}. Retry in a few seconds or use manual recovery.",429),
+        FoodProviderFailure.Throttled=>new DomainException("Wait a few seconds before another barcode lookup.",429,retryAfter??PacedWait),
+        FoodProviderFailure.Busy=>new DomainException($"Barcode lookup is busy at {providerName}. Retry in a few seconds or use manual recovery.",429,retryAfter??BusyWait),
         FoodProviderFailure.Unreachable=>new DomainException($"Barcode lookup unavailable at {providerName}. Retry when connected or use manual recovery.",503),
         FoodProviderFailure.TimedOut=>new DomainException($"Barcode lookup timed out at {providerName}. Retry or use manual recovery.",503),
         FoodProviderFailure.InvalidData=>new DomainException("Barcode lookup returned invalid product data. Retry or use manual recovery.",503),

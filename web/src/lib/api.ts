@@ -2,6 +2,9 @@ import { integrationGeneration, signalIntegrationPending } from './integrationDi
 import {fetchWithAvailabilityRecovery} from './availabilityRecovery';
 
 const recoverablePath=(path:string)=>['/auth/me','/bootstrap','/training/summary','/notifications/status','/integrations/google-health/sync','/integrations/google-health/sync-data'].includes(path.split('?')[0]);
+// A product read changes nothing, so a short paced refusal is waited out behind the loading review
+// instead of failing it; a wait longer than the request deadline is still reported.
+const retryablePath=(path:string)=>recoverablePath(path)||path.startsWith('/foods/barcode/');
 
 export class ApiError extends Error {
   constructor(message:string, public status:number, public retryAfterMs:number|null=null, public retryAt:number|null=null){super(message);}
@@ -62,7 +65,7 @@ export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DEL
     signal,
     headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(body===undefined?{}:{body:JSON.stringify(body)})
-  },recoverablePath(path),requestTimeoutMs(path));
+  },retryablePath(path),requestTimeoutMs(path));
   if(response.status===304)return null as T;
   if(!response.ok){
     await responseError(path,response);
@@ -86,7 +89,7 @@ export async function apiWithMeta<T>(path:string,options?:ApiFetchOptions & { bo
     signal,
     headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(options?.body===undefined?{}:{body:JSON.stringify(options.body)})
-  },recoverablePath(path),requestTimeoutMs(path));
+  },retryablePath(path),requestTimeoutMs(path));
   const etag=response.headers.get('ETag');
   if(response.status===304)return { data: null, notModified: true, etag };
   if(!response.ok){

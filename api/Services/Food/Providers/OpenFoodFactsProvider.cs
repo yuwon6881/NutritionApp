@@ -89,6 +89,12 @@ public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsP
         if(await BarcodeGate.Reserve(BarcodeInterval,MaxBarcodeWait,ct) is not { } slot)
             throw new FoodProviderException(ProviderId,FoodProviderFailure.Throttled,BarcodeInterval);
         await WaitForSlot(BarcodeGate,slot,ct);
+        return await ReadProduct(code,ct);
+    }
+
+    /// <summary>One product endpoint read; the caller has already been given its paced slot.</summary>
+    private async Task<FoodResult?> ReadProduct(string code,CancellationToken ct)
+    {
         using var response=await Send($"{ProductUrl}{code}?fields={ProductFields}",ct);
         if(response.StatusCode==HttpStatusCode.NotFound)return null;
         if(response.StatusCode==HttpStatusCode.TooManyRequests)throw new FoodProviderException(ProviderId,FoodProviderFailure.Busy);
@@ -199,28 +205,36 @@ public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsP
     /// <summary>
     /// Confirms rows one by one when the bulk read failed. It stops at the first failure: a refusal
     /// means the endpoint is busy, and a full list of single reads would exhaust its allowance.
+    /// These reads share the product endpoint's slots with a person opening a row, so they only
+    /// take a free slot and never queue ahead of that person. Each row is stored as soon as it is
+    /// confirmed, and the rows confirmed before the deadline are still returned.
     /// </summary>
     private async Task ReadEach(IEnumerable<string> codes,PublicFoodCache? durable,Dictionary<string,FoodResult> found,CancellationToken ct)
     {
         var attempted=0;
-        var confirmed=new List<FoodResult>();
-        foreach(var code in codes)
+        var confirmed=0;
+        try
         {
-            attempted++;
-            try
+            foreach(var code in codes)
             {
-                if(await Barcode(code,ct) is not {} product)continue;
-                found[code]=product;
-                confirmed.Add(product);
-            }
-            catch(FoodProviderException failure)
-            {
-                log?.LogWarning("Open Food Facts product read for {Code} failed: {Failure}.",code,failure.Failure);
-                if(failure.Failure!=FoodProviderFailure.Incomplete)break;
+                await BarcodeGate.ReserveWhenIdle(BarcodeInterval,ct);
+                attempted++;
+                try
+                {
+                    if(await ReadProduct(code,ct) is not {} product)continue;
+                    found[code]=product;
+                    confirmed++;
+                    await StoreConfirmed(durable,[product],ct);
+                }
+                catch(FoodProviderException failure)
+                {
+                    log?.LogWarning("Open Food Facts product read for {Code} failed: {Failure}.",code,failure.Failure);
+                    if(failure.Failure!=FoodProviderFailure.Incomplete)break;
+                }
             }
         }
-        await StoreConfirmed(durable,confirmed,ct);
-        log?.LogInformation("Open Food Facts per-product fallback confirmed {Confirmed} of {Attempted} rows.",confirmed.Count,attempted);
+        catch(OperationCanceledException) { /* The deadline ends the fallback; what it confirmed stands. */ }
+        log?.LogInformation("Open Food Facts per-product fallback confirmed {Confirmed} of {Attempted} rows.",confirmed,attempted);
     }
 
     private async Task StoreConfirmed(PublicFoodCache? durable,IEnumerable<FoodResult> products,CancellationToken ct)

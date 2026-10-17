@@ -381,6 +381,18 @@ public sealed class FoodSearchTests
             FoodLookupErrors.Search("Open Food Facts",OpenFoodFactsProvider.SearchFailure(HttpStatusCode.TooManyRequests)).Message);
     }
 
+    [Theory]
+    [InlineData(FoodProviderFailure.Throttled)]
+    [InlineData(FoodProviderFailure.Busy)]
+    public void A_refusal_to_wait_says_how_long(FoodProviderFailure failure)
+    {
+        // Without a Retry-After the client assumes the account's own limit and locks every food
+        // lookup for a minute, where the provider only asked for a few seconds.
+        Assert.NotNull(FoodLookupErrors.Search("Open Food Facts",failure).RetryAfter);
+        Assert.NotNull(FoodLookupErrors.Barcode("Open Food Facts",failure).RetryAfter);
+        Assert.Equal(TimeSpan.FromSeconds(4.1),FoodLookupErrors.Barcode("Open Food Facts",failure,TimeSpan.FromSeconds(4.1)).RetryAfter);
+    }
+
     [Fact]
     public void Portions_stay_within_the_stored_limits()
     {

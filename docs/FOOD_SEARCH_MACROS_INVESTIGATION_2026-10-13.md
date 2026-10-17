@@ -37,6 +37,17 @@ Cloud Run logs from the first deployed revision showed the bulk read answering H
 
 Coverage: `tests/FoodBulkRecoveryTests.cs`, `web/src/lib/foodVerificationRecovery.test.ts`, and the placeholder cases in `web/e2e/food-review.spec.ts`.
 
+## Follow-up 2026-10-17: opening a row refused with a 60-second countdown
+
+Cloud Run logs at 06:18 UTC: a search's bulk read answered 503; `/verify` (06:18:21.4, 8.5 s) went to the per-product fallback; the person opened the first row at 06:18:23.8 and `/foods/barcode/0810067723183` answered 429; the fallback logged "confirmed 3 of 3" at 06:18:29.9, after which the list showed nutrition and those rows opened without a lookup. Read-only probes the same day: the bulk endpoint answered 503 to 8 of 9 requests (including single-code reads), the product endpoint 7 of 7 OK, so the bulk outage is upstream and the fallback is the path that actually confirms rows.
+
+Two defects turned that outage into a failed opening:
+
+- The fallback reserved product-endpoint slots ahead through the same gate a person's opening uses. With the next slot already queued, the opening's wait exceeded the 5 s limit and was refused as `Throttled`.
+- That refusal was a 429 without `Retry-After`. The client treats a header-less 429 as the account's one-minute limit and holds every food lookup (search, verify, barcode) behind a 60 s countdown.
+
+Fix: the fallback takes a product slot only when the gate is idle (`ProviderGate.ReserveWhenIdle`), so an opening waits at most one 4.1 s interval; it stores each row as it is confirmed and keeps them if the deadline ends it. Food-provider 429s carry `Retry-After` (`DomainException.RetryAfter`), and the client waits out a short 429 on a product read instead of failing the review. Coverage: `FoodBulkRecoveryTests` (fails with the old queueing as `Throttled`), `FoodSearchTests.A_refusal_to_wait_says_how_long`, and `web/src/lib/api.test.ts`. Rows beyond the first three still depend on the bulk endpoint recovering. The product endpoint allows 15 reads a minute, so confirming every row one by one is not an option.
+
 Coverage of the first iteration: `tests/FoodBulkRecoveryTests.cs`. This reduces the placeholder rather than guaranteeing it away; the logged status decides what comes next.
 
 ## Conclusion

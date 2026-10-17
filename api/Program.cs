@@ -211,7 +211,12 @@ app.Use(async(http,next)=>
         }
         await next();
     }
-    catch(DomainException ex) { http.Response.StatusCode=ex.Status;await http.Response.WriteAsJsonAsync(new { message=ex.Message }); }
+    catch(DomainException ex)
+    {
+        http.Response.StatusCode=ex.Status;
+        if(ex.RetryAfter is { } retryAfter)http.Response.Headers.RetryAfter=((int)Math.Max(1,Math.Ceiling(retryAfter.TotalSeconds))).ToString(CultureInfo.InvariantCulture);
+        await http.Response.WriteAsJsonAsync(new { message=ex.Message });
+    }
     catch(DbUpdateException ex) when(DatabaseWriteErrors.IsConflict(ex)) { http.Response.StatusCode=409;await http.Response.WriteAsJsonAsync(new { message="This record conflicts with saved data. Refresh and review before retrying." }); }
     catch(DbUpdateException) { http.Response.StatusCode=503;http.Response.Headers.RetryAfter="5";await http.Response.WriteAsJsonAsync(new { message="Saving is temporarily unavailable. Your local work is retained." }); }
     catch(System.Text.Json.JsonException) { http.Response.StatusCode=400;await http.Response.WriteAsJsonAsync(new { message="Invalid data format." }); }

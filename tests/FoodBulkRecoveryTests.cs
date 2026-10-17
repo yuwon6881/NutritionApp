@@ -89,6 +89,39 @@ public sealed class FoodBulkRecoveryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Opening_a_row_is_not_refused_while_the_fallback_confirms_others()
+    {
+        var handler=new RoutingHandler(HttpStatusCode.ServiceUnavailable);
+        var provider=new OpenFoodFactsProvider(new HttpClient(handler),null,new OpenFoodFactsPacing());
+        await using var db=Db();
+
+        var verifying=provider.VerifyBasis(["9557337800106","9557337800090","0819393021062"],new PublicFoodCache(db),default);
+        await handler.FirstProductRead.Task;
+        // The fallback moves on to its next row while the person opens another one. Background
+        // confirmation must not queue ahead of them: production refused this tap with a 429.
+        await Task.Delay(200);
+        var opened=await provider.Barcode("9300633603137",default);
+
+        Assert.Equal("per100g",opened!.Basis);
+        Assert.Equal(3,(await verifying).Count);
+    }
+
+    [Fact]
+    public async Task An_idle_slot_never_queues_ahead_of_a_later_caller()
+    {
+        var gate=new ProviderGate();
+        var interval=TimeSpan.FromMilliseconds(400);
+        await gate.ReserveWhenIdle(interval,default);
+        var background=gate.ReserveWhenIdle(interval,default);
+
+        // The waiting background read holds nothing, so a person's read waits one interval, not two.
+        var person=(await gate.Reserve(interval,null,default))!.Value;
+        await background;
+
+        Assert.True(person.Wait<=interval,$"waited {person.Wait}");
+    }
+
+    [Fact]
     public void A_bulk_failure_is_remembered_until_a_bulk_read_succeeds()
     {
         var pacing=new OpenFoodFactsPacing();
@@ -125,6 +158,7 @@ public sealed class FoodBulkRecoveryTests : IAsyncLifetime
         public HttpStatusCode ProductStatus { get; init; }=HttpStatusCode.OK;
         public int ProductReads { get; private set; }
         public int BulkReads { get; private set; }
+        public TaskCompletionSource FirstProductRead { get; }=new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
@@ -138,6 +172,7 @@ public sealed class FoodBulkRecoveryTests : IAsyncLifetime
                 return Task.FromResult(response);
             }
             ProductReads++;
+            FirstProductRead.TrySetResult();
             return ProductStatus==HttpStatusCode.OK
                 ?Json("""{"product":{"code":"CODE","product_name":"Greek Yoghurt","brands":"Sunglo","nutriments":{"energy-kcal_100g":88,"proteins_100g":4,"fat_100g":5,"carbohydrates_100g":6}}}""".Replace("CODE",url.Segments[^1],StringComparison.Ordinal))
                 :Task.FromResult(new HttpResponseMessage(ProductStatus));

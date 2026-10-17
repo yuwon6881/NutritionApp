@@ -74,7 +74,7 @@ public sealed class FoodCatalog
         if(merged.Count==0&&failed.Length>0)
         {
             var worst=failed.OrderBy(outcome=>FoodLookupErrors.Precedence(outcome.Failure!.Value)).First();
-            throw FoodLookupErrors.Search(worst.Provider.Name,worst.Failure!.Value);
+            throw FoodLookupErrors.Search(worst.Provider.Name,worst.Failure!.Value,worst.RetryAfter);
         }
         // Open Food Facts verifies a row's per-100 g basis in a separate, flaky bulk read. A list still
         // holding unverified rows is reused only briefly, so a passing outage does not pin
@@ -85,7 +85,7 @@ public sealed class FoodCatalog
         return merged;
     }
 
-    private sealed record SearchOutcome(IFoodProvider Provider,IReadOnlyList<FoodResult> Results,FoodProviderFailure? Failure);
+    private sealed record SearchOutcome(IFoodProvider Provider,IReadOnlyList<FoodResult> Results,FoodProviderFailure? Failure,TimeSpan? RetryAfter=null);
 
     private async Task<SearchOutcome[]> SearchAll(string query,PublicFoodCache? durable,CancellationToken ct)
     {
@@ -123,7 +123,7 @@ public sealed class FoodCatalog
         catch(FoodProviderException failure)
         {
             Record(breaker,failure);
-            return new SearchOutcome(provider,[],failure.Failure);
+            return new SearchOutcome(provider,[],failure.Failure,failure.RetryAfter);
         }
         catch(OperationCanceledException) when(!ct.IsCancellationRequested)
         {
@@ -160,11 +160,11 @@ public sealed class FoodCatalog
             cache.Set(key,stored,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=BarcodeLifetime });
             return stored;
         }
-        var failures=new List<(IFoodProvider Provider,FoodProviderFailure Failure)>();
+        var failures=new List<(IFoodProvider Provider,FoodProviderFailure Failure,TimeSpan? RetryAfter)>();
         foreach(var provider in barcodeProviders)
         {
             var breaker=health.Breaker(provider.Id);
-            if(breaker.IsOpen) { failures.Add((provider,FoodProviderFailure.Unavailable)); continue; }
+            if(breaker.IsOpen) { failures.Add((provider,FoodProviderFailure.Unavailable,null)); continue; }
             FoodResult? found;
             try
             {
@@ -174,7 +174,7 @@ public sealed class FoodCatalog
             catch(FoodProviderException failure)
             {
                 Record(breaker,failure);
-                failures.Add((provider,failure.Failure));
+                failures.Add((provider,failure.Failure,failure.RetryAfter));
                 continue;
             }
             if(found is null)continue;
@@ -185,7 +185,7 @@ public sealed class FoodCatalog
         }
         if(failures.Count==0)throw FoodLookupErrors.BarcodeNotFound();
         var worst=failures.OrderBy(item=>FoodLookupErrors.Precedence(item.Failure)).First();
-        throw FoodLookupErrors.Barcode(worst.Provider.Name,worst.Failure);
+        throw FoodLookupErrors.Barcode(worst.Provider.Name,worst.Failure,worst.RetryAfter);
     }
 
     /// <summary>The most rows one list asks to confirm; a bulk read covers them in a single call.</summary>
