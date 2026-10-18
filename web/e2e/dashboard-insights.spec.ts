@@ -73,12 +73,22 @@ for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[1440,'dark
     for(const box of await days.evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().toJSON())))expect(Math.min(box.width,box.height)).toBeGreaterThanOrEqual(44);
     await page.screenshot({path:`artifacts/ui-uplift/dashboard-insights-${theme}-${width}.png`,fullPage:true,animations:'disabled'});
 
-    // The weight trend card summarizes the cleaned trend and opens Progress.
-    const trend=page.getByRole('button',{name:/^Trend weight: [\d.]+ kg as of today, .+ since .+\. Open Progress$/});
+    // The weight trend card summarizes the cleaned trend; its figures and line open the weight
+    // chart and the latest weigh-ins beneath open the weigh-in history.
+    const trend=page.getByRole('button',{name:/^Trend weight: [\d.]+ kg as of today, .+ since .+\. Open weight chart$/});
     await expect(trend).toBeVisible();
     await expect(trend.locator('.dashboard-sparkline')).toBeVisible();
+    const history=page.getByRole('button',{name:/^Latest weigh-ins: .+\. Open weigh-in history$/});
+    const historyBox=await history.boundingBox();
+    expect(historyBox?.height).toBeGreaterThanOrEqual(44);
     await trend.click();
     await expect(page.locator('[data-page-heading]')).toHaveText('Progress');
+    await expect(page.locator('#progress-weight-chart')).toBeInViewport();
+    await page.goBack();
+    await expect(history).toBeVisible();
+    await history.click();
+    await expect(page.locator('[data-page-heading]')).toHaveText('Progress');
+    await expect(page.getByRole('heading',{name:'Latest weigh-ins'})).toBeInViewport();
   });
 }
 

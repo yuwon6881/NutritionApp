@@ -29,8 +29,8 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
       <section className="panel"><p className="eyebrow">Average scale weight</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{stats.count} {stats.count===1?'weigh-in':'weigh-ins'}</p></section>
       <section className="panel"><p className="eyebrow">Change in trend</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending sync':dateSpan(summary.start,summary.end)}</p></section>
     </div>
-    <WeightChart series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end}/>
-    <section className="panel weight-history-panel" aria-labelledby="latest-weigh-ins-title">
+    <div id="progress-weight-chart" className="progress-anchor"><WeightChart series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end}/></div>
+    <section id="progress-weight-history" className="panel weight-history-panel progress-anchor" aria-labelledby="latest-weigh-ins-title">
       <div className="section-heading"><div><h2 id="latest-weigh-ins-title">Latest weigh-ins</h2></div></div>
       {editable.length?<><ul className="weigh-in-list">{shown.map(weight=>{
         const change=changeSincePrevious(summary.weight.series,weight.date,weight.kg);

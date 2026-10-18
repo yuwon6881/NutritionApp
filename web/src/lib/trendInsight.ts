@@ -24,19 +24,19 @@ export function trendInsight(points:readonly TrendPoint[]):TrendInsight|null{
 
 /**
  * Line and closed-area paths for a small sparkline inside a width × height box with
- * `pad` units of headroom. Dates set x (real spacing, not index); a flat series sits mid-height.
+ * `pad` units of headroom. Dates set x (real spacing, not index); a flat series sits mid-height. `end` is the latest
+ * point in the same units, for a marker drawn outside the stretched SVG.
  */
-export function sparklinePaths(points:readonly TrendPoint[],width:number,height:number,pad=3):{line:string;area:string}|null{
+export function sparklinePaths(points:readonly TrendPoint[],width:number,height:number,pad=3):{line:string;area:string;end:{x:number;y:number}}|null{
   if(points.length<2)return null;
   const times=points.map(point=>Date.parse(`${point.date}T00:00:00Z`));
   const first=times[0],span=times.at(-1)!-first||1;
   const values=points.map(point=>point.kg);
   const low=Math.min(...values),range=Math.max(...values)-low;
-  const xy=points.map((point,index)=>{
-    const x=(times[index]-first)/span*width;
-    const y=range?pad+(1-(point.kg-low)/range)*(height-pad*2):height/2;
-    return `${x.toFixed(1)} ${y.toFixed(1)}`;
-  });
-  const line=`M${xy.join(' L')}`;
-  return {line,area:`${line} L${width} ${height} L0 ${height} Z`};
+  const coordinates=points.map((point,index)=>({
+    x:(times[index]-first)/span*width,
+    y:range?pad+(1-(point.kg-low)/range)*(height-pad*2):height/2,
+  }));
+  const line=`M${coordinates.map(({x,y})=>`${x.toFixed(1)} ${y.toFixed(1)}`).join(' L')}`;
+  return {line,area:`${line} L${width} ${height} L0 ${height} Z`,end:coordinates.at(-1)!};
 }

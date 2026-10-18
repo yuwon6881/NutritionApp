@@ -12,7 +12,7 @@ await build();
 // The first load is the entry script plus every chunk index.html preloads with it.
 const KIB = 1024;
 // Include identity-safe retained writes, Body request checkpoints, and canonical sync recovery in the offline allowance.
-// Allow the weigh-in confirmation, themed Undo surface, AI photo controls, workout summary polish, weight goal card, goal history card uplift, session-expiry sign-in handling, day options menu, food action sheet, month-paged habit calendars, Energy period totals, lease-owner sync recovery, weekly scheduled workouts, the trend-aware weigh-in baseline, thirty-day habit grids, the three-part Dashboard energy card, the Food Log day targets with phone timeline cards, the Dashboard week-against-targets and weight-trend insights, and the Lavender / Midnight Lime redesign (page-shaped loading skeletons, top-layer select menus that cards cannot clip, and the stable Food Log day strip and status) with Coach targets and weekly budget layout polish, coach edit plan modal, batch food swipe refinement, and the time-of-day food picks with aligned timeline macro columns in the offline bundle.
+// Allow the weigh-in confirmation, themed Undo surface, AI photo controls, workout summary polish, weight goal card, goal history card uplift, session-expiry sign-in handling, day options menu, food action sheet, month-paged habit calendars, Energy period totals, lease-owner sync recovery, weekly scheduled workouts, the trend-aware weigh-in baseline, thirty-day habit grids, the three-part Dashboard energy card, the Food Log day targets with phone timeline cards, the Dashboard week-against-targets and weight-trend insights, and the Lavender / Midnight Lime redesign (page-shaped loading skeletons, top-layer select menus that cards cannot clip, and the stable Food Log day strip and status) with Coach targets and weekly budget layout polish, coach edit plan modal, batch food swipe refinement, the time-of-day food picks with aligned timeline macro columns, and the flick-aware card swipe with the Dashboard trend-weight card that opens the weight chart or weigh-in history in the offline bundle.
 // Shared retained-draft attachment and capability dispatch add a small offline allowance;
 // Android-only surfaces are excluded from the PWA precache and ship directly in the APK.
 // The g/ml measure carried through food search, review, the diary, and saved foods adds a small allowance;
@@ -21,7 +21,7 @@ const KIB = 1024;
 // Tap-to-edit food cards, midnight date navigation, goal parity, and portion wording add a small offline allowance.
 // Segmented time input with uplifted hour and minute highlighting adds a small offline allowance.
 // Google Health upload-status details and AI lead-in formatting add a small offline allowance.
-const budgets = { firstLoad: 476 * KIB, precache: 1309 * KIB };
+const budgets = { firstLoad: 479 * KIB, precache: 1313 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

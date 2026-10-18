@@ -11,7 +11,7 @@ import {WeightEntryDialog} from './WeightEntryDialog';
 import {showUndo} from './ui/UndoToast';
 import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {SegmentedControl} from './ui/SegmentedControl';
-import {MotionPanel} from './ui/Motion';
+import {MotionPanel,useReducedMotion} from './ui/Motion';
 import {SelectField} from './ui/Field';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
 import {projectProgressWeightSummary,progressPeriodOptions,projectedProgressRange} from '../lib/progress';
@@ -26,6 +26,9 @@ import {WeightSummary} from './WeightSummary';
 import {WeightDeleteDialog} from './WeightDeleteDialog';
 
 type Tab='weight'|'energy'|'body'|'activity';
+/** A part of the Weight tab another page can open Progress at. */
+export type ProgressFocus='chart'|'history';
+const focusTargets:Record<ProgressFocus,string>={chart:'progress-weight-chart',history:'progress-weight-history'};
 const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
 const progressKinds=new Set(['entry','weight','day','profile','settings']);
 
@@ -60,8 +63,9 @@ function useProgressSummary(store:NutritionStore,period:ProgressPeriod,enabled:b
   };
 }
 
-export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()=>void}){
+export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStore;focus?:ProgressFocus|null;onFocused?:()=>void;onSettings?:()=>void}){
   const [tab,setTab]=useState<Tab>('weight');
+  const reducedMotion=useReducedMotion();
   const [weightPeriod,setWeightPeriod]=useState<ProgressPeriod>('month');
   const [energyPeriod,setEnergyPeriod]=useState<ProgressPeriod>('month');
   const [weightOpen,setWeightOpen]=useState(false);
@@ -140,6 +144,19 @@ export function Progress({store,onSettings}:{store:NutritionStore;onSettings?:()
     }
     return weight.summary;
   }, [weight.summary, projectedWeightSummary, displayedWeightPeriod, range.start, range.end, state.revision]);
+
+  // A requested section scrolls into view once its weight summary has rendered, then the request is spent.
+  // A refresh can still reflow the sections above, so the scroll waits for the summary to settle.
+  const weightSettled=Boolean(activeWeightProgressSummary)&&!weight.loading;
+  useEffect(()=>{
+    if(!focus||!weightSettled)return;
+    if(tab!=='weight'){setTab('weight');return;}
+    const frame=requestAnimationFrame(()=>{
+      document.getElementById(focusTargets[focus])?.scrollIntoView({block:'start',behavior:reducedMotion?'instant':'smooth'});
+      onFocused?.();
+    });
+    return()=>cancelAnimationFrame(frame);
+  },[focus,weightSettled,tab,reducedMotion,onFocused]);
 
   const summary = tab === 'weight' ? activeWeightProgressSummary : energy.summary;
   const error = tab === 'weight' ? weight.error : energy.error;

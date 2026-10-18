@@ -65,4 +65,8 @@ describe('card gesture',()=>{
     expect(run([touchDown,{type:'hold'},{type:'move',x:100,y:140},{type:'cancel'}])).toEqual(['start-hold-timer','lift','begin-drag','abort']);
     expect(run([{type:'cancel'}])).toEqual(['none']);
   });
+
+  it('settles a swipe the browser cancels instead of aborting it',()=>{
+    expect(run([touchDown,{type:'move',x:60,y:102},{type:'cancel'}])).toEqual(['start-hold-timer','begin-swipe','swipe-end']);
+  });
 });

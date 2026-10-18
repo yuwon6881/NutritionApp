@@ -1,5 +1,6 @@
 import {resetGoogleHealthState} from './lib/googleHealth';
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import type {ProgressFocus} from './components/Progress';
 import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
@@ -62,6 +63,9 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   },[!!store.state]);
   const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
+  // The Dashboard can open Progress at its weight chart or weigh-in history; any other navigation drops the request.
+  const [progressFocus,setProgressFocus]=useState<ProgressFocus|null>(null);
+  const clearProgressFocus=useCallback(()=>setProgressFocus(null),[]);
   const [foodOpen,setFoodOpen]=useState(false);
   const foodOpening=useRef<(()=>void)|undefined>(undefined);
   const foodMounted=useRef(false);
@@ -234,7 +238,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   ] as const;
 
   // Background sync indicators update independently of the live page's data.
-  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onProgress={()=>navigate('progress')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,onLogout]);
+  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onProgress={focus=>{navigate('progress');setProgressFocus(focus);}} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} focus={progressFocus} onFocused={clearProgressFocus} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,onLogout,progressFocus]);
 
   const [accountHead,accountTail]=splitAtSign(store.state?.displayName??'');
 

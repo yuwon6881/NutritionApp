@@ -43,6 +43,8 @@ function mostlyHorizontal(state:CardGestureState,x:number,y:number){
 
 export function stepCardGesture(state:CardGestureState,event:CardGestureEvent):{state:CardGestureState;effect:CardGestureEffect}{
   if(event.type==='cancel'){
+    // A swipe the browser takes back still settles where the finger left it, rather than snapping shut.
+    if(state.phase==='swiping')return {state:idleCardGesture,effect:'swipe-end'};
     return {state:idleCardGesture,effect:state.phase==='idle'?'none':'abort'};
   }
   switch(state.phase){

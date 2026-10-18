@@ -39,6 +39,8 @@ describe('sparkline paths',()=>{
     const paths=sparklinePaths([{date:'2026-09-01',kg:82},{date:'2026-09-02',kg:81},{date:'2026-09-05',kg:80}],100,30)!;
     expect(paths.line).toBe('M0.0 3.0 L25.0 15.0 L100.0 27.0');
     expect(paths.area).toBe('M0.0 3.0 L25.0 15.0 L100.0 27.0 L100 30 L0 30 Z');
+    // The latest point anchors the marker beside the card's current value.
+    expect(paths.end).toEqual({x:100,y:27});
   });
 
   it('draws a flat series at mid-height',()=>{

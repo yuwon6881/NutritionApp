@@ -1,4 +1,4 @@
-import type {ProgressWeightPoint} from '../types';
+import type {ProgressWeightPoint,Weight} from '../types';
 
 /**
  * Scale change from the closest earlier weigh-in in the chart series, or null
@@ -24,4 +24,15 @@ export function changeSincePrevious(series:readonly ProgressWeightPoint[],date:s
     }
   }
   return prevIndex>=0?kg-series[prevIndex].scaleKg:null;
+}
+
+/**
+ * The most recent scale weigh-ins up to `current`, newest first, for the Dashboard
+ * preview of the weigh-in history. Deleted records and planned future dates are left out.
+ */
+export function latestWeighIns(weights:readonly Weight[],current:string,count:number):Weight[]{
+  return weights
+    .filter(weight=>!weight.deleted&&weight.date<=current)
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .slice(0,count);
 }

@@ -3,7 +3,7 @@ import type {Entry} from '../types';
 import {dropTarget,type DropRow} from '../lib/foodDiary';
 import {CARD_HOLD_MS,idleCardGesture,stepCardGesture,type CardGestureEvent,type CardGestureState} from '../lib/cardGesture';
 import {hapticTick} from '../lib/haptics';
-import {settlesOpen,swipeOffset} from '../lib/swipeReveal';
+import {releaseVelocity,settlesOpen,swipeOffset,type SwipeSample} from '../lib/swipeReveal';
 import {useFrameTask} from './ui/useFrameTask';
 import {autoScrollStep} from '../lib/dragAutoScroll';
 import {createDragGhost,visibleScrollBand,type DragGhost} from './timelineDragSurface';
@@ -22,6 +22,10 @@ interface ActiveGesture {
   currentTargetTime?:string;
   swipeElement:HTMLElement|null;
   swipeOffset?:number;
+  /** Recent finger moves while swiping, so a quick flick can open the card. */
+  swipeSamples:SwipeSample[];
+  /** When the finger lifted (or the browser took the touch), on the pointer-event clock. */
+  releasedAt?:number;
   lastX:number;
   lastY:number;
   ghost?:DragGhost;
@@ -150,14 +154,14 @@ export function useTimelineDrag({
   };
 
   /**
-   * Once a card is lifted the finger belongs to the card, not the page. The
+   * Once a card is lifted or swiping the finger belongs to the card, not the page. The
    * blocker is attached on touch-down, before the browser decides whether the
    * first move pans, so a move right after the lift cannot start a scroll.
    */
   const blockTouchScroll=(current:ActiveGesture)=>{
     const block=(event:TouchEvent)=>{
       const phase=current.gesture.phase;
-      if(event.cancelable&&(phase==='lifted'||phase==='dragging'))event.preventDefault();
+      if(event.cancelable&&(phase==='lifted'||phase==='dragging'||phase==='swiping'))event.preventDefault();
     };
     window.addEventListener('touchmove',block,{passive:false});
     current.releaseTouch=()=>window.removeEventListener('touchmove',block);
@@ -242,7 +246,9 @@ export function useTimelineDrag({
         break;
       case 'swipe-end':{
         const {entry}=current;
-        const open=current.swipeOffset!==undefined?settlesOpen(current.swipeOffset,CARD_REVEAL_WIDTH):revealedId===entry.id;
+        const open=current.swipeOffset!==undefined
+          ?settlesOpen(current.swipeOffset,CARD_REVEAL_WIDTH,releaseVelocity(current.swipeSamples,current.releasedAt??performance.now()))
+          :revealedId===entry.id;
         reset();
         current.swipeElement?.style.setProperty('--swipe-x',open?`${-CARD_REVEAL_WIDTH}px`:'0px');
         setSwipe(null);
@@ -264,7 +270,7 @@ export function useTimelineDrag({
     if(event.pointerType==='mouse'&&event.button!==0)return;
     if((event.target as HTMLElement).closest(INTERACTIVE))return;
     reset();
-    const current:ActiveGesture={entry,targetEl:event.currentTarget,pointerId:event.pointerId,gesture:idleCardGesture,rowRects:[],
+    const current:ActiveGesture={entry,targetEl:event.currentTarget,pointerId:event.pointerId,gesture:idleCardGesture,rowRects:[],swipeSamples:[],
       swipeElement:event.currentTarget.closest<HTMLElement>('.food-card-swipe'),lastX:event.clientX,lastY:event.clientY};
     activeRef.current=current;
     if(event.pointerType==='touch')blockTouchScroll(current);
@@ -303,6 +309,10 @@ export function useTimelineDrag({
         }
         current.lastX=event.clientX;current.lastY=event.clientY;
         dispatch(current,{type:'move',x:event.clientX,y:event.clientY},event.clientY,event.clientX);
+        if(current.gesture.phase==='swiping'){
+          current.swipeSamples.push({x:event.clientX,t:event.timeStamp});
+          if(current.swipeSamples.length>12)current.swipeSamples.shift();
+        }
       }),
       onPointerUp:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>{
         if(current.mouseHoldTimer){
@@ -310,10 +320,14 @@ export function useTimelineDrag({
           current.mouseHoldTimer=undefined;
         }
         current.lastX=event.clientX;current.lastY=event.clientY;
+        current.releasedAt=event.timeStamp;
         if(current.gesture.phase==='swiping'||current.gesture.phase==='dragging')dispatch(current,{type:'move',x:event.clientX,y:event.clientY},event.clientY,event.clientX);
         targetFrame.flush();swipeFrame.flush();dispatch(current,{type:'up'});
       }),
-      onPointerCancel:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>dispatch(current,{type:'cancel'})),
+      onPointerCancel:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>{
+        current.releasedAt=event.timeStamp;
+        dispatch(current,{type:'cancel'});
+      }),
       // Android would otherwise open its own long-press menu over the lifted card.
       onContextMenu:(event:React.MouseEvent<HTMLElement>)=>{if(activeRef.current?.gesture.touch)event.preventDefault();},
       'data-draggable':enabled?true:undefined,

@@ -7,6 +7,12 @@
   .progress-tab-content[data-pending] { transition: none; }
 }
 
+/* Sections the Dashboard can open Progress at land clear of the top app bar. */
+.progress-anchor { scroll-margin-top: 24px; }
+@media (max-width: 1023px) {
+  .progress-anchor { scroll-margin-top: calc(76px + env(safe-area-inset-top, 0px)); }
+}
+
 /* ==========================================================================
    1. PROGRESS
    ========================================================================== */

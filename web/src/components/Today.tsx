@@ -20,14 +20,17 @@ import {DashboardSkeleton} from './ui/Skeleton';
 import {useOnlineStatus} from './ui/useOnlineStatus';
 import {WeekNutritionCard} from './dashboard/WeekNutritionCard';
 import {WeightTrendCard} from './dashboard/WeightTrendCard';
+import type {ProgressFocus} from './Progress';
+import {latestWeighIns} from '../lib/weighInList';
 
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
 
-export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStore;onCoach:()=>void;onProgress:()=>void;onSettings?:()=>void}){
+export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStore;onCoach:()=>void;onProgress:(focus:ProgressFocus)=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
   // The same cleaned trend the coach uses: marked temporary days and statistical outliers stay out.
+  const recentWeighIns=useMemo(()=>latestWeighIns(state.weights,date,3),[state.weights,date]);
   const weightTrend=useMemo(()=>cleanTrend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date),[state.weightTrendSeed,state.weights,date]);
   const energyUnit=unitsFor(state.settings).energy;
   const [checkInOpen,setCheckInOpen]=useState(false);
@@ -116,7 +119,7 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
         {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
           <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
         </section>}
-        <WeightTrendCard points={weightTrend} current={date} unit={unitsFor(state.settings).weight} onOpen={onProgress}/>
+        <WeightTrendCard points={weightTrend} recent={recentWeighIns} current={date} unit={unitsFor(state.settings).weight} onOpen={onProgress}/>
       </div>
       <TrainingSummaryCard syncedAt={state.trainingSyncedAt} summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings} onRetry={()=>void loadTrainingSummaries?.(true)}/>
       </section>

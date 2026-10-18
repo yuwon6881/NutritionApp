@@ -75,5 +75,5 @@
 .dashboard-cards .week-day[data-today]{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--primary) 45%,transparent)}
 .dashboard-cards .week-day-bar{height:7px}
 .dashboard-cards .week-day-name{text-transform:uppercase;letter-spacing:.06em}
-.dashboard-cards .dashboard-insight-value strong{font-size:2.1rem;font-weight:760;letter-spacing:-.04em}
+.dashboard-cards .dashboard-trend-value strong{letter-spacing:-.04em}
 .dashboard-cards .sparkline-line{stroke-width:2.5}

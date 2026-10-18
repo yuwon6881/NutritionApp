@@ -34,22 +34,25 @@
   font-weight: 700;
 }
 
-/* Weight trend: value and change beside a thirty-day sparkline; the card opens Progress. */
+/* Weight trend: a heading row, the trend with its change and a full-width thirty-day line
+   (opens the Progress chart), then the latest weigh-ins (open the weigh-in history). The
+   content is the target; hover and the chevrons are the only affordances. */
 .panel.dashboard-trend-panel {
+  display: flex;
+  flex-direction: column;
   padding: 0;
   overflow: hidden;
   container-type: inline-size;
 }
 
-.dashboard-insight-trigger {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(72px, 132px) auto;
-  align-items: center;
-  gap: 16px;
+.dashboard-trend-summary {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
   width: 100%;
   min-height: 44px;
-  height: 100%;
-  padding: 28px;
+  padding: 24px 24px 16px;
   margin: 0;
   border: 0;
   border-radius: inherit;
@@ -61,87 +64,87 @@
   transition: background-color var(--motion-control) ease;
 }
 
-/* A narrow card (a tablet pair) gives the figures the full row and puts the sparkline beneath, rather than wrapping the change over four lines. */
-@container (max-width: 359px) {
-  .dashboard-insight-trigger {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 24px;
-  }
-
-  .dashboard-insight-text {
-    grid-column: 1 / -1;
-  }
-
-  .dashboard-sparkline {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .dashboard-insight-chevron {
-    grid-column: 2;
-    grid-row: 2;
-  }
-}
-
-.dashboard-insight-trigger:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: -3px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .dashboard-insight-trigger:hover {
-    background: color-mix(in srgb, var(--muted) 55%, transparent);
-  }
-  .dashboard-insight-trigger:hover .dashboard-insight-chevron {
-    transform: translateX(2px);
-    color: var(--primary-ink);
-  }
-}
-
-.dashboard-insight-text {
+.dashboard-trend-head {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.dashboard-insight-text .eyebrow {
-  margin: 0 0 10px !important;
+.dashboard-trend-head .eyebrow {
+  margin: 0 !important;
 }
 
-.dashboard-insight-value {
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
-}
-
-.dashboard-insight-value strong {
-  font-size: 1.85rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-strong);
-}
-
-.dashboard-insight-change {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--foreground);
-  font-variant-numeric: tabular-nums;
-}
-
-.dashboard-insight-text small {
+.dashboard-trend-asof {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
 }
 
-.dashboard-insight-chevron {
+.dashboard-trend-chevron {
   color: var(--muted-foreground);
   transition: transform var(--motion-control) var(--motion-ease), color var(--motion-control) ease;
 }
 
+.dashboard-trend-figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.dashboard-trend-value {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.dashboard-trend-value strong {
+  font-size: 2.1rem;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-strong);
+}
+
+/* Neutral by design: whether up or down is good depends on the goal. */
+.dashboard-trend-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dashboard-trend-change > svg {
+  color: var(--weight);
+}
+
+.dashboard-trend-plot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboard-trend-canvas {
+  position: relative;
+  display: block;
+  height: 64px;
+}
+
 .dashboard-sparkline {
+  display: block;
   width: 100%;
-  height: 52px;
+  height: 100%;
   overflow: visible;
 }
 
@@ -163,31 +166,151 @@
   stop-opacity: 0;
 }
 
+/* The latest trend point, ringed in the card colour so it reads against the area fill. */
+.dashboard-trend-marker {
+  position: absolute;
+  left: var(--end-x);
+  top: var(--end-y);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--weight);
+  box-shadow: 0 0 0 3px var(--card);
+  transform: translate(-50%, -50%);
+}
+
+.dashboard-trend-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-trend-empty {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+/* The latest weigh-ins sit under an inset hairline as plain figures, not a button strip. */
+.dashboard-trend-recent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 14px 24px 20px;
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  --trend-inset: 24px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-control) ease;
+}
+
+/* The hairline spans the content width, chevron included, but not the card edges. */
+.dashboard-trend-recent::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--trend-inset);
+  right: var(--trend-inset);
+  height: 1px;
+  background: var(--border);
+}
+
+.dashboard-trend-recent-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex: 1;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dashboard-trend-recent-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboard-trend-recent-date {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.dashboard-trend-recent-value {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.dashboard-trend-recent-value strong {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-strong);
+}
+
+.dashboard-trend-summary:focus-visible,
+.dashboard-trend-recent:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dashboard-trend-summary:hover,
+  .dashboard-trend-recent:hover {
+    background: color-mix(in srgb, var(--muted) 55%, transparent);
+  }
+  .dashboard-trend-summary:hover .dashboard-trend-chevron,
+  .dashboard-trend-recent:hover .dashboard-trend-chevron {
+    transform: translateX(2px);
+    color: var(--primary-ink);
+  }
+}
+
+/* A narrow card (a tablet pair) keeps the three weigh-ins on one line. */
+@container (max-width: 319px) {
+  .dashboard-trend-recent-list { gap: 8px; }
+  .dashboard-trend-recent-value strong { font-size: 0.875rem; }
+  .dashboard-trend-recent-value .unit { display: none; }
+}
+
 @keyframes sparklineDraw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes trendMarkerIn { from { opacity: 0; } to { opacity: 1; } }
 
 .dashboard-intro .dashboard-sparkline {
   animation: sparklineDraw 900ms var(--motion-ease) 420ms backwards;
 }
 
-@media (max-width: 1279px) {
-  .dashboard-insight-trigger { padding: 22px; }
+.dashboard-intro .dashboard-trend-marker {
+  animation: trendMarkerIn 200ms var(--motion-ease) 1260ms backwards;
 }
 
-@media (max-width: 1023px) {
-  .dashboard-insight-trigger { padding: 24px; }
+/* Expanded windows get the roomier panel padding. */
+@media (min-width: 1024px) {
+  .dashboard-trend-summary { padding: 28px 28px 18px; }
+  .dashboard-trend-recent { padding: 16px 28px 24px; --trend-inset: 28px; }
 }
 
 @media (max-width: 639px) {
-  .dashboard-insight-trigger {
-    grid-template-columns: minmax(0, 1fr) minmax(64px, 108px) auto;
-    gap: 12px;
-    padding: 20px;
-  }
-  .dashboard-insight-value strong { font-size: 1.6rem; }
+  .dashboard-trend-summary { padding: 20px 20px 14px; }
+  .dashboard-trend-recent { padding: 12px 20px 18px; --trend-inset: 20px; }
+  .dashboard-trend-value strong { font-size: 1.85rem; }
+  .dashboard-trend-canvas { height: 56px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dashboard-insight-chevron {
-    transition: none;
+  .dashboard-trend-chevron { transition: none; }
+  .dashboard-intro .dashboard-sparkline,
+  .dashboard-intro .dashboard-trend-marker {
+    animation: none;
   }
 }
