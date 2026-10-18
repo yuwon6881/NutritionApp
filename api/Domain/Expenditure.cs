@@ -7,6 +7,13 @@ public record EnergyEvidence(int WindowDays, int LoggedDays, double Coverage, in
     public int ContextExcluded { get; init; }
     public int ContextReinstated { get; init; }
     public int ContextSettling { get; init; }
+    /// Unlogged days in the window and the intake estimated for them from the expenditure and weight trend.
+    public int UnloggedDays { get; init; }
+    public double? UnloggedMeanIntake { get; init; }
+    /// Extra kcal/day the trend gained across unlogged days compared with logged days; null when not significant.
+    public double? UnloggedTrendGap { get; init; }
+    /// Logged days under half the window's usual logged intake, which may be only partly logged.
+    public int LowLoggedDays { get; init; }
 }
 
 public record ExpenditureEstimate(bool Adaptive, double Expenditure, double? Observed,
@@ -77,6 +84,9 @@ public static class Expenditure
         var logged = window.Where(IsLogged).ToArray();
         var coverage = logged.Length / (double)windowDays;
         var signal = WeightSignal.Analyze(weights, today, windowDays);
+        var unlogged = UnloggedIntake.Estimate(WeightSignal.CleanTrend(weights, today, windowDays), start, today,
+            logged.Select(day => day.Date).ToHashSet(), expenditure);
+        var lowLogged = LowLoggedDays(logged);
         var retained = signal.Retained;
         var span = retained.Count < 2 ? 0 : retained[^1].Date.DayNumber - retained[0].Date.DayNumber;
         var firstHalf = retained.Count(w => w.Date < start.AddDays(windowDays / 2));
@@ -98,9 +108,15 @@ public static class Expenditure
             ContextExcluded = signal.ContextExcluded,
             ContextReinstated = signal.ContextReinstated,
             ContextSettling = signal.ContextSettling,
+            UnloggedDays = unlogged.Days,
+            UnloggedMeanIntake = unlogged.MeanKcal,
+            UnloggedTrendGap = unlogged.TrendGapKcal,
+            LowLoggedDays = lowLogged,
         };
 
-        var prefix = $"{logged.Length} of {windowDays} days logged; unlogged days are excluded and may bias this estimate." +
+        var prefix = $"{logged.Length} of {windowDays} days logged" + (unlogged.MeanKcal is {} unloggedMean
+                ? $"; the {Plural(unlogged.Days, "unlogged day")} {(unlogged.Days == 1 ? "counts" : "count")} at about {Math.Round(unloggedMean / 10) * 10:0} kcal/day, estimated from your expenditure and weight trend."
+                : ".") +
             (windowDays == WindowDays ? " The 28-day window spans a full menstrual cycle." : windowNote);
         if (signal.ContextExcluded > 0)
             prefix += $" Excluded {Plural(signal.ContextExcluded, "weigh-in day")} you marked as a possible temporary fluctuation from the calorie trend.";
@@ -110,6 +126,11 @@ public static class Expenditure
             prefix += $" Counted {Plural(signal.ContextReinstated, "marked weigh-in day")} again because later weigh-ins stayed at that level.";
         if (signal.WaterFlaggedDays > 0)
             prefix += $" Flagged {Plural(signal.WaterFlaggedDays, "possible water or level-shift weigh-in day")} and excluded {(signal.WaterFlaggedDays == 1 ? "it" : "them")} from the slope.";
+
+        if (unlogged.RecurringWeekdays.Count > 0 && unlogged.TrendGapKcal is null)
+            prefix += $" Most unlogged days fell on {string.Join(" and ", unlogged.RecurringWeekdays.Select(day => $"{day}s"))}. If you eat differently on those days, log them, even as a rough calorie total, because the weight trend can only partly account for them.";
+        if (lowLogged > 0)
+            prefix += $" {Plural(lowLogged, "logged day")} {(lowLogged == 1 ? "was" : "were")} under half your usual logged intake; if a day was only partly logged, mark it Not fully logged so it counts as unlogged.";
 
         if (!allowAdaptation)
             return new(false, expenditure, null, 0, evidence, prefix + HoldAccepted);
@@ -127,13 +148,35 @@ public static class Expenditure
             return new(false, expenditure, null, 0, evidence,
                 prefix + $" Holding: the trend and endpoint slopes disagree by more than {signal.EndpointLimitKgPerDay * 7:0.##} kg per week, so a level shift may still be inside the window.");
 
-        var observed = evidence.MeanIntake - 7700 * theil;
+        // Every window day counts: logged intake as recorded, unlogged days at their trend-based estimate.
+        var windowIntake = (logged.Sum(day => day.Calories) + unlogged.TotalKcal) / windowDays;
+        var observed = windowIntake - 7700 * theil;
         if (observed < 1000 || observed > 7000)
             return new(false, expenditure, observed, 0, evidence,
                 prefix + " Holding: the observed estimate is outside the supported range. Review portions and weight entries.");
+        // The trend lags, so the estimate above recovers only part of a difference the unlogged days hid.
+        // Moving against that remaining bias would compound it, e.g. lowering targets after unlogged weekend meals.
+        if (unlogged.TrendGapKcal is > 0 && observed < expenditure)
+            return new(false, expenditure, observed, 0, evidence,
+                prefix + $" Holding: your weight trend rose about {Math.Round(unlogged.TrendGapKcal.Value / 10) * 10:0} kcal/day more across unlogged days than logged days, so those days probably held more food than the estimate can see. The estimate will not move down until more of them are logged.");
+        if (unlogged.TrendGapKcal is < 0 && observed > expenditure)
+            return new(false, expenditure, observed, 0, evidence,
+                prefix + $" Holding: your weight trend fell about {Math.Round(-unlogged.TrendGapKcal.Value / 10) * 10:0} kcal/day more across unlogged days than logged days, so those days probably held less food than the estimate can see. The estimate will not move up until more of them are logged.");
         var updated = expenditure + gain * (observed - expenditure);
         return new(true, updated, observed, gain, evidence,
             prefix + $" Based on {retained.Count} retained weigh-ins. The expenditure estimate moves {gain:P0} toward the observed intake/weight relationship. This is a provisional estimate, not a metabolic measurement.");
+    }
+
+    /// <summary>
+    /// A day logged far below the others is often missing a meal (MacroFactor names partial logging its algorithm's main weak spot), and the
+    /// app cannot tell. It is reported rather than dropped, because an intentionally low day is also valid.
+    /// </summary>
+    private static int LowLoggedDays(IReadOnlyList<NutritionDay> logged)
+    {
+        var eating = logged.Where(day => day.Status == "complete").Select(day => day.Calories).ToArray();
+        if (eating.Length < 7) return 0;
+        var usual = Statistics.Median(eating);
+        return eating.Count(calories => calories < usual / 2);
     }
 
     private static string Plural(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";

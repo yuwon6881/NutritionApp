@@ -547,5 +547,6 @@ test('an open offline diary completes its logged day after local midnight',async
   await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
   await context.setOffline(true);
   await page.clock.fastForward(24*60*60*1000);
-  await expect(page.getByText('Complete',{exact:true})).toBeVisible();
+  // A past day with food completes automatically and can still be marked not fully logged.
+  await expect(page.getByLabel('Logging status',{exact:true}).locator('option:checked')).toHaveText('Complete automatically');
 });

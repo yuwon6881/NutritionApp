@@ -209,7 +209,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     {state&&<>
       <FoodDaySummary
         title={dayTitle}
-        statusText={status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?'Not logging':date===current?'Still logging':date===latest?'Planning ahead':'No food logged'}
+        statusText={status==='complete'?'Complete':status==='fasting'?'Fasting':status==='not_logged'?(count?'Not fully logged':'Not logging'):date===current?'Still logging':date===latest?'Planning ahead':'No food logged'}
         entries={entries}
         day={day}
         count={count}
@@ -219,10 +219,11 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
         energyUnit={energyUnit}
         isPastDay={date<current}
         statusValue={status==='fasting'||status==='not_logged'?status:'incomplete'}
-        statusDisabled={count>0}
+        statusDisabled={count>0&&readOnly}
         canFast={count===0&&total===0}
         onStatusChange={value=>{
-          if(count>0)return;
+          // A day with food can be marked not fully logged, so a missing meal does not lower the expenditure estimate.
+          if(value==='fasting'&&count>0)return;
           void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}));
         }}
       />

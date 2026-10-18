@@ -50,7 +50,7 @@ public record CoachResult(bool Eligible, bool Adaptive, double? Calories, double
 
 public static class Coach
 {
-    public const string Version = "2.3.0";
+    public const string Version = "2.4.0";
     public static double Resting(Profile p) => 10 * p.WeightKg + 6.25 * p.HeightCm - 5 * p.Age + (p.Sex == "male" ? 5 : -161);
 
     /// A stored date of birth is authoritative so age advances with the calendar; Age remains the fallback for profiles saved before it existed.

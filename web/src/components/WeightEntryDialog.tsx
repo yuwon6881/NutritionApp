@@ -12,7 +12,7 @@ import {displayEnergy,displayWeight,energyLabel,parseWeight,unitsFor,weightLabel
 import {weightEntryDirty,weightEntryValues} from '../lib/weightEntry';
 import {weightContextOptionsFor} from '../lib/weightContext';
 import {unusualWeighIn} from '../lib/weightSignal';
-import {recentIntake} from '../lib/weighInEvidence';
+import {previousDayUnlogged,recentIntake} from '../lib/weighInEvidence';
 import {targetsForDate} from '../lib/dailyTargets';
 import {useAsyncAction} from './ui/useAsyncAction';
 
@@ -47,6 +47,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
   const existing=state.weights.find(weight=>weight.date===values.date);
   const unusual=unusualWeighIn(values.kg,units.weight,values.date,state.weights,initial?.id);
   const intake=unusual?recentIntake(state.entries,state.days,values.date):null;
+  const unloggedBefore=!!unusual&&previousDayUnlogged(state.entries,state.days,values.date);
   const accepted=state.plans.find(plan=>!plan.deleted);
   const target=accepted?targetsForDate(JSON.parse(accepted.resultJson) as CoachResult,values.date).calories:null;
   const dirty=weightEntryDirty(values,baseline);
@@ -93,6 +94,7 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
         <p className="weight-context-evidence">
           {unusual.direction==='up'?'Up':'Down'} {displayWeight(unusual.differenceKg,units.weight,1)} {weightLabel(units.weight)} from the expected {displayWeight(unusual.expectedKg,units.weight,1)} {weightLabel(units.weight)}.
           {unusual.contextDirection==='either'&&<> Your last weigh-in was {displayWeight(unusual.latestKg,units.weight,1)} {weightLabel(units.weight)}, so this is not clearly a rise or a drop.</>}
+          {unloggedBefore&&<> The day before was not logged.</>}
           {intake&&<> Your last {intake.days} logged days averaged {displayEnergy(intake.averageKcal,units.energy)} {energyLabel(units.energy)}{target?<> against a {displayEnergy(target,units.energy)} {energyLabel(units.energy)} target</>:null}.</>}
         </p>
         <p>A temporary factor keeps this scale value in history but leaves it out of calorie-estimation trends, and the next few days count less while water settles. If later weigh-ins stay at this level, it counts again. A reason never adds or subtracts calories directly.</p>

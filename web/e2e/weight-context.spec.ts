@@ -52,8 +52,9 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   const dialog=page.getByRole('dialog',{name:'Log weight',exact:true});
   await dialog.getByLabel('Weight (kg)',{exact:true}).fill('82');
   await expect(dialog.getByRole('heading',{name:'This differs from your recent weigh-ins'})).toBeVisible();
-  // A spike offers retention causes first; not-logging days never appear as intake evidence.
-  await expect(dialog.locator('.weight-context-evidence')).toHaveText('Up 2 kg from the expected 80 kg.');
+  // A spike offers retention causes first; not-logging days never appear as intake evidence, but an
+  // unlogged day before the weigh-in is named because its food may explain the change.
+  await expect(dialog.locator('.weight-context-evidence')).toHaveText('Up 2 kg from the expected 80 kg. The day before was not logged.');
   const contextChoice=dialog.getByRole('button',{name:'Choose possible temporary context'});
   // Leave the pointer where the menu will appear: hover must not override keyboard navigation.
   const choiceBox=(await contextChoice.boundingBox())!;

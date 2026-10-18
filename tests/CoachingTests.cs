@@ -59,7 +59,8 @@ public class CoachingTests
     {
         var days = Days().Select(d => d.Date == Today.AddDays(-7) ? d with { Status = "incomplete", Calories = 200 } : d).ToList();
         var r = Coach.Calculate(Profile(), days, Weights(), new PreviousPlan(2400, 2400), Today);
-        Assert.True(r.Adaptive); Assert.Equal(2425, r.Expenditure); Assert.Equal(2400, r.Calories);
+        // The missed day counts at the current 2,400 kcal estimate (flat weights): (27 × 2,500 + 2,400) / 28.
+        Assert.True(r.Adaptive); Assert.Equal(2400 + .25 * ((27 * 2500 + 2400) / 28d - 2400), r.Expenditure!.Value, 6); Assert.Equal(2400, r.Calories);
     }
     [Fact] public void Sparse_or_stale_weights_hold()
     {

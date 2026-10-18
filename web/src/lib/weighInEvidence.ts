@@ -23,6 +23,19 @@ export function recentIntake(entries:readonly Entry[],days:readonly Day[],date:s
   return {averageKcal:totals.reduce((sum,value)=>sum+value,0)/totals.length,days:totals.length};
 }
 
+/**
+ * True when the day before a weigh-in has no intake record: a not-logging decision or a past day without food.
+ * That morning's change may come from food the diary never saw, so the prompt says so instead of guessing.
+ */
+export function previousDayUnlogged(entries:readonly Entry[],days:readonly Day[],date:string):boolean{
+  const day=shift(date,-1);
+  const saved=days.find(item=>!item.deleted&&item.date===day);
+  if(saved?.status==='not_logged')return true;
+  if(saved?.status==='fasting')return false;
+  if(saved?.archived)return (saved.entryCount??0)===0;
+  return !entries.some(entry=>!entry.deleted&&entry.date===day);
+}
+
 const count=(value:number,noun:string)=>`${value} ${noun}${value===1?'':'s'}`;
 
 /** Plain-language summary of how marked weigh-ins shaped a check-in; null when nothing was adjusted. */

@@ -67,7 +67,7 @@ export function FoodDaySummary({
     <div className="section-heading">
       <div className="food-day-title-group">
         <h2>{title}</h2>
-        {/* Only a past day without food has a choice to make; otherwise the status is plain text. */}
+        {/* A past day can record a decision: fasting or not logging without food, or "not fully logged" when a meal is missing. */}
         {isPastDay && !statusDisabled ? (
           <div className="food-day-status-control">
             <SelectField
@@ -78,7 +78,7 @@ export function FoodDaySummary({
               onChange={onStatusChange ?? (() => {})}
             >
               <option value="incomplete">{count ? 'Complete automatically' : 'No food logged'}</option>
-              <option value="not_logged" disabled={statusDisabled}>Not logging</option>
+              <option value="not_logged">{count ? 'Not fully logged' : 'Not logging'}</option>
               <option value="fasting" disabled={!canFast}>Fasting</option>
             </SelectField>
           </div>

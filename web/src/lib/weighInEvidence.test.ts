@@ -1,9 +1,21 @@
 import {describe,expect,it} from 'vitest';
 import type {Day,Entry} from '../types';
-import {contextAdjustmentSummary,recentIntake} from './weighInEvidence';
+import {contextAdjustmentSummary,previousDayUnlogged,recentIntake} from './weighInEvidence';
 
 const entry=(date:string,calories:number):Entry=>({id:`${date}-${calories}`,revision:1,deleted:false,date,calories,protein:null,carbs:null,fat:null,quantity:1,unit:'serving'} as Entry);
 const day=(date:string,status:Day['status']):Day=>({id:date,revision:1,deleted:false,date,status});
+
+describe('the day before a weigh-in',()=>{
+  it('is unlogged without food or with a not-logging decision, even when food exists',()=>{
+    expect(previousDayUnlogged([],[],'2026-09-11')).toBe(true);
+    expect(previousDayUnlogged([entry('2026-09-10',400)],[day('2026-09-10','not_logged')],'2026-09-11')).toBe(true);
+  });
+
+  it('is logged with food or a fasting decision',()=>{
+    expect(previousDayUnlogged([entry('2026-09-10',2000)],[],'2026-09-11')).toBe(false);
+    expect(previousDayUnlogged([],[day('2026-09-10','fasting')],'2026-09-11')).toBe(false);
+  });
+});
 
 describe('recent intake before a weigh-in',()=>{
   it('averages the most recent logged days and counts fasting as zero',()=>{

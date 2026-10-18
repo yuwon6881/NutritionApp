@@ -13,7 +13,7 @@ Status: implemented 2026-09-29 (Coach 2.2.0, trajectory v6-robust-signal) except
 
 - Progress chart trend (`ProgressSummaryService` plus client projection) still uses the raw EWMA; switching needs both surfaces and their pending-projection tests updated together.
 - Multi-select contexts and a modelled glycogen compartment (instead of the settle-window approach) were not implemented.
-- F11 coverage-aware confidence beyond the existing coverage factor was not changed.
+- F11 is addressed by unlogged-day estimation (see "Unlogged days — 2026-10-18"); confidence still uses the existing coverage factor.
 
 Scope: how weigh-ins become a trend, how outliers and user-supplied context are handled, and how the trend feeds the adaptive expenditure estimate. Sources reviewed: `api/Domain/Expenditure.cs` (`WeightContextPolicy`, `WeightSignal`, `Expenditure`), `api/Domain/Coach.cs` (`Trend`, `Slope`, `Calculate`), `api/Domain/ExpenditureTrajectory.cs`, `web/src/lib/weightContext.ts`, `web/src/lib/format.ts` (`trend`), `web/src/components/Today.tsx`.
 
@@ -91,3 +91,19 @@ Source and unit-test review plus web references; the .NET suite and browser test
 | Remaining | Prompt threshold (max(1 kg, 1.5%)) and filter floor (0.9 kg) differ by design but are not documented together; composition-aware energy density; multi-select contexts. |
 
 Sources: Hall et al., Lancet 2011 (PMC3880593); Frankenfield et al. systematic review of resting-energy equations (PubMed 15883556); MacroFactor help centre (weight trend).
+
+
+## Unlogged days — 2026-10-18
+
+Problem: unlogged days were dropped from mean intake while the weight slope still contained their effect, which implicitly ate them at the logged average. An untracked weekend eaten above the weekdays therefore read as a lower expenditure (about −400 kcal/day for 2,000 kcal weekdays and 3,500 kcal weekends at a true 2,500), lowering targets and compounding the pattern.
+
+Implemented (`api/Domain/UnloggedIntake.cs`, Coach 2.4.0, trajectory v9-unlogged-days):
+
+- Each unlogged window day counts at the current expenditure plus 7,700 × the cleaned trend's change from that morning to the next (interpolated between weigh-ins, clamped to 0–2× the estimate; no trend evidence means the estimate itself). MacroFactor documents estimating skipped days from the weight trend.
+- Trend gap: mean trend change across unlogged days minus logged days, in kcal/day. When it is at least 250 kcal/day and two standard errors (≥3 unlogged and ≥7 logged days with trend evidence), the estimate does not move in the direction the remaining bias pushes (down for a hidden surplus, up for a hidden deficit) and the reason explains why.
+- Recurring unlogged weekdays (≥4 days, ≥75% on one or two weekdays) are named when no gap is detected; logged days under half the window's median logged intake are reported as possibly partial. A past day with food can be marked Not fully logged.
+- Simulated scenarios with a known true expenditure live in `tests/UnloggedDayScenarioTests.cs`: weekend surplus and deficit, random typical skips (unbiased, adaptive), a ten-day holiday (mostly recovered), long gaps (coverage hold), explicit fasting, partial days, and the documented limit below.
+
+Limit: the 7-day-half-life trend attenuates a weekly cycle. A modest unlogged surplus without a next-morning water jump is indistinguishable from scale noise within 28 days and remains biased low; the reason names the weekdays instead. Imputing a direction from population studies (weekend overeating, under-reporting) would invent intake, so it is not done.
+
+Sources: MacroFactor help centre (partially logged days; logging frequency: at least four days a week, estimated skipped days, holds when insufficient); Hall et al., Lancet 2011 (energy density).

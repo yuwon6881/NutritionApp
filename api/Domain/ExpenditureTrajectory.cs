@@ -14,8 +14,8 @@ public sealed record TrajectoryPoint(
 
 public static class ExpenditureTrajectory
 {
-    // v8: corrected profile inputs reset the seed using dated age and diary trend weight.
-    public const string AlgorithmVersion = "v8-profile-seed";
+    // v9: unlogged days count at a trend-based estimate, and a significant unlogged-day trend gap holds the biased direction.
+    public const string AlgorithmVersion = "v9-unlogged-days";
 
     public static TrajectoryPoint Calculate(
         Profile profile,
