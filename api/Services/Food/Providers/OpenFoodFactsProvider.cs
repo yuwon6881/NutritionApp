@@ -28,6 +28,10 @@ public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsP
     // Rows confirmed one by one when the bulk read fails; each waits for a 4.1 s barcode slot.
     private const int FallbackReads=3;
     // Search-a-licious does not index the serving fields; the bulk product request fills them.
+    // Search-a-licious ranks by its own relevance and popularity; a wider page lets the shared
+    // ranking find the product the person named behind a heavily scanned brand family.
+    private const int SearchPageSize=50;
+    private const int HydratedRows=FoodResultMerger.MaxResults;
     private const string SearchFields="code,product_name,product_name_en,brands,nutriments";
     private const string ProductFields="code,product_name,product_name_en,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,quantity,product_quantity_unit";
     private readonly OpenFoodFactsPacing pacing=gates??OpenFoodFactsPacing.Shared;
@@ -45,35 +49,66 @@ public sealed class OpenFoodFactsProvider(HttpClient http,ILogger<OpenFoodFactsP
 
     public async Task<IReadOnlyList<FoodResult>> Search(string query,PublicFoodCache? durable,CancellationToken ct)
     {
+        var (results,brands)=await ReadHits(query,SearchGate,required:true,ct);
+        if(OpenFoodFactsQuery.BrandFollowUp(query,results,brands) is { } followUp)
+        {
+            var (scoped,_)=await ReadHits(followUp,pacing.SearchFollowUp,required:false,ct);
+            var known=results.Select(result=>result.Code).OfType<string>().ToHashSet(StringComparer.Ordinal);
+            results.AddRange(scoped.Where(result=>result.Code is null||known.Add(result.Code)));
+        }
+        // A wide page gives the shared ranking real candidates; only the best of them are hydrated,
+        // so the bulk product read stays as small as before.
+        var kept=FoodRanking.PrioritizeResults(results,query).Take(HydratedRows).ToList();
+        await Hydrate(kept,durable,ct);
+        return kept;
+    }
+
+    /// <summary>
+    /// One paced Search-a-licious page. A required read reports its failure; an optional follow-up
+    /// that cannot get a slot or an answer returns nothing, so it never costs the first page.
+    /// </summary>
+    private async Task<(List<FoodResult> Results,List<string?> Brands)> ReadHits(string query,ProviderGate gate,bool required,CancellationToken ct)
+    {
         // The gate paces Open Food Facts, not the person typing: an early request waits for its slot.
-        if(await SearchGate.Reserve(SearchInterval,MaxSearchWait,ct) is not { } slot)
-            throw new FoodProviderException(ProviderId,FoodProviderFailure.Throttled);
+        if(await gate.Reserve(SearchInterval,MaxSearchWait,ct) is not { } slot)
+            return required?throw new FoodProviderException(ProviderId,FoodProviderFailure.Throttled):([],[]);
         try
         {
             if(slot.Wait>TimeSpan.Zero)await Task.Delay(slot.Wait,ct);
-            using var response=await Send($"{SearchUrl}?page_size=12&fields={SearchFields}&q={Uri.EscapeDataString(query)}",ct);
+            using var response=await Send($"{SearchUrl}?page_size={SearchPageSize}&fields={SearchFields}&q={Uri.EscapeDataString(query)}",ct);
             if(response.StatusCode==HttpStatusCode.TooManyRequests)
             {
                 // A shed answer is a real instruction to back off, not to resume the one-second pace.
-                await SearchGate.Hold(DateTime.UtcNow.Add(BusyBackoff));
+                var until=DateTime.UtcNow.Add(BusyBackoff);
+                await SearchGate.Hold(until);
+                await pacing.SearchFollowUp.Hold(until);
                 throw new FoodProviderException(ProviderId,FoodProviderFailure.Busy,BusyBackoff);
             }
             if(!response.IsSuccessStatusCode)throw new FoodProviderException(ProviderId,SearchFailure(response.StatusCode));
             var results=new List<FoodResult>();
+            var brands=new List<string?>();
             using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
             if(json.RootElement.TryGetProperty("hits",out var hits)&&hits.ValueKind==JsonValueKind.Array)
                 foreach(var hit in hits.EnumerateArray())
+                {
+                    brands.Add(OpenFoodFactsParser.Brand(hit));
                     if(OpenFoodFactsParser.ReadProduct(hit,null,"unverified") is {} result)results.Add(result);
-            await Hydrate(results,durable,ct);
-            return results;
+                }
+            return (results,brands);
         }
-        catch(FoodProviderException failure) when(failure.Failure==FoodProviderFailure.Busy) { throw; }
-        catch
+        catch(FoodProviderException failure) when(failure.Failure==FoodProviderFailure.Busy)
+        {
+            if(required)throw;
+            return ([],[]);
+        }
+        catch(Exception error)
         {
             // Any other failure hands its slot back, or the retry the error message asks for is
             // answered by our own limit instead of reaching Open Food Facts.
-            await SearchGate.Return(slot);
-            throw;
+            await gate.Return(slot);
+            if(required||ct.IsCancellationRequested)throw;
+            log?.LogWarning(error,"Open Food Facts brand follow-up search failed.");
+            return ([],[]);
         }
     }
 

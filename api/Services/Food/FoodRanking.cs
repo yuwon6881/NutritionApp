@@ -7,12 +7,13 @@ namespace Nutrition.Api.Services.FoodLookup;
 public static class FoodRanking
 {
     /// <summary>
-    /// Keeps name relevance ahead of personal frequency, then prefers a declared gram serving and
-    /// the incoming order. The foods the query names come first ("rice" lists "White rice" and
-    /// "Rice, brown, cooked" before "Rice cake" and "Rice flour", which only start with the word),
-    /// and among those the foods this account has logged lead. Frequency is counted from logged
-    /// diary entries and only orders results of the same relevance tier, so personalization cannot
-    /// make a weakly related result outrank a better match.
+    /// Foods this account has logged lead when their name or brand carries every word of the query:
+    /// searching again for something already eaten finds it first, most-logged first. The rest keep
+    /// name relevance ahead of personal frequency, then prefer a declared gram serving and the
+    /// incoming order. The foods the query names come first ("rice" lists "White rice" and
+    /// "Rice, brown, cooked" before "Rice cake" and "Rice flour", which only start with the word).
+    /// A logged food matching only some of the words stays in its relevance tier, so a partial
+    /// match cannot outrank a better one.
     /// Open Food Facts' search index has no serving fields, so this must run after hydration.
     /// Providers also return loose matches that share no word with the query (a fuzzy search can
     /// answer "sunglo" with unrelated dishes); once any result does match, those are dropped. When none
@@ -40,7 +41,8 @@ public static class FoodRanking
             // The foods the query names form the first tier; exact and prefix matches share the
             // next, so a food that merely starts with the word stays behind them. Weaker name
             // matches never jump a tier.
-            .OrderBy(item=>item.isPlain&&item.nameRank<=AllTokensRank?0:item.nameRank<=1?1:item.nameRank)
+            .OrderBy(item=>item.frequency>0&&item.nameRank<=AllTokensRank?0:1)
+            .ThenBy(item=>item.isPlain&&item.nameRank<=AllTokensRank?0:item.nameRank<=1?1:item.nameRank)
             .ThenByDescending(item=>item.frequency)
             .ThenBy(item=>preference(item.result))
             .ThenBy(item=>item.nameRank)
@@ -110,6 +112,9 @@ public static class FoodRanking
     /// </summary>
     public static int SearchNameRank(string name,string query)
         =>SearchNameRank(name,NormalizeSearchText(query),SearchTokens(query));
+
+    /// <summary>True when every query word appears in the name or its brand (rank 3 or better).</summary>
+    public static bool NamesEveryWord(string name,string query)=>SearchNameRank(name,query)<=AllTokensRank;
 
     public static string[] SearchTokens(string value)
         =>value.Split([' ','-','_','/',',','.','(',')','[',']',':',';'],StringSplitOptions.RemoveEmptyEntries)

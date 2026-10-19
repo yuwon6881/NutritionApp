@@ -1,9 +1,9 @@
 namespace Nutrition.Api.Services.FoodLookup;
 
 /// <summary>
-/// The pacing gates of the three Open Food Facts endpoints. Every request leaves from the one
-/// egress address, so production shares a single instance; a test passes its own to stay
-/// independent of the slots other tests have spent.
+/// The pacing gates of the three Open Food Facts endpoints (free-text search has two). Every
+/// request leaves from the one egress address, so production shares a single instance; a test
+/// passes its own to stay independent of the slots other tests have spent.
 /// </summary>
 public sealed class OpenFoodFactsPacing
 {
@@ -15,6 +15,11 @@ public sealed class OpenFoodFactsPacing
     private long bulkFailedUntilTicks;
 
     public ProviderGate Search { get; }=new();
+    /// <summary>
+    /// The brand-scoped follow-up a search sends after its first page. Its own courtesy pace keeps
+    /// it from queueing a whole interval behind that page while the merge grace is running.
+    /// </summary>
+    public ProviderGate SearchFollowUp { get; }=new();
     public ProviderGate Barcode { get; }=new();
     public ProviderGate BatchProduct { get; }=new();
 

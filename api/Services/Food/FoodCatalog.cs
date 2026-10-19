@@ -14,7 +14,7 @@ public sealed class FoodCatalog
 {
     // Bump when provider mapping, display filtering, or merging changes so a process does not keep
     // serving rows cached under the old shape.
-    private const string SearchCacheVersion="search:v8:";
+    private const string SearchCacheVersion="search:v9:";
     private static readonly TimeSpan CompleteSearchLifetime=TimeSpan.FromHours(6);
     // A merge missing a provider is still worth reusing briefly, but not for hours.
     private static readonly TimeSpan PartialSearchLifetime=TimeSpan.FromMinutes(1);
@@ -49,11 +49,26 @@ public sealed class FoodCatalog
 
     public Task<IReadOnlyList<FoodResult>> Search(string query,CancellationToken ct)=>SearchShared(query,null,ct);
 
-    /// <summary>Shared provider results, then this account's frequency ordering.</summary>
+    /// <summary>
+    /// Shared provider results plus the account's own logged foods that match every word, then
+    /// this account's ordering, which puts those logged foods first. The shared cache stays
+    /// unpersonalized.
+    /// </summary>
     public async Task<IReadOnlyList<FoodResult>> Search(string query,AppDb db,CancellationToken ct)
     {
-        var results=await SearchShared(query,db,ct);
-        return await FoodRanking.RankForUser(results,query.Trim(),db,ct);
+        IReadOnlyList<FoodResult> results;
+        IReadOnlyList<FoodResult> logged;
+        try { results=await SearchShared(query,db,ct); }
+        catch(DomainException outage) when(outage.Status>=429)
+        {
+            // Every provider failed. The person's own logged foods still answer; the outage only
+            // surfaces when there is nothing of theirs to show either.
+            logged=await LoggedFoods.Matching(query.Trim(),db,ct);
+            if(logged.Count==0)throw;
+            return await FoodRanking.RankForUser(logged,query.Trim(),db,ct);
+        }
+        logged=await LoggedFoods.Matching(query.Trim(),db,ct);
+        return await FoodRanking.RankForUser(LoggedFoods.AddMissing(results,logged),query.Trim(),db,ct);
     }
 
     private async Task<IReadOnlyList<FoodResult>> SearchShared(string query,AppDb? db,CancellationToken ct)
