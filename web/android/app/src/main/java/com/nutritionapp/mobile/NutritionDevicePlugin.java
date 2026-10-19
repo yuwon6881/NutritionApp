@@ -10,23 +10,6 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "NutritionDevice")
 public class NutritionDevicePlugin extends Plugin {
-    @PluginMethod public void checkApkUpdate(PluginCall call) {
-        new Thread(() -> call.resolve(ApkUpdates.check(getContext(), Boolean.TRUE.equals(call.getBoolean("manual", false)))), "apk-update-check").start();
-    }
-
-    @PluginMethod public void openApkRelease(PluginCall call) {
-        try {
-            getActivity().startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
-                    AndroidReleaseContract.releaseUrl(BuildConfig.DISTRIBUTION_CHANNEL))));
-            call.resolve();
-        } catch (RuntimeException failure) { call.reject("The release page could not be opened.", "release_page_unavailable"); }
-    }
-    @PluginMethod public void getDeviceDiagnostics(PluginCall call) {
-        getActivity().runOnUiThread(() -> {
-            try { call.resolve(AndroidDeviceInfo.read(getActivity())); }
-            catch (RuntimeException failure) { call.reject("Device diagnostics could not be checked.", "diagnostics_unavailable"); }
-        });
-    }
     void incomingPhotoReady() { notifyListeners("incomingPhotoReady", new JSObject(), true); }
 
     @PluginMethod public void getIncomingImage(PluginCall call) {

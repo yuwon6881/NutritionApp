@@ -22,15 +22,15 @@ Static launcher shortcuts are generated from `nutritionShortcuts.ts` by `generat
 
 After sign-in/profile readiness the app asks for destination account, diary date and Meal photo or Nutrition label. The existing image preparation/compression path creates an account-scoped retained scan draft. The attachment transaction compares the exact draft version that was reviewed; a newer draft is preserved for another review. Keep existing discards the incoming photo; Replace is explicit. The native image is deleted only after durable attachment or explicit discard. Opening/sharing/attaching never requests analysis; Estimate my meal and Read nutrition label remain explicit editor actions. An already-open food editor must close before attachment so its autosave cannot replace the incoming draft.
 
-## Diagnostics
+## Installed version
 
-Settings has a collapsed Android diagnostics disclosure with Refresh and Copy diagnostics. It reads APK/build/channel, Android/WebView version, connectivity, last confirmed mutation synchronization, current-account retained-work counts, reminder readiness, update check time and a sanitized recovery category. Missing results remain unknown. Copy uses a fixed allowlist and excludes account identity, tokens, food details, images and raw records. No telemetry or automatic upload is added. `renderer_terminated` records display-process recovery; absent timestamps mean no success has been recorded locally.
+Settings › This device names the web version and, in the Android app, the APK version and build. There is no in-app diagnostics disclosure or update check.
 
 ## Signed APK channels and releases
 
 The application ID is `com.nutritionapp.mobile`. Debug APKs embed `device-test`; release APKs embed `release`. Keep existing keys unchanged within each channel. Each public repository GitHub Release tag (`android-device-test` or `android-release`) contains its APK and `android-release.json`.
 
-Native metadata reads use fixed repository/channel HTTPS URLs, at most three GitHub-asset redirects, a ten-second overall deadline and a 64 KiB response limit. Schema, application/channel, integer version, trusted APK destination, digests and publication time are validated before comparing the installed certificate. Certificate mismatch is incompatible; uninstalling is never an update path. Checks run once per foreground day, with a manual Settings check and last successful time. Downloads open the trusted release page externally; installation remains user-controlled.
+The installed app does not read this metadata; updates are installed from the release page by hand, and uninstalling is never an update path.
 
 Manifest schema 1 fields: `schemaVersion`, `applicationId`, `channel`, `versionName`, `versionCode`, `apkUrl`, `apkSha256`, `signingCertificateSha256`, `publishedAt`. CI adds `sourceCommit` and `sourceDirty`. The manifest is generated from the exact signed APK after verifying package/version, embedded channel and certificate.
 

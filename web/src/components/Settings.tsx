@@ -1,7 +1,5 @@
-import {lazy,Suspense,useState} from 'react';
-import {NativeBuildInfo} from './NativeBuildInfo';
-import {isNativeApp} from '../lib/nativeApp';
-const AndroidDiagnostics=lazy(()=>import('./AndroidDiagnostics').then(module=>({default:module.AndroidDiagnostics})));
+import {useState} from 'react';
+import {AppVersionInfo} from './AppVersionInfo';
 import {Bell,Compass,HardDrive,Link2,LogOut,SlidersHorizontal} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import {activeTheme,chooseTheme,type Theme} from '../lib/theme';
@@ -71,8 +69,7 @@ export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Pro
         </SettingsSection>
         <SettingsSection {...device} title="This device" description="Data kept in this browser for offline use.">
           <LocalDataSettings accountId={state.id} onLogout={onLogout}/>
-          <NativeBuildInfo/>
-          {isNativeApp()&&<Suspense fallback={null}><AndroidDiagnostics accountId={state.id}/></Suspense>}
+          <AppVersionInfo/>
         </SettingsSection>
       </div>
     </div>

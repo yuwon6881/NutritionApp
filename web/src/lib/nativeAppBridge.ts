@@ -20,7 +20,6 @@ function syncStatusBar(){
 
 export async function initializeNativeApp(){
   await (await import('./nativeShortcuts')).initializeNativeShortcuts();
-  await (await import('./apkUpdates')).installApkUpdateChecks();
 
   syncStatusBar();
   const themeObserver=new MutationObserver(syncStatusBar);

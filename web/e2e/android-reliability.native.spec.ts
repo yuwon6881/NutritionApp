@@ -40,15 +40,10 @@ for (const width of [390, 768, 1440]) for (const theme of ['light', 'dark']) {
       window.dispatchEvent(new Event('focus'));
     });
     await expect(page.getByText('Available but silent', { exact: true })).toBeVisible();
-    await page.getByText('Android diagnostics', { exact: true }).click();
-    await expect(page.getByRole('term').filter({ hasText: 'APK' })).toBeVisible();
-    await page.getByRole('button', { name: 'Copy diagnostics', exact: true }).click();
-    const copied = await page.evaluate(() => (window as unknown as { __nativeDevice: { copied: string } }).__nativeDevice.copied);
-    expect(copied).toContain('renderer_terminated');
-    expect(copied).not.toMatch(/test-alice|token|imageBase64|description/);
-    await page.getByRole('button', { name: 'Check for updates', exact: true }).click();
-    await page.getByRole('button', { name: 'Open release page', exact: true }).click();
-    expect(await page.evaluate(() => (window as unknown as { __nativeDevice: { calls: string[] } }).__nativeDevice.calls)).toContain('NutritionDevice.openApkRelease');
+    // The installed APK is named in the version row; diagnostics and update checks are gone.
+    await expect(page.getByRole('definition').filter({ hasText: '1.0.1 build 1234' })).toBeVisible();
+    await expect(page.getByText('Android diagnostics', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath('native-settings.png'), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   });
