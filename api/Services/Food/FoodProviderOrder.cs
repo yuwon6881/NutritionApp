@@ -9,8 +9,8 @@ namespace Nutrition.Api.Services.FoodLookup;
 /// </summary>
 public sealed class FoodProviderOrder(IReadOnlyList<string> search,IReadOnlyList<string> barcode)
 {
-    public static readonly IReadOnlyList<string> DefaultSearch=["usda","fatsecret","off"];
-    public static readonly IReadOnlyList<string> DefaultBarcode=["off","fatsecret","usda-branded"];
+    public static readonly IReadOnlyList<string> DefaultSearch=["usda","off"];
+    public static readonly IReadOnlyList<string> DefaultBarcode=["off","usda-branded"];
 
     public IReadOnlyList<string> Search { get; }=search;
     public IReadOnlyList<string> Barcode { get; }=barcode;

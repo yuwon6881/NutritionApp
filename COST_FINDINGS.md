@@ -9,10 +9,10 @@ usage. The cross-app measurements, shared allowances, and limits are in
 
 Production revision `nutrition-api-00050-nsr` had 100% of traffic at 1 CPU, 512 MiB, concurrency 20,
 and a 180-second timeout. Its revision maximum is 1; service maximum is 20; minimum is zero/no
-minimum annotation. The source now records the same service/revision limits and Direct VPC egress
-route in [`deploy/cloudbuild.yaml`](deploy/cloudbuild.yaml). Direct VPC uses `default/default` and
-sends all outbound traffic through the existing public NAT gateway. Preserve this egress path and
-stable IP because provider pacing is shared behind it.
+minimum annotation. The source now records the same service/revision limits in
+[`deploy/cloudbuild.yaml`](deploy/cloudbuild.yaml). The Direct VPC route and public NAT gateway
+described below were retired on 2026-10-19 together with fatsecret, whose IP allowlist was the
+only reason for a static egress address.
 
 For 2026-09-01 through 2026-10-01 UTC, built-in Cloud Run metrics reported **41,564 requests**,
 **3,601.8 billable instance-seconds**, and a maximum five-minute aligned memory p99 of **0.348 GiB**
@@ -59,11 +59,9 @@ provider calls, database waits, or token usage. No new telemetry system was adde
 
 - Keep 90-day meal-detail retention and fresh quota checks in `StorageService.AllowOptional`; lowering
   retention changes behavior and quota semantics are not a cost optimization target.
-- Keep the current VPC/NAT route. Current monitoring observed about 0.1125 GiB of NAT bytes combined
-  in sparse September samples; processing at list price is about $0.005 before the public IP and
-  serverless assignment charges. The public IP itself is about $3.60 per full month at the current
-  $0.005/hour rate. Exact NAT payable cost requires billing SKU data; removing it could break stable
-  provider egress.
+- The VPC/NAT route is retired (2026-10-19). September monitoring observed about 0.1125 GiB of NAT
+  bytes (about $0.005 of processing); the reserved public IP was the real cost at about $3.60 per
+  full month. Do not reintroduce a static egress address unless a provider strictly requires one.
 - Keep the daily `nutrition-daily-cleanup` Scheduler job.
   The job count cost is account-wide after three free jobs. Do not add a frequent reminder or health
   sync scheduler.

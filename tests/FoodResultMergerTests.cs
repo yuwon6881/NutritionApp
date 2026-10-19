@@ -7,7 +7,7 @@ namespace Nutrition.Tests;
 public sealed class FoodResultMergerTests
 {
     private static readonly FakeFoodProvider Usda=new("usda");
-    private static readonly FakeFoodProvider FatSecret=new("fatsecret");
+    private static readonly FakeFoodProvider Backup=new("backup");
     private static readonly FakeFoodProvider Off=new("off");
 
     private static IReadOnlyList<FoodResult> Merge(string query,params (IFoodProvider Provider,IReadOnlyList<FoodResult> Results)[] answers)
@@ -17,9 +17,9 @@ public sealed class FoodResultMergerTests
     public void The_same_barcode_from_two_providers_keeps_the_richer_record()
     {
         var sparse=Branded("Cornflakes · Kellogg's","0038000000000");
-        var rich=new FoodResult("Corn Flakes · Kellogg's",357,7.5,0.4,84,3.3,"Powered by fatsecret",100,[new FoodPortion("1 cup",28)],"038000000000",100,"per100g");
+        var rich=new FoodResult("Corn Flakes · Kellogg's",357,7.5,0.4,84,3.3,"Backup source",100,[new FoodPortion("1 cup",28)],"038000000000",100,"per100g");
 
-        var merged=Merge("cornflakes",(Off,[sparse]),(FatSecret,[rich]));
+        var merged=Merge("cornflakes",(Off,[sparse]),(Backup,[rich]));
 
         Assert.Equal(rich,Assert.Single(merged));
     }
@@ -28,10 +28,10 @@ public sealed class FoodResultMergerTests
     public void The_same_name_within_five_percent_calories_keeps_the_higher_priority_provider()
     {
         var usda=Generic("Banana",89);
-        var fatSecret=Generic("banana",92,"Powered by fatsecret");
-        var distinct=Generic("Banana",120,"Powered by fatsecret");
+        var backup=Generic("banana",92,"Backup source");
+        var distinct=Generic("Banana",120,"Backup source");
 
-        var merged=Merge("banana",(Usda,[usda]),(FatSecret,[fatSecret,distinct]));
+        var merged=Merge("banana",(Usda,[usda]),(Backup,[backup,distinct]));
 
         Assert.Equal([usda,distinct],merged);
     }
@@ -40,12 +40,12 @@ public sealed class FoodResultMergerTests
     [InlineData("Bananas, raw","Banana")]
     [InlineData("Rice, white, cooked","Cooked white rice")]
     [InlineData("Eggs, whole, raw, fresh","Whole egg")]
-    public void Plural_word_order_and_raw_or_fresh_do_not_make_a_different_food(string usdaName,string fatSecretName)
+    public void Plural_word_order_and_raw_or_fresh_do_not_make_a_different_food(string usdaName,string backupName)
     {
         var usda=Generic(usdaName,130);
-        var fatSecret=Generic(fatSecretName,128,"Powered by fatsecret");
+        var backup=Generic(backupName,128,"Backup source");
 
-        Assert.Equal([usda],Merge("banana",(Usda,[usda]),(FatSecret,[fatSecret])));
+        Assert.Equal([usda],Merge("banana",(Usda,[usda]),(Backup,[backup])));
     }
 
     [Theory]
@@ -55,9 +55,9 @@ public sealed class FoodResultMergerTests
     public void A_different_food_or_calorie_count_stays_separate(string usdaName,string otherName,double usdaCalories,double otherCalories)
     {
         var usda=Generic(usdaName,usdaCalories);
-        var other=Generic(otherName,otherCalories,"Powered by fatsecret");
+        var other=Generic(otherName,otherCalories,"Backup source");
 
-        Assert.Equal(2,Merge("x",(Usda,[usda]),(FatSecret,[other])).Count);
+        Assert.Equal(2,Merge("x",(Usda,[usda]),(Backup,[other])).Count);
     }
 
     [Fact]
@@ -125,11 +125,11 @@ public sealed class FoodResultMergerTests
     public void A_brand_match_ranks_with_name_matches_and_unrelated_rows_are_dropped()
     {
         var named=Branded("Sunglo Natural Low Fat Probiotic Greek Yoghurt","9557337800090");
-        var hummus=new FoodResult("Cilantro Jalapeno Hummus (Small) · Pita Jungle",165,null,null,null,null,"Powered by fatsecret");
-        var pita=new FoodResult("Wheat Pita · Pita Jungle",205,null,null,null,null,"Powered by fatsecret");
+        var hummus=new FoodResult("Cilantro Jalapeno Hummus (Small) · Pita Jungle",165,null,null,null,null,"Backup source");
+        var pita=new FoodResult("Wheat Pita · Pita Jungle",205,null,null,null,null,"Backup source");
         var brandOnly=Branded("Full Cream Greek Yoghurt · Sunglo","9557337800106");
 
-        var merged=Merge("sunglo",(FatSecret,[hummus,pita]),(Off,[named,brandOnly]));
+        var merged=Merge("sunglo",(Backup,[hummus,pita]),(Off,[named,brandOnly]));
 
         Assert.Equal([named,brandOnly],merged);
     }
@@ -137,10 +137,10 @@ public sealed class FoodResultMergerTests
     [Fact]
     public void Loose_provider_matches_stay_when_nothing_matches_the_query()
     {
-        var first=new FoodResult("Banana bread",320,null,null,null,null,"Powered by fatsecret");
-        var second=new FoodResult("Banana",89,null,null,null,null,"Powered by fatsecret");
+        var first=new FoodResult("Banana bread",320,null,null,null,null,"Backup source");
+        var second=new FoodResult("Banana",89,null,null,null,null,"Backup source");
 
-        Assert.Equal(2,Merge("bananna",(FatSecret,[first,second])).Count);
+        Assert.Equal(2,Merge("bananna",(Backup,[first,second])).Count);
     }
 
     [Theory]

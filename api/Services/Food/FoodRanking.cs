@@ -14,8 +14,8 @@ public static class FoodRanking
     /// diary entries and only orders results of the same relevance tier, so personalization cannot
     /// make a weakly related result outrank a better match.
     /// Open Food Facts' search index has no serving fields, so this must run after hydration.
-    /// Providers also return loose matches that share no word with the query (fatsecret answers
-    /// "sunglo" with restaurant dishes); once any result does match, those are dropped. When none
+    /// Providers also return loose matches that share no word with the query (a fuzzy search can
+    /// answer "sunglo" with unrelated dishes); once any result does match, those are dropped. When none
     /// match, the provider's own fuzzy answer is all there is and the list is kept.
     /// </summary>
     public static IReadOnlyList<FoodResult> PrioritizeResults(IEnumerable<FoodResult> results,string query,IReadOnlyDictionary<string,int>? frequencies=null)

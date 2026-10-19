@@ -38,7 +38,6 @@ public sealed class FoodCatalogTests : IAsyncLifetime
 
     [Theory]
     [InlineData("usda")]
-    [InlineData("fatsecret")]
     [InlineData("off")]
     public async Task Public_search_providers_drop_names_with_non_Latin_letters(string providerId)
     {
@@ -104,7 +103,7 @@ public sealed class FoodCatalogTests : IAsyncLifetime
     [Fact]
     public async Task A_slow_provider_is_dropped_from_the_merge()
     {
-        var slow=new SlowProvider("fatsecret");
+        var slow=new SlowProvider("backup");
         var fast=new FakeFoodProvider("usda"){OnSearch=_=>[Generic("Bananas, raw")]};
 
         var results=await Catalog(fast,slow).Search("banana",default);
@@ -128,7 +127,7 @@ public sealed class FoodCatalogTests : IAsyncLifetime
     public async Task Barcode_walks_the_chain_in_order_and_stops_at_the_first_hit()
     {
         var first=new FakeFoodProvider("off");
-        var second=new FakeFoodProvider("fatsecret"){OnBarcode=code=>Branded("Milo · Nestlé",code)};
+        var second=new FakeFoodProvider("backup"){OnBarcode=code=>Branded("Milo · Nestlé",code)};
         var third=new FakeFoodProvider("usda-branded"){OnBarcode=code=>Branded("Other",code)};
         await using var db=Db();
 
@@ -158,7 +157,7 @@ public sealed class FoodCatalogTests : IAsyncLifetime
     {
         await using var db=Db();
 
-        var error=await Assert.ThrowsAsync<DomainException>(()=>Catalog(new FakeFoodProvider("off"),new FakeFoodProvider("fatsecret")).Barcode("9556001000000",db,default));
+        var error=await Assert.ThrowsAsync<DomainException>(()=>Catalog(new FakeFoodProvider("off"),new FakeFoodProvider("backup")).Barcode("9556001000000",db,default));
 
         Assert.Equal(404,error.Status);
     }
@@ -167,7 +166,7 @@ public sealed class FoodCatalogTests : IAsyncLifetime
     public async Task Barcode_outage_without_a_hit_keeps_retry_available()
     {
         var incomplete=new FakeFoodProvider("off"){OnBarcode=FakeFoodProvider.Fails<FoodResult?>(FoodProviderFailure.Incomplete)};
-        var down=new FakeFoodProvider("fatsecret"){OnBarcode=FakeFoodProvider.Fails<FoodResult?>(FoodProviderFailure.Unreachable)};
+        var down=new FakeFoodProvider("backup"){OnBarcode=FakeFoodProvider.Fails<FoodResult?>(FoodProviderFailure.Unreachable)};
         await using var db=Db();
 
         var error=await Assert.ThrowsAsync<DomainException>(()=>Catalog(incomplete,down).Barcode("9556001000000",db,default));
@@ -181,7 +180,7 @@ public sealed class FoodCatalogTests : IAsyncLifetime
         var incomplete=new FakeFoodProvider("off"){OnBarcode=FakeFoodProvider.Fails<FoodResult?>(FoodProviderFailure.Incomplete)};
         await using var db=Db();
 
-        var error=await Assert.ThrowsAsync<DomainException>(()=>Catalog(incomplete,new FakeFoodProvider("fatsecret")).Barcode("9556001000000",db,default));
+        var error=await Assert.ThrowsAsync<DomainException>(()=>Catalog(incomplete,new FakeFoodProvider("backup")).Barcode("9556001000000",db,default));
 
         Assert.Equal(422,error.Status);
     }
@@ -203,7 +202,7 @@ public sealed class FoodCatalogTests : IAsyncLifetime
     [Fact]
     public async Task A_provider_without_durable_permission_is_never_stored()
     {
-        var provider=new FakeFoodProvider("fatsecret"){OnBarcode=code=>Branded("Milo · Nestlé",code)};
+        var provider=new FakeFoodProvider("backup"){OnBarcode=code=>Branded("Milo · Nestlé",code)};
         await using var db=Db();
 
         await Catalog(provider).Barcode("9556001000000",db,default);

@@ -49,6 +49,19 @@ public sealed class DeploymentContractTests
         }
     }
 
+    /// No provider needs a fixed source IP since fatsecret was retired, so outbound traffic uses
+    /// Cloud Run's default egress. `gcloud run deploy` keeps an omitted network setting, so the
+    /// route must be cleared explicitly or the revision would keep sending through a deleted NAT.
+    [Fact]
+    public void Outbound_traffic_uses_default_egress_without_a_fixed_ip()
+    {
+        var build = File.ReadAllText(Path.Combine(RepositoryRoot(), "deploy", "cloudbuild.yaml"));
+        Assert.Contains("--clear-network", build);
+        Assert.DoesNotContain("--vpc-egress", build);
+        Assert.DoesNotContain("--network=", build);
+        Assert.DoesNotContain("FatSecret", build, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// Reminders and Google Health uploads must not depend on a job that polls, or the API and the
     /// database could never sleep between visits.
     [Fact]

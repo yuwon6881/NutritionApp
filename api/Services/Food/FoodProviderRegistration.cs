@@ -30,13 +30,6 @@ public static class FoodProviderRegistration
             client.Timeout=TimeSpan.FromSeconds(20);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("NutritionCoach/1.0 (two-user personal nutrition tracker)");
         });
-        if(FatSecretOptions.FromConfiguration(config) is { } fatSecret)
-        {
-            services.AddSingleton(fatSecret);
-            Add<FatSecretProvider>(services,client=>client.Timeout=TimeSpan.FromSeconds(10));
-        }
-        else skipped.Add("fatsecret: FoodProviders:FatSecret:ClientId and ClientSecret are not configured.");
-
         if(UsdaBrandedOptions.FromConfiguration(config,development) is { } usda)
         {
             services.AddSingleton(usda);

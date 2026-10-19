@@ -25,8 +25,7 @@ public sealed class FoodProviderRegistrationTests
 
         Assert.Equal(["usda","off"],catalog.SearchProviders.Select(provider=>provider.Id));
         Assert.Equal(["off"],catalog.BarcodeProviders.Select(provider=>provider.Id));
-        Assert.Contains(skipped,reason=>reason.StartsWith("fatsecret:",StringComparison.Ordinal));
-        Assert.Contains(skipped,reason=>reason.StartsWith("usda-branded:",StringComparison.Ordinal));
+        Assert.Equal(["usda-branded: FoodProviders:Usda:ApiKey is not configured."],skipped);
     }
 
     [Fact]
@@ -34,18 +33,33 @@ public sealed class FoodProviderRegistrationTests
     {
         var (catalog,skipped)=Build(new()
         {
-            ["FoodProviders:FatSecret:ClientId"]=" id ",
-            ["FoodProviders:FatSecret:ClientSecret"]="secret",
-            ["FoodProviders:FatSecret:Barcode"]="true",
             ["FoodProviders:Usda:ApiKey"]="key",
             ["FoodProviders:Search:0"]="off",
-            ["FoodProviders:Search:1"]="fatsecret",
-            ["FoodProviders:Search:2"]="usda",
+            ["FoodProviders:Search:1"]="usda",
         });
 
         Assert.Empty(skipped);
-        Assert.Equal(["off","fatsecret","usda"],catalog.SearchProviders.Select(provider=>provider.Id));
-        Assert.Equal(["off","fatsecret","usda-branded"],catalog.BarcodeProviders.Select(provider=>provider.Id));
+        Assert.Equal(["off","usda"],catalog.SearchProviders.Select(provider=>provider.Id));
+        Assert.Equal(["off","usda-branded"],catalog.BarcodeProviders.Select(provider=>provider.Id));
+    }
+
+    /// fatsecret is retired: its credentials and order ids may linger in an old configuration,
+    /// but they must not register a provider or fail startup.
+    [Fact]
+    public void Retired_fatsecret_configuration_is_ignored()
+    {
+        var (catalog,_)=Build(new()
+        {
+            ["FoodProviders:FatSecret:ClientId"]="id",
+            ["FoodProviders:FatSecret:ClientSecret"]="secret",
+            ["FoodProviders:Search:0"]="fatsecret",
+            ["FoodProviders:Search:1"]="usda",
+            ["FoodProviders:Barcode:0"]="fatsecret",
+            ["FoodProviders:Barcode:1"]="off",
+        });
+
+        Assert.Equal(["usda"],catalog.SearchProviders.Select(provider=>provider.Id));
+        Assert.Equal(["off"],catalog.BarcodeProviders.Select(provider=>provider.Id));
     }
 
     [Fact]
