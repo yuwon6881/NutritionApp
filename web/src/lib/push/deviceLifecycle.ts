@@ -31,7 +31,12 @@ export function reconcileNotificationDevice(userId:string,deviceId:string):Promi
 
 async function reconcileDevice(userId:string,deviceId:string):Promise<void>{
   const status=await fetchNotificationStatus(deviceId,userId);
-  if(!status.configured||!status.thisDeviceSubscribed)return;
+  if(!status.configured)return;
+  if(!status.thisDeviceSubscribed){
+    // Android only, so the browser bundle and the first load never carry it.
+    if(isNativeAndroid())await (await import('./androidAutoSubscribe')).subscribeAllowedAndroidDevice(userId,deviceId);
+    return;
+  }
 
   const platform:NotificationPlatform=isNativeAndroid()?'android':'web';
   const permission=platform==='android'

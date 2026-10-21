@@ -21,7 +21,8 @@ const KIB = 1024;
 // Tap-to-edit food cards, midnight date navigation, goal parity, and portion wording add a small offline allowance.
 // Segmented time input with uplifted hour and minute highlighting adds a small offline allowance.
 // Google Health upload-status details and AI lead-in formatting add a small offline allowance.
-const budgets = { firstLoad: 479 * KIB, precache: 1313 * KIB };
+// The Android device self-subscription lookup on signed-in startup (its logic loads only in the app) adds a small first-load allowance.
+const budgets = { firstLoad: 480 * KIB, precache: 1313 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

@@ -10,6 +10,7 @@ import {deletePushDeviceCredential,readPushDeviceCredential,readPushRevocations,
 import {retryPendingPushRevocations} from '../lib/push/revocations';
 import {waitForAppServiceWorker} from '../lib/registerAppServiceWorker';
 import {isFirebasePushConfigured} from '../lib/push/firebaseConfig';
+import {setDevicePushOptOut} from '../lib/push/deviceOptOut';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
 import {SelectField,TimePicker} from './ui/Field';
@@ -91,10 +92,12 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
     window.addEventListener('focus',refreshPermission);
     window.addEventListener('online',refreshPermission);
     window.addEventListener('nutrition-push-revocation-drained',refreshPermission);
+    window.addEventListener('nutrition-push-enabled',refreshPermission);
     return()=>{
       window.removeEventListener('focus',refreshPermission);
       window.removeEventListener('online',refreshPermission);
       window.removeEventListener('nutrition-push-revocation-drained',refreshPermission);
+      window.removeEventListener('nutrition-push-enabled',refreshPermission);
     };
   },[deviceId,accountId]);
 
@@ -122,6 +125,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
     setError('');setMessage('');setBusy(true);
     try{
       const subscribe=async()=>{
+        setDevicePushOptOut(store.state!.id,deviceId,false);
         const native=isNativeAndroid();
         let granted=false;
         let permissionValue='';
@@ -165,6 +169,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
     failedAction.current='disable';
     setError('');setMessage('');setBusy(true);
     try{
+      setDevicePushOptOut(store.state!.id,deviceId,true);
       const credential=await readPushDeviceCredential(store.state!.id,deviceId);
       if(!credential)throw new Error('The saved notification token is unavailable. Enable notifications again on this device before turning them off.');
       await savePushRevocation(store.state!.id,deviceId,credential.fcmToken);
