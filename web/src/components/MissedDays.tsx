@@ -66,14 +66,15 @@ export function MissedDays({store}:{store:NutritionStore}){
   return <Modal open={!!date} onClose={()=>{}} title={`No food logged for ${date?longDate(date):''}`} description={dates.length>1?`${dates.length} days to review.`:'Fasting or not logging?'} width="sm" hideCloseButton preventDismiss>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="missed-days-actions">
+      <Checkbox id="missed-days-remember" role="switch" className="missed-days-remember" checked={remember} onChange={setRemember} disabled={busyPending}>
+        <span className="missed-days-remember-copy">
+          <span className="missed-days-remember-title">Remember my choice</span>
+          <small>{dates.length>1?'Apply to these and future unlogged days.':'Apply to future unlogged days.'}</small>
+        </span>
+      </Checkbox>
       <div className="missed-days-buttons">
         <Button disabled={busyPending} onClick={()=>void save('fasting')}>Fasting</Button>
         <Button variant="primary" disabled={busyPending} onClick={()=>void save('not_logged')}>Not logging</Button>
-      </div>
-      <div className="missed-days-toggle-bottom">
-        <Checkbox id="missed-days-remember" role="switch" checked={remember} onChange={setRemember} disabled={busyPending}>
-          Remember my choice
-        </Checkbox>
       </div>
     </div>
   </Modal>;
