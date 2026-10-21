@@ -222,42 +222,6 @@
   color: var(--energy);
 }
 
-@media (max-width: 639px) {
-  .energy-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-    margin-bottom: 20px !important;
-  }
-  .energy-stats > div {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    text-align: left !important;
-    padding: 12px 10px !important;
-    border-radius: 14px !important;
-    gap: 2px !important;
-  }
-  .energy-stats dt {
-    font-size: 0.65rem !important;
-    line-height: 1.2 !important;
-    min-height: 2.2em;
-    text-align: left !important;
-  }
-  .energy-stats dd {
-    font-size: 1.15rem !important;
-    text-align: left !important;
-    justify-content: flex-start !important;
-  }
-  .energy-stats dd .unit {
-    font-size: 0.72rem !important;
-  }
-  .energy-stats small {
-    font-size: 0.68rem !important;
-    line-height: 1.2;
-    text-align: left !important;
-  }
-}
-
 /* Charts: subtle gridlines, muted axis text, smooth trend line with gradient area */
 .chart-grid {
   stroke: var(--border) !important;

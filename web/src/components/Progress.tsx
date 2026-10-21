@@ -186,7 +186,7 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
         title="History unavailable offline"
         message="Showing weigh-ins saved on this device."
       />}
-      {!summary&&!error&&<div className="stats-grid skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">Trend weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Average scale weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Weigh-ins</p><h2>—</h2></section></div>}
+      {!summary&&!error&&<div className="stats-grid progress-stats skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">Trend weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Average scale weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Weigh-ins</p><h2>—</h2></section></div>}
       {summary&&<WeightSummary summary={summary} units={units} pending={pending||Boolean(summary.awaitingSynchronization)} onEdit={editWeight} onDelete={(weight,trigger)=>setWeightDelete({weight,trigger})} pendingDeletes={pendingWeightDeletes}/>}
     </div>}
     {tab==='energy'&&<div className="progress-tab-content" data-pending={energyPending||undefined}>

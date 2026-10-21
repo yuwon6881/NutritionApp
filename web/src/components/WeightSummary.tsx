@@ -24,7 +24,7 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
   const shown=useMemo(()=>showAll?editable:editable.slice(0,INITIAL_ROWS),[editable,showAll]);
   return <>
     {pending&&<p className="notice" role="status">Recent edits will update after sync.</p>}
-    <div className="stats-grid">
+    <div className="stats-grid progress-stats">
       <section className="panel"><p className="eyebrow">Trend weight</p><h2>{isTrendPending?'—':displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{unit}</span></h2>{isTrendPending&&<p>Pending sync</p>}</section>
       <section className="panel"><p className="eyebrow">Average scale weight</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{stats.count} {stats.count===1?'weigh-in':'weigh-ins'}</p></section>
       <section className="panel"><p className="eyebrow">Change in trend</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending sync':dateSpan(summary.start,summary.end)}</p></section>

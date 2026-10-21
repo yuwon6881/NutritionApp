@@ -83,3 +83,28 @@ test('the Energy tab loads into a chart-shaped placeholder, not a line of text',
   await expect(placeholder).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
 });
+
+for(const width of [320,390])test(`Progress figure rows keep every value inside its card at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await page.goto('/');
+  await page.getByRole('button',{name:'Progress',exact:true}).click();
+  const inside=async(selector:string)=>{
+    const cells=page.locator(selector);
+    await expect(cells.first()).toBeVisible();
+    for(const cell of await cells.all()){
+      const overflow=await cell.evaluate(element=>{
+        const row=element.parentElement!.getBoundingClientRect();
+        const box=element.getBoundingClientRect();
+        return {left:box.left-row.left,right:row.right-box.right,scroll:element.scrollWidth-element.clientWidth};
+      });
+      expect(overflow.left).toBeGreaterThanOrEqual(-.5);
+      expect(overflow.right).toBeGreaterThanOrEqual(-.5);
+      expect(overflow.scroll).toBeLessThanOrEqual(0);
+    }
+  };
+  await inside('.stats-grid.progress-stats > .panel > h2');
+  const toolbar=await page.locator('.history-toolbar').evaluate(element=>[...element.children].map(child=>child.getBoundingClientRect().width));
+  expect(Math.abs(toolbar[0]-toolbar[1])).toBeLessThan(2);
+  await page.getByRole('button',{name:'Energy',exact:true}).click();
+  await inside('.energy-stats > div > dd');
+});

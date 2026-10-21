@@ -1,0 +1,116 @@
+/* Progress figure tiles on phones (<640px). Loaded after progress.css. */
+/* Phones: figures sit in a list, label and note leading and the value trailing, so a long
+   value such as "-1,388 kcal" has the whole row to itself instead of a third of it. */
+@media (max-width: 639px) {
+  .energy-stats {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    margin-bottom: 16px !important;
+    border-block: 1px solid var(--border) !important;
+  }
+  .energy-stats > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "label value" "note value";
+    align-items: center !important;
+    align-content: center;
+    column-gap: 12px;
+    row-gap: 2px !important;
+    padding: 14px 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+  .energy-stats > div + div {
+    box-shadow: inset 0 1px 0 var(--border);
+  }
+  .energy-stats dt {
+    grid-area: label;
+    font-size: 0.72rem !important;
+    min-height: 0 !important;
+  }
+  .energy-stats dd {
+    grid-area: value;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    font-size: 1.3rem !important;
+    text-align: right !important;
+  }
+  .energy-stats dd .unit {
+    font-size: 0.8rem !important;
+  }
+  .energy-stats small {
+    grid-area: note;
+    font-size: 0.78rem !important;
+    line-height: 1.3;
+  }
+
+  .history-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .history-toolbar > .history-filter {
+    flex: none;
+    min-width: 0;
+  }
+  .history-toolbar > .button {
+    width: 100%;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .stats-grid.progress-stats {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  :root[data-theme=dark] .stats-grid.progress-stats {
+    box-shadow: none;
+    outline: 1px solid var(--border);
+    outline-offset: -1px;
+  }
+  .stats-grid.progress-stats > .panel {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "label value" "note value";
+    align-items: center !important;
+    align-content: center;
+    column-gap: 12px;
+    row-gap: 2px !important;
+    padding: 14px 16px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .stats-grid.progress-stats > .panel + .panel {
+    box-shadow: inset 0 1px 0 var(--border) !important;
+  }
+  .stats-grid.progress-stats .eyebrow {
+    grid-area: label;
+    min-height: 0 !important;
+    margin: 0 !important;
+    font-size: 0.78rem !important;
+  }
+  .stats-grid.progress-stats h2 {
+    grid-area: value;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    font-size: 1.45rem !important;
+    text-align: right !important;
+  }
+  .stats-grid.progress-stats h2 .unit {
+    font-size: 0.8rem;
+  }
+  .stats-grid.progress-stats p:not(.eyebrow) {
+    grid-area: note;
+    margin: 0;
+    font-size: 0.75rem;
+  }
+}
