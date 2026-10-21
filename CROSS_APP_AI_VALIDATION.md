@@ -15,7 +15,7 @@ Local fake-provider and contract tests exercise evidence delivery and bounded wo
 | Nutrition frontend (`npm.cmd test`) | 427 passed across 89 files |
 | Workout frontend (`npm.cmd test`) | 574 passed across 90 files |
 | Both frontend production builds (`npm.cmd run build`) | Passed, including TypeScript and build budgets |
-| Workout full browser suite (`npm.cmd run test:visual`) | 100 passed, 2 viewport-specific skips; includes Ask AI at 320ï¿½1920px, both themes and action review |
+| Workout full browser suite (`npm.cmd run test:visual`) | 100 passed, 2 viewport-specific skips; includes Ask AI at 320–1920px, both themes and action review |
 | Workout broader responsive suite (`npm.cmd run test:responsive`) | Stopped after four failures on existing 12px `workout-strip-name` labels; the suite requires 14px. Remaining cases unverified. Concurrent UI edits were preserved. |
 | Workout additional performance baseline (`npm.cmd run check:performance`) | Failed: initial JS 104,100 gzip bytes versus 101,295 baseline (+2,805); CSS reduction 35.9% passes. This measurement includes concurrent UI edits; attribution was not benchmarked in an isolated checkout. |
 | Standards, docs synchronization, shared AI contracts, root parity and whitespace | Passed |
