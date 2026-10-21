@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accent that tints the status-bar notification icon: the light theme's violet primary. -->
+    <color name="nutrition_notification_color">#6A4DE0</color>
+</resources>

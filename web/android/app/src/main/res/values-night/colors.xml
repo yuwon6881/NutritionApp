@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="nutrition_splash_window">#000000</color>
+    <!-- Midnight Lime primary, so the icon stays legible on the dark notification shade. -->
+    <color name="nutrition_notification_color">#B5F04A</color>
 </resources>
