@@ -23,7 +23,7 @@ async function openFoodLog(page:Page){
   await expect(page.getByRole('heading',{name:'Food Log',exact:true,level:1})).toBeVisible();
 }
 
-test('a recent food goes straight to the batch review with its last portion',async({page})=>{
+test('a recent food opens the portion review at its last portion before joining the batch',async({page})=>{
   await openFoodLog(page);
   const before=await foodCards(page,'Porridge').count();
   await page.getByRole('button',{name:'Log food',exact:true}).click();
@@ -32,6 +32,12 @@ test('a recent food goes straight to the batch review with its last portion',asy
   await expect(dialog.getByRole('region',{name:/picks$|^Recent and frequent$/}).first()).toBeVisible();
 
   await dialog.getByRole('button',{name:/^Porridge,/}).click();
+  // Like a search result, it is reviewed first; nothing is queued or logged yet.
+  const review=page.getByRole('dialog',{name:'Review food',exact:true});
+  await expect(review).toBeVisible();
+  await expect(review.getByLabel('Food name')).toHaveValue('Porridge');
+  await expect(page.getByRole('dialog',{name:/^Batch \(/})).toHaveCount(0);
+  await review.getByRole('button',{name:'Add to batch',exact:true}).click();
   const batch=page.getByRole('dialog',{name:'Batch (1 food)',exact:true});
   await expect(batch).toBeVisible();
   const logButton=batch.getByRole('button',{name:'Log all 1 food',exact:true});
@@ -47,6 +53,7 @@ test('the batch review previews the day total with the batch drawn after logged 
   await page.getByRole('button',{name:'Log food',exact:true}).click();
   const recents=page.getByRole('dialog',{name:'Log food',exact:true});
   await recents.getByRole('button',{name:/^Porridge,/}).click();
+  await page.getByRole('dialog',{name:'Review food',exact:true}).getByRole('button',{name:'Add to batch',exact:true}).click();
   const preview=page.getByRole('dialog',{name:'Batch (1 food)',exact:true}).getByRole('region',{name:'Day total after logging'});
   await expect(preview.getByText('TODAY AFTER LOGGING')).toBeVisible();
   // The batch total heads the review; the preview reads only as the day and never repeats it.

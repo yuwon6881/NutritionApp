@@ -316,6 +316,8 @@ public sealed class GoogleHealthNutritionSyncService(
 
     private async Task<string> ProcessOneAsync(NutritionWorkLease lease, CancellationToken ct)
     {
+        // Until a request leaves, a failure cannot have created anything in Google Health.
+        var requestSent = false;
         try
         {
             db.ChangeTracker.Clear();
@@ -344,6 +346,7 @@ public sealed class GoogleHealthNutritionSyncService(
             // A transient Google or network failure is retried at once (bounded); see GoogleHealthImmediateRetry.
             var result = await GoogleHealthImmediateRetry.RunAsync(async () =>
             {
+                requestSent = true;
                 if (!string.IsNullOrWhiteSpace(lease.OperationName))
                     return await GoogleHealthNutritionProvider.PollAsync(http, accessToken, lease.OperationName, ct);
                 else if (lease.Deleted)
@@ -378,7 +381,7 @@ public sealed class GoogleHealthNutritionSyncService(
                 }
                 if (result.UnknownCreate)
                 {
-                    await FinalizeAsync(lease, (work, _) => MarkUnknown(work), ct);
+                    await FinalizeAsync(lease, (work, _) => MarkUnknown(work, result.ErrorMessage), ct);
                     return "unknown";
                 }
                 if (result.Transient)
@@ -391,7 +394,8 @@ public sealed class GoogleHealthNutritionSyncService(
                 return "failed";
             }
 
-            await FinalizeAsync(lease, (work, latest) =>
+            // Google has answered; losing this write would turn a finished upload into an "unknown" one.
+            await FinalizeWithRetryAsync(lease, (work, latest) =>
             {
                 if (!string.IsNullOrWhiteSpace(result.ResourceName)) work.GoogleResourceName = result.ResourceName;
                 work.GoogleOperationName = "";
@@ -421,7 +425,7 @@ public sealed class GoogleHealthNutritionSyncService(
         {
             if (ex.UnknownCreate)
             {
-                await FinalizeAsync(lease, (work, _) => MarkUnknown(work), ct);
+                await FinalizeAsync(lease, (work, _) => MarkUnknown(work, ex.Message), ct);
                 return "unknown";
             }
             if (ex.AuthenticationFailure)
@@ -441,6 +445,32 @@ public sealed class GoogleHealthNutritionSyncService(
         {
             await FinalizeAsync(lease, (work, _) => Retry(work, null), ct);
             return "retry";
+        }
+        catch (Exception ex) when (!requestSent && !ct.IsCancellationRequested)
+        {
+            // Token, database or mapping trouble before anything was sent: release the lease so the
+            // record is retried instead of expiring into "unknown" and asking the person to check Google.
+            logger?.LogWarning("Google Health nutrition upload failed before sending: {FailureType}.", ex.GetType().Name);
+            await FinalizeAsync(lease, (work, _) => Retry(work, null, "The upload could not start. It will retry automatically."), ct);
+            return "retry";
+        }
+    }
+
+    private async Task FinalizeWithRetryAsync(NutritionWorkLease lease, Action<GoogleHealthNutritionSyncWork, GoogleHealthNutritionSyncWork?> update, CancellationToken ct)
+    {
+        var wait = retryDelay ?? Task.Delay;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await FinalizeAsync(lease, update, ct);
+                return;
+            }
+            catch (Exception ex) when (attempt < 3 && !ct.IsCancellationRequested)
+            {
+                logger?.LogWarning("Saving a confirmed Google Health nutrition upload failed (attempt {Attempt}): {FailureType}.", attempt, ex.GetType().Name);
+                await wait(TimeSpan.FromMilliseconds(250 * attempt), ct);
+            }
         }
     }
 
@@ -512,7 +542,7 @@ public sealed class GoogleHealthNutritionSyncService(
         work.UpdatedAt = DateTime.UtcNow;
     }
 
-    private static void Retry(GoogleHealthNutritionSyncWork work, TimeSpan? retryAfter)
+    private static void Retry(GoogleHealthNutritionSyncWork work, TimeSpan? retryAfter, string message = "Google Health temporarily rejected the upload. It will retry automatically.")
     {
         work.RetryCount = Math.Min(work.RetryCount + 1, 8);
         var delay = retryAfter ?? TimeSpan.FromSeconds(Math.Min(3600, Math.Pow(2, work.RetryCount) * 15));
@@ -521,7 +551,7 @@ public sealed class GoogleHealthNutritionSyncService(
         work.LeaseUntil = null;
         work.LeaseId = "";
         work.LastErrorCategory = "provider_unavailable";
-        work.LastErrorMessage = "Google Health temporarily rejected the upload. It will retry automatically.";
+        work.LastErrorMessage = message;
         work.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -536,14 +566,16 @@ public sealed class GoogleHealthNutritionSyncService(
         work.UpdatedAt = DateTime.UtcNow;
     }
 
-    private static void MarkUnknown(GoogleHealthNutritionSyncWork work)
+    private const string InterruptedCreateMessage = "The upload was interrupted before Google Health confirmed it. Check Google Health before retrying.";
+
+    private static void MarkUnknown(GoogleHealthNutritionSyncWork work, string? reason = null)
     {
         work.ProcessingState = "unknown";
         work.NextAttemptAt = DateTime.MaxValue;
         work.LeaseUntil = null;
         work.LeaseId = "";
         work.LastErrorCategory = "upload_status_unknown";
-        work.LastErrorMessage = "Create response was lost. Check Google Health before retrying.";
+        work.LastErrorMessage = string.IsNullOrWhiteSpace(reason) ? InterruptedCreateMessage : reason;
         work.UpdatedAt = DateTime.UtcNow;
     }
 

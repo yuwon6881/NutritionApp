@@ -196,7 +196,7 @@ internal static class GoogleHealthNutritionProvider
         }
         var resourceName = FindResourceName(root);
         if (create && string.IsNullOrWhiteSpace(resourceName))
-            return new(true, false, operationName, UnknownCreate: true, ErrorCategory: "provider_response_invalid", ErrorMessage: "Google Health did not return a resource mapping.");
+            return new(true, false, operationName, UnknownCreate: true, ErrorCategory: "provider_response_invalid", ErrorMessage: "Google Health accepted the upload but did not return the new entry's name.");
         return new(true, true, operationName, resourceName);
     }
 

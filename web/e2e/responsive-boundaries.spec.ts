@@ -169,6 +169,13 @@ test('narrow food selection, recent food review, manual editor and batch review'
   await expect(recentFood).toBeVisible();
   await recentFood.click();
 
+  const recentReview=page.getByRole('dialog',{name:'Review food',exact:true});
+  await expect(recentReview).toBeVisible();
+  await assertContained(page);
+  await assertDialogScrollContained(page);
+  await captureBoundary(page,'320-recent-food-review-dialog');
+  await recentReview.getByRole('button',{name:'Add to batch',exact:true}).click();
+
   const batchDialog=page.getByRole('dialog',{name:/^Batch \(/});
   await expect(batchDialog).toBeVisible();
   await assertContained(page);

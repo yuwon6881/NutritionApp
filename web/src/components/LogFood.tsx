@@ -7,7 +7,7 @@ import {prepareImage} from '../lib/image';
 import {api,ApiError} from '../lib/api';
 import {requestFoodScanEstimate,type FoodScanDraft} from '../lib/foodScans';
 import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,labelManualEntryDraft} from '../lib/logFood';
-import {lineFromPer100,lineKey} from '../lib/foodBasket';
+import {lineFromPer100,lineKey,type BasketLine} from '../lib/foodBasket';
 import {serializePortions,parsePortions} from '../lib/portions';
 import {Button} from './ui/Button';
 import {FoodEditor,type FoodDraft} from './FoodEditor';
@@ -178,8 +178,6 @@ export function LogFood({
   // An AI scan's review can land long after the photo/description was captured; the
   // logged time must follow that original capture moment, not whenever review finishes.
   const scanTime=(scanned:FoodScanDraft)=>initialTime??scanMealTime(scanned,store.state!.profile?.timeZone);
-  // A recent food goes straight to the batch review at its last portion; the review step stays.
-  const quickLogRecent=(entry:Entry)=>void run(async()=>{await basket.addLineDurably(lineFromEntry(entry));hapticTick('selection');setBatchTime(newTime());go('batch');});
   const leaveEditor=()=>{if(saveFood){setSaveFood(false);setPendingBarcode(undefined);setLabelNote('');}setDraft(undefined);go('selection',selectionScroll.current!=null);};
   // Back steps out of an inner step before it closes the sheet. A step with
   // unsaved input falls through to the Modal's own discard confirmation.
@@ -328,9 +326,17 @@ export function LogFood({
       }
     });
   };
-  const choose=(food:SearchResult)=>{
+  const openReview=(line:BasketLine)=>{
     if(step==='selection')selectionScroll.current=selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTop??0;
-    setBarcodeRecovery(undefined);setSaveFood(false);setDraft({...lineFromPer100(food),time:newTime()});go('editor');};
+    setBarcodeRecovery(undefined);setSaveFood(false);setDraft({...line,time:newTime()});go('editor');
+  };
+  const choose=(food:SearchResult)=>openReview(lineFromPer100(food));
+  // A recent food opens the same portion review a search result does, at its last portion; it joins the batch only from there.
+  const reviewRecent=(entry:Entry)=>{
+    selectionFocus.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    hapticTick('selection');
+    openReview(lineFromEntry(entry));
+  };
   const chooseRecipe=(food:SearchResult)=>{
     setBarcodeRecovery(undefined);
     recipe.pickIngredient(food);
@@ -420,7 +426,7 @@ export function LogFood({
       savedFoods={allSavedFoods}
       recentEntries={recentEntries}
       energyUnit={energyUnit}
-      onPickRecent={quickLogRecent}
+      onPickRecent={reviewRecent}
       onChoose={chooseSaved}
       onToggleFavourite={food=>toggleFavourite(foodToSearchResult(food))}
       onEdit={food=>{setSaveFood(food);setDraft({...food,quantity:100,unit:'g'});go('editor');}}
@@ -437,7 +443,7 @@ export function LogFood({
       isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
-    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={quickLogRecent}/>}
+    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={reviewRecent}/>}
     {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
       date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}

@@ -224,6 +224,9 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
     reminder.localTime!==savedReminder.localTime||reminder.timeZoneId!==savedReminder.timeZoneId
   );
 
+  // Once the system permission is granted, the only step left is subscribing this device.
+  const permissionGranted=permission==='granted';
+  const enableLabel=permissionGranted?'Turn on for this device':'Enable notifications on this device';
   const permissionLabel=permission==='granted'?'Allowed':permission==='denied'?'Blocked':permission==='default'||permission==='prompt'?'Not requested':'Unavailable';
   const fieldsDisabled=busy||!canManageSchedule;
 
@@ -237,12 +240,13 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
         description={<>
           <span className="notification-permission">{isNativeAndroid()?'App permission':'Browser permission'}: <strong>{permissionLabel}</strong></span>
           {status.thisDeviceSubscribed&&<span className="setting-row-status is-positive"><Bell size={14} aria-hidden="true"/>This device can receive reminders.</span>}
+          {!status.thisDeviceSubscribed&&permissionGranted&&<span className="setting-row-status">Not turned on for this device yet.</span>}
         </>}>
         {status.thisDeviceSubscribed
           ?<Button variant="secondary" disabled={busy} onClick={()=>void disableThisDevice()}><BellOff size={16} aria-hidden="true"/>Turn off on this device</Button>
-          :<Button variant="secondary" disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16} aria-hidden="true"/>{busy?'Updating…':'Enable notifications on this device'}</Button>}
+          :<Button variant="secondary" disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16} aria-hidden="true"/>{busy?'Updating…':enableLabel}</Button>}
       </SettingRow>}
-      {pushBuildConfigured&&savedReminder?.enabled&&!status.thisDeviceSubscribed&&<CardFeedback tone="warning" title="Reminders are not enabled here" message="Your account reminder is on. Enable this device to receive it here." action={{label:"Enable on this device",onClick:()=>void enableThisDevice(),disabled:busy||!!supportError}}/>}
+      {pushBuildConfigured&&savedReminder?.enabled&&!status.thisDeviceSubscribed&&<CardFeedback tone="warning" title="Reminders are not enabled here" message="Your account reminder is on. Turn this device on to receive it here." action={{label:permissionGranted?"Turn on for this device":"Enable on this device",onClick:()=>void enableThisDevice(),disabled:busy||!!supportError}}/>}
       {!scheduleLoaded&&<SkeletonRegion label="Loading reminder settings…"><SkeletonSettingRows count={2}/></SkeletonRegion>}
       {scheduleLoaded&&<div className="setting-row-group">
         <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Sent to every device with notifications on, including this one.">
