@@ -387,12 +387,11 @@ test('weigh-in import is offered at connect and turning it off keeps imported we
   const section=page.locator('.google-health-weight-import');
   const importSwitch=section.getByRole('switch',{name:'Import weigh-ins from Google Health'});
   await expect(importSwitch).toBeChecked();
-  await expect(section).toContainText('2 weigh-ins added.');
-  await expect(section).toContainText('weigh-ins already imported stay');
+  await expect(section).toContainText('2 added');
 
   // The switch reflects the saved preference, so it flips only after the server answers.
   await importSwitch.click();
   await expect.poll(()=>preferences).toEqual([{enabled:false,revision:3}]);
   await expect(importSwitch).not.toBeChecked();
-  await expect(section).toContainText('Your own entries always win.');
+  await expect(section).not.toContainText('2 added');
 });

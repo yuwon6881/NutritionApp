@@ -16,9 +16,13 @@ import './surfaces.css';
 import './accessibility.css';
 import {measurePerformance} from './lib/performance';
 import {ErrorBoundary} from './components/ui/ErrorBoundary';
+import {captureConnectIntent} from './lib/googleHealthConnectIntent';
+captureConnectIntent();
 const startupFinished=measurePerformance('startup.usable');
 void registerAppServiceWorker().catch(()=>{});
 void initializeNativeApp().catch(()=>{});
+// Native-only, so the browser bundle never loads it.
+if(isNativeApp())void import('./lib/push/firstLaunchPermission').then(module=>module.promptNotificationsOnFirstLaunch()).catch(()=>{});
 if(!isNativeApp())watchVirtualKeyboard();
 applyTheme(initialTheme());
 createRoot(document.getElementById('root')!).render(<ErrorBoundary><MobilePwaProvider><App onUsable={startupFinished}/></MobilePwaProvider></ErrorBoundary>);

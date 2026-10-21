@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {Button} from './ui/Button';
 import {Modal} from './ui/Modal';
 import {
@@ -6,8 +6,10 @@ import {
   recoverGoogleHealthBundledSync,
   setGoogleHealthBundledSync,
   useGoogleHealth,
+  type ConnectOptions,
 } from '../lib/googleHealth';
-import {describeUploadFailure} from '../lib/googleHealthFailure';
+import {describeConnectError, describeUploadFailure} from '../lib/googleHealthFailure';
+import {takeConnectIntent} from '../lib/googleHealthConnectIntent';
 import {GoogleHealthWeightImportSetting} from './GoogleHealthWeightImportSetting';
 import {GoogleHealthDisclosure} from './GoogleHealthDisclosure';
 import {GoogleHealthSyncOptions} from './GoogleHealthSyncOptions';
@@ -16,6 +18,15 @@ import {CardFeedback} from './ui/CardFeedback';
 import {Checkbox} from './ui/Checkbox';
 import {googleHealthRequiresBrowser,openGoogleHealthSettingsInBrowser} from '../lib/googleHealthBrowser';
 
+interface BannerNotice {type: 'success' | 'error'; title: string; message: string}
+
+function clearConsentQuery() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('google_health');
+  url.searchParams.delete('code');
+  window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+}
+
 export function GoogleHealthSettings() {
   const {state, loading, error: syncError, refresh, connect, disconnect} = useGoogleHealth();
   const [disclosureOpen, setDisclosureOpen] = useState(false);
@@ -23,11 +34,12 @@ export function GoogleHealthSettings() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [actionError, setActionError] = useState('');
-  const [bannerNotice, setBannerNotice] = useState<{type: 'success' | 'error'; message: string} | null>(null);
+  const [bannerNotice, setBannerNotice] = useState<BannerNotice | null>(null);
 
   const [requestDataSync, setRequestDataSync] = useState(true);
   const [requestWeightImport, setRequestWeightImport] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const intentStarted = useRef(false);
 
   const allPermissionsGranted = state.weightSync.permissionGranted &&
     state.nutritionSync.permissionGranted &&
@@ -47,6 +59,10 @@ export function GoogleHealthSettings() {
     state.bodyFatSync.lastSuccessfulSyncAt,
   ].filter((t): t is string => Boolean(t));
   const latestSyncAt = syncTimestamps.length > 0 ? [...syncTimestamps].sort().at(-1) : null;
+  const syncFacts = [
+    totalPending > 0 ? `${totalPending} pending` : '',
+    latestSyncAt ? `Last sync: ${formatTimestamp(latestSyncAt)}` : '',
+  ].filter(Boolean);
 
   const hasUnknown = state.weightSync.state === 'unknown' ||
     state.nutritionSync.state === 'unknown' ||
@@ -62,12 +78,13 @@ export function GoogleHealthSettings() {
     {label: 'Body fat', status: state.bodyFatSync},
   ]);
 
-  const optionsSummary = `${bundledSyncEnabled ? 'Uploading weight, nutrition & body fat' : 'Uploads off'} · ${state.weightImport.enabled ? 'Weigh-in import on' : 'Weigh-in import off'}${totalPending > 0 ? ` · ${totalPending} pending` : ''}`;
+  const optionsSummary = `${bundledSyncEnabled ? 'Uploads on' : 'Uploads off'} · ${state.weightImport.enabled ? 'Import on' : 'Import off'}${totalPending > 0 ? ` · ${totalPending} pending` : ''}`;
 
   const statusLabel = loading && state.status === 'disconnected'
     ? 'Checking…'
     : state.status === 'connected' ? 'Connected' : state.status === 'reconnect_required' ? 'Reconnect required' : syncError ? 'Unavailable' : 'Not connected';
   const statusTone = state.status === 'connected' ? 'success' : state.status === 'reconnect_required' ? 'warning' : 'neutral';
+  const browserHandoff = googleHealthRequiresBrowser();
 
   // Import is offered pre-checked to a new connection; a reconnect keeps the current choice so an
   // existing connection never starts importing without the user turning it on.
@@ -77,79 +94,53 @@ export function GoogleHealthSettings() {
     setDisclosureOpen(true);
   };
 
-  // Check URL parameters for OAuth redirect results
+  // The consent callback reports its result once through the query string.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const ghResult = params.get('google_health');
-    const code = params.get('code');
-
-    if (ghResult === 'connected') {
-      setBannerNotice({
-        type: 'success',
-        message: 'Google Health connected successfully.',
-      });
+    const result = params.get('google_health');
+    if (result === 'connected') {
+      setBannerNotice({type: 'success', title: 'Google Health connected', message: 'Steps now show on your Dashboard.'});
       setActionError('');
       void refresh(true);
-      const url = new URL(window.location.href);
-      url.searchParams.delete('google_health');
-      url.searchParams.delete('code');
-      window.history.replaceState(window.history.state, '', url.pathname + (url.search ? url.search : '') + url.hash);
-    } else if (ghResult === 'error') {
-      let msg = 'Google Health connection was not completed.';
-      if (code === 'duplicate_account') {
-        msg = 'This Google account is already linked to another NutritionApp account.';
-      } else if (code === 'identity_change_requires_disconnect') {
-        msg = 'Disconnect the current Google account before connecting a different one.';
-      } else if (code === 'session_mismatch' || code === 'session_expired') {
-        msg = 'Session expired during connection. Please sign in and try again.';
-      } else if (code === 'access_denied') {
-        msg = 'Access was denied in Google permissions.';
-      } else if (code === 'invalid_state') {
-        msg = 'Connection session expired. Please try again.';
-      } else if (code === 'identity_resolution_failed') {
-        msg = 'Google account identity could not be confirmed. Try again.';
-      } else if (code === 'token_exchange_failed') {
-        msg = 'Could not complete authorization exchange with Google.';
-      } else if (code === 'missing_tokens') {
-        msg = 'Required authorization tokens were missing. Please reconnect.';
-      } else if (code === 'encryption_failed') {
-        msg = 'Could not securely store the Google connection. Try again later.';
-      } else if (code === 'missing_parameters') {
-        msg = 'Google returned an incomplete response. Please try again.';
-      } else if (code === 'invalid_scope') {
-        msg = 'Requested Google Health permissions are not enabled for this app.';
-      } else if (code === 'provider_error') {
-        msg = 'Google returned an unexpected authorization error.';
-      }
-      setBannerNotice({type: 'error', message: msg});
-      const url = new URL(window.location.href);
-      url.searchParams.delete('google_health');
-      url.searchParams.delete('code');
-      window.history.replaceState(window.history.state, '', url.pathname + (url.search ? url.search : '') + url.hash);
+      clearConsentQuery();
+    } else if (result === 'error') {
+      setBannerNotice({type: 'error', title: 'Google Health connection failed', message: describeConnectError(params.get('code'))});
+      clearConsentQuery();
     }
   }, [refresh]);
 
-  const handleStartConnect = async () => {
+  const startConnect = async (options: ConnectOptions) => {
     setConnecting(true);
     setActionError('');
     try {
-      if(await openGoogleHealthSettingsInBrowser()){
+      if (await openGoogleHealthSettingsInBrowser(options)) {
         setDisclosureOpen(false);
         setConnecting(false);
         return;
       }
-      const {authUrl} = await connect({
-        syncWeight: requestDataSync,
-        syncNutrition: requestDataSync,
-        syncBodyFat: requestDataSync,
-        importWeight: requestWeightImport,
-      });
+      const {authUrl} = await connect(options);
       window.location.href = authUrl;
     } catch (ex) {
       setActionError((ex as Error).message || 'Failed to start Google Health connection');
       setConnecting(false);
     }
   };
+
+  const handleStartConnect = () => void startConnect({
+    syncWeight: requestDataSync,
+    syncNutrition: requestDataSync,
+    syncBodyFat: requestDataSync,
+    importWeight: requestWeightImport,
+  });
+
+  // The Android app already showed the disclosure and opened this browser page for consent, so
+  // continue to Google without asking again (sign-in may have happened in between).
+  useEffect(() => {
+    if (intentStarted.current || browserHandoff) return;
+    intentStarted.current = true;
+    const intent = takeConnectIntent();
+    if (intent) void startConnect(intent);
+  }, []);
 
   const handleBundledSyncChange = async (enabled: boolean) => {
     if (enabled && !allPermissionsGranted) {
@@ -187,10 +178,7 @@ export function GoogleHealthSettings() {
     try {
       await disconnect();
       setDisconnectOpen(false);
-      setBannerNotice({
-        type: 'success',
-        message: 'Google Health disconnected. Local step data deleted.',
-      });
+      setBannerNotice({type: 'success', title: 'Google Health disconnected', message: 'Local step data deleted.'});
     } catch (ex) {
       setActionError((ex as Error).message || 'Failed to disconnect Google Health');
     } finally {
@@ -204,7 +192,7 @@ export function GoogleHealthSettings() {
         <span className="integration-logo" aria-hidden="true"><Activity size={20} /></span>
         <div className="integration-card-title">
           <h3 id="google-health-title">Google Health</h3>
-          <p>Steps and optional weigh-ins in; weight, nutrition, and body fat out when sync is on.</p>
+          <p>Steps in; weight, food, and body fat out.</p>
         </div>
         <span className={`status-badge ${statusTone}`} role="status">
           {state.status === 'connected' ? <CheckCircle2 size={14} aria-hidden="true" /> : state.status === 'reconnect_required' ? <AlertTriangle size={14} aria-hidden="true" /> : null}
@@ -212,15 +200,16 @@ export function GoogleHealthSettings() {
         </span>
       </header>
 
-      {googleHealthRequiresBrowser()&&<p className="source">Connect in your browser using the same FitnessAccount account, then return here. Google consent cannot run inside this app.</p>}
+      {/* The card's own Connect or Reconnect button is the retry, so the notice carries no action. */}
       {bannerNotice && (
         <CardFeedback
           tone={bannerNotice.type}
-          title={bannerNotice.type === 'success' ? 'Google Health connected' : 'Google Health connection failed'}
+          title={bannerNotice.title}
           message={bannerNotice.message}
-          action={bannerNotice.type === 'error' ? {label: 'Try again', onClick: () => {setBannerNotice(null); openDisclosure();}} : undefined}
         />
       )}
+
+      {connecting && !disclosureOpen && <p className="source integration-progress" role="status">Opening Google…</p>}
 
       {actionError && !disclosureOpen && (
         <CardFeedback
@@ -241,9 +230,7 @@ export function GoogleHealthSettings() {
 
       {state.status === 'disconnected' && !loading && !syncError && (
         <div className="integration-state disconnected">
-          <p className="description">
-            Show your daily steps beside your diary, import smart-scale weigh-ins, and, if you choose, send new weight, nutrition, and body fat entries to Google Health.
-          </p>
+          {browserHandoff && <p className="description">Finishes in your browser with the same Fitness Account.</p>}
           <div className="actions">
             <Button variant="primary" onClick={() => openDisclosure()}>
               Connect Google Health
@@ -255,14 +242,14 @@ export function GoogleHealthSettings() {
       {state.status === 'reconnect_required' && (
         <div className="integration-state reconnect-required">
           <p className="description">
-            Google Health connection expired. Reconnect to resume syncing.
+            Connection expired. Reconnect to resume syncing.
           </p>
           <div className="actions">
-            <Button variant="primary" onClick={() => openDisclosure()}>
-              Reconnect Google Health
-            </Button>
             <Button variant="tertiary" onClick={() => setDisconnectOpen(true)}>
               Disconnect
+            </Button>
+            <Button variant="primary" onClick={() => openDisclosure()}>
+              Reconnect Google Health
             </Button>
           </div>
         </div>
@@ -270,20 +257,10 @@ export function GoogleHealthSettings() {
 
       {state.status === 'connected' && (
         <div className="integration-state connected">
-          {state.freshness === 'stale' && (
-            <p className="source freshness-note">Step totals may not reflect your latest activity yet.</p>
-          )}
-
-          <dl className="metadata-grid">
-            <div className="metadata-item">
-              <dt className="label">Connected since</dt>
-              <dd className="value">{formatTimestamp(state.connectedAt)}</dd>
-            </div>
-            <div className="metadata-item">
-              <dt className="label">Steps updated</dt>
-              <dd className="value">{formatTimestamp(state.lastSyncedAt)}</dd>
-            </div>
-          </dl>
+          <p className="source integration-facts">
+            Steps updated {formatTimestamp(state.lastSyncedAt)}
+            {state.freshness === 'stale' && ' · may be behind'}
+          </p>
 
           {state.warningMessage && !syncError && (
             <CardFeedback
@@ -295,7 +272,6 @@ export function GoogleHealthSettings() {
           )}
 
           <GoogleHealthSyncOptions summary={optionsSummary} attention={hasFailed||hasUnknown||state.weightImport.state==='failed'}>
-            {/* Bundled Health Data Sync Stream */}
             <div className="google-health-weight-sync">
               <Checkbox
                 id="google-health-sync-setting"
@@ -306,20 +282,13 @@ export function GoogleHealthSettings() {
                 onChange={checked => void handleBundledSyncChange(checked)}
               >
                 <span>
-                  <strong>Sync health & nutrition data</strong>
+                  <strong>Upload to Google Health</strong>
                   <small>
-                    {allPermissionsGranted
-                      ? 'Syncs weight, nutrition, and body fat.'
-                      : 'Reconnect to grant sync permissions.'}
+                    {allPermissionsGranted ? 'Weight, food, and body fat.' : 'Reconnect to allow uploads.'}
                   </small>
                 </span>
               </Checkbox>
-              {totalPending > 0 && (
-                <p className="source">{totalPending} {totalPending === 1 ? 'upload' : 'uploads'} pending.</p>
-              )}
-              {latestSyncAt && (
-                <p className="source">Last sync: {formatTimestamp(latestSyncAt)}.</p>
-              )}
+              {syncFacts.length > 0 && <p className="source">{syncFacts.join(' · ')}</p>}
               {uploadFailure && (
                 <CardFeedback
                   tone={uploadFailure.tone}
@@ -356,11 +325,6 @@ export function GoogleHealthSettings() {
         </div>
       )}
 
-      <p className="source integration-note">
-        Steps are retained for 31 days. Disconnecting revokes access and deletes local sync data; Google copies and imported weigh-ins remain.
-      </p>
-
-      {/* Pre-connection disclosure modal */}
       <GoogleHealthDisclosure
         open={disclosureOpen}
         onClose={() => setDisclosureOpen(false)}
@@ -373,24 +337,20 @@ export function GoogleHealthSettings() {
         error={actionError}
       />
 
-      {/* Disconnect confirmation modal */}
       <Modal
         open={disconnectOpen}
         onClose={() => setDisconnectOpen(false)}
         title="Disconnect Google Health?"
-        description="Are you sure you want to disconnect Google Health?"
+        description="Access is revoked and local step and sync data is deleted. Uploaded Google copies and imported weigh-ins stay."
         width="sm"
       >
         <div className="disconnect-dialog">
-          <p>
-            Disconnecting revokes access and deletes local step and sync data. Uploaded Google copies and imported weigh-ins remain.
-          </p>
           <div className="modal-actions">
             <Button variant="tertiary" onClick={() => setDisconnectOpen(false)} disabled={disconnecting}>
               Keep connected
             </Button>
             <Button variant="destructive" onClick={() => void handleConfirmDisconnect()} disabled={disconnecting}>
-              {disconnecting ? 'Disconnecting…' : 'Disconnect and delete local data'}
+              {disconnecting ? 'Disconnecting…' : 'Disconnect'}
             </Button>
           </div>
         </div>

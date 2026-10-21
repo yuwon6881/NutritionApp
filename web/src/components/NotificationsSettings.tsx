@@ -245,7 +245,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
       {pushBuildConfigured&&savedReminder?.enabled&&!status.thisDeviceSubscribed&&<CardFeedback tone="warning" title="Reminders are not enabled here" message="Your account reminder is on. Enable this device to receive it here." action={{label:"Enable on this device",onClick:()=>void enableThisDevice(),disabled:busy||!!supportError}}/>}
       {!scheduleLoaded&&<SkeletonRegion label="Loading reminder settings…"><SkeletonSettingRows count={2}/></SkeletonRegion>}
       {scheduleLoaded&&<div className="setting-row-group">
-        <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Turning on subscribes this device and saves your schedule. Other subscribed devices also receive it.">
+        <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Sent to every device with notifications on, including this one.">
           <Checkbox id="nutrition-checkin-reminder-enabled" role="switch" aria-label="Send a reminder on my check-in day" checked={reminder.enabled} disabled={fieldsDisabled||(!reminder.enabled&&!!supportError)} onChange={toggleReminder}/>
         </SettingRow>
         <div className="form-grid notification-schedule-fields">

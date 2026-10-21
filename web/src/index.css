@@ -1709,7 +1709,12 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .metadata-item .value{font-size:.86rem;font-weight:550;color:var(--ink-strong);font-variant-numeric:tabular-nums}
 .google-health-weight-sync .check-row,.google-health-weight-import .check-row{align-items:flex-start}
 .google-health-weight-sync .check-row>span,.google-health-weight-import .check-row>span{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
-.google-health-weight-sync .check-row>span small,.google-health-weight-import .check-row>span small{display:block;line-height:1.5}
+.google-health-weight-sync .check-row>span small,.google-health-weight-import .check-row>span small,.google-health-weight-option .check-row>span small{display:block;font-size:.78rem;line-height:1.45}
+.google-health-weight-option .check-row{align-items:flex-start}
+.google-health-weight-option .check-row>span{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px}
+.integration-facts{margin:0 0 14px}
+.google-health-options-body .card-feedback{margin:12px 0 0;padding:12px}
+.integration-progress{margin:14px 0 0}
 .disconnect-dialog p{margin:0 0 16px;line-height:1.5;font-size:.85rem;color:var(--foreground)}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -1826,14 +1831,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .chart-skeleton{padding:8px 0}
 
 /* Disclosure Dialog */
-.google-health-disclosure{display:flex;flex-direction:column;gap:18px}
-.disclosure-points{display:flex;flex-direction:column;gap:14px}
+.google-health-disclosure{display:flex;flex-direction:column;gap:12px}
 .disclosure-item{background:var(--muted);padding:12px 14px;border-radius:10px;border:1px solid var(--border)}
 .disclosure-item strong{display:block;font-size:.84rem;margin-bottom:4px;color:var(--ink-strong)}
-.disclosure-item p{margin:0;font-size:.78rem;line-height:1.5;color:var(--foreground)}
-.disclosure-data-notice{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:10px;background:var(--primary-tint);font-size:.76rem;line-height:1.5;color:var(--primary-ink)}
-.disclosure-data-notice p{margin:0}
-.disclosure-data-notice a{color:var(--primary-ink);font-weight:600;display:inline-flex;align-items:center;gap:2px}
 .policy-icon{flex-shrink:0;margin-top:2px}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 /* Native mobile shell: keep the app bar and bottom navigation inside device safe areas. */
@@ -1843,11 +1843,12 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 .inline-link{min-height:44px;padding-block:10px;touch-action:manipulation}
 @media(max-width:639px){
   .main-content{padding-inline:max(16px,env(safe-area-inset-left)) max(16px,env(safe-area-inset-right))}
+  /* The status-bar inset sits inside the bar. A negative top margin would let sticky top:0 pin the bar
+     back over the page heading by the inset, where no scroll can reveal it. */
   .topbar{
     position:sticky;
     top:0;
     z-index:50;
-    margin-top:calc(-1 * env(safe-area-inset-top));
     margin-inline:calc(-1 * max(16px,env(safe-area-inset-left))) calc(-1 * max(16px,env(safe-area-inset-right)));
     padding:env(safe-area-inset-top) max(16px,env(safe-area-inset-left)) 0 max(16px,env(safe-area-inset-right));
     min-height:calc(64px + env(safe-area-inset-top));
@@ -1868,7 +1869,6 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
     position:sticky;
     top:0;
     z-index:50;
-    margin-top:calc(-1 * env(safe-area-inset-top));
     margin-inline:-24px;
     padding-top:env(safe-area-inset-top);
     padding-inline:24px;

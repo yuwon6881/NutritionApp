@@ -56,7 +56,7 @@ export function LocalDataSettings({accountId,onLogout}:{accountId:string;onLogou
 
   return <>
     <SettingRow className="setting-row-danger" label={<h3 className="setting-row-heading">Local Nutrition data</h3>}
-      description="Removes this account's cache and device-only work from this browser, then signs you out. Records already synced to your account stay there.">
+      description="Clears this account's offline copy and unsynced work here, then signs you out. Synced records stay in your account.">
       <Button variant="destructive" disabled={busyPending} onClick={review}>Remove local data…</Button>
     </SettingRow>
     {error&&<CardFeedback title="Local data unavailable" message={error}/>}

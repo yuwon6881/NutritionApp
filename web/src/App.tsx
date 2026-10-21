@@ -1,4 +1,5 @@
 import {resetGoogleHealthState} from './lib/googleHealth';
+import {hasConnectIntent} from './lib/googleHealthConnectIntent';
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {ProgressFocus} from './components/Progress';
 import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
@@ -61,7 +62,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     const frame=requestAnimationFrame(()=>{firstUsable.current?.();onUsable?.();});
     return()=>cancelAnimationFrame(frame);
   },[!!store.state]);
-  const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health'))?'settings':'today';
+  const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health')||hasConnectIntent())?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
   // The Dashboard can open Progress at its weight chart or weigh-in history; any other navigation drops the request.
   const [progressFocus,setProgressFocus]=useState<ProgressFocus|null>(null);

@@ -11,27 +11,31 @@ export function isNativePushConfigured(){
   return isNativeAndroid();
 }
 
-async function getPushNotifications(){
+type PushNotificationsPlugin=typeof import('@capacitor/push-notifications').PushNotifications;
+
+// A Capacitor plugin proxy answers every property, `then` included, so a promise resolved with the
+// plugin itself would wait forever on a native "then". Hand it over wrapped instead.
+async function getPushNotifications():Promise<{plugin:PushNotificationsPlugin}>{
   if(!isNativeAndroid()){
     throw new Error('Native Android notifications are unavailable in this app.');
   }
   const {PushNotifications}=await import('@capacitor/push-notifications');
-  return PushNotifications;
+  return {plugin:PushNotifications};
 }
 
 export async function checkNativeNotificationPermission():Promise<PermissionState>{
-  const PushNotifications=await getPushNotifications();
-  return (await PushNotifications.checkPermissions()).receive;
+  const {plugin}=await getPushNotifications();
+  return (await plugin.checkPermissions()).receive;
 }
 
 export async function requestNativeNotificationPermission():Promise<PermissionState>{
-  const PushNotifications=await ensureChannel();
-  return (await PushNotifications.requestPermissions()).receive;
+  const {plugin}=await ensureChannel();
+  return (await plugin.requestPermissions()).receive;
 }
 
 async function ensureChannel(){
-  const PushNotifications=await getPushNotifications();
-  await PushNotifications.createChannel({
+  const push=await getPushNotifications();
+  await push.plugin.createChannel({
     id:NUTRITION_PUSH_CHANNEL_ID,
     name:'Nutrition reminders',
     description:'Weekly coaching check-in reminders',
@@ -40,11 +44,11 @@ async function ensureChannel(){
     sound:'default',
     vibration:true
   });
-  return PushNotifications;
+  return push;
 }
 
 export async function registerNativePushAndGetToken(timeoutMs=20000):Promise<string>{
-  const PushNotifications=await ensureChannel();
+  const {plugin:PushNotifications}=await ensureChannel();
   return new Promise((resolve,reject)=>{
     let settled=false;
     let timeout:ReturnType<typeof setTimeout>|undefined;
@@ -87,13 +91,13 @@ export async function registerNativePushAndGetToken(timeoutMs=20000):Promise<str
 }
 
 export async function unregisterNativePush(){
-  const PushNotifications=await getPushNotifications();
-  await PushNotifications.unregister();
+  const {plugin}=await getPushNotifications();
+  await plugin.unregister();
 }
 
 export async function listenForNativePushActions(callback:(data:unknown)=>void){
-  const PushNotifications=await getPushNotifications();
-  const listener=await PushNotifications.addListener(
+  const {plugin}=await getPushNotifications();
+  const listener=await plugin.addListener(
     'pushNotificationActionPerformed',
     (action:ActionPerformed)=>callback(action.notification.data)
   );

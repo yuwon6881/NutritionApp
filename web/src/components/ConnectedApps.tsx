@@ -118,7 +118,7 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
         <span className="integration-logo" aria-hidden="true"><Dumbbell size={20} /></span>
         <div className="integration-card-title">
           <h3 id="connected-workout-title">Workout</h3>
-          <p>Scheduled, in-progress, and completed training sessions.</p>
+          <p>Training sessions beside your diary, read-only.</p>
         </div>
         {!error && (
           <span className={`status-badge ${statusTone}`}>
@@ -152,13 +152,13 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
 
       {loaded && !error && !isConnected && (
         <div className="integration-state disconnected">
-          <p className="description">
-            {connectionState === 'upgrade_required'
-              ? 'Reconnect once to upgrade this older Workout connection to permanent consent.'
-              : connectionState === 'reconnect_required'
-                ? 'Workout access has ended. Reconnect to restore training summaries.'
-                : 'Show your training sessions alongside your diary. Training data is read-only.'}
-          </p>
+          {needsReconnect && (
+            <p className="description">
+              {connectionState === 'upgrade_required'
+                ? 'Reconnect once to upgrade this older Workout connection to permanent consent.'
+                : 'Workout access has ended. Reconnect to restore training summaries.'}
+            </p>
+          )}
           <div className="actions">
             {grant && connectionState !== 'disconnected' && (
               <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
@@ -177,16 +177,7 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
         <div className="integration-state connected">
           {grant.syncWarning && <p className="description" role="status">{grant.syncWarning}</p>}
 
-          <dl className="metadata-grid">
-            <div className="metadata-item">
-              <dt className="label">Connected since</dt>
-              <dd className="value">{formatTimestamp(grant.grantedAt)}</dd>
-            </div>
-            <div className="metadata-item">
-              <dt className="label">Access</dt>
-              <dd className="value">Read-only summaries</dd>
-            </div>
-          </dl>
+          <p className="source integration-facts">Connected {formatTimestamp(grant.grantedAt)} · read-only</p>
 
           <div className="actions">
             <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
@@ -198,7 +189,7 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
       )}
 
       <p className="source integration-note">
-        To share Nutrition goals and weight trends with Workout, connect Nutrition from Workout.
+        To share goals and weight with Workout, connect from the Workout app.
       </p>
 
       {/* Disconnect confirmation modal */}
@@ -206,13 +197,10 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
         open={disconnectOpen}
         onClose={() => setDisconnectOpen(false)}
         title="Disconnect Workout?"
-        description="Are you sure you want to disconnect Workout?"
+        description="Nutrition loses access to Workout training summaries, and cached summaries are cleared."
         width="sm"
       >
         <div className="disconnect-dialog">
-          <p>
-            Disconnecting will revoke NutritionApp&apos;s access to Workout training summaries and clear ephemeral summary data.
-          </p>
           <div className="modal-actions">
             <Button variant="tertiary" onClick={() => setDisconnectOpen(false)} disabled={disconnecting}>
               Keep connected

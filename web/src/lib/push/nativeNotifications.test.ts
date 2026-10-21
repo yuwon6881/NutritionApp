@@ -1,8 +1,10 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {registerNativePushAndGetToken} from './nativeNotifications';
+import {checkNativeNotificationPermission,registerNativePushAndGetToken,requestNativeNotificationPermission} from './nativeNotifications';
 
+// Like Capacitor's plugin proxy, the mock answers `then` with a method that never settles, so any
+// promise resolved with the plugin itself hangs exactly as it does on a device.
 const push=vi.hoisted(()=>({
-  createChannel:vi.fn(),addListener:vi.fn(),register:vi.fn(),
+  createChannel:vi.fn(),addListener:vi.fn(),register:vi.fn(),checkPermissions:vi.fn(),requestPermissions:vi.fn(),then:vi.fn(),
 }));
 vi.mock('@capacitor/core',()=>({Capacitor:{getPlatform:()=> 'android'}}));
 vi.mock('@capacitor/push-notifications',()=>({PushNotifications:push}));
@@ -69,5 +71,22 @@ describe('native registration lifecycle',()=>{
     expect(removals).toHaveLength(6);
     for(const remove of removals)expect(remove).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('native permission',()=>{
+  beforeEach(()=>vi.resetAllMocks());
+
+  it('reads the permission without waiting on the plugin as a promise',async()=>{
+    push.checkPermissions.mockResolvedValue({receive:'prompt'});
+    expect(await checkNativeNotificationPermission()).toBe('prompt');
+    expect(push.then).not.toHaveBeenCalled();
+  });
+
+  it('creates the reminder channel before asking',async()=>{
+    push.requestPermissions.mockResolvedValue({receive:'granted'});
+    expect(await requestNativeNotificationPermission()).toBe('granted');
+    expect(push.createChannel).toHaveBeenCalledBefore(push.requestPermissions);
+    expect(push.then).not.toHaveBeenCalled();
   });
 });

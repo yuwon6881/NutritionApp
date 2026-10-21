@@ -1,7 +1,6 @@
 import {Modal} from './ui/Modal';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
-import {ShieldCheck, ArrowUpRight} from 'lucide-react';
 
 interface GoogleHealthDisclosureProps {
   open: boolean;
@@ -56,22 +55,11 @@ export function GoogleHealthDisclosure({
       open={open}
       onClose={onClose}
       title="Connect Google Health"
-      description="Review how NutritionApp accesses your activity and health data."
+      description="Daily steps are read-only and kept for 31 days. Disconnect any time."
       restoreFocus={restoreFocus}
       width="md"
     >
       <div className="google-health-disclosure">
-        <div className="disclosure-points" role="list">
-          <div className="disclosure-item" role="listitem">
-            <strong>Daily steps</strong>
-            <p>Read-only step totals are retained for 31 days.</p>
-          </div>
-          <div className="disclosure-item" role="listitem">
-            <strong>Data control</strong>
-            <p>Disconnecting revokes access and deletes local sync data; Google copies remain.</p>
-          </div>
-        </div>
-
         <div className="disclosure-item google-health-weight-option">
           <Checkbox
             id="google-health-sync-data"
@@ -81,8 +69,8 @@ export function GoogleHealthDisclosure({
             onChange={handleToggle}
           >
             <span>
-              <strong>Sync weight, nutrition & body fat</strong>
-              <small>Uploads scale entries, diary meals, and body fat entries.</small>
+              <strong>Upload weight, food & body fat</strong>
+              <small>Sends new entries to Google Health.</small>
             </span>
           </Checkbox>
         </div>
@@ -98,22 +86,11 @@ export function GoogleHealthDisclosure({
             >
               <span>
                 <strong>Import weigh-ins</strong>
-                <small>Reads scale weight from the last 31 days into days without a weigh-in. Your own entries always win.</small>
+                <small>Fills days with no weigh-in.</small>
               </span>
             </Checkbox>
           </div>
         )}
-
-        <div className="disclosure-data-notice">
-          <ShieldCheck size={18} aria-hidden="true" className="policy-icon" />
-          <p>
-            Complies with the{' '}
-            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
-              Google API Services User Data Policy <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-            , including Limited Use requirements.
-          </p>
-        </div>
 
         {error && (
           <p className="error" role="alert">

@@ -91,3 +91,24 @@ export function describeUploadFailure(streams: UploadStream[]): UploadFailureVie
     actionLabel: 'Retry upload',
   };
 }
+
+const connectErrors: Record<string, string> = {
+  duplicate_account: 'This Google account is already linked to another NutritionApp account.',
+  identity_change_requires_disconnect: 'Disconnect the current Google account before connecting a different one.',
+  session_mismatch: 'Session expired during connection. Please sign in and try again.',
+  session_expired: 'Session expired during connection. Please sign in and try again.',
+  access_denied: 'Access was denied in Google permissions.',
+  invalid_state: 'Connection session expired. Please try again.',
+  identity_resolution_failed: 'Google account identity could not be confirmed. Try again.',
+  token_exchange_failed: 'Could not complete authorization exchange with Google.',
+  missing_tokens: 'Required authorization tokens were missing. Please reconnect.',
+  encryption_failed: 'Could not securely store the Google connection. Try again later.',
+  missing_parameters: 'Google returned an incomplete response. Please try again.',
+  invalid_scope: 'Requested Google Health permissions are not enabled for this app.',
+  provider_error: 'Google returned an unexpected authorization error.',
+};
+
+/** Plain wording for the error code the consent callback returns in `?google_health=error&code=`. */
+export function describeConnectError(code: string | null): string {
+  return (code && connectErrors[code]) || 'Google Health connection was not completed.';
+}

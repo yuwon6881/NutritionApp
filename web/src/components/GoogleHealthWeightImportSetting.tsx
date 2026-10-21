@@ -29,11 +29,7 @@ export function GoogleHealthWeightImportSetting({status, onRequestPermission, on
     }
   };
 
-  const hint = !status.permissionGranted
-    ? 'Reconnect to allow reading weight from Google Health.'
-    : status.enabled
-      ? 'Fills days without a weigh-in, using the earliest reading. Turning this off stops new imports; weigh-ins already imported stay.'
-      : 'Adds smart-scale weigh-ins from the last 31 days to days without one. Your own entries always win.';
+  const hint = status.permissionGranted ? 'Fills days with no weigh-in.' : 'Reconnect to allow importing.';
 
   return (
     <div className="google-health-weight-import">
@@ -46,14 +42,14 @@ export function GoogleHealthWeightImportSetting({status, onRequestPermission, on
         onChange={checked => void change(checked)}
       >
         <span>
-          <strong>Import weigh-ins from Google Health</strong>
+          <strong>Import weigh-ins</strong>
           <small>{hint}</small>
         </span>
       </Checkbox>
       {status.enabled && status.lastSuccessAt && (
         <p className="source">
-          Last checked {formatGoogleHealthTimestamp(status.lastSuccessAt)}
-          {status.lastImportedCount > 0 ? ` · ${status.lastImportedCount} ${status.lastImportedCount === 1 ? 'weigh-in' : 'weigh-ins'} added.` : ' · Nothing new.'}
+          Checked {formatGoogleHealthTimestamp(status.lastSuccessAt)}
+          {status.lastImportedCount > 0 ? ` · ${status.lastImportedCount} added` : ' · Nothing new'}
         </p>
       )}
       {status.state === 'failed' && (

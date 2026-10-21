@@ -60,14 +60,14 @@ export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Pro
         <SettingsSection {...diary} title="Diary & coaching" description="How past days resolve and when your weekly check-in is due.">
           <DiarySettings store={store}/>
         </SettingsSection>
-        <SettingsSection {...notifications} title="Notifications" description="Optional weekly reminders. Notification text stays general and never includes food, weight, or account details.">
+        <SettingsSection {...notifications} title="Notifications" description="Weekly check-in reminders. The text never shows your food, weight, or account.">
           <NotificationsSettings store={store}/>
         </SettingsSection>
         <SettingsSection {...connections} layout="plain" title="Connected Apps" description="Connected services add context. They never change your calorie or macro targets.">
           <GoogleHealthSettings/>
           <ConnectedApps store={store}/>
         </SettingsSection>
-        <SettingsSection {...device} title="This device" description="Data kept in this browser for offline use.">
+        <SettingsSection {...device} title="This device" description="Data kept here for offline use.">
           <LocalDataSettings accountId={state.id} onLogout={onLogout}/>
           <AppVersionInfo/>
         </SettingsSection>
