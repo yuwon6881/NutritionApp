@@ -34,7 +34,12 @@ export interface WeekAverage {
 const none=():Amounts=>({calories:null,protein:null,carbs:null,fat:null});
 const flags=()=>({calories:false,protein:false,carbs:false,fat:false});
 
-function dayIntake(entries:Entry[],day:Day|undefined){
+/**
+ * One date's logged intake: the archived summary when meal detail was compacted, a known zero on
+ * a fasting day, otherwise the sum of entries. A nutrient no entry reports stays null, and one
+ * some entries lack is flagged partial.
+ */
+export function dayIntake(entries:Entry[],day:Day|undefined){
   const intake=none(),partial=flags();
   if(day?.archived){
     for(const key of WEEK_NUTRIENTS)intake[key]=day[key]??null;

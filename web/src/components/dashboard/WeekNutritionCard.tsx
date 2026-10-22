@@ -4,6 +4,7 @@ import {longDate,number,weekdayShort} from '../../lib/format';
 import {displayEnergy,energyLabel} from '../../lib/units';
 import {resolveWeekSelection,targetShare,WEEK_AVERAGE,weekAverage,weekNutrition,WEEK_NUTRIENTS,type WeekDay,type WeekNutrient} from '../../lib/weekNutrition';
 import {Button} from '../ui/Button';
+import {PartialMark,PartialNote} from '../ui/PartialMark';
 import {SelectionIndicator} from '../ui/Motion';
 import './dashboard.css';
 
@@ -95,10 +96,12 @@ export function WeekNutritionCard({state,current,energyUnit,checkInDue=false}:{s
         <dt>{LABELS[key]}</dt>
         <dd>
           <strong>{readout.status==='future'?'—':amount(key,readout.intake[key],energyUnit)}</strong>
-          <small> / {amount(key,readout.target[key],energyUnit)} {unit(key,energyUnit)}{readout.partial[key]?' · partial':''}</small>
+          <small> / {amount(key,readout.target[key],energyUnit)} {unit(key,energyUnit)}</small>
+          {readout.partial[key]&&<PartialMark/>}
         </dd>
       </div>)}
     </dl>
+    {WEEK_NUTRIENTS.some(key=>readout.partial[key])&&<PartialNote className="week-nutrition-note"/>}
     {note&&<p className="week-nutrition-note">{note[0].toUpperCase()+note.slice(1)}.</p>}
   </article>;
 }

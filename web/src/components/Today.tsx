@@ -18,6 +18,7 @@ import {EnergyOverview} from './EnergyOverview';
 import {HabitCalendars} from './habits/HabitCalendars';
 import {DashboardSkeleton} from './ui/Skeleton';
 import {useOnlineStatus} from './ui/useOnlineStatus';
+import {TodayMacros} from './dashboard/TodayMacros';
 import {WeekNutritionCard} from './dashboard/WeekNutritionCard';
 import {WeightTrendCard} from './dashboard/WeightTrendCard';
 import type {ProgressFocus} from './Progress';
@@ -93,19 +94,7 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
             <p className="eyebrow">Energy</p>
             <EnergyOverview total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>
           </article>}
-        <article className="panel macros">
-          <p className="eyebrow">Macronutrients</p>
-          {(['protein','carbs','fat'] as const).map(key=>{
-            const known=entries.filter(e=>e[key]!=null);
-            const sum=savedDay?.archived?(savedDay[key]??0):known.reduce((s,e)=>s+e[key]!,0);
-            const incomplete=savedDay?.archived?savedDay[key]==null:known.length!==entries.length;
-            return <div className={'macro '+key} key={key}>
-              <span>{key==='carbs'?'Carbs':key[0].toUpperCase()+key.slice(1)}</span>
-              <strong>{savedDay?.archived&&savedDay[key]==null?'—':entries.length&&!known.length?'—':number(sum)}<small> / {number(targets[key])} g{incomplete?' · partial':''}</small></strong>
-              <progress aria-label={`${key} logged`} value={targets[key]==null?0:sum} max={targets[key]==null?1:Math.max(targets[key],1)}/>
-            </div>;
-          })}
-        </article>
+        <TodayMacros entries={entries} savedDay={savedDay} targets={targets}/>
       </div>
       </section>
       <section className="dashboard-section dashboard-section-habits" aria-labelledby="dashboard-habits-title">

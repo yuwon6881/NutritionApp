@@ -1,7 +1,9 @@
 import type {Day,Entry} from '../types';
 import {number} from '../lib/format';
 import {displayEnergy,energyLabel,type EnergyUnit} from '../lib/units';
+import {dayIntake} from '../lib/weekNutrition';
 import {SelectField} from './ui/Field';
+import {PartialMark,PartialNote} from './ui/PartialMark';
 
 type Macro='protein'|'carbs'|'fat';
 
@@ -25,9 +27,10 @@ function remainingText(total:number,target:number,unit:EnergyUnit){
 }
 
 /**
- * The day's totals at the top of the Food Log. Wider windows add the day's targets and
- * progress bars; phones keep the compact figures only. A target that is not known
- * (no accepted plan for the date) shows no bar rather than an empty one.
+ * The day's totals at the top of the Food Log, with the day's targets and progress bars at
+ * every width. A target that is not known (no accepted plan for the date) shows no bar
+ * rather than an empty one. A macro total that leaves out foods with no value for it is
+ * marked Partial, with one explanation under the tiles.
  */
 export function FoodDaySummary({
   title,
@@ -63,6 +66,8 @@ export function FoodDaySummary({
   const archived=!!day?.archived;
   const energyKnown=count>0||fasting;
   const calorieTarget=targets.calories;
+  const {intake,partial}=dayIntake(entries,day);
+  const macros=MACROS.map(({key,label})=>({key,label,value:intake[key],target:targets[key],partial:partial[key]}));
   return <section className="panel food-day-summary">
     <div className="section-heading">
       <div className="food-day-title-group">
@@ -92,16 +97,15 @@ export function FoodDaySummary({
       </div>
     </div>
     {calorieTarget!=null&&<progress className="food-day-progress-bar" aria-label="Calories logged against target" value={energyKnown?total:0} max={Math.max(calorieTarget,1)}/>}
-    <dl className="food-day-nutrients">{MACROS.map(({key,label})=>{
-      const known=entries.filter(e=>e[key]!=null);
-      const value=archived?day?.[key]??null:known.length?known.reduce((sum,e)=>sum+e[key]!,0):null;
-      const partial=!archived&&known.length>0&&known.length<entries.length;
-      const target=targets[key];
-      return <div key={key} className={`food-day-nutrient ${key}`}>
-        <dt>{label}</dt>
-        <dd>{number(value)} g{target!=null&&<small className="food-day-target"> / {number(target)} g</small>}{partial?' · partial':''}</dd>
-        {target!=null&&<progress className="food-day-progress-bar" aria-label={`${label} logged against target`} value={value??0} max={Math.max(target,1)}/>}
-      </div>;
-    })}</dl>
+    <dl className="food-day-nutrients">{macros.map(({key,label,value,target,partial})=><div key={key} className={`food-day-nutrient ${key}`}>
+      <dt>{label}</dt>
+      <dd>
+        <span className="food-day-value">{number(value)} g</span>
+        {target!=null&&<small className="food-day-target">/ {number(target)} g</small>}
+        {partial&&<PartialMark/>}
+      </dd>
+      {target!=null&&<progress className="food-day-progress-bar" aria-label={`${label} logged against target`} value={value??0} max={Math.max(target,1)}/>}
+    </div>)}</dl>
+    {macros.some(macro=>macro.partial)&&<PartialNote/>}
   </section>;
 }
