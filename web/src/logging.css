@@ -68,24 +68,15 @@
   .food-time-card-details{grid-column:2;grid-row:2;font-size:.8125rem}
 }
 
-/* Food Log day summary: phones keep the bare totals; wider windows add targets and progress. */
+/* Food Log day summary: targets and progress show at every width, as on the Dashboard. */
 .food-day-energy{display:grid;justify-items:end;gap:2px;text-align:right}
-.food-day-target,.food-day-progress-bar{display:none}
+.food-day-progress-bar{display:none}
+.food-day-summary .food-day-target{display:inline;font-size:.8125rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.food-day-energy .food-day-target{display:block}
 @media(min-width:640px){
-  .food-day-summary .food-day-target{display:inline;font-size:.8125rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
-  .food-day-energy .food-day-target{display:block}
   .food-day-summary .figure-inline{font-size:1.6rem;letter-spacing:-.02em}
   .food-day-summary progress.food-day-progress-bar{display:block;appearance:none;width:100%;height:6px;border:0;border-radius:999px;background:var(--track);overflow:hidden}
   .food-day-summary>progress.food-day-progress-bar{height:8px;margin:0 0 22px}
-  .food-day-nutrient{display:grid;grid-template-rows:auto auto auto;gap:0;padding:14px 16px;border-radius:12px;background:var(--muted)}
-  .food-day-nutrient dd{margin-bottom:10px;font-size:1.05rem;font-weight:600}
-  .food-day-nutrient dd .food-day-target{font-weight:400}
-  .food-day-nutrient.protein progress::-webkit-progress-value{background:var(--protein)}
-  .food-day-nutrient.carbs progress::-webkit-progress-value{background:var(--carbs)}
-  .food-day-nutrient.fat progress::-webkit-progress-value{background:var(--fat)}
-  .food-day-nutrient.protein progress::-moz-progress-bar{background:var(--protein)}
-  .food-day-nutrient.carbs progress::-moz-progress-bar{background:var(--carbs)}
-  .food-day-nutrient.fat progress::-moz-progress-bar{background:var(--fat)}
 }
 
 /* Wider windows flank the strip with its week arrows; phones scroll the strip by touch. */

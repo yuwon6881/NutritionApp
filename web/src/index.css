@@ -2008,3 +2008,8 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 .food-day-summary .food-day-nutrients{gap:0}
 .food-day-summary .food-day-nutrient{padding:4px 16px 4px 0;border-radius:0;background:none}
 .food-day-summary .food-day-nutrient+.food-day-nutrient{padding-left:20px;box-shadow:inset 1px 0 0 var(--border)}
+
+/* Shared Partial marker: a macro total that leaves out foods with no value for the nutrient. */
+.partial-mark{display:inline-flex;align-items:center;width:fit-content;padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--foreground) 9%,transparent);color:var(--muted-foreground);font-size:.6875rem;font-weight:600;letter-spacing:0;line-height:1.5;white-space:nowrap}
+.partial-note{margin:12px 0 0;font-size:.75rem;line-height:1.45;color:var(--muted-foreground)}
+.macros>.partial-note{grid-column:1/-1;margin:4px 0 0}

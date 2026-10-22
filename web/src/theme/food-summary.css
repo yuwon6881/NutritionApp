@@ -234,11 +234,9 @@
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 2px 6px;
 }
 .food-day-nutrient dd .food-day-target {
   font-size: 0.8rem;
@@ -295,13 +293,12 @@
     font-size: 0.98rem;
     margin: 2px 0 6px;
     letter-spacing: -0.02em;
-    overflow: visible;
-    text-overflow: clip;
     gap: 2px;
   }
+  /* The target sits under the figure so a long total never pushes it out of the tile. */
   .food-day-nutrient dd .food-day-target {
+    flex-basis: 100%;
     font-size: 0.7rem;
-    opacity: 0.85;
   }
 }
 
