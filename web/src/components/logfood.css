@@ -120,6 +120,7 @@
 .quick-add-calories input{min-height:54px;font-size:1.6rem;font-weight:700;letter-spacing:-.02em;text-align:center;color:var(--ink-strong)}
 .quick-add-calories input::placeholder{color:var(--border)}
 .food-modal .quick-add .modal-actions,.quick-add .modal-actions{border-top:0;padding-top:0}
+.food-modal .modal-actions>.button{white-space:nowrap}
 
 /* Batch review: the total responds when a food joins or leaves. */
 .food-basket .live-calorie-value{animation:logFoodPop var(--motion-layout) var(--motion-ease) both}
@@ -136,7 +137,7 @@
   html[data-keyboard='open'] .food-modal .modal-body:has(.modal-actions){padding-bottom:22px}
   /* Secondary actions share a row; the commit action takes the full bottom row, nearest the thumb. */
   .food-modal .modal-actions{display:flex;flex-wrap:wrap;gap:8px}
-  .food-modal .modal-actions>.button{flex:1 1 0;min-width:0}
+  .food-modal .modal-actions>.button{flex:1 1 0;min-width:0;padding-inline:12px;gap:6px;white-space:nowrap}
   .food-modal .modal-actions>.button.primary{flex:1 1 100%;order:1;min-height:50px;font-size:.9375rem;font-weight:600}
   .food-modal .quick-add .modal-actions{border-top:0}
 }

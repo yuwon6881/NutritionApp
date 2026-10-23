@@ -477,3 +477,24 @@ test('failed review retries in place and Escape returns to the selected result i
   await expect(page.locator('.food-row-choose')).toBeFocused();
   expect(lookups).toBe(2);
 });
+
+
+for(const width of [360,390,1440])test(`${width}px barcode batch review displays Scan another on a single line`,async({page,context})=>{
+  await context.addCookies(session.cookies);
+  await page.setViewportSize({width,height:844});
+  const food={...powder,code:'955000000999',basis:'per100g' as const,portions:[{label:'scoop',grams:30}]};
+  await page.route('**/api/foods/barcode/*',route=>route.fulfill({json:food}));
+  await openLog(page);
+  await page.getByRole('button',{name:'Barcode',exact:true}).click();
+  const input=page.locator('#food-search-input');
+  await input.fill('955000000999');
+  await input.press('Enter');
+  await page.locator('.food-row').first().click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();
+  const scanBtn=page.getByRole('button',{name:/Scan another/i});
+  await expect(scanBtn).toBeVisible();
+  const height=await scanBtn.evaluate(el=>el.getBoundingClientRect().height);
+  expect(height).toBeLessThanOrEqual(44.5);
+  const whiteSpace=await scanBtn.evaluate(el=>window.getComputedStyle(el).whiteSpace);
+  expect(whiteSpace).toBe('nowrap');
+});
