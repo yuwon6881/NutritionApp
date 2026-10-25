@@ -40,6 +40,7 @@ builder.Services.AddDbContext<AppDb>((services,o)=>
 });
 builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<ExpenditureTrajectoryService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<DatabaseWarmup>();
 builder.Services.AddScoped<NutritionNotificationService>();
 builder.Services.AddHttpClient<INutritionPushSender, NutritionFcmPushSender>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient<INutritionWakeQueue, CloudTasksNutritionWakeQueue>(client => client.Timeout = TimeSpan.FromSeconds(10));
@@ -227,7 +228,13 @@ app.UseDefaultFiles();app.UseStaticFiles(new StaticFileOptions { OnPrepareRespon
     else if(c.Context.Request.Path.StartsWithSegments("/assets")) c.Context.Response.Headers.CacheControl="public,max-age=31536000,immutable";
 } });
 app.MapAuth();app.MapCentralAuth();app.MapRecords();app.MapAi();app.MapAiChat();app.MapPhotos();app.MapBodyRecords();app.MapGoogleHealth();app.MapIntegrations();app.MapNutritionNotifications();app.MapAccountDeletion();
-app.MapGet("/health",()=>new { status="ok" });
+// `?db=1` is the page's early warm-up call; the plain probe stays database-free.
+app.MapGet("/health",async(HttpContext http,DatabaseWarmup warmup)=>
+{
+    if(http.Request.Query["db"]!="1")return Results.Json(new { status="ok" });
+    var ready=await warmup.EnsureAwakeAsync(http.RequestServices.GetRequiredService<AppDb>(),http.RequestAborted);
+    return Results.Json(new { status="ok",database=ready?"ready":"unavailable" });
+});
 app.MapFallback(async http=>
 {
     if(http.Request.Path.StartsWithSegments("/api")||Path.HasExtension(http.Request.Path)) { http.Response.StatusCode=404;return; }
