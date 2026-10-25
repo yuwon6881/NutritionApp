@@ -2,20 +2,22 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { NUTRITION_SHORTCUTS } from './src/lib/nutritionShortcuts.ts';
+import { preloadLatinFont } from './scripts/preload-latin-font';
 const apiTarget = process.env.NUTRITION_API ?? 'http://127.0.0.1:5087';
 const proxy = { '/api': { target: apiTarget, changeOrigin: false }, '/health': { target: apiTarget, changeOrigin: false } };
 export default defineConfig({
   appType:'mpa',
   define:{__APP_VERSION__:JSON.stringify(process.env.npm_package_version??'development')},
-  plugins:[react(),VitePWA({strategies:'injectManifest',srcDir:'src',filename:'sw.ts',registerType:'prompt',injectRegister:false,devOptions:{enabled:true,type:'module'},manifest:{id:'/',name:'Nutrition',short_name:'Nutrition',description:'Food, weight, and nutrition targets.',start_url:'/',scope:'/',display:'standalone',display_override:['standalone'],background_color:'#F4F2FA',theme_color:'#F4F2FA',categories:['health','lifestyle'],prefer_related_applications:false,icons:[{src:'/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},{src:'/icon-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'},{src:'/icon.svg',sizes:'any',type:'image/svg+xml',purpose:'any'}],shortcuts:NUTRITION_SHORTCUTS.map(shortcut=>({name:shortcut.name,short_name:shortcut.shortName,description:shortcut.description,url:shortcut.url,icons:[{src:'/icon-192.png',sizes:'192x192',type:'image/png'}]}))},injectManifest:{globPatterns:['**/*.{js,css,html,svg,png,woff2}'],
-    // Cached on first use instead of at install: the barcode fallback decoder, Ask AI panel, and non-Latin font subsets.
-    globIgnores:['**/barcode-zxing-*.js','**/AiAssistantPanel-*.js','**/{IncomingPhoto,NativeBarcodeScanner,ReminderReadiness,reminderReadiness,nativeShortcuts,nativeIncomingImage,nativeAppBridge}-*.js','**/manrope-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2']}})],
+  plugins:[react(),preloadLatinFont(),VitePWA({strategies:'injectManifest',srcDir:'src',filename:'sw.ts',registerType:'prompt',injectRegister:false,devOptions:{enabled:true,type:'module'},manifest:{id:'/',name:'Nutrition',short_name:'Nutrition',description:'Food, weight, and nutrition targets.',start_url:'/',scope:'/',display:'standalone',display_override:['standalone'],background_color:'#F4F2FA',theme_color:'#F4F2FA',categories:['health','lifestyle'],prefer_related_applications:false,icons:[{src:'/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},{src:'/icon-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'},{src:'/icon.svg',sizes:'any',type:'image/svg+xml',purpose:'any'}],shortcuts:NUTRITION_SHORTCUTS.map(shortcut=>({name:shortcut.name,short_name:shortcut.shortName,description:shortcut.description,url:shortcut.url,icons:[{src:'/icon-192.png',sizes:'192x192',type:'image/png'}]}))},injectManifest:{globPatterns:['**/*.{js,css,html,svg,png,woff2}'],
+    // Cached on first use instead of at install: the barcode fallback decoder, Ask AI panel, push messaging, and non-Latin font subsets.
+    globIgnores:['**/barcode-zxing-*.js','**/AiAssistantPanel-*.js','**/firebase-push-*.js','**/{IncomingPhoto,NativeBarcodeScanner,ReminderReadiness,reminderReadiness,nativeShortcuts,nativeIncomingImage,nativeAppBridge}-*.js','**/manrope-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2']}})],
   build:{
     // Native-only surfaces already ship in the APK; let ESM load their dependencies on demand.
     modulePreload:{resolveDependencies:(filename,dependencies)=>/\/(IncomingPhoto|NativeBarcodeScanner|ReminderReadiness|reminderReadiness|nativeShortcuts|nativeIncomingImage|nativeAppBridge)-/.test(filename)?[]:dependencies},
     // Small font subsets must stay same-origin files: CSP does not allow data: fonts.
     assetsInlineLimit:filePath=>/\.(?:woff2?|ttf|otf)$/i.test(filePath)?false:undefined,
-    rollupOptions:{output:{chunkFileNames:chunk=>chunk.moduleIds.some(id=>id.includes('@zxing'))?'assets/barcode-zxing-[hash].js':'assets/[name]-[hash].js'}}
+    // Firebase is needed only to enable push reminders; one named chunk lets the precache skip it.
+    rollupOptions:{output:{manualChunks:id=>/\/node_modules\/(?:@firebase|firebase)\//.test(id.replaceAll('\\','/'))?'firebase-push':undefined,chunkFileNames:chunk=>chunk.moduleIds.some(id=>id.includes('@zxing'))?'assets/barcode-zxing-[hash].js':'assets/[name]-[hash].js'}}
   },
   server:{port:5178,proxy},
   preview:{port:5088,proxy}

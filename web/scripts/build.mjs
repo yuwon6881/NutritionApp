@@ -22,7 +22,8 @@ const KIB = 1024;
 // Segmented time input with uplifted hour and minute highlighting adds a small offline allowance.
 // Google Health upload-status details and AI lead-in formatting add a small offline allowance.
 // The Android device self-subscription lookup on signed-in startup (its logic loads only in the app) adds a small first-load allowance.
-const budgets = { firstLoad: 480 * KIB, precache: 1313 * KIB };
+// Push messaging (Firebase) and the copy/move dialogs load on demand, which lowered both ceilings; keep them at the measured size.
+const budgets = { firstLoad: 476 * KIB, precache: 1270 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

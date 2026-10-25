@@ -26,8 +26,7 @@ import {DiaryEmptyState} from './DiaryEmptyState';
 import {FoodDaySkeleton,SkeletonBlock} from './ui/Skeleton';
 import { showUndo } from './ui/UndoToast';
 import { UNDO_WINDOW_MS } from '../lib/heldMutations';
-import { CopyFoodDialog } from './CopyFoodDialog';
-import { MoveFoodDialog } from './MoveFoodDialog';
+import { CopyFoodDialog, MoveFoodDialog } from './LazyFoodDialogs';
 import { Modal } from './ui/Modal';
 import { useDismissablePopover } from './ui/useDismissablePopover';
 
