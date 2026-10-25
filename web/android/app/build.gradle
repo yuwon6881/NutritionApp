@@ -12,6 +12,11 @@ def hasStableDebugSigningKey = debugSigningStoreFile && debugSigningKeyAlias && 
 
 android {
     buildFeatures { buildConfig true }
+    // The WebView reads the bundled web files on every launch. Stored uncompressed they are read
+    // directly instead of being inflated each time; the APK grows by about the compressed savings.
+    androidResources {
+        noCompress 'html', 'js', 'mjs', 'css', 'json', 'svg', 'woff2', 'webmanifest', 'txt'
+    }
     namespace = "com.nutritionapp.mobile"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
