@@ -76,6 +76,26 @@ public sealed class DeploymentContractTests
         Assert.True(File.Exists(Path.Combine(root, "deploy", "setup-nutrition-check-in-queue.ps1")));
     }
 
+    /// Startup CPU boost shortens a cold start without keeping an instance running.
+    [Fact]
+    public void Nutrition_api_boosts_cpu_only_while_starting_and_still_scales_to_zero()
+    {
+        var build = File.ReadAllText(Path.Combine(RepositoryRoot(), "deploy", "cloudbuild.yaml"));
+        Assert.Contains("--cpu-boost", build);
+        Assert.DoesNotContain("--no-cpu-boost", build);
+        Assert.Contains("--min-instances=0", build);
+        Assert.DoesNotContain("--no-cpu-throttling", build);
+    }
+
+    /// Short-lived scale-to-zero instances never run long enough to repay PGO instrumentation.
+    [Fact]
+    public void Cold_start_runtime_settings_skip_profile_guided_instrumentation()
+    {
+        var project = File.ReadAllText(Path.Combine(RepositoryRoot(), "api", "Nutrition.Api.csproj"));
+        Assert.Contains("<TieredPGO>false</TieredPGO>", project);
+        Assert.Contains("PublishReadyToRun=true", File.ReadAllText(Path.Combine(RepositoryRoot(), "Dockerfile")));
+    }
+
     private static string RepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)

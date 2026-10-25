@@ -52,6 +52,9 @@ steps:
       - --platform=managed
       - --allow-unauthenticated
       - --min-instances=0
+      # Extra CPU only while an instance starts: a cold start is CPU-bound (dependency injection,
+      # the EF model, token-validation setup) and the boost ends when startup does.
+      - --cpu-boost
       - --max-instances=1
       # The service-wide cap is 20; --max-instances caps each new revision at 1.
       - --max=20
