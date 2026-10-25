@@ -21,13 +21,65 @@ export function DashboardSkeleton({label,heading=true}:{label:string;heading?:bo
   </div>;
 }
 
-/** Placeholder rows for a Food Log day that is still loading. */
-export function FoodDaySkeleton(){
-  return <div className="food-day-skeleton" aria-hidden="true">
-    {[0,1,2].map(index=><div key={index} className="food-day-skeleton-row">
-      <SkeletonBlock width={52} height={12}/>
-      <div className="panel skeleton-panel"><SkeletonBlock width="60%"/><SkeletonBlock width="40%" height={10}/></div>
-    </div>)}
+const MACRO_TILES=['protein','carbs','fat'];
+const TIMELINE_ROWS=[{title:'58%',energy:52},{title:'72%',energy:44},{title:'46%',energy:52}];
+
+/**
+ * The Food Log day summary in its final arrangement: title and status on the left, energy on the right,
+ * the calorie bar, then three macro tiles. It reuses the real classes so the panel keeps the real height.
+ * The title is known from the date, so it renders as text when given.
+ */
+export function FoodDaySummarySkeleton({title}:{title?:string}){
+  return <section className="panel food-day-summary food-day-summary-skeleton" aria-hidden="true">
+    <div className="section-heading">
+      <div className="food-day-title-group">
+        {title?<h2>{title}</h2>:<SkeletonBlock width={160} height={26} className="food-day-skeleton-title"/>}
+        <SkeletonBlock width={132} height={26} radius={999} className="food-day-skeleton-status"/>
+      </div>
+      <div className="food-day-energy">
+        <SkeletonBlock width={92} height={36}/>
+        <SkeletonBlock width={104} height={13}/>
+      </div>
+    </div>
+    <SkeletonBlock height={10} radius={999} className="food-day-skeleton-bar"/>
+    <div className="food-day-nutrients">{MACRO_TILES.map(macro=><div key={macro} className={`food-day-nutrient ${macro}`}>
+      <SkeletonBlock width="46%" height={14}/>
+      <div className="food-day-skeleton-value"><SkeletonBlock width="62%" height={20}/><SkeletonBlock width="44%" height={12}/></div>
+      <SkeletonBlock height={8} radius={999}/>
+    </div>)}</div>
+  </section>;
+}
+
+/** The Food timeline heading, its view switch and a few time rows with their cards. */
+export function FoodDayTimelineSkeleton(){
+  return <div aria-hidden="true">
+    <div className="food-timeline-toolbar">
+      <h2>Food timeline</h2>
+      <SkeletonBlock width="100%" height={52} radius={999} className="food-day-skeleton-switch"/>
+    </div>
+    <ol className="food-timeline">
+      {TIMELINE_ROWS.map((row,index)=><li key={index} className="food-time-row">
+        <div className="food-time-label"><SkeletonBlock width={44} height={12} className="food-day-skeleton-time"/></div>
+        <div className="food-time-cards">
+          <div className="panel food-time-card">
+            <div className="food-day-skeleton-header">
+              <SkeletonBlock width={row.title} height={16}/>
+              <SkeletonBlock width={row.energy} height={16}/>
+            </div>
+            <div className="food-day-skeleton-details"><SkeletonBlock width="38%" height={12}/><SkeletonBlock width="62%" height={12} className="food-day-skeleton-macros"/></div>
+          </div>
+        </div>
+      </li>)}
+    </ol>
+  </div>;
+}
+
+/** A Food Log day that is still loading: one polite status line over the summary and timeline shapes. */
+export function FoodDaySkeleton({title,label='Loading diary…'}:{title?:string;label?:string}){
+  return <div className="food-day-skeleton" aria-busy="true">
+    <p className="sr-only" role="status">{label}</p>
+    <FoodDaySummarySkeleton title={title}/>
+    <FoodDayTimelineSkeleton/>
   </div>;
 }
 

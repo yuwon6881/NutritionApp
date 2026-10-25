@@ -14,10 +14,7 @@ function FoodLogSkeleton(){
   return <>
     <PageTop/>
     <div className="page-skeleton-strip">{Array.from({length:7},(_,index)=><SkeletonBlock key={index} width={56} height={78} radius={999}/>)}</div>
-    <div className="panel skeleton-panel"><SkeletonBlock width="30%" height={22}/><SkeletonBlock height={8} radius={999}/>
-      <div className="page-skeleton-tiles">{[0,1,2].map(index=><SkeletonBlock key={index} height={64} radius={16}/>)}</div>
-    </div>
-    <FoodDaySkeleton/>
+    <FoodDaySkeleton label="Loading diary…"/>
   </>;
 }
 

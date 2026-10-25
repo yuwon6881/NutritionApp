@@ -23,7 +23,7 @@ import {FoodDaySummary} from './FoodDaySummary';
 import {planForDate,targetsForDate} from '../lib/dailyTargets';
 import {useDaySwipe} from './useDaySwipe';
 import {DiaryEmptyState} from './DiaryEmptyState';
-import {FoodDaySkeleton,SkeletonBlock} from './ui/Skeleton';
+import {FoodDaySkeleton} from './ui/Skeleton';
 import { showUndo } from './ui/UndoToast';
 import { UNDO_WINDOW_MS } from '../lib/heldMutations';
 import { CopyFoodDialog, MoveFoodDialog } from './LazyFoodDialogs';
@@ -200,10 +200,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     />}
     {!state&&history.error&&<DiaryEmptyState status="unavailable" unavailable/>}
     {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
-    {!state&&!history.error&&<section className="panel food-day-summary skeleton" aria-busy="true">
-      <div className="section-heading"><div><h2>{dayTitle}</h2><p className="sr-only" role="status">Loading diary date…</p><SkeletonBlock width={140} height={12} className="skeleton-subtitle"/></div></div>
-    </section>}
-    {!state&&!history.error&&<FoodDaySkeleton/>}
+    {!state&&!history.error&&<FoodDaySkeleton title={dayTitle}/>}
     {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>
       <FoodDaySummary
