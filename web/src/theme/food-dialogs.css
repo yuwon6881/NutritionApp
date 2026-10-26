@@ -31,6 +31,19 @@
   .food-modal .modal-body {
     padding: 20px 22px calc(24px + env(safe-area-inset-bottom)) !important;
   }
+  /* A step's sticky action row (components/logfood.css) is the sheet's bottom edge. The body keeps
+     no padding beneath it, and the row spans the body's full width, or scrolled rows show through
+     the strip below it and the slivers beside it. The row carries the safe-area inset itself. */
+  .food-modal .modal-body:has(.modal-actions) {
+    padding-bottom: 0 !important;
+  }
+  .food-modal .modal-body .modal-actions {
+    margin-inline: -22px;
+    padding-inline: 22px;
+  }
+  html[data-keyboard='open'] .food-modal .modal-body:has(.modal-actions) {
+    padding-bottom: 22px !important;
+  }
 }
 
 .action-sheet-options {
