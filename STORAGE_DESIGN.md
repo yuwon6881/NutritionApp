@@ -2,15 +2,15 @@
 
 ## Retention contract
 
-`Retention:MealDetailDays` defaults to seven calendar days including today, with a supported range of 3–90. The hourly authenticated maintenance endpoint processes up to 120 old days per user per invocation. In one per-user database transaction it writes each day's calorie total, nullable macro/fiber totals, entry count, and original completeness status, then deletes the detailed entries. Re-running is idempotent. Weights, custom foods/recipes, accepted coaching history and physique photo metadata remain.
+`Retention:MealDetailDays` defaults to 90 calendar days including today (also the deployed value), with a supported range of 3–90. The hourly authenticated maintenance endpoint processes up to 120 old days per user per invocation. In one per-user database transaction it writes each day's calorie total, nullable macro/fiber totals, entry count, and original completeness status, then deletes the detailed entries. Re-running is idempotent. Weights, custom foods/recipes, accepted coaching history and physique photo metadata remain.
 
-The coach reads archived totals and recent detail through the same daily interface. Its full 28-day window remains intact even though only seven days retain food names and portions. An unknown macro in any entry keeps the corresponding archived total unknown, rather than inventing a complete total. Partial days remain partial; a day without a completeness assertion stays incomplete. Ordinary edits cannot rewrite archived totals or recreate expired detail.
+The coach reads archived totals and recent detail through the same daily interface, so its 28-day window stays intact even when a shorter retention leaves only part of it with food names and portions. An unknown macro in any entry keeps the corresponding archived total unknown, rather than inventing a complete total. Partial days remain partial; a day without a completeness assertion stays incomplete. Ordinary edits cannot rewrite archived totals or recreate expired detail.
 
 Recent edits remain recoverable through the existing queue. If a device stays offline beyond the retention window, obsolete meal-detail edits stop for review and remain in its local queue. Export/copy that pending information before explicitly discarding it. Successful requests replay within the 90-day receipt window; after receipts expire, revision/date checks prevent duplicate inserts.
 
 ## Why this reduces storage
 
-Twenty detailed entries per user per day become one summary row: a 95% reduction in that historical row count, before accounting for much shorter summaries and removed indexes/text. At two users, retained detail is bounded near 280 live entries at the assumed 20/day rate, rather than 146,000 entries after ten years. Daily summaries and weights add only hundreds of short rows per year per user. The food library is bounded at 1,000 records per user.
+Twenty detailed entries per user per day become one summary row: a 95% reduction in that historical row count, before accounting for much shorter summaries and removed indexes/text. At one user and the assumed 20/day rate, retained detail is bounded near 1,800 live entries, rather than 73,000 entries after ten years. Daily summaries and weights add only hundreds of short rows per year per user. The food library is bounded at 1,000 records per user.
 
 Operational scan rows expire after seven days, images after processing or 24 hours, and idempotency receipts after 90 days. Open Food Facts results are shared only as compact, account-independent product rows with one-day freshness and bounded maintenance cleanup; saved foods remain account-scoped. Physique images never occupy database rows.
 
