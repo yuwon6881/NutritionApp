@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { ErrorBoundary } from './ErrorBoundary';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ErrorBoundary, isStaleVersionError } from './ErrorBoundary';
 
 describe('NutritionApp ErrorBoundary', () => {
   it('renders children when no error occurs', () => {
@@ -25,5 +25,21 @@ describe('NutritionApp ErrorBoundary', () => {
     expect(html).toContain('Reload Nutrition');
     expect(html).toContain('Try again');
     expect(html).toContain('reload-recovery');
+  });
+});
+
+describe('isStaleVersionError', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('treats a missing script or stylesheet while online as an outdated version', () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    expect(isStaleVersionError(new TypeError('Failed to fetch dynamically imported module: /assets/x.js'))).toBe(true);
+    expect(isStaleVersionError(new Error('Unable to preload CSS for /assets/Coach-x.css'))).toBe(true);
+    expect(isStaleVersionError(new Error('Cannot read properties of undefined'))).toBe(false);
+  });
+
+  it('leaves a missing file offline to the connection recovery', () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    expect(isStaleVersionError(new Error('Unable to preload CSS for /assets/Coach-x.css'))).toBe(false);
   });
 });
