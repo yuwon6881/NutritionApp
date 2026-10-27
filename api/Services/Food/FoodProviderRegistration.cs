@@ -23,6 +23,13 @@ public static class FoodProviderRegistration
             services.AddSingleton(_=>new UsdaGenericProvider(UsdaGenericDataset.Embedded()!));
             services.AddSingleton<IFoodProvider>(provider=>provider.GetRequiredService<UsdaGenericProvider>());
         }
+        if(typeof(OpenFoodFactsDataset).Assembly.GetManifestResourceInfo(OpenFoodFactsDataset.ResourceName) is null)
+            skipped.Add("off-bundled: the bundled dataset is missing from this build.");
+        else
+        {
+            services.AddSingleton(_=>new OpenFoodFactsBundledProvider(OpenFoodFactsDataset.Embedded()!));
+            services.AddSingleton<IFoodProvider>(provider=>provider.GetRequiredService<OpenFoodFactsBundledProvider>());
+        }
 
         // Open Food Facts asks every read to identify its caller or risk being served as a bot.
         Add<OpenFoodFactsProvider>(services,client=>

@@ -92,6 +92,17 @@ public sealed class FoodResultMergerTests
     }
 
     [Fact]
+    public void A_food_word_that_is_also_in_a_brand_still_puts_the_generic_food_first()
+    {
+        var branded=Branded("Rice · Akita Rice","4901234567894");
+        var generic=Generic("Rice, white, cooked");
+
+        var merged=Merge("rice",(Usda,[generic]),(Off,[branded]));
+
+        Assert.Equal([generic,branded],merged);
+    }
+
+    [Fact]
     public void Name_relevance_still_beats_the_generic_preference()
     {
         var generic=Generic("Bread, banana, prepared from recipe");

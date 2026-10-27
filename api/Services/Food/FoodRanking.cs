@@ -13,7 +13,6 @@ public static class FoodRanking
     /// and among those the foods this account has logged lead. Frequency is counted from logged
     /// diary entries and only orders results of the same relevance tier, so personalization cannot
     /// make a weakly related result outrank a better match.
-    /// Open Food Facts' search index has no serving fields, so this must run after hydration.
     /// Providers also return loose matches that share no word with the query (a fuzzy search can
     /// answer "sunglo" with unrelated dishes); once any result does match, those are dropped. When none
     /// match, the provider's own fuzzy answer is all there is and the list is kept.
@@ -70,8 +69,9 @@ public static class FoodRanking
 
     /// <summary>
     /// A short query that names no brand ("banana", "white rice") wants the plain food first; a
-    /// query containing a brand from the results ("dole banana") wants that product first. Lists
-    /// with only one kind of result keep their order.
+    /// query containing a brand from the results ("dole banana") wants that product first. A word
+    /// a plain food's name also uses is the food, not a brand: "rice" stays a food query although
+    /// "Akita Rice" is a brand. Lists with only one kind of result keep their order.
     /// </summary>
     private static Func<FoodResult,int> KindPreference(IReadOnlyList<FoodResult> results,IReadOnlyList<string> queryTokens)
     {
@@ -81,7 +81,9 @@ public static class FoodRanking
             .Where(parts=>parts.Length==2)
             .SelectMany(parts=>SearchTokens(parts[1]))
             .ToHashSet(StringComparer.Ordinal);
-        if(queryTokens.Any(brandTokens.Contains))return result=>result.IsGeneric?1:0;
+        var foodTokens=results.Where(result=>result.IsGeneric).SelectMany(result=>SearchTokens(result.Name)).ToArray();
+        bool NamesBrand(string token)=>brandTokens.Contains(token)&&!foodTokens.Any(word=>TokenMatches(word,token));
+        if(queryTokens.Any(NamesBrand))return result=>result.IsGeneric?1:0;
         if(queryTokens.Count<=GenericQueryMaxTokens)return result=>result.IsGeneric?0:1;
         return _=>0;
     }

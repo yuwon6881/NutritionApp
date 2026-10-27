@@ -23,7 +23,7 @@ public sealed class FoodProviderRegistrationTests
     {
         var (catalog,skipped)=Build([]);
 
-        Assert.Equal(["usda","off"],catalog.SearchProviders.Select(provider=>provider.Id));
+        Assert.Equal(["usda","off-bundled"],catalog.SearchProviders.Select(provider=>provider.Id));
         Assert.Equal(["off"],catalog.BarcodeProviders.Select(provider=>provider.Id));
         Assert.Equal(["usda-branded: FoodProviders:Usda:ApiKey is not configured."],skipped);
     }
@@ -34,13 +34,28 @@ public sealed class FoodProviderRegistrationTests
         var (catalog,skipped)=Build(new()
         {
             ["FoodProviders:Usda:ApiKey"]="key",
-            ["FoodProviders:Search:0"]="off",
+            ["FoodProviders:Search:0"]="off-bundled",
             ["FoodProviders:Search:1"]="usda",
         });
 
         Assert.Empty(skipped);
-        Assert.Equal(["off","usda"],catalog.SearchProviders.Select(provider=>provider.Id));
+        Assert.Equal(["off-bundled","usda"],catalog.SearchProviders.Select(provider=>provider.Id));
         Assert.Equal(["off","usda-branded"],catalog.BarcodeProviders.Select(provider=>provider.Id));
+    }
+
+    /// Live Open Food Facts answers barcodes only; free text comes from the bundled export. An older
+    /// configuration that still lists it for search runs without it rather than failing startup.
+    [Fact]
+    public void Live_open_food_facts_in_an_old_search_order_is_skipped()
+    {
+        var (catalog,_)=Build(new()
+        {
+            ["FoodProviders:Search:0"]="usda",
+            ["FoodProviders:Search:1"]="off",
+        });
+
+        Assert.Equal(["usda"],catalog.SearchProviders.Select(provider=>provider.Id));
+        Assert.Equal(["off"],catalog.BarcodeProviders.Select(provider=>provider.Id));
     }
 
     /// fatsecret is retired: its credentials and order ids may linger in an old configuration,
