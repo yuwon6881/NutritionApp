@@ -14,7 +14,7 @@ public sealed class FoodCatalog
 {
     // Bump when provider mapping, display filtering, or merging changes so a process does not keep
     // serving rows cached under the old shape.
-    private const string SearchCacheVersion="search:v8:";
+    private const string SearchCacheVersion="search:v9:";
     private static readonly TimeSpan CompleteSearchLifetime=TimeSpan.FromHours(6);
     // A merge missing a provider is still worth reusing briefly, but not for hours.
     private static readonly TimeSpan PartialSearchLifetime=TimeSpan.FromMinutes(1);
@@ -39,8 +39,8 @@ public sealed class FoodCatalog
 
     /// <summary>
     /// How long a merge keeps waiting for the remaining providers once one has returned matches.
-    /// Open Food Facts can spend seconds on pacing and hydration while the bundled catalogue answers
-    /// at once; a provider that alone has matches is still waited for, up to its own timeout.
+    /// A network provider can be slow while a bundled catalogue answers at once; a provider that
+    /// alone has matches is still waited for, up to its own timeout.
     /// </summary>
     public TimeSpan MergeGrace { get; init; }=TimeSpan.FromSeconds(2);
 
@@ -76,11 +76,7 @@ public sealed class FoodCatalog
             var worst=failed.OrderBy(outcome=>FoodLookupErrors.Precedence(outcome.Failure!.Value)).First();
             throw FoodLookupErrors.Search(worst.Provider.Name,worst.Failure!.Value,worst.RetryAfter);
         }
-        // Open Food Facts verifies a row's per-100 g basis in a separate, flaky bulk read. A list still
-        // holding unverified rows is reused only briefly, so a passing outage does not pin
-        // "loads when opened" on that query for hours; verified products come from the durable cache.
-        var complete=failed.Length==0&&merged.All(result=>result.Basis!="unverified");
-        var lifetime=complete?CompleteSearchLifetime:PartialSearchLifetime;
+        var lifetime=failed.Length==0?CompleteSearchLifetime:PartialSearchLifetime;
         cache.Set(key,merged,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=lifetime });
         return merged;
     }
@@ -186,28 +182,6 @@ public sealed class FoodCatalog
         if(failures.Count==0)throw FoodLookupErrors.BarcodeNotFound();
         var worst=failures.OrderBy(item=>FoodLookupErrors.Precedence(item.Failure)).First();
         throw FoodLookupErrors.Barcode(worst.Provider.Name,worst.Failure,worst.RetryAfter);
-    }
-
-    /// <summary>The most rows one list asks to confirm; a bulk read covers them in a single call.</summary>
-    public const int MaxVerifyCodes=12;
-    /// <summary>Long enough to wait out one paced slot of the bulk read, short of a hung request.</summary>
-    public TimeSpan VerifyTimeout { get; init; }=TimeSpan.FromSeconds(20);
-
-    /// <summary>
-    /// Confirms search rows a provider returned before their per-100 g basis was known, so the list
-    /// shows their nutrition without each one being opened. Only the provider that produced the
-    /// rows can confirm them; a failure leaves them as they were rather than failing the list.
-    /// </summary>
-    public async Task<IReadOnlyList<FoodResult>> VerifyBasis(string providerId,IReadOnlyCollection<string> codes,AppDb db,CancellationToken ct)
-    {
-        Validation.Require(codes.Count is >0 and <=MaxVerifyCodes&&codes.All(code=>code.Length is >=8 and <=14&&code.All(char.IsAsciiDigit)),
-            $"Send 1–{MaxVerifyCodes} barcodes of 8–14 digits.");
-        var verifier=searchProviders.OfType<IFoodBasisVerifier>().FirstOrDefault(provider=>provider.Id==providerId);
-        if(verifier is null||health.Breaker(providerId).IsOpen)return [];
-        using var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct);
-        deadline.CancelAfter(VerifyTimeout);
-        try { return await verifier.VerifyBasis(codes.Distinct(StringComparer.Ordinal).ToArray(),new PublicFoodCache(db),deadline.Token); }
-        catch(OperationCanceledException) when(!ct.IsCancellationRequested) { return []; }
     }
 
     // Pacing and shed answers are already handled by the provider's own gate; the breaker only

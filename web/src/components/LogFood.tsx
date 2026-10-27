@@ -41,7 +41,7 @@ import {saveFoodBasketDraft} from '../lib/local';
 import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
 import {useFoodDetail} from './useFoodDetail';
 import {FoodDetailReview} from './FoodDetailReview';
-import {applyVerifiedFoods} from '../lib/foodVerification';
+import {applyConfirmedFood} from '../lib/foodConfirmation';
 
 type SearchResult=import('../types').FoodSearchResult;
 type FoodStep='selection'|'detail'|'quick'|'editor'|'recipe'|'batch';
@@ -344,11 +344,11 @@ export function LogFood({
   };
   const chooseForPurpose=(food:SearchResult)=>selectionPurpose==='recipe'?chooseRecipe(food):choose(food);
   const detailLookup=useFoodDetail({enabled:open&&step==='detail',resolve:resolveBarcode,onResolved:food=>{
-    // A successful opening also repairs this dialog's unresolved search rows.
+    // A successful opening also repairs this dialog's unconfirmed rows, so returning shows them filled in.
     for(const [key,rows] of searchCache.current){
-      searchCache.current.set(key,applyVerifiedFoods(rows,[food]));
+      searchCache.current.set(key,applyConfirmedFood(rows,food));
     }
-    setResults(rows=>applyVerifiedFoods(rows,[food]));
+    setResults(rows=>applyConfirmedFood(rows,food));
     chooseForPurpose(food);
   }});
   const leaveDetail=()=>{detailLookup.cancel();go('selection',true);};

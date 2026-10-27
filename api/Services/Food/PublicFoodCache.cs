@@ -14,23 +14,6 @@ public sealed class PublicFoodCache(AppDb db)
 {
     private readonly SemaphoreSlim sync=new(1);
 
-    public async Task<IReadOnlyDictionary<string,FoodResult>> Read(string providerId,IReadOnlyCollection<string> codes,CancellationToken ct)
-    {
-        var found=new Dictionary<string,FoodResult>(StringComparer.Ordinal);
-        if(codes.Count==0)return found;
-        await sync.WaitAsync(ct);
-        try
-        {
-            var now=DateTime.UtcNow;
-            var rows=await db.PublicFoodProducts.AsNoTracking()
-                .Where(product=>product.ProviderId==providerId&&codes.Contains(product.Code)&&product.ExpiresAt>now).ToListAsync(ct);
-            foreach(var row in rows)
-                if(TryRead(row.ResultJson) is { } result)found[row.Code]=result;
-            return found;
-        }
-        finally { sync.Release(); }
-    }
-
     /// <summary>The first unexpired row in barcode-chain order, so a cache hit answers as the chain would.</summary>
     public async Task<FoodResult?> ReadBarcode(IReadOnlyList<string> providerIds,string code,CancellationToken ct)
     {

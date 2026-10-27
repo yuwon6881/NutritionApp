@@ -11,15 +11,13 @@ public sealed class UsdaGenericDataset
 {
     public const string ResourceName="usda-generic.json.gz";
 
-    public sealed record Entry(FoodResult Result,string[] Stems,int LeadSegmentLength);
-
-    private UsdaGenericDataset(IReadOnlyList<Entry> entries,IReadOnlyDictionary<string,string> releases)
+    private UsdaGenericDataset(IReadOnlyList<BundledFood> entries,IReadOnlyDictionary<string,string> releases)
     {
         Entries=entries;
         Releases=releases;
     }
 
-    public IReadOnlyList<Entry> Entries { get; }
+    public IReadOnlyList<BundledFood> Entries { get; }
     /// <summary>FDC release per data type, recorded by the generator.</summary>
     public IReadOnlyDictionary<string,string> Releases { get; }
     public int Count=>Entries.Count;
@@ -38,13 +36,13 @@ public sealed class UsdaGenericDataset
         var releases=new Dictionary<string,string>(StringComparer.Ordinal);
         if(json.RootElement.TryGetProperty("releases",out var list)&&list.ValueKind==JsonValueKind.Object)
             foreach(var release in list.EnumerateObject())releases[release.Name]=release.Value.GetString()??"";
-        var entries=new List<Entry>();
+        var entries=new List<BundledFood>();
         foreach(var food in json.RootElement.GetProperty("foods").EnumerateArray())
             if(Read(food) is { } entry)entries.Add(entry);
         return new UsdaGenericDataset(entries,releases);
     }
 
-    private static Entry? Read(JsonElement food)
+    private static BundledFood? Read(JsonElement food)
     {
         var name=FoodResults.Text(food,"n");
         if(name is null||FoodResults.Number(food,"k") is not { } calories)return null;
@@ -56,6 +54,6 @@ public sealed class UsdaGenericDataset
         var limited=FoodResults.LimitPortions(portions);
         var result=new FoodResult(name,calories,FoodResults.Number(food,"p"),FoodResults.Number(food,"f"),FoodResults.Number(food,"c"),FoodResults.Number(food,"fi"),
             UsdaGenericProvider.Attribution,100,limited,null,FoodResults.ServingCalories(calories,limited),"per100g",IsGeneric:true);
-        return new Entry(result,FoodRanking.Stems(name),FoodRanking.Stems(name.Split(',')[0]).Length);
+        return new BundledFood(result,FoodRanking.Stems(name),FoodRanking.Stems(name.Split(',')[0]).Length);
     }
 }

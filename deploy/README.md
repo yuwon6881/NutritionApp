@@ -18,7 +18,7 @@ Neon Free currently includes 0.5 GB storage per project. The 350 MB warning and 
 
 The API emits low-cardinality OpenTelemetry-compatible meters for route requests, database command kind/duration, and outbound provider calls. Provider labels are limited to OpenAI, GCS/Google, Open Food Facts, Fitness Account, Workout, and other; SQL text, URLs, account IDs, source text, images, and tokens are never metric labels. Connect these meters to the production exporter before using them for a cost baseline.
 
-Food search and barcode lookup both read Open Food Facts, which needs no key and no secret. It meters per IP address rather than per caller: 10 search requests a minute and 15 product reads a minute, counted separately, which the service paces with its own gates. Reads must identify the caller through the User-Agent set on the shared HttpClient, or Open Food Facts may answer as though the request came from a bot. The search endpoint sheds load under pressure, so a 503 there is a wait, not a misconfiguration. Results carry ODbL attribution in each row Source.
+Food search reads bundled datasets inside the API and makes no outbound call. Barcode lookup reads Open Food Facts, which needs no key and no secret. It meters product reads per IP address rather than per caller (about 15 a minute), which the service paces with its own gate. Reads must identify the caller through the User-Agent set on the shared HttpClient, or Open Food Facts may answer as though the request came from a bot. Results carry ODbL attribution in each row Source.
 
 ## API and files
 

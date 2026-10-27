@@ -81,7 +81,6 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${th
   let lookups=0;
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder]}));
   // The follow-up confirmation is unavailable here, so the row keeps waiting until it is opened.
-  await page.route('**/api/foods/verify?*',route=>route.fulfill({json:[]}));
   await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:{...powder,basis:'per100g' as const,portions:[{label:'scoop',grams:30}]}});});
   await openLog(page);
   await page.getByLabel('Search term',{exact:true}).fill('powder');
@@ -156,7 +155,6 @@ test('failed details retain the food and offer retry or label entry without unco
   await context.addCookies(session.cookies);
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder]}));
   // The follow-up confirmation is unavailable here, so the row keeps waiting until it is opened.
-  await page.route('**/api/foods/verify?*',route=>route.fulfill({json:[]}));
   await page.route('**/api/foods/barcode/*',route=>route.fulfill({status:503,json:{message:'Test provider unavailable'}}));
   await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('powder');await page.getByLabel('Search term',{exact:true}).press('Enter');await page.locator('.food-row').click();
   await expect(page.getByRole('button',{name:'Retry nutrition lookup'})).toBeVisible();
@@ -174,7 +172,6 @@ test('late product details cannot replace a manually opened editor',async({page,
   let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve;});
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder]}));
   // The follow-up confirmation is unavailable here, so the row keeps waiting until it is opened.
-  await page.route('**/api/foods/verify?*',route=>route.fulfill({json:[]}));
   let requested!:()=>void;const started=new Promise<void>(resolve=>{requested=resolve;});
   await page.route('**/api/foods/barcode/*',async route=>{requested();await pending;await route.fulfill({json:{...powder,basis:'per100g',portions:[{label:'scoop',grams:30}]}});});
   await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('powder');await page.getByLabel('Search term',{exact:true}).press('Enter');await page.locator('.food-row').click();
@@ -227,7 +224,7 @@ test('hydrated search hit for Optimum Nutrition displays declared serving calori
   expect(lookups).toBe(0);
 });
 
-test('failed bulk hydration displays basis unavailable and resolves serving on click',async({page,context})=>{
+test('a row without a confirmed basis shows no figures and resolves its serving on click',async({page,context})=>{
   await context.addCookies(session.cookies);await page.setViewportSize({width:1440,height:900});
   const unverifiedHit={
     name:'Optimum nutrition whey protein',
@@ -254,7 +251,6 @@ test('failed bulk hydration displays basis unavailable and resolves serving on c
   };
   let lookups=0;
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[unverifiedHit]}));
-  await page.route('**/api/foods/verify?*',route=>route.fulfill({status:503,json:{error:'Busy'}}));
   await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:authoritativeDetail});});
   await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('Optimum nutrition');await page.getByLabel('Search term',{exact:true}).press('Enter');
   const row=page.locator('.food-row').first();
@@ -268,27 +264,6 @@ test('failed bulk hydration displays basis unavailable and resolves serving on c
   expect(lookups).toBe(1);
   await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
   await expect(page.locator('.live-calorie-value')).toContainText('117');
-});
-
-test('rows the search could not confirm in time fill in their nutrition without being opened',async({page,context})=>{
-  await context.addCookies(session.cookies);await page.setViewportSize({width:390,height:900});
-  const hit={name:'Optimum nutrition whey protein',source:'Open Food Facts / ODbL / 0748927065725',code:'0748927065725',
-    calories:117,protein:24,fat:1,carbs:3,fiber:null,servingGrams:100,portions:[],basis:'unverified' as const};
-  const confirmed={...hit,calories:384.87,protein:78.95,fat:3.29,carbs:9.87,portions:[{label:'30.4 g',grams:30.4}],servingCalories:117,basis:'per100g' as const};
-  let lookups=0;let asked='';
-  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[hit]}));
-  await page.route('**/api/foods/verify?*',route=>{asked=new URL(route.request().url()).search;return route.fulfill({json:[confirmed]});});
-  await page.route('**/api/foods/barcode/*',route=>{lookups++;return route.fulfill({json:confirmed});});
-  await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('Optimum nutrition');
-  const row=page.locator('.food-row').first();
-  await expect(row.locator('.food-description > small')).toContainText('117 kcal / 30.4 g');
-  await expect(row.locator('.food-description strong')).toContainText('Optimum nutrition whey protein');
-  expect(asked).toBe('?provider=off&codes=0748927065725');
-  await row.click();
-  await expect(page.getByLabel('Quantity',{exact:true})).toHaveValue('1');
-  await expect(page.locator('.live-calorie-value')).toContainText('117');
-  // A confirmed row carries its serving, so opening it needs no product lookup.
-  expect(lookups).toBe(0);
 });
 
 test('direct barcode result without declared serving displays / 100 g',async({page,context})=>{
@@ -374,7 +349,6 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${th
   let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve;});
   let lookups=0;
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[food]}));
-  await page.route('**/api/foods/verify?*',route=>route.fulfill({json:[]}));
   await page.route('**/api/foods/barcode/*',async route=>{lookups++;await pending;await route.fulfill({json:confirmed});});
   await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('powder');
   await page.locator('.food-row-choose').click();
@@ -412,57 +386,11 @@ test('verified food without a declared serving opens immediately at 100 g',async
   expect(lookups).toBe(0);
 });
 
-test('unresolved rows remain selectable while a failed confirmation recovers in place',async({page,context})=>{
-  await context.addCookies(session.cookies);
-  const other={...powder,name:'Another powder',code:'12345679'};
-  let confirmations=0;
-  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder,other]}));
-  await page.route('**/api/foods/verify?*',route=>{
-    confirmations++;
-    return route.fulfill({json:confirmations===1?[]:[{...powder,basis:'per100g',portions:[{label:'scoop',grams:30}]}]});
-  });
-  await openLog(page);await page.getByLabel('Search term',{exact:true}).fill('powder');
-  await expect(page.locator('.food-row')).toHaveCount(2);
-  await expect(page.locator('.food-row').first().locator('.food-macro-summary')).toHaveCount(0);
-  await expect(page.locator('.food-row').first().locator('.food-macro-summary')).toHaveAttribute('aria-label','Macros: Protein 24 g, Carbs — g, Fat 1.2 g');
-  await expect(page.locator('.food-row')).toHaveCount(2);
-  await expect(page.locator('.food-row').last().locator('.food-description > small')).toContainText('Nutrition loads when opened');
-  expect(confirmations).toBe(2);
-});
-
-for(const width of [390,768,1440])for(const theme of ['light','dark'])test(`${theme} ${width}: rows being confirmed show a placeholder that keeps their shape`,async({page,context})=>{
-  await context.addCookies(session.cookies);await page.setViewportSize({width,height:900});
-  await page.addInitScript(theme=>localStorage.setItem('nutrition-theme',theme),theme);
-  let release!:()=>void;
-  const confirmation=new Promise<void>(resolve=>{release=resolve;});
-  await page.route('**/api/foods/search?*',route=>route.fulfill({json:[powder]}));
-  await page.route('**/api/foods/verify?*',async route=>{
-    await confirmation;
-    await route.fulfill({json:[{...powder,basis:'per100g',portions:[{label:'scoop',grams:30}]}]});
-  });
-  await openLog(page);
-  await page.getByLabel('Search term',{exact:true}).fill('powder');
-  const row=page.locator('.food-row').first();
-  await expect(row.locator('.food-macro-skeleton')).toBeVisible();
-  const summary=row.locator('.food-description > small');
-  await expect(summary).toContainText('Loading nutrition');
-  await expect(summary).not.toContainText('Nutrition loads when opened');
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
-  const loading=(await row.boundingBox())!;
-  await page.screenshot({animations:'disabled',path:`artifacts/food-review/${theme}-${width}-confirming.png`});
-  release();
-  await expect(row.locator('.food-macro-summary')).toBeVisible();
-  await expect(row.locator('.food-macro-skeleton')).toHaveCount(0);
-  // The figures take the space the placeholder held; only a wrapped summary line may differ.
-  expect(Math.abs((await row.boundingBox())!.height-loading.height)).toBeLessThanOrEqual(22);
-});
-
 test('failed review retries in place and Escape returns to the selected result in reduced motion',async({page,context})=>{
   await context.addCookies(session.cookies);await page.emulateMedia({reducedMotion:'reduce'});
   const food={...powder,code:'955000000003'};
   let lookups=0;
   await page.route('**/api/foods/search?*',route=>route.fulfill({json:[food]}));
-  await page.route('**/api/foods/verify?*',route=>route.fulfill({json:[]}));
   await page.route('**/api/foods/barcode/*',route=>{
     lookups++;
     return lookups===1?route.fulfill({status:503,json:{message:'Provider temporarily unavailable'}})
