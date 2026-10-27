@@ -11,6 +11,8 @@ export interface FoodTimeCardProps {
   energyUnit:EnergyUnit;
   readOnly:boolean;
   isSelecting:boolean;
+  /** Selection just ended: the checkbox plays its exit animation without taking input. */
+  checkboxLeaving?:boolean;
   isSelected:boolean;
   isMoved:boolean;
   isAdded?:boolean;
@@ -30,6 +32,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   energyUnit,
   readOnly,
   isSelecting,
+  checkboxLeaving=false,
   isSelected,
   isMoved,
   isAdded=false,
@@ -51,6 +54,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   // viewer cannot change stays inert.
   const editable=Boolean(onEdit)&&!readOnly&&!isSelecting;
   const showActions=Boolean(swipe&&(swipe.revealed||swipe.dragging||swipe.offset<0));
+  const showCheckbox=isSelecting||checkboxLeaving;
   return <div
     className={`food-card-swipe${swipe?.dragging?' swiping':''}`}
     data-swipe-id={entry.id}
@@ -63,7 +67,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
       <Button variant="destructive" size="sm" aria-label={`Delete ${entry.name}`} onClick={()=>onDelete?.(entry)}><Trash2 size={16} aria-hidden="true"/>Delete</Button>
     </div>}
     <article
-      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${isSelecting?'food-time-card-selecting':''}`.trim()}
+      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${showCheckbox?'food-time-card-selecting':''}`.trim()}
       data-selected={isSelected?true:undefined}
       tabIndex={editable?0:undefined}
       aria-label={editable?`Edit ${entry.name}`:undefined}
@@ -86,6 +90,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
         >
           {isSelected&&<Check size={14} className="food-check-icon"/>}
         </div>}
+        {!isSelecting&&checkboxLeaving&&<div className="food-card-select-checkbox leaving" aria-hidden="true"/>}
         <h3 className="food-time-card-title">
           <span className="food-time-card-title-text">{entry.name}</span>
         </h3>

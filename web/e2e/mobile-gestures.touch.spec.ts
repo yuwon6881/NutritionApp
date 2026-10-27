@@ -38,6 +38,10 @@ test('holding a card still selects it, and the page still scrolls afterwards',as
   await page.waitForTimeout(150);
   await expect(oats).toHaveAttribute('data-selected','true');
   await expect(card(page,'Black coffee')).not.toHaveAttribute('data-selected','true');
+  // Selecting never shows the drag copy, and the held card settles back to rest.
+  await expect(page.locator('.food-drag-ghost')).toHaveCount(0);
+  await expect(oats).not.toHaveAttribute('data-held','true');
+  await expect(oats).not.toHaveAttribute('data-pressing','true');
 
   const scrollBefore=await page.evaluate(()=>window.scrollY);
   const viewport=page.viewportSize()!;
