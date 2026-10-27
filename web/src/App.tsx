@@ -28,6 +28,7 @@ import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncStatus} from './components/ui/SyncStatus';
 import {UndoToastHost} from './components/ui/UndoToast';
 import {PageSkeleton} from './components/ui/PageSkeletons';
+import {StartupScreen} from './components/StartupScreen';
 import {ForegroundNotificationHandler,PwaUpdateNotice} from './components/ui/MobilePwa';
 import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
@@ -385,7 +386,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
     setUser(null);
     try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}
   };
-  if(user===undefined)return <main className="startup"><Brand size={38}/></main>;
+  if(user===undefined)return <StartupScreen/>;
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
     <ForegroundNotificationHandler userId={user} authReady={authReady}/>
