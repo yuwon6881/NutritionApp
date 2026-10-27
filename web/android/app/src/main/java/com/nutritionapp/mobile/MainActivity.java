@@ -44,6 +44,8 @@ public class MainActivity extends BridgeActivity {
         Bridge bridge = getBridge();
         if (bridge == null) return;
 
+        // Without a colour the web view is white until the page paints; follow the system theme instead.
+        bridge.getWebView().setBackgroundColor(getResources().getColor(R.color.nutrition_web_background, getTheme()));
         handleActionIntent(getIntent());
 
         bridge.getWebView().setWebViewClient(new BridgeWebViewClient(bridge) {

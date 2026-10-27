@@ -3,4 +3,6 @@
     <color name="nutrition_splash_window">#000000</color>
     <!-- Midnight Lime primary, so the icon stays legible on the dark notification shade. -->
     <color name="nutrition_notification_color">#B5F04A</color>
+    <!-- Midnight Lime's canvas behind the web view before the page paints. -->
+    <color name="nutrition_web_background">#08080A</color>
 </resources>
