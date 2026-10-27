@@ -91,7 +91,7 @@
   grid-template-rows: auto auto;
   align-items: baseline;
   gap: 4px 12px;
-  transition: border-color var(--motion-control) ease, box-shadow var(--motion-control) ease, transform 100ms ease;
+  transition: border-color var(--motion-control) ease, box-shadow var(--motion-control) ease, background-color var(--motion-panel) ease, transform 100ms ease, scale var(--motion-panel) var(--motion-ease);
 }
 :root[data-theme=dark] .food-time-card.panel {
   background: var(--card);
@@ -315,4 +315,62 @@
    the card rule above positions cards relatively. */
 .food-time-card.panel.food-drag-ghost {
   position: fixed;
+}
+
+/* Press and hold on touch (see lib/cardGesture). The card sinks slightly while the hold runs (after a
+   short delay, so a flick that scrolls never shows it), then rises in place when the hold completes.
+   Releasing settles it into the selected tint; moving instead lifts the floating copy. */
+@media (pointer: coarse) {
+  /* Timeline rows skip painting off-screen content, which also clips a raised card's edge and shadow. */
+  .food-timeline > .food-time-row:has(.food-time-card[data-held]) { content-visibility: visible; }
+  .food-time-card.panel[data-pressing] {
+    scale: .975;
+    transition: scale 300ms var(--motion-ease) 100ms;
+  }
+  .food-time-card.panel[data-held] {
+    scale: 1.02;
+    border-color: var(--primary);
+    box-shadow: var(--shadow-raised);
+    transition: scale 220ms cubic-bezier(.3, 1.5, .5, 1), box-shadow 220ms ease, border-color var(--motion-control) ease;
+  }
+}
+
+/* Selection mode grows each checkbox in, so the card contents slide aside rather than jump, and the
+   tick pops in when a card is chosen. */
+.food-time-card .food-card-select-checkbox {
+  animation: foodCheckIn var(--motion-panel) var(--motion-ease) both;
+}
+.food-card-select-checkbox.checked .food-check-icon {
+  animation: foodCheckPop var(--motion-panel) cubic-bezier(.3, 1.6, .5, 1) both;
+}
+@keyframes foodCheckIn {
+  from { width: 0; margin-right: 0; border-width: 0; opacity: 0; scale: .4; }
+}
+/* Leaving selection, the boxes shrink away and the card contents slide back. */
+.food-time-card .food-card-select-checkbox.leaving {
+  animation: foodCheckOut var(--motion-exit) var(--motion-ease) both;
+  pointer-events: none;
+}
+@keyframes foodCheckOut {
+  to { width: 0; margin-right: 0; border-width: 0; opacity: 0; scale: .4; }
+}
+@keyframes foodCheckPop {
+  from { opacity: 0; scale: .3; }
+}
+/* From 640 px the checkbox owns a grid column, so its column gap closes with it. */
+@media (min-width: 640px) {
+  .food-time-card .food-card-select-checkbox { animation-name: foodCheckInWide; }
+  .food-time-card .food-card-select-checkbox.leaving { animation-name: foodCheckOutWide; }
+  @keyframes foodCheckInWide {
+    from { width: 0; margin-right: -16px; border-width: 0; opacity: 0; scale: .4; }
+  }
+  @keyframes foodCheckOutWide {
+    to { width: 0; margin-right: -16px; border-width: 0; opacity: 0; scale: .4; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .food-time-card.panel[data-pressing],
+  .food-time-card.panel[data-held] { scale: 1; transition: none; }
+  .food-time-card .food-card-select-checkbox,
+  .food-card-select-checkbox.checked .food-check-icon { animation: none; }
 }

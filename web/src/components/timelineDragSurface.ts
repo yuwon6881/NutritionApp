@@ -28,6 +28,8 @@ export function createDragGhost(card:HTMLElement,originX:number,originY:number):
   const ghost=card.cloneNode(true) as HTMLElement;
   ghost.removeAttribute('data-dragging');
   ghost.removeAttribute('data-draggable');
+  ghost.removeAttribute('data-pressing');
+  ghost.removeAttribute('data-held');
   ghost.querySelectorAll('[id]').forEach(element=>element.removeAttribute('id'));
   ghost.classList.remove('food-time-card-moved','food-time-card-added','food-time-card-selected');
   ghost.classList.add('food-drag-ghost');
