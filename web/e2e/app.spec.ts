@@ -49,7 +49,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.getByRole('radio',{name:/^None or relaxed activity\b/}).check();
   await page.getByRole('button',{name:/^Next: Goal/}).click();
   await page.getByRole('radio',{name:'Fat loss',exact:true}).check();
-  await page.getByRole('radio',{name:'Maintenance',exact:true}).check();
+  await page.getByRole('radio',{name:/^Maintenance\b/}).check();
   await page.getByRole('button',{name:/^Next: Details/}).click();
   const maintenanceDuration=page.getByRole('slider',{name:'How long should this phase run?'});
   await maintenanceDuration.press('Home');
@@ -295,7 +295,7 @@ test('weekly check-in is a reduced-motion-safe bottom sheet with focus restorati
   await launcher.click();
   const dialog=page.getByRole('dialog',{name:'Weekly check-in'});await expect(dialog).toBeVisible();
   const box=await dialog.boundingBox();expect(box).not.toBeNull();expect(Math.abs((box!.y+box!.height)-900)).toBeLessThanOrEqual(2);
-  await expect(dialog).toHaveCSS('transition-duration','0s');await expect(dialog.getByRole('button',{name:'Accept',exact:true})).toBeVisible();await expect(dialog.getByRole('button',{name:'Decline',exact:true})).toBeVisible();
+  await expect(dialog).toHaveCSS('transition-duration','0s');await expect(dialog.getByRole('button',{name:/^Keep /})).toBeVisible();await expect(dialog.getByRole('button',{name:'Decline',exact:true})).toBeVisible();
   await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(launcher).toBeFocused();
 });
 

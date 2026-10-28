@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {allDaysEqual,latestWeightSuggestion,weeklyPaceMass,formatWeeklyPaceEquivalent} from './coachPlanHelpers';
+import {allDaysEqual,calorieChangeLine,latestWeightSuggestion,weeklyPaceMass,formatWeeklyPaceEquivalent} from './coachPlanHelpers';
 
 describe('latestWeightSuggestion', () => {
   it('does not suggest when isExistingPlan is false', () => {
@@ -116,5 +116,33 @@ describe('formatWeeklyPaceEquivalent', () => {
   it('returns empty string when weight is missing', () => {
     expect(formatWeeklyPaceEquivalent(0.6, null, 'kg')).toBe('');
     expect(formatWeeklyPaceEquivalent(0.6, 0, 'kg')).toBe('');
+  });
+});
+
+describe('calorieChangeLine', () => {
+  it('formats change line when both are known and differ', () => {
+    expect(calorieChangeLine(2200, 2050, 'kcal')).toBe('Daily calories: 2,200 -> 2,050 kcal');
+  });
+
+  it('formats unchanged line when both are equal', () => {
+    expect(calorieChangeLine(2200, 2200, 'kcal')).toBe('Daily calories unchanged at 2,200 kcal');
+  });
+
+  it('returns empty string when previous is unknown', () => {
+    expect(calorieChangeLine(null, 2050, 'kcal')).toBe('');
+    expect(calorieChangeLine(undefined, 2050, 'kcal')).toBe('');
+    expect(calorieChangeLine(NaN, 2050, 'kcal')).toBe('');
+  });
+
+  it('returns empty string when next is unknown', () => {
+    expect(calorieChangeLine(2200, null, 'kcal')).toBe('');
+    expect(calorieChangeLine(2200, undefined, 'kcal')).toBe('');
+    expect(calorieChangeLine(2200, NaN, 'kcal')).toBe('');
+  });
+
+  it('formats correctly with kJ unit', () => {
+    // 2200 kcal is 9205 kJ, 2050 kcal is 8577 kJ
+    expect(calorieChangeLine(2200, 2050, 'kj')).toBe('Daily calories: 9,205 -> 8,577 kJ');
+    expect(calorieChangeLine(2200, 2200, 'kj')).toBe('Daily calories unchanged at 9,205 kJ');
   });
 });

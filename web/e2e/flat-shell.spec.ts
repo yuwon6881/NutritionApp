@@ -68,14 +68,14 @@ for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[768,'dark'
     expect(addBox!.y).toBeGreaterThanOrEqual(labelBox!.y+labelBox!.height-1);
     await noHorizontalOverflow(page);
 
-    // Progress: weigh-ins are flat rows, and the delete icon is not red at rest.
+    // Progress: weigh-ins are flat rows, and the more icon is not red at rest.
     await page.locator('nav button:visible',{hasText:/^Progress$/}).first().click();
     const row=page.locator('.weigh-in-row').first();
     await expect(row).toBeVisible();
     expect(await row.evaluate(element=>getComputedStyle(element).borderLeftWidth)).toBe('0px');
-    const resting=await page.locator('.weigh-in-delete').first().evaluate(element=>getComputedStyle(element).color);
+    const more=await page.getByRole('button',{name:/^More actions for weigh-in from /}).first().evaluate(element=>getComputedStyle(element).color);
     const edit=await page.locator('.weigh-in-actions .button').first().evaluate(element=>getComputedStyle(element).color);
-    expect(resting).toBe(edit);
+    expect(more).toBe(edit);
     await noHorizontalOverflow(page);
 
     // Body: the hub states what is on file and keeps every action.

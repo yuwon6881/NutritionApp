@@ -9,18 +9,21 @@ import {displayEnergy,displayWeight,energyLabel,weightLabel} from '../lib/units'
 import {goalLabel} from './Coach';
 import {goalWeightBounds,phaseEndDate,resolveGoalStartWeight} from '../lib/goalPhase';
 import {formatWeeklyPaceEquivalent} from '../lib/coachPlanHelpers';
+import {CurrentBadge} from './coach/CurrentBadge';
 
 export function GoalSelection({
   profile,
-  set
+  set,
+  currentGoal
 }:{
   profile:ProfileDraft;
   set:(key:keyof ProfileDraft,value:unknown)=>void;
+  currentGoal?:ProfileDraft['goal'];
 }){
   return <FieldFrame label="Your goal"><fieldset className="coach-goals"><legend>Your goal</legend><div className="coach-goal-options">
     {(['lose','maintain','gain'] as const).map(goal=><label key={goal} htmlFor={`coach-goal-${goal}`} className={`coach-goal-option ${profile.goal===goal?'selected':''}`}>
       <input id={`coach-goal-${goal}`} required type="radio" name="coach-goal" value={goal} checked={profile.goal===goal} onChange={()=>set('goal',goal)}/>
-      <span>{goalLabel(goal)}</span>
+      <span>{goalLabel(goal)}{currentGoal===goal&&<CurrentBadge/>}</span>
     </label>)}
   </div></fieldset></FieldFrame>;
 }

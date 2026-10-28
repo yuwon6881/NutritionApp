@@ -1,5 +1,5 @@
-import type {WeightUnit} from '../types';
-import {displayWeight,parseWeight,weightLabel} from './units';
+import type {EnergyUnit,WeightUnit} from '../types';
+import {displayEnergy,displayWeight,energyLabel,parseWeight,weightLabel} from './units';
 
 export interface LatestWeightSuggestion {
   visible: boolean;
@@ -99,4 +99,22 @@ export function formatWeeklyPaceEquivalent(
   const massKg = weeklyPaceMass(percent, weightKg);
   if (massKg == null || massKg <= 0) return '';
   return ` (≈${displayWeight(massKg, unit, 1)} ${weightLabel(unit)}/wk)`;
+}
+
+/** Formats a single line comparing previous plan calories to new proposed calories. */
+export function calorieChangeLine(
+  previous: number | null | undefined,
+  next: number | null | undefined,
+  unit: EnergyUnit = 'kcal'
+): string {
+  if (previous == null || next == null || !Number.isFinite(previous) || !Number.isFinite(next)) {
+    return '';
+  }
+  const prevDisplay = displayEnergy(previous, unit);
+  const nextDisplay = displayEnergy(next, unit);
+  const label = energyLabel(unit);
+  if (prevDisplay === nextDisplay) {
+    return `Daily calories unchanged at ${nextDisplay} ${label}`;
+  }
+  return `Daily calories: ${prevDisplay} -> ${nextDisplay} ${label}`;
 }

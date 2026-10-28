@@ -41,10 +41,10 @@ export function GoogleHealthStepsCard({
 
   return (
     <article className="panel steps-panel steps-panel-compact" aria-labelledby="today-steps-title">
-      <div className="steps-header">
+      <div className="section-heading">
         <div>
-          <p className="eyebrow" id="today-steps-title">Google Health steps</p>
-          <h2>
+          <h2 id="today-steps-title">Google Health steps</h2>
+          <p className="chart-description">
             {count !== null ? (
               <>
                 <span className="tabular-num">{number(count)}</span> <span className="unit">steps</span>
@@ -54,7 +54,7 @@ export function GoogleHealthStepsCard({
                 <span>—</span> <span className="unit">steps</span>
               </>
             )}
-          </h2>
+          </p>
         </div>
         <div className="steps-icon-badge" aria-hidden="true">
           <Footprints size={24} />

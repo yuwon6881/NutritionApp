@@ -2,7 +2,7 @@ import {resetGoogleHealthState} from './lib/googleHealth';
 import {hasConnectIntent} from './lib/googleHealthConnectIntent';
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {ProgressFocus} from './components/Progress';
-import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
+import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,Zap,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
 import {getLocalDatabaseFailure} from './lib/local';
@@ -84,6 +84,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const [foodInitialQuery,setFoodInitialQuery]=useState<string>();
   const [foodEditing,setFoodEditing]=useState<Entry>();
   const [foodInitialTab,setFoodInitialTab]=useState<'search'|'saved'|'barcode'|'ai'>('search');
+  const [foodInitialStep,setFoodInitialStep]=useState<'selection'|'quick'>('selection');
   const [foodReturnFocus,setFoodReturnFocus]=useState<HTMLElement|null>(null);
   const [foodOriginPage,setFoodOriginPage]=useState<Page>('today');
   const [weightOpen,setWeightOpen]=useState(false);
@@ -184,11 +185,11 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   },[]);
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
-  const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string,initialQuery?:string)=>{
+  const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string,initialQuery?:string,initialStep?:'selection'|'quick')=>{
     foodOpening.current?.();
     foodOpening.current=measurePerformance('food.open');
     const initialSection=typeof tab==='string'?tab:tab?'barcode':'search';
-    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialTime(initialTime);setFoodInitialQuery(initialQuery);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
+    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialStep(initialStep??'selection');setFoodInitialTime(initialTime);setFoodInitialQuery(initialQuery);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
   };
   const openWeight=(selectedDate:string,entry?:Weight,restoreFocus?:HTMLElement|null)=>{
     setWeightDate(selectedDate);setWeightEditing(entry);setWeightReturnFocus(restoreFocus??null);setWeightOpen(true);
@@ -206,6 +207,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       setFoodEditing(undefined);
       setFoodInitialTime(undefined);
       setFoodInitialTab(action==='scan-barcode'?'barcode':'search');
+      setFoodInitialStep('selection');
       setFoodReturnFocus(null);
       setFoodOriginPage('today');
       setFoodOpen(true);
@@ -220,6 +222,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
     {id:'scan',label:'Scan food or label',description:'Scan a packaged food barcode or nutrition label.',icon:<Camera size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'barcode',addReturnFocus)},
+    {id:'quick',label:'Quick add',description:'Enter calories and macros without searching.',icon:<Zap size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus,undefined,undefined,'quick')},
   ];
   const navigate=(next:Page)=>{
     if(next===page){
@@ -293,7 +296,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       </MotionScene></Suspense>}
       {!needsProfile&&store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
+        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialStep}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialStep={foodInitialStep} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         {isNativeApp()&&authReady&&!needsProfile&&store.state&&<Suspense fallback={null}><IncomingPhoto key={user} accountId={user} displayName={store.state.displayName} initialDate={activeDate} blocked={foodOpen||weightOpen} onAttached={day=>openFood(day,undefined,'ai',null)}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>

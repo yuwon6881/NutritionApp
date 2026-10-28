@@ -172,10 +172,11 @@ export function FoodEditor({
       </div>
       {isProviderFood ? (
         <>
-          <div className="review-food-heading">
-            <h3>{draft.name}</h3>
-            {!isFatSecretSource(draft.source)&&<small className="source">{draft.source}</small>}
-          </div>
+          <div className="review-food-pinned">
+            <div className="review-food-heading">
+              <h3>{draft.name}</h3>
+              {!isFatSecretSource(draft.source)&&<small className="source">{draft.source}</small>}
+            </div>
 
           <div className="live-calorie-card">
             <div className="live-calorie-header">
@@ -189,6 +190,7 @@ export function FoodEditor({
                 Protein {number(draft.protein, 1)} g · Carbs {number(draft.carbs, 1)} g · Fat {number(draft.fat, 1)} g
               </span>
             </div>
+          </div>
           </div>
 
           <div className="form-grid">

@@ -1748,6 +1748,11 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .steps-panel-compact .steps-header .eyebrow{margin-bottom:5px!important}
 .steps-header h2{font-size:2rem;font-weight:600;margin:0;white-space:nowrap}
 .steps-panel-compact .steps-header h2{font-size:1.55rem;line-height:1.2}
+.steps-panel .section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.steps-panel-compact .section-heading{grid-column:1/-1;align-items:center;margin-bottom:0}
+.steps-panel .section-heading h2{font-size:1.15rem;line-height:1.4;margin-bottom:4px}
+.steps-panel .chart-description{font-size:1.55rem;font-weight:600;color:var(--ink-strong);line-height:1.2;margin:0}
+.steps-panel .chart-description .unit{font-size:1rem;font-weight:400;color:var(--muted-foreground);margin-left:4px}
 .steps-icon-badge{width:42px;height:42px;border-radius:12px;background:var(--primary-tint);color:var(--primary-ink);display:grid;place-items:center;flex-shrink:0}
 .steps-panel-compact .steps-icon-badge{width:38px;height:38px;border-radius:10px}
 .steps-provenance{font-size:.78rem}
@@ -1774,6 +1779,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 /* Training Summary Card */
 .training-summary-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
 .training-summary-header h2{font-size:1.15rem;line-height:1.4;margin-bottom:0}
+.training-summary .section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.training-summary .section-heading h2{font-size:1.15rem;line-height:1.4;margin-bottom:4px}
+.training-summary .section-heading .chart-description{margin-bottom:0}
 .training-icon-badge{width:42px;height:42px;border-radius:12px;background:var(--primary-tint);color:var(--primary-ink);display:grid;place-items:center;flex-shrink:0;transition:transform var(--motion-control) var(--motion-ease),background-color var(--motion-control) var(--motion-ease)}
 .training-icon-badge.training-refreshing{animation:pulse 1.8s ease-in-out infinite}
 .training-sync-status{margin-bottom:12px}

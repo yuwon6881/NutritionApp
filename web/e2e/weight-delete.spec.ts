@@ -13,9 +13,13 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     const rows=page.locator('.weigh-in-list .weigh-in-row');
     await expect(rows.first()).toBeVisible();
     const before=await rows.count();
-    const trigger=rows.first().getByRole('button',{name:/^Delete weigh-in from /});
+    const trigger=rows.first().getByRole('button',{name:/^More actions for weigh-in from /});
+    const openDelete=async()=>{
+      await trigger.click();
+      await page.getByRole('button',{name:'Delete weigh-in',exact:true}).click();
+    };
     const dialog=page.getByRole('dialog',{name:'Delete weigh-in?',exact:true});
-    await trigger.click();
+    await openDelete();
     await expect(dialog).toContainText('kg');
     await expect(dialog).toContainText('five seconds');
     await expect(rows).toHaveCount(before);
@@ -28,13 +32,13 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
-    await trigger.click();
+    await openDelete();
     // Escape only targets the native modal after its opening frame moves focus inside.
     await expect(dialog.getByRole('button',{name:'Close dialog',exact:true})).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
-    await trigger.click();
+    await openDelete();
     await dialog.getByRole('button',{name:'Delete weigh-in',exact:true}).click();
     await expect(dialog).toBeHidden();
     await expect(rows).toHaveCount(before-1);
