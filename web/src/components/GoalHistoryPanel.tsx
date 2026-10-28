@@ -1,13 +1,13 @@
 import {ArrowRight,Calendar} from 'lucide-react';
 import type {CoachingSettings,Plan} from '../types';
-import {buildGoalHistory,goalLabel,type GoalHistoryEntry} from '../lib/goalHistory';
+import {buildGoalHistory,currentEndKg,goalLabel,type GoalHistoryEntry} from '../lib/goalHistory';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
 import {mediumDate} from '../lib/format';
 
 const statusText=(entry:GoalHistoryEntry)=>entry.status==='completed'?'Completed':entry.status==='changed'?'Changed':'In progress';
 const goalCategory=(goal:string)=>goal==='lose'?'DEFICIT':goal==='gain'?'SURPLUS':'MAINTENANCE';
 
-export function GoalHistoryPanel({plans,settings}:{plans:readonly Plan[];settings?:CoachingSettings}){
+export function GoalHistoryPanel({plans,settings,latestKg}:{plans:readonly Plan[];settings?:CoachingSettings;latestKg?:number|null}){
   const unit=unitsFor(settings).weight;
   const metric=settings?.weightGoalMetric??'scale';
   const entries=buildGoalHistory(plans,metric);
@@ -15,13 +15,14 @@ export function GoalHistoryPanel({plans,settings}:{plans:readonly Plan[];setting
     <div className="section-heading">
       <div>
         <h2>Goal history</h2>
-        <p>When each goal started and ended, with your {metric==='trend'?'trend':'scale'} weight at the start and at the end.</p>
+        <p>When each goal started and ended, with your plan starting weight and {metric==='trend'?'trend':'scale'} weight at the end.</p>
       </div>
     </div>
     {entries.length===0?<p className="empty">No goals yet.</p>:<div className="goal-history-list">
       {entries.map(entry=>{
         const isCurrent=entry.status==='active';
-        const change=(entry.startKg!=null&&entry.endKg!=null)?entry.endKg-entry.startKg:null;
+        const endKg=currentEndKg(entry,latestKg);
+        const change=(entry.startKg!=null&&endKg!=null)?endKg-entry.startKg:null;
         const endDate=isCurrent?'Present':(entry.endDate?mediumDate(entry.endDate):'—');
         return <article key={`${entry.startDate}-${entry.goal}`} className={`goal-history-card ${isCurrent?'goal-history-card-active':''}`}>
           <div className="goal-history-card-header">
@@ -55,8 +56,8 @@ export function GoalHistoryPanel({plans,settings}:{plans:readonly Plan[];setting
             <div className="goal-history-stat-point">
               <span className="goal-history-stat-label">{isCurrent?'Latest':'End'}</span>
               <span className="goal-history-stat-val">
-                {entry.endKg!=null?(
-                  <>{displayWeight(entry.endKg,unit,1)} <span className="unit">{weightLabel(unit)}</span></>
+                {endKg!=null?(
+                  <>{displayWeight(endKg,unit,1)} <span className="unit">{weightLabel(unit)}</span></>
                 ):'—'}
               </span>
             </div>

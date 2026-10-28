@@ -21,6 +21,7 @@ import {FoodSelectionBar} from './FoodSelectionBar';
 import {FoodWeekStrip} from './FoodWeekStrip';
 import {FoodDaySummary} from './FoodDaySummary';
 import {planForDate,targetsForDate} from '../lib/dailyTargets';
+import {checkInDue as checkInDueHelper} from '../lib/checkIn';
 import {useDaySwipe} from './useDaySwipe';
 import {DiaryEmptyState} from './DiaryEmptyState';
 import {FoodDaySkeleton} from './ui/Skeleton';
@@ -30,7 +31,7 @@ import { CopyFoodDialog, MoveFoodDialog } from './LazyFoodDialogs';
 import { Modal } from './ui/Modal';
 import { useDismissablePopover } from './ui/useDismissablePopover';
 
-export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:NutritionStore;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void}){
+export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}:{store:NutritionStore;date:string;setDate:(date:string)=>void;onLog:(time?:string)=>void;onEdit:(entry:Entry)=>void;onCopyDay:(date:string,entries:Entry[],trigger:HTMLElement)=>void;checkInDue?:boolean}){
   const history=useHistoryWindow(store,date);
   const [error,setError]=useState('');
   const [timelineView,setTimelineView]=useState<TimelineView>('data');
@@ -53,6 +54,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
   const editAfterSelection=useAfterLayersSettle<Entry>(onEdit);
 
   const current=today(store.state!.profile?.timeZone);
+  const isCheckInDue=checkInDue??(store.state?.profile?checkInDueHelper(store.state,current):false);
   const online=useOnlineStatus();
   const currentUncached=showsDeviceOnlyToday({isToday:date===current,hasHistory:!!history.state,loading:history.loading,online});
   const state=history.state??(currentUncached?store.state:undefined);
@@ -188,7 +190,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
     <div className="food-diary-toolbar">
       <div className="food-date-navigation">
         <DatePicker label="Food date" value={date} min="2000-01-01" max={latest} onChange={changeDate}/>
-        <Button onClick={()=>changeDate(current)} disabled={date===current}>Today</Button>
+        {date!==current&&<Button onClick={()=>changeDate(current)}>Today</Button>}
       </div>
       <FoodWeekStrip date={date} today={current} store={store} onChange={changeDate}/>
     </div>
@@ -217,6 +219,9 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay}:{store:Nut
         statusValue={status==='fasting'||status==='not_logged'?status:'incomplete'}
         statusDisabled={count>0&&readOnly}
         canFast={count===0&&total===0}
+        checkInDue={isCheckInDue}
+        date={date}
+        currentDate={current}
         onStatusChange={value=>{
           // A day with food can be marked not fully logged, so a missing meal does not lower the expenditure estimate.
           if(value==='fasting'&&count>0)return;

@@ -7,14 +7,14 @@ import {Button} from './ui/Button';
 import {Slider} from './ui/Slider';
 
 const presetDescriptions:Record<string,string>={
-  auto:'Calculated optimal protein intake based on your body weight and training, with balanced carbs and fats.',
-  balanced:'Equal emphasis on macronutrients for dietary flexibility and varied whole foods.',
-  'high-protein':'Elevated protein to maximize muscle preservation, satiety, and recovery.',
-  'lower-carb':'Reduced carbohydrate intake with higher healthy fats and satisfying protein.',
-  keto:'Very low carbohydrate ketogenic protocol focused on healthy dietary fats.',
-  mediterranean:'Heart-healthy fat profile paired with unrefined carbohydrates and moderate protein.',
-  'high-carb':'Carbohydrate-focused fueling suited for high-volume endurance and athletic performance.',
-  custom:'Custom macronutrient distribution fine-tuned to your preferences.'
+  auto:'Protein calculated from body weight and training, with balanced carbs and fat.',
+  balanced:'Even balance across protein, carbs, and fat.',
+  'high-protein':'Higher protein with moderate carbs and lower fat.',
+  'lower-carb':'Fewer carbs with more fat and moderate protein.',
+  keto:'Very low carbs with high fat and moderate protein.',
+  mediterranean:'Moderate carbs and fat with lower protein.',
+  'high-carb':'Higher carbs with moderate fat and lower protein.',
+  custom:'Custom distribution set to your chosen percentages.'
 };
 
 /**

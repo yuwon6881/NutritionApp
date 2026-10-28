@@ -17,7 +17,7 @@ const sections:SettingsSectionLink[]=[
   {id:'settings-general',label:'General',icon:SlidersHorizontal},
   {id:'settings-diary',label:'Diary & coaching',icon:Compass},
   {id:'settings-notifications',label:'Notifications',icon:Bell},
-  {id:'settings-connections',label:'Connected Apps',icon:Link2},
+  {id:'settings-connections',label:'Connected apps',icon:Link2},
   {id:'settings-device',label:'This device',icon:HardDrive}
 ];
 
@@ -63,7 +63,7 @@ export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Pro
         <SettingsSection {...notifications} title="Notifications" description="Weekly check-in reminders. The text never shows your food, weight, or account.">
           <NotificationsSettings store={store}/>
         </SettingsSection>
-        <SettingsSection {...connections} layout="plain" title="Connected Apps" description="Connected services add context. They never change your calorie or macro targets.">
+        <SettingsSection {...connections} layout="plain" title="Connected apps" description="Connected services add context. They never change your calorie or macro targets.">
           <GoogleHealthSettings/>
           <ConnectedApps store={store}/>
         </SettingsSection>

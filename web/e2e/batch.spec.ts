@@ -81,7 +81,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   const calorieCard=page.locator('.live-calorie-card');
   await expect(calorieCard).toBeVisible();
   await expect(calorieCard.getByText('116')).toBeVisible();
-  await expect(calorieCard.getByText('2 foods')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Log all 2 foods'})).toBeVisible();
 
   // Completed setup supplies the accepted target while the preview adds the batch to the empty day.
   const dayPreview=page.getByRole('region',{name:'Day total after logging'});
@@ -115,14 +115,14 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
 
   // Remove Blueberries Fresh from batch
   await page.getByRole('button',{name:'Remove Blueberries Fresh'}).click();
-  await expect(calorieCard.getByText('1 food')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Log 1 food',exact:true})).toBeVisible();
   await expect(calorieCard.getByText('118')).toBeVisible();
 
   // Set the batch time to 15:30
   await page.getByLabel('Meal time',{exact:true}).fill('15:30');
 
   // Submit batch
-  await page.getByRole('button',{name:/Log all 1 food/}).click();
+  await page.getByRole('button',{name:'Log 1 food',exact:true}).click();
 
   // Check that the entry appears in timeline at 15:30
   await page.getByRole('button',{name:'Food Log',exact:true}).click();

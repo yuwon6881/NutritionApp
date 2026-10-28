@@ -8,7 +8,7 @@ const levels:Record<ActivityLevel,LevelInfo>={
   none:{label:'None or relaxed activity',description:'Daily life without planned exercise.',multiplier:1.2,lifts:false},
   lifting:{label:'Lifting',description:'Resistance training most weeks.',multiplier:1.375,lifts:true},
   cardio:{label:'Cardio',description:'Running, cycling, swimming or similar most weeks.',multiplier:1.5,lifts:false},
-  cardio_lifting:{label:'Cardio & Lifting',description:'Both, most weeks.',multiplier:1.65,lifts:true}
+  cardio_lifting:{label:'Cardio & lifting',description:'Both, most weeks.',multiplier:1.65,lifts:true}
 };
 
 export const activityLevels=Object.keys(levels) as ActivityLevel[];

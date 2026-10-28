@@ -64,14 +64,14 @@ test('AI body-fat estimate needs three photos and fills the field only when used
   await page.getByRole('button',{name:'Progress',exact:true}).first().click();
   await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Add body record',exact:true}).click();
-  const add=page.getByRole('dialog',{name:'Add Body record'});
+  const add=page.getByRole('dialog',{name:'Add body record'});
   await expect(add.getByRole('button',{name:'Estimate with AI',exact:true})).toBeDisabled();
   await expect(add.getByText('Add front, side, and back photos to estimate.',{exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
 
   await page.getByRole('button',{name:'Open history',exact:true}).click();
   await page.getByRole('button',{name:'Edit',exact:true}).first().click();
-  const dialog=page.getByRole('dialog',{name:'Edit Body record'});
+  const dialog=page.getByRole('dialog',{name:'Edit body record'});
   const estimate=dialog.getByRole('button',{name:'Estimate with AI',exact:true});
   await expect(estimate).toBeEnabled();
   const request=page.waitForRequest('**/api/body-records/body-fat-estimate');
@@ -92,7 +92,7 @@ test('AI body-fat estimate errors stay beside the action and keep manual entry a
   await page.route('**/api/body-records/body-fat-estimate',route=>route.fulfill({status:422,contentType:'application/json',body:JSON.stringify({message:'The photos could not be assessed. Use clear, well-lit front, side, and back photos.'})}));
   await openNewestRecord(page);
   await page.getByRole('button',{name:'Edit record',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Edit Body record'});
+  const dialog=page.getByRole('dialog',{name:'Edit body record'});
   await dialog.getByRole('button',{name:'Estimate with AI',exact:true}).click();
   await expect(dialog.getByRole('alert')).toContainText('The photos could not be assessed.');
   await dialog.getByLabel('Body fat (%)',{exact:true}).fill('19');
@@ -101,7 +101,7 @@ test('AI body-fat estimate errors stay beside the action and keep manual entry a
 
 test('changing only a weight-snapshot omission requires dirty dismissal confirmation',async({page})=>{
   await openNewestRecord(page);await page.getByRole('button',{name:'Edit record',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Edit Body record'});
+  const dialog=page.getByRole('dialog',{name:'Edit body record'});
   await dialog.getByRole('switch',{name:'Omit scale snapshot'}).click();await page.keyboard.press('Escape');
   await expect(page.getByRole('heading',{name:'Discard changes?',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(dialog).toBeVisible();

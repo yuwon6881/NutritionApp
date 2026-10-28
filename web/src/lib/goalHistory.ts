@@ -63,3 +63,13 @@ export function buildGoalHistory(plans:readonly Plan[],metric:WeightGoalMetric='
   // replaces the earlier one before any of it was pursued, so it is not a period of its own.
   return entries.filter(entry=>!(entry.status==='changed'&&entry.endDate===entry.startDate)).reverse();
 }
+
+/**
+ * Resolves the terminal weight to display for a goal period. For the active goal,
+ * falls back to the latest recorded weight when the accepted plan does not carry one.
+ */
+export function currentEndKg(entry:GoalHistoryEntry,latestKg?:number|null):number|null{
+  if(entry.status!=='active')return entry.endKg;
+  if(entry.endKg!=null)return entry.endKg;
+  return typeof latestKg==='number'&&Number.isFinite(latestKg)?latestKg:null;
+}

@@ -14,7 +14,7 @@ import {SegmentedControl} from './ui/SegmentedControl';
 import {MotionPanel,useReducedMotion} from './ui/Motion';
 import {SelectField} from './ui/Field';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
-import {projectProgressWeightSummary,progressPeriodOptions,projectedProgressRange} from '../lib/progress';
+import {projectProgressWeightSummary,progressPeriodOptions,progressRange,projectedProgressRange} from '../lib/progress';
 import {useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
@@ -87,7 +87,7 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
   const pendingWeightDeletes=new Set((store.local?.queue??[]).filter(op=>op.kind==='weight'&&op.delete).map(op=>op.recordId));
   const deleteWeight=async(weight:Weight)=>{
     const id=await store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true},{holdMs:UNDO_WINDOW_MS});
-    showUndo(`Deleted weigh-in · ${displayWeight(weight.kg,units.weight,2)} ${weightLabel(units.weight)} · ${readoutDate(weight.date)}`,()=>store.undo([id]));
+    showUndo(`Deleted weigh-in · ${displayWeight(weight.kg,units.weight,1)} ${weightLabel(units.weight)} · ${readoutDate(weight.date)}`,()=>store.undo([id]));
   };
   const tabs=[['weight','Weight'],['energy','Energy'],['body','Body'],['activity','Activity']] as const;
   const tabDirection:1|-1=tab==='body'||tab==='activity'?-1:1;
@@ -162,6 +162,7 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
   const error = tab === 'weight' ? weight.error : energy.error;
   const loading = tab === 'weight' ? weight.loading : energy.loading;
   const retry = tab === 'weight' ? weight.retry : energy.retry;
+  const energyRange = energy.summary ?? progressRange(energy.displayedPeriod, localToday, state.start);
 
   return <>
     <header className="page-heading"><div><h1 data-page-heading tabIndex={-1}>Progress</h1></div></header>
@@ -194,7 +195,7 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
         {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
       </SelectField></div>
       <EnergyBalance store={store} period={energy.displayedPeriod} summary={energy.summary} error={energy.error}/>
-      <CoachingProgress store={store}/>
+      <CoachingProgress store={store} rangeStart={energyRange.start} rangeEnd={energyRange.end}/>
     </div>}
     {tab==='body'&&<Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>}
     {tab==='activity'&&<div className="activity-progress-hub">

@@ -50,10 +50,10 @@ export function LogFoodSavedFoods({
 }){
   const logging=purpose==='log';
   const linking=Boolean(linkBarcode);
-  const favoriteCount=savedFoods.filter(food=>food.favourite).length;
+
   // isRecipe parses each food's ingredients; do it once per library rather than per use per render.
   const recipes=useMemo(()=>new Set(savedFoods.filter(isRecipe).map(food=>food.id)),[savedFoods]);
-  const recipeCount=recipes.size;
+
   const foods=savedFoods.filter(food=>{
     if((!logging||linking)&&recipes.has(food.id))return false;
     const matchesQuery=!query.trim()||food.name.toLowerCase().includes(query.toLowerCase().trim());
@@ -127,14 +127,14 @@ export function LogFoodSavedFoods({
       <Field id="log-food-search" name="query" autoComplete="off" autoCorrect="off" spellCheck={false} data-modal-autofocus label="Find your food" placeholder="Filter by food or recipe name…" value={query} onChange={event=>onQueryChange(event.target.value)}/>
     </div>
     <SegmentedControl<SavedFilter>
-      layout="wrap"
+      layout="scroll"
       className="saved-filter-segments"
       label="Filter your foods"
       value={filter}
       options={[
-        {value:'all',label:`All (${savedFoods.length})`},
-        {value:'favourites',label:`Favourites (${favoriteCount})`},
-        ...(logging&&!linking?[{value:'recipes' as const,label:`Recipes (${recipeCount})`},{value:'recent' as const,label:`Recent (${recentEntries.length})`}]:[]),
+        {value:'all',label:'All'},
+        {value:'favourites',label:'Favourites'},
+        ...(logging&&!linking?[{value:'recipes' as const,label:'Recipes'},{value:'recent' as const,label:'Recent'}]:[]),
       ]}
       onChange={onFilterChange}
     />

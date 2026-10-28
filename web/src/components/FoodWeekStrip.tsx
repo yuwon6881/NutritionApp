@@ -56,7 +56,7 @@ export function FoodWeekStrip({date,today,store,onChange}:{date:string;today:str
     if(prependWidth.current){element.scrollLeft+=prependWidth.current;prependWidth.current=0;}
     if(reveal.current){
       const selected=element.querySelector<HTMLElement>(`[data-date="${date}"]`);
-      if(selected)element.scrollLeft=selected.offsetLeft-element.offsetLeft-element.clientWidth/2+selected.clientWidth/2;
+      if(selected)element.scrollLeft=Math.round((selected.offsetLeft-element.offsetLeft-element.clientWidth/2+selected.clientWidth/2)/dayWidth)*dayWidth;
       reveal.current=false;
     }
   },[range,date]);

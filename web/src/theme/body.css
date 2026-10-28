@@ -390,3 +390,43 @@
   background: color-mix(in srgb, var(--muted) 60%, transparent) !important;
   border: 1.5px dashed color-mix(in srgb, var(--control-border) 50%, transparent) !important;
 }
+
+/* Photo upload dialog: three compact tiles in one row on all widths */
+.photo-upload-dialog .physique-upload-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+.photo-upload-dialog .physique-upload-slot:last-child {
+  grid-column: auto !important;
+  max-width: none !important;
+}
+.photo-upload-dialog .physique-upload-slot-heading {
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.photo-upload-dialog .physique-upload-slot-heading h3 {
+  font-size: 0.875rem;
+}
+.photo-upload-dialog .custom-file-dropzone {
+  padding: 10px 4px !important;
+  min-height: 76px;
+  border-radius: 14px !important;
+}
+.photo-upload-dialog .dropzone-icon {
+  margin-bottom: 2px;
+}
+.photo-upload-dialog .dropzone-main-text {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+.photo-upload-dialog .dropzone-subtext {
+  display: none !important;
+}
+.photo-upload-dialog .file-preview-info {
+  padding: 6px 8px;
+  gap: 6px;
+}
+.photo-upload-dialog .file-preview-name {
+  font-size: 0.75rem;
+}

@@ -16,9 +16,11 @@ export function EnergyStats({stats,energyUnit}:{stats?:ProgressEnergyStatistics;
   const balance=stats?.totalBalance;
   const tone=balance==null||balance===0?undefined:balance>0?'is-surplus':'is-deficit';
   const days=stats?.days??0;
+  const surplus=stats?.surplusDays??0;
+  const deficit=stats?.deficitDays??0;
   return <dl className="energy-stats">
     <Stat label="Complete days" value={<>{stats?.completeDays??0} <span className="unit">of {days}</span></>} note="Fully logged"/>
     <Stat label="Average intake" value={<>{displayEnergy(stats?.averageIntake,energyUnit)} {unit}</>} note={`${stats?.loggedDays??0} ${stats?.loggedDays===1?'day':'days'} logged`}/>
-    <Stat label="Total balance" tone={tone} value={<>{balance==null?'—':`${balance>0?'+':balance<0?'−':''}${displayEnergy(Math.abs(balance),energyUnit)}`} {unit}</>} note={`${stats?.surplusDays??0} surplus · ${stats?.deficitDays??0} deficit`}/>
+    <Stat label="Total balance" tone={tone} value={<>{balance==null?'—':`${balance>0?'+':balance<0?'−':''}${displayEnergy(Math.abs(balance),energyUnit)}`} {unit}</>} note={`${surplus} surplus ${surplus===1?'day':'days'} · ${deficit} deficit ${deficit===1?'day':'days'}`}/>
   </dl>;
 }

@@ -104,9 +104,9 @@ test.describe('Coach unit selection', () => {
     const feetBox = await feetInput.boundingBox();
     expect(Math.abs(dobBox!.y - feetBox!.y)).toBeLessThanOrEqual(2);
 
-    // Verify Starting weight is in the second row, aligned with Gender
+    // Verify Starting weight is in the second row, aligned with Sex
     const weightInput = page.getByLabel(/Starting weight/);
-    const sexInput = page.getByRole('button', {name: 'Choose gender'});
+    const sexInput = page.getByRole('button', {name: 'Choose sex'});
     const weightBox = await weightInput.boundingBox();
     const sexBox = await sexInput.boundingBox();
     expect(Math.abs(weightBox!.y - sexBox!.y)).toBeLessThanOrEqual(2);
@@ -145,7 +145,7 @@ test.describe('Coach unit selection', () => {
     await page.getByLabel('Date of birth', {exact: true}).fill('1996-03-14');
     await page.getByLabel('Height (cm)').fill('175');
     await page.getByLabel('Starting weight (kg)').fill('80');
-    await page.getByLabel('Gender', {exact: true}).selectOption('male');
+    await page.getByLabel('Sex', {exact: true}).selectOption('male');
     await page.getByRole('button', {name: /^Next: Activity/}).click();
 
     // Fill Step 2: Activity

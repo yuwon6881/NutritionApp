@@ -14,11 +14,15 @@ describe('activity levels',()=>{
   });
 
   it('suggests the closest choice for a profile saved before them',()=>{
+    expect(closestActivityLevel({activity:1.2,resistanceTraining:false})).toBe('none');
     expect(closestActivityLevel({activity:1.3,resistanceTraining:false})).toBe('none');
-    expect(closestActivityLevel({activity:1.8,resistanceTraining:false})).toBe('cardio');
+    expect(closestActivityLevel({activity:1.375,resistanceTraining:true})).toBe('lifting');
     expect(closestActivityLevel({activity:1.4,resistanceTraining:true})).toBe('lifting');
+    expect(closestActivityLevel({activity:1.5,resistanceTraining:false})).toBe('cardio');
+    expect(closestActivityLevel({activity:1.8,resistanceTraining:false})).toBe('cardio');
+    expect(closestActivityLevel({activity:1.65,resistanceTraining:true})).toBe('cardio_lifting');
     expect(closestActivityLevel({activity:2,resistanceTraining:true})).toBe('cardio_lifting');
     expect(closestActivityLevel({activity:0,resistanceTraining:false})).toBeNull();
-    expect(activityLevelInfo('cardio_lifting').label).toBe('Cardio & Lifting');
+    expect(activityLevelInfo('cardio_lifting').label).toBe('Cardio & lifting');
   });
 });

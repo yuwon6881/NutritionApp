@@ -45,7 +45,7 @@ export function WeightTrendCard({points,recent,current,unit,onOpen}:{points:read
     ?`Trend weight: ${displayWeight(insight.latest.kg,unit,1)} ${weightLabel(unit)} as of ${asOf}${changeText?`, ${changeText}`:''}. Open weight chart`
     :'Trend weight: no weigh-in yet. Open weight chart';
   const unitText=weightLabel(unit);
-  const recentLabel=`Latest weigh-ins: ${recent.map(weight=>`${readoutDate(weight.date)} ${displayWeight(weight.kg,unit,2)} ${unitText}`).join(', ')}. Open weigh-in history`;
+  const recentLabel=`Latest weigh-ins: ${recent.map(weight=>`${readoutDate(weight.date)} ${displayWeight(weight.kg,unit,1)} ${unitText}`).join(', ')}. Open weigh-in history`;
   return <article className="panel dashboard-trend-panel">
     <Button presentation="plain" className="dashboard-trend-summary" aria-label={label} onClick={()=>onOpen('chart')}>
       <span className="dashboard-trend-head">
@@ -80,7 +80,7 @@ export function WeightTrendCard({points,recent,current,unit,onOpen}:{points:read
       <span className="dashboard-trend-recent-list">
         {recent.map(weight=><span className="dashboard-trend-recent-item" key={weight.id}>
           <span className="dashboard-trend-recent-date">{weight.date===current?'Today':shortDate(weight.date)}</span>
-          <span className="dashboard-trend-recent-value"><strong>{displayWeight(weight.kg,unit,2)}</strong> <span className="unit">{unitText}</span></span>
+          <span className="dashboard-trend-recent-value"><strong>{displayWeight(weight.kg,unit,1)}</strong> <span className="unit">{unitText}</span></span>
         </span>)}
       </span>
       <ChevronRight size={16} className="dashboard-trend-chevron" aria-hidden="true"/>

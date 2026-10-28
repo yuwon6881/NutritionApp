@@ -1,0 +1,31 @@
+.weight-entry-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.weight-entry-context {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+.weight-entry-stepper {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 18px;
+  width: 100%;
+}
+
+.weight-entry-stepper > .field {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.weight-entry-stepper > .button {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}

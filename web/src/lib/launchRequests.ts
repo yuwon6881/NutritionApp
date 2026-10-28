@@ -1,8 +1,10 @@
-type PendingRead = { priority: number; start: () => void };
+type PendingRead = { path: string; priority: number; start: (immediate?: boolean) => void };
 let primaryReads = 0;
 let optionalReadRunning = false;
 let dispatchTimer: ReturnType<typeof setTimeout> | undefined;
 const pendingReads: PendingRead[] = [];
+const immediatePrefixes = new Set<string>();
+
 function dispatch() {
   dispatchTimer = undefined;
   if (primaryReads || optionalReadRunning) return;
@@ -15,6 +17,21 @@ function schedule() {
   const delay = pendingReads.some(read => read.priority === 0) ? 0 : 200;
   dispatchTimer ??= setTimeout(dispatch, delay);
 }
+/** Immediately start reads matching prefix and bypass the optional launch queue until released. */
+export function requestNow(prefix: string | string[]): () => void {
+  const prefixes = Array.isArray(prefix) ? prefix : [prefix];
+  for (const p of prefixes) immediatePrefixes.add(p);
+  for (let i = pendingReads.length - 1; i >= 0; i--) {
+    const read = pendingReads[i];
+    if (prefixes.some(p => read.path.startsWith(p))) {
+      pendingReads.splice(i, 1);
+      read.start(true);
+    }
+  }
+  return () => {
+    for (const p of prefixes) immediatePrefixes.delete(p);
+  };
+}
 /** Keep optional integration traffic behind session/bootstrap reads; writes never wait here. */
 export async function coordinateLaunchRequest<T>(url: string, method: string, signal: AbortSignal | null | undefined,
   run: () => Promise<T>): Promise<T> {
@@ -25,11 +42,12 @@ export async function coordinateLaunchRequest<T>(url: string, method: string, si
     try { return await run(); }
     finally { primaryReads--; schedule(); }
   }
+  const isImmediate = [...immediatePrefixes].some(prefix => path.startsWith(prefix));
   const priority = path.endsWith('/google-health/sync-data') ? 3
     : (path.endsWith('/google-health') || path.endsWith('/google-health/sync')) ? 0
     : method === 'GET' && ['/api/training/summary', '/api/integrations/connected'].includes(path) ? 1
     : method === 'GET' && ['/api/notifications/status', '/api/notifications/check-in-reminder'].includes(path) ? 2 : undefined;
-  if (priority === undefined) return run();
+  if (priority === undefined || isImmediate) return run();
   signal?.throwIfAborted();
   return new Promise<T>((resolve, reject) => {
     const abort = () => {
@@ -39,10 +57,14 @@ export async function coordinateLaunchRequest<T>(url: string, method: string, si
       reject(signal?.reason);
       schedule();
     };
-    const read: PendingRead = { priority, start: () => {
+    const read: PendingRead = { path, priority, start: (immediate = false) => {
       signal?.removeEventListener('abort', abort);
-      optionalReadRunning = true;
-      void run().then(resolve, reject).finally(() => { optionalReadRunning = false; schedule(); });
+      if (immediate) {
+        void run().then(resolve, reject);
+      } else {
+        optionalReadRunning = true;
+        void run().then(resolve, reject).finally(() => { optionalReadRunning = false; schedule(); });
+      }
     } };
     pendingReads.push(read);
     signal?.addEventListener('abort', abort, { once: true });

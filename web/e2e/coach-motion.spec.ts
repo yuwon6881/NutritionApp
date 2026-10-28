@@ -110,7 +110,7 @@ test('body corrections refresh the live maintenance estimate and server proposal
 test('activity step offers the four activity choices and omits removed controls',async({page,context})=>{
   await page.getByRole('button',{name:'Edit plan',exact:true}).click();
   await step(page,'Activity');
-  for(const name of [/^None or relaxed activity\b/,/^Lifting\b/,/^Cardio\b(?! &)/,/^Cardio & Lifting\b/])
+  for(const name of [/^None or relaxed activity\b/,/^Lifting\b/,/^Cardio\b(?! &)/,/^Cardio & lifting\b/])
     await expect(page.getByRole('radio',{name})).toBeVisible();
   await expect(page.getByLabel('Resistance training',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Usual activity (approximate)',{exact:true})).toHaveCount(0);
@@ -118,10 +118,10 @@ test('activity step offers the four activity choices and omits removed controls'
   await expect(page.getByLabel('Medically managed nutrition',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Known maintenance calories (optional)',{exact:true})).toHaveCount(0);
   await step(page,'Body');
-  await page.getByLabel('Gender',{exact:true}).selectOption('male');
+  await page.getByLabel('Sex',{exact:true}).selectOption('male');
   await step(page,'Activity');
-  await page.getByRole('radio',{name:/^Cardio & Lifting\b/}).check();
-  await expect(page.getByRole('radio',{name:/^Cardio & Lifting\b/})).toBeChecked();
+  await page.getByRole('radio',{name:/^Cardio & lifting\b/}).check();
+  await expect(page.getByRole('radio',{name:/^Cardio & lifting\b/})).toBeChecked();
   await expect(page.getByLabel('Pregnant or breastfeeding',{exact:true})).toHaveCount(0);
 });
 async function transitionFrames(page:Page,name:string){

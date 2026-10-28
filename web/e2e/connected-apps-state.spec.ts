@@ -40,7 +40,7 @@ async function openSignedInApp(page: Page) {
 async function openConnectedApps(page: Page) {
   await openSignedInApp(page);
   await page.getByRole('button',{name:'Settings',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Connected Apps',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Connected apps',exact:true})).toBeVisible();
 }
 
 test('temporary central status keeps Workout connected and shows the generic sync warning',async({page})=>{

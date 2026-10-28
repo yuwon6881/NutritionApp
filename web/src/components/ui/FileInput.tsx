@@ -23,6 +23,7 @@ export interface FileInputProps {
    * This adds a gallery choice so an earlier photo can still be used.
    */
   libraryOption?: boolean;
+  hideFormat?: boolean;
 }
 
 export function FileInput({
@@ -39,6 +40,7 @@ export function FileInput({
   className = '',
   maxSizeLabel = '750 KB',
   libraryOption = false,
+  hideFormat = false,
 }: FileInputProps) {
   const generatedId = useId();
   const id = idProp ?? generatedId;
@@ -167,7 +169,7 @@ export function FileInput({
         data-validation-focus
         aria-label={`Upload ${label.toLowerCase()}`}
         // The format line inside the drop area describes it unless the caller gives its own hint.
-        aria-describedby={hint?`${id}-hint`:selectedFileName?undefined:`${id}-format`}
+        aria-describedby={hint?`${id}-hint`:selectedFileName||hideFormat?undefined:`${id}-format`}
         role="button"
         tabIndex={disabled ? -1 : 0}
         onKeyDown={e => {
@@ -211,8 +213,8 @@ export function FileInput({
         ) : (
           <div className="dropzone-prompt">
             <UploadCloud size={24} className="dropzone-icon" />
-            <span className="dropzone-main-text">{touchFirst ? (capture ? 'Take a photo' : 'Take or choose a photo') : 'Choose a photo or drag & drop'}</span>
-            <small id={`${id}-format`} className="dropzone-subtext">JPEG or PNG · compressed on this device to {maxSizeLabel} or less</small>
+            <span className="dropzone-main-text">{touchFirst ? (capture ? 'Take a photo' : 'Take or choose a photo') : <>Choose a photo<span className="dropzone-drag-text"> or drag & drop</span></>}</span>
+            {!hideFormat && <small id={`${id}-format`} className="dropzone-subtext">JPEG or PNG · compressed on this device to {maxSizeLabel} or less</small>}
           </div>
         )}
       </div>

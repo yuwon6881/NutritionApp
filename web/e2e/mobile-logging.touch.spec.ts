@@ -40,7 +40,7 @@ test('a recent food opens the portion review at its last portion before joining 
   await review.getByRole('button',{name:'Add to batch',exact:true}).click();
   const batch=page.getByRole('dialog',{name:'Batch (1 food)',exact:true});
   await expect(batch).toBeVisible();
-  const logButton=batch.getByRole('button',{name:'Log all 1 food',exact:true});
+  const logButton=batch.getByRole('button',{name:'Log 1 food',exact:true});
   await expect(logButton).toBeFocused();
   await logButton.click();
 
@@ -167,7 +167,7 @@ test('Back steps out of review, batch line edit, and batch without closing the f
 
   await page.goBack();
   await expect(batch.locator('.review-food-heading')).toHaveCount(0);
-  await expect(batch.getByRole('button',{name:'Log all 1 food',exact:true})).toBeVisible();
+  await expect(batch.getByRole('button',{name:'Log 1 food',exact:true})).toBeVisible();
 
   await page.goBack();
   await expect(logDialog).toBeVisible();

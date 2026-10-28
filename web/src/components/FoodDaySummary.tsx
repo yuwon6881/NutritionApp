@@ -47,6 +47,9 @@ export function FoodDaySummary({
   statusDisabled = false,
   canFast = false,
   onStatusChange,
+  checkInDue = false,
+  date,
+  currentDate,
 }:{
   title:string;
   statusText:string;
@@ -62,10 +65,15 @@ export function FoodDaySummary({
   statusDisabled?:boolean;
   canFast?:boolean;
   onStatusChange?:(value:string)=>void;
+  checkInDue?:boolean;
+  date?:string;
+  currentDate?:string;
 }){
   const archived=!!day?.archived;
   const energyKnown=count>0||fasting;
   const calorieTarget=targets.calories;
+  const isCurrentOrFuture=date&&currentDate?date>=currentDate:!isPastDay;
+  const targetPending=checkInDue&&isCurrentOrFuture;
   const {intake,partial}=dayIntake(entries,day);
   const macros=MACROS.map(({key,label})=>({key,label,value:intake[key],target:targets[key],partial:partial[key]}));
   return <section className="panel food-day-summary">
@@ -93,10 +101,12 @@ export function FoodDaySummary({
       </div>
       <div className="food-day-energy">
         <strong className="figure-inline">{energyKnown?displayEnergy(total,energyUnit):'—'} <span className="unit">{energyLabel(energyUnit)}</span></strong>
-        {calorieTarget!=null&&<small className="food-day-target">of {displayEnergy(calorieTarget,energyUnit)}{energyKnown?` · ${remainingText(total,calorieTarget,energyUnit)}`:''}</small>}
+        {targetPending?(
+          <small className="food-day-target">Target appears after your check-in</small>
+        ):calorieTarget!=null&&<small className="food-day-target">of {displayEnergy(calorieTarget,energyUnit)}{energyKnown?` · ${remainingText(total,calorieTarget,energyUnit)}`:''}</small>}
       </div>
     </div>
-    {calorieTarget!=null&&<progress className="food-day-progress-bar" aria-label="Calories logged against target" value={energyKnown?total:0} max={Math.max(calorieTarget,1)}/>}
+    {calorieTarget!=null&&!targetPending&&<progress className="food-day-progress-bar" aria-label="Calories logged against target" value={energyKnown?total:0} max={Math.max(calorieTarget,1)}/>}
     <dl className="food-day-nutrients">{macros.map(({key,label,value,target,partial})=><div key={key} className={`food-day-nutrient ${key}`}>
       <dt>{label}</dt>
       <dd>

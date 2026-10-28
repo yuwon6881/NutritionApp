@@ -63,7 +63,7 @@ test('capture uplifted time highlighting in Move dialog in both dark and light m
   await page.getByLabel('Calories (kcal)', {exact: true}).fill('90');
   await page.getByLabel('Meal time', {exact: true}).fill('17:24');
   await page.getByRole('button', {name: 'Add to batch', exact: true}).click();
-  await page.getByRole('button', {name: 'Log all 1 food', exact: true}).click();
+  await page.getByRole('button', {name: 'Log 1 food', exact: true}).click();
   await page.getByRole('button', {name: 'Food Log', exact: true}).click();
 
   // Select the item and open Move dialog

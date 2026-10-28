@@ -1,5 +1,6 @@
 import {Form} from './ui/Form';
-import {useEffect,useState,type FormEvent} from 'react';
+import {useEffect,useMemo,useState,type FormEvent} from 'react';
+import {Minus,Plus} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {CoachResult,Weight} from '../types';
 import {today} from '../lib/format';
@@ -11,10 +12,13 @@ import {Modal} from './ui/Modal';
 import {displayEnergy,displayWeight,energyLabel,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {weightEntryDirty,weightEntryValues} from '../lib/weightEntry';
 import {weightContextOptionsFor} from '../lib/weightContext';
-import {unusualWeighIn} from '../lib/weightSignal';
+import {cleanTrend,unusualWeighIn} from '../lib/weightSignal';
 import {previousDayUnlogged,recentIntake} from '../lib/weighInEvidence';
 import {targetsForDate} from '../lib/dailyTargets';
+import {latestWeighIns} from '../lib/weighInList';
+import {stepWeight,weighInContext,weightBounds} from '../lib/weighInContext';
 import {useAsyncAction} from './ui/useAsyncAction';
+import './weightEntry.css';
 
 export interface WeightEntryDialogProps {
   open:boolean;
@@ -51,6 +55,17 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
   const accepted=state.plans.find(plan=>!plan.deleted);
   const target=accepted?targetsForDate(JSON.parse(accepted.resultJson) as CoachResult,values.date).calories:null;
   const dirty=weightEntryDirty(values,baseline);
+  const lastWeighIn=useMemo(()=>latestWeighIns(state.weights,current,1)[0],[state.weights,current]);
+  const currentTrendKg=useMemo(()=>{
+    const points=cleanTrend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],current);
+    return points.at(-1)?.kg??null;
+  },[state.weightTrendSeed,state.weights,current]);
+  const contextText=useMemo(()=>weighInContext(lastWeighIn,current,units.weight,currentTrendKg),[lastWeighIn,current,units.weight,currentTrendKg]);
+  const bounds=weightBounds(units.weight);
+  const handleStep=(direction:'up'|'down')=>{
+    const next=stepWeight(values.kg,direction,units.weight,lastWeighIn?.kg);
+    if(next&&next!==values.kg)setValues(previous=>({...previous,kg:next,context:''}));
+  };
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busyPending)return;
     setError('');
@@ -87,7 +102,14 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
     <Form onSubmit={save} className="dialog-form">
       <div className="form-grid">
         <DatePicker id="weight-entry-date" name="date" min="2000-01-01" label="Weigh-in date" value={values.date} max={current} required onChange={next=>setValues(previous=>({...previous,date:next,context:''}))}/>
-        <Field id="weight-entry-kg" name="kg" data-modal-autofocus enterKeyHint="done" label={`Weight (${weightLabel(units.weight)})`} type="number" min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.01" required value={values.kg} onChange={event=>setValues(previous=>({...previous,kg:event.target.value,context:''}))}/>
+        <div className="weight-entry-group">
+          {contextText&&<p className="source weight-entry-context">{contextText}</p>}
+          <div className="weight-entry-stepper" style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+            <Field id="weight-entry-kg" name="kg" data-modal-autofocus enterKeyHint="done" label={`Weight (${weightLabel(units.weight)})`} type="number" min={bounds.min} max={bounds.max} step="0.01" required value={values.kg} onChange={event=>setValues(previous=>({...previous,kg:event.target.value,context:''}))}/>
+            <Button type="button" variant="secondary" size="icon" aria-label="Decrease weight by 0.1" onClick={()=>handleStep('down')}><Minus size={16} aria-hidden="true"/></Button>
+            <Button type="button" variant="secondary" size="icon" aria-label="Increase weight by 0.1" onClick={()=>handleStep('up')}><Plus size={16} aria-hidden="true"/></Button>
+          </div>
+        </div>
       </div>
       {unusual&&<section className="weight-context-prompt" aria-labelledby="weight-context-heading">
         <h3 id="weight-context-heading">This differs from your recent weigh-ins</h3>

@@ -58,7 +58,7 @@ test('food, recipe and image actions explain invalid drafts without queuing writ
   await expect(page.getByText('Enter 20000 or less.')).toBeVisible();
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('0');await page.getByLabel('Protein (g)').fill('');
   await page.getByRole('button',{name:'Add to batch',exact:true}).click();
-  await page.getByRole('button',{name:/Log all 1 food/}).click();
+  await page.getByRole('button',{name:'Log 1 food',exact:true}).click();
   await expect.poll(()=>writes).toBe(1);
   const readLoggedEntry=async()=>{
     const state=await (await context.request.get('/api/state')).json();

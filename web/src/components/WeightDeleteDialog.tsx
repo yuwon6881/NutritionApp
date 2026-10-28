@@ -36,7 +36,7 @@ export function WeightDeleteDialog({weight,unit,restoreFocus,onClose,onDelete}:{
     }
   };
   return <Modal open={open} title="Delete weigh-in?" width="sm" restoreFocus={restoreFocus} onClose={close} onCloseComplete={finishClose} preventDismiss={saving}
-    description={`${displayWeight(weight.kg,unit,2)} ${weightLabel(unit)} · ${readoutDate(weight.date)}`}>
+    description={`${displayWeight(weight.kg,unit,1)} ${weightLabel(unit)} · ${readoutDate(weight.date)}`}>
     <p>This removes the weigh-in from your weight history. You can undo for five seconds after deleting.</p>
     {error&&<CardFeedback title="Weigh-in not deleted" message={error}/>}
     <div className="modal-actions">

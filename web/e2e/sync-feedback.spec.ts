@@ -30,7 +30,7 @@ test('fast saves keep server feedback readable through completion',async({page,c
   await page.getByRole('button',{name:'Manual entry',exact:true}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Stable feedback test');
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('250');
-  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
 
   // Ordinary autosaves use the quiet delayed topbar indicator; no routine success toast or checkmark
   await expect(page.locator('.sync-status-synced')).toHaveCount(0);
