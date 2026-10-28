@@ -36,3 +36,29 @@
     animation: none;
   }
 }
+
+.food-detail-review .modal-actions,
+.food-modal .food-detail-review .modal-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.food-detail-review .modal-actions > .button,
+.food-modal .food-detail-review .modal-actions > .button {
+  flex: 0 0 auto;
+}
+
+.food-detail-review .modal-actions > .button.primary,
+.food-modal .food-detail-review .modal-actions > .button.primary {
+  flex: 1 1 auto;
+  min-width: 0;
+  order: 0;
+}
+
+@media (max-width: 1023px) {
+  .food-detail-review .modal-actions > .button,
+  .food-modal .food-detail-review .modal-actions > .button {
+    min-height: 50px;
+  }
+}

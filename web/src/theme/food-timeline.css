@@ -153,7 +153,7 @@
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 2px 6px;
+  gap: 2px 8px;
   font-size: 0.8125rem;
   min-width: 0;
 }
@@ -212,7 +212,7 @@
   .food-time-card-details,
   .food-macro-summary {
     font-size: 0.78rem;
-    gap: 4px 6px;
+    gap: 4px 8px;
   }
 }
 

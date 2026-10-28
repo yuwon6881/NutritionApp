@@ -152,23 +152,25 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
 
       {loaded && !error && !isConnected && (
         <div className="integration-state disconnected">
-          {needsReconnect && (
-            <p className="description">
-              {connectionState === 'upgrade_required'
-                ? 'Reconnect once to upgrade this older Workout connection to permanent consent.'
-                : 'Workout access has ended. Reconnect to restore training summaries.'}
-            </p>
-          )}
-          <div className="actions">
-            {grant && connectionState !== 'disconnected' && (
-              <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
-                <Unlink size={15} aria-hidden="true" />
-                <span>Disconnect</span>
+          <div className="connected-app-row">
+            {needsReconnect ? (
+              <p className="description">
+                {connectionState === 'upgrade_required'
+                  ? 'Reconnect once to upgrade this older Workout connection to permanent consent.'
+                  : 'Workout access has ended. Reconnect to restore training summaries.'}
+              </p>
+            ) : <span className="connected-app-status-empty" aria-hidden="true" />}
+            <div className="actions">
+              {grant && connectionState !== 'disconnected' && (
+                <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
+                  <Unlink size={15} aria-hidden="true" />
+                  <span>Disconnect</span>
+                </Button>
+              )}
+              <Button variant="primary" disabled={busy} onClick={connect}>
+                {busy ? 'Opening Fitness Account…' : connectionState === 'upgrade_required' ? 'Upgrade connection' : needsReconnect ? 'Reconnect Workout' : 'Connect Workout'}
               </Button>
-            )}
-            <Button variant="primary" disabled={busy} onClick={connect}>
-              {busy ? 'Opening Fitness Account…' : connectionState === 'upgrade_required' ? 'Upgrade connection' : needsReconnect ? 'Reconnect Workout' : 'Connect Workout'}
-            </Button>
+            </div>
           </div>
         </div>
       )}
@@ -177,13 +179,15 @@ export function ConnectedApps({store}: {store?: NutritionStore}) {
         <div className="integration-state connected">
           {grant.syncWarning && <p className="description" role="status">{grant.syncWarning}</p>}
 
-          <p className="source integration-facts">Connected {formatTimestamp(grant.grantedAt)} · read-only</p>
+          <div className="connected-app-row">
+            <p className="source integration-facts">Connected {formatTimestamp(grant.grantedAt)} · read-only</p>
 
-          <div className="actions">
-            <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
-              <Unlink size={15} aria-hidden="true" />
-              <span>Disconnect</span>
-            </Button>
+            <div className="actions">
+              <Button variant="destructive" onClick={() => setDisconnectOpen(true)} disabled={busy}>
+                <Unlink size={15} aria-hidden="true" />
+                <span>Disconnect</span>
+              </Button>
+            </div>
           </div>
         </div>
       )}

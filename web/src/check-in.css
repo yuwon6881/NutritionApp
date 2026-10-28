@@ -40,6 +40,7 @@
 .check-in-calorie-change small{font-size:.8125rem;font-variant-numeric:tabular-nums;color:var(--muted-foreground)}
 .check-in-calorie-delta{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:6px 14px;border:1px solid var(--border);border-radius:999px;background:var(--muted);color:var(--muted-foreground);font-size:.875rem;font-weight:650;font-variant-numeric:tabular-nums}
 .check-in-calorie.direction-up .check-in-calorie-delta,.check-in-calorie.direction-down .check-in-calorie-delta{background:var(--primary-tint);border-color:color-mix(in srgb,var(--primary) 35%,var(--border));color:var(--primary-ink)}
+.check-in-calorie.direction-same .check-in-calorie-delta{background:transparent;border:none;box-shadow:none;outline:none;cursor:default;color:var(--muted-foreground);border-radius:0;padding:0;min-height:auto}
 
 .check-in-context{margin:-6px auto 4px;max-width:44ch;text-align:center;font-size:.875rem;line-height:1.5;color:var(--muted-foreground)}
 
@@ -88,8 +89,9 @@
 .target-weekly-summary strong{font-size:1.35rem;font-weight:700;color:var(--ink-strong)}
 
 /* Review step summary */
-.macro-review-summary{margin-top:14px}
-.summary-metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:16px 0}
+.macro-review-summary{margin-top:14px;container-type:inline-size}
+.summary-metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+@container(max-width:515px){.summary-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .summary-metric-tile{padding:14px 16px;border-radius:14px;background:color-mix(in srgb,var(--muted) 55%,var(--card));border:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
 .summary-metric-label{font-size:.75rem;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
 .summary-metric-val{font-size:1.25rem;font-weight:700;color:var(--ink-strong);font-variant-numeric:tabular-nums}
@@ -104,7 +106,6 @@
 
 @media(max-width:1023px){
   .target-figures{grid-template-columns:1fr;gap:12px}
-  .weekly-chips-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 @media(max-width:639px){
   .active-targets-card{padding:18px 16px;border-radius:18px}
@@ -116,4 +117,5 @@
   .target-macros-figures{gap:6px}
   .target-macros-figures strong{font-size:1.2rem}
   .weekly-chips-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .weekly-chips-grid>*:last-child:nth-child(odd){grid-column:1/-1}
 }

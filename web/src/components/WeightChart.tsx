@@ -57,7 +57,7 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
   const scrub=useChartScrub(series.map(point=>x(point.date)),{tapToSelect:true});
   const selected=series[scrub.index];
   useRevealBar(viewport,selected?dayOf(selected.date):0);
-  const dot=(point:ProgressWeightPoint,isSelected:boolean)=><circle key={`scale-${point.date}`} cx={x(point.date)} cy={y(point.scaleKg)} r={isSelected?5:2.75} className={isSelected?'scale-dot is-selected':'scale-dot'}><title>{readableDate(point.date)}: {displayWeight(point.scaleKg,weightUnit,2)} {unit} on the scale</title></circle>;
+  const dot=(point:ProgressWeightPoint,isSelected:boolean)=><circle key={`scale-${point.date}`} cx={x(point.date)} cy={y(point.scaleKg)} r={isSelected?5:2.75} className={isSelected?'scale-dot is-selected':'scale-dot'}><title>{readableDate(point.date)}: {displayWeight(point.scaleKg,weightUnit,1)} {unit} on the scale</title></circle>;
   // Up to 400 dots: scrubbing swaps only the selected one, so React skips the unchanged elements.
   // x and y derive only from these values.
   const dots=useMemo(()=>series.map(point=>dot(point,false)),[series,slot,start,low,high,weightUnit]);
@@ -79,9 +79,9 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
     <div id={readoutId} className="chart-readout chart-readout-grid" aria-live="polite">
       <strong className="chart-readout-date"><time dateTime={selected.date}>{readoutDate(selected.date)}</time></strong>
       <dl>
-        {view!=='trend'&&<div><dt><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale</dt><dd>{displayWeight(selected.scaleKg,weightUnit,2)} {unit}</dd></div>}
-        {view!=='scale'&&<div><dt><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</dt><dd>{selected.trendKg===null?'Pending':`${displayWeight(selected.trendKg,weightUnit,2)} ${unit}`}</dd></div>}
-        {view==='both'&&<div><dt>Scale vs trend</dt><dd>{selected.trendKg===null?'—':`${selected.scaleKg-selected.trendKg>=0?'+':'−'}${displayWeight(Math.abs(selected.scaleKg-selected.trendKg),weightUnit,2)} ${unit}`}</dd></div>}
+        {view!=='trend'&&<div><dt><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale</dt><dd>{displayWeight(selected.scaleKg,weightUnit,1)} {unit}</dd></div>}
+        {view!=='scale'&&<div><dt><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</dt><dd>{selected.trendKg===null?'Pending':`${displayWeight(selected.trendKg,weightUnit,1)} ${unit}`}</dd></div>}
+        {view==='both'&&<div><dt>Scale vs trend</dt><dd>{selected.trendKg===null?'—':`${selected.scaleKg-selected.trendKg>=0?'+':'−'}${displayWeight(Math.abs(selected.scaleKg-selected.trendKg),weightUnit,1)} ${unit}`}</dd></div>}
       </dl>
     </div>
     <div className="chart-scrub" role="group" aria-label="Weight chart. Touch the chart or use the left and right arrow keys to read a date." aria-describedby={readoutId} {...scrub.groupProps}>
@@ -98,7 +98,7 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
       </>}
       {view!=='scale'&&<>
         {segments('trendKg').map((points,index)=><polyline key={index} points={line(points,'trendKg')} className="trend-line"/>)}
-        {selected.trendKg!==null&&<circle cx={x(selected.date)} cy={y(selected.trendKg)} r={5.5} className="trend-dot is-selected"><title>{readableDate(selected.date)}: {displayWeight(selected.trendKg,weightUnit,2)} {unit} trend</title></circle>}
+        {selected.trendKg!==null&&<circle cx={x(selected.date)} cy={y(selected.trendKg)} r={5.5} className="trend-dot is-selected"><title>{readableDate(selected.date)}: {displayWeight(selected.trendKg,weightUnit,1)} {unit} trend</title></circle>}
       </>}
       {labelDates.map(date=>{
         const at=x(date);
@@ -108,7 +108,6 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
     <ul className="chart-legend" aria-label="Weight chart key">
       {view!=='trend'&&<li><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale weigh-in</li>}
       {view!=='scale'&&<li><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</li>}
-      <li>{unit}</li>
     </ul></>:<div className="empty"><h3>No weigh-ins yet</h3></div>}
   </section>;
 }

@@ -20,6 +20,8 @@ import {SettingRow} from './ui/SettingRow';
 import {checkNativeNotificationPermission,isNativeAndroid,isNativePushConfigured,registerNativePushAndGetToken,requestNativeNotificationPermission} from '../lib/push/nativeNotifications';
 import {disableLocalPushForPlatform} from '../lib/push/deviceLifecycle';
 import {SkeletonRegion,SkeletonSettingRows} from './ui/Skeleton';
+import {requestNow} from '../lib/launchRequests';
+import {readRememberedNotificationPreferences,saveRememberedNotificationPreferences} from '../lib/notificationPreferences';
 const ReminderReadiness=lazy(()=>import('./ReminderReadiness').then(module=>({default:module.ReminderReadiness})));
 
 const weekdays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -46,18 +48,31 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
   const pwa=useMobilePwa();
   const [deviceId]=useState(getOrCreatePushDeviceId);
   const accountId = store.state!.id;
-  const [status,setStatus]=useState<NotificationStatus>();
-  const [savedReminder,setSavedReminder]=useState<CheckInReminder|null>(null);
-  const [reminder,setReminder]=useState<CheckInReminder>(()=>({
-    enabled:false,
+  const remembered=useRef(readRememberedNotificationPreferences(accountId)).current;
+  const [status,setStatus]=useState<NotificationStatus|undefined>(()=>remembered?{
+    configured:true,
+    thisDeviceSubscribed:remembered.thisDeviceSubscribed,
+    enabled:remembered.weeklyReminderEnabled,
     weekday:store.state!.settings?.checkInWeekday??1,
-    localTime:'08:00',
+    localTime:remembered.localTime??'08:00',
+    timeZoneId:store.state!.profile?.timeZone||Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'
+  }:undefined);
+  const [savedReminder,setSavedReminder]=useState<CheckInReminder|null>(()=>remembered?{
+    enabled:remembered.weeklyReminderEnabled,
+    weekday:store.state!.settings?.checkInWeekday??1,
+    localTime:remembered.localTime??'08:00',
+    timeZoneId:store.state!.profile?.timeZone||Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'
+  }:null);
+  const [reminder,setReminder]=useState<CheckInReminder>(()=>({
+    enabled:remembered?.weeklyReminderEnabled??false,
+    weekday:store.state!.settings?.checkInWeekday??1,
+    localTime:remembered?.localTime??'08:00',
     timeZoneId:store.state!.profile?.timeZone||Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'
   }));
   const [permission,setPermission]=useState(()=>isNativeAndroid()?'prompt':typeof Notification==='undefined'?'unsupported':Notification.permission);
   const [nativePushConfigured,setNativePushConfigured]=useState(false);
-  const [loading,setLoading]=useState(true);
-  const [scheduleLoaded,setScheduleLoaded]=useState(false);
+  const [loading,setLoading]=useState(()=>!remembered);
+  const [scheduleLoaded,setScheduleLoaded]=useState(()=>Boolean(remembered));
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [message,setMessage]=useState('');
@@ -67,8 +82,9 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
   const [loadError,setLoadError]=useState('');
 
   useEffect(()=>{
+    const cancelImmediate=requestNow('/api/notifications');
     let current=true;
-    setLoading(true);
+    if(!remembered)setLoading(true);
     void Promise.allSettled([fetchNotificationStatus(deviceId,accountId),fetchCheckInReminder()]).then(results=>{
       if(!current)return;
       const [deviceResult,reminderResult]=results;
@@ -79,15 +95,25 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
         setSavedReminder(reminderResult.value);
         setScheduleLoaded(true);
       }else setLoadError(previous=>previous||((reminderResult.reason as Error).message||'Reminder settings are unavailable.'));
+      if(deviceResult.status==='fulfilled'&&reminderResult.status==='fulfilled'){
+        saveRememberedNotificationPreferences({
+          weeklyReminderEnabled:reminderResult.value.enabled,
+          thisDeviceSubscribed:deviceResult.value.thisDeviceSubscribed,
+          localTime:reminderResult.value.localTime
+        },accountId);
+      }
     }).finally(()=>{if(current)setLoading(false);});
-    return()=>{current=false;};
+    return()=>{
+      current=false;
+      cancelImmediate();
+    };
   },[deviceId,accountId]);
 
   useEffect(()=>{
     const refreshPermission=()=>{
       if(isNativeAndroid())void checkNativeNotificationPermission().then(setPermission).catch(()=>setPermission('unsupported'));
       else setPermission(typeof Notification==='undefined'?'unsupported':Notification.permission);
-      void fetchNotificationStatus(deviceId,accountId).then(setStatus).catch(()=>{});
+      void fetchNotificationStatus(deviceId,accountId).then(nextStatus=>{setStatus(nextStatus);saveRememberedNotificationPreferences({weeklyReminderEnabled:reminder.enabled,thisDeviceSubscribed:nextStatus.thisDeviceSubscribed},accountId);}).catch(()=>{});
     };
     window.addEventListener('focus',refreshPermission);
     window.addEventListener('online',refreshPermission);
@@ -150,7 +176,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
         await savePushDeviceCredential(store.state!.id,deviceId,token);
         const platform:NotificationPlatform=native?'android':'web';
         await registerNotificationDevice(deviceId,token,platform);
-        setStatus(current=>current?{...current,thisDeviceSubscribed:true}:current);
+        setStatus(current=>current?{...current,thisDeviceSubscribed:true}:current);saveRememberedNotificationPreferences({weeklyReminderEnabled:reminder.enabled,thisDeviceSubscribed:true},accountId);
         window.dispatchEvent(new Event('nutrition-push-enabled'));
       };
       if(activateReminder){
@@ -182,7 +208,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
       if(remaining.some(item=>item.userId===store.state!.id&&item.deviceId===deviceId&&item.fcmToken===credential.fcmToken))
         throw new Error('The turn-off request is saved on this device and will retry when you reconnect as this account.');
       await deletePushDeviceCredential(store.state!.id,deviceId,credential.fcmToken);
-      setStatus(current=>current?{...current,thisDeviceSubscribed:false}:current);
+      setStatus(current=>current?{...current,thisDeviceSubscribed:false}:current);saveRememberedNotificationPreferences({weeklyReminderEnabled:reminder.enabled,thisDeviceSubscribed:false},accountId);
       window.dispatchEvent(new Event('nutrition-push-disabled'));
       if(localUnregisterError)throw new Error(`The server subscription was removed, but this device could not unregister locally: ${localUnregisterError.message}`);
       setMessage('Notifications are turned off on this device. The account reminder schedule is unchanged.');
@@ -200,7 +226,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
       try{
         const saved=await saveCheckInReminder(next);
         setSavedReminder(saved);
-        setStatus(current=>current?{...current,...saved}:current);
+        setStatus(current=>current?{...current,...saved}:current);saveRememberedNotificationPreferences({weeklyReminderEnabled:saved.enabled,thisDeviceSubscribed:status?.thisDeviceSubscribed??false},accountId);
         setMessage(saved.enabled?'Weekly coaching reminder saved.':'Weekly coaching reminder turned off.');
       }catch(ex){setError((ex as Error).message||'Could not save the reminder. Your changes have not been saved.');}
       finally{setBusy(false);}

@@ -8,6 +8,7 @@ import {CoachLayout,CoachNumber} from './ui/CoachMotion';
 import {displayEnergy,displayWeight,energyLabel,weightLabel} from '../lib/units';
 import {goalLabel} from './Coach';
 import {goalWeightBounds,phaseEndDate,resolveGoalStartWeight} from '../lib/goalPhase';
+import {formatWeeklyPaceEquivalent} from '../lib/coachPlanHelpers';
 
 export function GoalSelection({
   profile,
@@ -175,7 +176,7 @@ export function GoalPaceSetup({
       <div className="live-calorie-meta">
         <span>Maintenance ~{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</span>
         {paced&&<span className="live-delta">
-          {live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate).toFixed(2)}% BW/wk
+          {live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate).toFixed(2)}% BW/wk{formatWeeklyPaceEquivalent(rate,profile.weightKg,units.weight)}
         </span>}
       </div>
     </div>}

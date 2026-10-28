@@ -87,18 +87,18 @@ describe('logging calendar',()=>{
 });
 
 describe('this week summary',()=>{
-  it('counts kept days from Monday through today out of seven',()=>{
-    // 2026-09-10 is a Thursday; the previous Sunday belongs to last week.
+  it('counts kept days from Monday through today out of days started so far',()=>{
+    // 2026-09-10 is a Thursday; 4 days have started this week.
     const cells=[
       {date:'2026-09-06',status:'logged'},{date:'2026-09-07',status:'logged'},{date:'2026-09-08',status:'fasting'},
       {date:'2026-09-09',status:'missing'},{date:'2026-09-10',status:'open'},
     ];
 
-    expect(summarizeWeek(cells,'2026-09-10')).toEqual({kept:2,days:7});
+    expect(summarizeWeek(cells,'2026-09-10')).toEqual({kept:2,days:4});
     expect(summarizeWeek([...cells.slice(0,4),{date:'2026-09-10',status:'logged'}],'2026-09-10').kept).toBe(3);
   });
 
   it('starts a new week on Monday',()=>{
-    expect(summarizeWeek([{date:'2026-09-13',status:'logged'},{date:'2026-09-14',status:'logged'}],'2026-09-14').kept).toBe(1);
+    expect(summarizeWeek([{date:'2026-09-13',status:'logged'},{date:'2026-09-14',status:'logged'}],'2026-09-14')).toEqual({kept:1,days:1});
   });
 });

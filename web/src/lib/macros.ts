@@ -1,7 +1,7 @@
 export type MacroKey='protein'|'carbs'|'fat';
 export type MacroSplit=Record<MacroKey,number>;
 export const macroKeys:MacroKey[]=['protein','carbs','fat'];
-export const macroLabels:Record<MacroKey,string>={protein:'Protein',carbs:'Carbohydrate',fat:'Fat'};
+export const macroLabels:Record<MacroKey,string>={protein:'Protein',carbs:'Carbs',fat:'Fat'};
 /** Energy per gram, used to turn an energy share into grams. */
 export const macroEnergy:Record<MacroKey,number>={protein:4,carbs:4,fat:9};
 /** Matches the server validation band for each share of daily energy. */

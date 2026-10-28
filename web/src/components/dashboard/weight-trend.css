@@ -280,7 +280,6 @@
 @container (max-width: 319px) {
   .dashboard-trend-recent-list { gap: 8px; }
   .dashboard-trend-recent-value strong { font-size: 0.875rem; }
-  .dashboard-trend-recent-value .unit { display: none; }
 }
 
 @keyframes sparklineDraw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }

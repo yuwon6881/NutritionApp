@@ -8,6 +8,7 @@
 @media (pointer:coarse){
   .food-time-card[data-draggable]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   .food-time-card.panel:active:not([data-dragging]){border-color:color-mix(in srgb,var(--primary) 32%,var(--border))}
+  .dropzone-drag-text{display:none}
 }
 
 @media (max-width:1023px){

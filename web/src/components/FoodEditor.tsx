@@ -73,6 +73,7 @@ export function FoodEditor({
   const [portionError,setPortionError]=useState('');
   const [basisWarning,setBasisWarning]=useState('');
   const [customServing,setCustomServing]=useState({label:'serving',grams:''});
+  const [showServingSize,setShowServingSize]=useState(false);
   const {busy,run,pending:busyPending}=useAsyncAction();
   const initialDraft=useRef(JSON.stringify({
     draft:makeDraft(initial),
@@ -241,7 +242,7 @@ export function FoodEditor({
         onChange={event=>set('barcode',event.target.value.replace(/\D/g,''))}
         hint="Link this saved food to a packaged product for faster scans."
       />}
-      {isProviderFood&&portions.length===0&&<fieldset className="portion-definitions">
+      {isProviderFood&&portions.length===0&&(!showServingSize&&!customServing.grams?<Button type="button" variant="tertiary" onClick={()=>setShowServingSize(true)}>Add a serving size</Button>:<fieldset className="portion-definitions">
         <legend>Serving {amountNoun}</legend>
         <div className="form-grid">
           <Field id="review-serving-label" name="servingLabel" label="Serving label" maxLength={24} value={customServing.label} onChange={event=>setCustomServing(current=>({...current,label:event.target.value}))}/>
@@ -253,7 +254,7 @@ export function FoodEditor({
           lastValidQty.current=1;
           setDraft(current=>({...rescaleNutrients(current,{quantity:1,unit:'serving',portionLabel:portion.label,portionGrams:portion.grams}),portionsJson:serializePortions([portion])}));
         }}>Use this serving</Button>
-      </fieldset>}
+      </fieldset>)}
       {basisWarning&&<p className="notice" role="status">{basisWarning}</p>}
       {!isProviderFood && showPortionDefinitions&&<fieldset className="portion-definitions">
         <legend>Saved portion definitions</legend>

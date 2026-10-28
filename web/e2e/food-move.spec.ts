@@ -36,7 +36,7 @@ test('food timeline supports single-item move to custom time, move to existing t
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('380');
   await page.getByLabel('Protein (g)',{exact:true}).fill('13');
   await page.getByLabel('Meal time',{exact:true}).fill('08:00');
-  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Rolled oats',exact:true})).toBeVisible();
 
   // A plain tap on the card opens the editor; Enter on the focused card does the same.
@@ -58,7 +58,7 @@ test('food timeline supports single-item move to custom time, move to existing t
   await page.getByLabel('Food name',{exact:true}).fill('Black coffee');
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('5');
   await page.getByLabel('Meal time',{exact:true}).fill('08:00');
-  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Black coffee',exact:true})).toBeVisible();
 
   // Check that both items are grouped under 08:00

@@ -13,6 +13,13 @@ export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale
   const currentWeight=weightGoalMetric==='trend'
     ?(progress.trendWeight??progress.scaleWeight??progress.startWeight)
     :(progress.scaleWeight??progress.startWeight);
+  const startWeight=progress.startWeight;
+  const targetWeight=progress.targetWeight;
+  const trendWeight=progress.trendWeight??currentWeight;
+  const isFarther=weight&&startWeight!=null&&targetWeight!=null&&trendWeight!=null&&((targetWeight-startWeight)*(trendWeight-startWeight)<0);
+  const movement=isFarther&&startWeight!=null?trendWeight-startWeight:null;
+  const movementFormatted=movement!=null?displayWeight(movement,units.weight,1):null;
+  const awayText=movement!=null&&movementFormatted!=null&&movementFormatted!=='0'&&movementFormatted!=='0.0'?`${movement>0?'+':''}${movementFormatted} ${unit} since start`:null;
   const hasFigures=weight||Boolean(progress.phaseEnd)||progress.weeklyChange!=null;
   return <div className={`goal-summary${progress.complete?' goal-reached':''}`}>
     <div className="goal-summary-head">
@@ -20,7 +27,7 @@ export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale
         <p className="eyebrow">Goal progress</p>
         <h3 id="dashboard-goal-title">{heading(progress)}</h3>
       </div>
-      {progress.percent!=null&&<strong className="goal-percent">{number(progress.percent,1)}%</strong>}
+      {progress.percent!=null&&<strong className="goal-percent">{number(progress.percent,1)}%{awayText?` · ${awayText}`:''}</strong>}
     </div>
     {progress.percent!=null&&<progress max="100" value={progress.percent} aria-label={progress.mode==='duration'?'Phase duration progress':'Weight goal progress'}/>}
     {!hasFigures&&<p className="source goal-summary-note">No end date or target weight is set. Accepted targets stay in place until you accept a new plan.</p>}
@@ -33,7 +40,7 @@ export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale
       </>}
       {progress.phaseEnd&&<div><dt>Phase end</dt><dd>{readableDate(progress.phaseEnd)}</dd></div>}
       {weight&&!progress.complete&&!(progress.scaleReached||progress.trendReached)&&<div><dt>Estimated finish</dt><dd className="goal-finish-date">{readableDate(progress.optimisticFinish??progress.estimatedFinish??'Not yet estimable')}</dd></div>}
-      {progress.weeklyChange!=null&&<div><dt>Weekly change</dt><dd>{displayWeight(progress.weeklyChange,units.weight,2)} <span className="unit">{unit}</span></dd></div>}
+      {progress.weeklyChange!=null&&<div><dt>Weekly change</dt><dd>{displayWeight(progress.weeklyChange,units.weight,1)} <span className="unit">{unit}</span></dd></div>}
     </dl>}
   </div>;
 }

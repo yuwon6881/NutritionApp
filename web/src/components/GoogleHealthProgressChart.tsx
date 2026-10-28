@@ -1,5 +1,5 @@
 import {useId} from 'react';
-import {Footprints, ArrowUpRight} from 'lucide-react';
+import {Footprints, ChevronRight} from 'lucide-react';
 import {number,readableDate} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, calculateKnownDayAverage} from '../lib/googleHealth';
 import {niceTicks} from '../lib/barChart';
@@ -50,7 +50,7 @@ export function GoogleHealthProgressChart({
         </div>
         {onOpenSettings && (
           <Button presentation="plain" className="inline-link" onClick={onOpenSettings}>
-            Connect Google Health in Settings <ArrowUpRight size={13} aria-hidden="true" />
+            Connect Google Health in Settings <ChevronRight size={13} aria-hidden="true" />
           </Button>
         )}
       </section>

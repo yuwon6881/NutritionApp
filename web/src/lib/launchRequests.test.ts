@@ -1,5 +1,5 @@
 import {afterEach, expect, it, vi} from 'vitest';
-import {coordinateLaunchRequest} from './launchRequests';
+import {coordinateLaunchRequest, requestNow} from './launchRequests';
 
 afterEach(() => vi.useRealTimers());
 
@@ -46,4 +46,28 @@ it('removes canceled queued reads before they contact the server', async () => {
   await rejected;
   await vi.runAllTimersAsync();
   expect(run).not.toHaveBeenCalled();
+});
+
+it('starts prioritized reads immediately when requestNow is called on queued requests', async () => {
+  vi.useFakeTimers();
+  const calls: string[] = [];
+  const pendingNotification = coordinateLaunchRequest('/api/notifications/status', 'GET', undefined, async () => {
+    calls.push('notification');
+  });
+  const release = requestNow('/api/notifications');
+  expect(calls).toEqual(['notification']);
+  await pendingNotification;
+
+  await coordinateLaunchRequest('/api/notifications/check-in-reminder', 'GET', undefined, async () => {
+    calls.push('check-in');
+  });
+  expect(calls).toEqual(['notification', 'check-in']);
+
+  release();
+  void coordinateLaunchRequest('/api/notifications/status', 'GET', undefined, async () => {
+    calls.push('queued-again');
+  });
+  expect(calls).toEqual(['notification', 'check-in']);
+  await vi.runAllTimersAsync();
+  expect(calls).toEqual(['notification', 'check-in', 'queued-again']);
 });

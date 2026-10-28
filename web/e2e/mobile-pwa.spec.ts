@@ -57,7 +57,7 @@ test('Settings section links keep the chosen section current, even one near the 
   await signInWithProfile(page);
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();
   const nav=page.getByRole('navigation',{name:'Settings sections'});
-  for(const label of ['Connected Apps','Notifications','This device','General']){
+  for(const label of ['Connected apps','Notifications','This device','General']){
     await nav.getByRole('button',{name:label,exact:true}).click();
     // Sample through the smooth scroll: the highlight must never pass through another section.
     for(let sample=0;sample<12;sample++){

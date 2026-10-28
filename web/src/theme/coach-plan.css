@@ -245,3 +245,8 @@
     font-size: inherit;
   }
 }
+
+.coach-weight-suggestion {
+  align-self: flex-start;
+  margin-top: -6px;
+}

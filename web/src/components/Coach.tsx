@@ -1,5 +1,5 @@
 import {Form,FieldFrame,validateFields} from './ui/Form';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,Check,Sliders} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Profile,ProfileDraft,CoachResult,UnitPreferences} from '../types';
@@ -15,7 +15,9 @@ import {DatePicker} from './ui/DatePicker';
 import {GoalPaceSetup,GoalPhaseSetup,GoalSelection} from './GoalSetup';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
-import {WeeklyScheduleReview,getWeeklyScheduleSubtitle} from './coach/WeeklyScheduleReview';
+import {WeeklyScheduleReview} from './coach/WeeklyScheduleReview';
+import {TargetWeeklySummary} from './coach/TargetWeeklySummary';
+import {latestWeightSuggestion,formatWeeklyPaceEquivalent} from '../lib/coachPlanHelpers';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
@@ -30,6 +32,9 @@ import {MotionPanel} from './ui/Motion';
 import {ActivitySelection} from './ActivitySelection';
 import {activityFields} from '../lib/activityLevels';
 import {carryExpenditure,equationProfile,prepareCoachingProfile} from '../lib/profileExpenditure';
+import {cleanTrend} from '../lib/weightSignal';
+import {trendInsight} from '../lib/trendInsight';
+import {latestWeighIns} from '../lib/weighInList';
 
 const defaults:ProfileDraft={
   age:0,
@@ -95,7 +100,7 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
         <div>
           <p>
             <span className="macro-dot carbs" aria-hidden="true"/>
-            <span className="macro-label-full">Carbohydrate</span>
+            <span className="macro-label-full">Carbs</span>
             <span className="macro-label-short">Carbs</span>
           </p>
           <strong>{number(result.carbs)} <span className="unit">g</span></strong>
@@ -108,42 +113,7 @@ function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}
         </div>
       </div>
     </div>
-    {result.dailyCalories?.length===7&&(
-      <div className="target-weekly-summary">
-        <div className="target-weekly-header">
-          <div>
-            <p>Weekly budget</p>
-            <strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
-          </div>
-          <span className="target-weekly-badge">{getWeeklyScheduleSubtitle(result.dailyCalories)}</span>
-        </div>
-        <div className="target-weekly-chips">
-          {(() => {
-            const avg = Math.round((result.weeklyCalories ?? result.dailyCalories.reduce((t, c) => t + c, 0)) / 7);
-            return result.dailyCalories.map((calories, index) => {
-              const dayName = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index];
-              const diff = calories - avg;
-              const isBoosted = diff > 0;
-              return (
-                <div
-                  key={index}
-                  className={`weekly-day-chip ${isBoosted ? 'is-boosted' : ''}`}
-                  aria-label={`${dayName}: ${displayEnergy(calories, units.energy)} ${energyLabel(units.energy)}`}
-                >
-                  <span className="weekly-day-name" aria-hidden="true">{dayName}</span>
-                  <strong className="weekly-day-val" aria-hidden="true">{displayEnergy(calories, units.energy)}</strong>
-                  {isBoosted && (
-                    <span className="weekly-chip-badge" aria-label={`+${displayEnergy(diff, units.energy)} ${energyLabel(units.energy)}`}>
-                      +{displayEnergy(diff, units.energy)}
-                    </span>
-                  )}
-                </div>
-              );
-            });
-          })()}
-        </div>
-      </div>
-    )}
+    <TargetWeeklySummary result={result} units={units}/>
   </div>;
 }
 
@@ -184,6 +154,24 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     metric:settings.weightGoalMetric??'scale',
     current
   });
+  const trendKg=useMemo(()=>{
+    const points=cleanTrend([...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)],current);
+    return trendInsight(points)?.latest.kg??null;
+  },[store.state!.weightTrendSeed,store.state!.weights,current]);
+  const weightSuggestion=latestWeightSuggestion({
+    isExistingPlan:!isInitialSetup,
+    fieldWeightKg:profile.weightKg,
+    trendWeightKg:trendKg,
+    unit:units.weight
+  });
+  const latestKg=useMemo(()=>{
+    const metric=settings.weightGoalMetric??'scale';
+    if(metric==='trend'){
+      const points=cleanTrend([...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)],current);
+      return trendInsight(points)?.latest.kg??null;
+    }
+    return latestWeighIns(store.state!.weights,current,1)[0]?.kg??null;
+  },[settings.weightGoalMetric,store.state!.weightTrendSeed,store.state!.weights,current]);
   const derivedAge=ageOn(profile.dateOfBirth,current);
   const pending=store.local!.queue.length>0;
   const changed=!profilesEqual(profile,store.state!.profile);
@@ -376,7 +364,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       </div>
       <dl className="strategy-figures">
         <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
-        <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${Math.abs(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15))}% BW/wk`}</dd></div>
+        <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${Math.abs(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15))}% BW/wk${formatWeeklyPaceEquivalent(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15),previewProfile.weightKg??profile.weightKg,units.weight)}`}</dd></div>
         <div><dt>{profile.phaseMode==='duration'?'Duration':profile.phaseMode==='weight'?'Target':'Phase'}</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${displayWeight(profile.targetWeightKg,units.weight,1)} ${weightLabel(units.weight)}`:'Ongoing'}</dd></div>
         <div><dt>Macros</dt><dd>{presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')}</dd></div>
         <div><dt>Body</dt><dd>{displayWeight(profile.weightKg,units.weight,1)} {weightLabel(units.weight)} · {displayHeight(profile.heightCm,units.height)}</dd></div>
@@ -464,8 +452,13 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
             </FieldFrame>
           )}
           <Field id="coach-weight" name="weightKg" label={`Starting weight (${weightLabel(units.weight)})`} type="number" required min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.weightKg?inputWeight(profile.weightKg,units.weight,1):''} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('weightKg',Number.isFinite(next)?next:0);}} labelAction={<MiniUnitToggle<'kg'|'lb'> label="Weight unit" value={units.weight} onChange={v=>updateUnits({weight:v})} options={[{value:'kg',label:'kg'},{value:'lb',label:'lb'}]}/>}/>
-          <SelectField id="coach-sex" name="sex" required label="Gender" value={profile.sex} onChange={v=>set('sex',v)}>
-            <option value="" disabled>Choose gender</option>
+          {weightSuggestion.visible&&(
+            <Button type="button" size="sm" variant="tertiary" className="coach-weight-suggestion" onClick={()=>set('weightKg',weightSuggestion.weightKg)}>
+              {weightSuggestion.label}
+            </Button>
+          )}
+          <SelectField id="coach-sex" name="sex" required label="Sex" value={profile.sex} onChange={v=>set('sex',v)}>
+            <option value="" disabled>Choose sex</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
           </SelectField>
@@ -603,7 +596,6 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
           <div className="macro-review-header">
             <div>
               <h3 id="macro-review-title">Plan summary</h3>
-              <p className="macro-review-subtitle">Review your baseline setup before generating your coached program.</p>
             </div>
             <span className="macro-review-pattern-pill">{presetLabel(selectedPresetId)} macro pattern</span>
           </div>
@@ -688,7 +680,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     </Form>
   </section>;
 
-  const historyTab=<GoalHistoryPanel plans={plans} settings={settings}/>;
+  const historyTab=<GoalHistoryPanel plans={plans} settings={settings} latestKg={latestKg}/>;
 
   return <>
     <header className="page-heading">

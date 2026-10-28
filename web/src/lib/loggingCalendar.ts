@@ -111,14 +111,15 @@ const kept=(status:string)=>status==='logged'||status==='fasting';
 export interface WeekSummary {
   /** Days kept this week, Monday through today. */
   kept:number;
-  /** The whole week the count is read against. */
-  days:7;
+  /** Days that have started this week, Monday through today. */
+  days:number;
 }
 
-/** Kept days in the Monday-based week holding today, read against all seven days. */
+/** Kept days in the Monday-based week holding today, read against days that have started so far. */
 export function summarizeWeek(cells:CalendarCell<string>[],current:string):WeekSummary{
   const monday=shiftIsoDate(current,-weekdayIndex(current));
-  return {kept:cells.filter(cell=>cell.date>=monday&&cell.date<=current&&kept(cell.status)).length,days:7};
+  const started=weekdayIndex(current)+1;
+  return {kept:cells.filter(cell=>cell.date>=monday&&cell.date<=current&&kept(cell.status)).length,days:started};
 }
 
 export function summarizeCalendar(cells:CalendarCell<string>[],current:string):CalendarSummary{

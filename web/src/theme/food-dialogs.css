@@ -29,7 +29,11 @@
   }
   .modal-body,
   .food-modal .modal-body {
+    --modal-pad-x: 22px;
     padding: 20px 22px calc(24px + env(safe-area-inset-bottom)) !important;
+  }
+  .modal-body:has(.modal-actions) {
+    padding-bottom: 0 !important;
   }
   /* A step's sticky action row (components/logfood.css) is the sheet's bottom edge. The body keeps
      no padding beneath it, and the row spans the body's full width, or scrolled rows show through
@@ -194,6 +198,8 @@
   font-size: 0.8125rem;
   color: var(--muted-foreground);
 }
+.food-modal .recent-food-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; text-align: right; }
+.food-modal .recent-food-macros { margin: 0; gap: 2px 6px; justify-content: flex-end; font-size: 0.72rem; }
 .food-modal .recent-food-energy {
   font-size: 1.05rem;
   font-weight: 780;

@@ -60,9 +60,9 @@
 /* Recent foods: the fastest path, one tap from review. */
 .food-modal .recent-foods-heading{flex-direction:column;align-items:flex-start;gap:2px}
 .food-modal .recent-food-card{min-height:60px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--card);animation:logFoodRise var(--motion-panel) var(--motion-ease) both;animation-delay:calc(var(--i,0) * 28ms);transition:border-color var(--motion-control) ease,background var(--motion-control) ease,transform 100ms ease}
-.food-modal .recent-food-name{font-size:.9375rem;font-weight:600;color:var(--ink-strong)}
+.food-modal .recent-food-name{font-size:.9375rem;font-weight:600;color:var(--ink-strong);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
 .food-modal .recent-food-portion{font-size:.8125rem;color:var(--muted-foreground)}
-.food-modal .recent-food-energy{font-size:.9375rem;font-weight:600;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.food-modal .recent-food-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;text-align:right}.food-modal .recent-food-energy{font-size:.9375rem;font-weight:600;color:var(--ink-strong);font-variant-numeric:tabular-nums}.food-modal .recent-food-macros{margin:0;gap:2px 6px;justify-content:flex-end;font-size:.72rem}
 .food-modal .recent-food-card:active{transform:scale(.985);background:var(--muted)}
 @media (hover:hover) and (pointer:fine){
   .food-modal .recent-food-card:hover{border-color:color-mix(in srgb,var(--primary) 30%,var(--border))}
@@ -71,7 +71,7 @@
 /* Your foods. */
 @media (max-width:639px){
   .food-modal .saved-foods-header p{display:none}
-  .food-modal .saved-filter-segments{margin-bottom:12px}
+  .food-modal .saved-filter-segments{margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
 }
 
 /* AI logging. */
@@ -143,6 +143,26 @@
 }
 @media (min-width:640px) and (max-width:1023px){
   .food-modal .modal-actions{margin-inline:-24px;padding-inline:24px}
+}
+
+/* Food review & editor: Back (secondary) on the left, primary Add action taking remaining width side by side. */
+.editor .modal-actions,
+.food-modal .editor .modal-actions,
+.food-detail-review .modal-actions,
+.food-modal .food-detail-review .modal-actions{display:flex;flex-wrap:nowrap;gap:8px}
+.editor .modal-actions>.button,
+.food-modal .editor .modal-actions>.button,
+.food-detail-review .modal-actions>.button,
+.food-modal .food-detail-review .modal-actions>.button{flex:0 0 auto}
+.editor .modal-actions>.button.primary,
+.food-modal .editor .modal-actions>.button.primary,
+.food-detail-review .modal-actions>.button.primary,
+.food-modal .food-detail-review .modal-actions>.button.primary{flex:1 1 auto;min-width:0;order:0}
+@media (max-width:1023px){
+  .editor .modal-actions>.button,
+  .food-modal .editor .modal-actions>.button,
+  .food-detail-review .modal-actions>.button,
+  .food-modal .food-detail-review .modal-actions>.button{min-height:50px}
 }
 
 /* Batch review: the day as it would stand once the batch is logged. Logged food keeps the

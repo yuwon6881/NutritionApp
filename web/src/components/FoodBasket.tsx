@@ -92,11 +92,10 @@ export function FoodBasket({
         </div>
       </div>
       <div className="live-calorie-meta">
-        <span className="live-delta">{totals.count} {totals.count===1?'food':'foods'}</span>
         <span className="live-macros">
-          Protein {number(totals.protein.value)} g{totals.protein.partial?' · partial':''} · 
-          Carbs {number(totals.carbs.value)} g{totals.carbs.partial?' · partial':''} · 
-          Fat {number(totals.fat.value)} g{totals.fat.partial?' · partial':''}
+          Protein {number(totals.protein.value,1)} g{totals.protein.partial?' · partial':''} ·
+          Carbs {number(totals.carbs.value,1)} g{totals.carbs.partial?' · partial':''} ·
+          Fat {number(totals.fat.value,1)} g{totals.fat.partial?' · partial':''}
         </span>
       </div>
       {partials.map(p=><small key={p.nutrient}>
@@ -130,7 +129,7 @@ export function FoodBasket({
         <Button type="button" variant="secondary" onClick={onBack} disabled={busyPending}>Add more food</Button>
         {onScanAnother&&<Button type="button" variant="secondary" onClick={onScanAnother} disabled={busyPending}><ScanBarcode size={16} aria-hidden="true"/>Scan another</Button>}
         <Button type="submit" variant="primary" data-step-focus disabled={busyPending||!basket.lines.length}>
-          {busy?'Logging…':`Log all ${basket.lines.length} ${basket.lines.length===1?'food':'foods'}`}
+          {busy?'Logging…':basket.lines.length===1?'Log 1 food':`Log all ${basket.lines.length} foods`}
         </Button>
       </div>
     </Form>

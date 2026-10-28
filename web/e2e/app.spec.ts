@@ -44,7 +44,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   const user=await (await context.request.get('/api/state')).json();
   await page.getByLabel('Date of birth',{exact:true}).fill('1996-03-14');await page.getByLabel('Height (cm)').fill('170');
   await page.getByLabel('Starting weight (kg)').fill('81');
-  await page.getByLabel('Gender',{exact:true}).selectOption('female');
+  await page.getByLabel('Sex',{exact:true}).selectOption('female');
   await page.getByRole('button',{name:/^Next: Activity/}).click();
   await page.getByRole('radio',{name:/^None or relaxed activity\b/}).check();
   await page.getByRole('button',{name:/^Next: Goal/}).click();
@@ -89,7 +89,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await expect(page.getByText('Check-in ready',{exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Nasi lemak reviewed portion');await page.getByLabel('Calories (kcal)',{exact:true}).fill('520');
-  await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  await page.getByLabel('Protein (g)',{exact:true}).fill('18');await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('heading',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Nasi lemak reviewed portion');}).toBeTruthy();
   await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
@@ -108,7 +108,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBeTruthy();
   await context.setOffline(true);await page.getByRole('button',{name:'Add entry',exact:true}).first().click();await page.getByRole('dialog',{name:'Add'}).getByRole('button',{name:'Log food'}).click();await page.getByRole('button',{name:'Manual entry'}).click();
-  await page.getByLabel('Food name',{exact:true}).fill('Offline banana');await page.getByLabel('Calories (kcal)',{exact:true}).fill('105');await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  await page.getByLabel('Food name',{exact:true}).fill('Offline banana');await page.getByLabel('Calories (kcal)',{exact:true}).fill('105');await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Offline banana',exact:true})).toBeVisible();await expect(page.getByText('Pending sync',{exact:true}).first()).toBeVisible();
   await page.reload();await page.getByRole('button',{name:'Food Log',exact:true}).click();await expect(page.getByRole('heading',{name:'Offline banana',exact:true})).toBeVisible();
   await context.setOffline(false);
@@ -446,7 +446,7 @@ test('cached diary opens while the server sleeps and uploads retained food and w
   await page.getByRole('button',{name:'Manual entry',exact:true}).click();
   await page.getByLabel('Food name',{exact:true}).fill('Server wake meal');
   await page.getByLabel('Calories (kcal)',{exact:true}).fill('400');
-  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
+  await page.getByRole('button',{name:'Add to batch',exact:true}).click();await page.getByRole('button',{name:'Log 1 food',exact:true}).click();await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Server wake meal',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Add entry',exact:true}).click();await page.getByRole('dialog',{name:'Add',exact:true}).getByRole('button',{name:'Log weight',exact:true}).click();
   await page.getByLabel('Weight (kg)',{exact:true}).fill('80.6');
@@ -536,7 +536,7 @@ test('mobile scan shortcut supports food photos and label autofill before review
     }
   }
   expect(modes).toEqual(['photo','label']);
-  await page.getByRole('button',{name:'Log all 1 food',exact:true}).click();
+  await page.getByRole('button',{name:'Log 1 food',exact:true}).click();
   await expect.poll(async()=>{const state=await (await context.request.get('/api/state')).json();return state.entries.some((e:{name:string;calories:number;source:string})=>e.name==='Label yoghurt'&&e.calories===135&&e.source==='AI label estimate');}).toBeTruthy();
 });
 

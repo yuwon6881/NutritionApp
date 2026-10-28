@@ -93,9 +93,10 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onCha
     onClose={onClose}
     restoreFocus={restoreFocus}
     title={initial?'Edit physique photo set':'Upload physique photo set'}
-    description={initial?'Replace only the views you changed. Unchanged views stay on the server.':'Add up to three private progress views as one set. Each selected image is compressed before it is queued.'}
+    description={initial?'Replace only the views you changed.':'Photos are resized on your device before upload.'}
     dirty={dirty}
     width="lg"
+    className="photo-upload-dialog"
   >
     <Form onSubmit={save} className="dialog-form">
       <DatePicker id="photo-date" name="date" min="2000-01-01" label="Photo date" max={current} required value={date} onChange={setDate}/>
@@ -113,11 +114,13 @@ export function PhotoUploadDialog({open,store,onClose,restoreFocus,initial,onCha
               disabled={busyPending}
               label={`${label} photo`}
               accept="image/*"
+              hideFormat
               onChange={event=>void select(slot.angle,event)}
             />
           </section>;
         })}
       </div>
+      <p className="source">JPEG or PNG · compressed on this device to 750 KB or less</p>
       {selectedBytes>0&&<p className="source">Selected upload: {number(selectedBytes/1000)} KB · location metadata removed</p>}
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions"><Button type="submit" variant="primary" disabled={busyPending}>{busy?'Preparing…':initial?'Save changed views and upload':'Save photo set and upload'}</Button></div>

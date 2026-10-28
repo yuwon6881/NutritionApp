@@ -174,7 +174,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
     }
   };
 
-  return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} title={record?'Edit Body record':'Add Body record'} description="Measurements are stored in centimetres. Weight context is captured once by the server and remains reviewable." dirty={dirty} width="xl">
+  return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} title={record?'Edit body record':'Add body record'} description="Measurements are stored in centimetres." dirty={dirty} width="xl">
     <Form onSubmit={save} className="dialog-form body-record-form">
       <div className="body-record-form-top">
         <DatePicker id="body-date" name="date" min="2000-01-01" max={current} required label="Record date" value={date} onChange={setDate}/>
@@ -183,6 +183,21 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
           <SegmentedControl<'cm'|'in'> id="body-circumference-unit" label="Circumference unit" value={unit} onChange={handleUnitToggle} options={[{value:'cm',label:'cm'},{value:'in',label:'in'}]}/>
         </div>
       </div>
+
+      <section className="body-form-section body-composition-section">
+        <div className="body-form-section-header"><h3>Body fat</h3><span className="unit-indicator">%</span></div>
+        <div className="body-field-grid body-composition-grid">
+          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>setValues(cv=>({...cv,bodyFatPercent:e.currentTarget.value}))}/>
+          <BodyFatEstimate slots={slots} online={online} disabled={busyPending} request={buildEstimateRequest(date,slots,values,unit)} onUse={percent=>setValues(cv=>({...cv,bodyFatPercent:String(percent)}))}/>
+        </div>
+      </section>
+
+      {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
+        <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
+        <div className="body-field-grid">
+          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;setValues(cv=>({...cv,[key]:val}));}}/>)}
+        </div>
+      </section>)}
 
       <section className="body-form-section body-photo-section">
         <div className="body-form-section-header"><h3>Photos</h3><p className="source">Optional. Replace or remove one view without changing the other angles.</p></div>
@@ -200,21 +215,6 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
           })}
         </div>
       </section>
-
-      <section className="body-form-section body-composition-section">
-        <div className="body-form-section-header"><h3>Body fat</h3><span className="unit-indicator">%</span></div>
-        <div className="body-field-grid body-composition-grid">
-          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>setValues(cv=>({...cv,bodyFatPercent:e.currentTarget.value}))}/>
-          <BodyFatEstimate slots={slots} online={online} disabled={busyPending} request={buildEstimateRequest(date,slots,values,unit)} onUse={percent=>setValues(cv=>({...cv,bodyFatPercent:String(percent)}))}/>
-        </div>
-      </section>
-
-      {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
-        <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
-        <div className="body-field-grid">
-          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;setValues(cv=>({...cv,[key]:val}));}}/>)}
-        </div>
-      </section>)}
 
       <section className="body-form-section body-context-section">
         <div className="body-form-section-header"><h3>Weight context</h3><p className="source">Captured when this record is saved. Missing values stay unavailable.</p></div>

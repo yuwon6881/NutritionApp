@@ -34,7 +34,7 @@ function summaryText(summary:CalendarSummary){
 }
 
 function weekText(week:WeekSummary){
-  return `${week.kept}/${week.days} this week`;
+  return `${week.kept}/${week.days} so far`;
 }
 
 function streakText(streak:number){
@@ -59,7 +59,7 @@ export function HabitCalendarCard({title,tone,recent,history,summary,week,curren
     <Button
       presentation="plain"
       className="habit-calendar-trigger"
-      aria-label={`${title}: ${week.kept} of ${week.days} days this week, ${streakText(summary.streak)}. Open full calendar`}
+      aria-label={`${title}: ${week.kept} of ${week.days} days logged so far, ${streakText(summary.streak)}. Open full calendar`}
       onClick={event=>{setTrigger(event.currentTarget);setOpened(opened+1);setOpen(true);}}
     >
       <span className="habit-calendar-heading">

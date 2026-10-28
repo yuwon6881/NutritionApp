@@ -62,9 +62,9 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     // A fasting day keeps the habit; an explicit not-logging day ends the streak.
     // The headline counts this week's kept days; fasting (6 days ago) counts, not-logging (7) does not.
     const foodWeek=thisWeek([1,2,3,4,5,6,8,9,10]);
-    await expect(food).toHaveAccessibleName(new RegExp(`^Food logging: ${foodWeek} of 7 days this week, 6-day streak`));
-    await expect(weight).toHaveAccessibleName(new RegExp(`^Weigh-ins: ${thisWeek([0,2,4,6,8,10])} of 7 days this week, 1-day streak`));
-    await expect(food.locator('.habit-calendar-count')).toHaveText(`${foodWeek}/7 this week`);
+    await expect(food).toHaveAccessibleName(new RegExp(`^Food logging: ${foodWeek} of ${weekdayOffset+1} days logged so far, 6-day streak`));
+    await expect(weight).toHaveAccessibleName(new RegExp(`^Weigh-ins: ${thisWeek([0,2,4,6,8,10])} of ${weekdayOffset+1} days logged so far, 1-day streak`));
+    await expect(food.locator('.habit-calendar-count')).toHaveText(`${foodWeek}/${weekdayOffset+1} so far`);
 
     await page.evaluate(()=>document.fonts.ready);
     // The landing cascade staggers the two cards; measure once it settles.

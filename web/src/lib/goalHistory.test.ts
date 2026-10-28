@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {Plan} from '../types';
-import {buildGoalHistory} from './goalHistory';
+import {buildGoalHistory,currentEndKg,type GoalHistoryEntry} from './goalHistory';
 
 const plan=(id:string,date:string,goal:string,startWeight:number,scaleWeight:number,trendWeight:number,complete=false,profileRevision=1):Plan=>({
   id,revision:1,deleted:false,date,inputRevision:1,profileRevision,
@@ -56,5 +56,34 @@ describe('goal history',()=>{
     const broken:Plan={...plan('x','2026-09-01','lose',64,1,1),resultJson:'{'};
     const empty:Plan={...plan('y','2026-09-02','lose',64,1,1),resultJson:JSON.stringify({effectiveGoal:'lose'})};
     expect(buildGoalHistory([empty,broken])).toEqual([{startDate:'2026-09-02',goal:'lose',startKg:null,endKg:null,status:'active'}]);
+  });
+});
+
+describe('currentEndKg',()=>{
+  it('returns endKg for active entry when endKg is present',()=>{
+    const entry:GoalHistoryEntry={startDate:'2026-09-08',goal:'lose',startKg:64,endKg:63.2,status:'active'};
+    expect(currentEndKg(entry,62.5)).toBe(63.2);
+  });
+
+  it('uses latestKg for active entry when endKg is null',()=>{
+    const entry:GoalHistoryEntry={startDate:'2026-09-08',goal:'lose',startKg:64,endKg:null,status:'active'};
+    expect(currentEndKg(entry,62.5)).toBe(62.5);
+  });
+
+  it('returns null for active entry when neither endKg nor latestKg is available',()=>{
+    const entry:GoalHistoryEntry={startDate:'2026-09-08',goal:'lose',startKg:64,endKg:null,status:'active'};
+    expect(currentEndKg(entry,null)).toBeNull();
+    expect(currentEndKg(entry,undefined)).toBeNull();
+    expect(currentEndKg(entry)).toBeNull();
+  });
+
+  it('keeps null endKg for past entry even when latestKg is provided',()=>{
+    const entry:GoalHistoryEntry={startDate:'2026-08-01',goal:'maintain',startKg:66,endKg:null,status:'changed',endDate:'2026-09-08'};
+    expect(currentEndKg(entry,62.5)).toBeNull();
+  });
+
+  it('keeps endKg for past entry',()=>{
+    const entry:GoalHistoryEntry={startDate:'2026-08-01',goal:'maintain',startKg:66,endKg:66,status:'changed',endDate:'2026-09-08'};
+    expect(currentEndKg(entry,62.5)).toBe(66);
   });
 });

@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {ArrowDown,ArrowRight,ArrowUp} from 'lucide-react';
+import {ArrowDown,ArrowUp} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {CoachNumber} from './ui/CoachMotion';
 import {useReducedMotion} from './ui/Motion';
@@ -51,7 +51,7 @@ export function CheckInCalorieChange({previous,proposed,unit}:{previous:number|n
   const direction:Direction=delta==null?'none':delta>0?'up':delta<0?'down':'same';
   const amount=delta==null?'':`${displayEnergy(Math.abs(delta),unit)} ${label}`;
   const summary=direction==='up'?`Up ${amount}`:direction==='down'?`Down ${amount}`:'Unchanged';
-  const Icon=direction==='up'?ArrowUp:direction==='down'?ArrowDown:ArrowRight;
+  const Icon=direction==='up'?ArrowUp:direction==='down'?ArrowDown:null;
   // Announce the settled result once; the per-frame count stays out of the accessibility tree.
   const announcement=final==null?'':`New daily calories ${displayEnergy(final,unit)} ${label}. ${direction==='none'?'':`${summary}.`}`;
   return <div className={`check-in-calorie direction-${direction}${revealed?' is-revealed':''}${counts?' is-counted':''}`} data-check-in-calorie>
@@ -60,7 +60,7 @@ export function CheckInCalorieChange({previous,proposed,unit}:{previous:number|n
       <CoachNumber>{displayEnergy(display,unit)}</CoachNumber><span className="unit">{label}</span>
     </div>
     {delta!=null&&<div className="check-in-calorie-change" aria-hidden="true">
-      <span className="check-in-calorie-delta"><Icon size={15} strokeWidth={2.4} aria-hidden="true"/>{summary}</span>
+      <span className="check-in-calorie-delta">{Icon&&<Icon size={15} strokeWidth={2.4} aria-hidden="true"/>}{summary}</span>
       {direction!=='same'&&<small>Was {displayEnergy(previous,unit)} {label}</small>}
     </div>}
     <p className="sr-only" role="status">{revealed?announcement:''}</p>
