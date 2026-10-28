@@ -1,5 +1,5 @@
 import {useId} from 'react';
-import {Footprints, ChevronRight} from 'lucide-react';
+import {ChevronRight} from 'lucide-react';
 import {number,readableDate} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, calculateKnownDayAverage} from '../lib/googleHealth';
 import {niceTicks} from '../lib/barChart';
@@ -43,9 +43,9 @@ export function GoogleHealthProgressChart({
     return (
       <section className="panel google-health-progress-section" aria-labelledby="gh-progress-title">
         <div className="section-heading">
-          <div className="title-with-icon">
-            <Footprints size={20} className="panel-icon" aria-hidden="true" />
-            <h2 id="gh-progress-title">Google Health steps · Last 30 days</h2>
+          <div>
+            <h2 id="gh-progress-title">Google Health steps</h2>
+            <p className="chart-description">Last 30 days</p>
           </div>
         </div>
         {onOpenSettings && (
@@ -75,9 +75,9 @@ export function GoogleHealthProgressChart({
   return (
     <section className="panel google-health-progress-section" aria-labelledby="gh-progress-title">
       <div className="section-heading">
-        <div className="title-with-icon">
-          <Footprints size={20} className="panel-icon" aria-hidden="true" />
-          <h2 id="gh-progress-title">Google Health steps · Last 30 days</h2>
+        <div>
+          <h2 id="gh-progress-title">Google Health steps</h2>
+          <p className="chart-description">Last 30 days</p>
         </div>
         {freshness === 'stale' && (
           <span className="freshness-badge stale" title="Step totals may be stale">

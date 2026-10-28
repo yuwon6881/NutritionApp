@@ -56,6 +56,7 @@ export function LogFood({
   onReady,
   initialAi=false,
   initialTab,
+  initialStep,
   initialTime,
   initialQuery,
   restoreFocus,
@@ -65,7 +66,7 @@ export function LogFood({
   const history=useHistoryWindow(store,date,open);
   useEffect(()=>{if(open)void store.loadSavedFoods();},[open,store.loadSavedFoods]);
   const basket=useFoodBasket(open,store.state!.id,date);
-  const [step,setStep]=useState<FoodStep>(editing?'editor':'selection');
+  const [step,setStep]=useState<FoodStep>(editing?'editor':initialStep??'selection');
   const [selectionPurpose,setSelectionPurpose]=useState<'log'|'recipe'>('log');
   const recipe=useRecipeDraft();
   const [barcodeRecovery,setBarcodeRecovery]=useState<BarcodeRecovery>();
@@ -94,7 +95,7 @@ export function LogFood({
 
   useEffect(()=>{
     if(open&&!wasOpen.current){
-      setStep(editing?'editor':'selection');
+      setStep(editing?'editor':initialStep??'selection');
       setSelectionPurpose('log');
       recipe.reset();
       setBarcodeRecovery(undefined);
@@ -114,7 +115,7 @@ export function LogFood({
       searchCache.current.clear();
     }
     wasOpen.current=open;
-  },[open,editing?.id,date,defaultTab,basket]);
+  },[open,editing?.id,date,defaultTab,basket,initialStep]);
 
   const accountId=store.state!.id;
   const scan=useFoodScanDraft({open,accountId,date,pendingBarcode,onRestore:saved=>{

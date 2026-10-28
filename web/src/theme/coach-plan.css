@@ -198,6 +198,15 @@
 
 /* Phones: the seven days read as a compact list (day, value, boost) instead of a grid that strands Sunday. */
 @media (max-width: 639px) {
+  .coach-step-stage .step-actions {
+    /* Rests on top of the floating dock, which is the page edge on phones. */
+    position: sticky;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+    z-index: 2;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding-bottom: 12px;
+  }
   .coach-step-stage[data-step="review"] .step-actions > .button.primary {
     flex-grow: 1.5;
   }
@@ -249,4 +258,25 @@
 .coach-weight-suggestion {
   align-self: flex-start;
   margin-top: -6px;
+}
+
+.coach-current-badge {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 650;
+  border-radius: 999px;
+  padding: 2px 8px;
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.coach-review-calorie-diff {
+  margin: -6px 0 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }

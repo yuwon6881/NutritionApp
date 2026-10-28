@@ -82,6 +82,11 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
   // store dependency re-fetched after each response in an endless loop.
   const loadTrainingSummaries=store.loadTrainingSummaries;
   useEffect(()=>{if(tab==='activity')void loadTrainingSummaries?.();},[loadTrainingSummaries,tab]);
+  const ghConnected=ghState.status!=='disconnected';
+  const workoutConnected=Boolean(state.workoutConnected||(state.trainingSummaries&&state.trainingSummaries.length>0));
+  const workoutSettled=Boolean(store.trainingResolved||state.trainingSyncedAt||(state.trainingSummaries&&state.trainingSummaries.length>0));
+  const workoutPending=!workoutSettled&&state.workoutConnected!==false;
+  const activityLoading=ghLoading||workoutPending;
   const units=unitsFor(state.settings);
   // The weigh-in list comes from the server summary; queued deletions must disappear at once so Undo reads true.
   const pendingWeightDeletes=new Set((store.local?.queue??[]).filter(op=>op.kind==='weight'&&op.delete).map(op=>op.recordId));
@@ -198,10 +203,19 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
       <CoachingProgress store={store} rangeStart={energyRange.start} rangeEnd={energyRange.end}/>
     </div>}
     {tab==='body'&&<Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>}
-    {tab==='activity'&&<div className="activity-progress-hub">
+    {tab==='activity'&&<div className="activity-progress-hub">{ghConnected||workoutConnected||activityLoading?<>
       <GoogleHealthProgressChart days={ghState.days} status={ghState.status} freshness={ghState.freshness} todayDate={today(state.profile?.timeZone)} loading={ghLoading} onOpenSettings={onSettings}/>
       <StepCalorieCalculator store={store} variant="panel"/>
       <TrainingSummaryCard summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings} onRetry={()=>void loadTrainingSummaries?.(true)}/>
+      </>:<section className="panel activity-connect-card">
+        <div className="section-heading">
+          <div>
+            <h2>Connect an app for activity</h2>
+            <p className="chart-description">Steps come from Google Health and workouts from Workout. Neither changes your targets.</p>
+          </div>
+        </div>
+        {onSettings&&<Button variant="primary" size="md" onClick={onSettings}>Open connected apps</Button>}
+      </section>}
     </div>}
     </div>
     </MotionPanel>

@@ -80,15 +80,20 @@ test('weigh-in deletion needs confirmation, can be undone, and persists after th
   const rows=page.locator('.weigh-in-list .weigh-in-row');
   await expect(rows.first()).toBeVisible();
   const before=await rows.count();
+  const trigger=rows.first().getByRole('button',{name:/^More actions for weigh-in from /});
+  const openDelete=async()=>{
+    await trigger.click();
+    await page.getByRole('button',{name:'Delete weigh-in',exact:true}).click();
+  };
 
-  await rows.first().getByRole('button',{name:/^Delete weigh-in from /}).click();
+  await openDelete();
   const confirmation=page.getByRole('dialog',{name:'Delete weigh-in?',exact:true});
   await expect(confirmation).toBeVisible();
   await expect(rows).toHaveCount(before);
   await page.goBack();
   await expect(confirmation).toBeHidden();
-  await expect(rows.first().getByRole('button',{name:/^Delete weigh-in from /})).toBeFocused();
-  await rows.first().getByRole('button',{name:/^Delete weigh-in from /}).click();
+  await expect(trigger).toBeFocused();
+  await openDelete();
   await confirmation.getByRole('button',{name:'Delete weigh-in',exact:true}).click();
   const undo=page.locator('.undo-toast');
   await expect(undo).toContainText('weigh-in');
@@ -96,7 +101,7 @@ test('weigh-in deletion needs confirmation, can be undone, and persists after th
   await undo.getByRole('button',{name:'Undo',exact:true}).click();
   await expect(rows).toHaveCount(before);
 
-  await rows.first().getByRole('button',{name:/^Delete weigh-in from /}).click();
+  await openDelete();
   await confirmation.getByRole('button',{name:'Delete weigh-in',exact:true}).click();
   await expect(rows).toHaveCount(before-1);
   await expect(undo).toBeHidden({timeout:10000});

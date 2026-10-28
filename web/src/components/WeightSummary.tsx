@@ -1,5 +1,5 @@
 import {useMemo,useState} from 'react';
-import {CloudDownload,Pencil,Trash2} from 'lucide-react';
+import {CloudDownload,MoreHorizontal,Pencil,Trash2} from 'lucide-react';
 import type {ProgressSummary,Weight} from '../types';
 import {displayWeight,weightLabel,type unitsFor} from '../lib/units';
 import {monthShort,readoutDate,weekdayShort} from '../lib/format';
@@ -7,6 +7,7 @@ import {dateSpan} from '../lib/chartLabels';
 import {changeSincePrevious} from '../lib/weighInList';
 import {weightContextLabel} from '../lib/weightContext';
 import {Button} from './ui/Button';
+import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
 import {WeightChart} from './WeightChart';
 
 type Units=ReturnType<typeof unitsFor>;
@@ -21,7 +22,13 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
   const editable=useMemo(()=>summary.weight.editableWeighIns.filter(weight=>!pendingDeletes.has(weight.id)),[summary.weight.editableWeighIns,pendingDeletes]);
   const trendChange=stats.trendChangeKg;
   const [showAll,setShowAll]=useState(false);
+  const [menuTarget,setMenuTarget]=useState<{weight:Weight;trigger:HTMLElement}|null>(null);
+  const [menuOpen,setMenuOpen]=useState(false);
   const shown=useMemo(()=>showAll?editable:editable.slice(0,INITIAL_ROWS),[editable,showAll]);
+  const menuOptions:ActionSheetOption[]=useMemo(()=>menuTarget?[
+    {id:'edit',label:'Edit weigh-in',icon:<Pencil size={20} aria-hidden="true"/>,onClick:()=>onEdit(menuTarget.weight,menuTarget.trigger)},
+    {id:'delete',label:'Delete weigh-in',icon:<Trash2 size={20} aria-hidden="true"/>,variant:'destructive',onClick:()=>onDelete(menuTarget.weight,menuTarget.trigger)},
+  ]:[],[menuTarget,onEdit,onDelete]);
   return <>
     {pending&&<p className="notice" role="status">Recent edits will update after sync.</p>}
     <div className="stats-grid progress-stats">
@@ -55,12 +62,13 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
           </div>
           <div className="weigh-in-actions">
             <Button variant="tertiary" size="icon" aria-label={`Edit weigh-in from ${spoken}`} onClick={event=>onEdit(weight,event.currentTarget)}><Pencil size={17} aria-hidden="true"/></Button>
-            <Button variant="tertiary" size="icon" className="weigh-in-delete" aria-label={`Delete weigh-in from ${spoken}`} onClick={event=>onDelete(weight,event.currentTarget)}><Trash2 size={17} aria-hidden="true"/></Button>
+            <Button variant="tertiary" size="icon" aria-label={`More actions for weigh-in from ${spoken}`} onClick={event=>{setMenuTarget({weight,trigger:event.currentTarget});setMenuOpen(true);}}><MoreHorizontal size={17} aria-hidden="true"/></Button>
           </div>
         </li>;
       })}</ul>
       {editable.length>INITIAL_ROWS&&<div className="weigh-in-more"><Button variant="secondary" aria-expanded={showAll} onClick={()=>setShowAll(value=>!value)}>{showAll?'Show fewer':`Show ${editable.length-INITIAL_ROWS} more`}</Button></div>}</>
       :<p className="empty">No weigh-ins in this period.</p>}
     </section>
+    <ActionSheet isOpen={menuOpen} onClose={()=>setMenuOpen(false)} restoreFocus={menuTarget?.trigger} title="Weigh-in" subtitle={menuTarget?readoutDate(menuTarget.weight.date):undefined} options={menuOptions}/>
   </>;
 }

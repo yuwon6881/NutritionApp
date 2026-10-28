@@ -17,7 +17,7 @@ import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {WeeklyScheduleReview} from './coach/WeeklyScheduleReview';
 import {TargetWeeklySummary} from './coach/TargetWeeklySummary';
-import {latestWeightSuggestion,formatWeeklyPaceEquivalent} from '../lib/coachPlanHelpers';
+import {latestWeightSuggestion,formatWeeklyPaceEquivalent,calorieChangeLine} from '../lib/coachPlanHelpers';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
@@ -30,7 +30,7 @@ import {GoalHistoryPanel} from './GoalHistoryPanel';
 import {CardFeedback} from './ui/CardFeedback';
 import {MotionPanel} from './ui/Motion';
 import {ActivitySelection} from './ActivitySelection';
-import {activityFields} from '../lib/activityLevels';
+import {activityFields,closestActivityLevel} from '../lib/activityLevels';
 import {carryExpenditure,equationProfile,prepareCoachingProfile} from '../lib/profileExpenditure';
 import {cleanTrend} from '../lib/weightSignal';
 import {trendInsight} from '../lib/trendInsight';
@@ -243,6 +243,10 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const coachDefaultSplit=coachDefault.split??normalise({protein:30,carbs:40,fat:30});
   const selectedPresetId=profile.macroPreset??(storedSplit(profile)?'custom':'auto');
   const selectedPreset=macroPresets.find(preset=>preset.id===selectedPresetId);
+  const savedProfile=!isInitialSetup?store.state?.profile:null;
+  const savedActivityLevel=savedProfile?(savedProfile.activityLevel??closestActivityLevel(savedProfile)):undefined;
+  const savedGoal=savedProfile?savedProfile.goal:undefined;
+  const calorieChange=acceptedPlan?calorieChangeLine(acceptedPlan.calories,live.target,units.energy):'';
   const split=selectedPresetId==='auto'
     ?coachDefaultSplit
     :selectedPresetId==='custom'
@@ -471,7 +475,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       </div>}
 
       {step==='activity'&&<div className="step-content">
-        <ActivitySelection profile={profile} onChange={level=>set('activityLevel',level)}/>
+        <ActivitySelection profile={profile} currentLevel={savedActivityLevel??undefined} onChange={level=>set('activityLevel',level)}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('body')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current))setStep('goal');}}>
@@ -481,7 +485,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       </div>}
 
       {step==='goal'&&<div className="step-content">
-        <GoalSelection profile={profile} set={set}/>
+        <GoalSelection profile={profile} set={set} currentGoal={savedGoal}/>
         <div className="step-actions">
           <Button type="button" size="md" variant="secondary" onClick={()=>setStep('activity')}><ArrowLeft size={16}/> Back</Button>
           <Button type="button" size="md" variant="primary" onClick={()=>{if(validateFields(stage.current)&&canAdvanceGoal)setStep('goal-details');}}>
@@ -599,7 +603,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
             </div>
             <span className="macro-review-pattern-pill">{presetLabel(selectedPresetId)} macro pattern</span>
           </div>
-
+          {calorieChange&&<p className="coach-review-calorie-diff">{calorieChange}</p>}
           <div className="summary-metrics-grid">
             <div className="summary-metric-tile">
               <span className="summary-metric-label">Goal</span>

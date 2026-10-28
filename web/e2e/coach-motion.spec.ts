@@ -201,13 +201,13 @@ test('directional navigation, interrupted exits, focus, layouts and reduced moti
   await expect(page.locator('.coach-step-stage')).toHaveCSS('opacity','1');
   await page.emulateMedia({reducedMotion:'reduce'});await step(page,'Goal');
   await page.getByRole('radio',{name:'Fat loss',exact:true}).focus();
-  await page.keyboard.press('ArrowRight');await expect(page.getByRole('radio',{name:'Maintenance',exact:true})).toBeChecked();
+  await page.keyboard.press('ArrowRight');await expect(page.getByRole('radio',{name:/^Maintenance\b/})).toBeChecked();
   expect(await page.evaluate(()=>document.getAnimations().filter(a=>a.playState==='running').length)).toBe(0);
   await page.emulateMedia({reducedMotion:'no-preference'});
   await step(page,'Goal');
   await page.getByRole('radio',{name:'Fat loss',exact:true}).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('radio',{name:'Maintenance',exact:true})).toBeChecked();
+  await expect(page.getByRole('radio',{name:/^Maintenance\b/})).toBeChecked();
   await step(page,'Macros');
   await page.emulateMedia({reducedMotion:'reduce'});
   await expect(page.locator('[data-step-heading]')).toHaveText('Macros');

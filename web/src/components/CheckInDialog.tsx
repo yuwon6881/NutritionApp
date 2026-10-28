@@ -9,6 +9,7 @@ import {unitsFor} from '../lib/units';
 import {CheckInCalorieChange} from './CheckInCalorieChange';
 import {contextAdjustmentSummary} from '../lib/weighInEvidence';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {confirmLabel} from '../lib/checkInLabels';
 
 export interface CheckInDialogProps {
   open:boolean;
@@ -49,6 +50,11 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
   const units=unitsFor(store.state?.settings);
   const adjusted=contextAdjustmentSummary(proposal?.evidence??result?.evidence);
   const busy=['calculating','updating','accepting','refreshing'].includes(operation)||declining;
+  const previous=changes?.previousCalories;
+  const proposed=changes?.proposedCalories??result?.calories;
+  const changed=previous==null||proposed==null||Math.round(previous)!==Math.round(proposed);
+  const confirm=confirmLabel({changed,calories:proposed,unit:units.energy,defaultLabel:'Accept'});
+  const explanation=(proposal?.holdReason||result?.explanation)?.trim()||adjusted;
   return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} width="md" title="Weekly check-in">
     {!proposal?<div className="check-in-loading" role={error?'alert':'status'}>
       <p>{error||operation==='error'?'Could not prepare this check-in yet.':operation==='refresh-error'?'Your plan is active. The latest view could not be loaded.':'Preparing your check-in…'}</p>
@@ -56,12 +62,12 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
       {operation==='refreshing'&&<CoachWait label="Refreshing calories…" active/>}
       {error&&<Button onClick={()=>void loadProposal()} disabled={!online||pending}>Retry</Button>}
     </div>:<div className="check-in-dialog-content">
-      <CheckInCalorieChange previous={changes?.previousCalories} proposed={changes?.proposedCalories??result?.calories} unit={units.energy}/>
-      {adjusted&&<p className="check-in-context source">{adjusted}</p>}
+      <CheckInCalorieChange previous={previous} proposed={proposed} unit={units.energy}/>
+      {explanation&&<p className="check-in-context">{explanation}</p>}
       {(error||declineError)&&<p className="error" role="alert">{error||declineError}</p>}
       <div className="modal-actions">
         <Button variant="primary" disabled={busy||decliningPending||!online||pending||!proposal.canAccept||!!acceptance.current} onClick={()=>void acceptProposal()}>
-          {operation==='accepting'?'Accepting…':'Accept'}
+          {operation==='accepting'?'Accepting…':confirm}
         </Button>
         <Button variant="secondary" disabled={busy||decliningPending||!online||pending||!!acceptance.current} onClick={()=>void decline()}>
           {declining?'Declining…':'Decline'}

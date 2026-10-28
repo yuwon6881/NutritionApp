@@ -26,7 +26,8 @@ const KIB = 1024;
 // The Food Log day loading skeleton (summary and timeline shapes) adds a small precache allowance.
 // Press-and-hold feedback, in-place hold before a drag, and checkbox enter/exit motion add a small first-load allowance.
 // The Coach and weigh-in helpers, remembered notification preferences, and the UI audit layout fixes add a small first-load and offline allowance.
-const budgets = { firstLoad: 480 * KIB, precache: 1290 * KIB };
+// The weigh-in actions menu, Quick add shortcut, plan editor current-choice badges, and check-in explanation add a small offline allowance.
+const budgets = { firstLoad: 484 * KIB, precache: 1300 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

@@ -11,6 +11,7 @@ export interface LogFoodProps {
   onReady?: () => void;
   initialAi?: boolean;
   initialTab?: 'search' | 'saved' | 'barcode' | 'ai';
+  initialStep?: 'selection' | 'quick';
   initialTime?: string;
   initialQuery?: string;
   restoreFocus?: HTMLElement | null;
