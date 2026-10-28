@@ -56,6 +56,20 @@ function swallowNextClick(){
   window.setTimeout(()=>document.removeEventListener('click',swallow,{capture:true}),500);
 }
 
+function clearPress(card:HTMLElement){
+  delete card.dataset.pressing;
+  delete card.dataset.held;
+}
+
+/** Drops the press and hold marks at once, so a measurement sees the card at its resting size. */
+function settleWithoutTransition(card:HTMLElement){
+  if(!card.dataset.held&&!card.dataset.pressing)return;
+  card.style.transition='none';
+  clearPress(card);
+  void card.offsetWidth;
+  card.style.transition='';
+}
+
 /**
  * Pointer handling for diary cards: touch hold selects or drags, a sideways
  * touch swipe reveals actions (see lib/cardGesture), mouse drags after a
@@ -98,6 +112,7 @@ export function useTimelineDrag({
       if(current.autoScrollFrame!==undefined)cancelAnimationFrame(current.autoScrollFrame);
       current.ghost?.remove();
       current.releaseTouch?.();
+      clearPress(current.targetEl);
       current.swipeElement?.style.setProperty('--swipe-x',revealedRef.current===current.entry.id?`${-CARD_REVEAL_WIDTH}px`:'0px');
       try{current.targetEl.releasePointerCapture(current.pointerId);}catch{/* Capture may already be gone. */}
     }
@@ -169,6 +184,8 @@ export function useTimelineDrag({
 
   const lift=(current:ActiveGesture)=>{
     if(current.ghost)return;
+    // A held card is raised in place; measure it at rest so the copy matches its real size.
+    settleWithoutTransition(current.targetEl);
     current.ghost=createDragGhost(current.targetEl,current.gesture.originX,current.gesture.originY);
     document.documentElement.dataset.cardDragging='true';
     window.getSelection()?.removeAllRanges();
@@ -200,15 +217,19 @@ export function useTimelineDrag({
         },CARD_HOLD_MS);
         break;
       case 'lift':
+        // The hold raises the card where it is. Releasing selects it and moving drags it, so the
+        // floating copy and the hour highlight wait for movement instead of flashing on every hold.
+        hapticTick();
+        delete current.targetEl.dataset.pressing;
+        current.targetEl.dataset.held='true';
+        current.rowRects=snapshotRows();
+        break;
       case 'begin-drag':
         if(!current.rowRects.length)current.rowRects=snapshotRows();
-        if(effect==='lift')hapticTick();
+        if(current.mouseHoldTimer)clearTimeout(current.mouseHoldTimer);
         lift(current);
-        if(effect==='begin-drag'){
-          if(current.mouseHoldTimer)clearTimeout(current.mouseHoldTimer);
-          current.ghost?.move(current.lastX,current.lastY);
-          autoScroll(current);
-        }
+        current.ghost?.move(current.lastX,current.lastY);
+        autoScroll(current);
         setDraggingEntry(current.entry);
         updateTarget(current,clientY??current.gesture.originY);
         break;
@@ -236,6 +257,7 @@ export function useTimelineDrag({
       }
       case 'begin-swipe':
         if(current.holdTimer)clearTimeout(current.holdTimer);
+        clearPress(current.targetEl);
         setSwipe({id:current.entry.id,offset:revealedId===current.entry.id?-CARD_REVEAL_WIDTH:0});
         // falls through to position the card under the finger
       case 'swipe-track':
@@ -273,7 +295,11 @@ export function useTimelineDrag({
     const current:ActiveGesture={entry,targetEl:event.currentTarget,pointerId:event.pointerId,gesture:idleCardGesture,rowRects:[],swipeSamples:[],
       swipeElement:event.currentTarget.closest<HTMLElement>('.food-card-swipe'),lastX:event.clientX,lastY:event.clientY};
     activeRef.current=current;
-    if(event.pointerType==='touch')blockTouchScroll(current);
+    if(event.pointerType==='touch'){
+      blockTouchScroll(current);
+      // CSS delays the press-in, so a flick that scrolls away never shows it.
+      current.targetEl.dataset.pressing='true';
+    }
     try{current.targetEl.setPointerCapture(current.pointerId);}catch{/* Capture is an enhancement. */}
     if(event.pointerType==='mouse'){
       current.mouseHoldTimer=setTimeout(()=>{

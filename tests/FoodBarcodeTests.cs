@@ -29,6 +29,24 @@ public sealed class FoodBarcodeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_cached_product_saved_before_results_had_a_measure_is_refetched_not_read_as_grams()
+    {
+        await using var db=Open();
+        var cache=new PublicFoodCache(db);
+        var stored=new FoodResult("HL Milk",50,3,1,6,null,"Open Food Facts / ODbL / 8888026520014",Code:"8888026520014",Measure:"ml");
+        await cache.Store(OpenFoodFactsProvider.ProviderId,[stored],DateTime.UtcNow.AddDays(1),default);
+
+        Assert.Equal("ml",(await cache.ReadBarcode([OpenFoodFactsProvider.ProviderId],"8888026520014",default))!.Measure);
+
+        var row=await db.PublicFoodProducts.SingleAsync();
+        row.ResultJson=row.ResultJson.Replace(",\"measure\":\"ml\"","",StringComparison.Ordinal);
+        Assert.DoesNotContain("measure",row.ResultJson,StringComparison.Ordinal);
+        await db.SaveChangesAsync();
+
+        Assert.Null(await cache.ReadBarcode([OpenFoodFactsProvider.ProviderId],"8888026520014",default));
+    }
+
+    [Fact]
     public async Task Account_food_barcode_is_resolved_before_open_food_facts()
     {
         var user=Guid.NewGuid();

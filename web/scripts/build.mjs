@@ -24,6 +24,7 @@ const KIB = 1024;
 // The Android device self-subscription lookup on signed-in startup (its logic loads only in the app) adds a small first-load allowance.
 // Push messaging (Firebase) and the copy/move dialogs load on demand, which lowered both ceilings; keep them at the measured size.
 // The Food Log day loading skeleton (summary and timeline shapes) adds a small precache allowance.
+// Press-and-hold feedback, in-place hold before a drag, and checkbox enter/exit motion add a small first-load allowance.
 // The Coach and weigh-in helpers, remembered notification preferences, and the UI audit layout fixes add a small first-load and offline allowance.
 const budgets = { firstLoad: 480 * KIB, precache: 1290 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));

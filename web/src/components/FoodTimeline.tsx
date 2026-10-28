@@ -9,6 +9,7 @@ import {CopyFoodDialog,MoveFoodDialog} from './LazyFoodDialogs';
 import {unitsFor} from '../lib/units';
 import {FoodTimeCard} from './FoodTimeCard';
 import {useTimelineDrag} from './useTimelineDrag';
+import {useLingering} from './ui/useLingering';
 
 export interface FoodTimelineProps {
   store:NutritionStore;
@@ -56,6 +57,8 @@ export function FoodTimeline({
   const [restoreFocus,setRestoreFocus]=useState<HTMLElement|null>(null);
   const [announcement,setAnnouncement]=useState('');
   const energyUnit=unitsFor(store.state?.settings).energy;
+  // Checkboxes stay for their exit animation after selection ends, so the cards slide back.
+  const checkboxesLeaving=useLingering(isSelecting);
 
   const groups=showEmptySlots?timelineSlots(entries,0,23,timelineView):timelineGroups(entries);
   const previousTimes=useRef(new Map<string,string|null>());
@@ -156,6 +159,7 @@ export function FoodTimeline({
               energyUnit={energyUnit}
               readOnly={readOnly}
               isSelecting={isSelecting}
+              checkboxLeaving={checkboxesLeaving}
               isSelected={Boolean(selectedIds?.has(entry.id))}
               isMoved={movedIds.has(entry.id)}
               isAdded={addedIds.has(entry.id)}

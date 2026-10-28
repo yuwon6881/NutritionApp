@@ -34,12 +34,18 @@ test('a lifted card follows the finger and auto-scrolls toward hours off screen'
   try{
     await touch('touchStart',from);
     await page.waitForTimeout(550);
-    // The floating copy appears on lift and the card's own place turns into an outline.
-    await expect(page.locator('.food-drag-ghost')).toHaveCount(1);
-    await expect(porridge).toHaveAttribute('data-dragging','true');
+    // The hold raises the card in place; nothing floats and no hour is offered until it moves.
+    await expect(porridge).toHaveAttribute('data-held','true');
+    await expect(page.locator('.food-drag-ghost')).toHaveCount(0);
+    await expect(page.locator('.food-time-row[data-drop-over]')).toHaveCount(0);
 
     const edge={x:from.x,y:viewport.height-110};
-    for(let step=1;step<=10;step++)await touch('touchMove',{x:from.x,y:from.y+(edge.y-from.y)*step/10});
+    await touch('touchMove',{x:from.x,y:from.y+(edge.y-from.y)/10});
+    // Moving lifts the floating copy and the card's own place turns into an outline.
+    await expect(page.locator('.food-drag-ghost')).toHaveCount(1);
+    await expect(porridge).toHaveAttribute('data-dragging','true');
+    await expect(porridge).not.toHaveAttribute('data-held','true');
+    for(let step=2;step<=10;step++)await touch('touchMove',{x:from.x,y:from.y+(edge.y-from.y)*step/10});
     const ghostBox=(await page.locator('.food-drag-ghost').boundingBox())!;
     expect(Math.abs(ghostBox.y+ghostBox.height/2-edge.y)).toBeLessThan(ghostBox.height);
 

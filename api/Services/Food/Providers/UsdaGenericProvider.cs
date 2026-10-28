@@ -17,57 +17,7 @@ public sealed class UsdaGenericProvider(UsdaGenericDataset dataset):IFoodProvide
     public bool IsLocal=>true;
 
     public Task<IReadOnlyList<FoodResult>> Search(string query,PublicFoodCache? durable,CancellationToken ct)
-    {
-        var wanted=FoodRanking.Stems(query);
-        if(wanted.Length==0)return Task.FromResult<IReadOnlyList<FoodResult>>([]);
-        var matches=new List<(UsdaGenericDataset.Entry Entry,Score Score)>();
-        foreach(var entry in dataset.Entries)
-            if(Match(entry,wanted) is { } score)matches.Add((entry,score));
-        IReadOnlyList<FoodResult> results=matches
-            .OrderBy(match=>match.Score)
-            .Take(MaxResults)
-            .Select(match=>match.Entry.Result)
-            .ToArray();
-        return Task.FromResult(results);
-    }
+        =>Task.FromResult(BundledFoodSearch.Search(dataset.Entries,query,MaxResults));
 
     public Task<FoodResult?> Barcode(string code,CancellationToken ct)=>Task.FromResult<FoodResult?>(null);
-
-    /// <summary>
-    /// Lower sorts first: a food whose leading word is one the person typed ("Bananas, raw") beats
-    /// one that only mentions it ("Bread, banana"); whole-word matches beat prefixes ("egg" is not
-    /// "eggplant"); a leading segment made only of typed words ("Rice, white, cooked") beats one
-    /// with extra words ("Rice cake", "Rice flour"), which are other foods; words in the first
-    /// comma segment beat preparation details; shorter names win.
-    /// </summary>
-    private readonly record struct Score(int Lead,int Extra,int Prefixed,int OutsideLead,int Length):IComparable<Score>
-    {
-        public int CompareTo(Score other)
-        {
-            var result=Lead.CompareTo(other.Lead);
-            if(result==0)result=Extra.CompareTo(other.Extra);
-            if(result==0)result=Prefixed.CompareTo(other.Prefixed);
-            if(result==0)result=OutsideLead.CompareTo(other.OutsideLead);
-            return result!=0?result:Length.CompareTo(other.Length);
-        }
-    }
-
-    private static Score? Match(UsdaGenericDataset.Entry entry,string[] wanted)
-    {
-        var prefixed=0;
-        var outsideLead=0;
-        foreach(var token in wanted)
-        {
-            var exact=Array.IndexOf(entry.Stems,token);
-            if(exact<0)
-            {
-                exact=Array.FindIndex(entry.Stems,stem=>stem.StartsWith(token,StringComparison.Ordinal));
-                if(exact<0)return null;
-                prefixed++;
-            }
-            if(exact>=entry.LeadSegmentLength)outsideLead++;
-        }
-        var lead=Array.IndexOf(wanted,entry.Stems[0])>=0?0:1;
-        return new Score(lead,Math.Max(0,entry.LeadSegmentLength-wanted.Length),prefixed,outsideLead,entry.Stems.Length);
-    }
 }

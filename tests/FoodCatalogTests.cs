@@ -70,13 +70,16 @@ public sealed class FoodCatalogTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("unverified",2)]
-    [InlineData("per100g",1)]
-    public async Task A_list_with_unverified_rows_is_reused_only_briefly(string basis,int expectedCalls)
+    [InlineData(true,2)]
+    [InlineData(false,1)]
+    public async Task A_list_missing_a_failed_provider_is_reused_only_briefly(bool otherFails,int expectedCalls)
     {
         var clock=new ManualClock(DateTimeOffset.UtcNow);
-        var provider=new FakeFoodProvider("off"){OnSearch=_=>[Branded("Goodday Cultured Milk Drink","9556404123223") with {Basis=basis}]};
-        var catalog=new FoodCatalog([provider],new MemoryCache(new MemoryCacheOptions{SizeLimit=256,Clock=clock}));
+        var provider=new FakeFoodProvider("off-bundled"){OnSearch=_=>[Branded("Goodday Cultured Milk Drink","9556404123223")]};
+        var other=otherFails
+            ?new FakeFoodProvider("usda"){OnSearch=FakeFoodProvider.Fails<IReadOnlyList<FoodResult>>(FoodProviderFailure.Unavailable)}
+            :new FakeFoodProvider("usda");
+        var catalog=new FoodCatalog([provider,other],new MemoryCache(new MemoryCacheOptions{SizeLimit=256,Clock=clock}));
 
         await catalog.Search("goodday",default);
         clock.UtcNow=clock.UtcNow.AddMinutes(2);

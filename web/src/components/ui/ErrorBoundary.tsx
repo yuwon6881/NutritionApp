@@ -3,7 +3,13 @@ import { reloadWithFreshShell } from '../../lib/freshShell';
 import { Button } from './Button';
 
 const RELOAD_FLAG = 'nutrition-chunk-reload';
-const CHUNK_FAILURE = /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk/i;
+// A deploy removes hashed stylesheets as well as scripts, and Vite's CSS preload reports its own message.
+const CHUNK_FAILURE = /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk|Unable to preload CSS/i;
+
+/// A missing file while online means the page is older than the deployment. Offline, the same failure
+/// is the connection, which a reload cannot fix.
+export const isStaleVersionError = (error: Error): boolean =>
+  CHUNK_FAILURE.test(error.message) && (typeof navigator === 'undefined' || navigator.onLine !== false);
 
 // A deploy replaces hashed chunks, so a long-lived tab can ask for a file that no longer exists.
 // One reload per tab session fetches the new shell, so a chunk that is still missing cannot loop;
@@ -28,7 +34,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    if (CHUNK_FAILURE.test(error.message) && reloadOnceForNewVersion()) return;
+    if (isStaleVersionError(error) && reloadOnceForNewVersion()) return;
     console.error(error, info.componentStack);
   }
 

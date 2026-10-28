@@ -32,33 +32,6 @@ public sealed class ProviderGate
     }
 
     /// <summary>
-    /// Takes a slot only once the gate is free, never reserving one ahead. Background work uses it
-    /// so it cannot queue in front of a person: a request arriving meanwhile waits at most the
-    /// slot already in use, while the background call keeps waiting behind it.
-    /// </summary>
-    public async Task<Slot> ReserveWhenIdle(TimeSpan interval,CancellationToken ct)
-    {
-        while(true)
-        {
-            TimeSpan wait;
-            await sync.WaitAsync(ct);
-            try
-            {
-                var now=DateTime.UtcNow;
-                if(next<=now)
-                {
-                    var released=next;
-                    next=now.Add(interval);
-                    return new Slot(next,released,TimeSpan.Zero);
-                }
-                wait=next-now;
-            }
-            finally { sync.Release(); }
-            await Task.Delay(wait,ct);
-        }
-    }
-
-    /// <summary>
     /// Hands a failed call's slot back so the retry its error asks for is not answered by our own
     /// limit, but only while no later call has claimed one. Not cancellable for the same reason.
     /// </summary>
@@ -66,14 +39,6 @@ public sealed class ProviderGate
     {
         await sync.WaitAsync(CancellationToken.None);
         try { if(next==slot.Claimed)next=slot.Released; }
-        finally { sync.Release(); }
-    }
-
-    /// <summary>Pushes the next slot out after the provider asked us to back off.</summary>
-    public async Task Hold(DateTime until)
-    {
-        await sync.WaitAsync(CancellationToken.None);
-        try { if(until>next)next=until; }
         finally { sync.Release(); }
     }
 }

@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
@@ -10,25 +9,24 @@ namespace Nutrition.Tests;
 
 public sealed class FoodSearchTests
 {
-    // Shapes below are trimmed from live Open Food Facts responses. The two sources disagree: the
-    // search index sends brands as an array and indexes no serving at all, while the product
-    // endpoint sends brands as one comma string and serving_quantity as a string.
+    // Shapes below are trimmed from live Open Food Facts product-endpoint responses, which send
+    // brands as one comma string and serving_quantity as a string.
     private static JsonElement Product(string json)=>JsonDocument.Parse(json).RootElement;
 
     private static FoodResult Result(string name,IReadOnlyList<FoodPortion>? portions=null)
         =>new(name,100,null,null,null,null,"test",100,portions);
 
     [Fact]
-    public void A_search_hit_keeps_its_nutrients_and_attribution()
+    public void A_product_keeps_its_nutrients_and_attribution()
     {
         var hit=Product("""
-            {"code":"4056489127277","product_name":"Culinea Nasi Goreng","brands":["Chef Select","Lidl"],
+            {"code":"4056489127277","product_name":"Culinea Nasi Goreng","brands":"Chef Select,Lidl",
              "nutriments":{"energy-kcal_100g":102,"proteins_100g":3.4,"fat_100g":2.1,"carbohydrates_100g":13.5,"fiber_100g":1.2}}
             """);
 
-        var result=OpenFoodFactsParser.ReadProduct(hit,null)!;
+        var result=OpenFoodFactsParser.ReadProduct(hit,"4056489127277")!;
 
-        Assert.Equal("unverified",result.Basis);
+        Assert.Equal("per100g",result.Basis);
         Assert.Equal("Culinea Nasi Goreng · Chef Select",result.Name);
         Assert.Equal(102,result.Calories);
         Assert.Equal(3.4,result.Protein);
@@ -39,38 +37,14 @@ public sealed class FoodSearchTests
     }
 
     [Fact]
-    public void A_search_hit_carries_no_portion_because_the_index_holds_no_serving()
+    public void A_package_quantity_is_not_a_serving()
     {
         var hit=Product("""
-            {"code":"5400141234633","product_name":"Nasi goreng","brands":["Colruyt"],"quantity":"400 g",
+            {"code":"5400141234633","product_name":"Nasi goreng","brands":"Colruyt","quantity":"400 g",
              "nutriments":{"energy-kcal_100g":101,"proteins_100g":5.7}}
             """);
 
-        Assert.Empty(OpenFoodFactsParser.ReadProduct(hit,null)!.Portions!);
-    }
-
-    [Fact]
-    public void Bulk_hydration_replaces_serving_labelled_search_nutrients_with_product_basis()
-    {
-        var search=OpenFoodFactsParser.ReadProduct(Product("""
-            {"code":"0748927065725","product_name":"Optimum nutrition whey protein",
-             "nutriments":{"energy-kcal_100g":117,"proteins_100g":24,"fat_100g":1,"carbohydrates_100g":3}}
-            """),null)!;
-        var product=OpenFoodFactsParser.ReadProduct(Product("""
-            {"code":"0748927065725","product_name":"Optimum nutrition whey protein","serving_size":"30.4g",
-             "serving_quantity":30.4,"serving_quantity_unit":"g",
-             "nutriments":{"energy-kcal_100g":384.868421052632,"energy-kcal_serving":117,
-             "proteins_100g":78.9473684210526,"fat_100g":3.28947368421053,"carbohydrates_100g":9.86842105263158}}
-            """),"0748927065725")!;
-
-        var merged=OpenFoodFactsParser.ApplyHydratedProduct(search,product);
-
-        Assert.Equal("unverified",search.Basis);
-        Assert.Equal("per100g",product.Basis);
-        Assert.Equal("per100g",merged.Basis);
-        Assert.Equal(384.868421052632,merged.Calories,10);
-        Assert.Equal(78.9473684210526,merged.Protein.GetValueOrDefault(),10);
-        Assert.True(Math.Abs(merged.ServingCalories.GetValueOrDefault()-117)<1e-10);
+        Assert.Empty(OpenFoodFactsParser.ReadProduct(hit,"5400141234633")!.Portions!);
     }
 
     [Fact]
@@ -90,51 +64,22 @@ public sealed class FoodSearchTests
     }
 
     [Fact]
-    public void A_hit_named_only_in_english_is_kept_rather_than_dropped()
+    public void A_product_named_only_in_english_keeps_that_name()
     {
         var hit=Product("""{"code":"1","product_name_en":"Fried rice","nutriments":{"energy-kcal_100g":150}}""");
 
-        Assert.Equal("Fried rice",OpenFoodFactsParser.ReadProduct(hit,null)!.Name);
+        Assert.Equal("Fried rice",OpenFoodFactsParser.ReadProduct(hit,"1")!.Name);
     }
 
     [Fact]
-    public void An_open_food_facts_hit_prefers_its_english_name()
+    public void An_open_food_facts_product_prefers_its_english_name()
     {
         var hit=Product("""
             {"code":"1","product_name":"Чёрные оливки без косточек","product_name_en":"Pitted black olives",
              "nutriments":{"energy-kcal_100g":131}}
             """);
 
-        Assert.Equal("Pitted black olives",OpenFoodFactsParser.ReadProduct(hit,null)!.Name);
-    }
-
-    [Fact]
-    public void Hydration_can_supply_an_english_name_when_search_only_has_a_non_Latin_name()
-    {
-        var search=OpenFoodFactsParser.ReadProduct(Product("""
-            {"code":"1","product_name":"Чёрные оливки","nutriments":{"energy-kcal_100g":131}}
-            """),null)!;
-        var hydrated=OpenFoodFactsParser.ReadProduct(Product("""
-            {"code":"1","product_name":"Чёрные оливки","product_name_en":"Black olives",
-             "nutriments":{"energy-kcal_100g":131}}
-            """),"1")!;
-
-        Assert.Equal("Black olives",OpenFoodFactsParser.ApplyHydratedProduct(search,hydrated).Name);
-    }
-
-    [Fact]
-    public void Hydration_preserves_the_english_search_name_when_another_english_label_is_returned()
-    {
-        var search=OpenFoodFactsParser.ReadProduct(Product("""
-            {"code":"1","product_name":"Olives noires","product_name_en":"Pitted black olives",
-             "nutriments":{"energy-kcal_100g":131}}
-            """),null)!;
-        var hydrated=OpenFoodFactsParser.ReadProduct(Product("""
-            {"code":"1","product_name":"Olives noires","product_name_en":"Black olives",
-             "nutriments":{"energy-kcal_100g":131}}
-            """),"1")!;
-
-        Assert.Equal("Pitted black olives",OpenFoodFactsParser.ApplyHydratedProduct(search,hydrated).Name);
+        Assert.Equal("Pitted black olives",OpenFoodFactsParser.ReadProduct(hit,"1")!.Name);
     }
 
     [Theory]
@@ -145,16 +90,6 @@ public sealed class FoodSearchTests
     [InlineData("12345",false)]
     public void Public_food_search_names_require_latin_letters(string name,bool expected)
         =>Assert.Equal(expected,FoodResults.HasOnlyLatinLetters(name));
-
-    [Theory]
-    [InlineData("""{"brands":"Lidl, Toque du Chef"}""","Lidl, Toque du Chef")]
-    [InlineData("""{"brands":["Chef Select","Lidl"]}""","Chef Select")]
-    [InlineData("""{"brands":["","Lidl"]}""","Lidl")]
-    [InlineData("""{"brands":[]}""",null)]
-    [InlineData("""{"brands":null}""",null)]
-    [InlineData("""{}""",null)]
-    public void Both_brand_shapes_reduce_to_the_leading_brand(string json,string? expected)
-        => Assert.Equal(expected,OpenFoodFactsParser.Brand(Product(json)));
 
     [Fact]
     public void A_scanned_product_still_reads_its_comma_separated_brands()
@@ -174,19 +109,11 @@ public sealed class FoodSearchTests
     }
 
     [Fact]
-    public void A_search_hit_without_calories_is_dropped_rather_than_logged_as_zero()
+    public void A_product_without_calories_is_dropped_rather_than_logged_as_zero()
     {
         var hit=Product("""{"code":"8716425003183","product_name":"nasi","nutriments":{"proteins_100g":3}}""");
 
-        Assert.Null(OpenFoodFactsParser.ReadProduct(hit,null));
-    }
-
-    [Fact]
-    public void A_search_hit_without_a_name_is_dropped()
-    {
-        var hit=Product("""{"code":"1","nutriments":{"energy-kcal_100g":120}}""");
-
-        Assert.Null(OpenFoodFactsParser.ReadProduct(hit,null));
+        Assert.Null(OpenFoodFactsParser.ReadProduct(hit,"8716425003183"));
     }
 
     [Fact]
@@ -265,16 +192,6 @@ public sealed class FoodSearchTests
         => Assert.Equal(expected,OpenFoodFactsParser.ProductMeasure(Product(json)));
 
     [Fact]
-    public void Hydration_carries_the_confirmed_measure_to_the_search_row()
-    {
-        var search=OpenFoodFactsParser.ReadProduct(Product("""{"code":"9557305000309","product_name":"HL Low Fat Milk","nutriments":{"energy-kcal_100g":51}}"""),null)!;
-        var product=OpenFoodFactsParser.ReadProduct(Product("""{"code":"9557305000309","product_name":"HL Low Fat Milk","product_quantity_unit":"ml","nutriments":{"energy-kcal_100g":51}}"""),"9557305000309")!;
-
-        Assert.Equal("g",search.Measure);
-        Assert.Equal("ml",OpenFoodFactsParser.ApplyHydratedProduct(search,product).Measure);
-    }
-
-    [Fact]
     public void A_serving_without_a_normalized_unit_requires_an_amount_in_its_label()
     {
         var product=Product("""{"serving_quantity":30,"serving_size":"1 biscuit (30 g)"}""");
@@ -345,7 +262,7 @@ public sealed class FoodSearchTests
     {
         var product=Product("""{"product_name":"Nasi Goreng","nutriments":{"energy-kcal_100g":92}}""");
 
-        Assert.Empty(OpenFoodFactsParser.ReadProduct(product,null)!.Portions!);
+        Assert.Empty(OpenFoodFactsParser.ReadProduct(product,"4056489127277")!.Portions!);
     }
 
     [Fact]
@@ -361,24 +278,14 @@ public sealed class FoodSearchTests
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.TooManyRequests,429,"Wait a few seconds")]
-    [InlineData(HttpStatusCode.ServiceUnavailable,503,"temporarily unavailable")]
-    [InlineData(HttpStatusCode.InternalServerError,503,"temporarily unavailable")]
-    [InlineData(HttpStatusCode.BadGateway,503,"temporarily unavailable")]
-    public void Upstream_failures_keep_their_own_status_and_remedy(HttpStatusCode upstream,int status,string remedy)
+    [InlineData(FoodProviderFailure.Busy,429,"Wait a few seconds")]
+    [InlineData(FoodProviderFailure.Unavailable,503,"temporarily unavailable")]
+    public void Upstream_failures_keep_their_own_status_and_remedy(FoodProviderFailure failure,int status,string remedy)
     {
-        var error=FoodLookupErrors.Search("Open Food Facts",OpenFoodFactsProvider.SearchFailure(upstream));
+        var error=FoodLookupErrors.Search("USDA FoodData Central",failure);
 
         Assert.Equal(status,error.Status);
         Assert.Contains(remedy,error.Message);
-    }
-
-    [Fact]
-    public void A_shed_search_is_not_reported_as_a_rate_limit()
-    {
-        Assert.NotEqual(
-            FoodLookupErrors.Search("Open Food Facts",OpenFoodFactsProvider.SearchFailure(HttpStatusCode.ServiceUnavailable)).Message,
-            FoodLookupErrors.Search("Open Food Facts",OpenFoodFactsProvider.SearchFailure(HttpStatusCode.TooManyRequests)).Message);
     }
 
     [Theory]
