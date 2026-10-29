@@ -322,8 +322,10 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await expect(page.getByText('Plan active.',{exact:true})).toBeVisible();
   expect((await (await context.request.get('/api/state')).json()).plans).toHaveLength(2);
   const state=await (await context.request.get('/api/state')).json();const result=JSON.parse(state.plans[0].resultJson);
-  // Onboarding chose "None or relaxed activity", the ×1.2 multiplier.
-  expect(result.expenditure).toBeCloseTo(1873.8,2);expect(result.calories).toBe(1575);expect(state.profile.goalRatePercent).toBe(-0.35);
+  // Onboarding chose "None or relaxed activity", the ×1.2 multiplier. Editing the plan starts from
+  // the latest weigh-in (80.8 kg, logged earlier in this file) rather than the saved 81 kg, which
+  // lowers the estimate by 0.2 kg × 10 × 1.2 = 2.4 kcal.
+  expect(result.expenditure).toBeCloseTo(1871.4,2);expect(result.calories).toBe(1550);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
   // Balance is its own chart view; it explains why no bar is drawn.
@@ -403,7 +405,9 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   const afterSettings=await (await context.request.get('/api/state')).json();expect(afterSettings.profileRevision).toBe(state.profileRevision);expect(afterSettings.plans[0].id).toBe(state.plans[0].id);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('#coaching-check-in-weekday').selectOption('1');await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.checkInWeekday;}).toBe(1);
-  await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByText('kJ',{exact:true}).first()).toBeVisible();await expect(page.getByText(/lb/).first()).toBeVisible();await page.getByRole('button',{name:'Edit plan',exact:true}).click();await expect(page.getByLabel('Height (feet)',{exact:true})).toBeVisible();await expect(page.getByLabel('Starting weight (lb)',{exact:true})).toHaveValue('178.6');
+  await page.getByRole('button',{name:'Coach',exact:true}).click();await expect(page.getByText('kJ',{exact:true}).first()).toBeVisible();await expect(page.getByText(/lb/).first()).toBeVisible();await page.getByRole('button',{name:'Edit plan',exact:true}).click();await expect(page.getByLabel('Height (feet)',{exact:true})).toBeVisible();// The plan form opens at the latest weigh-in, shown in pounds.
+  const latestWeigh=(await (await context.request.get('/api/state')).json()).weights.filter((w:{deleted?:boolean})=>!w.deleted).sort((a:{date:string},b:{date:string})=>a.date.localeCompare(b.date)).at(-1);
+  await expect(page.getByLabel('Starting weight (lb)',{exact:true})).toHaveValue((latestWeigh.kg*2.2046226).toFixed(1));
   await page.reload();await resolveMissingDays(page);
   await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('#settings-weight-unit-kg').click();await page.locator('#settings-energy-unit-kcal').click();await page.locator('#settings-height-unit-cm').click();await expect.poll(async()=>{const latest=await (await context.request.get('/api/state')).json();return latest.settings?.weightUnit==='kg'&&latest.settings?.energyUnit==='kcal'&&latest.settings?.heightUnit==='cm';}).toBeTruthy();
 });
