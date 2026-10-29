@@ -49,11 +49,25 @@ public sealed class FoodCatalog
 
     public Task<IReadOnlyList<FoodResult>> Search(string query,CancellationToken ct)=>SearchShared(query,null,ct);
 
-    /// <summary>Shared provider results, then this account's frequency ordering.</summary>
+    /// <summary>
+    /// Shared provider results plus the account's own logged foods that match every word, then
+    /// this account's ordering, which puts those logged foods first. The shared cache stays
+    /// unpersonalized.
+    /// </summary>
     public async Task<IReadOnlyList<FoodResult>> Search(string query,AppDb db,CancellationToken ct)
     {
-        var results=await SearchShared(query,db,ct);
-        return await FoodRanking.RankForUser(results,query.Trim(),db,ct);
+        IReadOnlyList<FoodResult> results;
+        try { results=await SearchShared(query,db,ct); }
+        catch(DomainException outage) when(outage.Status>=429)
+        {
+            // Every provider failed. The person's own logged foods still answer; the outage only
+            // surfaces when there is nothing of theirs to show either.
+            var answer=await LoggedFoods.Matching(query.Trim(),db,ct);
+            if(answer.Count==0)throw;
+            return await FoodRanking.RankForUser(answer,query.Trim(),db,ct);
+        }
+        var logged=await LoggedFoods.Matching(query.Trim(),db,ct);
+        return await FoodRanking.RankForUser(LoggedFoods.AddMissing(results,logged),query.Trim(),db,ct);
     }
 
     private async Task<IReadOnlyList<FoodResult>> SearchShared(string query,AppDb? db,CancellationToken ct)
