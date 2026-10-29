@@ -1,69 +1,16 @@
 import type {EnergyUnit,WeightUnit} from '../types';
 import {displayEnergy,displayWeight,energyLabel,parseWeight,weightLabel} from './units';
 
-export interface LatestWeightSuggestion {
-  visible: boolean;
-  weightKg: number;
-  label: string;
-}
-
-export interface LatestWeightSuggestionOptions {
-  fieldWeightKg?: number | null;
-  trendWeightKg?: number | null;
-  unit: WeightUnit;
-  isExistingPlan?: boolean;
-}
-
 /**
- * Recommends the latest trend weight for an existing plan's starting weight
- * when it differs by at least 0.1 in the user's display units.
+ * The latest weigh-in as a plan's starting weight, in kg, rounded to the one decimal the field
+ * shows so the stored value matches what the user sees. Null when there is no usable weigh-in,
+ * so an unknown weight is never turned into a default.
  */
-export function latestWeightSuggestion(
-  optionsOrField: LatestWeightSuggestionOptions | number | null | undefined,
-  trendWeightKg?: number | null,
-  unit?: WeightUnit,
-  isExistingPlan?: boolean
-): LatestWeightSuggestion {
-  let fieldKg: number | null | undefined;
-  let trendKg: number | null | undefined;
-  let activeUnit: WeightUnit = 'kg';
-  let existing = false;
-
-  if (typeof optionsOrField === 'object' && optionsOrField !== null) {
-    fieldKg = optionsOrField.fieldWeightKg;
-    trendKg = optionsOrField.trendWeightKg;
-    activeUnit = optionsOrField.unit;
-    existing = Boolean(optionsOrField.isExistingPlan);
-  } else {
-    fieldKg = optionsOrField;
-    trendKg = trendWeightKg;
-    activeUnit = unit ?? 'kg';
-    existing = Boolean(isExistingPlan);
-  }
-
-  if (!existing || trendKg == null || !Number.isFinite(trendKg) || trendKg <= 0) {
-    return {visible: false, weightKg: 0, label: ''};
-  }
-
-  const displayVal = displayWeight(trendKg, activeUnit, 1);
-  const trendDisplayNum = Number(displayVal.replace(/,/g, ''));
-  const fieldVal = fieldKg != null && Number.isFinite(fieldKg) && fieldKg > 0 ? displayWeight(fieldKg, activeUnit, 1) : null;
-  const fieldDisplayNum = fieldVal != null ? Number(fieldVal.replace(/,/g, '')) : null;
-
-  // Differ by at least 0.1 in display units.
-  const diff = fieldDisplayNum != null ? Math.abs(trendDisplayNum - fieldDisplayNum) : Infinity;
-  const visible = diff >= 0.099;
-
-  // The kg value corresponding to the displayed 1-decimal amount, matching field input parsing.
-  const parsedKg = parseWeight(displayVal.replace(/,/g, ''), activeUnit);
-  const targetWeightKg = Number.isFinite(parsedKg) ? parsedKg : trendKg;
-  const label = `Use latest: ${displayVal} ${weightLabel(activeUnit)}`;
-
-  return {
-    visible,
-    weightKg: targetWeightKg,
-    label
-  };
+export function defaultStartingWeightKg(latestKg: number | null | undefined, unit: WeightUnit): number | null {
+  if (latestKg == null || !Number.isFinite(latestKg) || latestKg <= 0) return null;
+  const shown = displayWeight(latestKg, unit, 1).replace(/,/g, '');
+  const parsedKg = parseWeight(shown, unit);
+  return Number.isFinite(parsedKg) && parsedKg > 0 ? parsedKg : null;
 }
 
 /** True when all daily calorie targets in the list are identical. */

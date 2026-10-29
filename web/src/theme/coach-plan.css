@@ -255,11 +255,6 @@
   }
 }
 
-.coach-weight-suggestion {
-  align-self: flex-start;
-  margin-top: -6px;
-}
-
 .coach-current-badge {
   background: var(--muted);
   color: var(--muted-foreground);
