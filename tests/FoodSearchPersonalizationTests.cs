@@ -10,6 +10,56 @@ namespace Nutrition.Tests;
 public sealed class FoodSearchPersonalizationTests
 {
     [Fact]
+    public void A_logged_food_naming_every_word_of_a_multi_word_query_leads_a_better_name_match()
+    {
+        var exact=new FoodResult("White rice",100,null,null,null,null,"test");
+        var logged=new FoodResult("Rice cake, white",100,null,null,null,null,"test");
+        var ranked=FoodRanking.PrioritizeResults(
+            [exact,logged],
+            "white rice",
+            new Dictionary<string,int>(StringComparer.Ordinal)
+            {
+                [FoodRanking.UsageKey(logged)]=1,
+            });
+
+        Assert.Equal([logged.Name,exact.Name],ranked.Select(result=>result.Name));
+    }
+
+    [Fact]
+    public void A_logged_food_matching_only_some_query_words_keeps_its_relevance_tier()
+    {
+        var exact=new FoodResult("Banana bread",100,null,null,null,null,"test");
+        var partial=new FoodResult("Banana smoothie",100,null,null,null,null,"test");
+        var ranked=FoodRanking.PrioritizeResults(
+            [partial,exact],
+            "banana bread",
+            new Dictionary<string,int>(StringComparer.Ordinal)
+            {
+                [FoodRanking.UsageKey(partial)]=20,
+            });
+
+        Assert.Equal([exact.Name,partial.Name],ranked.Select(result=>result.Name));
+    }
+
+    [Fact]
+    public void With_one_word_only_a_plain_logged_food_leads()
+    {
+        var unlogged=new FoodResult("Banana, raw",100,null,null,null,null,"test");
+        var loggedPlain=new FoodResult("Banana",100,null,null,null,null,"test");
+        var loggedOther=new FoodResult("Banana smoothie",100,null,null,null,null,"test");
+        var ranked=FoodRanking.PrioritizeResults(
+            [unlogged,loggedOther,loggedPlain],
+            "banana",
+            new Dictionary<string,int>(StringComparer.Ordinal)
+            {
+                [FoodRanking.UsageKey(loggedOther)]=30,
+                [FoodRanking.UsageKey(loggedPlain)]=2,
+            });
+
+        Assert.Equal([loggedPlain.Name,unlogged.Name,loggedOther.Name],ranked.Select(result=>result.Name));
+    }
+
+    [Fact]
     public void Frequency_breaks_equivalent_name_matches_without_overriding_name_relevance()
     {
         var exact=new FoodResult("Banana",100,null,null,null,null,"test");
