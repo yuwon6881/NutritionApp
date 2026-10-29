@@ -1,61 +1,24 @@
 import {describe,expect,it} from 'vitest';
-import {allDaysEqual,calorieChangeLine,latestWeightSuggestion,weeklyPaceMass,formatWeeklyPaceEquivalent} from './coachPlanHelpers';
+import {allDaysEqual,calorieChangeLine,defaultStartingWeightKg,weeklyPaceMass,formatWeeklyPaceEquivalent} from './coachPlanHelpers';
+import {displayWeight} from './units';
 
-describe('latestWeightSuggestion', () => {
-  it('does not suggest when isExistingPlan is false', () => {
-    const res = latestWeightSuggestion({
-      isExistingPlan: false,
-      fieldWeightKg: 82.5,
-      trendWeightKg: 82.9,
-      unit: 'kg'
-    });
-    expect(res.visible).toBe(false);
+describe('defaultStartingWeightKg', () => {
+  it('rounds the latest weigh-in to the one decimal the field shows', () => {
+    expect(defaultStartingWeightKg(66.24, 'kg')).toBe(66.2);
+    expect(defaultStartingWeightKg(82.96, 'kg')).toBe(83);
   });
 
-  it('does not suggest when trend weight is missing or non-positive', () => {
-    expect(latestWeightSuggestion({isExistingPlan: true, fieldWeightKg: 82.5, trendWeightKg: null, unit: 'kg'}).visible).toBe(false);
-    expect(latestWeightSuggestion({isExistingPlan: true, fieldWeightKg: 82.5, trendWeightKg: 0, unit: 'kg'}).visible).toBe(false);
+  it('keeps the value that the pound display would show', () => {
+    const kg = defaultStartingWeightKg(85, 'lb');
+    expect(kg).not.toBeNull();
+    expect(displayWeight(kg as number, 'lb', 1)).toBe(displayWeight(85, 'lb', 1));
   });
 
-  it('suggests trend weight when difference is at least 0.1 display units', () => {
-    const res = latestWeightSuggestion({
-      isExistingPlan: true,
-      fieldWeightKg: 82.5,
-      trendWeightKg: 82.9,
-      unit: 'kg'
-    });
-    expect(res.visible).toBe(true);
-    expect(res.label).toBe('Use latest: 82.9 kg');
-    expect(res.weightKg).toBe(82.9);
-  });
-
-  it('does not suggest when difference is under 0.1 display units', () => {
-    const res = latestWeightSuggestion({
-      isExistingPlan: true,
-      fieldWeightKg: 82.5,
-      trendWeightKg: 82.54,
-      unit: 'kg'
-    });
-    expect(res.visible).toBe(false);
-  });
-
-  it('formats suggestion in lb when unit is lb', () => {
-    // 80 kg is approx 176.4 lb; 85 kg is approx 187.4 lb
-    const res = latestWeightSuggestion({
-      isExistingPlan: true,
-      fieldWeightKg: 80,
-      trendWeightKg: 85,
-      unit: 'lb'
-    });
-    expect(res.visible).toBe(true);
-    expect(res.label).toBe('Use latest: 187.4 lb');
-  });
-
-  it('works with positional arguments', () => {
-    const res = latestWeightSuggestion(82.5, 82.9, 'kg', true);
-    expect(res.visible).toBe(true);
-    expect(res.label).toBe('Use latest: 82.9 kg');
-    expect(res.weightKg).toBe(82.9);
+  it('is absent when there is no usable weigh-in', () => {
+    expect(defaultStartingWeightKg(null, 'kg')).toBeNull();
+    expect(defaultStartingWeightKg(undefined, 'kg')).toBeNull();
+    expect(defaultStartingWeightKg(0, 'kg')).toBeNull();
+    expect(defaultStartingWeightKg(Number.NaN, 'kg')).toBeNull();
   });
 });
 

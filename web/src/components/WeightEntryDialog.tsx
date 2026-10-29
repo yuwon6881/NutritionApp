@@ -100,15 +100,16 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
     width="sm"
   >
     <Form onSubmit={save} className="dialog-form">
-      <div className="form-grid">
+      <div className="weight-entry-grid">
         <DatePicker id="weight-entry-date" name="date" min="2000-01-01" label="Weigh-in date" value={values.date} max={current} required onChange={next=>setValues(previous=>({...previous,date:next,context:''}))}/>
         <div className="weight-entry-group">
           {contextText&&<p className="source weight-entry-context">{contextText}</p>}
-          <div className="weight-entry-stepper" style={{display:'flex',gap:8,alignItems:'flex-end'}}>
-            <Field id="weight-entry-kg" name="kg" data-modal-autofocus enterKeyHint="done" label={`Weight (${weightLabel(units.weight)})`} type="number" min={bounds.min} max={bounds.max} step="0.01" required value={values.kg} onChange={event=>setValues(previous=>({...previous,kg:event.target.value,context:''}))}/>
-            <Button type="button" variant="secondary" size="icon" aria-label="Decrease weight by 0.1" onClick={()=>handleStep('down')}><Minus size={16} aria-hidden="true"/></Button>
-            <Button type="button" variant="secondary" size="icon" aria-label="Increase weight by 0.1" onClick={()=>handleStep('up')}><Plus size={16} aria-hidden="true"/></Button>
-          </div>
+          {/* The steppers ride in the field's own input row, so they stay level with the input when a validation message appears beneath it. */}
+          <Field id="weight-entry-kg" name="kg" data-modal-autofocus enterKeyHint="done" label={`Weight (${weightLabel(units.weight)})`} type="number" min={bounds.min} max={bounds.max} step="0.01" required value={values.kg} onChange={event=>setValues(previous=>({...previous,kg:event.target.value,context:''}))}
+            action={<>
+              <Button type="button" variant="secondary" size="icon" aria-label="Decrease weight by 0.1" onClick={()=>handleStep('down')}><Minus size={16} aria-hidden="true"/></Button>
+              <Button type="button" variant="secondary" size="icon" aria-label="Increase weight by 0.1" onClick={()=>handleStep('up')}><Plus size={16} aria-hidden="true"/></Button>
+            </>}/>
         </div>
       </div>
       {unusual&&<section className="weight-context-prompt" aria-labelledby="weight-context-heading">

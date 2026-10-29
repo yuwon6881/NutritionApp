@@ -17,7 +17,7 @@ import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {WeeklyScheduleReview} from './coach/WeeklyScheduleReview';
 import {TargetWeeklySummary} from './coach/TargetWeeklySummary';
-import {latestWeightSuggestion,formatWeeklyPaceEquivalent,calorieChangeLine} from '../lib/coachPlanHelpers';
+import {defaultStartingWeightKg,formatWeeklyPaceEquivalent,calorieChangeLine} from '../lib/coachPlanHelpers';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
 import {useCoachProposal} from '../useCoachProposal';
@@ -154,16 +154,6 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     metric:settings.weightGoalMetric??'scale',
     current
   });
-  const trendKg=useMemo(()=>{
-    const points=cleanTrend([...(store.state!.weightTrendSeed??[]),...store.state!.weights.filter(w=>!w.deleted)],current);
-    return trendInsight(points)?.latest.kg??null;
-  },[store.state!.weightTrendSeed,store.state!.weights,current]);
-  const weightSuggestion=latestWeightSuggestion({
-    isExistingPlan:!isInitialSetup,
-    fieldWeightKg:profile.weightKg,
-    trendWeightKg:trendKg,
-    unit:units.weight
-  });
   const latestKg=useMemo(()=>{
     const metric=settings.weightGoalMetric??'scale';
     if(metric==='trend'){
@@ -175,6 +165,18 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const derivedAge=ageOn(profile.dateOfBirth,current);
   const pending=store.local!.queue.length>0;
   const changed=!profilesEqual(profile,store.state!.profile);
+  // Creating or editing a plan starts from the latest weigh-in rather than the weight saved with the
+  // previous plan. It runs on entry only, and never over a form that already holds other edits, so
+  // a weight typed or a unit switched afterwards is left alone.
+  useEffect(()=>{
+    const latest=defaultStartingWeightKg(latestKg,units.weight);
+    if(latest==null||!isInitialSetup&&mainTab!=='plan')return;
+    setProfile(current=>{
+      const saved=store.state!.profile;
+      if(saved&&!profilesEqual({...current,weightKg:saved.weightKg},saved))return current;
+      return current.weightKg===latest?current:{...current,weightKg:latest};
+    });
+  },[mainTab,isInitialSetup]);
   const proposalFlow=useCoachProposal({store,draft:profile,changed,
     onAccepted:refreshed=>{setMessage('Plan active.');if(refreshed){setReview(false);setMainTab('targets');}}});
   const {proposal,operation:proposalOperation,setOperation,error,setError,setProposal,setWantsProposal,acceptProposal,retryRefresh:refreshTargets,
@@ -456,11 +458,6 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
             </FieldFrame>
           )}
           <Field id="coach-weight" name="weightKg" label={`Starting weight (${weightLabel(units.weight)})`} type="number" required min={units.weight==='lb'?44.1:20} max={units.weight==='lb'?881.8:400} step="0.1" value={profile.weightKg?inputWeight(profile.weightKg,units.weight,1):''} onChange={e=>{const next=parseWeight(e.target.value,units.weight);set('weightKg',Number.isFinite(next)?next:0);}} labelAction={<MiniUnitToggle<'kg'|'lb'> label="Weight unit" value={units.weight} onChange={v=>updateUnits({weight:v})} options={[{value:'kg',label:'kg'},{value:'lb',label:'lb'}]}/>}/>
-          {weightSuggestion.visible&&(
-            <Button type="button" size="sm" variant="tertiary" className="coach-weight-suggestion" onClick={()=>set('weightKg',weightSuggestion.weightKg)}>
-              {weightSuggestion.label}
-            </Button>
-          )}
           <SelectField id="coach-sex" name="sex" required label="Sex" value={profile.sex} onChange={v=>set('sex',v)}>
             <option value="" disabled>Choose sex</option>
             <option value="male">Male</option>
