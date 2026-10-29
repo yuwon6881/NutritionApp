@@ -75,7 +75,32 @@ public sealed class NutritionWakeQueueRetryTests
         Assert.Single(handler.Requests);
     }
 
-    private static CloudTasksNutritionWakeQueue Queue(Handler handler, Func<CancellationToken, Task<string>>? token = null)
+    [Fact]
+    public async Task With_a_task_service_account_the_wake_carries_an_identity_token_and_no_shared_secret()
+    {
+        var handler = new Handler(HttpStatusCode.OK);
+        var queue = Queue(handler, config: new()
+        {
+            ["Cleanup:Token"] = null,
+            ["CloudTasks:OidcServiceAccount"] = "nutrition-internal@project.iam.gserviceaccount.com",
+            ["Internal:Audience"] = "https://nutrition.example.com"
+        });
+
+        Assert.True(queue.Configured);
+        Assert.True(await queue.EnsureWakeAsync(At, default));
+        var body = handler.Bodies.Single();
+        Assert.Contains("oidcToken", body);
+        Assert.Contains("nutrition-internal@project.iam.gserviceaccount.com", body);
+        Assert.Contains("https://nutrition.example.com", body);
+        Assert.DoesNotContain("X-Cleanup-Token", body);
+    }
+
+    [Fact]
+    public void Without_a_service_account_or_legacy_token_the_queue_is_not_configured()
+        => Assert.False(Queue(new Handler(HttpStatusCode.OK), config: new() { ["Cleanup:Token"] = null }).Configured);
+
+    private static CloudTasksNutritionWakeQueue Queue(Handler handler, Func<CancellationToken, Task<string>>? token = null,
+        Dictionary<string, string?>? config = null)
         => new(
             new HttpClient(handler),
             new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -85,7 +110,7 @@ public sealed class NutritionWakeQueueRetryTests
                 ["CloudTasks:Queue"] = "nutrition-check-in",
                 ["CloudTasks:TargetUrl"] = "https://nutrition.example.com/internal/nutrition-check-in-dispatch",
                 ["Cleanup:Token"] = "cleanup-token"
-            }).Build(),
+            }.Concat(config ?? []).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value)).Build(),
             NullLogger<CloudTasksNutritionWakeQueue>.Instance,
             token ?? (_ => Task.FromResult("token")),
             (_, _) => Task.CompletedTask);

@@ -34,9 +34,13 @@ public sealed class CloudTasksNutritionWakeQueue(
     private string Queue => configuration["CloudTasks:Queue"] ?? "";
     private string TargetUrl => configuration["CloudTasks:TargetUrl"] ?? "";
     private string CleanupToken => configuration["Cleanup:Token"] ?? "";
+    // Preferred: Cloud Tasks signs an identity token as this account, so no shared secret rides in the task.
+    private string OidcServiceAccount => configuration["CloudTasks:OidcServiceAccount"] ?? "";
+    private string OidcAudience => configuration["Internal:Audience"] ?? "";
+    private bool UsesOidc => !string.IsNullOrWhiteSpace(OidcServiceAccount) && !string.IsNullOrWhiteSpace(OidcAudience);
 
     public bool Configured => !string.IsNullOrWhiteSpace(ProjectId) && !string.IsNullOrWhiteSpace(Location)
-        && !string.IsNullOrWhiteSpace(Queue) && !string.IsNullOrWhiteSpace(CleanupToken)
+        && !string.IsNullOrWhiteSpace(Queue) && (UsesOidc || !string.IsNullOrWhiteSpace(CleanupToken))
         && Uri.TryCreate(TargetUrl, UriKind.Absolute, out var target) && target.Scheme == Uri.UriSchemeHttps;
 
     public async Task<bool> EnsureWakeAsync(DateTimeOffset at, CancellationToken ct)
@@ -44,6 +48,8 @@ public sealed class CloudTasksNutritionWakeQueue(
         if (!Configured) return false;
         var when = at.ToUniversalTime();
         var queuePath = $"projects/{Uri.EscapeDataString(ProjectId)}/locations/{Uri.EscapeDataString(Location)}/queues/{Uri.EscapeDataString(Queue)}";
+        var headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" };
+        if (!UsesOidc) headers["X-Cleanup-Token"] = CleanupToken;
         var task = new
         {
             name = $"{queuePath}/tasks/checkin-wake-{when:yyyyMMddHHmm}",
@@ -52,8 +58,9 @@ public sealed class CloudTasksNutritionWakeQueue(
             {
                 httpMethod = "POST",
                 url = TargetUrl,
-                headers = new Dictionary<string, string> { ["Content-Type"] = "application/json", ["X-Cleanup-Token"] = CleanupToken },
-                body = Convert.ToBase64String(Encoding.UTF8.GetBytes("{}"))
+                headers,
+                body = Convert.ToBase64String(Encoding.UTF8.GetBytes("{}")),
+                oidcToken = UsesOidc ? new { serviceAccountEmail = OidcServiceAccount, audience = OidcAudience } : null
             }
         };
 

@@ -41,6 +41,8 @@ builder.Services.AddDbContext<AppDb>((services,o)=>
 builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<ExpenditureTrajectoryService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DatabaseWarmup>();
+builder.Services.AddSingleton<IInternalTokenVerifier,GoogleInternalTokenVerifier>();
+builder.Services.AddSingleton<InternalCallGate>();
 builder.Services.AddScoped<NutritionNotificationService>();
 builder.Services.AddHttpClient<INutritionPushSender, NutritionFcmPushSender>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient<INutritionWakeQueue, CloudTasksNutritionWakeQueue>(client => client.Timeout = TimeSpan.FromSeconds(10));
@@ -197,9 +199,8 @@ app.Use(async(http,next)=>
         }
         if(http.Request.Path.StartsWithSegments("/internal"))
         {
-            var expected=builder.Configuration["Cleanup:Token"];
-            var supplied=http.Request.Headers["X-Cleanup-Token"].ToString();
-            Validation.Require(!string.IsNullOrEmpty(expected)&&System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(supplied),System.Text.Encoding.UTF8.GetBytes(expected)),"Scheduler authentication required.",401);
+            var gate=http.RequestServices.GetRequiredService<InternalCallGate>();
+            Validation.Require(await gate.Allow(http.Request,http.RequestAborted),"Scheduler authentication required.",401);
         }
         else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback" or "/api/notifications/subscriptions/revoke" or AccountDeletionEndpoints.Path))
         {

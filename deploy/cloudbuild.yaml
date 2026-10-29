@@ -66,7 +66,7 @@ steps:
       # An omitted network setting is kept across deploys, so the old Direct VPC route is cleared.
       - --clear-network
       - --service-account=nutrition-api@$PROJECT_ID.iam.gserviceaccount.com
-      - --set-env-vars=PublicOrigin=${_PUBLIC_ORIGIN},Auth__MaxUsers=1,Database__MigrateOnStartup=false,Identity__Authority=${_FITNESS_ACCOUNT_AUTHORITY},Identity__Issuer=${_FITNESS_ACCOUNT_ISSUER},Identity__ClientId=nutrition-api,Identity__RedirectUri=${_NUTRITION_REDIRECT_URI},Identity__ReturnUrl=/,Identity__ConnectReturnUrl=/settings,Identity__NutritionAudience=nutrition-api,Identity__WorkoutAudience=workout-api,Integrations__KmsKeyName=projects/$PROJECT_ID/locations/asia-southeast1/keyRings/fitness/cryptoKeys/integration-tokens,Integrations__WorkoutTrainingSummaryUrl=${_WORKOUT_SUMMARY_URL},GoogleHealth__ClientId=${_GOOGLE_HEALTH_CLIENT_ID},Physique__Bucket=${_PHYSIQUE_BUCKET},ScanStorage__Bucket=${_SCAN_BUCKET},OpenAi__Model=gpt-5.4-mini,Retention__MealDetailDays=90,Fcm__ProjectId=${_NUTRITION_FCM_PROJECT_ID},CloudTasks__ProjectId=$PROJECT_ID,CloudTasks__Location=asia-southeast1,CloudTasks__Queue=nutrition-check-in,CloudTasks__TargetUrl=${_NUTRITION_API_ORIGIN}/internal/nutrition-check-in-dispatch
+      - --set-env-vars=PublicOrigin=${_PUBLIC_ORIGIN},Auth__MaxUsers=1,Database__MigrateOnStartup=false,Identity__Authority=${_FITNESS_ACCOUNT_AUTHORITY},Identity__Issuer=${_FITNESS_ACCOUNT_ISSUER},Identity__ClientId=nutrition-api,Identity__RedirectUri=${_NUTRITION_REDIRECT_URI},Identity__ReturnUrl=/,Identity__ConnectReturnUrl=/settings,Identity__NutritionAudience=nutrition-api,Identity__WorkoutAudience=workout-api,Integrations__KmsKeyName=projects/$PROJECT_ID/locations/asia-southeast1/keyRings/fitness/cryptoKeys/integration-tokens,Integrations__WorkoutTrainingSummaryUrl=${_WORKOUT_SUMMARY_URL},GoogleHealth__ClientId=${_GOOGLE_HEALTH_CLIENT_ID},Physique__Bucket=${_PHYSIQUE_BUCKET},ScanStorage__Bucket=${_SCAN_BUCKET},OpenAi__Model=gpt-5.4-mini,Retention__MealDetailDays=90,Fcm__ProjectId=${_NUTRITION_FCM_PROJECT_ID},CloudTasks__ProjectId=$PROJECT_ID,CloudTasks__Location=asia-southeast1,CloudTasks__Queue=nutrition-check-in,CloudTasks__TargetUrl=${_NUTRITION_API_ORIGIN}/internal/nutrition-check-in-dispatch,Internal__Audience=${_NUTRITION_API_ORIGIN},Internal__AllowedCallers=${_INTERNAL_CALLERS},CloudTasks__OidcServiceAccount=nutrition-internal@$PROJECT_ID.iam.gserviceaccount.com
       - --set-secrets=ConnectionStrings__Database=nutrition-neon-database:${_NUTRITION_DATABASE_SECRET_VERSION},Identity__ClientSecret=fitness-nutrition-client-secret:latest,GoogleHealth__ClientSecret=google-health-client-secret:latest,OpenAi__ApiKey=financialapp-openai-api-key:latest,Cleanup__Token=nutrition-cleanup-token:latest,FoodProviders__Usda__ApiKey=nutrition-usda-api-key:latest
     id: Deploy
     waitFor: [MigrateExecute]
@@ -86,8 +86,10 @@ substitutions:
   # photo upload and AI scanning returning 503 on the live service.
   _PHYSIQUE_BUCKET: 'financialapp-vault-396431756440'
   _SCAN_BUCKET: 'nutrition-scans-396431756440'
-  # Where the check-in queue delivers its wake-ups; the dispatcher route is protected by Cleanup__Token.
+  # Where the check-in queue delivers its wake-ups; the dispatcher route is protected by a Google identity token from the nutrition-internal service account.
   _NUTRITION_API_ORIGIN: 'https://nutrition-api-i47taxhzba-as.a.run.app'
+  # Comma-separated emails allowed to call /internal routes with a Google identity token.
+  _INTERNAL_CALLERS: 'nutrition-internal@project-7eb1aec8-8636-4c86-b2a.iam.gserviceaccount.com'
 
 options:
   logging: CLOUD_LOGGING_ONLY
