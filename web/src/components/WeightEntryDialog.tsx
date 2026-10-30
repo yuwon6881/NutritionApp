@@ -6,12 +6,11 @@ import type {CoachResult,Weight} from '../types';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
-import {Select} from './ui/Select';
+import {WeightContextPicker} from './WeightContextPicker';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
 import {displayEnergy,displayWeight,energyLabel,parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {weightEntryDirty,weightEntryValues} from '../lib/weightEntry';
-import {weightContextOptionsFor} from '../lib/weightContext';
 import {cleanTrend,unusualWeighIn} from '../lib/weightSignal';
 import {previousDayUnlogged,recentIntake} from '../lib/weighInEvidence';
 import {targetsForDate} from '../lib/dailyTargets';
@@ -120,15 +119,8 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
           {unloggedBefore&&<> The day before was not logged.</>}
           {intake&&<> Your last {intake.days} logged days averaged {displayEnergy(intake.averageKcal,units.energy)} {energyLabel(units.energy)}{target?<> against a {displayEnergy(target,units.energy)} {energyLabel(units.energy)} target</>:null}.</>}
         </p>
-        <p>A temporary factor keeps this scale value in history but leaves it out of calorie-estimation trends, and the next few days count less while water settles. If later weigh-ins stay at this level, it counts again. A reason never adds or subtracts calories directly.</p>
-        <Select
-          id="weight-entry-context"
-          label="Possible temporary context"
-          value={values.context}
-          placeholder="Choose an optional context"
-          options={[{value:'',label:'No context'},...weightContextOptionsFor(unusual.contextDirection)]}
-          onChange={context=>setValues(previous=>({...previous,context:context as typeof previous.context}))}
-        />
+        <p>Optional. A temporary reason keeps this weigh-in in your history but leaves it out of calorie estimates until later weigh-ins confirm the level. It never changes calories directly.</p>
+        <WeightContextPicker direction={unusual.contextDirection} value={values.context} onChange={context=>setValues(previous=>({...previous,context}))}/>
       </section>}
       {initial?.source==='google_health'&&<p className="source">Imported from Google Health. Saving a change makes it your own entry; Google keeps its copy.</p>}
       <p className="source">{initial?'Changing the date moves this weigh-in. A date that already has one is updated instead.':'A date with an existing weigh-in is updated.'}</p>

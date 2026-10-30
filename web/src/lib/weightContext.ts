@@ -34,6 +34,37 @@ export function weightContextOptionsFor(direction:'up'|'down'|'either'){
   return weightContextRules.filter(rule=>rule.direction==='either'||rule.direction===direction).map(rule=>({value:rule.code,label:rule.label}));
 }
 
+/** The likeliest causes per movement, each one tap away; a genuine change is always among them. */
+const quickPickCodes:Record<'up'|'down'|'either',readonly WeightContextCode[]>={
+  up:['high_sodium','high_carb','alcohol','poor_sleep','genuine_change'],
+  down:['dehydration','low_carb','illness','genuine_change'],
+  either:['illness','travel','digestion','genuine_change'],
+};
+
+/** Quick picks sit two to a row on a phone, so the longer rule labels get short forms here. The rules keep the full text. */
+const quickPickLabels:Partial<Record<WeightContextCode,string>>={
+  high_carb:'High-carb day',
+  dehydration:'Dehydration',
+  low_carb:'Low-carb day',
+  digestion:'Digestion',
+  genuine_change:'A genuine change',
+};
+
+export interface WeightContextChoices {
+  quick:{value:WeightContextCode;label:string}[];
+  more:{value:WeightContextCode;label:string}[];
+}
+
+/** The direction's options split into one-tap quick picks and the remaining reasons, which are never dropped. */
+export function weightContextChoicesFor(direction:'up'|'down'|'either'):WeightContextChoices{
+  const options=weightContextOptionsFor(direction);
+  const quickCodes=quickPickCodes[direction];
+  return {
+    quick:quickCodes.flatMap(code=>options.some(option=>option.value===code)?[{value:code,label:quickPickLabels[code]??weightContextLabel(code)}]:[]),
+    more:options.filter(option=>!quickCodes.includes(option.value)),
+  };
+}
+
 export function weightContextRule(context:WeightContextCode|undefined|null){
   return weightContextRules.find(rule=>rule.code===context);
 }

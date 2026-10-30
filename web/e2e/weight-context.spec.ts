@@ -55,16 +55,20 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   // A spike offers retention causes first; not-logging days never appear as intake evidence, but an
   // unlogged day before the weigh-in is named because its food may explain the change.
   await expect(dialog.locator('.weight-context-evidence')).toHaveText('Up 2 kg from the expected 80 kg. The day before was not logged.');
-  const contextChoice=dialog.getByRole('button',{name:'Choose possible temporary context'});
-  // Leave the pointer where the menu will appear: hover must not override keyboard navigation.
-  const choiceBox=(await contextChoice.boundingBox())!;
-  await page.mouse.move(choiceBox.x+20,choiceBox.y+choiceBox.height+20);
-  await contextChoice.focus();
-  await page.keyboard.press('Space');
-  await expect(dialog.getByRole('listbox',{name:'Possible temporary context'})).toBeVisible();
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
-  await expect(contextChoice).toHaveText('Salty food');
+  // The likeliest causes are one tap away; tapping the chosen one again clears it.
+  const chips=dialog.getByRole('group',{name:'Possible temporary context'});
+  const salty=chips.getByRole('button',{name:'Salty food',exact:true});
+  await expect(chips.getByRole('button',{name:'Dehydration'})).toHaveCount(0);
+  await expect(salty).toHaveAttribute('aria-pressed','false');
+  await salty.click();
+  await expect(salty).toHaveAttribute('aria-pressed','true');
+  await salty.click();
+  await expect(salty).toHaveAttribute('aria-pressed','false');
+  await salty.click();
+  await expect(salty).toHaveAttribute('aria-pressed','true');
+  // Reasons without a chip sit behind "More reasons".
+  await dialog.getByRole('button',{name:'More reasons'}).click();
+  await expect(dialog.getByRole('button',{name:'Fewer reasons'})).toBeVisible();
 
   for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});
@@ -84,11 +88,10 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   await row.getByRole('button',{name:/^Edit weigh-in from /}).click();
   const edit=page.getByRole('dialog',{name:'Edit weigh-in',exact:true});
   await edit.getByLabel('Weight (kg)',{exact:true}).fill('82.2');
-  const editedChoice=edit.getByRole('button',{name:'Choose possible temporary context'});
-  await expect(editedChoice).toHaveText('No context');
-  await editedChoice.click();
-  await page.getByRole('option',{name:'A genuine change',exact:true}).click();
-  await expect(editedChoice).toHaveText('A genuine change');
+  const genuine=edit.getByRole('group',{name:'Possible temporary context'}).getByRole('button',{name:'A genuine change',exact:true});
+  await expect(genuine).toHaveAttribute('aria-pressed','false');
+  await genuine.click();
+  await expect(genuine).toHaveAttribute('aria-pressed','true');
   await edit.getByRole('button',{name:'Update weigh-in'}).click();
   await expect.poll(savedWeight).toMatchObject({kg:82.2,context:'genuine_change'});
 });

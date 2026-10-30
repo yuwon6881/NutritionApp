@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import type {Weight} from '../types';
 import {parseWeight} from './units';
-import {unusualWeightDifference,weightContextOptionsFor} from './weightContext';
+import {unusualWeightDifference,weightContextChoicesFor,weightContextOptionsFor} from './weightContext';
 
 const weights=(values:Array<[string,number,string?]>):Weight[]=>values.map(([date,kg,id=date])=>({
   id,revision:1,deleted:false,date,kg,
@@ -92,6 +92,32 @@ describe('ambiguous movement',()=>{
     expect(neutral).toContain('illness');
     expect(neutral).toContain('genuine_change');
     for(const code of ['bloating','high_sodium','dehydration','low_carb'] as const)expect(neutral).not.toContain(code);
+  });
+});
+
+describe('quick-pick context choices',()=>{
+  const directions=['up','down','either'] as const;
+
+  it('splits every direction into quick picks and the remaining reasons without losing or repeating one',()=>{
+    for(const direction of directions){
+      const {quick,more}=weightContextChoicesFor(direction);
+      const all=weightContextOptionsFor(direction).map(option=>option.value).sort();
+      expect([...quick,...more].map(option=>option.value).sort()).toEqual(all);
+      expect(quick.length).toBeGreaterThan(0);
+      expect(quick.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('puts the likeliest retention or depletion cause and a genuine change one tap away',()=>{
+    const spike=weightContextChoicesFor('up').quick.map(option=>option.value);
+    const drop=weightContextChoicesFor('down').quick.map(option=>option.value);
+    expect(spike).toEqual(expect.arrayContaining(['high_sodium','genuine_change']));
+    expect(drop).toEqual(expect.arrayContaining(['dehydration','genuine_change']));
+    expect(weightContextChoicesFor('either').quick.map(option=>option.value)).toContain('genuine_change');
+  });
+
+  it('keeps quick-pick labels short enough for two columns on a phone',()=>{
+    for(const direction of directions)for(const option of weightContextChoicesFor(direction).quick)expect(option.label.length).toBeLessThanOrEqual(18);
   });
 });
 
