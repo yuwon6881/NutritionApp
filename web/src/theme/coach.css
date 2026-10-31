@@ -1,4 +1,5 @@
 /* Coach surfaces for the Lavender / Midnight Lime themes, in cascade order. */
 @import './coach-targets.css';
+@import './coach-target-summary.css';
 @import './coach-plan.css';
 @import './coach-history.css';

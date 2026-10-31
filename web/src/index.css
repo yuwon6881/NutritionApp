@@ -341,10 +341,6 @@ summary{cursor:pointer}
 .target-figures .macro-dot.fat{background:var(--fat)}
 .target-macros-figures .macro-label-short{display:none}
 .figure-inline{font-size:1.25rem;font-variant-numeric:tabular-nums}
-.strategy-figures{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0 24px;margin:0}
-.strategy-figures>div{border-top:1px solid var(--border);padding:14px 0;display:flex;flex-direction:column;gap:4px;min-width:0}
-.strategy-figures dt{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground);margin:0}
-.strategy-figures dd{margin:0;font-size:.95rem;font-weight:650;color:var(--ink-strong);font-variant-numeric:tabular-nums;overflow-wrap:break-word}
 .plan-list{display:grid;gap:0;margin:0}
 .plan-list>div{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border)}
 .plan-list>div:last-child{border-bottom:0}
@@ -409,13 +405,9 @@ summary{cursor:pointer}
 .goal-setup{border:1px solid var(--border);border-radius:12px;padding:18px;margin:18px 0}
 .calendar-nav-group{display:flex;gap:4px}
 
-@media(max-width:1279px){
-  .strategy-figures{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
 @media(max-width:1023px){
   .target-figures{grid-template-columns:1fr;gap:20px}
   .target-macros-section{border-left:0;border-top:1px solid var(--border);padding:20px 0 0}
-  .strategy-figures{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:639px){
   .target-figures{gap:16px}
@@ -426,9 +418,6 @@ summary{cursor:pointer}
   .target-macros-figures strong{font-size:1.15rem}
   .target-macros-figures .macro-label-full{display:none}
   .target-macros-figures .macro-label-short{display:inline}
-  .strategy-figures{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
-  .strategy-figures>div{padding:12px 0}
-  .strategy-figures dd{font-size:.88rem}
   .macro-row-controls{flex-wrap:wrap}
   .macro-number input{width:96px}
 }

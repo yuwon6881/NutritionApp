@@ -47,23 +47,23 @@ export function TargetWeeklySummary({result,units}:{result:CoachResult;units:Uni
           <p>Weekly budget</p>
           <strong>{displayEnergy(result.weeklyCalories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
         </div>
-        <span className="target-weekly-badge">{getWeeklyScheduleSubtitle(daily)}</span>
+        {!equal&&<span className="target-weekly-badge">{getWeeklyScheduleSubtitle(daily)}</span>}
+        {equal&&(
+          <Button
+            variant="tertiary"
+            size="sm"
+            aria-expanded={showEachDay}
+            onClick={()=>setShowEachDay(v=>!v)}
+          >
+            {showEachDay?'Hide each day':'Show each day'}
+          </Button>
+        )}
       </div>
       {equal?(
         <>
-          <div className="target-weekly-equal">
-            <span className="target-weekly-equal-val">
-              {displayEnergy(daily[0],units.energy)} {energyLabel(units.energy)} every day
-            </span>
-            <Button
-              variant="tertiary"
-              size="sm"
-              aria-expanded={showEachDay}
-              onClick={()=>setShowEachDay(v=>!v)}
-            >
-              {showEachDay?'Hide each day':'Show each day'}
-            </Button>
-          </div>
+          <p className="target-weekly-equal-val">
+            {displayEnergy(daily[0],units.energy)} {energyLabel(units.energy)} every day
+          </p>
           {showEachDay&&chips}
         </>
       ):(

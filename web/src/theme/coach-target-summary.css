@@ -1,0 +1,136 @@
+/* Energy against maintenance: the gap is the point of the plan, so it leads. */
+.target-energy-gap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.target-gap-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--primary-ink);
+  background: var(--primary-tint);
+}
+
+:root[data-theme=dark] .target-gap-chip {
+  color: var(--primary);
+}
+
+.target-gap-detail {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Macro rows: label and share on the left, grams on the right, a bar for the share beneath. */
+.target-macros-figures.target-macro-rows {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+:root .target-macros-figures.target-macro-rows > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "label value" "share value" "bar bar";
+  column-gap: 12px;
+  row-gap: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.target-macro-rows p { grid-area: label; font-size: 0.8125rem; text-transform: none; letter-spacing: 0; color: var(--ink-strong); font-weight: 650; }
+.target-macro-rows strong { grid-area: value; align-self: center; font-size: 1.35rem; }
+.target-macro-rows .target-macro-meta { grid-area: share; font-size: 0.8125rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+.target-macro-track {
+  grid-area: bar;
+  display: block;
+  height: 8px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.target-macro-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  min-width: 4px;
+}
+
+.target-macro-track > .protein { background: var(--protein); }
+.target-macro-track > .carbs { background: var(--carbs); }
+.target-macro-track > .fat { background: var(--fat); }
+
+/* Weekly budget collapses to one quiet row when every day is the same. */
+.target-weekly-header { align-items: center; }
+.target-weekly-equal-val { margin: 0; }
+
+/* Plan goal card: the headline replaces the goal summary's own title. */
+.coach-goal-card .goal-summary {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.coach-goal-card .goal-summary-title-group { display: none; }
+.coach-goal-card .goal-summary-head { justify-content: flex-end; margin-bottom: 0; }
+.coach-goal-card .eyebrow { margin: 0 0 4px; }
+
+/* Plan details: short key/value rows, label left and value right. */
+.strategy-figures { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
+
+.strategy-figures > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+
+.strategy-figures dt { margin: 0; flex: none; font-size: 0.8125rem; color: var(--muted-foreground); }
+
+.strategy-figures dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .target-gap-chip { white-space: normal; }
+  .strategy-figures > div { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .strategy-figures dd { text-align: left; }
+}
+
+/* The gap line is plain text with a chip, not another tile in the energy row. */
+.target-energy-figures > div.target-energy-gap,
+:root[data-theme=dark] .target-energy-figures > div.target-energy-gap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  width: auto;
+  white-space: normal;
+}
+
+.coach-goal-card .section-heading { margin-bottom: 8px; }
+.coach-goal-card .goal-summary progress { margin: 8px 0 14px; }

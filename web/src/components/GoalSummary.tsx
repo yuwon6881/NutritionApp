@@ -7,7 +7,7 @@ const heading=(progress:GoalProgress)=>progress.complete?'Goal complete'
   :progress.mode==='weight'?'Weight goal'
   :progress.mode==='duration'?'Phase timeline':'Ongoing phase';
 
-export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale'}:{progress:GoalProgress;units?:UnitPreferences;weightGoalMetric?:WeightGoalMetric}){
+export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale',titleId='dashboard-goal-title'}:{progress:GoalProgress;units?:UnitPreferences;weightGoalMetric?:WeightGoalMetric;titleId?:string}){
   const weight=progress.mode==='weight';
   const unit=weightLabel(units.weight);
   const currentWeight=weightGoalMetric==='trend'
@@ -25,7 +25,7 @@ export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale
     <div className="goal-summary-head">
       <div className="goal-summary-title-group">
         <p className="eyebrow">Goal progress</p>
-        <h3 id="dashboard-goal-title">{heading(progress)}</h3>
+        <h3 id={titleId}>{heading(progress)}</h3>
       </div>
       {progress.percent!=null&&<strong className="goal-percent">{number(progress.percent,1)}%{awayText?` · ${awayText}`:''}</strong>}
     </div>

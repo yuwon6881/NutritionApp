@@ -16,7 +16,9 @@ import {GoalPaceSetup,GoalPhaseSetup,GoalSelection} from './GoalSetup';
 import {MacroSetup} from './MacroSetup';
 import {WeeklyProgramSetup} from './WeeklyProgramSetup';
 import {WeeklyScheduleReview} from './coach/WeeklyScheduleReview';
-import {TargetWeeklySummary} from './coach/TargetWeeklySummary';
+import {TargetFigures} from './coach/TargetFigures';
+import {CoachGoalCard} from './coach/CoachGoalCard';
+import {PlanDetails} from './coach/PlanDetails';
 import {defaultStartingWeightKg,formatWeeklyPaceEquivalent,calorieChangeLine} from '../lib/coachPlanHelpers';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
@@ -71,51 +73,6 @@ const tabOrder:MainTab[]=['targets','plan','history'];
 
 export {goalLabel};
 const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.label??'Custom';
-
-function TargetFigures({result,units}:{result:CoachResult;units:UnitPreferences}){
-  const split=splitFromGrams(result.calories,{protein:result.protein,carbs:result.carbs,fat:result.fat});
-  return <div className="target-figures">
-    <div className="target-energy-figures">
-      <div>
-        <p>Daily energy</p>
-        <strong>{displayEnergy(result.calories,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
-      </div>
-      <div>
-        <p>Maintenance</p>
-        <strong>{displayEnergy(result.expenditure,units.energy)} <span className="unit">{energyLabel(units.energy)}</span></strong>
-      </div>
-    </div>
-    <div className="target-macros-section">
-      {split&&<div className="macro-summary-bar" aria-hidden="true">
-        <div className="macro-bar-segment protein" style={{width:`${split.protein}%`}}/>
-        <div className="macro-bar-segment carbs" style={{width:`${split.carbs}%`}}/>
-        <div className="macro-bar-segment fat" style={{width:`${split.fat}%`}}/>
-      </div>}
-      <div className="target-macros-figures">
-        <div>
-          <p><span className="macro-dot protein" aria-hidden="true"/>Protein</p>
-          <strong>{number(result.protein)} <span className="unit">g</span></strong>
-          {split&&<span className="target-macro-pct">{split.protein}%</span>}
-        </div>
-        <div>
-          <p>
-            <span className="macro-dot carbs" aria-hidden="true"/>
-            <span className="macro-label-full">Carbs</span>
-            <span className="macro-label-short">Carbs</span>
-          </p>
-          <strong>{number(result.carbs)} <span className="unit">g</span></strong>
-          {split&&<span className="target-macro-pct">{split.carbs}%</span>}
-        </div>
-        <div>
-          <p><span className="macro-dot fat" aria-hidden="true"/>Fat</p>
-          <strong>{number(result.fat)} <span className="unit">g</span></strong>
-          {split&&<span className="target-macro-pct">{split.fat}%</span>}
-        </div>
-      </div>
-    </div>
-    <TargetWeeklySummary result={result} units={units}/>
-  </div>;
-}
 
 export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?:boolean}){
   const [profile,setProfile]=useState<ProfileDraft>(()=>normalizeProfileSex(store.state!.profile??defaults));
@@ -340,7 +297,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
         {operation==='accepting'?'Activating plan…':operation==='updating'?'Updating proposal…':'Accept this plan'}
       </Button>
     </div>
-    <TargetFigures result={proposal.result} units={units}/>
+    <TargetFigures result={proposal.result} units={units} weightKg={previewProfile.weightKg??profile.weightKg}/>
     {proposal.holdReason&&<p className="notice">{proposal.holdReason}</p>}
     {!proposal.canAccept&&!proposal.holdReason&&<p className="notice">{proposal.result.explanation}</p>}
     </>:<h2>{message?'Active plan':'Review plan'}</h2>}
@@ -351,31 +308,22 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   </CoachLayout></section>:null;
 
   const targetsTab=<>
+    <CoachGoalCard state={store.state!} units={units} acceptedPlan={acceptedPlan} current={current} disabled={busy||!!acceptance.current} onEdit={()=>openPlan()}/>
     {acceptedPlan&&<section className="panel">
       <div className="section-heading">
         <div>
           <h2>Active targets</h2>
         </div>
-        <div className="actions">
-          <Button variant="secondary" size="md" disabled={busy||!!acceptance.current} onClick={()=>openPlan()}><Sliders size={16}/>Edit plan</Button>
-        </div>
       </div>
-      <TargetFigures result={acceptedPlan} units={units}/>
+      <TargetFigures result={acceptedPlan} units={units} weightKg={previewProfile.weightKg??profile.weightKg}/>
     </section>}
     <section className="panel">
       <div className="section-heading">
         <div>
-          <h2>Strategy</h2>
+          <h2>Plan details</h2>
         </div>
       </div>
-      <dl className="strategy-figures">
-        <div><dt>Goal</dt><dd>{goalLabel(profile.goal||'maintain')}</dd></div>
-        <div><dt>Pace</dt><dd>{!profile.goal||profile.goal==='maintain'?'—':`${Math.abs(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15))}% BW/wk${formatWeeklyPaceEquivalent(profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15),previewProfile.weightKg??profile.weightKg,units.weight)}`}</dd></div>
-        <div><dt>{profile.phaseMode==='duration'?'Duration':profile.phaseMode==='weight'?'Target':'Phase'}</dt><dd>{profile.phaseMode==='duration'?`${profile.durationWeeks} weeks`:profile.phaseMode==='weight'?`${displayWeight(profile.targetWeightKg,units.weight,1)} ${weightLabel(units.weight)}`:'Ongoing'}</dd></div>
-        <div><dt>Macros</dt><dd>{presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')}</dd></div>
-        <div><dt>Body</dt><dd>{displayWeight(profile.weightKg,units.weight,1)} {weightLabel(units.weight)} · {displayHeight(profile.heightCm,units.height)}</dd></div>
-        <div><dt>Age</dt><dd>{derivedAge??(profile.age||'—')}</dd></div>
-      </dl>
+      <PlanDetails profile={profile} weightKg={previewProfile.weightKg??profile.weightKg} macroLabel={presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')} age={derivedAge??profile.age} units={units}/>
     </section>
   </>;
 

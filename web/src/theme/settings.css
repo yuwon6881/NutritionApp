@@ -303,7 +303,6 @@
 .energy-stats > div,
 .target-energy-figures > div,
 .target-macros-figures > div,
-.strategy-figures > div,
 .goal-history-stats,
 :root[data-theme=dark] .target-energy-figures > div:nth-child(2),
 :root[data-theme=dark] .target-macros-figures > div {
