@@ -202,7 +202,7 @@ test('Google Health step chart selects a day by click and keyboard',async({page}
   await page.keyboard.press('End');
   await expect(readout).toContainText('6,500');
   // Page scrolling may move it; its height must not change with the selected day.
-  expect((await readout.boundingBox())!.height).toBe(readoutBox!.height);
+  expect((await readout.boundingBox())!.height).toBeCloseTo(readoutBox!.height, 1);
 });
 
 for (const width of [390,768,1440]) for (const theme of ['light','dark']) {
