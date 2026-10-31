@@ -143,3 +143,109 @@ test('reviewed food action opens search with the verified name rather than its b
   await expect(page.getByLabel('Search term',{exact:true})).toHaveValue('Rolled oats');
   await expect(page.locator('.batch-food')).toHaveCount(0);
 });
+
+test('Ask AI chat composer expands vertically for lengthy text, maintains 24px radius, and preserves 44x44 circular button', async ({ page, context }, testInfo) => {
+  await context.addCookies(session.cookies);
+  await page.route('**/api/ai/conversation', route => route.fulfill({ json: snapshot }));
+  await page.goto('/');
+  await expect(page.locator('.account-name')).toHaveText('ask-ai-review', { timeout: 30000 });
+
+  const lengthyText = 'because i am about to head to rave later at 7pm, now is already 1pm, i have one more workout session left, going to the rave means i am definitely going to drink, thats why i allocated most protein prior to the rave, i wonder, which is better approach, should i go to gym now, and drink whey protein after or something else?';
+
+  await page.getByRole('button', { name: 'Ask AI', exact: true }).last().click();
+  const dialog = page.getByRole('dialog', { name: 'Ask AI', exact: true });
+  await expect(dialog.getByText('Your saved answer.')).toBeVisible();
+
+  const composerBox = dialog.locator('.ai-chat-composer-box');
+  const textarea = dialog.getByLabel('Message', { exact: true });
+  const sendButton = dialog.getByRole('button', { name: 'Send message', exact: true });
+
+  // 1. Empty state: compact ~56px height (within 54-60px), 24px border radius, disabled 44x44 circular send button
+  await expect(textarea).toHaveValue('');
+  const emptyBoxRect = (await composerBox.boundingBox())!;
+  expect(emptyBoxRect.height).toBeGreaterThanOrEqual(54);
+  expect(emptyBoxRect.height).toBeLessThanOrEqual(60);
+  const emptyTextareaHeight = await textarea.evaluate(el => el.getBoundingClientRect().height);
+  expect(emptyTextareaHeight).toBeGreaterThanOrEqual(42);
+  expect(emptyTextareaHeight).toBeLessThanOrEqual(46);
+  await expect(sendButton).toBeDisabled();
+  const emptySendRect = (await sendButton.boundingBox())!;
+  expect(emptySendRect.width).toBe(44);
+  expect(emptySendRect.height).toBe(44);
+  const emptyBoxRadius = await composerBox.evaluate(el => getComputedStyle(el).borderTopLeftRadius);
+  expect(emptyBoxRadius).toBe('24px');
+
+  // 2. Short text state: retains compact ~56px height, enables send button
+  await textarea.fill('Show my recent history');
+  const shortBoxRect = (await composerBox.boundingBox())!;
+  expect(shortBoxRect.height).toBeGreaterThanOrEqual(54);
+  expect(shortBoxRect.height).toBeLessThanOrEqual(60);
+  const shortTextareaHeight = await textarea.evaluate(el => el.getBoundingClientRect().height);
+  expect(shortTextareaHeight).toBeGreaterThanOrEqual(42);
+  expect(shortTextareaHeight).toBeLessThanOrEqual(46);
+  await expect(sendButton).toBeEnabled();
+  const shortSendRect = (await sendButton.boundingBox())!;
+  expect(shortSendRect.width).toBe(44);
+  expect(shortSendRect.height).toBe(44);
+  const shortBoxRadius = await composerBox.evaluate(el => getComputedStyle(el).borderTopLeftRadius);
+  expect(shortBoxRadius).toBe('24px');
+
+  // 3. Lengthy multi-line text state: expands vertically up to max-height (<= 144px), radius stays 24px, send button pinned 44x44
+  await textarea.fill(lengthyText);
+  await expect(async () => {
+    const height = await textarea.evaluate(el => el.getBoundingClientRect().height);
+    expect(height).toBeGreaterThan(80);
+    expect(height).toBeLessThanOrEqual(144);
+  }).toPass();
+
+  const lengthyBoxRect = (await composerBox.boundingBox())!;
+  expect(lengthyBoxRect.height).toBeGreaterThan(90);
+
+  // Border-radius stays 24px (does NOT balloon into 999px / half-height ellipse)
+  const lengthyBoxRadii = await composerBox.evaluate(el => {
+    const cs = getComputedStyle(el);
+    return {
+      tl: cs.borderTopLeftRadius,
+      tr: cs.borderTopRightRadius,
+      bl: cs.borderBottomLeftRadius,
+      br: cs.borderBottomRightRadius,
+    };
+  });
+  expect(lengthyBoxRadii.tl).toBe('24px');
+  expect(lengthyBoxRadii.tr).toBe('24px');
+  expect(lengthyBoxRadii.bl).toBe('24px');
+  expect(lengthyBoxRadii.br).toBe('24px');
+
+  // Send button strictly 44x44px circular and pinned to bottom-right
+  const lengthySendRect = (await sendButton.boundingBox())!;
+  expect(lengthySendRect.width).toBe(44);
+  expect(lengthySendRect.height).toBe(44);
+  const sendRadius = await sendButton.evaluate(el => getComputedStyle(el).borderRadius);
+  expect(sendRadius).toBe('50%');
+
+  // Pinned to bottom-right of composer box
+  const bottomOffset = (lengthyBoxRect.y + lengthyBoxRect.height) - (lengthySendRect.y + lengthySendRect.height);
+  expect(bottomOffset).toBeGreaterThanOrEqual(5);
+  expect(bottomOffset).toBeLessThanOrEqual(10);
+  const rightOffset = (lengthyBoxRect.x + lengthyBoxRect.width) - (lengthySendRect.x + lengthySendRect.width);
+  expect(rightOffset).toBeGreaterThanOrEqual(5);
+  expect(rightOffset).toBeLessThanOrEqual(10);
+
+  // Capture screenshot of the expanded multi-line state
+  await dialog.screenshot({ path: testInfo.outputPath('ask-ai-lengthy-expansion-multiline.png') });
+
+  // 4. Shrinks back to compact ~56px when cleared
+  await textarea.fill('');
+  await expect(async () => {
+    const clearedBoxRect = (await composerBox.boundingBox())!;
+    expect(clearedBoxRect.height).toBeGreaterThanOrEqual(54);
+    expect(clearedBoxRect.height).toBeLessThanOrEqual(60);
+  }).toPass();
+  await expect(sendButton).toBeDisabled();
+
+  // Capture screenshot of the cleared/compact state
+  await dialog.screenshot({ path: testInfo.outputPath('ask-ai-lengthy-expansion-cleared.png') });
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+});
+

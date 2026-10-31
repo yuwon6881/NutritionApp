@@ -351,7 +351,7 @@
   gap: 8px;
   padding: 6px 6px 6px 20px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius, 24px);
   background: var(--muted);
   transition: border-color var(--motion-control) ease, box-shadow var(--motion-control) ease;
 }
@@ -386,7 +386,7 @@
 .ai-chat-composer-box .field textarea {
   min-height: 44px;
   max-height: 144px;
-  padding: 11px 0;
+  padding: 11px 4px 11px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -395,11 +395,22 @@
   font-size: 0.9375rem;
   outline: none;
   resize: none;
+  overflow-x: hidden;
 }
 
 .ai-chat-composer-box > .button {
   flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
   border-radius: 50%;
+  flex-shrink: 0;
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ai-chat-counter {
