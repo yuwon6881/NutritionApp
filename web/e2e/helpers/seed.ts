@@ -10,7 +10,18 @@ export function todayInTestZone(){
   return new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 }
 
-export interface SeedEntry {name:string;time:string;calories:number}
+export interface SeedEntry {
+  name:string;
+  time:string;
+  calories:number;
+  protein?:number;
+  carbs?:number;
+  fat?:number;
+  fiber?:number;
+  quantity?:number;
+  unit?:string;
+  measure?:string;
+}
 
 /**
  * Resets the isolated development database and creates a user with an
@@ -38,7 +49,19 @@ export async function seedMobileUser(request:APIRequestContext,username:string,e
     if(offset>0)await save('entry',{date,name:'Porridge',calories:350,protein:12,carbs:55,fat:8,fiber:6,quantity:1,unit:'serving',time:'07:00'});
   }
   for(const entry of entries){
-    await save('entry',{date:current,name:entry.name,calories:entry.calories,protein:10,carbs:20,fat:5,fiber:2,quantity:1,unit:'serving',time:entry.time});
+    await save('entry',{
+      date:current,
+      name:entry.name,
+      calories:entry.calories,
+      protein:entry.protein??10,
+      carbs:entry.carbs??20,
+      fat:entry.fat??5,
+      fiber:entry.fiber??2,
+      quantity:entry.quantity??1,
+      unit:entry.unit??'serving',
+      measure:entry.measure??'g',
+      time:entry.time
+    });
   }
   return request.storageState();
 }

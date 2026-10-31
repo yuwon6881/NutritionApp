@@ -164,7 +164,6 @@
 }
 
 /* Recent foods list & search result rows */
-.food-modal .recent-food-card,
 .food-modal .food-row.interactive {
   padding: 14px 18px;
   border-radius: 18px;
@@ -172,6 +171,19 @@
   background: var(--card);
   box-shadow: 0 1px 3px rgba(38, 28, 92, 0.02);
   transition: border-color var(--motion-control) ease, background-color var(--motion-control) ease, transform 100ms ease;
+}
+.food-modal .recent-food-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(38, 28, 92, 0.02);
+  transition: border-color var(--motion-control) ease, background-color var(--motion-control) ease, transform 100ms ease;
+}
+@media (max-width: 639px) {
+  .food-modal .recent-food-card {
+    padding: 10px 12px;
+  }
 }
 :root[data-theme=dark] .food-modal .recent-food-card,
 :root[data-theme=dark] .food-modal .food-row.interactive {
@@ -187,16 +199,34 @@
     transform: translateY(-1px);
   }
 }
-.food-modal .recent-food-name,
 .food-modal .food-row.interactive strong {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--ink-strong);
 }
-.food-modal .recent-food-portion,
+.food-modal .recent-food-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink-strong);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
 .food-modal .food-row.interactive small {
   font-size: 0.8125rem;
   color: var(--muted-foreground);
+}
+.food-modal .recent-food-portion {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .food-modal .recent-food-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; text-align: right; }
 .food-modal .recent-food-macros { margin: 0; gap: 2px 6px; justify-content: flex-end; font-size: 0.72rem; }

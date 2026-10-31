@@ -1525,7 +1525,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .recent-foods-section{margin-bottom:20px}
 .recent-foods-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .recent-foods-heading h4{margin:0;font-size:.8rem;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.06em}
-.recent-foods-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:8px;align-items:stretch}
+.recent-foods-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:8px;align-items:stretch}
 .recent-foods-group+.recent-foods-group{margin-top:14px}
 .recent-foods-subheading{margin:0 0 6px;font-size:.78rem;font-weight:600;color:var(--ink-strong)}
 .recent-food-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer;text-align:left;transition:background var(--motion-control) ease,border-color var(--motion-control) ease,transform 100ms ease;min-height:44px}
@@ -1533,8 +1533,8 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .recent-food-card:hover{background:var(--muted);border-color:var(--primary)}}
 .recent-food-card:active{transform:scale(0.99)}
 .recent-food-info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-.recent-food-name{font-size:.82rem;color:var(--ink-strong);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
-.recent-food-portion{font-size:.7rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.recent-food-name{font-size:.82rem;line-height:1.25;color:var(--ink-strong);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;word-break:normal;overflow-wrap:break-word}
+.recent-food-portion{font-size:.7rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recent-food-energy{font-size:.8rem;font-variant-numeric:tabular-nums;color:var(--primary-ink);white-space:nowrap;flex-shrink:0}
 .recent-food-energy small{font-size:.65rem;color:var(--muted-foreground);font-weight:400}.recent-food-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;text-align:right}.recent-food-macros{margin:0!important;gap:2px 6px;justify-content:flex-end}
 @media(max-width:639px){
