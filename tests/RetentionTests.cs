@@ -384,4 +384,42 @@ public class RetentionTests
         Assert.Single(remainingEntries);
         Assert.Equal(recentEntry.Id, remainingEntries[0].Id);
     }
+
+    [Fact]
+    public async Task Compaction_clears_raw_entries_left_on_already_archived_days_so_newer_days_are_reached()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Retention:MealDetailDays"] = "7" }).Build();
+        var user = await TestUsers.CreateAsync(db, "alice");
+        db.CurrentUser = user.Id;
+        var today = new DateOnly(2026, 9, 7);
+        // More leftover archived days than one batch takes, so a skip-only pass would never reach the newer day.
+        for (var i = 0; i < 125; i++)
+        {
+            var date = today.AddDays(-400 + i);
+            db.Days.Add(new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = date, Status = "complete", Archived = true, Calories = 111, EntryCount = 1 });
+            db.Entries.Add(new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = date, Name = "Leftover", Calories = 999 });
+        }
+        var newer = today.AddDays(-10);
+        db.Entries.Add(new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = newer, Name = "Rice", Calories = 200 });
+        await db.SaveChangesAsync();
+        var retention = new RetentionService(db, config);
+
+        await retention.CompactUser(user.Id, today, default);
+        await retention.CompactUser(user.Id, today, default);
+
+        Assert.Empty(await db.Entries.ToListAsync());
+        Assert.True((await db.Days.SingleAsync(d => d.Date == newer)).Archived);
+        Assert.All(await db.Days.Where(d => d.Date < newer).ToListAsync(), d => Assert.Equal(111, d.Calories));
+    }
+
+    [Theory]
+    [InlineData("Not/AZone")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Unknown_time_zone_falls_back_to_the_default_instead_of_throwing(string? id)
+        => Assert.Equal("Asia/Kuala_Lumpur", RetentionService.ResolveZone(id).Id);
 }

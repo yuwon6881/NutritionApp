@@ -3,7 +3,7 @@ import {ApiError} from './api';
 import {classifySyncFailure} from './syncFailure';
 
 describe('diary sync failure handling',()=>{
-  it.each([400,409,422])('drops an edit the server terminally rejected with %i',status=>{
+  it.each([400,403,404,409,413,422])('drops an edit the server terminally rejected with %i',status=>{
     expect(classifySyncFailure(new ApiError('Rejected',status))).toBe('rejected');
   });
   it('stops sending, rather than retrying forever, when the session has expired',()=>{

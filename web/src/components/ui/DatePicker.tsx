@@ -215,6 +215,11 @@ function formatDisplay(iso: string): string {
   return readableDate(iso);
 }
 
+/** Full, unambiguous date for assistive tech; the visible cell shows only the day number. */
+function fullDateLabel(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
 export function DatePicker({
   label,
   value,
@@ -477,6 +482,9 @@ export function DatePicker({
                     key={idx}
                     type="button"
                     disabled={isDisabled}
+                    aria-label={fullDateLabel(cell.iso)}
+                    aria-pressed={isSelected}
+                    aria-current={isToday ? 'date' : undefined}
                     className={`calendar-day-btn ${cell.currentMonth ? 'current-month' : 'other-month'} ${
                       isSelected ? 'selected' : ''
                     } ${isToday ? 'today' : ''}`}

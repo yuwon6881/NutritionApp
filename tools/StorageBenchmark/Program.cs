@@ -14,8 +14,8 @@ db.Users.AddRange(users);await db.SaveChangesAsync();
 // One transaction, 20 entries/day/user, ten years. All data is synthetic and disposable.
 await db.Database.ExecuteSqlRawAsync("""
 WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<73000)
-INSERT INTO "Entries" ("UserId","Id","Revision","Deleted","Name","Calories","Protein","Fat","Carbs","Fiber","Source","Date","Meal","Quantity","Unit")
-SELECT u."Id",hex(randomblob(4))||'-'||hex(randomblob(2))||'-'||hex(randomblob(2))||'-'||hex(randomblob(2))||'-'||hex(randomblob(6)),n,0,'Representative Malaysian mixed meal',450,20,15,55,3,'Personal recipe',date('now','-'||CAST((n-1)/20 AS INTEGER)||' days'),'Lunch',250,'g'
+INSERT INTO "Entries" ("UserId","Id","Revision","Deleted","Name","Calories","Protein","Fat","Carbs","Fiber","Source","Date","Quantity","Unit")
+SELECT u."Id",hex(randomblob(4))||'-'||hex(randomblob(2))||'-'||hex(randomblob(2))||'-'||hex(randomblob(2))||'-'||hex(randomblob(6)),n,0,'Representative Malaysian mixed meal',450,20,15,55,3,'Personal recipe',date('now','-'||CAST((n-1)/20 AS INTEGER)||' days'),250,'g'
 FROM seq CROSS JOIN "Users" u;
 WITH RECURSIVE seq(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM seq WHERE n<3649)
 INSERT INTO "Days" ("UserId","Id","Revision","Deleted","Date","Status","Archived","EntryCount","Calories","Protein","Fat","Carbs","Fiber")

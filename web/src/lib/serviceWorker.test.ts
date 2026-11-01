@@ -117,5 +117,12 @@ describe('service worker reminder lifecycle',()=>{
       expect(await intercept(instance)).toBe(fresh);
       expect(instance.cache.put).toHaveBeenCalledOnce();
     });
+    it('still returns the network response when the cache rejects the write',async()=>{
+      const instance=worker();
+      const fresh=new Response('fresh');
+      instance.cache.put.mockRejectedValue(new Error('QuotaExceededError'));
+      instance.fetchMock.mockResolvedValue(fresh);
+      expect(await intercept(instance)).toBe(fresh);
+    });
   });
 });

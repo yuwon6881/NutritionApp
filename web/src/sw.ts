@@ -87,5 +87,5 @@ self.addEventListener('fetch',event=>{
     event.respondWith((async()=>{const cache=await caches.open(cacheName);const cached=await cache.match('/index.html')??await cache.match('/');return cached??fetch(request);})());
     return;
   }
-  if(cacheable(request,url))event.respondWith((async()=>{const cache=await caches.open(cacheName);try{const response=await fetch(request);if(response.ok)await cache.put(request,response.clone());return response;}catch{return await cache.match(request)??new Response('Offline resource unavailable.',{status:503,statusText:'Offline'});}})());
+  if(cacheable(request,url))event.respondWith((async()=>{const cache=await caches.open(cacheName);try{const response=await fetch(request);if(response.ok)await cache.put(request,response.clone()).catch(()=>undefined);return response;}catch{return await cache.match(request)??new Response('Offline resource unavailable.',{status:503,statusText:'Offline'});}})());
 });

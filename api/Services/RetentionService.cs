@@ -8,10 +8,17 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
     public int DetailDays => Math.Clamp(config.GetValue("Retention:MealDetailDays",90),3,90);
     public int ReceiptDays => Math.Max(1, config.GetValue("Retention:ReceiptDays", 90));
     public static DateOnly Cutoff(DateOnly today,int days) => today.AddDays(1-days);
+    private const string DefaultZone="Asia/Kuala_Lumpur";
+    /// An unknown or corrupt zone id must not abort a whole retention or notification pass, so it falls back to the app default.
+    public static TimeZoneInfo ResolveZone(string? id)
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById(string.IsNullOrWhiteSpace(id)?DefaultZone:id); }
+        catch(Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException) { return TimeZoneInfo.FindSystemTimeZoneById(DefaultZone); }
+    }
     public static DateOnly Today(string? profileJson)
     {
         var zone=string.IsNullOrEmpty(profileJson)?"Asia/Kuala_Lumpur":Json.Read<Profile>(profileJson).TimeZone;
-        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,TimeZoneInfo.FindSystemTimeZoneById(zone)));
+        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,ResolveZone(zone)));
     }
     public void RequireEditable(DateOnly date,string profileJson) => Validation.Require(date>=Cutoff(Today(profileJson),DetailDays),$"Meal details older than {DetailDays} days are summarized and read-only.",409);
 
@@ -30,8 +37,8 @@ public sealed class RetentionService(AppDb db,IConfiguration config)
         foreach(var date in dates)
         {
             var day=existingDays.GetValueOrDefault(date);
-            // Already-archived dates cannot acquire new detail through the mutation API.
-            if(day?.Archived==true) continue;
+            // An archived day keeps its summary; leftover raw rows (replay, an earlier failure) are only cleared, so they cannot fill every batch.
+            if(day?.Archived==true){compacted.Add(date);continue;}
             var entries=entriesByDate.GetValueOrDefault(date)??[];
             if(day==null){day=new DayStatus { Id=Guid.NewGuid(),UserId=userId,Date=date };db.Days.Add(day);}
             double? Sum(Func<DiaryEntry,double?> select)=>entries.Any(e=>select(e)==null)?null:entries.Sum(e=>select(e)??0);

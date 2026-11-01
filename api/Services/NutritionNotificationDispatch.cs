@@ -54,7 +54,7 @@ public sealed partial class NutritionNotificationService
             }
 
             var profile = Json.Read<Profile>(user.ProfileJson);
-            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById(profile.TimeZone)).DateTime);
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, RetentionService.ResolveZone(profile.TimeZone)).DateTime);
             var cadenceWeekday = user.CheckInWeekday is >= 0 and <= 6 ? user.CheckInWeekday : CheckInWeek.Monday;
             var checkInWeek = CheckInWeek.PeriodStart(today, cadenceWeekday);
             var alreadyResolved = await db.CheckIns.AnyAsync(item => item.WeekStart == checkInWeek && item.CheckInWeekday==cadenceWeekday && !item.Deleted, ct);

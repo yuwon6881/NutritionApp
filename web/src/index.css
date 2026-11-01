@@ -1072,6 +1072,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .calendar-grid{gap:2px}
   .calendar-day-btn{min-height:44px;aspect-ratio:auto}
   .calendar-nav-btn{width:44px;height:44px}
+  .file-clear-btn,.time-picker-icon-btn{min-width:44px;min-height:44px}
   .calendar-action-btn{min-height:44px}
   .custom-calendar-popover .calendar-title-select{min-height:44px}
   .custom-calendar-popover .calendar-dropdown-trigger{min-height:44px;padding:8px 12px}
