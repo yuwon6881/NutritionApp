@@ -44,7 +44,19 @@
 
 .check-in-context{margin:-6px auto 4px;max-width:44ch;text-align:center;font-size:.875rem;line-height:1.5;color:var(--muted-foreground)}
 
+.check-in-details{margin:0 0 8px;border-top:1px solid var(--border)}
+.check-in-details-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0 2px;font-size:.875rem;font-weight:600;color:var(--muted-foreground)}
+.check-in-details-toggle svg{transition:transform var(--motion-control) ease}
+.check-in-details-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.check-in-details-body{display:grid;gap:12px;padding:4px 2px 12px}
+.check-in-facts{display:grid;gap:8px;margin:0}
+.check-in-facts>div{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:12px;font-size:.875rem;line-height:1.4}
+.check-in-facts dt{color:var(--muted-foreground)}
+.check-in-facts dd{margin:0;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.check-in-explanation{margin:0;font-size:.8125rem;line-height:1.5;color:var(--muted-foreground)}
+
 @media(max-width:639px){
+  .check-in-facts>div{grid-template-columns:1fr;gap:2px}
   .check-in-dialog-content .modal-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(prefers-reduced-motion:reduce){

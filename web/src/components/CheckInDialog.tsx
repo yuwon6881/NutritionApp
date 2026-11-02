@@ -10,6 +10,8 @@ import {CheckInCalorieChange} from './CheckInCalorieChange';
 import {contextAdjustmentSummary} from '../lib/weighInEvidence';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {confirmLabel} from '../lib/checkInLabels';
+import {checkInHeadline} from '../lib/checkInSummary';
+import {CheckInDetails} from './CheckInDetails';
 
 export interface CheckInDialogProps {
   open:boolean;
@@ -54,7 +56,8 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
   const proposed=changes?.proposedCalories??result?.calories;
   const changed=previous==null||proposed==null||Math.round(previous)!==Math.round(proposed);
   const confirm=confirmLabel({changed,calories:proposed,unit:units.energy,defaultLabel:'Accept'});
-  const explanation=(proposal?.holdReason||result?.explanation)?.trim()||adjusted;
+  const explanation=(proposal?.holdReason||result?.explanation)?.trim()||adjusted||undefined;
+  const headline=checkInHeadline({holdReason:proposal?.holdReason,changed});
   return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} width="md" title="Weekly check-in">
     {!proposal?<div className="check-in-loading" role={error?'alert':'status'}>
       <p>{error||operation==='error'?'Could not prepare this check-in yet.':operation==='refresh-error'?'Your plan is active. The latest view could not be loaded.':'Preparing your check-in…'}</p>
@@ -63,7 +66,8 @@ export function CheckInDialog({open,store,onClose,restoreFocus}:CheckInDialogPro
       {error&&<Button onClick={()=>void loadProposal()} disabled={!online||pending}>Retry</Button>}
     </div>:<div className="check-in-dialog-content">
       <CheckInCalorieChange previous={previous} proposed={proposed} unit={units.energy}/>
-      {explanation&&<p className="check-in-context">{explanation}</p>}
+      <p className="check-in-context">{headline}</p>
+      <CheckInDetails evidence={proposal.evidence??result?.evidence} explanation={explanation} kcalUnit={units.energy}/>
       {(error||declineError)&&<p className="error" role="alert">{error||declineError}</p>}
       <div className="modal-actions">
         <Button variant="primary" disabled={busy||decliningPending||!online||pending||!proposal.canAccept||!!acceptance.current} onClick={()=>void acceptProposal()}>
