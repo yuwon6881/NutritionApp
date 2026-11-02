@@ -1,7 +1,6 @@
 import type {EnergyEvidence} from '../types';
-import {contextAdjustmentSummary} from './weighInEvidence';
 
-export interface CheckInFact {label:string;value:string}
+export interface CheckInFigure {label:string;value:string;note?:string}
 
 /** One plain sentence for the check-in headline; the full server explanation stays available as detail. */
 export function checkInHeadline({holdReason,changed}:{holdReason?:string|null;changed:boolean}):string{
@@ -12,17 +11,25 @@ export function checkInHeadline({holdReason,changed}:{holdReason?:string|null;ch
     :'Your estimated needs barely moved, so your target stays the same.';
 }
 
-/** Scannable evidence behind a check-in. Missing evidence yields no row rather than a zero. */
-export function checkInFacts(evidence:EnergyEvidence|null|undefined,kcalUnit:string):CheckInFact[]{
+/** Headline evidence as short figures. Missing evidence yields no tile rather than a zero. */
+export function checkInFigures(evidence:EnergyEvidence|null|undefined,kcalUnit:string):CheckInFigure[]{
   if(!evidence)return [];
-  const facts:CheckInFact[]=[{label:'Days logged',value:`${evidence.loggedDays} of ${evidence.windowDays}`}];
+  const figures:CheckInFigure[]=[{label:'Days logged',value:`${evidence.loggedDays}/${evidence.windowDays}`}];
   const unlogged=evidence.unloggedDays??0;
   if(unlogged>0){
     const mean=evidence.unloggedMeanIntake;
-    facts.push({label:'Unlogged days',value:mean==null?`${unlogged}`:`${unlogged}, counted at about ${Math.round(mean/10)*10} ${kcalUnit}/day`});
+    figures.push({label:'Unlogged',value:`${unlogged}`,note:mean==null?undefined:`≈ ${Math.round(mean/10)*10} ${kcalUnit}/day`});
   }
-  facts.push({label:'Weigh-ins used',value:`${evidence.weighIns} over ${evidence.weighInSpanDays} days`});
-  const adjusted=contextAdjustmentSummary(evidence);
-  if(adjusted)facts.push({label:'Marked weigh-ins',value:adjusted.replace(/\.$/,'')});
-  return facts;
+  figures.push({label:'Weigh-ins',value:`${evidence.weighIns}`,note:`over ${evidence.weighInSpanDays} days`});
+  return figures;
+}
+
+/** Short tally of how marked weigh-ins were treated; null when none were adjusted. */
+export function checkInAdjustments(evidence:EnergyEvidence|null|undefined):string|null{
+  const parts=[
+    [evidence?.contextExcluded??0,'left out'],
+    [evidence?.contextSettling??0,'counted less'],
+    [evidence?.contextReinstated??0,'counted again'],
+  ].filter(([count])=>count).map(([count,label])=>`${count} ${label}`);
+  return parts.length?`Marked weigh-ins: ${parts.join(' · ')}`:null;
 }
