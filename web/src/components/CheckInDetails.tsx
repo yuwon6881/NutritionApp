@@ -1,5 +1,5 @@
 import {useId,useState} from 'react';
-import {ChevronDown} from 'lucide-react';
+import {ChevronDown,RotateCw,Scale} from 'lucide-react';
 import type {EnergyEvidence} from '../types';
 import {Button} from './ui/Button';
 import {checkInAdjustments,checkInFigures} from '../lib/checkInSummary';
@@ -25,7 +25,12 @@ export function CheckInDetails({evidence,explanation,kcalUnit}:{evidence:EnergyE
           <dd><strong>{figure.value}</strong>{figure.note&&<small>{figure.note}</small>}</dd>
         </div>)}
       </dl>}
-      {adjustments&&<p className="check-in-adjustments">{adjustments}</p>}
+      {adjustments.length>0&&<ul className="check-in-adjustments">
+        {adjustments.map(item=>{
+          const Icon=item.kind==='ignored'?Scale:RotateCw;
+          return <li key={item.kind}><Icon size={16} aria-hidden="true"/><span><strong>{item.lead}</strong> {item.detail}</span></li>;
+        })}
+      </ul>}
       {fallback&&<p className="check-in-explanation">{fallback}</p>}
     </div>}
   </div>;

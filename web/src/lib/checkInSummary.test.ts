@@ -18,9 +18,13 @@ describe('check-in summary',()=>{
     expect(checkInFigures({...evidence,unloggedDays:0},'kcal').map(f=>f.label)).toEqual(['Days logged','Weigh-ins']);
     expect(checkInFigures(null,'kcal')).toEqual([]);
   });
-  it('tallies marked weigh-in handling only when something was adjusted',()=>{
-    expect(checkInAdjustments(evidence)).toBe('Marked weigh-ins: 2 left out · 2 counted less · 1 counted again');
-    expect(checkInAdjustments({...evidence,contextExcluded:0,contextSettling:0,contextReinstated:0})).toBeNull();
-    expect(checkInAdjustments(null)).toBeNull();
+  it('describes ignored and restored weigh-ins in plain sentences and omits settling',()=>{
+    expect(checkInAdjustments(evidence)).toEqual([
+      {kind:'ignored',lead:'2 weigh-ins ignored.',detail:"You marked them as temporary, so they didn't affect your calories."},
+      {kind:'counted',lead:'1 weigh-in counted after all.',detail:'Your weight stayed at that level, so it was real.'},
+    ]);
+    expect(checkInAdjustments({...evidence,contextExcluded:1,contextReinstated:3})[0].detail).toMatch(/marked it as temporary, so it didn't/);
+    expect(checkInAdjustments({...evidence,contextExcluded:0,contextSettling:4,contextReinstated:0})).toEqual([]);
+    expect(checkInAdjustments(null)).toEqual([]);
   });
 });

@@ -55,7 +55,11 @@
 .check-in-figures dd{display:grid;gap:1px;margin:0}
 .check-in-figures strong{font-size:1.25rem;font-weight:700;line-height:1.2;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--ink-strong)}
 .check-in-figures small{font-size:.75rem;line-height:1.3;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
-.check-in-adjustments,.check-in-explanation{margin:0;padding:0 2px;font-size:.8125rem;line-height:1.5;color:var(--muted-foreground)}
+.check-in-adjustments{display:grid;gap:8px;margin:0;padding:0 2px;list-style:none}
+.check-in-adjustments li{display:flex;gap:8px;align-items:flex-start;font-size:.8125rem;line-height:1.5;color:var(--muted-foreground)}
+.check-in-adjustments svg{flex:0 0 auto;margin-top:2px}
+.check-in-adjustments strong{font-weight:600;color:var(--ink-strong)}
+.check-in-explanation{margin:0;padding:0 2px;font-size:.8125rem;line-height:1.5;color:var(--muted-foreground)}
 
 @media(max-width:639px){
   .check-in-figures>div:last-child:nth-child(odd){grid-column:1/-1}

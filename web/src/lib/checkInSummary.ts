@@ -24,12 +24,19 @@ export function checkInFigures(evidence:EnergyEvidence|null|undefined,kcalUnit:s
   return figures;
 }
 
-/** Short tally of how marked weigh-ins were treated; null when none were adjusted. */
-export function checkInAdjustments(evidence:EnergyEvidence|null|undefined):string|null{
-  const parts=[
-    [evidence?.contextExcluded??0,'left out'],
-    [evidence?.contextSettling??0,'counted less'],
-    [evidence?.contextReinstated??0,'counted again'],
-  ].filter(([count])=>count).map(([count,label])=>`${count} ${label}`);
-  return parts.length?`Marked weigh-ins: ${parts.join(' · ')}`:null;
+export interface CheckInAdjustment {kind:'ignored'|'counted';lead:string;detail:string}
+
+const weighIns=(count:number)=>`${count} weigh-in${count===1?'':'s'}`;
+
+/**
+ * What marked weigh-ins did to the estimate, in outcome-first sentences. Weigh-ins merely counted at reduced weight
+ * while water settles are a calculation detail the user cannot act on, so they are not listed.
+ */
+export function checkInAdjustments(evidence:EnergyEvidence|null|undefined):CheckInAdjustment[]{
+  const ignored=evidence?.contextExcluded??0;
+  const counted=evidence?.contextReinstated??0;
+  const lines:CheckInAdjustment[]=[];
+  if(ignored>0)lines.push({kind:'ignored',lead:`${weighIns(ignored)} ignored.`,detail:`You marked ${ignored===1?'it':'them'} as temporary, so ${ignored===1?'it':'they'} didn't affect your calories.`});
+  if(counted>0)lines.push({kind:'counted',lead:`${weighIns(counted)} counted after all.`,detail:`Your weight stayed at that level, so ${counted===1?'it was':'the change was'} real.`});
+  return lines;
 }
