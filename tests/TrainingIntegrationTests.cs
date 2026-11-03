@@ -66,6 +66,24 @@ public sealed class TrainingIntegrationTests
     }
 
     [Fact]
+    public void Summary_merge_takes_program_slots_only_from_the_latest_answer()
+    {
+        static TrainingSummaryItem Item(string id, DateOnly date, int? position)
+            => new(id, "completed", date, null, null, id, [], 0, null, null, null, ProgramWeek: position is null ? null : 1, ProgramPosition: position);
+
+        // An earlier answer placed these sessions in the program week; the latest one no longer does.
+        var existing = new[] { Item("outside", Today.AddDays(-20), 2), Item("inside", Today.AddDays(-3), 1), Item("current", Today.AddDays(-1), null) };
+        var incoming = new[] { Item("inside", Today.AddDays(-3), null), Item("current", Today.AddDays(-1), 0) };
+
+        var merged = WorkoutSummaryService.Merge(existing, incoming, Today.AddDays(-7), Today);
+
+        Assert.Null(merged.Single(item => item.Id == "outside").ProgramPosition);
+        Assert.Null(merged.Single(item => item.Id == "inside").ProgramPosition);
+        Assert.Null(merged.Single(item => item.Id == "inside").ProgramWeek);
+        Assert.Equal(0, merged.Single(item => item.Id == "current").ProgramPosition);
+    }
+
+    [Fact]
     public void Summary_merge_removes_completed_items_within_range_when_absent_from_incoming()
     {
         static TrainingSummaryItem Item(string id, string status, DateOnly date, string name)

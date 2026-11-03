@@ -273,8 +273,10 @@ public sealed partial class WorkoutSummaryService(AppDb db, IHttpClientFactory c
             (item.LocalDate < from || item.LocalDate > to) ||
             (item.Status == "completed" && incomingIds.Contains(item.Id)))
             .ToList();
+        // A program slot places a session in the active program's current week as of one answer, like
+        // the up-next days, so a retained row loses it unless the latest answer places it again.
         var mergedById = retained.GroupBy(item => item.Id, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            .ToDictionary(group => group.Key, group => group.First() with { ProgramWeek = null, ProgramPosition = null }, StringComparer.Ordinal);
         foreach (var item in incoming)
         {
             // A completed snapshot is immutable from Nutrition's point of view. A later ranged
@@ -292,8 +294,8 @@ public sealed partial class WorkoutSummaryService(AppDb db, IHttpClientFactory c
                     ExerciseMix = compatible ? item.ExerciseMix ?? existingItem.ExerciseMix : existingItem.ExerciseMix,
                     ExternalVolumeComplete = compatible ? item.ExternalVolumeComplete ?? existingItem.ExternalVolumeComplete : false,
                     SystemVolumeComplete = compatible ? item.SystemVolumeComplete ?? existingItem.SystemVolumeComplete : false,
-                    ProgramWeek = item.ProgramWeek ?? existingItem.ProgramWeek,
-                    ProgramPosition = item.ProgramPosition ?? existingItem.ProgramPosition };
+                    ProgramWeek = item.ProgramWeek,
+                    ProgramPosition = item.ProgramPosition };
                 continue;
             }
             mergedById[item.Id] = item;
