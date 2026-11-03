@@ -1,5 +1,5 @@
 import {lazy,Suspense,useEffect,useId,useRef,useState,type CSSProperties} from 'react';
-import {Camera, LoaderCircle, ScanBarcode, Search, Star} from 'lucide-react';
+import {Camera, History, LoaderCircle, ScanBarcode, Search, Star} from 'lucide-react';
 import type {EnergyUnit} from '../types';
 import {api,ApiError} from '../lib/api';
 import {number} from '../lib/format';
@@ -251,7 +251,10 @@ export function FoodPicker({
           {/* Covers the row so the whole card chooses the food; the star stays a separate control above it. */}
           <Button presentation="plain" className="food-row-choose" data-food-key={`${result.source}|${result.name}|${result.code??''}`} aria-labelledby={`${id}-name`} aria-describedby={`${id}-summary`} onClick={()=>onChoose(result)}/>
           <div className="food-description">
-            <strong id={`${id}-name`}>{result.name}</strong>
+            <strong id={`${id}-name`}>
+              {result.name}
+              {result.logged&&<span className="food-row-logged" title="Logged before"><History size={14} aria-hidden="true"/><span className="sr-only">, logged before</span></span>}
+            </strong>
             <small id={`${id}-summary`}>
               {nutritionSummary(result,energyUnit)}
               {!isFatSecretSource(result.source)?` · ${result.source}`:''}

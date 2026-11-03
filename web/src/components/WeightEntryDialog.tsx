@@ -6,10 +6,10 @@ import type {CoachResult,Weight} from '../types';
 import {today} from '../lib/format';
 import {Button} from './ui/Button';
 import {Field} from './ui/Field';
-import {WeightContextPicker} from './WeightContextPicker';
+import {UnusualWeighInNote} from './UnusualWeighInNote';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
-import {displayEnergy,displayWeight,energyLabel,parseWeight,unitsFor,weightLabel} from '../lib/units';
+import {parseWeight,unitsFor,weightLabel} from '../lib/units';
 import {weightEntryDirty,weightEntryValues} from '../lib/weightEntry';
 import {cleanTrend,unusualWeighIn} from '../lib/weightSignal';
 import {previousDayUnlogged,recentIntake} from '../lib/weighInEvidence';
@@ -111,17 +111,8 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
             </>}/>
         </div>
       </div>
-      {unusual&&<section className="weight-context-prompt" aria-labelledby="weight-context-heading">
-        <h3 id="weight-context-heading">This differs from your recent weigh-ins</h3>
-        <p className="weight-context-evidence">
-          {unusual.direction==='up'?'Up':'Down'} {displayWeight(unusual.differenceKg,units.weight,1)} {weightLabel(units.weight)} from the expected {displayWeight(unusual.expectedKg,units.weight,1)} {weightLabel(units.weight)}.
-          {unusual.contextDirection==='either'&&<> Your last weigh-in was {displayWeight(unusual.latestKg,units.weight,1)} {weightLabel(units.weight)}, so this is not clearly a rise or a drop.</>}
-          {unloggedBefore&&<> The day before was not logged.</>}
-          {intake&&<> Your last {intake.days} logged days averaged {displayEnergy(intake.averageKcal,units.energy)} {energyLabel(units.energy)}{target?<> against a {displayEnergy(target,units.energy)} {energyLabel(units.energy)} target</>:null}.</>}
-        </p>
-        <p>Optional. A temporary reason keeps this weigh-in in your history but leaves it out of calorie estimates until later weigh-ins confirm the level. It never changes calories directly.</p>
-        <WeightContextPicker direction={unusual.contextDirection} value={values.context} onChange={context=>setValues(previous=>({...previous,context}))}/>
-      </section>}
+      {unusual&&<UnusualWeighInNote unusual={unusual} weightUnit={units.weight} energyUnit={units.energy} intake={intake} target={target} unloggedBefore={unloggedBefore}
+        value={values.context} onChange={context=>setValues(previous=>({...previous,context}))}/>}
       {initial?.source==='google_health'&&<p className="source">Imported from Google Health. Saving a change makes it your own entry; Google keeps its copy.</p>}
       <p className="source">{initial?'Changing the date moves this weigh-in. A date that already has one is updated instead.':'A date with an existing weigh-in is updated.'}</p>
       {error&&<p role="alert" className="error">{error}</p>}

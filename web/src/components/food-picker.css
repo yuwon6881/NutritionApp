@@ -7,3 +7,11 @@
   margin: 0;
   font-size: inherit;
 }
+
+/* The account has logged this food before; search already ranks it first, this says why. */
+.food-modal .food-row .food-description .food-row-logged {
+  display: inline-flex;
+  margin-left: 6px;
+  color: var(--primary-ink);
+  vertical-align: -2px;
+}

@@ -130,6 +130,8 @@ public sealed class FoodSearchPersonalizationTests
         var ranked=await FoodRanking.RankForUser(results,"banana",db,default);
 
         Assert.Equal("Banana · Gamma",ranked[0].Name);
+        Assert.True(ranked[0].Logged);
+        Assert.All(ranked.Skip(1),result=>Assert.False(result.Logged));
     }
 
     [Fact]

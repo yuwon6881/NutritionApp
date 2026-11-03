@@ -3,7 +3,7 @@ export type Nutrients={name:string;calories:number;protein:number|null;fat:numbe
 /** What a food's per-100 nutrients, servings and portions are measured in; liquids published per 100 ml use 'ml'. */
 export type Measure='g'|'ml';
 export type Portion={label:string;grams:number};
-export type FoodSearchResult=Nutrients&{servingGrams:number;servingCalories?:number|null;portions?:Portion[];code?:string|null;basis?:'per100g'|'unverified';measure?:Measure};
+export type FoodSearchResult=Nutrients&{servingGrams:number;servingCalories?:number|null;portions?:Portion[];code?:string|null;basis?:'per100g'|'unverified';measure?:Measure;logged?:boolean};
 export type PortionBasis={quantity:number;unit:'g'|'serving';portionLabel:string|null;portionGrams:number|null;measure?:Measure};
 export type Entry=RecordBase&Nutrients&{date:string;time?:string|null;portionLabel?:string|null;portionGrams?:number|null;quantity:number;unit:'g'|'serving';measure?:Measure};
 export type Food=RecordBase&Nutrients&{servingGrams:number;measure?:Measure;favourite:boolean;barcode?:string|null;ingredientsJson:string;portionsJson:string;cookedYieldGrams:number|null};

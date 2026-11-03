@@ -101,7 +101,9 @@ public static class FoodRanking
     {
         if(results.Count==0)return results;
         var frequency=await UsageCounts(results,db,ct);
-        return PrioritizeResults(results,query,frequency);
+        return PrioritizeResults(results,query,frequency)
+            .Select(result=>Frequency(result,frequency)>0?result with {Logged=true}:result)
+            .ToArray();
     }
 
     /// <summary>

@@ -14,8 +14,9 @@ public record FoodPortion(string Label,double Grams);
 /// <see cref="FoodPortion.Grams"/> and <see cref="ServingGrams"/> are amounts of that same measure, and
 /// a nutrient the provider did not report stays null rather than zero. No density converts between the two.
 /// <see cref="IsGeneric"/> marks an unbranded catalogue food for ranking and never leaves the server.
+/// <see cref="Logged"/> is set only on an account-ranked list, for a food this account has logged before.
 /// </summary>
-public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null,string? Code=null,double? ServingCalories=null,string Basis="per100g",string Measure=Measures.Grams,[property:JsonIgnore] bool IsGeneric=false);
+public record FoodResult(string Name,double Calories,double? Protein,double? Fat,double? Carbs,double? Fiber,string Source,double ServingGrams=100,IReadOnlyList<FoodPortion>? Portions=null,string? Code=null,double? ServingCalories=null,string Basis="per100g",string Measure=Measures.Grams,[property:JsonIgnore] bool IsGeneric=false,bool Logged=false);
 
 /// <summary>Shared shaping rules every provider applies to the result it builds.</summary>
 public static class FoodResults

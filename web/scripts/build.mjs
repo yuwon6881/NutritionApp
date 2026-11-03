@@ -27,7 +27,8 @@ const KIB = 1024;
 // Press-and-hold feedback, in-place hold before a drag, and checkbox enter/exit motion add a small first-load allowance.
 // The Coach and weigh-in helpers, remembered notification preferences, and the UI audit layout fixes add a small first-load and offline allowance.
 // The weigh-in actions menu, Quick add shortcut, plan editor current-choice badges, and check-in explanation add a small offline allowance.
-const budgets = { firstLoad: 484 * KIB, precache: 1300 * KIB };
+// The collapsible unusual weigh-in note, the "Logged before" search marker, and contained list scrolling add a small first-load and offline allowance.
+const budgets = { firstLoad: 485 * KIB, precache: 1301 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');
