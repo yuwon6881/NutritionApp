@@ -15,6 +15,7 @@ import {createPortal} from 'react-dom';
 import {Check, ChevronDown} from 'lucide-react';
 import {useDismissablePopover} from './useDismissablePopover';
 import {useViewportAlign} from './useViewportAlign';
+import {revealInList} from '../../lib/revealInList';
 
 export interface SelectOption {
   value: string;
@@ -132,7 +133,7 @@ export function Select({
   useEffect(() => {
     if (isOpen && focusedIndex >= 0 && listRef.current) {
       const item = listRef.current.children[focusedIndex] as HTMLElement | undefined;
-      item?.scrollIntoView({block: 'nearest'});
+      if (item) revealInList(listRef.current, item);
     }
   }, [isOpen, focusedIndex]);
 

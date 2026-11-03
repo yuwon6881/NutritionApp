@@ -5,6 +5,7 @@ import {Calendar, Check, ChevronDown, ChevronLeft, ChevronRight} from 'lucide-re
 import {useDismissablePopover} from './useDismissablePopover';
 import {useViewportAlign} from './useViewportAlign';
 import {readableDate} from '../../lib/format';
+import {revealInList} from '../../lib/revealInList';
 import {useProfileClock} from './ProfileClock';
 
 interface CalendarDropdownProps {
@@ -53,7 +54,7 @@ function CalendarDropdown({
       requestAnimationFrame(() => {
         if (listRef.current) {
           const selectedEl = listRef.current.querySelector('[aria-selected="true"]') as HTMLElement | null;
-          selectedEl?.scrollIntoView({block: 'center'});
+          if (selectedEl) revealInList(listRef.current, selectedEl, 'center');
         }
       });
     }
@@ -64,7 +65,7 @@ function CalendarDropdown({
   useEffect(() => {
     if (isOpen && focusedIndex >= 0 && listRef.current) {
       const el = listRef.current.children[focusedIndex] as HTMLElement | undefined;
-      el?.scrollIntoView({block: 'nearest'});
+      if (el) revealInList(listRef.current, el);
     }
   }, [isOpen, focusedIndex]);
 

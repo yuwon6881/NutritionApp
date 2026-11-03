@@ -270,3 +270,19 @@ test('1280x800 desktop unit select dropdown inside food review modal is aligned 
   await expect(unitListbox).toHaveCount(0);
   await expect(reviewModal.locator('#food-unit-value')).toHaveText('Grams');
 });
+
+test('reopening a select after a choice keeps the page where it was',async({page})=>{
+  await preparePage(page,1280,720);
+  await page.getByRole('button',{name:'Progress',exact:true}).click();
+  const trigger=page.getByRole('button',{name:'Choose weight history period'});
+  await trigger.click();
+  await page.getByRole('option',{name:/6 months/i}).click();
+  const before=await page.evaluate(()=>scrollY);
+  // The remembered option used to be revealed with scrollIntoView before the menu was placed, which
+  // scrolled the whole page to the menu's unpositioned spot at the end of the document.
+  await trigger.click();
+  await expect(page.getByRole('listbox',{name:'Weight history period'})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(before);
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(()=>scrollY)).toBe(before);
+});
