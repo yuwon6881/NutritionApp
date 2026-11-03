@@ -52,12 +52,12 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   const dialog=page.getByRole('dialog',{name:'Log weight',exact:true});
   await dialog.getByLabel('Weight (kg)',{exact:true}).fill('82');
   // The note leads with the difference alone; evidence and reasons wait behind "Add a reason".
-  await expect(dialog.getByRole('heading',{name:'Up 2 kg from the expected 80 kg'})).toBeVisible();
+  await expect(dialog.getByRole('heading',{name:'Up 2 kg from expected'})).toBeVisible();
   await expect(dialog.getByRole('group',{name:'Possible temporary context'})).toHaveCount(0);
   await dialog.getByRole('button',{name:'Add a reason'}).click();
   // A spike offers retention causes first; not-logging days never appear as intake evidence, but an
   // unlogged day before the weigh-in is named because its food may explain the change.
-  await expect(dialog.locator('.weight-context-evidence')).toHaveText('The day before was not logged.');
+  await expect(dialog.locator('.weight-context-evidence')).toHaveText('Day before not logged');
   // The likeliest causes are one tap away; tapping the chosen one again clears it.
   const chips=dialog.getByRole('group',{name:'Possible temporary context'});
   const salty=chips.getByRole('button',{name:'Salty food',exact:true});
