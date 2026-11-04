@@ -41,7 +41,7 @@ const quickPickCodes:Record<'up'|'down'|'either',readonly WeightContextCode[]>={
   either:['illness','travel','digestion','genuine_change'],
 };
 
-/** Quick picks sit two to a row on a phone, so the longer rule labels get short forms here. The rules keep the full text. */
+/** Quick picks are the first chips read, so the longer rule labels get short forms here. The rules keep the full text. */
 const quickPickLabels:Partial<Record<WeightContextCode,string>>={
   high_carb:'High-carb day',
   dehydration:'Dehydration',

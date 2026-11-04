@@ -51,15 +51,13 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
 
   const dialog=page.getByRole('dialog',{name:'Log weight',exact:true});
   await dialog.getByLabel('Weight (kg)',{exact:true}).fill('82');
-  // The note leads with the difference alone; evidence and reasons wait behind "Add a reason".
+  // The note leads with the difference and offers the reasons straight away, with no step to open them.
   await expect(dialog.getByRole('heading',{name:'Up 2 kg from expected'})).toBeVisible();
-  await expect(dialog.getByRole('group',{name:'Possible temporary context'})).toHaveCount(0);
-  await dialog.getByRole('button',{name:'Add a reason'}).click();
   // A spike offers retention causes first; not-logging days never appear as intake evidence, but an
   // unlogged day before the weigh-in is named because its food may explain the change.
   await expect(dialog.locator('.weight-context-evidence')).toHaveText('Day before not logged');
   // The likeliest causes are one tap away; tapping the chosen one again clears it.
-  const chips=dialog.getByRole('group',{name:'Possible temporary context'});
+  const chips=dialog.getByRole('group',{name:'Possible reason'});
   const salty=chips.getByRole('button',{name:'Salty food',exact:true});
   await expect(chips.getByRole('button',{name:'Dehydration'})).toHaveCount(0);
   await expect(salty).toHaveAttribute('aria-pressed','false');
@@ -69,9 +67,11 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   await expect(salty).toHaveAttribute('aria-pressed','false');
   await salty.click();
   await expect(salty).toHaveAttribute('aria-pressed','true');
-  // Reasons without a chip sit behind "More reasons".
-  await dialog.getByRole('button',{name:'More reasons'}).click();
-  await expect(dialog.getByRole('button',{name:'Fewer reasons'})).toBeVisible();
+  // The remaining reasons join the chips in place behind "More reasons".
+  await expect(chips.getByRole('button',{name:'Bloating or water retention',exact:true})).toHaveCount(0);
+  await chips.getByRole('button',{name:'More reasons'}).click();
+  await expect(chips.getByRole('button',{name:'Bloating or water retention',exact:true})).toBeVisible();
+  await expect(chips.getByRole('button',{name:'Fewer reasons'})).toBeVisible();
 
   for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});
@@ -91,8 +91,7 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   await row.getByRole('button',{name:/^Edit weigh-in from /}).click();
   const edit=page.getByRole('dialog',{name:'Edit weigh-in',exact:true});
   await edit.getByLabel('Weight (kg)',{exact:true}).fill('82.2');
-  await edit.getByRole('button',{name:'Add a reason'}).click();
-  const genuine=edit.getByRole('group',{name:'Possible temporary context'}).getByRole('button',{name:'A genuine change',exact:true});
+  const genuine=edit.getByRole('group',{name:'Possible reason'}).getByRole('button',{name:'A genuine change',exact:true});
   await expect(genuine).toHaveAttribute('aria-pressed','false');
   await genuine.click();
   await expect(genuine).toHaveAttribute('aria-pressed','true');
