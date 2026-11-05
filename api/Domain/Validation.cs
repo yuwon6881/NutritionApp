@@ -97,7 +97,7 @@ public static class Validation
         if (p.GoalRatePercent is {} rate)
         {
             if (p.Goal == "lose") Number(rate, -1.5, -.1, "Bodyweight loss rate");
-            else if (p.Goal == "gain") Number(rate, .05, .5, "Bodyweight gain rate");
+            else if (p.Goal == "gain") Number(rate, .05, .75, "Bodyweight gain rate");
             else Require(Math.Abs(rate) <= .0001, "Maintenance uses a 0% bodyweight rate.");
         }
         if(p.EnergyAdjustmentPercent is {} adjustment) Number(adjustment,p.Goal=="maintain"?0:2,p.Goal=="lose"?25:p.Goal=="gain"?20:0,"Energy adjustment percent");

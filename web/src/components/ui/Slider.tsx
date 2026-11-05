@@ -10,6 +10,8 @@ export interface SliderProps {
   min: number;
   max: number;
   step?: number;
+  /** Page Up/Down distance; defaults to five steps. Lets a fine step keep a coarse keyboard jump. */
+  pageStep?: number;
   hint?: ReactNode;
   ariaLabel?: string;
   valueDisplay?: ReactNode;
@@ -30,6 +32,7 @@ export function Slider({
   min,
   max,
   step = 0.05,
+  pageStep,
   hint,
   ariaLabel,
   valueDisplay,
@@ -83,10 +86,10 @@ export function Slider({
         next = clampAndSnap(current - step);
         break;
       case 'PageUp':
-        next = clampAndSnap(current + step * 5);
+        next = clampAndSnap(current + (pageStep ?? step * 5));
         break;
       case 'PageDown':
-        next = clampAndSnap(current - step * 5);
+        next = clampAndSnap(current - (pageStep ?? step * 5));
         break;
       case 'Home':
         next = min;

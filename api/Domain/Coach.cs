@@ -104,7 +104,9 @@ public static class Coach
                     : Math.Min(expenditure * .10, p.WeightKg * .0015 * 7700 / 7),
                 _ => 0
             };
-        var target = Math.Round((expenditure + change) / 25, MidpointRounding.AwayFromZero) * 25;
+        // A selected pace resolves to the nearest kcal; the legacy percentage path keeps 25 kcal steps.
+        var targetStep = p.GoalRatePercent is not null ? 1 : 25;
+        var target = Math.Round((expenditure + change) / targetStep, MidpointRounding.AwayFromZero) * targetStep;
         if (previous != null && !progress.Complete)
         {
             if (!adaptive) target = previous.Calories;
@@ -124,8 +126,8 @@ public static class Coach
         if (p.GoalRatePercent is {} selectedRate && effectiveGoal != "maintain")
         {
             var deficitRatio = expenditure > 0 ? (expenditure - target) / expenditure : 0;
-            if (deficitRatio > 0.25) reason += $" Selected {Math.Abs(selectedRate):0.##}% bodyweight per week. This is an aggressive pace ({Math.Round(deficitRatio * 100)}% deficit); monitor recovery.";
-            else reason += $" Selected {Math.Abs(selectedRate):0.##}% bodyweight per week.";
+            if (deficitRatio > 0.25) reason += $" Selected {Math.Abs(selectedRate):0.###}% bodyweight per week. This is an aggressive pace ({Math.Round(deficitRatio * 100)}% deficit); monitor recovery.";
+            else reason += $" Selected {Math.Abs(selectedRate):0.###}% bodyweight per week.";
         }
         else if (p.EnergyAdjustmentPercent is {} percent && effectiveGoal != "maintain") reason += $" Selected {percent}% {(effectiveGoal == "lose" ? "deficit" : "surplus")}; weekly limits and the calorie floor may moderate this target.";
         double protein, fat, carbs;
@@ -139,7 +141,9 @@ public static class Coach
         }
         else
         {
-            protein = p.ProteinGrams ?? Math.Round(p.WeightKg * (p.ResistanceTraining && effectiveGoal == "lose" ? 2 : 1.6));
+            // Lifters get 2.0 g/kg on every goal, inside the 1.6–2.2 g/kg range where added protein
+            // stops increasing lean-mass gain (Morton et al. 2018); others get the 1.6 g/kg breakpoint.
+            protein = p.ProteinGrams ?? Math.Round(p.WeightKg * (p.ResistanceTraining ? 2 : 1.6));
             fat = target * .3 / 9;
             carbs = (target - protein * 4 - fat * 9) / 4;
             proteinFixed = true;

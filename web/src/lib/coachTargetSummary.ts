@@ -25,7 +25,7 @@ export function proteinPerKg(proteinGrams:number|null|undefined,weightKg:number|
 
 /** The weekly rate in plain words, e.g. "0.5% of body weight per week (about 0.3 kg)". */
 export function paceSentence(percent:number,weightKg:number|null|undefined,unit:WeightUnit):string{
-  const rate=`${Number(Math.abs(percent).toFixed(2))}% of body weight per week`;
+  const rate=`${Number(Math.abs(percent).toFixed(3))}% of body weight per week`;
   const massKg=weeklyPaceMass(percent,weightKg);
   if(massKg==null||massKg<=0)return rate;
   return `${rate} (about ${displayWeight(massKg,unit,1)} ${weightLabel(unit)})`;

@@ -32,6 +32,26 @@ public class CoachingTests
         var p = Profile("lose") with { Maintenance = 1600 };
         Assert.Equal(1500, Coach.Calculate(p, [], [], null, Today).Calories);
     }
+    [Fact] public void A_selected_pace_sets_the_target_to_the_nearest_kcal()
+    {
+        // 80 kg × 0.253% × 7,700 / 7 = 222.64 kcal over the 2,500 kcal maintenance.
+        var paced = Profile("gain") with { GoalRatePercent = .253 };
+        Assert.Equal(2723, Coach.Calculate(paced, [], [], null, Today).Calories);
+        Assert.Equal(2723, ExpenditureTrajectory.SuggestedCalories(paced, 2500, 80));
+        // Profiles without a selected pace keep the 25 kcal steps of the legacy percentage path.
+        Assert.Equal(0, Coach.Calculate(Profile("gain"), [], [], null, Today).Calories!.Value % 25);
+    }
+    [Theory]
+    [InlineData("lose", true, 160)]
+    [InlineData("gain", true, 160)]
+    [InlineData("maintain", true, 160)]
+    [InlineData("gain", false, 128)]
+    public void Default_protein_is_two_grams_per_kg_for_lifters_on_every_goal(string goal, bool lifts, double grams)
+    {
+        // 80 kg: lifters get 2.0 g/kg (mid of the 1.6–2.2 g/kg range, Morton et al. 2018), others 1.6 g/kg.
+        var result = Coach.Calculate(Profile(goal) with { ResistanceTraining = lifts }, [], [], null, Today);
+        Assert.Equal(grams, result.Protein);
+    }
     [Fact] public void Mifflin_equation_matches_reference_example() => Assert.Equal(1748.75, Coach.Resting(Profile()));
     [Fact] public void Starting_profile_requires_explicit_basic_information()
     {
@@ -97,6 +117,8 @@ public class CoachingTests
     [InlineData("lose", -0.05, false)]
     [InlineData("gain", .25, true)]
     [InlineData("gain", .01, false)]
+    [InlineData("gain", .75, true)]
+    [InlineData("gain", .8, false)]
     [InlineData("maintain", 0, true)]
     public void Bodyweight_rates_are_direction_aware(string goal, double rate, bool valid)
     {

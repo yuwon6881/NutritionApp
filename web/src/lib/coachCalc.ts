@@ -69,7 +69,7 @@ export function getPaceStatus(
       return {
         label: 'Aggressive',
         tone: 'aggressive',
-        hint: `Aggressive pace (${absRate.toFixed(2)}% / week): Higher risk of muscle loss and fatigue.`,
+        hint: `Aggressive pace (${absRate.toFixed(3)}% / week): Higher risk of muscle loss and fatigue.`,
       };
     }
     if (absRate < 0.5) {
@@ -87,24 +87,32 @@ export function getPaceStatus(
   }
 
   if (goal === 'gain') {
-    if (absRate > 0.25) {
+    // Bands follow lean-bulk guidance of about 0.25–0.5% bodyweight a week (Iraki et al. 2019).
+    if (absRate > 0.5 + 1e-9) {
       return {
         label: 'Aggressive',
         tone: 'aggressive',
-        hint: 'Aggressive surplus (>0.25% / week): Maximizes recovery and weight gain, but carries higher risk of excess fat accumulation.',
+        hint: 'Fast gain (above 0.5% / week): Faster weight gain, but more of it is likely to be fat rather than muscle.',
       };
     }
     if (absRate < 0.10) {
       return {
         label: 'Minimal',
         tone: 'gentle',
-        hint: 'Minimal surplus (<0.10% / week): Extremely lean progression, but muscle hypertrophy rate may be very slow.',
+        hint: 'Minimal surplus (below 0.10% / week): Very little fat gain, but weight and muscle may barely change.',
+      };
+    }
+    if (absRate < 0.25 - 1e-9) {
+      return {
+        label: 'Conservative',
+        tone: 'gentle',
+        hint: 'Conservative lean bulk (0.10–0.25% / week): Suits experienced lifters who gain muscle slowly; keeps fat gain low.',
       };
     }
     return {
       label: 'Recommended',
       tone: 'recommended',
-      hint: 'Recommended lean bulk pace (0.10–0.25% / week): Promotes muscle protein synthesis while keeping unwanted fat gain minimal.',
+      hint: 'Recommended lean bulk (0.25–0.5% / week): Enough surplus to support muscle gain from training while limiting fat gain. Newer lifters can use the upper end.',
     };
   }
 
@@ -136,7 +144,10 @@ export function calculateLivePace(
         ?legacyPercent!=null?expenditure*legacyPercent/100:Math.min(expenditure*.10,p.weightKg*.0015*7700/7)
         :0;
 
-  const unconstrainedTarget=expenditure>0?Math.round((expenditure+rawChange)/25)*25:2000;
+  // A selected pace resolves to the nearest kcal so each slider step moves the target; the legacy
+  // percentage path keeps 25 kcal steps. Mirrors the server's Coach.Calculate.
+  const targetStep=p.goalRatePercent!=null?1:25;
+  const unconstrainedTarget=expenditure>0?Math.round((expenditure+rawChange)/targetStep)*targetStep:2000;
   const safetyFloor=expenditure>0?Math.ceil(Math.max(1500,expenditure*0.75)/25)*25:1500;
   // Explicit slider pace sets the target directly with a 1000 kcal baseline floor.
   // Profiles without an explicit pace rate retain the conservative 25% safety floor.
@@ -155,7 +166,7 @@ export function calculateLivePace(
     fat=Math.round(rawFat*10)/10;
     carbs=Math.round(rawCarbs*10)/10;
   }else{
-    protein=p.proteinGrams??(p.weightKg>0?Math.round(p.weightKg*(p.resistanceTraining&&goal==='lose'?2:1.6)):120);
+    protein=p.proteinGrams??(p.weightKg>0?Math.round(p.weightKg*(p.resistanceTraining?2:1.6)):120);
     const rawFat=target*0.3/9;
     const remainingCarbEnergy=target-protein*4-rawFat*9;
     const rawCarbs=Math.abs(remainingCarbEnergy)<1e-9?0:remainingCarbEnergy/4;

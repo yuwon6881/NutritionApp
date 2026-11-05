@@ -309,8 +309,12 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await page.getByRole('slider',{name:'Target weight (kg)'}).press('ArrowLeft');
   await page.getByRole('button',{name:/^Next: Pace/}).click();
   await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('End');
-  for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowLeft');
+  // Page Down jumps 0.05%; arrows move the fine 0.001% step (about 1 kcal a day).
+  for(let i=0;i<5;i++)await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('PageDown');
   await expect(page.getByRole('slider',{name:'Rate (% bodyweight per week)'})).toHaveAttribute('aria-valuenow','-0.35');
+  await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowLeft');
+  await expect(page.getByRole('slider',{name:'Rate (% bodyweight per week)'})).toHaveAttribute('aria-valuenow','-0.351');
+  await page.getByRole('slider',{name:'Rate (% bodyweight per week)'}).press('ArrowRight');
   await page.getByRole('button',{name:/^Next: Macros/}).click();
   await page.getByRole('button',{name:'High protein',exact:true}).click();
   await page.getByRole('button',{name:/^Next: Distribution/}).click();
@@ -324,8 +328,9 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   const state=await (await context.request.get('/api/state')).json();const result=JSON.parse(state.plans[0].resultJson);
   // Onboarding chose "None or relaxed activity", the ×1.2 multiplier. Editing the plan starts from
   // the latest weigh-in (80.8 kg, logged earlier in this file) rather than the saved 81 kg, which
-  // lowers the estimate by 0.2 kg × 10 × 1.2 = 2.4 kcal.
-  expect(result.expenditure).toBeCloseTo(1871.4,2);expect(result.calories).toBe(1550);expect(state.profile.goalRatePercent).toBe(-0.35);
+  // lowers the estimate by 0.2 kg × 10 × 1.2 = 2.4 kcal. A selected pace rounds to the kcal:
+  // 1871.4 − 80.8 × 0.35% × 7,700 / 7 = 1560.3.
+  expect(result.expenditure).toBeCloseTo(1871.4,2);expect(result.calories).toBe(1560);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
   // Balance is its own chart view; it explains why no bar is drawn.

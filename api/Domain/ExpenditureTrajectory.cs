@@ -57,7 +57,8 @@ public static class ExpenditureTrajectory
                     : Math.Min(expenditure * .10, trendWeightKg * .0015 * 7700 / 7),
                 _ => 0
             };
-        var rounded = Math.Round((expenditure + change) / 25, MidpointRounding.AwayFromZero) * 25;
+        var step = profile.GoalRatePercent is not null ? 1 : 25;
+        var rounded = Math.Round((expenditure + change) / step, MidpointRounding.AwayFromZero) * step;
         var floor = profile.GoalRatePercent is not null ? 1000 : Math.Ceiling(Math.Max(1500, expenditure * .75) / 25) * 25;
         return (int)Math.Max(rounded, floor);
     }

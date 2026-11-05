@@ -27,14 +27,14 @@ describe('coachCalc', ()=>{
   it('preserves weight-based grams instead of converting rounded default shares back to grams',()=>{
     const pace=calculateDefaultPace({...base,weightKg:66.5,goalRatePercent:-0.5,
       proteinPercent:40,carbsPercent:35,fatPercent:25,proteinGrams:180},2240);
-    expect(pace.target).toBe(1875);
+    expect(pace.target).toBe(1874);
     expect(pace.protein).toBe(106);
-    expect(pace.carbs).toBe(222.1);
+    expect(pace.carbs).toBe(222);
     expect(pace.fat).toBe(62.5);
     expect(pace.split).toEqual({protein:23,carbs:47,fat:30});
     const lifting=calculateDefaultPace({...base,weightKg:66.5,goalRatePercent:-0.5,resistanceTraining:true},2240);
     expect(lifting.protein).toBe(133);
-    expect(lifting.carbs).toBe(195.1);
+    expect(lifting.carbs).toBe(195);
     expect(lifting.split).toEqual({protein:28,carbs:42,fat:30});
   });
   it('calculates resting energy expenditure according to Mifflin-St Jeor', ()=>{
@@ -71,12 +71,30 @@ describe('coachCalc', ()=>{
   it('calculates explicit slider pace directly without 25% hard clamp', ()=>{
     const pace=calculateLivePace({...base,weightKg:65,maintenance:2263,goal:'lose',goalRatePercent:-0.95});
     expect(pace.expenditure).toBe(2263);
-    expect(pace.target).toBe(1575);
+    // A selected pace sets the target to the nearest kcal: 2263 − 679.25.
+    expect(pace.target).toBe(1584);
     expect(pace.isFloored).toBe(false);
     expect(pace.rawChange).toBe(-679);
 
     const steeper=calculateLivePace({...base,weightKg:65,maintenance:2263,goal:'lose',goalRatePercent:-1.0});
-    expect(steeper.target).toBe(1550);
+    expect(steeper.target).toBe(1548);
+  });
+
+  it('gives lifters 2.0 g/kg protein on every goal and others 1.6 g/kg', ()=>{
+    const protein=(goal:'lose'|'gain'|'maintain',lifts:boolean)=>
+      calculateDefaultPace({...base,weightKg:66.5,goal,goalRatePercent:goal==='lose'?-0.5:goal==='gain'?0.25:0,resistanceTraining:lifts},2240).protein;
+    expect(protein('gain',true)).toBe(133);
+    expect(protein('maintain',true)).toBe(133);
+    expect(protein('lose',true)).toBe(133);
+    expect(protein('gain',false)).toBe(106);
+  });
+
+  it('moves the target by about one kcal per 0.001% slider step', ()=>{
+    const at=(rate:number)=>calculateLivePace({...base,weightKg:66,maintenance:2229,goal:'gain',goalRatePercent:rate}).target;
+    // 66 kg: one 0.001% step is 0.73 kcal, so consecutive steps move the target by 0 or 1 kcal.
+    expect(at(0.25)).toBe(2411);
+    expect(at(0.252)).toBe(2412);
+    expect(at(0.3)-at(0.25)).toBe(36);
   });
 
   it('preserves conservative safety floors when no explicit pace rate is set', ()=>{
@@ -104,8 +122,13 @@ describe('coachCalc', ()=>{
     expect(getPaceStatus('lose', -1.2, false, 'kcal', 2263, 1400).tone).toBe('aggressive');
 
     expect(getPaceStatus('gain', 0.05, false).tone).toBe('gentle');
-    expect(getPaceStatus('gain', 0.15, false).tone).toBe('recommended');
-    expect(getPaceStatus('gain', 0.4, false).tone).toBe('aggressive');
+    // Lean-bulk guidance (Iraki et al. 2019; Helms) is about 0.25–0.5% bodyweight a week.
+    expect(getPaceStatus('gain', 0.15, false).label).toBe('Conservative');
+    expect(getPaceStatus('gain', 0.15, false).tone).toBe('gentle');
+    expect(getPaceStatus('gain', 0.25, false).tone).toBe('recommended');
+    expect(getPaceStatus('gain', 0.4, false).tone).toBe('recommended');
+    expect(getPaceStatus('gain', 0.5, false).tone).toBe('recommended');
+    expect(getPaceStatus('gain', 0.55, false).tone).toBe('aggressive');
   });
 
   it('flags carbsBlocked when protein and fat exceed the calorie target', ()=>{

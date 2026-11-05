@@ -179,7 +179,7 @@ export function GoalPaceSetup({
       <div className="live-calorie-meta">
         <span>Maintenance ~{displayEnergy(live.expenditure,units.energy)} {energyLabel(units.energy)}</span>
         {paced&&<span className="live-delta">
-          {live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate).toFixed(2)}% BW/wk{formatWeeklyPaceEquivalent(rate,profile.weightKg,units.weight)}
+          {live.change<0?'−':'+'}{displayEnergy(Math.abs(live.change),units.energy)} {energyLabel(units.energy)} · {Math.abs(rate).toFixed(3)}% BW/wk{formatWeeklyPaceEquivalent(rate,profile.weightKg,units.weight)}
         </span>}
       </div>
     </div>}
@@ -189,18 +189,20 @@ export function GoalPaceSetup({
       name="goalRatePercent"
       label="Rate (% bodyweight per week)"
       min={loss?-1.5:0.05}
-      max={loss?-0.1:0.5}
-      step={0.05}
+      max={loss?-0.1:0.75}
+      // 0.001% of bodyweight is about 1 kcal a day at common body weights.
+      step={0.001}
+      pageStep={0.05}
       value={rate}
-      formatValue={v => `${v > 0 ? '+' : ''}${v.toFixed(2)}% / week`}
+      formatValue={v => `${v > 0 ? '+' : ''}${v.toFixed(3)}% / week`}
       ariaLabel="Rate (% bodyweight per week)"
       onChange={v=>set('goalRatePercent',v)}
-      recommendedRange={loss?[-1.0,-0.5]:[0.1,0.25]}
-      recommendedLabel={loss?'0.5–1.0% / week':'0.10–0.25% / week'}
+      recommendedRange={loss?[-1.0,-0.5]:[0.25,0.5]}
+      recommendedLabel={loss?'0.5–1.0% / week':'0.25–0.5% / week'}
       valueDisplay={paceStatus&&(
         <div className="slider-value-group">
           <span className={`slider-pace-badge ${paceStatus.tone}`}>{paceStatus.label}</span>
-          <span className="slider-current-badge">{rate>0?'+':''}{rate.toFixed(2)}% / week</span>
+          <span className="slider-current-badge">{rate>0?'+':''}{rate.toFixed(3)}% / week</span>
         </div>
       )}
       hint={paceStatus?.hint}

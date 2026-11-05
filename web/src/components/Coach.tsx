@@ -160,7 +160,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       ...(key==='dateOfBirth'?{age:ageOn(value as string,current)??p.age}:{}),
       ...(key==='activityLevel'?activityFields(value as NonNullable<Profile['activityLevel']>):{}),
       ...(key==='goal'?{
-        goalRatePercent:value==='lose'?-0.5:value==='gain'?0.15:0,
+        goalRatePercent:value==='lose'?-0.5:value==='gain'?0.25:0,
         energyAdjustmentPercent:value==='lose'?15:value==='gain'?5:0,
         phaseMode:value==='maintain'?'duration' as const:'weight' as const,
         phaseStart:current,
