@@ -354,24 +354,26 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   await saveWeight(shift(latest.end,-3),80.8);await saveWeight(shift(latest.end,-2),80.8);await saveWeight(latest.end,74.8);
   await markNotLogging(shift(latest.end,-3));await markNotLogging(shift(latest.end,-2));
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Dashboard',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Fat loss goal reached',exact:true})).toBeVisible();
-  await expect(page.locator('.goal-reached-banner')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Goal complete',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Coach',exact:true}).click();
   await page.getByRole('button',{name:'History',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Goal history',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Targets',exact:true}).click();
   await page.getByRole('button',{name:'Dashboard',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Goal complete',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Goal achieved'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Wait for trend weight',exact:true}).click();
+  await page.getByRole('dialog',{name:'Wait for trend weight'}).getByRole('button',{name:'Wait for trend weight',exact:true}).click();
   await expect(page.getByText('Waiting for trend weight',{exact:false})).toBeVisible();
   latest=await (await context.request.get('/api/state')).json();
   await saveWeight(shift(latest.end,-3),74.8);await saveWeight(shift(latest.end,-2),74.8);await saveWeight(latest.end,74.8);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await page.getByRole('button',{name:'Goal complete',exact:true}).click();
   await expect(page.getByRole('button',{name:'Complete goal',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Wait for trend weight',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Complete goal',exact:true}).click();
-  await expect(page.getByRole('dialog',{name:'Weekly check-in'})).toBeVisible({timeout:25000});
-  await expect(page.getByRole('dialog',{name:'Weekly check-in'}).locator('[data-check-in-calorie]')).toBeVisible();
-  await page.keyboard.press('Escape');
+  // Completing hands over to Coach, where the next plan is chosen.
+  await expect(page.getByText('Your plan',{exact:true})).toBeVisible({timeout:25000});
 });
 
 test('accepted daily targets and offline cadence edits stay explicit',async({page,context})=>{

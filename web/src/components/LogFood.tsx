@@ -71,6 +71,7 @@ export function LogFood({
   const recipe=useRecipeDraft();
   const [barcodeRecovery,setBarcodeRecovery]=useState<BarcodeRecovery>();
   const [pendingBarcode,setPendingBarcode]=useState<PendingBarcode>();
+  const [autoLabelCamera,setAutoLabelCamera]=useState(false);
   const [pendingLinkBarcode,setPendingLinkBarcode]=useState<PendingBarcode>();
   const [stepDirty,setStepDirty]=useState(false);
   const [tab,setTab]=useState(defaultTab);
@@ -322,7 +323,7 @@ export function LogFood({
         setResults([await resolveBarcode(recovery.code)]);
       }catch(ex){
         const problem=ex instanceof ApiError?ex:new ApiError('Barcode lookup unavailable. Scan the label or enter this food manually.',503);
-        if([404,422,429,503].includes(problem.status)){setBarcodeRecovery({code:recovery.code,status:problem.status,message:problem.message});return;}
+        if([404,422,429,503].includes(problem.status)){barcodeFailed(recovery.code,problem);return;}
         throw ex;
       }
     });
@@ -374,10 +375,19 @@ export function LogFood({
     setBarcodeRecovery(undefined);
     selectTab('saved');
   };
+  const beginLabelScan=(code:string,autoCamera:boolean)=>{
+    setPendingBarcode({code,purpose:selectionPurpose});
+    setBarcodeRecovery(undefined);setCamera(false);
+    setMode('label');setDescription('');setPhoto(null);setError('');setAutoLabelCamera(autoCamera);setTab(selectionPurpose==='recipe'?'barcode':'ai');
+  };
   const beginBarcodeLabel=()=>{
-    if(!barcodeRecovery)return;
-    setPendingBarcode({code:barcodeRecovery.code,purpose:selectionPurpose});
-    setMode('label');setDescription('');setPhoto(null);setError('');setTab(selectionPurpose==='recipe'?'barcode':'ai');
+    if(barcodeRecovery)beginLabelScan(barcodeRecovery.code,false);
+  };
+  // No provider knows this product: the label is the only way forward, so go straight to it.
+  const barcodeFailed=(code:string,problem:{status:number;message:string})=>{
+    setResults([]);
+    if(problem.status===404){beginLabelScan(code,true);return;}
+    setBarcodeRecovery({code,status:problem.status,message:problem.message});
   };
   const beginBarcodeManual=()=>{
     if(!barcodeRecovery)return;
@@ -440,7 +450,7 @@ export function LogFood({
       busy={busy} pending={busyPending} error={error} setError={setError} camera={camera} setCamera={setCamera}
       onChoose={food=>void chooseSearch(food)}
       lookup={async(kind,value)=>kind==='barcode'?resolveBarcode(value):api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value))}
-      onBarcodeError={(code,problem)=>{setResults([]);setBarcodeRecovery({code,status:problem.status,message:problem.message});}}
+      onBarcodeError={barcodeFailed}
       isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
@@ -454,6 +464,7 @@ export function LogFood({
       onClearPhoto={()=>setPhoto(null)} hasSavedReview={hasSavedScanReview}
       scanDraft={scanDraft} storageError={scan.storageError}
       onSubmit={()=>void run(async()=>{await submitAiEstimate();hapticTick('success');})}
+      autoCapture={autoLabelCamera} onAutoCaptureDone={()=>setAutoLabelCamera(false)}
       onBackToBarcode={()=>{setPendingBarcode(undefined);setTab('barcode');}}
     />}
     {error&&<p className="error" role="alert">{error}</p>}

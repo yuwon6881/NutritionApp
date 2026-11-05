@@ -250,6 +250,12 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
     return()=>window.clearTimeout(timer);
   },[reminder,scheduleLoaded,savedReminder,busy,error]);
 
+  useEffect(()=>{
+    if(!message)return;
+    const timer=window.setTimeout(()=>setMessage(''),5000);
+    return()=>window.clearTimeout(timer);
+  },[message]);
+
   const reminderDirty=scheduleLoaded&&savedReminder!==null&&(
     reminder.enabled!==savedReminder.enabled||reminder.weekday!==savedReminder.weekday||
     reminder.localTime!==savedReminder.localTime||reminder.timeZoneId!==savedReminder.timeZoneId
@@ -291,7 +297,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
 
         </div>
         <div className="actions notification-save-actions">
-          <span className="setting-row-status" role="status">{busy?'Saving…':reminderDirty?'Changes not yet saved':'Schedule saved automatically'}</span>
+          <span className="setting-row-status" role="status">{busy?'Saving…':reminderDirty?'Changes not yet saved':message||'Schedule saved automatically'}</span>
         </div>
       </div>}
     </>}
@@ -300,6 +306,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
       onClick:()=>void (failedAction.current==='schedule'?saveReminder():failedAction.current==='disable'?disableThisDevice():enableThisDevice(enableReminderRequested.current)),
       disabled:busy
     }}/>}
-    {message&&<CardFeedback tone="success" message={message}/>}
+    {/* Once the schedule is visible, the confirmation lives in its status line rather than a card that never goes away. */}
+    {message&&!(status?.configured&&scheduleLoaded)&&<CardFeedback tone="success" message={message}/>}
   </div>;
 }

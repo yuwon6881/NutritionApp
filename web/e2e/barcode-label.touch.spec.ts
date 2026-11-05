@@ -28,13 +28,20 @@ test('a label photo after an unknown barcode keeps Log food open',async({page})=
 
   const digits=logFood.getByLabel('Barcode digits',{exact:true});
   await digits.fill('5012345678900');
+  // The unknown barcode goes straight to the label step and tries to open the camera itself.
+  const automatic=page.waitForEvent('filechooser',{timeout:4000}).catch(()=>null);
   await digits.press('Enter');
-  await logFood.getByRole('button',{name:'Scan nutrition label',exact:true}).click();
   await expect(logFood.getByRole('button',{name:'Back to barcode'})).toBeVisible();
+  await expect(logFood.getByRole('button',{name:'Scan nutrition label',exact:true})).toHaveCount(0);
 
-  const chooser=page.waitForEvent('filechooser');
-  await logFood.getByRole('button',{name:'Take photo',exact:true}).click();
-  await (await chooser).setFiles('public/icon-512.png');
+  // A browser may withhold the automatic camera without a fresh tap; Take photo is the fallback.
+  let chooser=await automatic;
+  if(!chooser){
+    const manual=page.waitForEvent('filechooser');
+    await logFood.getByRole('button',{name:'Take photo',exact:true}).click();
+    chooser=await manual;
+  }
+  await chooser.setFiles('public/icon-512.png');
   // Returning from the camera app focuses the window, which releases the Back guard.
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(logFood.locator('.ai-photo-preview img')).toBeVisible();

@@ -11,6 +11,5 @@ export const BarcodeViewfinder=forwardRef<HTMLDivElement,{detected?:boolean}>(fu
   return <div ref={ref} className={`barcode-frame${detected?' detected':''}`} aria-hidden="true">
     <i/><i/><i/><i/>
     <span className="barcode-silhouette">{BARS.map((width,index)=><b key={index} style={{flexGrow:width}}/>)}</span>
-    <span className="barcode-guide"/>
   </div>;
 });

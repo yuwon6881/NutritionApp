@@ -50,7 +50,11 @@ export function LogFoodAiForm({
   storageError,
   onSubmit,
   onBackToBarcode,
+  autoCapture=false,
+  onAutoCaptureDone,
 }:{
+  autoCapture?:boolean;
+  onAutoCaptureDone?:()=>void;
   date:string;
   busy:boolean;
   pending?:boolean;
@@ -118,6 +122,15 @@ export function LogFoodAiForm({
     input.setAttribute('capture', 'environment');
     input.click();
   };
+
+  // After a barcode no provider knows, open the label camera at once. A browser may refuse a
+  // programmatic camera open without a fresh tap, so the Take photo button stays as the fallback.
+  useEffect(() => {
+    if (!autoCapture) return;
+    onAutoCaptureDone?.();
+    if (isMobile && mode === 'label' && !photo) triggerCamera();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCapture]);
 
   const triggerGallery = () => {
     const input = fileInputRef.current;

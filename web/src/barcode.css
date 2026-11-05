@@ -22,7 +22,6 @@
 .barcode-frame.detected>i{border-color:var(--camera-detected)}
 .barcode-silhouette{position:absolute;inset:22% 12%;display:flex;gap:3px;opacity:.22}
 .barcode-silhouette>b{display:block;min-width:2px;background:var(--camera-ink);border-radius:1px}
-.barcode-guide{position:absolute;left:8%;right:8%;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:var(--camera-detected);opacity:.85}
 
 /* Android: ML Kit renders the camera behind a transparent web view. */
 html.native-barcode-scan-active,html.native-barcode-scan-active body{background:transparent!important}

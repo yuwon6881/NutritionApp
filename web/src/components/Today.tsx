@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import {lazy,Suspense,useEffect,useMemo,useState} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {CoachResult} from '../types';
 import {number,today} from '../lib/format';
@@ -6,6 +6,9 @@ import {cleanTrend} from '../lib/weightSignal';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {planForDate,targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
+import {goalNeedsDecision} from '../lib/goalDecision';
+import {GoalReachedOrb} from './GoalReachedOrb';
+const GoalReachedDialog=lazy(()=>import('./GoalReachedDialog').then(module=>({default:module.GoalReachedDialog})));
 import {GoalSummary} from './GoalSummary';
 import {CheckInButton} from './CheckInButton';
 import {checkInSchedule} from '../lib/checkIn';
@@ -54,6 +57,10 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
   const checkIn=state.profile&&accepted?checkInSchedule(state,date):undefined;
   const checkInReady=Boolean(checkIn?.due)&&loaded;
   const openCheckIn=(trigger:HTMLElement)=>{setCheckInRestore(trigger);setCheckInOpen(true);};
+  // A reached goal waits for the user's decision; its ring replaces the calorie ring until then.
+  const goalDecision=loaded&&goalNeedsDecision(goalProgress,state.settings?.weightGoalMetric??'scale');
+  const [goalOpen,setGoalOpen]=useState(false);
+  const [goalRestore,setGoalRestore]=useState<HTMLElement|null>(null);
   const {state: ghState,loading: ghLoading}=useGoogleHealth();
   // Do not show an integration card while its first status request is unresolved.
   // Once a connection is known, keep the card visible during background refresh so
@@ -65,8 +72,7 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
   useEffect(()=>{if(state.workoutConnected!==false)void loadTrainingSummaries?.();},[loadTrainingSummaries,state.workoutConnected]);
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
-    <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"
-      onComplete={openCheckIn}/>
+    <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"/>
     {!loaded?online
       // Online, today is simply still arriving (a cold start or a waking server): show its shape, not an offline notice.
       ?<DashboardSkeleton heading={false} label="Loading today…"/>
@@ -81,7 +87,16 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
         {showGoogleHealthSteps&&<DashboardSteps store={store} health={ghState} todayDate={date} onOpenSettings={onSettings}/>}
       </div>
       <div className="daily-grid">
-        {checkInReady&&checkIn
+        {goalDecision
+          ?<article className="panel energy-panel">
+            <div>
+              <p className="eyebrow">Energy</p>
+              <h2>{displayEnergy(total,energyUnit)} <span className="unit">{energyLabel(energyUnit)} logged</span></h2>
+              <p>Your goal is reached. Open it to choose what comes next.</p>
+            </div>
+            <div className="energy-check-in"><GoalReachedOrb onClick={trigger=>{setGoalRestore(trigger);setGoalOpen(true);}}/><p className="energy-check-in-label">Goal complete</p></div>
+          </article>
+          :checkInReady&&checkIn
           ?<article className="panel energy-panel">
             <div>
               <p className="eyebrow">Energy</p>
@@ -114,6 +129,7 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
       </section>
       </div>
     </>}
+    {goalOpen&&goalDecision&&<Suspense fallback={null}><GoalReachedDialog open progress={goalProgress} store={store} onClose={()=>{setGoalOpen(false);goalRestore?.focus();}} onChooseGoal={onCoach}/></Suspense>}
     <CheckInDialog open={checkInOpen} store={store} restoreFocus={checkInRestore} onClose={()=>setCheckInOpen(false)}/>
   </>;
 }

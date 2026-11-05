@@ -288,18 +288,18 @@ test('direct barcode result without declared serving displays / 100 g',async({pa
   await expect(row.locator('.food-description > small')).toContainText('370 kcal / 100 g');
 });
 
-test('barcode misses can link a private food and repeat offline from the local mapping',async({page,context})=>{
+test('incomplete barcode products can link a private food and repeat offline from the local mapping',async({page,context})=>{
   await context.addCookies(session.cookies);
   let providerCalls=0;
   await page.route('**/api/foods/barcode/*',route=>{
     providerCalls++;
-    return route.fulfill({status:404,json:{message:'Barcode not found. Scan the label or add a custom food.'}});
+    return route.fulfill({status:422,json:{message:'Product data is incomplete.'}});
   });
   await openLog(page);
   await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await page.getByLabel('Barcode digits').fill('9559876543210');
   await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Barcode not found in the food databases',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Product data is incomplete',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Link an existing food',exact:true}).click();
   await expect(page.getByText(/Choose one saved non-recipe food/)).toBeVisible();
   await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
@@ -327,7 +327,9 @@ test('barcode label recovery normalizes a declared serving before explicit save'
   await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await page.getByLabel('Barcode digits').fill('9551234567890');
   await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
-  await page.getByRole('button',{name:'Scan nutrition label',exact:true}).click();
+  // A barcode no provider knows goes straight to the label step; no recovery choices are offered.
+  await expect(page.getByRole('heading',{name:'Scan nutrition label',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Link an existing food',exact:true})).toHaveCount(0);
   const onePixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
   await page.getByLabel('Photograph the nutrition label',{exact:true}).setInputFiles({name:'label.png',mimeType:'image/png',buffer:onePixel});
   await expect(page.getByText('Location metadata removed · deleted after processing.',{exact:true})).toBeVisible();
