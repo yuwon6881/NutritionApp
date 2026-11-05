@@ -7,6 +7,7 @@ import {Button} from './ui/Button';
 import {BodyHubSkeleton} from './body/BodyHubSkeleton';
 import {CoachingProgress} from './CoachingProgress';
 import {EnergyBalance} from './EnergyBalance';
+import {MaintenanceChart} from './MaintenanceChart';
 import {WeightEntryDialog} from './WeightEntryDialog';
 import {showUndo} from './ui/UndoToast';
 import {UNDO_WINDOW_MS} from '../lib/heldMutations';
@@ -200,6 +201,7 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
         {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
       </SelectField></div>
       <EnergyBalance store={store} period={energy.displayedPeriod} summary={energy.summary} error={energy.error}/>
+      <MaintenanceChart points={state.energyEstimates??[]} energyUnit={units.energy} rangeStart={energyRange.start} rangeEnd={energyRange.end}/>
       <CoachingProgress store={store} rangeStart={energyRange.start} rangeEnd={energyRange.end}/>
     </div>}
     {tab==='body'&&<Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>}

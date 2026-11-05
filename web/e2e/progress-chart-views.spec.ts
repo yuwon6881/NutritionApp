@@ -62,3 +62,16 @@ test('the weight chart scrolls sideways on a phone when a year does not fit',asy
   const scroller=page.locator('.weight-chart-panel .bar-chart-scroller');
   await expect.poll(()=>scroller.evaluate(element=>element.scrollWidth-element.clientWidth)).toBeGreaterThan(1);
 });
+
+test('the maintenance chart shades the days the estimate held',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'Energy',exact:true}).click();
+  const panel=page.locator('.maintenance-chart-panel');
+  await expect(panel.getByRole('img',{name:/^Estimated maintenance across \d+ days; held on [1-9]\d* of them\.$/})).toBeVisible();
+  // Eleven days of weigh-ins cannot span the 21 days adaptation needs, so the estimate is held.
+  await expect(panel.locator('.section-heading .maintenance-status.is-holding')).toHaveText('More weigh-ins');
+  await expect(panel.locator('.maintenance-hold-band').first()).toBeVisible();
+  // A held estimate can be perfectly flat, which Playwright treats as zero-size, so count rather than test visibility.
+  await expect(panel.locator('.maintenance-trend-line.is-held')).not.toHaveCount(0);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+});

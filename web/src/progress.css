@@ -198,3 +198,18 @@
 @media(max-width:639px){
   .activity-connect-card .button{width:100%;justify-content:center}
 }
+
+/* Maintenance: the line moves while the estimate adapts and goes dashed over shaded days where it held. */
+.maintenance-chart-panel .section-heading{align-items:center}
+.maintenance-hold-band{fill:color-mix(in srgb,var(--muted-foreground) 10%,transparent)}
+.maintenance-trend-line{stroke:var(--energy);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.maintenance-trend-line.is-held{stroke:var(--muted-foreground);stroke-width:2.5;stroke-dasharray:6 5}
+.maintenance-dot{fill:var(--card);stroke:var(--energy);stroke-width:3}
+.maintenance-dot.is-held{stroke:var(--muted-foreground)}
+.maintenance-status{display:inline-flex;align-items:center;gap:5px;font-size:.8125rem;font-weight:600;color:var(--muted-foreground);white-space:nowrap}
+.section-heading>.maintenance-status{padding:4px 10px;border-radius:999px;background:var(--muted)}
+.maintenance-status.is-adapting{color:var(--primary-ink)}
+.section-heading>.maintenance-status.is-adapting{background:var(--primary-tint)}
+.chart-readout-grid dd .maintenance-status{font-size:.9375rem;white-space:normal}
+.swatch-maintenance-adapting{border-color:var(--energy);border-top-width:3px}
+.swatch-maintenance-hold{background:var(--muted);border:1px dashed var(--muted-foreground)}
