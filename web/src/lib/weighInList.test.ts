@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {changeSincePrevious,latestWeighIns} from './weighInList';
+import {changeSincePrevious,latestWeighIns,mergeWeighInRows} from './weighInList';
 import type {Weight} from '../types';
 
 const series=[{date:'2026-09-20',scaleKg:81,trendKg:81},{date:'2026-09-22',scaleKg:80.6,trendKg:80.9},{date:'2026-09-25',scaleKg:80.9,trendKg:80.8}];
@@ -52,5 +52,16 @@ describe('latest weigh-ins',()=>{
 
   it('is empty without weigh-ins',()=>{
     expect(latestWeighIns([],'2026-10-18',3)).toEqual([]);
+  });
+});
+
+describe('weigh-in list pages',()=>{
+  const row=(id:string,date:string,kg:number):Weight=>({id,date,kg,revision:1,deleted:false});
+  it('lets projected rows win, drops queued deletions, and reads newest first',()=>{
+    const projected=[row('a','2026-10-30',70.4),row('b','2026-10-29',70)];
+    const paged=[row('a','2026-10-30',70.1),row('c','2026-10-20',71),row('d','2026-10-10',72),{...row('e','2026-10-05',73),deleted:true}];
+    const merged=mergeWeighInRows(projected,paged,new Set(['d']));
+    expect(merged.map(weight=>weight.id)).toEqual(['a','b','c']);
+    expect(merged[0].kg).toBe(70.4);
   });
 });

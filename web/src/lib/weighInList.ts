@@ -36,3 +36,17 @@ export function latestWeighIns(weights:readonly Weight[],current:string,count:nu
     .sort((a,b)=>b.date.localeCompare(a.date))
     .slice(0,count);
 }
+
+/**
+ * The Progress weigh-in list: the summary's projected rows (which already carry queued edits)
+ * win over older rows paged in from the server, queued deletions disappear at once, and the
+ * result reads newest first.
+ */
+export function mergeWeighInRows(projected:readonly Weight[],paged:readonly Weight[],pendingDeletes:ReadonlySet<string>):Weight[]{
+  const rows=new Map<string,Weight>();
+  for(const weight of paged)rows.set(weight.id,weight);
+  for(const weight of projected)rows.set(weight.id,weight);
+  return [...rows.values()]
+    .filter(weight=>!weight.deleted&&!pendingDeletes.has(weight.id))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+}

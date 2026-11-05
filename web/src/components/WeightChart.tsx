@@ -2,7 +2,7 @@ import {useId,useMemo,useState} from 'react';
 import {SegmentedControl} from './ui/SegmentedControl';
 import type {ProgressWeightPoint,WeightUnit} from '../types';
 import {displayWeight,weightLabel,weightValue} from '../lib/units';
-import {dateAxisOffsets,niceTicks} from '../lib/barChart';
+import {dateAxisOffsets,dateAxisStep,niceTicks} from '../lib/barChart';
 import {dateSpan} from '../lib/chartLabels';
 import {monthYear,readableDate,readoutDate,shortDate} from '../lib/format';
 import {BAR_AXIS_WIDTH,BarChartFrame,BarChartNav} from './ui/BarChartFrame';
@@ -13,13 +13,17 @@ import {useChartScrub} from './ui/useChartScrub';
 type View='both'|'scale'|'trend';
 const TOP=16;
 const DAY=86400000;
-/** A long period never needs more than this many screens of scrolling. */
-const MAX_SCREENS=4;
+/**
+ * The narrowest a day may get before the chart scrolls instead of squeezing: a phone shows
+ * about six weeks, a desktop window six months, and longer periods scroll from the latest day.
+ */
+const MIN_DAY_WIDTH:Record<ReturnType<typeof useWindowTier>,number>={compact:7,medium:6,expanded:5};
 const isoDay=(time:number)=>new Date(time).toISOString().slice(0,10);
 
 export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit;periodStart?:string;periodEnd?:string}){
   // A wide window has the room for a taller plot, so a month of weigh-ins reads as a trend, not a strip.
-  const height=useWindowTier()==='expanded'?300:214;
+  const tier=useWindowTier();
+  const height=tier==='expanded'?300:214;
   const base=height-30;
   const [view,setView]=useState<View>('both');
   const readoutId=useId();
@@ -32,7 +36,7 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
   const end=last?Date.parse(periodEnd&&periodEnd>last?periodEnd:last):0;
   const totalDays=series.length?Math.max(0,Math.round((end-start)/DAY)):0;
   // One slot per calendar day, so weigh-ins keep their true spacing; each window shows the same days as the Energy charts.
-  const viewport=useBarViewport(totalDays+1,base=>Math.max(base,Math.ceil((totalDays+1)/MAX_SCREENS)));
+  const viewport=useBarViewport(totalDays+1,MIN_DAY_WIDTH[tier]);
   const {slot,contentWidth,edges}=viewport;
   const dayOf=(date:string)=>Math.round((Date.parse(date)-start)/DAY);
   const x=(date:string)=>slot*(dayOf(date)+.5);
@@ -57,12 +61,14 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
   const scrub=useChartScrub(series.map(point=>x(point.date)),{tapToSelect:true});
   const selected=series[scrub.index];
   useRevealBar(viewport,selected?dayOf(selected.date):0);
-  const dot=(point:ProgressWeightPoint,isSelected:boolean)=><circle key={`scale-${point.date}`} cx={x(point.date)} cy={y(point.scaleKg)} r={isSelected?5:2.75} className={isSelected?'scale-dot is-selected':'scale-dot'}><title>{readableDate(point.date)}: {displayWeight(point.scaleKg,weightUnit,1)} {unit} on the scale</title></circle>;
+  // Dots shrink with the day width so neighbouring weigh-ins never merge into a smear.
+  const dotRadius=Math.max(1.75,Math.min(2.75,slot*.42));
+  const dot=(point:ProgressWeightPoint,isSelected:boolean)=><circle key={`scale-${point.date}`} cx={x(point.date)} cy={y(point.scaleKg)} r={isSelected?5:dotRadius} className={isSelected?'scale-dot is-selected':'scale-dot'}><title>{readableDate(point.date)}: {displayWeight(point.scaleKg,weightUnit,1)} {unit} on the scale</title></circle>;
   // Up to 400 dots: scrubbing swaps only the selected one, so React skips the unchanged elements.
   // x and y derive only from these values.
   const dots=useMemo(()=>series.map(point=>dot(point,false)),[series,slot,start,low,high,weightUnit]);
   // Labels sit on whole days and stay apart; long periods label months instead of days, and a month shows once.
-  const dateLabel=totalDays>200?monthYear:shortDate;
+  const dateLabel=dateAxisStep(slot)>=91?monthYear:shortDate;
   const labelDates=series.length?dateAxisOffsets(totalDays,slot)
     .map(offset=>isoDay(start+offset*DAY))
     .filter((date,index,all)=>index===0||dateLabel(date)!==dateLabel(all[index-1])):[];

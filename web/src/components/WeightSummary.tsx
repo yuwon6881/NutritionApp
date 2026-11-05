@@ -1,27 +1,50 @@
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {CloudDownload,MoreHorizontal,Pencil,Trash2} from 'lucide-react';
 import type {ProgressSummary,Weight} from '../types';
 import {displayWeight,weightLabel,type unitsFor} from '../lib/units';
 import {monthShort,readoutDate,weekdayShort} from '../lib/format';
 import {dateSpan} from '../lib/chartLabels';
-import {changeSincePrevious} from '../lib/weighInList';
+import {changeSincePrevious,mergeWeighInRows} from '../lib/weighInList';
 import {weightContextLabel} from '../lib/weightContext';
 import {Button} from './ui/Button';
 import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
 import {WeightChart} from './WeightChart';
+import {CardFeedback} from './ui/CardFeedback';
+import {SkeletonBlock} from './ui/Skeleton';
+import {useWeighInHistory} from './useWeighInHistory';
 
 type Units=ReturnType<typeof unitsFor>;
 
-// A week of rows keeps the list short on a phone; the rest are one tap away.
+// A week of rows keeps the list short on a phone; older rows page in as the person scrolls on.
 const INITIAL_ROWS=7;
 
 export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:Units;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void;pendingDeletes:ReadonlySet<string>}){
   const stats=summary.weight.statistics;
   const isTrendPending=Boolean(stats.trendPending);
   const unit=weightLabel(units.weight);
-  const editable=useMemo(()=>summary.weight.editableWeighIns.filter(weight=>!pendingDeletes.has(weight.id)),[summary.weight.editableWeighIns,pendingDeletes]);
+  const history=useWeighInHistory(summary.start,summary.end,summary.revision);
+  const editable=useMemo(()=>mergeWeighInRows(summary.weight.editableWeighIns,history.items,pendingDeletes),[summary.weight.editableWeighIns,history.items,pendingDeletes]);
   const trendChange=stats.trendChangeKg;
   const [showAll,setShowAll]=useState(false);
+  // The period's weigh-in count says whether older rows exist before any page has been read.
+  const canLoad=history.hasMore&&editable.length<stats.count;
+  const hasHidden=showAll?canLoad:editable.length>INITIAL_ROWS||canLoad;
+  useEffect(()=>setShowAll(false),[summary.start,summary.end]);
+  const loadMore=history.loadMore;
+  const showMore=()=>{
+    if(!showAll){setShowAll(true);if(editable.length<INITIAL_ROWS*2&&canLoad)loadMore();return;}
+    if(canLoad)loadMore();
+  };
+  // Once the list is open, reaching its end reads the next page without another tap.
+  const moreRef=useRef<HTMLDivElement>(null);
+  const autoLoad=showAll&&canLoad&&!history.loading&&!history.error;
+  useEffect(()=>{
+    const element=moreRef.current;
+    if(!autoLoad||!element||typeof IntersectionObserver==='undefined')return;
+    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))loadMore();},{rootMargin:'320px 0px'});
+    observer.observe(element);
+    return()=>observer.disconnect();
+  },[autoLoad,loadMore]);
   const [menuTarget,setMenuTarget]=useState<{weight:Weight;trigger:HTMLElement}|null>(null);
   const [menuOpen,setMenuOpen]=useState(false);
   const shown=useMemo(()=>showAll?editable:editable.slice(0,INITIAL_ROWS),[editable,showAll]);
@@ -56,7 +79,7 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
               {weight.source==='google_health'&&<span className="weigh-in-source" title="From Google Health"><CloudDownload size={13} aria-hidden="true"/><span className="sr-only">, from Google Health</span></span>}
             </p>
             <p className="weigh-in-meta">
-              {change==null?'First in period':Math.abs(change)<.005?'No change':<>{`${change>0?'+':'−'}${displayWeight(Math.abs(change),units.weight,1)} ${unit}`}<span className="sr-only"> from the previous weigh-in</span></>}
+              {change==null?'First in period':displayWeight(Math.abs(change),units.weight,1)==='0'?'No change':<>{`${change>0?'+':'−'}${displayWeight(Math.abs(change),units.weight,1)} ${unit}`}<span className="sr-only"> from the previous weigh-in</span></>}
               {context&&<span className="weigh-in-context"> · {context}</span>}
             </p>
           </div>
@@ -66,7 +89,15 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
           </div>
         </li>;
       })}</ul>
-      {editable.length>INITIAL_ROWS&&<div className="weigh-in-more"><Button variant="secondary" aria-expanded={showAll} onClick={()=>setShowAll(value=>!value)}>{showAll?'Show fewer':`Show ${editable.length-INITIAL_ROWS} more`}</Button></div>}</>
+      {showAll&&history.loading&&<div className="weigh-in-loading" role="status" aria-busy="true"><span className="sr-only">Loading older weigh-ins</span>
+        {[0,1].map(index=><div key={index} className="weigh-in-row" aria-hidden="true"><SkeletonBlock width={54} height={58} radius={10}/><div><SkeletonBlock width={88} height={18}/><SkeletonBlock width={120} height={12} className="weigh-in-skeleton-meta"/></div></div>)}
+      </div>}
+      {showAll&&history.error&&<CardFeedback title="Older weigh-ins unavailable" message={history.error} action={{label:'Retry',onClick:loadMore,disabled:history.loading}}/>}
+      {(hasHidden||showAll)&&editable.length>INITIAL_ROWS-1&&<div className="weigh-in-more" ref={moreRef}>
+        <p className="weigh-in-count">Showing {shown.length} of {Math.max(stats.count,editable.length)}</p>
+        {hasHidden?<Button variant="secondary" aria-expanded={showAll} disabled={history.loading} onClick={showMore}>Show more</Button>
+          :<Button variant="secondary" aria-expanded={showAll} onClick={()=>setShowAll(false)}>Show fewer</Button>}
+      </div>}</>
       :<p className="empty">No weigh-ins in this period.</p>}
     </section>
     <ActionSheet isOpen={menuOpen} onClose={()=>setMenuOpen(false)} restoreFocus={menuTarget?.trigger} title="Weigh-in" subtitle={menuTarget?readoutDate(menuTarget.weight.date):undefined} options={menuOptions}/>

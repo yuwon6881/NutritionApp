@@ -98,7 +98,12 @@
   .chart-block+.chart-block{margin-top:24px;padding-top:20px}
   .weigh-in-row{gap:12px}
 }
-.weigh-in-more{display:flex;justify-content:center;margin-top:14px}
+.weigh-in-more{display:grid;justify-items:center;gap:8px;margin-top:14px}
+.weigh-in-count{margin:0;font-size:.78rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.weigh-in-loading{display:grid}
+.weigh-in-loading .weigh-in-row{grid-template-columns:auto minmax(0,1fr)}
+.weigh-in-skeleton-meta{margin-top:6px}
+.weight-history-panel .card-feedback{margin-top:12px}
 @media(min-width:1024px){
   .button.bar-chart-edge{display:inline-flex;position:absolute;z-index:2;width:36px;min-width:36px;height:36px;min-height:36px;padding:0;border-radius:999px;background:var(--card);box-shadow:var(--shadow);transition:opacity var(--motion-control) ease,background-color var(--motion-control) ease}
   .bar-chart-edge-back{left:calc(52px + 6px)}

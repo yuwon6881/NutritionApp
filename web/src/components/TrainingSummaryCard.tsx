@@ -170,12 +170,12 @@ export function TrainingSummaryCard({
                 )}
               </small>
             </div>
-            <div className="training-summary-metrics">
-              {item.workingSetCount>0&&<span>{item.workingSetCount} {item.workingSetCount===1?'set':'sets'}</span>}
-              {item.externalVolumeKg!=null&&<span title="External volume">{displayWeight(item.externalVolumeKg,unit,0)} {weightLabel(unit)} volume</span>}
-              {item.systemVolumeKg!=null&&<span title="System volume (including body weight)">{displayWeight(item.systemVolumeKg,unit,0)} {weightLabel(unit)} system</span>}
-              {item.averageRpe!=null&&<span title="Average RPE">RPE {item.averageRpe.toFixed(1)}</span>}
-            </div>
+            {(item.workingSetCount>0||item.externalVolumeKg!=null||item.systemVolumeKg!=null||item.averageRpe!=null)&&<dl className="training-summary-metrics">
+              {item.workingSetCount>0&&<div className="training-metric"><dt>{item.workingSetCount===1?'Set':'Sets'}</dt><dd>{item.workingSetCount}</dd></div>}
+              {item.externalVolumeKg!=null&&<div className="training-metric" title="External volume"><dt>Volume ({weightLabel(unit)})</dt><dd>{displayWeight(item.externalVolumeKg,unit,0)}</dd></div>}
+              {item.systemVolumeKg!=null&&<div className="training-metric" title="System volume (including body weight)"><dt>System ({weightLabel(unit)})</dt><dd>{displayWeight(item.systemVolumeKg,unit,0)}</dd></div>}
+              {item.averageRpe!=null&&<div className="training-metric" title="Average RPE"><dt>Avg RPE</dt><dd>{item.averageRpe.toFixed(1)}</dd></div>}
+            </dl>}
           </div>;
         })}
       </div>

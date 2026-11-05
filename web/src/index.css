@@ -1821,13 +1821,20 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .training-row-in-progress:hover{border-color:var(--success)}
   .training-row-completed:hover{border-color:color-mix(in srgb,var(--success) 45%,var(--border))}
 }
-.training-summary-metrics{display:flex;flex-wrap:wrap;gap:8px;font-size:.78rem;color:var(--muted-foreground)}
-.training-summary-metrics span{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-variant-numeric:tabular-nums}
-/* Phones: the metrics read as one dotted line under the status instead of stacked chips. */
+/* Session figures read as a small stat strip: the value leads, its label sits beneath, and hairlines divide them. */
+.training-summary-metrics{display:flex;margin:0}
+.training-metric{display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:1px;min-width:0;padding:0 14px}
+.training-metric:first-child{padding-left:0}
+.training-metric:last-child{padding-right:0}
+.training-metric+.training-metric{border-left:1px solid var(--border)}
+.training-metric dd{margin:0;font-size:.95rem;font-weight:650;line-height:1.25;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
+.training-metric dt{font-size:.7rem;line-height:1.3;color:var(--muted-foreground);white-space:nowrap}
+/* Phones: the strip takes its own line under the status, its figures sharing the width evenly. */
 @media(max-width:639px){
-  .training-summary-metrics{flex-basis:100%;gap:0 6px}
-  .training-summary-metrics span{padding:0;border:0;background:none;border-radius:0}
-  .training-summary-metrics span+span::before{content:'·';margin-right:6px}
+  .training-summary-metrics{flex-basis:100%;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);padding-top:10px;border-top:1px solid var(--border)}
+  .training-metric{padding:0 8px}
+  .training-metric dd{font-size:.9rem}
+  .training-metric dt{white-space:normal}
 }
 
 /* Progress Step Chart Section */

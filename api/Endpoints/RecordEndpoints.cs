@@ -178,6 +178,12 @@ public static class RecordEndpoints
             if(summary.Revision==user.Revision&&finalRevision==user.Revision)http.Response.Headers.ETag=etag;
             return Results.Ok(summary);
         }).RequireRateLimiting("progress");
+        app.MapGet("/api/progress/weigh-ins",async(AppDb db,DateOnly? start,DateOnly? before,int? limit,CancellationToken ct)=>
+        {
+            Validation.Require(start is not null&&before is not null,"Specify both 'start' and 'before' dates.");
+            Validation.Require(start>=new DateOnly(2000,1,1)&&start<before,"The start date must be before the cursor date.");
+            return Results.Ok(await WeighInHistory.Page(db,start!.Value,before!.Value,limit??30,ct));
+        }).RequireRateLimiting("progress");
         app.MapPost("/api/sync",async(Mutation mutation,SyncService sync,AppDb db,IServiceScopeFactory scopes,ILogger<SyncService> logger,HttpContext http,CancellationToken ct)=>
         {
             var revision=await sync.Apply(mutation,ct);

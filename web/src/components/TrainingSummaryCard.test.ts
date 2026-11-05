@@ -118,7 +118,7 @@ describe('TrainingSummaryCard', () => {
 
     expect(html).toContain('Up next');
     expect(html).toContain('Completed');
-    expect(html).toContain('2 sets');
+    expect(html).toContain('<dt>Sets</dt><dd>2</dd>');
     expect(html).not.toContain('Rest Day');
   });
 

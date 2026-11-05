@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {barSlotWidth,dateAxisOffsets,dateAxisStep,niceStep,niceTicks,revealScrollLeft,steppedPath,visibleBarCount,visibleRange} from './barChart';
+import {barSlotWidth,dateAxisOffsets,fitSlotWidth,dateAxisStep,niceStep,niceTicks,revealScrollLeft,steppedPath,visibleBarCount,visibleRange} from './barChart';
 
 describe('scrollable bar chart geometry',()=>{
   it('shows fewer bars on narrower window tiers',()=>{
@@ -14,6 +14,14 @@ describe('scrollable bar chart geometry',()=>{
     expect(barSlotWidth(350,0,7)).toBe(350);
   });
 
+
+  it('fits a whole period on a time axis when each day keeps its minimum width, and scrolls otherwise',()=>{
+    // Six months fit a 1000 px plot at 5 px a day; a year keeps 5 px a day and scrolls.
+    expect(fitSlotWidth(1000,184,5)).toBeCloseTo(1000/184);
+    expect(fitSlotWidth(1000,366,5)).toBe(5);
+    expect(fitSlotWidth(1000,366,5)*366).toBeGreaterThan(1000);
+    expect(fitSlotWidth(0,366,5)).toBe(0);
+  });
   it('scrolls only as far as needed to reveal a slot',()=>{
     expect(revealScrollLeft(3,50,100,200)).toBeNull();
     expect(revealScrollLeft(1,50,100,200)).toBe(50);

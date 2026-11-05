@@ -1,5 +1,5 @@
 import {useCallback,useLayoutEffect,useRef,useState} from 'react';
-import {barSlotWidth,revealScrollLeft,visibleBarCount,visibleRange} from '../../lib/barChart';
+import {barSlotWidth,fitSlotWidth,revealScrollLeft,visibleBarCount,visibleRange} from '../../lib/barChart';
 import {useFrameTask} from './useFrameTask';
 import {useWindowTier} from './useWindowTier';
 
@@ -12,11 +12,11 @@ const reducedMotion=()=>typeof window!=='undefined'&&!!window.matchMedia?.('(pre
  * of bars; longer series scroll natively (finger on touch screens, arrow
  * buttons on wider windows). Several scrollers may attach — stacked charts of
  * the same series — and they stay aligned. A new series opens on its latest
- * bar; `useRevealBar` keeps the selected bar in view.
+ * bar; `useRevealBar` keeps the selected bar in view. With `minSlot` the series is a
+ * continuous axis instead: it fits the viewport whenever each slot keeps that width.
  */
-export function useBarViewport(count:number,visibleOverride?:(base:number)=>number){
-  const base=visibleBarCount(useWindowTier());
-  const visible=Math.max(1,Math.round(visibleOverride?visibleOverride(base):base));
+export function useBarViewport(count:number,minSlot?:number){
+  const visible=visibleBarCount(useWindowTier());
   const [width,setWidth]=useState(0);
   const scrollers=useRef(new Set<HTMLDivElement>());
   // Positions this hook wrote to a follower: its echoed scroll event must not be mirrored back.
@@ -24,7 +24,7 @@ export function useBarViewport(count:number,visibleOverride?:(base:number)=>numb
   const anchored=useRef('');
   const revealed=useRef(Math.max(0,count-1));
   const [edges,setEdges]=useState<BarViewportEdges>({back:false,forward:false,first:0,last:Math.max(0,count-1)});
-  const slot=barSlotWidth(width,count,visible);
+  const slot=minSlot===undefined?barSlotWidth(width,count,visible):fitSlotWidth(width,count,minSlot);
 
   const readEdges=useFrameTask((element:HTMLDivElement)=>{
     const {scrollLeft,clientWidth,scrollWidth}=element;
@@ -63,7 +63,7 @@ export function useBarViewport(count:number,visibleOverride?:(base:number)=>numb
   // A new series or tier opens on the latest bar; a resize keeps the selected bar in view.
   useLayoutEffect(()=>{
     if(!slot)return;
-    const key=`${count}:${visible}`;
+    const key=`${count}:${minSlot??visible}`;
     if(anchored.current===key){reveal(revealed.current);return;}
     anchored.current=key;
     for(const element of scrollers.current)element.scrollLeft=element.scrollWidth;

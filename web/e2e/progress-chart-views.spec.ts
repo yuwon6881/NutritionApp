@@ -44,20 +44,21 @@ test('energy charts switch between intake and balance, with a readout for the se
   await expect(page.getByRole('button',{name:'Surplus or deficit',exact:true})).toHaveAttribute('aria-pressed','true');
 });
 
-test('the weight chart fills the width for a week and scrolls with page buttons for a month',async({page})=>{
+test('the weight chart fits a month or a week without scrolling on a desktop window',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   const scroller=page.locator('.weight-chart-panel .bar-chart-scroller');
   const widths=()=>scroller.evaluate(element=>({content:element.scrollWidth,view:element.clientWidth}));
-  // A month holds more days than one expanded window shows.
-  await expect.poll(async()=>(await widths()).content).toBeGreaterThan((await widths()).view+1);
-  await expect(page.getByRole('button',{name:'Show earlier days'})).toBeVisible();
+  // The whole period shows at once whenever every day keeps a readable width.
+  await expect.poll(async()=>{const {content,view}=await widths();return Math.abs(content-view)<=1;}).toBe(true);
+  await expect(page.getByRole('button',{name:'Show earlier days'})).toHaveCount(0);
   await page.getByLabel('Weight history period',{exact:true}).selectOption('week');
   await expect.poll(async()=>{const {content,view}=await widths();return Math.abs(content-view)<=1;}).toBe(true);
   await expect(page.getByRole('button',{name:'Show earlier days'})).toHaveCount(0);
 });
 
-test('the weight chart scrolls sideways on a phone',async({page})=>{
+test('the weight chart scrolls sideways on a phone when a year does not fit',async({page})=>{
   await page.setViewportSize({width:390,height:844});
+  await page.getByLabel('Weight history period',{exact:true}).selectOption('year');
   const scroller=page.locator('.weight-chart-panel .bar-chart-scroller');
   await expect.poll(()=>scroller.evaluate(element=>element.scrollWidth-element.clientWidth)).toBeGreaterThan(1);
 });

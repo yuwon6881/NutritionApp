@@ -17,6 +17,15 @@ export function barSlotWidth(viewportWidth:number,count:number,visible:number){
   return viewportWidth/Math.max(1,Math.min(count,visible));
 }
 
+/**
+ * Width of one day on a continuous time axis: the whole series fills the viewport when each
+ * day still gets `minSlot` pixels, otherwise days keep that width and the rest scrolls.
+ */
+export function fitSlotWidth(viewportWidth:number,count:number,minSlot:number){
+  if(viewportWidth<=0)return 0;
+  return Math.max(minSlot,viewportWidth/Math.max(1,count));
+}
+
 /** The scroll offset that brings a slot fully into view, or null when it is already visible. */
 export function revealScrollLeft(index:number,slot:number,scrollLeft:number,viewportWidth:number){
   if(slot<=0||index<0)return null;
