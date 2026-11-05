@@ -380,9 +380,6 @@ export function LogFood({
     setBarcodeRecovery(undefined);setCamera(false);
     setMode('label');setDescription('');setPhoto(null);setError('');setAutoLabelCamera(autoCamera);setTab(selectionPurpose==='recipe'?'barcode':'ai');
   };
-  const beginBarcodeLabel=()=>{
-    if(barcodeRecovery)beginLabelScan(barcodeRecovery.code,false);
-  };
   // No provider knows this product: the label is the only way forward, so go straight to it.
   const barcodeFailed=(code:string,problem:{status:number;message:string})=>{
     setResults([]);
@@ -455,7 +452,7 @@ export function LogFood({
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
     {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={reviewRecent}/>}
-    {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={beginBarcodeLabel} onManual={beginBarcodeManual}/>}
+    {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={()=>beginLabelScan(barcodeRecovery.code,false)} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
       date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}
       onModeChange={value=>{setMode(value);setPhoto(null);}}
