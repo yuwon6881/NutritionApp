@@ -91,6 +91,7 @@ builder.Services.AddScoped<IAiTool, GetFoodLogTool>();
 builder.Services.AddScoped<IAiTool, GetWeightTrendTool>();
 builder.Services.AddScoped<IAiTool, GetExpenditureTrendTool>();
 builder.Services.AddScoped<IAiTool, GetCoachingRecommendationTool>();
+builder.Services.AddScoped<IAiTool, GetCoachingHistoryTool>();
 builder.Services.AddScoped<IAiTool, GetBodyFatHistoryTool>();
 builder.Services.AddScoped<IAiTool, SearchFoodDatabaseTool>();
 builder.Services.AddScoped<IAiTool, GetWorkoutSummaryTool>();

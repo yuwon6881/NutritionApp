@@ -16,6 +16,8 @@ Ask AI is a read-only assistant with reviewable screen-opening proposals. It doe
 
 Daily summaries and food logs preserve archived day totals, unknown nutrients, and explicit logging-day status. Targets use the effective plan for each date, including weekday calories and macro scaling; a newer plan does not rewrite historical targets. Calories convert to the account's kcal/kJ preference. Food search labels the nutrient basis honestly rather than treating every serving as 100 g. Expenditure is identified as an estimate. Dates follow the profile timezone.
 
+`get_coaching_history` reads the most recent accepted plans, check-in decisions, and goal-phase decisions (bounded per kind), along with the goal and body settings the coach uses. It leaves out clinical eligibility flags. Past plans are history: only the current recommendation can be accepted, through the Coach screen. Physique photos are not exposed to chat.
+
 Canonical coaching/expenditure reads may refresh their derived estimate cache, and food lookup may refresh its public-product cache. These are existing read-service behaviors; no tool accepts a plan or edits diary, weight, or profile records.
 
 ## Bounds, accounting, and retention
@@ -27,7 +29,7 @@ Canonical coaching/expenditure reads may refresh their derived estimate cache, a
 
 ## Verification
 
-`tests/AskAiTests.cs`, `AskAiReviewTests.cs`, and `AskAiEngineTests.cs` cover persistence/replay, stale writers, malformed and unsupported proposals, delivered evidence, archive/target/unit semantics, retention, accounting, provider failure, and round limits using local fake providers. `web/e2e/ask-ai.spec.ts` exercises responsive themes, keyboard/hit-testing, saved chat, failed reset, authoritative streamed replies, and manual action review.
+`tests/AskAiTests.cs`, `AskAiReviewTests.cs`, `AskAiEngineTests.cs`, and `AskAiCoachingHistoryTests.cs` cover coaching-history bounds and tenancy, persistence/replay, stale writers, malformed and unsupported proposals, delivered evidence, archive/target/unit semantics, retention, accounting, provider failure, and round limits using local fake providers. `web/e2e/ask-ai.spec.ts` exercises responsive themes, keyboard/hit-testing, saved chat, failed reset, authoritative streamed replies, and manual action review.
 
 Run the repository's full backend and frontend unit gates, build/budget checks, standards/docs checks, and browser gates. Local fake-provider and browser results do not establish live model answer quality, production configuration, Cloud Scheduler execution, physical Android behavior, or deployment/migration success.
 
