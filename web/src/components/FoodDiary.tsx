@@ -14,6 +14,7 @@ import {FoodTimeline} from './FoodTimeline';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {CardFeedback} from './ui/CardFeedback';
+import {HistoryNotice} from './ui/HistoryNotice';
 import {useFoodSelection} from '../lib/useFoodSelection';
 import {useAfterLayersSettle} from '../lib/useAfterLayersSettle';
 import {useFoodClipboard,createPasteMutations} from '../lib/useFoodClipboard';
@@ -195,13 +196,19 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
       <FoodWeekStrip date={date} today={current} store={store} onChange={changeDate}/>
     </div>
     <div className="food-day-content" ref={swipe.contentRef}>
-    {history.error&&<CardFeedback
-      title={state?'Diary history needs attention':'Diary history unavailable'}
-      message={`${state?'Saved history shown.':'This day is not available on this device. Connect to load its history.'} ${history.error}`}
-      action={{label:'Retry history',onClick:history.retry}}
+    {state&&(history.error||currentUncached)&&<HistoryNotice
+      customMessage={
+        history.error && currentUncached
+          ? `Saved history shown. Only entries saved on this device are shown. ${history.error}`
+          : history.error
+          ? `Saved history shown. ${history.error}`
+          : 'Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.'
+      }
+      onRetry={history.error ? history.retry : undefined}
+      contextKey={date}
+      store={store}
     />}
     {!state&&history.error&&<DiaryEmptyState status="unavailable" unavailable/>}
-    {currentUncached&&<p className="notice" role="status">Only entries saved on this device are shown. Other entries will load when connected. You can keep logging today.</p>}
     {!state&&!history.error&&<FoodDaySkeleton title={dayTitle}/>}
     {error&&<CardFeedback title="Diary action failed" message={error}/>}
     {state&&<>

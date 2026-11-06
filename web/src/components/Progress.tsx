@@ -20,6 +20,7 @@ import {useGoogleHealth} from '../lib/googleHealth';
 import {GoogleHealthProgressChart} from './GoogleHealthProgressChart';
 import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {CardFeedback} from './ui/CardFeedback';
+import {HistoryNotice} from './ui/HistoryNotice';
 import {StepCalorieCalculator} from './StepCalorieCalculator';
 import {progressDataKey} from '../lib/progressFreshness';
 import {useDelayedPending} from './ui/useDelayedPending';
@@ -183,15 +184,23 @@ export function Progress({store,focus,onFocused,onSettings}:{store:NutritionStor
         </SelectField></div>
         <Button variant="primary" onClick={event=>addWeight(event.currentTarget)}><Plus size={18} aria-hidden="true"/>Add weigh-in</Button>
       </div>
-      {error&&<CardFeedback
-        title={summary?'Progress summary needs attention':'Progress summary unavailable'}
-        message={`${summary?'Showing saved data.':'Not available offline.'} ${error}`}
-        action={{label:'Retry',onClick:()=>void retry(),disabled:loading}}
+      {summary&&error&&<HistoryNotice
+        error={error}
+        hasState={true}
+        onRetry={()=>void retry()}
+        retryLabel="Retry"
+        contextKey={weightPeriod}
+        store={store}
       />}
-      {summary?.weight.historyUnavailable&&!error&&<CardFeedback
-        tone="info"
-        title="History unavailable offline"
-        message="Showing weigh-ins saved on this device."
+      {summary?.weight.historyUnavailable&&!error&&<HistoryNotice
+        customMessage="Showing weigh-ins saved on this device. History unavailable offline."
+        contextKey={weightPeriod}
+        store={store}
+      />}
+      {!summary&&error&&<CardFeedback
+        title="Progress summary unavailable"
+        message={`Not available offline. ${error}`}
+        action={{label:'Retry',onClick:()=>void retry(),disabled:loading}}
       />}
       {!summary&&!error&&<div className="stats-grid progress-stats skeleton" aria-busy="true"><section className="panel"><p className="eyebrow">Trend weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Average scale weight</p><h2>— <span className="unit">{weightLabel(units.weight)}</span></h2></section><section className="panel"><p className="eyebrow">Weigh-ins</p><h2>—</h2></section></div>}
       {summary&&<WeightSummary summary={summary} units={units} pending={pending||Boolean(summary.awaitingSynchronization)} onEdit={editWeight} onDelete={(weight,trigger)=>setWeightDelete({weight,trigger})} pendingDeletes={pendingWeightDeletes}/>}

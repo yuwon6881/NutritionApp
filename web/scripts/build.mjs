@@ -29,7 +29,8 @@ const KIB = 1024;
 // The weigh-in actions menu, Quick add shortcut, plan editor current-choice badges, and check-in explanation add a small offline allowance.
 // The collapsible unusual weigh-in note, the "Logged before" search marker, and contained list scrolling add a small first-load and offline allowance.
 // The maintenance chart with its held-day marks adds a small offline allowance.
-const budgets = { firstLoad: 485 * KIB, precache: 1314 * KIB };
+// Non-disruptive floating history connection notices add a small offline allowance.
+const budgets = { firstLoad: 485 * KIB, precache: 1316 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

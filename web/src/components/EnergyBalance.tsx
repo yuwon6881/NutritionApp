@@ -4,6 +4,7 @@ import type {ProgressPeriod,ProgressSummary} from '../types';
 import {unitsFor} from '../lib/units';
 import {dateSpan} from '../lib/chartLabels';
 import {CardFeedback} from './ui/CardFeedback';
+import {HistoryNotice} from './ui/HistoryNotice';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {useChartScrub} from './ui/useChartScrub';
 import {useBarViewport,useRevealBar} from './ui/useBarViewport';
@@ -32,9 +33,17 @@ export function EnergyBalance({store,period,summary,error}:{store:NutritionStore
   const chartProps={rows,grouping,energyUnit:units.energy,viewport,selected:scrub.index,plotProps:scrub.svgProps};
   return <section className="panel energy-history">
     <div className="section-heading"><div><h2>Energy balance</h2>{summary?<p>{dateSpan(summary.start,summary.end)}</p>:<SkeletonBlock width={150} height={12} className="skeleton-subtitle"/>}</div></div>
-    {error&&<CardFeedback
-      title={summary?'Energy summary needs attention':'Energy summary unavailable'}
-      message={`${summary?'Showing saved data.':'Not available offline.'} ${error}`}
+    {summary&&error&&<HistoryNotice
+      error={error}
+      hasState={true}
+      onRetry={()=>void store.refreshProgress(period)}
+      retryLabel="Retry"
+      contextKey={period}
+      store={store}
+    />}
+    {!summary&&error&&<CardFeedback
+      title="Energy summary unavailable"
+      message={`Not available offline. ${error}`}
       action={{label:'Retry',onClick:()=>void store.refreshProgress(period)}}
     />}
     {!summary&&!error&&<SkeletonRegion label="Loading energy balance…">

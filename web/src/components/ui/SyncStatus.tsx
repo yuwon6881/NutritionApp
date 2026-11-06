@@ -9,6 +9,15 @@ function pendingWork(store:NutritionStore){
   return queue+photos+body;
 }
 
+export function isSyncStatusActive(store?:NutritionStore|null){
+  if(!store)return false;
+  const online=typeof navigator==='undefined'||navigator.onLine;
+  const pending=pendingWork(store);
+  const meaningfulSync=store.sync.phase==='syncing'&&(store.sync.kind==='photo'||store.sync.kind==='body');
+  const retainedOffline=pending>0&&!online;
+  return Boolean(meaningfulSync||retainedOffline);
+}
+
 export function SyncStatus({store}:{store:NutritionStore}){
   const [online,setOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
   useEffect(()=>{
