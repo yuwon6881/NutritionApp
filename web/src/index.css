@@ -2046,7 +2046,9 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 .history-toast-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .history-toast-actions .button{padding:6px 10px;min-height:32px;font-size:.78rem}
 .history-toast-dismiss{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--muted-foreground);border-radius:8px;cursor:pointer;transition:background-color 150ms ease,color 150ms ease}
-.history-toast-dismiss:hover{background:var(--muted);color:var(--foreground)}
+@media (hover:hover) and (pointer:fine){
+  .history-toast-dismiss:hover{background:var(--muted);color:var(--foreground)}
+}
 .history-toast-dismiss:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 @keyframes historyToastIn{from{opacity:0;transform:translate(-50%,10px) scale(0.98)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
 @media(max-width:639px){
