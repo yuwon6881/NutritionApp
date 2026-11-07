@@ -13,8 +13,6 @@ test('a horizontal swipe on the photo moves between Body records; a vertical one
   await context.addCookies(session.cookies);
   await mockBodyRecords(page,null);
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).first().click();
-  await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Open history',exact:true}).click();
   await page.getByRole('button',{name:/^Sep 26, 2026/}).click();
   const navigation=page.getByRole('navigation',{name:'Record navigation'});

@@ -2,11 +2,11 @@ import type {ReactNode} from 'react';
 import type {EnergyUnit,ProgressEnergyStatistics} from '../types';
 import {displayEnergy,energyLabel} from '../lib/units';
 
-function Stat({label,value,note,tone}:{label:string;value:ReactNode;note:string;tone?:string}){
+function Stat({label,value,note,tone}:{label:string;value:ReactNode;note?:string;tone?:string}){
   return <div className={tone}>
     <dt>{label}</dt>
     <dd>{value}</dd>
-    <small>{note}</small>
+    {note&&<small>{note}</small>}
   </div>;
 }
 
@@ -19,8 +19,8 @@ export function EnergyStats({stats,energyUnit}:{stats?:ProgressEnergyStatistics;
   const surplus=stats?.surplusDays??0;
   const deficit=stats?.deficitDays??0;
   return <dl className="energy-stats">
-    <Stat label="Complete days" value={<>{stats?.completeDays??0} <span className="unit">of {days}</span></>} note="Fully logged"/>
-    <Stat label="Average intake" value={<>{displayEnergy(stats?.averageIntake,energyUnit)} {unit}</>} note={`${stats?.loggedDays??0} ${stats?.loggedDays===1?'day':'days'} logged`}/>
+    <Stat label="Complete days" value={<>{stats?.completeDays??0} <span className="unit">of {days}</span></>} />
+    <Stat label="Average intake" value={<>{displayEnergy(stats?.averageIntake,energyUnit)} {unit}</>}/>
     <Stat label="Total balance" tone={tone} value={<>{balance==null?'—':`${balance>0?'+':balance<0?'−':''}${displayEnergy(Math.abs(balance),energyUnit)}`} {unit}</>} note={`${surplus} surplus ${surplus===1?'day':'days'} · ${deficit} deficit ${deficit===1?'day':'days'}`}/>
   </dl>;
 }

@@ -11,22 +11,25 @@ test.beforeAll(async({request})=>{
 test('touching the weight chart reads the nearest date, and arrow keys step through dates',async({page,context})=>{
   await context.addCookies(session.cookies);
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  const readout=page.locator('.chart-readout').first();
+  // The Dashboard's weight card opens on the trend view; the other views stay in the page but inert.
+  const card=page.locator('.weight-progress-card');
+  await card.scrollIntoViewIfNeeded();
+  const slide=card.locator('.swipe-carousel-slide:not([inert])');
+  const readout=slide.locator('.chart-readout');
   // The readout starts on the latest weigh-in instead of waiting for a hover.
   const readoutDate=readout.locator('time');
   await expect(readoutDate).toHaveAttribute('datetime',todayInTestZone());
   await expect(readout).toContainText('Trend');
 
-  const chart=page.getByRole('img',{name:/weight chart across/});
+  const chart=slide.getByRole('img',{name:/weight chart across/});
   await chart.scrollIntoViewIfNeeded();
   // The plot scrolls inside the chart, so tap near the left edge of what is on screen.
-  const box=(await page.locator('.weight-chart-panel .bar-chart-scroller').boundingBox())!;
+  const box=(await slide.locator('.bar-chart-scroller').boundingBox())!;
   await page.touchscreen.tap(box.x+30,box.y+box.height/2);
   await expect(readoutDate).not.toHaveAttribute('datetime',todayInTestZone());
   const firstDate=(await readoutDate.getAttribute('datetime'))!;
 
-  const group=page.getByRole('group',{name:/Weight chart\. Touch the chart/});
+  const group=slide.getByRole('group',{name:/Weight chart\. Touch the chart/});
   await group.focus();
   await page.keyboard.press('ArrowRight');
   await expect(readoutDate).not.toHaveAttribute('datetime',firstDate);

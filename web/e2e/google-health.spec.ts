@@ -106,16 +106,16 @@ test('Google Health disclosure cancels cleanly and empty history stays readable'
   expect(titleBox && descriptionBox).toBeTruthy();
   expect(descriptionBox!.y).toBeGreaterThanOrEqual(titleBox!.y+titleBox!.height-1);
 
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Activity',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Google Health steps',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  const activity=page.locator('.activity-card');
+  await activity.scrollIntoViewIfNeeded();
+  await expect(activity.getByRole('heading',{name:'Google Health steps',exact:true})).toBeVisible();
   await expect(page.getByText('Step history unavailable.',{exact:true})).toBeVisible();
   await expect(page.locator('.chart-date-axis')).toHaveCount(0);
   const accessibleSummary=page.locator('.google-health-progress-section .sr-only');
   await expect(accessibleSummary).toHaveCSS('position','absolute');
   await expect(accessibleSummary).toHaveCSS('width','1px');
 
-  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
   // The chip sits inside the Today heading row, which already holds its height.
   const chip=page.locator('.steps-chip');
   await expect(chip).toBeVisible();
@@ -175,9 +175,9 @@ test('Google Health step chart selects a day by click and keyboard',async({page}
 
   await ensureAcceptedPlan(page.request);
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Activity',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Google Health steps',exact:true})).toBeVisible();
+  const activity=page.locator('.activity-card');
+  await activity.scrollIntoViewIfNeeded();
+  await expect(activity.getByRole('heading',{name:'Google Health steps',exact:true})).toBeVisible();
 
   // The readout always holds a day (the latest first), so selecting never moves the chart.
   const readout=page.locator('.step-chart .chart-readout');

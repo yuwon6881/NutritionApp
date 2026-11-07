@@ -46,7 +46,6 @@
 .food-time-card .food-macro-summary{margin:0;gap:4px 8px;font-size:.72rem}
 .food-time-card .sync-label{display:block;margin-top:2px;font-size:.68rem;overflow-wrap:anywhere}
 .food-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}.food-card-footer>.source{overflow-wrap:anywhere}
-.topbar .mobile-settings{display:none}
 .food-time-card[data-draggable]{cursor:grab}
 /* While a card is dragged its place stays as a quiet outline; the floating copy follows the pointer. */
 .food-time-card[data-dragging]{cursor:grabbing;opacity:.38;border-style:dashed;border-color:var(--primary)!important;box-shadow:none;transition:opacity var(--motion-control) ease,border-color var(--motion-control) ease}
@@ -92,7 +91,7 @@
 }
 @media(max-width:899px){.food-selection-bar-copy{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"info tools" "actions actions"}.food-selection-bar-copy .food-selection-bar-tools{padding-left:0;border-left:0}.food-selection-bar-copy .food-selection-bar-actions{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}}
 @media(max-width:639px){.food-selection-bar{top:8px;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"info tools" "actions actions";gap:10px 8px;padding:10px 10px 12px 16px;margin:8px 0 14px}.food-selection-bar-tools{padding-left:0;border-left:0}.food-selection-bar-tools>.button.size-sm{padding:8px 10px;font-size:.8rem}.food-selection-bar-actions{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin-right:2px}.food-selection-bar-actions>.button{flex-direction:column;gap:4px;min-height:58px;padding:8px 4px;font-size:.74rem;border-radius:12px;text-align:center}}
-@media(max-width:1023px){.topbar .mobile-settings{display:inline-flex;min-width:44px;margin-left:auto}.food-date-navigation{gap:8px;grid-template-columns:44px minmax(0,1fr) 44px auto}.food-time-row{grid-template-columns:3.875rem minmax(0,1fr);gap:14px}.food-time-label{font-size:.73rem}.food-time-label::after{right:-19px}.food-time-cards{padding-left:14px}.food-time-card.panel{padding:12px}.food-time-card .section-heading{flex-wrap:wrap;gap:0 8px}.food-time-card .section-heading>strong{padding:0 0 10px}.food-day-nutrients{gap:12px 20px}}
+@media(max-width:1023px){.food-date-navigation{gap:8px;grid-template-columns:44px minmax(0,1fr) 44px auto}.food-time-row{grid-template-columns:3.875rem minmax(0,1fr);gap:14px}.food-time-label{font-size:.73rem}.food-time-label::after{right:-19px}.food-time-cards{padding-left:14px}.food-time-card.panel{padding:12px}.food-time-card .section-heading{flex-wrap:wrap;gap:0 8px}.food-time-card .section-heading>strong{padding:0 0 10px}.food-day-nutrients{gap:12px 20px}}
 :root{font-family:"Plus Jakarta Sans Variable",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light;--background:#F4F2FA;--foreground:#1D1A2B;--card:#FFFFFF;--raised:#ECE9F6;--primary:#6A4DE0;--primary-ink:#5A3DD2;--primary-tint:#EFEBFF;--muted:#F2F0F8;--muted-foreground:#666379;--border:#E6E3EF;--control-border:#8E8AA4;--destructive:#D23A3A;--ring:#6A4DE0;--success:#1E9A62;--energy:#26213B;--weight:#0E8C7C;--protein:#CF4E1E;--carbs:#A16800;--fat:#2B6FD3;--track:#EDEAF5;--ink-strong:#14111F;--on-primary:#FFFFFF;--scrollbar-track:#F4F2FA;--scrollbar-thumb:#DCD8E8;--scrollbar-thumb-hover:#666379;--shadow:0 1px 2px rgba(38,28,92,.04),0 10px 30px -12px rgba(66,44,150,.12);--shadow-raised:0 12px 30px -12px rgba(20,16,40,.22);--radius:24px;font-synthesis:none;font-variant-numeric:tabular-nums;text-rendering:optimizeLegibility}
 :root[data-theme=dark]{color-scheme:dark;--background:#08080A;--foreground:#ECECF1;--card:#141417;--raised:#1F1F24;--primary:#B5F04A;--primary-ink:#C3F56A;--primary-tint:#1B230F;--muted:#1A1A1E;--muted-foreground:#A2A2AD;--border:#25252B;--control-border:#5A5A65;--destructive:#FF6B6B;--ring:#B5F04A;--success:#B5F04A;--energy:#B5F04A;--weight:#5ED8C3;--protein:#FF7D69;--carbs:#F6BD48;--fat:#62A9FF;--track:#26262C;--ink-strong:#FFFFFF;--on-primary:#0C1400;--scrollbar-track:#08080A;--scrollbar-thumb:#2C2C33;--scrollbar-thumb-hover:#A2A2AD;--shadow:0 0 #0000;--shadow-raised:0 10px 28px -10px rgba(0,0,0,.7);--radius:24px}
 *{scrollbar-color:var(--scrollbar-thumb) var(--scrollbar-track);scrollbar-width:thin}*::-webkit-scrollbar{width:10px;height:10px}*::-webkit-scrollbar-track{background:var(--scrollbar-track)}*::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border:2px solid var(--scrollbar-track);border-radius:999px}@media (hover:hover) and (pointer:fine){*::-webkit-scrollbar-thumb:hover{background:var(--scrollbar-thumb-hover)}}
@@ -938,7 +937,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .topbar-activity-indicator{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px}
 .topbar-activity-spinner{color:var(--muted-foreground);animation:syncStatusSpin 900ms linear infinite}
 @media(prefers-reduced-motion:reduce){.topbar-activity-spinner{animation:none}}
-.topbar .mobile-settings.nav-active{background:var(--primary-tint);color:var(--primary-ink)}
 .page-heading>div{min-width:0}
 .page-heading h1{margin-bottom:0}
 .page-heading p{margin-top:8px}
@@ -990,7 +988,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .custom-calendar-popover{width:320px;min-width:0;max-width:calc(100vw - 24px)}
 
 @media(min-width:640px){
-  .topbar .mobile-settings{display:none}
   .food-day-summary .section-heading{margin-bottom:18px}
   .food-day-nutrients{margin-bottom:0}
   .food-day-summary>.field{margin-top:20px}
@@ -1027,7 +1024,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
   .sidebar nav .button.nav-center-add .nav-icon{transform:none}
   .main-content{padding:0 16px calc(96px + env(safe-area-inset-bottom))}
   .topbar{min-height:64px;margin-bottom:22px;gap:10px}
-  .topbar .mobile-settings{display:inline-flex;margin-left:0;flex-shrink:0}
   .topbar .account-name{margin-right:auto;font-size:.8rem}
   .topbar .retained-status{max-width:150px;font-size:.68rem;line-height:1.45}
   .page-heading{flex-direction:column;align-items:stretch;gap:12px;margin-bottom:22px}
@@ -1233,7 +1229,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .body-hub-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;justify-content:flex-end}
 .body-hub-actions>.button{min-height:44px;padding-inline:16px}
 .body-hub-status{margin-top:14px;color:var(--muted-foreground)}
-.panel.physique-photo-home>.section-heading:has(>.button){flex-direction:row;align-items:center;gap:12px}
+.panel.physique-photo-home>.section-heading:has(>.button){flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px}
 .panel.physique-photo-home>.section-heading>.button{width:auto}
 .photo-gallery-panel{min-width:0}.photo-gallery-row{padding:16px 0;border-bottom:1px solid var(--border)}.photo-gallery-row:last-child{border-bottom:0}.photo-gallery-row-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.photo-gallery-row-heading h3{margin:0;font-size:.94rem}.photo-gallery-previews{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.photo-gallery-previews figure{margin:0;min-width:0}.photo-gallery-previews img,.photo-lazy-frame,.photo-lazy-placeholder{display:block;width:100%;aspect-ratio:3/4;border-radius:10px;background:var(--muted);object-fit:cover}.photo-lazy-placeholder{border:1px solid var(--border)}.photo-gallery-previews figcaption{padding-top:6px;font-size:.72rem;color:var(--muted-foreground);overflow-wrap:anywhere}.photo-lazy-frame{overflow:hidden}.photo-lazy-frame img{height:100%}
 .photo-viewer-panel{max-width:760px;margin-inline:auto}.photo-angle-selector{max-width:420px;margin-bottom:16px}.photo-viewer-image{display:grid;place-items:center;min-height:360px;border-radius:14px;background:var(--muted);overflow:hidden}.photo-viewer-image img{display:block;width:100%;max-height:min(70vh,720px);object-fit:contain}.photo-viewer-actions{justify-content:space-between}.photo-adjacent-preload{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
@@ -1419,7 +1415,6 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .gallery-photo-meta{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:.82rem}
 
 /* Activity Tab */
-.activity-progress-hub{display:flex;flex-direction:column;gap:20px}
 
 .ai-logging-form .modal-actions{margin-top:4px;padding-top:0;border-top:0}
 

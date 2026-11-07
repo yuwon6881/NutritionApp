@@ -9,7 +9,7 @@ import {
   assertMacroLayout,
   assertMobileNavFit,
   assertPanelsFitViewport,
-  assertProgressTabsVisibility,
+  assertDashboardCardsVisibility,
   captureBoundary,
   waitSettled,
 } from './helpers/boundary-support';
@@ -68,17 +68,13 @@ for(const width of BOUNDARY_WIDTHS)for(const theme of ['light','dark'] as const)
     await assertMobileNavFit(page);
     await captureBoundary(page,`${theme}-${width}-Dashboard`);
 
-    for(const name of ['Food Log','Progress','Coach','Settings'] as const){
+    for(const name of ['Food Log','Coach','Settings'] as const){
       await page.getByRole('button',{name,exact:true}).click();
       await expect(page.locator('[data-page-heading]')).toHaveText(name);
 
       if(name==='Food Log'){
         await expect(page.locator('[data-time-row="08:00"]')).toBeVisible();
         await expect(page.locator('.food-day-skeleton, [aria-busy="true"].food-day-summary')).toHaveCount(0);
-      }
-      if(name==='Progress'){
-        await expect(page.locator('.stats-grid:not(.skeleton)')).toBeVisible();
-        await expect(page.locator('.skeleton[aria-busy="true"]')).toHaveCount(0);
       }
       if(name==='Coach'){
         await expect(page.locator('.target-figures')).toBeVisible();
@@ -95,30 +91,29 @@ for(const width of BOUNDARY_WIDTHS)for(const theme of ['light','dark'] as const)
       await captureBoundary(page,`${theme}-${width}-${name.replaceAll(' ','-')}`);
     }
 
-    await page.getByRole('button',{name:'Progress',exact:true}).click();
-    await expect(page.locator('[data-page-heading]')).toHaveText('Progress');
-    await assertProgressTabsVisibility(page);
+    await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+    await expect(page.locator('[data-page-heading]')).toHaveText('Dashboard');
+    await assertDashboardCardsVisibility(page);
     await assertMobileNavFit(page);
-    for(const section of ['Energy','Body','Activity'] as const){
-      await page.getByRole('button',{name:section,exact:true}).click();
-      await assertProgressTabsVisibility(page);
+    for(const section of ['Weight','Energy','Body','Activity'] as const){
+      await page.locator({Weight:'.weight-progress-card',Energy:'.energy-progress-card',Body:'.dashboard-section-body',Activity:'.activity-card'}[section]).scrollIntoViewIfNeeded();
+      if(section==='Weight'){
+        await expect(page.locator('.weight-progress-card .swipe-carousel-slide:not([inert]) .energy-stats')).toBeVisible();
+      }
       if(section==='Energy'){
-        await expect(page.locator('.energy-stats')).toBeVisible();
-        await expect(page.locator('.energy-readout')).toBeVisible();
-        await expect(page.locator('.energy-history .skeleton[aria-busy="true"], [role="status"][aria-busy="true"]')).toHaveCount(0);
+        await expect(page.locator('.energy-progress-card .swipe-carousel-slide:not([inert]) .energy-stats')).toBeVisible();
+        await expect(page.locator('.energy-progress-card .swipe-carousel-slide:not([inert]) .energy-readout')).toBeVisible();
+        await expect(page.locator('.energy-progress-card .skeleton[aria-busy="true"], .energy-progress-card [role="status"][aria-busy="true"]')).toHaveCount(0);
       }
       if(section==='Body'){
         await expect(page.getByRole('button',{name:'Add photo set',exact:true})).toBeVisible();
         await expect(page.locator('.body-hub-skeleton, .physique-photo-home[aria-busy="true"]')).toHaveCount(0);
       }
-      if(section==='Activity'){
-        await expect(page.locator('.activity-progress-hub')).toBeVisible();
-      }
       await waitSettled(page);
       await assertContained(page);
       await assertPanelsFitViewport(page);
       await assertMobileNavFit(page);
-      await captureBoundary(page,`${theme}-${width}-Progress-${section}`);
+      await captureBoundary(page,`${theme}-${width}-Dashboard-${section}`);
     }
 
     await page.getByRole('button',{name:'Coach',exact:true}).click();
@@ -258,20 +253,14 @@ test('landscape short height 844x390 and 200% text size: dialog reachable and fo
   await page.addStyleTag({content:'html{font-size:200%!important}'});
   await assertContained(page);
   await assertMacroLayout(page);
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await expect(page.locator('[data-page-heading]')).toHaveText('Progress');
-  await assertProgressTabsVisibility(page);
-  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await assertDashboardCardsVisibility(page);
 
   await page.setViewportSize({width:360,height:800});
   await assertContained(page);
   await assertMobileNavFit(page);
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await expect(page.locator('[data-page-heading]')).toHaveText('Progress');
   await assertContained(page);
-  await assertProgressTabsVisibility(page);
-  await captureBoundary(page,'360-text200-Progress-tabs');
-  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await assertDashboardCardsVisibility(page);
+  await captureBoundary(page,'360-text200-Dashboard-cards');
 
   await launcher.click();
   await expect(addSheet).toBeVisible();

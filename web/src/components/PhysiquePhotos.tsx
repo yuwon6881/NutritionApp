@@ -96,10 +96,24 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
     if((page==='home'||page==='history'||page==='compare')&&!bodyLoaded)void loadBodyPage(true);
     if(page==='home'&&!loaded)void loadPage(true);
     if(page==='gallery'){
-      const frame=window.requestAnimationFrame(()=>window.scrollTo({top:galleryScroll.current,behavior:'auto'}));
+      // A negative position means the gallery was just opened: the hub anchor has already placed it.
+      const frame=window.requestAnimationFrame(()=>{if(galleryScroll.current>=0)window.scrollTo({top:galleryScroll.current,behavior:'auto'});});
       return()=>window.cancelAnimationFrame(frame);
     }
   },[page,loaded,loadPage,bodyLoaded,loadBodyPage]);
+
+  // The hub sits in the middle of the Dashboard: opening a sub-view brings it to the top of the
+  // window, and coming back returns to where the hub was.
+  const anchor=useRef<HTMLDivElement>(null);
+  const homeScroll=useRef<number|null>(null);
+  const previousPage=useRef<BodyView>('home');
+  useEffect(()=>{
+    const before=previousPage.current;
+    previousPage.current=page;
+    if(before===page)return;
+    if(before==='home'){homeScroll.current=window.scrollY;anchor.current?.scrollIntoView({block:'start',behavior:'auto'});}
+    else if(page==='home'&&homeScroll.current!==null){window.scrollTo({top:homeScroll.current,behavior:'auto'});homeScroll.current=null;}
+  },[page]);
 
   useEffect(()=>()=>{++bodyRead.current;++photoRead.current;},[]);
   useEffect(()=>{
@@ -111,7 +125,7 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
   // A deleted record or a reload can shorten the list under an open viewer.
   const bodyIndex=clampIndex(bodyViewerIndex,bodyRecords.length);
   const rememberGallery=()=>{galleryScroll.current=window.scrollY;};
-  const openGallery=()=>{galleryScroll.current=0;setPage('gallery');};
+  const openGallery=()=>{galleryScroll.current=-1;setPage('gallery');};
   const closeGallery=()=>{rememberGallery();setPage('home');};
   const openHistory=()=>{setPage('history');void loadBodyPage(true);};
   const openBodyEditor=(record:BodyRecord|undefined,trigger?:HTMLElement|null)=>{setBodyEditor(record);setBodyReturnFocus(trigger??null);setBodyOpen(true);};
@@ -208,6 +222,7 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
   }
 
   return <>
+    <div ref={anchor} className="body-hub-anchor"/>
     <MotionPanel motionKey={page} axis="fade">
       {view}
     </MotionPanel>

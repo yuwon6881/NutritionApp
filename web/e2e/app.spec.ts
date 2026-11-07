@@ -66,7 +66,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await expect(page.locator('.target-macro-pct')).toHaveText(previewShares);
   const proposalGrams=await page.locator('.target-macros-figures strong').allTextContents();
   expect(proposalGrams.map(value=>value.replace(/\s/g,''))).toEqual(previewGrams);
-  for(const name of ['Dashboard','Food Log','Progress','Settings','Ask AI','Add entry']){
+  for(const name of ['Dashboard','Food Log','Settings','Ask AI','Add entry']){
     for(const button of await page.getByRole('button',{name,exact:true}).all())await expect(button).toBeDisabled();
   }
   await page.getByRole('button',{name:'Back to edit',exact:true}).click();
@@ -93,17 +93,15 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.getByRole('heading',{name:'Nasi lemak reviewed portion',exact:true}).first()).toBeVisible();
   await expect.poll(async()=>{const s=await context.request.get('/api/state');return (await s.json()).entries.some((e:{name:string})=>e.name==='Nasi lemak reviewed portion');}).toBeTruthy();
   await expect(page.getByText('Still logging',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Progress',exact:true}).click();await expect(page.locator('[data-page-heading]')).toHaveText('Progress');await page.waitForTimeout(400);await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();await expect(page.locator('[data-page-heading]')).toHaveText('Dashboard');await page.getByRole('button',{name:'Add entry',exact:true}).last().click();await page.getByRole('button',{name:/Log weight/}).click();await page.getByLabel('Weight (kg)',{exact:true}).fill('80.8');await page.getByRole('button',{name:/Save weigh-in|Update weigh-in/}).click();
   await expect(page.getByText('80.8 kg',{exact:true}).first()).toBeVisible();
-  await page.getByRole('button',{name:'Scale weight',exact:true}).click();await expect(page.getByRole('img',{name:/^Scale weight chart/})).toBeVisible();
-  await page.getByRole('button',{name:'Trend weight',exact:true}).click();await expect(page.getByRole('img',{name:/Trend weight chart/})).toBeVisible();
-  await page.getByRole('button',{name:'Energy',exact:true}).click();
+  await page.getByRole('button',{name:'Next view: Scale weight',exact:true}).dispatchEvent('click');await expect(page.getByRole('img',{name:/^Scale weight chart/})).toBeVisible();
+  await page.getByRole('button',{name:'Previous view: Trend weight',exact:true}).dispatchEvent('click');await expect(page.getByRole('img',{name:/Trend weight chart/})).toBeVisible();
   const energyPeriod=page.getByLabel('Energy history period',{exact:true});
   await expect(energyPeriod.locator('option')).toHaveText(['Last week','Last month','Last 6 months','One year','All']);
   await energyPeriod.selectOption('week');await expect(page.getByRole('img',{name:/grouped daily/})).toBeVisible();
   await energyPeriod.selectOption('six-months');await expect(page.getByRole('img',{name:/grouped weekly/})).toBeVisible();
   await energyPeriod.selectOption('year');await expect(page.getByRole('img',{name:/grouped monthly/})).toBeVisible();
-  await page.getByRole('button',{name:'Weight',exact:true}).click();
   await expect(page.getByRole('button',{name:'Sync',exact:true})).toHaveCount(0);
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBeTruthy();
@@ -120,7 +118,7 @@ test('private app: create profile, accept targets, log food and weight, retain o
   await secondContext.close();
 });
 test('Body records save, review, edit, and clear measurement values',async({page,context})=>{
-  await signIn(context.request);await page.goto('/');await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Body',exact:true}).click();
+  await signIn(context.request);await page.goto('/');
   await page.getByRole('button',{name:'Add body record',exact:true}).click();
   await page.getByLabel('Waist (cm)',{exact:true}).fill('82');await page.getByLabel('Body fat (%)',{exact:true}).fill('21');
   await page.getByRole('button',{name:'Save Body record',exact:true}).click();
@@ -140,7 +138,7 @@ test('responsive screens have no horizontal overflow and working touch targets',
   for(const theme of ['light','dark'])for(const width of [390,768,1440]){
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;localStorage.setItem('nutrition-theme',theme);},theme);
     await page.setViewportSize({width,height:900});
-    const items=['Dashboard','Progress','Coach','Settings'];
+    const items=['Dashboard','Food Log','Coach','Settings'];
     for(const name of items){
       await page.getByRole('button',{name,exact:true}).first().click();
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
@@ -157,12 +155,12 @@ test('responsive screens have no horizontal overflow and working touch targets',
         expect(Math.min(...boxes.map(box=>box.height))).toBeGreaterThanOrEqual(43.99);
         if(await control.getAttribute('data-layout')==='equal')expect(Math.max(...boxes.map(box=>box.width))-Math.min(...boxes.map(box=>box.width))).toBeLessThanOrEqual(1);
       }
-      if(width<1024){const small=await page.locator('button:visible').evaluateAll(buttons=>buttons.filter(b=>b.getBoundingClientRect().height<43).map(b=>b.textContent));expect(small).toEqual([]);}
+      if(width<1024){const small=await page.locator(width<640?'button:visible:not(.swipe-carousel-arrow)':'button:visible').evaluateAll(buttons=>buttons.filter(b=>b.getBoundingClientRect().height<43).map(b=>b.textContent));expect(small).toEqual([]);}
       if(name==='Settings'){
         await expect(page.getByRole('heading',{name:'Storage',exact:true})).toHaveCount(0);
         await expect(page.getByRole('heading',{name:'Local data on this device',exact:true})).toHaveCount(0);
       }
-      if(name==='Progress'){
+      if(name==='Dashboard'){
         const historyField=page.locator('.select-field').filter({hasText:'Weight history period'}).first();
         await historyField.locator('.custom-select-trigger').click();
         // The menu renders in the page's top layer (body or dialog), not inside its field.
@@ -239,8 +237,6 @@ test('API idempotency, revisions, expiry-safe drafts and asset MIME protection',
 
 test('physique photo draft survives offline reopening without cloud credentials',async({page,context})=>{
   await signIn(context.request);await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Body',exact:true}).click();
   await page.getByRole('button',{name:'Add photo set',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Front',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Side',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Back',exact:true})).toBeVisible();
   await page.getByLabel('Front photo',{exact:true}).setInputFiles('public/icon-512.png');
@@ -249,8 +245,7 @@ test('physique photo draft survives offline reopening without cloud credentials'
   await context.setOffline(true);
   await page.getByRole('button',{name:'Save photo set and upload',exact:true}).click();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
-  await page.reload();await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Body',exact:true}).click();
+  await page.reload();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Discard local photo set',exact:true}).click();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toHaveCount(0);
@@ -270,7 +265,7 @@ test('photo gallery paginates complete sets and keeps missing angles explicit',a
     if(url.pathname.endsWith('/content')&&route.request().method()==='GET')return route.fulfill({contentType:'image/jpeg',body:Buffer.from([0xff,0xd8,0xff,0xd9])});
     return route.continue();
   });
-  await page.goto('/');await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Body',exact:true}).click();
+  await page.goto('/');
   await page.getByRole('button',{name:'Open gallery',exact:true}).click();await expect(page.getByRole('heading',{name:'Gallery',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Sep 12, 2026',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Load more',exact:true})).toBeVisible();
   await expect(page.locator('.photo-gallery-row').first().getByText('Not uploaded',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Load more',exact:true}).click();await expect(page.getByRole('heading',{name:'Sep 1, 2026',exact:true})).toBeVisible();
@@ -331,10 +326,10 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   // lowers the estimate by 0.2 kg × 10 × 1.2 = 2.4 kcal. A selected pace rounds to the kcal:
   // 1871.4 − 80.8 × 0.35% × 7,700 / 7 = 1560.3.
   expect(result.expenditure).toBeCloseTo(1871.4,2);expect(result.calories).toBe(1560);expect(state.profile.goalRatePercent).toBe(-0.35);
-  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Energy balance',exact:true})).toBeVisible();
-  // Balance is its own chart view; it explains why no bar is drawn.
-  await page.getByRole('button',{name:'Surplus or deficit',exact:true}).click();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();
+  const energyCard=page.locator('.energy-progress-card');await energyCard.scrollIntoViewIfNeeded();await expect(energyCard.getByRole('heading',{name:'Energy',exact:true})).toBeVisible();
+  // Balance is its own carousel view; it explains why no bar is drawn.
+  await energyCard.getByRole('button',{name:'Next view: Surplus or deficit',exact:true}).dispatchEvent('click');
   await expect(page.getByText('No complete days to compare.',{exact:true})).toBeVisible();
 
   const shift=(date:string,days:number)=>new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
@@ -400,7 +395,7 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   await expect(energyPanel.getByText('kcal target')).toHaveCount(0);
   expect(activeDaily).toBeGreaterThan(0);
   await resolveMissingDays(page);
-  await page.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('button',{name:'Energy',exact:true}).click();await expect(page.getByRole('heading',{name:'Coaching guidance',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();const coachingCard=page.locator('.energy-progress-card');await coachingCard.scrollIntoViewIfNeeded();for(const next of ['Surplus or deficit','Estimated maintenance','Coaching guidance'])await coachingCard.getByRole('button',{name:`Next view: ${next}`,exact:true}).dispatchEvent('click');await expect(coachingCard.getByRole('heading',{name:'Coaching guidance',exact:true})).toBeVisible();
   const acceptedResponse=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:proposal.revision}});expect(acceptedResponse.ok(),await acceptedResponse.text()).toBeTruthy();
   state=await (await context.request.get('/api/state')).json();const nextResult=JSON.parse(state.plans[0].resultJson) as {calories:number;weeklyCalories:number;dailyCalories:number[]};expect(state.plans[0].id).not.toBe(active.id);expect(nextResult.dailyCalories).toEqual(proposal.result.dailyCalories);expect(nextResult.dailyCalories.reduce((sum,value)=>sum+value,0)).toBe(nextResult.weeklyCalories);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await context.setOffline(true);
@@ -511,7 +506,7 @@ test('mobile scan shortcut supports food photos and label autofill before review
     await page.locator('input[type="file"]').setInputFiles('public/icon-512.png');
     // The preview must decode, not just exist: the prepared photo is bare base64.
     await expect.poll(()=>page.locator('.ai-photo-preview img').evaluate((img:HTMLImageElement)=>img.complete?img.naturalWidth:0)).toBeGreaterThan(0);
-    await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
+    await page.getByRole('button',{name:mode==='label'?'Read label':'Estimate meal',exact:true}).click();
     const foodName=mode==='label'?'Label yoghurt':'Photo meal';
     if(mode==='photo'){
       await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();

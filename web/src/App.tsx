@@ -1,8 +1,7 @@
 import {resetGoogleHealthState} from './lib/googleHealth';
 import {hasConnectIntent} from './lib/googleHealthConnectIntent';
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import type {ProgressFocus} from './components/Progress';
-import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,Zap,ChartNoAxesCombined,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
+import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,Zap,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
 import {api,ApiError,clearApiCooldowns} from './lib/api';
 import {getLocalDatabaseFailure} from './lib/local';
@@ -40,7 +39,6 @@ import {captureNutritionShortcut,clearPendingNutritionShortcut} from './lib/nutr
 import {useReadyNutritionShortcut} from './components/useReadyNutritionShortcut';
 
 // Dashboard and Food Log stay in the first bundle; the other views load on first visit and are precached for offline use.
-const Progress=lazy(()=>import('./components/Progress').then(module=>({default:module.Progress})));
 const IncomingPhoto=lazy(()=>import('./components/IncomingPhoto').then(module=>({default:module.IncomingPhoto})));
 const Coach=lazy(()=>import('./components/Coach').then(module=>({default:module.Coach})));
 const Settings=lazy(()=>import('./components/Settings').then(module=>({default:module.Settings})));
@@ -48,8 +46,8 @@ const Settings=lazy(()=>import('./components/Settings').then(module=>({default:m
 const loadLogFood=()=>import('./components/LogFood');
 const LogFood=lazy(()=>loadLogFood().then(module=>({default:module.LogFood})));
 
-type Page='today'|'food'|'progress'|'coach'|'settings';
-const PAGES:readonly Page[]=['today','food','progress','coach','settings'];
+type Page='today'|'food'|'coach'|'settings';
+const PAGES:readonly Page[]=['today','food','coach','settings'];
 const asPage=(value:unknown):Page|undefined=>PAGES.find(page=>page===value);
 
 function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:string;authReady:boolean;onLogout:()=>Promise<void>;onUsable?:()=>void;onSessionExpired?:()=>void}){
@@ -65,9 +63,6 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   },[!!store.state]);
   const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health')||hasConnectIntent())?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
-  // The Dashboard can open Progress at its weight chart or weigh-in history; any other navigation drops the request.
-  const [progressFocus,setProgressFocus]=useState<ProgressFocus|null>(null);
-  const clearProgressFocus=useCallback(()=>setProgressFocus(null),[]);
   const [foodOpen,setFoodOpen]=useState(false);
   const foodOpening=useRef<(()=>void)|undefined>(undefined);
   const foodMounted=useRef(false);
@@ -116,7 +111,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
           requestPage('coach');
           break;
         case 'openExpenditure':
-          requestPage('progress');
+          requestPage('today');
           break;
         case 'openBarcodeScanner':
           openFood(selectedEntryDate,undefined,'barcode');
@@ -237,13 +232,12 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const nav=[
     {id:'today',label:'Dashboard',icon:LayoutDashboard},
     {id:'food',label:'Food Log',icon:BookOpen},
-    {id:'progress',label:'Progress',icon:ChartNoAxesCombined},
     {id:'coach',label:'Coach',icon:Compass},
     {id:'settings',label:'Settings',icon:SettingsIcon},
   ] as const;
 
   // Background sync indicators update independently of the live page's data.
-  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onProgress={focus=>{navigate('progress');setProgressFocus(focus);}} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:!needsProfile&&page==='progress'?<Progress store={store} focus={progressFocus} onFocused={clearProgressFocus} onSettings={()=>navigate('settings')}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,onLogout,progressFocus]);
+  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,onLogout]);
 
   const [accountHead,accountTail]=splitAtSign(store.state?.displayName??'');
 
@@ -256,8 +250,8 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
           <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><LayoutDashboard size={20}/><span>Dashboard</span></Button>
           <Button data-selection-key="food" disabled={needsProfile} variant="tertiary" className={page==='food'?'nav-active':''} aria-current={page==='food'?'page':undefined} onClick={()=>navigate('food')}><BookOpen size={20}/><span>Food Log</span></Button>
           <Button disabled={needsProfile} variant="primary" className="nav-center-add" aria-label="Add entry" onClick={event=>{setAddReturnFocus(event.currentTarget);setShowAddSheet(true);}}><Plus size={22} className="nav-icon"/><span>Add</span></Button>
-          <Button data-selection-key="progress" disabled={needsProfile} variant="tertiary" className={page==='progress'?'nav-active':''} aria-current={page==='progress'?'page':undefined} onClick={()=>navigate('progress')}><ChartNoAxesCombined size={20}/><span>Progress</span></Button>
           <Button data-selection-key="coach" variant="tertiary" className={page==='coach'?'nav-active':''} aria-current={page==='coach'?'page':undefined} onClick={()=>navigate('coach')}><Compass size={20}/><span>Coach</span></Button>
+          <Button data-selection-key="settings" disabled={needsProfile} variant="tertiary" className={page==='settings'?'nav-active':''} aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={20}/><span>Settings</span></Button>
         </SelectionIndicator>
         <SelectionIndicator active={page} className="nav-desktop-items nav-selection">
           <Button disabled={needsProfile} variant="primary" className="nav-add-desktop" aria-label="Add entry" title="Add entry" onClick={event=>{setAddReturnFocus(event.currentTarget);setShowAddSheet(true);}}><Plus size={19}/><span>Add entry</span></Button>
@@ -285,7 +279,6 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
         </div>
         {needsProfile&&<Button variant="tertiary" size="icon" className="topbar-signout" aria-label="Sign out" title="Sign out" onClick={()=>void onLogout()}><LogOut size={20} aria-hidden="true"/></Button>}
         <Button disabled={needsProfile} variant="tertiary" size="icon" className="topbar-ai" aria-label="Ask AI" title="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={20}/></Button>
-        <Button disabled={needsProfile} variant="tertiary" size="icon" className={`mobile-settings ${page==='settings'?'nav-active':''}`} aria-label="Settings" aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={21}/></Button>
       </div>
       <SyncStatus store={store}/>
       <UndoToastHost/>

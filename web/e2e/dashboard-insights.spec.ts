@@ -1,4 +1,4 @@
-import {test,expect,type APIRequestContext} from '@playwright/test';
+import {test,expect,type APIRequestContext,type Locator} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
 import {longDate} from '../src/lib/format';
@@ -73,22 +73,39 @@ for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[1440,'dark
     for(const box of await days.evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().toJSON())))expect(Math.min(box.width,box.height)).toBeGreaterThanOrEqual(44);
     await page.screenshot({path:`artifacts/ui-uplift/dashboard-insights-${theme}-${width}.png`,fullPage:true,animations:'disabled'});
 
-    // The weight trend card summarizes the cleaned trend; its figures and line open the weight
-    // chart and the latest weigh-ins beneath open the weigh-in history.
-    const trend=page.getByRole('button',{name:/^Trend weight: [\d.]+ kg as of today, .+ since .+\. Open weight chart$/});
-    await expect(trend).toBeVisible();
-    await expect(trend.locator('.dashboard-sparkline')).toBeVisible();
-    const history=page.getByRole('button',{name:/^Latest weigh-ins: .+\. Open weigh-in history$/});
-    const historyBox=await history.boundingBox();
-    expect(historyBox?.height).toBeGreaterThanOrEqual(44);
-    await trend.click();
-    await expect(page.locator('[data-page-heading]')).toHaveText('Progress');
-    await expect(page.locator('#progress-weight-chart')).toBeInViewport();
-    await page.goBack();
-    await expect(history).toBeVisible();
-    await history.click();
-    await expect(page.locator('[data-page-heading]')).toHaveText('Progress');
-    await expect(page.getByRole('heading',{name:'Latest weigh-ins'})).toBeInViewport();
+    // The Weight card summarizes the cleaned trend, then swipes to the scale readings and to both
+    // together; the latest weigh-ins sit in their own card at the foot of the Dashboard.
+    const weight=page.locator('.weight-progress-card');
+    await weight.scrollIntoViewIfNeeded();
+    await expect(weight.getByRole('heading',{name:'Weight',exact:true})).toBeVisible();
+    const carousel=weight.getByRole('group',{name:'Weight view',exact:true});
+    const title=carousel.locator('.swipe-carousel-title');
+    await expect(title).toHaveText('Trend weight');
+    const figure=/^[+−-]?[\d.]+ kg$/;
+    const stat=(slide:Locator,label:string)=>slide.locator('.energy-stats > div').filter({hasText:label}).locator('dd');
+    const trendSlide=carousel.getByRole('group',{name:'Trend weight, 1 of 3'});
+    await expect(stat(trendSlide,'Trend weight')).toHaveText(figure);
+    await expect(stat(trendSlide,'Change in trend')).toHaveText(figure);
+    await expect(trendSlide.locator('.weight-chart-panel')).toBeVisible();
+    // Phones swipe the track; from 640 px the arrows beside the view name do the same.
+    const showView=async(index:number,name:string)=>{
+      if(width>=640)await carousel.getByRole('button',{name:`Next view: ${name}`,exact:true}).click();
+      else await carousel.locator('.swipe-carousel-track').evaluate((track,n)=>track.scrollTo({left:track.clientWidth*n,behavior:'instant'}),index);
+      await expect(title).toHaveText(name);
+      await expect(carousel.getByRole('group',{name:`${name}, ${index+1} of 3`})).toBeVisible();
+    };
+    await showView(1,'Scale weight');
+    const scaleSlide=carousel.getByRole('group',{name:'Scale weight, 2 of 3'});
+    await expect(stat(scaleSlide,'Average scale weight')).toHaveText(figure);
+    await expect(stat(scaleSlide,'Lowest')).toHaveText(/^80(\.0)? kg$/);
+    await expect(stat(scaleSlide,'Highest')).toHaveText(/^81(\.0)? kg$/);
+    await showView(2,'Trend and scale weight');
+    await expect(carousel.getByRole('group',{name:'Trend and scale weight, 3 of 3'}).locator('.energy-stats > div')).toHaveCount(3);
+
+    const history=page.locator('.weight-history-card');
+    await history.scrollIntoViewIfNeeded();
+    await expect(history.getByRole('heading',{name:'Latest weigh-ins'})).toBeInViewport();
+    await expect(history.locator('.weigh-in-list .weigh-in-row').first()).toBeVisible();
   });
 }
 

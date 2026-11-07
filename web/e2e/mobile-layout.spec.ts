@@ -66,22 +66,22 @@ test('mobile view (360px & 390px): eliminates horizontal scroll and fixes button
     // Close Log food modal
     await foodDialog.getByRole('button',{name:'Close dialog'}).click();
 
-    // 3. Navigate to Progress tab
+    // 3. Dashboard analytics cards
     const nav=page.getByRole('navigation',{name:'Main navigation'});
-    await nav.getByRole('button',{name:'Progress'}).click();
-    await expect(page.getByRole('heading',{name:'Progress',exact:true})).toBeVisible();
+    await nav.getByRole('button',{name:'Dashboard'}).click();
+    await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
 
-    // Check Weight chart segmented control: zero horizontal scroll
-    const chartToggle=page.locator('.chart-view-toggle');
-    await expect(chartToggle).toBeVisible();
-    const chartScrollW=await chartToggle.evaluate(el=>el.scrollWidth);
-    const chartClientW=await chartToggle.evaluate(el=>el.clientWidth);
-    expect(chartScrollW).toBeLessThanOrEqual(chartClientW+2);
+    // Check the Weight card's view bar: zero horizontal scroll
+    const weightBar=page.locator('.weight-progress-card .swipe-carousel-bar');
+    await weightBar.scrollIntoViewIfNeeded();
+    await expect(weightBar).toBeVisible();
+    const barScrollW=await weightBar.evaluate(el=>el.scrollWidth);
+    const barClientW=await weightBar.evaluate(el=>el.clientWidth);
+    expect(barScrollW).toBeLessThanOrEqual(barClientW+2);
 
-    // Check Body tab and "Add photo set" button layout
-    const progressTabs=page.locator('#progress-tabs');
-    await progressTabs.getByRole('button',{name:'Body'}).click();
+    // Check the Body section and "Add photo set" button layout
     const physiquePanel=page.locator('.physique');
+    await physiquePanel.scrollIntoViewIfNeeded();
     await expect(physiquePanel).toBeVisible();
 
     const addPhotoBtn=physiquePanel.getByRole('button',{name:'Add photo set',exact:true});

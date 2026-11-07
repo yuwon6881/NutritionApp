@@ -17,7 +17,7 @@ Completed 11 October 2026. Application and browser-test changes were implemented
 | Energy balance reused carbohydrate/protein colours. | Energy values and surplus use energy; deficit bars use muted foreground; the coaching goal is ink and dashed. Signs and position around zero remain direction cues. |
 | Tablet macro layouts inherited conflicting grid/flex rules. | At 640–899 px, three macro columns sit below energy with wrapping values and matching skeletons. Scoped selectors resolve the cascade. |
 | Maintenance broke mid-word in the 1024 px Coach grid. | Two strategy columns on phones, three at 640–1279 px, six from 1280 px. |
-| Narrow Progress tabs scrolled, then enlarged labels exceeded their buttons. | Four equal phone tabs with explicit wrapping label spans and growing height. |
+| Narrow section tabs scrolled, then enlarged labels exceeded their buttons. | Four equal phone tabs with explicit wrapping label spans and growing height. |
 | Normal 320 px navigation labels clipped after fonts loaded. | Adjusted spacing, preserving complete labels, font size, accessible names and touch targets. Tests wait for fonts and check each page. |
 | TimePicker extended below short landscape windows and was clipped by dialog content. | Portal into the native dialog or body, visual-viewport clamping, scrolling columns and reachable Now/Done controls; Escape restores focus. |
 

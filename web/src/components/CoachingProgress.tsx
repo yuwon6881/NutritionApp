@@ -41,12 +41,6 @@ export function CoachingProgress({store,rangeStart,rangeEnd}:{store:NutritionSto
   const hasGoal=goal.length>0;
   const hasLegend=hasMaintenance||hasGoal||hasAccepted;
   return <section className="panel coaching-progress">
-    <div className="section-heading">
-      <div>
-        <h2>Coaching guidance</h2>
-        <p className="chart-description">Estimated daily burn rate alongside suggested and accepted calorie targets over time.</p>
-      </div>
-    </div>
     {points.length<2?<p className="notice">Not enough data yet.</p>:<>
       <svg ref={chart.ref} viewBox={`0 0 ${chart.width} 245`} className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
         {ticks.map(value=><g key={value}><line x1={chart.left} y1={y(value)} x2={chart.right} y2={y(value)} className="chart-grid"/><text x={chart.left-8} y={y(value)+4} textAnchor="end">{displayEnergy(value,units.energy)}</text></g>)}
@@ -58,15 +52,15 @@ export function CoachingProgress({store,rangeStart,rangeEnd}:{store:NutritionSto
       {hasLegend&&<ul className="chart-legend coaching-legend" aria-label="Coaching guidance key">
         {hasMaintenance&&<li>
           <span className="legend-line swatch-coaching-maintenance" aria-hidden="true"/>
-          <span>Maintenance <span className="legend-hint">(burn rate)</span></span>
+          <span>Maintenance</span>
         </li>}
         {hasGoal&&<li>
           <span className="legend-line swatch-coaching-goal" aria-hidden="true"/>
-          <span>Provisional goal <span className="legend-hint">(suggested)</span></span>
+          <span>Provisional goal</span>
         </li>}
         {hasAccepted&&<li>
           <span className="legend-line swatch-coaching-accepted" aria-hidden="true"/>
-          <span>Accepted target <span className="legend-hint">(active plan)</span></span>
+          <span>Accepted target</span>
         </li>}
       </ul>}
     </>}

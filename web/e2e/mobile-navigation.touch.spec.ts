@@ -24,8 +24,8 @@ const heading=(page:Page,name:string)=>page.getByRole('heading',{name,exact:true
 test('Back returns through visited pages to the Dashboard',async({page})=>{
   await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await expect(heading(page,'Food Log')).toBeVisible();
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await expect(heading(page,'Progress')).toBeVisible();
+  await page.getByRole('button',{name:'Coach',exact:true}).click();
+  await expect(heading(page,'Coach')).toBeVisible();
 
   await page.goBack();
   await expect(heading(page,'Food Log')).toBeVisible();
@@ -76,8 +76,7 @@ test('Back closes an open date popover without leaving the page',async({page})=>
 });
 
 test('weigh-in deletion needs confirmation, can be undone, and persists after the undo window',async({page})=>{
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  const rows=page.locator('.weigh-in-list .weigh-in-row');
+  const rows=page.locator('.weight-history-card .weigh-in-row');
   await expect(rows.first()).toBeVisible();
   const before=await rows.count();
   const trigger=rows.first().getByRole('button',{name:/^More actions for weigh-in from /});
@@ -106,6 +105,5 @@ test('weigh-in deletion needs confirmation, can be undone, and persists after th
   await expect(rows).toHaveCount(before-1);
   await expect(undo).toBeHidden({timeout:10000});
   await page.reload();
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
   await expect(rows).toHaveCount(before-1);
 });

@@ -10,7 +10,8 @@ import {useBarViewport,useRevealBar} from './ui/useBarViewport';
 import {useWindowTier} from './ui/useWindowTier';
 import {useChartScrub} from './ui/useChartScrub';
 
-type View='both'|'scale'|'trend';
+export type WeightChartView='both'|'scale'|'trend';
+type View=WeightChartView;
 const TOP=16;
 const DAY=86400000;
 /**
@@ -20,12 +21,14 @@ const DAY=86400000;
 const MIN_DAY_WIDTH:Record<ReturnType<typeof useWindowTier>,number>={compact:7,medium:6,expanded:5};
 const isoDay=(time:number)=>new Date(time).toISOString().slice(0,10);
 
-export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit;periodStart?:string;periodEnd?:string}){
+/** With `view` the caller chooses what is drawn and the chart's own title and switch are left out. */
+export function WeightChart({series,weightUnit='kg',periodStart,periodEnd,view:fixedView}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit;periodStart?:string;periodEnd?:string;view?:WeightChartView}){
   // A wide window has the room for a taller plot, so a month of weigh-ins reads as a trend, not a strip.
   const tier=useWindowTier();
   const height=tier==='expanded'?300:214;
   const base=height-30;
-  const [view,setView]=useState<View>('both');
+  const [chosenView,setView]=useState<View>('both');
+  const view=fixedView??chosenView;
   const readoutId=useId();
   const gradientId=`trend-fill-${useId().replace(/[^\w-]/g,'')}`;
   const unit=weightLabel(weightUnit);
@@ -75,18 +78,18 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
   const visibleSpan=series.length?dateSpan(isoDay(start+Math.min(edges.first,totalDays)*DAY),isoDay(start+Math.min(edges.last,totalDays)*DAY)):'';
   const viewName=view==='both'?'Scale and trend':view==='scale'?'Scale':'Trend';
   const axis=ticks.map(value=><text key={value} x={BAR_AXIS_WIDTH-8} y={valueY(value)+4} textAnchor="end">{value.toLocaleString('en-MY',{maximumFractionDigits:1})}</text>);
-  return <section className="panel weight-chart-panel"><div className="section-heading"><div><h2>Weight</h2></div>
+  return <section className="panel weight-chart-panel">{!fixedView&&<div className="section-heading"><div><h2>Weight</h2></div>
     <SegmentedControl<View> layout="equal" className="chart-view-toggle" label="Weight chart display" value={view} onChange={setView} options={[
       {value:'both',label:'Both',ariaLabel:'Both'},
       {value:'scale',label:<><span className="tab-label-full">Scale weight</span><span className="tab-label-short">Scale</span></>,ariaLabel:'Scale weight'},
       {value:'trend',label:<><span className="tab-label-full">Trend weight</span><span className="tab-label-short">Trend</span></>,ariaLabel:'Trend weight'}
-    ]}/></div>
+    ]}/></div>}
     {series.length&&selected?<>
     <div id={readoutId} className="chart-readout chart-readout-grid" aria-live="polite">
       <strong className="chart-readout-date"><time dateTime={selected.date}>{readoutDate(selected.date)}</time></strong>
       <dl>
-        {view!=='trend'&&<div><dt><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale</dt><dd>{displayWeight(selected.scaleKg,weightUnit,1)} {unit}</dd></div>}
-        {view!=='scale'&&<div><dt><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</dt><dd>{selected.trendKg===null?'Pending':`${displayWeight(selected.trendKg,weightUnit,1)} ${unit}`}</dd></div>}
+        {view!=='trend'&&<div><dt className={view==='both'?undefined:'sr-only'}><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale</dt><dd>{displayWeight(selected.scaleKg,weightUnit,1)} {unit}</dd></div>}
+        {view!=='scale'&&<div><dt className={view==='both'?undefined:'sr-only'}><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</dt><dd>{selected.trendKg===null?'Pending':`${displayWeight(selected.trendKg,weightUnit,1)} ${unit}`}</dd></div>}
         {view==='both'&&<div><dt>Scale vs trend</dt><dd>{selected.trendKg===null?'—':`${selected.scaleKg-selected.trendKg>=0?'+':'−'}${displayWeight(Math.abs(selected.scaleKg-selected.trendKg),weightUnit,1)} ${unit}`}</dd></div>}
       </dl>
     </div>
@@ -111,9 +114,9 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd}:{seri
         return <text key={date} x={at} y={height-6} textAnchor={at<26?'start':at>contentWidth-26?'end':'middle'}>{dateLabel(date)}</text>;
       })}
     </BarChartFrame></div>
-    <ul className="chart-legend" aria-label="Weight chart key">
+    {(!fixedView||view==='both')&&<ul className="chart-legend" aria-label="Weight chart key">
       {view!=='trend'&&<li><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale weigh-in</li>}
       {view!=='scale'&&<li><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</li>}
-    </ul></>:<div className="empty"><h3>No weigh-ins yet</h3></div>}
+    </ul>}</>:<div className="empty"><h3>No weigh-ins yet</h3></div>}
   </section>;
 }

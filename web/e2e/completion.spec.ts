@@ -29,11 +29,11 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'] as const){
     await page.emulateMedia({reducedMotion:'reduce'});
     await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);
     await seed(page);
-    await page.getByRole('button',{name:'Progress',exact:true}).click();
+    await page.locator('.weight-history-card').scrollIntoViewIfNeeded();
     await page.getByLabel('Weight history period',{exact:true}).selectOption('all');
     await expect(page.locator(`.weigh-in-list time[datetime="${shifted(-45)}"]`)).toBeVisible();
     await context.setOffline(true);
-    await page.getByRole('button',{name:/^Edit weigh-in from /}).first().click();
+    await page.locator('.weigh-in-row').first().getByRole('button',{name:/^More actions for weigh-in from /}).click();await page.getByRole('button',{name:'Edit weigh-in',exact:true}).click();
     await page.getByLabel('Weight (kg)',{exact:true}).fill('80.2');
     await page.getByRole('button',{name:'Update weigh-in',exact:true}).click();
     await expect(page.locator('.weigh-in-list').getByText('80.2 kg')).toBeVisible();
@@ -63,11 +63,11 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'] as const){
 
 test('a new terminal rejection permits the next independent write in the same drain',async({page,context})=>{
   await seed(page);
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await expect(page.getByRole('button',{name:/^Edit weigh-in from /}).first()).toBeVisible();
+  await page.locator('.weight-history-card').scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button',{name:/^More actions for weigh-in from /}).first()).toBeVisible();
   await context.setOffline(true);
   for(const index of [0,1]){
-    await page.getByRole('button',{name:/^Edit weigh-in from /}).nth(index).click();
+    await page.locator('.weigh-in-row').nth(index).getByRole('button',{name:/^More actions for weigh-in from /}).click();await page.getByRole('button',{name:'Edit weigh-in',exact:true}).click();
     await page.getByLabel('Weight (kg)',{exact:true}).fill('80.2');
     await page.getByRole('button',{name:'Update weigh-in',exact:true}).click();
   }

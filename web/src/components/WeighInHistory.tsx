@@ -3,12 +3,10 @@ import {CloudDownload,MoreHorizontal,Pencil,Trash2} from 'lucide-react';
 import type {ProgressSummary,Weight} from '../types';
 import {displayWeight,weightLabel,type unitsFor} from '../lib/units';
 import {monthShort,readoutDate,weekdayShort} from '../lib/format';
-import {dateSpan} from '../lib/chartLabels';
 import {changeSincePrevious,mergeWeighInRows} from '../lib/weighInList';
 import {weightContextLabel} from '../lib/weightContext';
 import {Button} from './ui/Button';
 import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
-import {WeightChart} from './WeightChart';
 import {CardFeedback} from './ui/CardFeedback';
 import {SkeletonBlock} from './ui/Skeleton';
 import {useWeighInHistory} from './useWeighInHistory';
@@ -18,13 +16,12 @@ type Units=ReturnType<typeof unitsFor>;
 // A week of rows keeps the list short on a phone; older rows page in as the person scrolls on.
 const INITIAL_ROWS=7;
 
-export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:Units;pending:boolean;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void;pendingDeletes:ReadonlySet<string>}){
+/** The weigh-ins of the selected period, newest first, with edit and delete actions. */
+export function WeighInHistory({summary,units,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:Units;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void;pendingDeletes:ReadonlySet<string>}){
   const stats=summary.weight.statistics;
-  const isTrendPending=Boolean(stats.trendPending);
   const unit=weightLabel(units.weight);
   const history=useWeighInHistory(summary.start,summary.end,summary.revision);
   const editable=useMemo(()=>mergeWeighInRows(summary.weight.editableWeighIns,history.items,pendingDeletes),[summary.weight.editableWeighIns,history.items,pendingDeletes]);
-  const trendChange=stats.trendChangeKg;
   const [showAll,setShowAll]=useState(false);
   // The period's weigh-in count says whether older rows exist before any page has been read.
   const canLoad=history.hasMore&&editable.length<stats.count;
@@ -53,14 +50,7 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
     {id:'delete',label:'Delete weigh-in',icon:<Trash2 size={20} aria-hidden="true"/>,variant:'destructive',onClick:()=>onDelete(menuTarget.weight,menuTarget.trigger)},
   ]:[],[menuTarget,onEdit,onDelete]);
   return <>
-    {pending&&<p className="notice" role="status">Recent edits will update after sync.</p>}
-    <div className="stats-grid progress-stats">
-      <section className="panel"><p className="eyebrow">Trend weight</p><h2>{isTrendPending?'—':displayWeight(stats.latestTrendKg,units.weight,1)} <span className="unit">{unit}</span></h2>{isTrendPending&&<p>Pending sync</p>}</section>
-      <section className="panel"><p className="eyebrow">Average scale weight</p><h2>{displayWeight(stats.averageKg,units.weight,1)} <span className="unit">{unit}</span></h2><p>{stats.count} {stats.count===1?'weigh-in':'weigh-ins'}</p></section>
-      <section className="panel"><p className="eyebrow">Change in trend</p><h2>{isTrendPending||trendChange==null?'—':`${trendChange>0?'+':trendChange<0?'−':''}${displayWeight(Math.abs(trendChange),units.weight,1)}`} <span className="unit">{unit}</span></h2><p>{isTrendPending?'Pending sync':dateSpan(summary.start,summary.end)}</p></section>
-    </div>
-    <div id="progress-weight-chart" className="progress-anchor"><WeightChart series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end}/></div>
-    <section id="progress-weight-history" className="panel weight-history-panel progress-anchor" aria-labelledby="latest-weigh-ins-title">
+    <section id="dashboard-weight-history" className="weight-history-panel" aria-labelledby="latest-weigh-ins-title">
       <div className="section-heading"><div><h2 id="latest-weigh-ins-title">Latest weigh-ins</h2></div></div>
       {editable.length?<><ul className="weigh-in-list">{shown.map(weight=>{
         const change=changeSincePrevious(summary.weight.series,weight.date,weight.kg);
@@ -84,7 +74,6 @@ export function WeightSummary({summary,units,pending,onEdit,onDelete,pendingDele
             </p>
           </div>
           <div className="weigh-in-actions">
-            <Button variant="tertiary" size="icon" aria-label={`Edit weigh-in from ${spoken}`} onClick={event=>onEdit(weight,event.currentTarget)}><Pencil size={17} aria-hidden="true"/></Button>
             <Button variant="tertiary" size="icon" aria-label={`More actions for weigh-in from ${spoken}`} onClick={event=>{setMenuTarget({weight,trigger:event.currentTarget});setMenuOpen(true);}}><MoreHorizontal size={17} aria-hidden="true"/></Button>
           </div>
         </li>;

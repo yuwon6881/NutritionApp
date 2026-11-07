@@ -91,7 +91,7 @@ Weight charts toggle daily observations, calculated trend, or both, with an acce
 
 ## Energy-balance history
 
-Progress contains intake/maintenance bars and signed energy-balance bars. Weight has its own recent-90-days/calendar-year selector. Energy ranges are 7, 28, 90 days or a calendar year; bars group by day, calendar week or month. History views have independent account-scoped caches and do not replace the main diary window. The comparison uses accepted, effective-dated maintenance estimates, including the accepted estimate preceding the displayed window. New coaching estimates do not retroactively replace older dates.
+The Dashboard Energy card contains intake/maintenance bars and signed energy-balance bars. Weight has its own recent-90-days/calendar-year selector. Energy ranges are 7, 28, 90 days or a calendar year; bars group by day, calendar week or month. History views have independent account-scoped caches and do not replace the main diary window. The comparison uses accepted, effective-dated maintenance estimates, including the accepted estimate preceding the displayed window. New coaching estimates do not retroactively replace older dates.
 
 Positive balance means intake above estimated maintenance; negative means below. Incomplete/missing intake or unavailable historical maintenance produces an unknown balance, never an invented deficit. Aggregated net balance requires every included day to be known; an additional subtotal explicitly reports only fully logged days. Confirmed fasting is an explicit zero. Compacted daily summaries feed the same chart, and the chart does not create additional stored history.
 
@@ -114,7 +114,7 @@ Recent and frequent foods remain in the food picker. Dashboard focuses on daily 
 
 ### Retained progress and integration resilience
 
-Progress shows locally retained scale weights and queued changes immediately, including All history. Unknown calculated trends stay pending in statistics, chart gaps, readouts, and tables until server synchronization. Explicit Close dismisses food logging after dirty confirmation; Back/Escape unwinds new-food steps but closes an existing entry editor.
+The Dashboard weight card shows locally retained scale weights and queued changes immediately, including All history. Unknown calculated trends stay pending in statistics, chart gaps, readouts, and tables until server synchronization. Explicit Close dismisses food logging after dirty confirmation; Back/Escape unwinds new-food steps but closes an existing entry editor.
 
 Workout summary refreshes use bounded deadlines and an in-process breaker for transient service failures, preserving each account's cached history and visible refresh feedback. Offline logout queues exact device-token revocations; an origin-protected capability endpoint can complete them while signed out or after account changes, without revoking a rotated token.
 

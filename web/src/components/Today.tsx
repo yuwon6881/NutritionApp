@@ -1,8 +1,7 @@
 import {lazy,Suspense,useEffect,useMemo,useState} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {CoachResult} from '../types';
-import {number,today} from '../lib/format';
-import {cleanTrend} from '../lib/weightSignal';
+import {today} from '../lib/format';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {planForDate,targetsForDate} from '../lib/dailyTargets';
 import {GoalReachedBanner} from './GoalReachedBanner';
@@ -16,27 +15,33 @@ import {CheckInDialog} from './CheckInDialog';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
 import {shouldShowDashboardSteps,useGoogleHealth} from '../lib/googleHealth';
 import {DashboardSteps} from './DashboardSteps';
-import {TrainingSummaryCard} from './TrainingSummaryCard';
 import {EnergyOverview} from './EnergyOverview';
 import {HabitCalendars} from './habits/HabitCalendars';
-import {DashboardSkeleton} from './ui/Skeleton';
+import {DashboardSkeleton,ChartCardSkeleton} from './ui/Skeleton';
 import {useOnlineStatus} from './ui/useOnlineStatus';
 import {TodayMacros} from './dashboard/TodayMacros';
 import {WeekNutritionCard} from './dashboard/WeekNutritionCard';
-import {WeightTrendCard} from './dashboard/WeightTrendCard';
-import type {ProgressFocus} from './Progress';
-import {latestWeighIns} from '../lib/weighInList';
+import type {ProgressPeriod} from '../types';
+import {useWeightProgress} from './dashboard/useWeightProgress';
+import {BodyHubSkeleton} from './body/BodyHubSkeleton';
+
+// The chart cards are the heaviest part of the Dashboard and sit below the fold, so their code loads after the first paint.
+const WeightProgressCard=lazy(()=>import('./dashboard/WeightProgressCard').then(module=>({default:module.WeightProgressCard})));
+const WeightHistoryCard=lazy(()=>import('./dashboard/WeightHistoryCard').then(module=>({default:module.WeightHistoryCard})));
+const EnergyProgressCard=lazy(()=>import('./dashboard/EnergyProgressCard').then(module=>({default:module.EnergyProgressCard})));
+const ActivityCard=lazy(()=>import('./dashboard/ActivityCard').then(module=>({default:module.ActivityCard})));
+const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
 
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
 
-export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStore;onCoach:()=>void;onProgress:(focus:ProgressFocus)=>void;onSettings?:()=>void}){
+export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:()=>void;onSettings?:()=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
-  // The same cleaned trend the coach uses: marked temporary days and statistical outliers stay out.
-  const recentWeighIns=useMemo(()=>latestWeighIns(state.weights,date,3),[state.weights,date]);
-  const weightTrend=useMemo(()=>cleanTrend([...(state.weightTrendSeed??[]),...state.weights.filter(w=>!w.deleted)],date),[state.weightTrendSeed,state.weights,date]);
   const energyUnit=unitsFor(state.settings).energy;
+  // The weight card and its weigh-in list, at the foot of the page, read the same period.
+  const [weightPeriod,setWeightPeriod]=useState<ProgressPeriod>('month');
+  const weightProgress=useWeightProgress(store,weightPeriod);
   const [checkInOpen,setCheckInOpen]=useState(false);
   const [intro]=useState(()=>!dashboardIntroPlayed);
   useEffect(()=>{dashboardIntroPlayed=true;},[]);
@@ -66,10 +71,6 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
   // Once a connection is known, keep the card visible during background refresh so
   // a temporary loading state does not make the dashboard jump.
   const showGoogleHealthSteps = shouldShowDashboardSteps(ghState,ghLoading);
-  // Depend on the stable loader, not the store object: every commit returns a new store, so a
-  // store dependency re-fetched after each response in an endless loop.
-  const loadTrainingSummaries=store.loadTrainingSummaries;
-  useEffect(()=>{if(state.workoutConnected!==false)void loadTrainingSummaries?.();},[loadTrainingSummaries,state.workoutConnected]);
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"/>
@@ -123,9 +124,17 @@ export function Today({store,onCoach,onProgress,onSettings}:{store:NutritionStor
         {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
           <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
         </section>}
-        <WeightTrendCard points={weightTrend} recent={recentWeighIns} current={date} unit={unitsFor(state.settings).weight} onOpen={onProgress}/>
       </div>
-      <TrainingSummaryCard syncedAt={state.trainingSyncedAt} summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings} onRetry={()=>void loadTrainingSummaries?.(true)}/>
+      <Suspense fallback={<ChartCardSkeleton/>}><WeightProgressCard store={store} period={weightPeriod} onPeriod={setWeightPeriod} progress={weightProgress}/></Suspense>
+      <Suspense fallback={<ChartCardSkeleton/>}><EnergyProgressCard store={store}/></Suspense>
+      </section>
+      <section className="dashboard-section dashboard-section-body" aria-labelledby="dashboard-body-title">
+        <h2 id="dashboard-body-title" className="dashboard-section-title sr-only">Body</h2>
+        <Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>
+      </section>
+      <section className="dashboard-section dashboard-section-activity">
+        <Suspense fallback={<ChartCardSkeleton/>}><ActivityCard store={store} onSettings={onSettings}/></Suspense>
+        <Suspense fallback={<ChartCardSkeleton/>}><WeightHistoryCard store={store} progress={weightProgress}/></Suspense>
       </section>
       </div>
     </>}

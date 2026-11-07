@@ -1,4 +1,27 @@
 /* Dashboard layout and insight cards: Today nutrition surface, weekly nutrition, goal progress, and weight trend. */
 @import './today-nutrition.css';
 @import './week-nutrition.css';
-@import './weight-trend.css';
+
+/* Cards that carry several swipeable views of one measure (weight, energy, activity). */
+.dashboard-wide-card{margin-bottom:24px}
+.dashboard-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.dashboard-card-title{margin:0;font-size:1.25rem}
+.dashboard-wide-card .weight-history-panel{padding:0}
+.dashboard-wide-card .swipe-carousel-slide .energy-stats{margin-bottom:16px}
+.activity-connect .chart-description{margin-bottom:16px}
+.dashboard-section-body>.panel,.dashboard-section-body .panel:last-child{margin-bottom:24px}
+@media(max-width:639px){
+  .activity-connect .button{width:100%}
+}
+
+/* Enlarged text: the card title and its action wrap, and figure tiles reflow instead of overflowing. */
+.dashboard-card-head{flex-wrap:wrap}
+.dashboard-wide-card .energy-stats{grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr))}
+.dashboard-wide-card .energy-stats dd{overflow-wrap:anywhere}
+
+/* Data in these cards uses the theme's primary colour: violet in Day, lime in Night. */
+.dashboard-wide-card{--energy:var(--primary)}
+
+/* Enlarged text: readout cells wrap their labels instead of overflowing the card. */
+.dashboard-wide-card .energy-readout-cells>div{min-width:0}
+.dashboard-wide-card .energy-readout-cells dt{overflow-wrap:anywhere}

@@ -37,12 +37,10 @@ export function EnergyReadout({id,row,grouping,energyUnit,view}:{id:string;row?:
       <div className={view==='intake'?'is-active':''}>
         <dt><span className="legend-swatch swatch-intake" aria-hidden="true"/>Intake</dt>
         <dd>{figure(row?.intake)}</dd>
-        <small>{row?.intake==null?'Not logged':row.complete?'Logged total':'Logged so far'}</small>
       </div>
       <div className={view==='intake'?'is-active':''}>
         <dt><span className="legend-line swatch-maintenance" aria-hidden="true"/>Maintenance</dt>
         <dd>{figure(row?.maintenance)}</dd>
-        <small>{row?.maintenance==null?'No estimate':'Keeps weight steady'}</small>
       </div>
       <div className={`${view==='balance'?'is-active ':''}${tone}`.trim()}>
         <dt><span className={`legend-swatch ${row?.balance!=null&&row.balance<0?'swatch-deficit':row?.balance!=null&&row.balance>0?'swatch-surplus':'swatch-missing'}`} aria-hidden="true"/>Balance</dt>

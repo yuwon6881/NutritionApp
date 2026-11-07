@@ -1,5 +1,12 @@
-import {test,expect} from '@playwright/test';
+import {test,expect,type Locator} from '@playwright/test';
 import {seedMobileUser,todayInTestZone} from './helpers/seed';
+
+// The carousel track is a native scroll-snap scroller; scrolling it is what a swipe does.
+const showView=async(card:Locator,index:number)=>{
+  await card.locator('.swipe-carousel-track').evaluate((track,n)=>track.scrollTo({left:track.clientWidth*n,behavior:'instant'}),index);
+  await expect(card.locator('.swipe-carousel-slide').nth(index)).not.toHaveAttribute('inert');
+};
+const activeSlide=(card:Locator)=>card.locator('.swipe-carousel-slide:not([inert])');
 
 const days=(count:number)=>Array.from({length:count},(_,index)=>{
   const day=new Date(`${todayInTestZone()}T12:00:00Z`);day.setUTCDate(day.getUTCDate()-(count-1-index));
@@ -7,7 +14,7 @@ const days=(count:number)=>Array.from({length:count},(_,index)=>{
 });
 
 test.beforeEach(async({page,request,context})=>{
-  const session=await seedMobileUser(request,'progress-polish',[]);
+  const session=await seedMobileUser(request,'dashboard-weight-polish',[]);
   await context.addCookies(session.cookies);
   await page.route('**/api/integrations/google-health/sync',route=>route.fulfill({json:{
     status:'connected',connectedAt:'2026-01-01T00:00:00Z',lastSyncedAt:new Date().toISOString(),freshness:'fresh',days:days(30),
@@ -15,11 +22,12 @@ test.beforeEach(async({page,request,context})=>{
   }}));
 });
 
-for(const width of [390,1440])test(`steps calculator opens as an empty dialog and chart pager follows the window size at ${width}px`,async({page})=>{
+for(const width of [390,1440])test(`steps calculator opens as an empty dialog and steps chart pager follows the window size at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:900});
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Activity',exact:true}).click();
+  const card=page.locator('.activity-card');
+  await expect(card).toBeVisible();
+  await showView(card,1);
   await expect(page.getByRole('textbox',{name:/Energy to burn/})).toHaveCount(0);
   await page.getByRole('button',{name:'Steps for an energy target'}).click();
   const dialog=page.getByRole('dialog',{name:'Steps calculator'});
@@ -31,12 +39,14 @@ for(const width of [390,1440])test(`steps calculator opens as an empty dialog an
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 
-  const later=page.getByRole('button',{name:'Show earlier days'});
+  await showView(card,0);
+  const steps=activeSlide(card);
+  const later=steps.getByRole('button',{name:'Show earlier days'});
   if(width>=1024){
     await expect(later).toBeVisible();
-    const before=await page.locator('.bar-chart-scroller').first().evaluate(element=>element.scrollLeft);
+    const before=await steps.locator('.bar-chart-scroller').first().evaluate(element=>element.scrollLeft);
     await later.click();
-    await expect.poll(()=>page.locator('.bar-chart-scroller').first().evaluate(element=>element.scrollLeft)).toBeLessThan(before);
+    await expect.poll(()=>steps.locator('.bar-chart-scroller').first().evaluate(element=>element.scrollLeft)).toBeLessThan(before);
   }else await expect(later).toBeHidden();
 });
 
@@ -66,34 +76,34 @@ test('the day after today can be opened from the strip and arrow keys, without p
   await expect(page.locator('.food-day-summary h2')).toHaveText('Today');
 });
 
-test('the Energy tab loads into a chart-shaped placeholder, not a line of text',async({page})=>{
+test('the Energy card loads into a chart-shaped placeholder, not a line of text',async({page})=>{
   await page.route('**/api/progress/summary**',async route=>{
     await new Promise(resolve=>setTimeout(resolve,1500));
     await route.continue();
   });
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Energy',exact:true}).click();
-  const placeholder=page.locator('.energy-history .skeleton-chart');
+  const card=page.locator('.energy-progress-card');
+  const slide=activeSlide(card);
+  const placeholder=slide.locator('.energy-history .skeleton-chart');
   await expect(placeholder).toBeVisible();
-  await expect(page.locator('.energy-history .skeleton-stats')).toBeVisible();
+  await expect(slide.locator('.energy-history .skeleton-stats')).toBeVisible();
   await expect(page.getByText('Loading…',{exact:true})).toHaveCount(0);
-  await expect(page.locator('.energy-history').getByRole('heading',{name:'Energy balance'})).toBeVisible();
+  await expect(card.getByRole('heading',{name:'Energy',exact:true})).toBeVisible();
   // The placeholder gives way to the real summary without leaving anything behind.
   await expect(placeholder).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
 });
 
-for(const width of [320,390])test(`Progress figure rows keep every value inside its card at ${width}px`,async({page})=>{
+for(const width of [320,390])test(`Dashboard weight and energy figure rows keep every value inside its card at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:900});
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  const inside=async(selector:string)=>{
-    const cells=page.locator(selector);
+  const inside=async(card:Locator)=>{
+    await expect(card).toBeVisible();
+    const cells=activeSlide(card).locator('.energy-stats > div > dd');
     await expect(cells.first()).toBeVisible();
     for(const cell of await cells.all()){
       const overflow=await cell.evaluate(element=>{
-        const row=element.parentElement!.getBoundingClientRect();
+        const row=element.closest('.energy-stats')!.getBoundingClientRect();
         const box=element.getBoundingClientRect();
         return {left:box.left-row.left,right:row.right-box.right,scroll:element.scrollWidth-element.clientWidth};
       });
@@ -102,9 +112,9 @@ for(const width of [320,390])test(`Progress figure rows keep every value inside 
       expect(overflow.scroll).toBeLessThanOrEqual(0);
     }
   };
-  await inside('.stats-grid.progress-stats > .panel > h2');
-  const toolbar=await page.locator('.history-toolbar').evaluate(element=>[...element.children].map(child=>child.getBoundingClientRect().width));
-  expect(Math.abs(toolbar[0]-toolbar[1])).toBeLessThan(2);
-  await page.getByRole('button',{name:'Energy',exact:true}).click();
-  await inside('.energy-stats > div > dd');
+  const weight=page.locator('.weight-progress-card');
+  await inside(weight);
+  await showView(weight,1);
+  await inside(weight);
+  await inside(page.locator('.energy-progress-card'));
 });

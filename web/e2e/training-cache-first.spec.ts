@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { performanceFixture } from '../performance/fixtures';
+import { performanceFixture, performanceSummary } from '../performance/fixtures';
 
 test('dated cached workouts remain usable while the live peer refresh waits', async ({ page }, info) => {
   const fixture = performanceFixture(7);
@@ -15,6 +15,9 @@ test('dated cached workouts remain usable while the live peer refresh waits', as
     const url = new URL(route.request().url());
     if (url.pathname === '/api/auth/me') return route.fulfill({ json: { id: fixture.state.id, displayName: 'Performance' } });
     if (url.pathname === '/api/bootstrap') return route.fulfill({ json: fixture.state });
+    if (url.pathname === '/api/progress/summary') return route.fulfill({ json: performanceSummary(fixture.state), headers: { ETag: '"summary"' } });
+    if (url.pathname === '/api/body-records') return route.fulfill({ json: { records: [], hasMore: false, nextCursor: null } });
+    if (url.pathname === '/api/photos') return route.fulfill({ json: { sets: [], hasMore: false, nextCursor: null } });
     if (url.pathname !== '/api/training/summary') return route.fulfill({ json: { configured: false, connected: false, subscriptions: [], enabled: false } });
     const cached = url.searchParams.get('cacheOnly') === 'true';
     requests.push(cached);
@@ -52,6 +55,9 @@ for (const status of [503, 401, 403]) test(status === 503 ? 'an unavailable cach
     const url = new URL(route.request().url());
     if (url.pathname === '/api/auth/me') return route.fulfill({ json: { id: fixture.state.id, displayName: 'Performance' } });
     if (url.pathname === '/api/bootstrap') return route.fulfill({ json: fixture.state });
+    if (url.pathname === '/api/progress/summary') return route.fulfill({ json: performanceSummary(fixture.state), headers: { ETag: '"summary"' } });
+    if (url.pathname === '/api/body-records') return route.fulfill({ json: { records: [], hasMore: false, nextCursor: null } });
+    if (url.pathname === '/api/photos') return route.fulfill({ json: { sets: [], hasMore: false, nextCursor: null } });
     if (url.pathname !== '/api/training/summary') return route.fulfill({ json: { configured: false, connected: false, enabled: false, subscriptions: [] } });
     const cached = url.searchParams.get('cacheOnly') === 'true';
     requests.push(cached);

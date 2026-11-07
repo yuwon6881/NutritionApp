@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { performanceFixture } from '../performance/fixtures';
+import { performanceFixture, performanceSummary } from '../performance/fixtures';
 
 test('the saved-food library loads on logging intent rather than launch', async ({ page }) => {
   const { state } = performanceFixture(7);
@@ -8,6 +8,10 @@ test('the saved-food library loads on logging intent rather than launch', async 
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/auth/me') return route.fulfill({ json: { id: state.id, displayName: state.displayName } });
     if (path === '/api/bootstrap') return route.fulfill({ json: state });
+    // The Dashboard hosts the body hub, which reads these two lists on load.
+    if (path === '/api/progress/summary') return route.fulfill({ json: performanceSummary(state), headers: { ETag: '"summary"' } });
+    if (path === '/api/body-records') return route.fulfill({ json: { records: [], hasMore: false, nextCursor: null } });
+    if (path === '/api/photos') return route.fulfill({ json: { sets: [], hasMore: false, nextCursor: null } });
     if (path === '/api/foods') {
       foodReads++;
       return route.fulfill({ json: { foods: state.foods, revision: state.revision, foodRevision: state.foodRevision } });

@@ -91,6 +91,8 @@
 :root[data-theme=dark] .body-hub-icon-wrap { background: var(--raised); color: var(--primary); border: 1px solid var(--border); }
 .body-hub-text h3 { margin: 0 0 3px; font-size: 1.05rem; font-weight: 740; letter-spacing: -0.02em; color: var(--ink-strong); }
 .body-hub-text p { margin: 0; font-size: 0.84rem; line-height: 1.45; color: var(--muted-foreground); }
+.body-hub-text { min-width: 0; }
+.body-hub-text h3, .body-hub-text p { overflow-wrap: anywhere; }
 .body-hub-actions { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
 @media (max-width: 639px) {
   .body-hub-row { grid-template-columns: auto minmax(0, 1fr); gap: 12px 14px; padding: 18px 0; }

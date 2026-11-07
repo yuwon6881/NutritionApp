@@ -17,7 +17,7 @@ test('pages survive 200% text size at phone width',async({page,context})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
   await page.addStyleTag({content:'html{font-size:200%!important}'});
-  for(const name of ['Dashboard','Food Log','Progress','Coach']){
+  for(const name of ['Dashboard','Food Log','Coach','Settings']){
     await page.getByRole('button',{name,exact:true}).first().click();
     await expect(page.getByRole('heading',{name,exact:true,level:1})).toBeVisible();
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),{message:`${name} overflows horizontally`}).toBe(true);
@@ -31,5 +31,5 @@ test('pages survive 200% text size at phone width',async({page,context})=>{
     expect(box.height).toBeGreaterThanOrEqual(44);
     if(index>0)expect(box.left).toBeGreaterThanOrEqual(boxes[index-1].right-1);
   }
-  for(const name of ['Dashboard','Food Log','Progress','Coach'])await expect(page.locator('.nav-mobile-items').getByRole('button',{name,exact:true})).toBeVisible();
+  for(const name of ['Dashboard','Food Log','Coach','Settings'])await expect(page.locator('.nav-mobile-items').getByRole('button',{name,exact:true})).toBeVisible();
 });

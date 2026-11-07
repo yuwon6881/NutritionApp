@@ -9,6 +9,7 @@ import {holdLabel,holdRuns,lineRuns,maintenanceDays,type MaintenanceDay} from '.
 import {BAR_AXIS_WIDTH,BarChartFrame,BarChartNav} from './ui/BarChartFrame';
 import {useBarViewport,useRevealBar} from './ui/useBarViewport';
 import {useWindowTier} from './ui/useWindowTier';
+import './maintenance-chart.css';
 import {useChartScrub} from './ui/useChartScrub';
 
 const TOP=14;
@@ -45,7 +46,6 @@ export function MaintenanceChart({points,energyUnit,rangeStart,rangeEnd}:{points
   const selectedIndex=knownIndices[scrub.index]??-1;
   const selected=days[selectedIndex];
   useRevealBar(viewport,Math.max(0,selectedIndex));
-  const latest=days[knownIndices.at(-1)??-1];
   const dateLabel=dateAxisStep(slot)>=91?monthYear:shortDate;
   const labelIndices=days.length?dateAxisOffsets(days.length-1,slot)
     .filter((offset,index,all)=>index===0||dateLabel(days[offset].date)!==dateLabel(days[all[index-1]].date)):[];
@@ -54,7 +54,6 @@ export function MaintenanceChart({points,energyUnit,rangeStart,rangeEnd}:{points
   const axis=ticks.map(value=><text key={value} x={BAR_AXIS_WIDTH-8} y={y(value)+4} textAnchor="end">{displayEnergy(value,energyUnit)}</text>);
   const heldDays=days.filter(day=>day.hold!=null).length;
   return <section className="panel maintenance-chart-panel">
-    <div className="section-heading"><div><h2>Maintenance</h2></div>{latest&&<Status day={latest}/>}</div>
     {selected?<>
       <div id={readoutId} className="chart-readout chart-readout-grid" aria-live="polite">
         <strong className="chart-readout-date"><time dateTime={selected.date}>{readoutDate(selected.date)}</time></strong>

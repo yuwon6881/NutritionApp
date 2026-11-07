@@ -9,8 +9,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.emulateMedia({reducedMotion:'reduce'});
     await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);
     await page.goto('/');
-    await page.getByRole('button',{name:'Progress',exact:true}).click();
     const rows=page.locator('.weigh-in-list .weigh-in-row');
+    await rows.first().scrollIntoViewIfNeeded();
     await expect(rows.first()).toBeVisible();
     const before=await rows.count();
     const trigger=rows.first().getByRole('button',{name:/^More actions for weigh-in from /});
@@ -42,7 +42,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await dialog.getByRole('button',{name:'Delete weigh-in',exact:true}).click();
     await expect(dialog).toBeHidden();
     await expect(rows).toHaveCount(before-1);
-    await expect(page.getByRole('heading',{name:'Progress',exact:true,level:1})).toBeFocused();
+    // The deleted row's trigger is gone, so focus falls back to the Dashboard heading.
+    await expect(page.getByRole('heading',{name:'Dashboard',exact:true,level:1})).toBeFocused();
     const toast=page.locator('.undo-toast');
     await expect(toast).toBeVisible();
     const appearance=await toast.evaluate(element=>{

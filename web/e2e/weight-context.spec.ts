@@ -46,8 +46,8 @@ test.beforeAll(async({request})=>{
 test('unusual weigh-ins collect an optional context and let the user revise it',async({page,context})=>{
   await context.addCookies(session.cookies);
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByRole('button',{name:'Add weigh-in',exact:true}).click();
+  await page.getByRole('button',{name:'Add entry',exact:true}).last().click();
+  await page.getByRole('button',{name:/Log weight/}).click();
 
   const dialog=page.getByRole('dialog',{name:'Log weight',exact:true});
   await dialog.getByLabel('Weight (kg)',{exact:true}).fill('82');
@@ -87,8 +87,9 @@ test('unusual weigh-ins collect an optional context and let the user revise it',
   await expect.poll(savedWeight).toMatchObject({kg:82,context:'high_sodium'});
 
   const row=page.locator('.weigh-in-list .weigh-in-row').filter({has:page.locator(`time[datetime="${todayDate}"]`)});
-  await expect(row.getByRole('button',{name:/^Edit weigh-in from /})).toBeVisible();
-  await row.getByRole('button',{name:/^Edit weigh-in from /}).click();
+  await row.scrollIntoViewIfNeeded();
+  await expect(row.getByRole('button',{name:/^More actions for weigh-in from /})).toBeVisible();
+  await row.getByRole('button',{name:/^More actions for weigh-in from /}).click();await page.getByRole('button',{name:'Edit weigh-in',exact:true}).click();
   const edit=page.getByRole('dialog',{name:'Edit weigh-in',exact:true});
   await edit.getByLabel('Weight (kg)',{exact:true}).fill('82.2');
   const genuine=edit.getByRole('group',{name:'Possible reason'}).getByRole('button',{name:'A genuine change',exact:true});

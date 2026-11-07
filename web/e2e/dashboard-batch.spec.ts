@@ -80,7 +80,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   });
   await page.getByRole('button',{name:'AI logging',exact:true}).click();
   await page.getByLabel('Meal description and portions').fill('one bowl of rice');
-  await page.getByRole('button',{name:'Estimate my meal',exact:true}).click();
+  await page.getByRole('button',{name:'Estimate meal',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();
   await expect(page.getByLabel('Meal time',{exact:true})).toHaveValue('13:45');
   await expect(page.locator('.batch-food').filter({hasText:'Text meal'})).toBeVisible();
@@ -175,12 +175,12 @@ test('page heading focus follows navigation modality without stealing first-rend
   await expect(dashboard).toHaveText('Dashboard');
   await expect.poll(()=>page.evaluate(()=>document.activeElement?.matches('[data-page-heading]')??false)).toBeFalsy();
 
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  const progress=page.locator('[data-page-heading]');
-  await expect(progress).toHaveText('Progress');
-  await expect(progress).toBeFocused();
-  await expect(progress).toHaveAttribute('data-focus-origin','programmatic');
-  await expect.poll(()=>progress.evaluate(element=>getComputedStyle(element).outlineStyle)).toBe('none');
+  await page.getByRole('button',{name:'Food Log',exact:true}).last().click();
+  const foodLog=page.locator('[data-page-heading]');
+  await expect(foodLog).toHaveText('Food Log');
+  await expect(foodLog).toBeFocused();
+  await expect(foodLog).toHaveAttribute('data-focus-origin','programmatic');
+  await expect.poll(()=>foodLog.evaluate(element=>getComputedStyle(element).outlineStyle)).toBe('none');
 
   const dashboardNav=page.getByRole('button',{name:'Dashboard',exact:true}).last();
   await dashboardNav.focus();

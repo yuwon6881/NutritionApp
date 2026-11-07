@@ -78,6 +78,8 @@ export async function assertPanelsFitViewport(page:Page){
   const count=await panels.count();
   for(let i=0;i<count;i++){
     const panel=panels.nth(i);
+    // Views of a swipeable card that are not showing sit beside it on purpose.
+    if(await panel.evaluate(element=>Boolean(element.closest('[inert]'))))continue;
     const box=await panel.boundingBox();
     if(box&&box.width>0){
       expect(box.x).toBeGreaterThanOrEqual(-1);
@@ -136,91 +138,36 @@ export async function assertMacroLayout(page:Page){
 }
 
 /**
- * Asserts all 4 Progress section tab labels ('Weight', 'Energy', 'Body', 'Activity')
- * are visible, their textRange bounds are fully within their buttons, and their buttons
- * are visible and contained within the viewport (or document/viewport for non-scrolled tabs).
+ * Asserts the four Dashboard analytics surfaces (Weight, Energy, Body, Activity) are reachable:
+ * each card renders (after its lazy chunk loads), scrolls into view, stays inside the viewport,
+ * and does not overflow horizontally. The Weight and Energy carousels expose their title and
+ * next-view control (visible from 640 px, screen-reader-only below).
  */
-export async function assertProgressTabsVisibility(page:Page){
-  const tabsControl=page.locator('#progress-tabs:visible');
-  await expect(tabsControl).toBeVisible();
-  const labels=['Weight','Energy','Body','Activity'] as const;
+export async function assertDashboardCardsVisibility(page:Page){
   const viewportWidth=page.viewportSize()!.width;
-  const isEnlarged=await page.evaluate(()=>parseFloat(getComputedStyle(document.documentElement).fontSize)>20);
-
-  for(const label of labels){
-    const button=tabsControl.getByRole('button',{name:label,exact:true});
-    await expect(button).toBeVisible();
-
-    if(isEnlarged && viewportWidth>=640){
-      await button.evaluate(btn=>btn.scrollIntoView({block:'nearest',inline:'nearest'}));
-    }
-
-    const check=await button.evaluate((btn,expectedLabel)=>{
-      const rect=btn.getBoundingClientRect();
-      // Verify button has standard control height >= 44px
-      const heightOk=rect.height>=43.5;
-
-      // Find the text node containing the label
-      const iterator=document.createNodeIterator(btn,NodeFilter.SHOW_TEXT);
-      let textNode:Node|null=null;
-      while(textNode=iterator.nextNode()){
-        if(textNode.textContent?.includes(expectedLabel)){
-          break;
-        }
-      }
-      if(!textNode){
-        return {foundText:false,heightOk,insideButton:false,textRect:null,btnRect:rect};
-      }
-
-      const range=document.createRange();
-      range.selectNodeContents(textNode);
-      const textRect=range.getBoundingClientRect();
-
-      // Check textRange bounds are within button bounds (with 1px subpixel tolerance)
-      const insideButton=
-        textRect.left>=rect.left-1 &&
-        textRect.right<=rect.right+1 &&
-        textRect.top>=rect.top-1 &&
-        textRect.bottom<=rect.bottom+1;
-
-      return {
-        foundText:true,
-        heightOk,
-        insideButton,
-        textRect:{
-          left:textRect.left,
-          right:textRect.right,
-          top:textRect.top,
-          bottom:textRect.bottom,
-          width:textRect.width,
-          height:textRect.height
-        },
-        btnRect:{
-          left:rect.left,
-          right:rect.right,
-          top:rect.top,
-          bottom:rect.bottom,
-          width:rect.width,
-          height:rect.height
-        }
-      };
-    },label);
-
-    expect(check.foundText).toBe(true);
-    expect(check.heightOk).toBe(true);
-    expect(
-      check.insideButton,
-      `Label "${label}" text outside button: text=[top:${check.textRect?.top}, bottom:${check.textRect?.bottom}, left:${check.textRect?.left}, right:${check.textRect?.right}] button=[top:${check.btnRect?.top}, bottom:${check.btnRect?.bottom}, left:${check.btnRect?.left}, right:${check.btnRect?.right}]`
-    ).toBe(true);
-
-    if(!isEnlarged && (viewportWidth===320 || viewportWidth===360)){
-      expect(check.btnRect.left).toBeGreaterThanOrEqual(-1);
-      expect(check.btnRect.right).toBeLessThanOrEqual(viewportWidth+1);
-    }else if(!isEnlarged){
-      expect(check.btnRect.left).toBeGreaterThanOrEqual(-1);
-      expect(check.btnRect.right).toBeLessThanOrEqual(viewportWidth+1);
-    }
+  const cards={
+    Weight:page.locator('.weight-progress-card'),
+    Energy:page.locator('.energy-progress-card'),
+    Body:page.locator('.dashboard-section-body'),
+    Activity:page.locator('.activity-card')
+  } as const;
+  for(const [label,card] of Object.entries(cards)){
+    await card.scrollIntoViewIfNeeded();
+    await expect(card,`${label} card is visible`).toBeVisible();
+    const fit=await card.evaluate(el=>{
+      const rect=el.getBoundingClientRect();
+      return {left:rect.left,right:rect.right,fits:el.scrollWidth<=el.clientWidth+1,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth};
+    });
+    expect(fit.left,`${label} card left edge`).toBeGreaterThanOrEqual(-1);
+    expect(fit.right,`${label} card right edge`).toBeLessThanOrEqual(viewportWidth+1);
+    expect(fit.fits,`${label} card scrollWidth (${fit.scrollWidth}) <= clientWidth+1 (${fit.clientWidth+1})`).toBe(true);
   }
+  for(const label of ['Weight','Energy'] as const){
+    const carousel=cards[label].locator('.swipe-carousel');
+    await expect(carousel.locator('.swipe-carousel-title')).toBeVisible();
+    await expect(carousel.getByRole('button',{name:/^Next view:/})).toHaveCount(1);
+  }
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
 }
 
 /**

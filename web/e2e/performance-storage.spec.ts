@@ -8,6 +8,10 @@ test('legacy food compaction preserves authoritative emptiness and unsynced work
     if(path==='/api/auth/me')return route.fulfill({json:{id:fixture.state.id,displayName:'Performance'}});
     if(path==='/api/bootstrap')return route.fulfill({json:fixture.state});
     if(path==='/api/sync')return route.fulfill({status:503,json:{message:'Retain this edit.'}});
+    if(path==='/api/progress/summary')return route.fulfill({json:performanceSummary(fixture.state),headers:{ETag:'"summary"'}});
+    // The Dashboard hosts the body hub, which reads these two lists on load.
+    if(path==='/api/body-records')return route.fulfill({json:{records:[],hasMore:false,nextCursor:null}});
+    if(path==='/api/photos')return route.fulfill({json:{sets:[],hasMore:false,nextCursor:null}});
     return route.fulfill({json:{configured:false,status:'disconnected',days:[],summaries:[],workoutConnected:false}});
   });
   await page.goto('/');
@@ -45,7 +49,7 @@ test('legacy food compaction preserves authoritative emptiness and unsynced work
   await expect(page.getByRole('button',{name:'Add entry',exact:true}).last()).toBeEnabled();
 });
 
-test('queued weigh-ins project locally without another Progress request',async({page})=>{
+test('queued weigh-ins project onto the Dashboard weight card and history without another summary request',async({page})=>{
   const fixture=performanceFixture(7);
   let progressReads=0;
   await page.route('**/api/**',async route=>{
@@ -54,18 +58,30 @@ test('queued weigh-ins project locally without another Progress request',async({
     if(path==='/api/bootstrap')return route.fulfill({json:fixture.state});
     if(path==='/api/progress/summary'){progressReads++;return route.fulfill({json:performanceSummary(fixture.state),headers:{ETag:'"summary"'}});}
     if(path==='/api/sync')return route.fulfill({status:503,json:{message:'Retain this edit.'}});
+    // The Dashboard hosts the body hub, which reads these two lists on load.
+    if(path==='/api/body-records')return route.fulfill({json:{records:[],hasMore:false,nextCursor:null}});
+    if(path==='/api/photos')return route.fulfill({json:{sets:[],hasMore:false,nextCursor:null}});
     return route.fulfill({json:{configured:false,status:'disconnected',days:[],summaries:[],workoutConnected:false}});
   });
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Progress',exact:true})).toBeVisible();
-  await expect.poll(()=>progressReads).toBe(1);
+  const weightCard=page.locator('.weight-progress-card');
+  // The lazy card replaces its placeholder once; scroll only after it has settled.
+  await expect(weightCard).toBeVisible();
+  await weightCard.scrollIntoViewIfNeeded();
+  await expect(weightCard.getByRole('heading',{name:'Weight',exact:true})).toBeVisible();
+  await expect(page.locator('.weight-history-card')).toBeVisible();
+  await expect.poll(()=>progressReads).toBeGreaterThan(0);
+  // The Weight and Energy cards both read the 'month' summary; let their requests settle first.
+  await page.waitForLoadState('networkidle');
+  const readsBefore=progressReads;
   await page.getByRole('button',{name:'Add entry',exact:true}).last().click();
   await page.getByRole('button',{name:/Log weight/}).click();
   await page.getByLabel('Weight (kg)',{exact:true}).fill('80.2');
   await page.getByRole('button',{name:/Update weigh-in|Save weigh-in/,exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Log weight',exact:true})).not.toBeVisible();
-  await expect(page.getByText('Recent edits will update after sync.')).toBeVisible();
-  expect(progressReads).toBe(1);
+  await expect(weightCard.getByText('Recent edits will update after sync.')).toBeVisible();
+  // The queued weigh-in shows in the weigh-ins list at once.
+  await expect(page.locator('.weight-history-card .weigh-in-list .weigh-in-row').first()).toContainText('80.2');
+  expect(progressReads).toBe(readsBefore);
 });

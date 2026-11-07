@@ -1,6 +1,6 @@
 import {DashboardSkeleton,FoodDaySkeleton,SkeletonBlock} from './Skeleton';
 
-export type SkeletonPage='today'|'food'|'progress'|'coach'|'settings';
+export type SkeletonPage='today'|'food'|'coach'|'settings';
 
 /** Page heading and, where the page has them, its section tabs. */
 function PageTop({tabs=0}:{tabs?:number}){
@@ -15,14 +15,6 @@ function FoodLogSkeleton(){
     <PageTop/>
     <div className="page-skeleton-strip">{Array.from({length:7},(_,index)=><SkeletonBlock key={index} width={56} height={78} radius={999}/>)}</div>
     <FoodDaySkeleton label="Loading diary…"/>
-  </>;
-}
-
-function ProgressSkeleton(){
-  return <>
-    <PageTop tabs={4}/>
-    <div className="page-skeleton-tiles">{[0,1,2].map(index=><div key={index} className="panel skeleton-panel"><SkeletonBlock width="60%" height={10}/><SkeletonBlock width="45%" height={28}/></div>)}</div>
-    <div className="panel skeleton-panel"><SkeletonBlock width="25%" height={18}/><SkeletonBlock height={220} radius={16}/></div>
   </>;
 }
 
@@ -51,6 +43,6 @@ export function PageSkeleton({page,label}:{page:SkeletonPage;label:string}){
   if(page==='today')return <DashboardSkeleton label={label}/>;
   return <div className="page-skeleton" aria-busy="true">
     <p className="sr-only" role="status">{label}</p>
-    {page==='food'?<FoodLogSkeleton/>:page==='progress'?<ProgressSkeleton/>:page==='coach'?<CoachSkeleton/>:<SettingsSkeleton/>}
+    {page==='food'?<FoodLogSkeleton/>:page==='coach'?<CoachSkeleton/>:<SettingsSkeleton/>}
   </div>;
 }

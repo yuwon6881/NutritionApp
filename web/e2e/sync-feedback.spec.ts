@@ -38,10 +38,10 @@ test('fast saves keep server feedback readable through completion',async({page,c
   await expect(page.getByText('Stable feedback test',{exact:true})).toBeVisible();
 
   // Test discard confirmation across shared modal
-  const weighInBtn=page.getByRole('button',{name:'Add weigh-in',exact:true});
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Progress',exact:true})).toBeVisible();
-  await weighInBtn.click();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true,level:1})).toBeVisible();
+  await page.getByRole('button',{name:'Add entry',exact:true}).last().click();
+  await page.getByRole('button',{name:/Log weight/}).click();
 
   const weightModal=page.getByRole('dialog',{name:'Log weight',exact:true});
   await expect(weightModal).toBeVisible();
@@ -79,5 +79,5 @@ test('fast saves keep server feedback readable through completion',async({page,c
 
   // Dialog closes and focus restores to the page trigger
   await expect(weightModal).toHaveCount(0);
-  await expect(weighInBtn).toBeFocused();
+  await expect(page.getByRole('button',{name:'Add entry',exact:true}).last()).toBeFocused();
 });

@@ -1,0 +1,35 @@
+/* Swipeable views inside one card. The track scrolls and snaps; each slide is one full page of it. */
+.swipe-carousel{min-width:0}
+.swipe-carousel-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-bottom:14px}
+.swipe-carousel-title{flex:1;margin:0;font-size:.95rem;font-weight:600;color:var(--ink-strong);text-align:left}
+/* Phones swipe; the arrows stay for keyboard and screen readers only. */
+.swipe-carousel-arrow{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important}
+.swipe-carousel-arrow:focus-visible{position:static!important;width:auto!important;height:auto!important;min-height:44px!important;margin:0!important;overflow:visible!important;clip:auto!important}
+@media(min-width:640px){
+  .swipe-carousel-bar{justify-content:flex-start}
+  .swipe-carousel-toolbar{order:4;margin-left:auto}
+  .swipe-carousel-bar>.swipe-carousel-arrow:first-child{order:2}
+  .swipe-carousel-bar>.swipe-carousel-arrow:last-child{order:3}
+  .swipe-carousel-title{order:1}
+  .swipe-carousel-arrow{position:static!important;width:auto!important;height:auto!important;min-height:44px!important;padding:0 10px!important;margin:0!important;overflow:visible!important;clip:auto!important;flex:0 0 auto}
+}
+@media(min-width:1024px){.swipe-carousel-arrow{min-height:36px!important}}
+.swipe-carousel-track{display:flex;align-items:flex-start;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scrollbar-width:none;transition:height var(--motion-layout,200ms) var(--motion-ease,ease)}
+.swipe-carousel-track::-webkit-scrollbar{display:none}
+.swipe-carousel-track[data-reduced]{transition:none}
+.swipe-carousel-slide{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+/* The card is the surface; views inside it carry no chrome of their own. */
+.swipe-carousel-slide>.panel,.swipe-carousel-slide>section.panel{border:0;border-radius:0;box-shadow:none;background:transparent;padding:0;margin:0}
+.swipe-carousel-footer{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:14px}
+.swipe-carousel-dots{display:flex;justify-content:center;gap:7px}
+.swipe-carousel-dot{width:8px;height:8px;border-radius:999px;background:var(--track);transition:width var(--motion-control,150ms) ease,background-color var(--motion-control,150ms) ease}
+.swipe-carousel-dot[data-active]{width:24px;background:var(--primary)}
+/* Phones swipe; the hint names the gesture until it has been used once. */
+.swipe-carousel-hint{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:.75rem;line-height:1.2;color:var(--muted-foreground)}
+@media(min-width:640px){.swipe-carousel-hint{display:none}}
+.swipe-carousel-toolbar{flex:0 0 auto;min-width:0}
+/* The period picker is a compact pill beside the view's name, not a full-width field. */
+.swipe-carousel-toolbar .select-compact{margin:0;width:auto}
+.select-compact .select-label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.select-compact .custom-select-wrapper{width:auto}
+.select-compact .custom-select-trigger{width:auto;min-width:0;gap:8px;padding:8px 12px;border-radius:999px;font-size:.8125rem;font-weight:550}

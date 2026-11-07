@@ -1,0 +1,11 @@
+/* Maintenance estimate chart: the line is solid while the estimate adapts and dashed over shaded days where it held. */
+.maintenance-hold-band{fill:var(--muted);opacity:.9}
+.maintenance-trend-line{fill:none;stroke:var(--primary);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.maintenance-trend-line.is-held{stroke:var(--muted-foreground);stroke-width:2.5;stroke-dasharray:6 5}
+.maintenance-dot{fill:var(--card);stroke:var(--primary);stroke-width:2.5}
+.maintenance-dot.is-held{stroke:var(--muted-foreground)}
+.swatch-maintenance-adapting{border-color:var(--primary);border-top-width:3px}
+.swatch-maintenance-hold{background:var(--muted);box-shadow:inset 0 0 0 1px var(--border)}
+.maintenance-status{display:inline-flex;align-items:center;gap:6px;font-size:.875rem;font-weight:600}
+.maintenance-status.is-adapting{color:var(--primary-ink)}
+.maintenance-status.is-holding{color:var(--muted-foreground)}

@@ -17,7 +17,8 @@ import {SkeletonBlock,SkeletonChart,SkeletonRegion,SkeletonStats} from './ui/Ske
 const groupingNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
 
-export function EnergyBalance({store,period,summary,error}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string}){
+/** With `view` the caller chooses the chart and the card's own title and chart switch are left out. */
+export function EnergyBalance({store,period,summary,error,view:fixedView}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string;view?:EnergyView}){
   const state=store.state!;
   const units=unitsFor(state.settings);
   const rows=summary?.energy.series??[];
@@ -28,11 +29,12 @@ export function EnergyBalance({store,period,summary,error}:{store:NutritionStore
   useRevealBar(viewport,scrub.index);
   const selected=rows[scrub.index];
   const readoutId=useId();
-  const [view,setView]=useState<EnergyView>('intake');
+  const [chosenView,setView]=useState<EnergyView>('intake');
+  const view=fixedView??chosenView;
   const visibleSpan=rows.length?dateSpan(rows[viewport.edges.first]?.date??rows[0].date,rows[viewport.edges.last]?.end??rows.at(-1)!.end):'';
   const chartProps={rows,grouping,energyUnit:units.energy,viewport,selected:scrub.index,plotProps:scrub.svgProps};
   return <section className="panel energy-history">
-    <div className="section-heading"><div><h2>Energy balance</h2>{summary?<p>{dateSpan(summary.start,summary.end)}</p>:<SkeletonBlock width={150} height={12} className="skeleton-subtitle"/>}</div></div>
+    {!fixedView&&<div className="section-heading"><div><h2>Energy balance</h2>{summary?<p>{dateSpan(summary.start,summary.end)}</p>:<SkeletonBlock width={150} height={12} className="skeleton-subtitle"/>}</div></div>}
     {summary&&error&&<HistoryNotice
       error={error}
       hasState={true}
@@ -54,13 +56,13 @@ export function EnergyBalance({store,period,summary,error}:{store:NutritionStore
       {summary.awaitingSynchronization&&<p className="notice" role="status">Recent edits will update after sync.</p>}
       <EnergyStats stats={stats} energyUnit={units.energy}/>
       {rows.length?<div className="chart-scrub energy-charts" role="group" aria-label={`Energy charts. Tap a bar or use the left and right arrow keys to read a ${groupingSingular[grouping]}.`} aria-describedby={readoutId} {...scrub.groupProps}>
-        <div className="section-heading chart-heading">
+        {!fixedView&&<div className="section-heading chart-heading">
           <div><h3>{view==='intake'?'Intake and maintenance':'Surplus or deficit'}</h3></div>
-          <SegmentedControl<EnergyView> layout="equal" className="chart-view-toggle" label="Energy chart display" value={view} onChange={setView} options={[
+          {!fixedView&&<SegmentedControl<EnergyView> layout="equal" className="chart-view-toggle" label="Energy chart display" value={view} onChange={setView} options={[
             {value:'intake',label:<><span className="tab-label-full">Intake and maintenance</span><span className="tab-label-short">Intake</span></>,ariaLabel:'Intake and maintenance'},
             {value:'balance',label:<><span className="tab-label-full">Surplus or deficit</span><span className="tab-label-short">Balance</span></>,ariaLabel:'Surplus or deficit'}
-          ]}/>
-        </div>
+          ]}/>}
+        </div>}
         <EnergyReadout id={readoutId} row={selected} grouping={grouping} energyUnit={units.energy} view={view}/>
         <BarChartNav viewport={viewport} range={visibleSpan}/>
         {view==='intake'?<div className="chart-block">

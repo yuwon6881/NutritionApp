@@ -21,6 +21,15 @@ export function DashboardSkeleton({label,heading=true}:{label:string;heading?:bo
   </div>;
 }
 
+/** A chart card still loading: a title, the view tabs, and the plot, at the real card's size. */
+export function ChartCardSkeleton(){
+  return <div className="panel skeleton-panel" aria-hidden="true">
+    <SkeletonBlock width="30%" height={22}/>
+    <SkeletonBlock height={40} radius={999}/>
+    <SkeletonBlock height={214} radius={16}/>
+  </div>;
+}
+
 const MACRO_TILES=['protein','carbs','fat'];
 const TIMELINE_ROWS=[{title:'58%',energy:52},{title:'72%',energy:44},{title:'46%',energy:52}];
 

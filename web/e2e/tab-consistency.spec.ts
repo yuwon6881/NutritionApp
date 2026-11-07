@@ -74,26 +74,4 @@ test('tab switching preserves consistent button locations and modal coordinates'
 
   // Close food dialog
   await page.keyboard.press('Escape');
-
-  // 2. Progress page tabs consistency on mobile
-  await page.setViewportSize({width:390,height:800});
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.waitForTimeout(400);
-  await page.evaluate(()=>window.scrollTo(0,0));
-  await page.waitForTimeout(50);
-  const progressTabs=['Weight','Energy','Body'] as const;
-  const pMeasurements:number[]=[];
-
-  for(const pTab of progressTabs){
-    const tabBtn=page.getByRole('button',{name:pTab,exact:true});
-    await tabBtn.click();
-    await page.waitForTimeout(100);
-    const box=(await tabBtn.boundingBox())!;
-    pMeasurements.push(box.y);
-  }
-
-  // All 3 tabs must remain at the exact same Y coordinate on mobile
-  for(const y of pMeasurements){
-    expect(Math.abs(y-pMeasurements[0])).toBeLessThanOrEqual(1);
-  }
 });

@@ -68,9 +68,10 @@ for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[768,'dark'
     expect(addBox!.y).toBeGreaterThanOrEqual(labelBox!.y+labelBox!.height-1);
     await noHorizontalOverflow(page);
 
-    // Progress: weigh-ins are flat rows, and the more icon is not red at rest.
-    await page.locator('nav button:visible',{hasText:/^Progress$/}).first().click();
-    const row=page.locator('.weigh-in-row').first();
+    // Dashboard weigh-ins: flat rows in their own card, and the more icon is not red at rest.
+    await page.locator('nav button:visible',{hasText:/^Dashboard$/}).first().click();
+    const row=page.locator('.weight-history-card .weigh-in-row').first();
+    await row.scrollIntoViewIfNeeded();
     await expect(row).toBeVisible();
     expect(await row.evaluate(element=>getComputedStyle(element).borderLeftWidth)).toBe('0px');
     const more=await page.getByRole('button',{name:/^More actions for weigh-in from /}).first().evaluate(element=>getComputedStyle(element).color);
@@ -79,13 +80,13 @@ for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[768,'dark'
     await noHorizontalOverflow(page);
 
     // Body: the hub states what is on file and keeps every action.
-    await page.getByRole('tab',{name:'Body'}).or(page.getByRole('button',{name:'Body',exact:true})).first().click();
+    await page.locator('.dashboard-section-body').scrollIntoViewIfNeeded();
     await expect(page.getByText('No records yet.',{exact:false}).first()).toBeVisible();
     await expect(page.getByText('No photo sets yet.',{exact:false}).first()).toBeVisible();
     for(const name of ['Add body record','Open history','Add photo set','Open gallery'])await expect(page.getByRole('button',{name})).toBeVisible();
     await expect(page.getByRole('button',{name:/^Compare/})).toBeVisible();
     // The heading and Compare share a row at every width (phones used to stack Compare full-width beneath it).
-    const [headingBox,compareBox]=[await page.getByRole('heading',{name:'Body',level:2,exact:true}).boundingBox(),await page.getByRole('button',{name:/^Compare/}).boundingBox()];
+    const [headingBox,compareBox]=[await page.locator('.dashboard-section-body .section-heading h2',{hasText:/^Body$/}).boundingBox(),await page.getByRole('button',{name:/^Compare/}).boundingBox()];
     expect(compareBox!.y).toBeLessThan(headingBox!.y+headingBox!.height);
     expect(compareBox!.width).toBeLessThan(260);
     // Comparing needs two records, so with none on file it is disabled rather than opening an empty page.

@@ -70,8 +70,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       expect(dockGap).toBeGreaterThanOrEqual(0);
       expect(dockGap).toBeLessThanOrEqual(16);
     }else{
-      // Add entry, five pages, and Ask AI.
-      await expect(nav.locator('button:visible')).toHaveCount(7);
+      // Add entry, four pages, and Ask AI.
+      await expect(nav.locator('button:visible')).toHaveCount(6);
       expect(sidebar!.x).toBe(0);
       expect(sidebar!.height).toBe(900);
       expect(sidebar!.width).toBe(width<1024?88:224);
@@ -81,9 +81,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
       expect(Math.abs(scrolledSidebar!.height - 900)).toBeLessThanOrEqual(1);
       await page.evaluate(()=>window.scrollTo(0,0));
     }
-    await expect(page.getByRole('heading',{name:'Recent and upcoming',exact:true})).toBeVisible();
-    await expect(page.getByText('Workout not connected')).toBeVisible();
-    for(const name of ['Dashboard','Food Log','Progress','Coach','Settings']){
+    await expect(page.locator('.activity-card')).toBeVisible();
+    for(const name of ['Dashboard','Food Log','Coach','Settings']){
       await page.getByRole('button',{name,exact:true}).click();
       await expect(page.locator('[data-page-heading]')).toHaveText(name);
       if(name==='Dashboard'){
@@ -94,8 +93,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
         await expect(page.locator('[data-time-row="08:00"]')).toBeVisible();
         await expect(page.locator('.food-day-skeleton, [aria-busy="true"].food-day-summary')).toHaveCount(0);
       }
-      if(name==='Progress'){
-        await expect(page.locator('.stats-grid:not(.skeleton)')).toBeVisible();
+      if(name==='Dashboard'){
+        await expect(page.locator('.weight-progress-card .swipe-carousel-slide:not([inert]) .energy-stats')).toBeVisible();
         await expect(page.locator('.skeleton[aria-busy="true"]')).toHaveCount(0);
       }
       await capture(page,`${theme}-${width}-${name.replaceAll(' ','-')}`);
@@ -111,9 +110,9 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
         await capture(page,`${theme}-${width}-${name.replaceAll(' ','-')}-calendar`);
         await page.keyboard.press('Escape');await expect(calendar).toHaveCount(0);await expect(trigger).toBeFocused();
       }
-      if(name==='Progress'){
+      if(name==='Dashboard'){
         // The weight plot scrolls inside its frame, so the frame (not the plot) must fit the window.
-        const chart=page.locator('.weight-chart-panel .bar-chart-scroller').first();
+        const chart=page.locator('.weight-progress-card .bar-chart-scroller').first();
         await expect.poll(()=>chart.evaluate(element=>element.getBoundingClientRect().right)).toBeLessThanOrEqual(width);
       }
       if(name==='Food Log'&&width<640){
@@ -123,27 +122,28 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
         expect(Math.abs(time!.y-card!.y)).toBeLessThanOrEqual(20);
       }
       if(width<1024){
-        const small=await page.locator('button:visible').evaluateAll(buttons=>buttons.filter(button=>{const box=button.getBoundingClientRect();return box.height<43||box.width<43;}).map(button=>button.textContent));
+        // Below 640 px the carousel arrows are deliberately screen-reader-only (swipe is the gesture).
+        const small=await page.locator(width<640?'button:visible:not(.swipe-carousel-arrow)':'button:visible').evaluateAll(buttons=>buttons.filter(button=>{const box=button.getBoundingClientRect();return box.height<43||box.width<43;}).map(button=>button.textContent));
         expect(small).toEqual([]);
       }
       if(name==='Settings'&&width<640){
-        await expect(page.locator('.mobile-settings')).toHaveAttribute('aria-current','page');
-        await expect(page.locator('.nav-mobile-items .selection-indicator-marker')).toBeHidden();
+        await expect(page.locator('.nav-mobile-items').getByRole('button',{name:'Settings'})).toHaveAttribute('aria-current','page');
+        await expect(page.locator('.nav-mobile-items .selection-indicator-marker')).toBeVisible();
       }
     }
-    await page.getByRole('button',{name:'Progress',exact:true}).click();
+    await page.getByRole('button',{name:'Dashboard',exact:true}).click();
     for(const section of ['Energy','Body']){
-      await page.getByRole('button',{name:section,exact:true}).click();
+      await page.locator(section==='Energy'?'.energy-progress-card':'.dashboard-section-body').scrollIntoViewIfNeeded();
       if(section==='Body'){
         await expect(page.getByRole('button',{name:'Add photo set',exact:true})).toBeVisible();
         await expect(page.locator('.body-hub-skeleton, .physique-photo-home[aria-busy="true"]')).toHaveCount(0);
       }
       if(section==='Energy'){
-        await expect(page.locator('.energy-stats')).toBeVisible();
-        await expect(page.locator('.energy-readout')).toBeVisible();
+        await expect(page.locator('.energy-progress-card .swipe-carousel-slide:not([inert]) .energy-stats')).toBeVisible();
+        await expect(page.locator('.energy-progress-card .swipe-carousel-slide:not([inert]) .energy-readout')).toBeVisible();
         await expect(page.locator('.energy-history .skeleton[aria-busy="true"], [role="status"][aria-busy="true"]')).toHaveCount(0);
       }
-      await capture(page,`${theme}-${width}-Progress-${section}`);
+      await capture(page,`${theme}-${width}-Dashboard-${section}`);
     }
     await page.getByRole('button',{name:'Add photo set',exact:true}).click();
     const photoDialog=page.getByRole('dialog',{name:'Upload physique photo set',exact:true});

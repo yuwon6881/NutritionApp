@@ -21,8 +21,9 @@ test.beforeEach(async({page,request,context})=>{
   }
   await context.addCookies(session.cookies);
   await page.goto('/');
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
-  await page.getByLabel('Weight history period',{exact:true}).selectOption('six-months');
+  const period=page.getByLabel('Weight history period',{exact:true});
+  await period.scrollIntoViewIfNeeded();
+  await period.selectOption('six-months');
 });
 
 test('the weigh-in list pages in older rows until the whole period is shown',async({page})=>{
@@ -32,7 +33,7 @@ test('the weigh-in list pages in older rows until the whole period is shown',asy
   await expect(rows).toHaveCount(7);
   const total=Number((await count.textContent())!.match(/of (\d+)/)![1]);
   expect(total).toBe(7+OLDER_DAYS.filter(offset=>offset<=183).length);
-  await page.getByRole('button',{name:'Show more',exact:true}).click();
+  await page.locator('.weight-history-card').getByRole('button',{name:'Show more',exact:true}).click();
   // Past the summary's ten rows: the first page arrived from the history endpoint.
   await expect.poll(()=>rows.count()).toBeGreaterThan(10);
   // Reaching the end of the open list reads further pages without another tap.
@@ -44,19 +45,22 @@ test('the weigh-in list pages in older rows until the whole period is shown',asy
   const dates=await rows.locator('time').evaluateAll(items=>items.map(item=>item.getAttribute('dateTime')!));
   expect(new Set(dates).size).toBe(total);
   expect([...dates].sort().reverse()).toEqual(dates);
-  await page.getByRole('button',{name:'Show fewer',exact:true}).click();
+  await page.locator('.weight-history-card').getByRole('button',{name:'Show fewer',exact:true}).click();
   await expect(rows).toHaveCount(7);
 });
 
 test('six months fit a desktop chart, a year scrolls, and a phone scrolls six months',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
-  const scroller=page.locator('.weight-chart-panel .bar-chart-scroller');
+  // Only the slide in view is interactive; the other two views of the carousel are inert.
+  const weightCard=page.locator('.weight-progress-card');
+  const scroller=weightCard.locator('.swipe-carousel-slide:not([inert]) .bar-chart-scroller');
+  await scroller.scrollIntoViewIfNeeded();
   const overflow=()=>scroller.evaluate(element=>element.scrollWidth-element.clientWidth);
   await expect.poll(overflow).toBeLessThanOrEqual(1);
-  await expect(page.getByRole('button',{name:'Show earlier days'})).toHaveCount(0);
+  await expect(weightCard.locator('.swipe-carousel-slide:not([inert])').getByRole('button',{name:'Show earlier days'})).toHaveCount(0);
   await page.getByLabel('Weight history period',{exact:true}).selectOption('year');
   await expect.poll(overflow).toBeGreaterThan(1);
-  await expect(page.getByRole('button',{name:'Show earlier days'})).toBeVisible();
+  await expect(weightCard.locator('.swipe-carousel-slide:not([inert])').getByRole('button',{name:'Show earlier days'})).toBeVisible();
   await page.setViewportSize({width:390,height:844});
   await page.getByLabel('Weight history period',{exact:true}).selectOption('six-months');
   await expect.poll(overflow).toBeGreaterThan(1);

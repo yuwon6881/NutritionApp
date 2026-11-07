@@ -273,10 +273,13 @@ test('1280x800 desktop unit select dropdown inside food review modal is aligned 
 
 test('reopening a select after a choice keeps the page where it was',async({page})=>{
   await preparePage(page,1280,720);
-  await page.getByRole('button',{name:'Progress',exact:true}).click();
+  await page.locator('.weight-progress-card').scrollIntoViewIfNeeded();
   const trigger=page.getByRole('button',{name:'Choose weight history period'});
   await trigger.click();
   await page.getByRole('option',{name:/6 months/i}).click();
+  // The card resizes while the new period loads; measure once it has settled.
+  await expect(page.locator('.weight-progress-card[data-pending]')).toHaveCount(0);
+  await page.waitForTimeout(600);
   const before=await page.evaluate(()=>scrollY);
   // The remembered option used to be revealed with scrollIntoView before the menu was placed, which
   // scrolled the whole page to the menu's unpositioned spot at the end of the document.
