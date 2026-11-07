@@ -395,7 +395,7 @@ test('accepted daily targets and offline cadence edits stay explicit',async({pag
   await expect(energyPanel.getByText('kcal target')).toHaveCount(0);
   expect(activeDaily).toBeGreaterThan(0);
   await resolveMissingDays(page);
-  await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();const coachingCard=page.locator('.energy-progress-card');await coachingCard.scrollIntoViewIfNeeded();for(const next of ['Surplus or deficit','Estimated maintenance','Coaching guidance'])await coachingCard.getByRole('button',{name:`Next view: ${next}`,exact:true}).dispatchEvent('click');await expect(coachingCard.getByRole('heading',{name:'Coaching guidance',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();const coachingCard=page.locator('.energy-progress-card');await coachingCard.scrollIntoViewIfNeeded();for(const next of ['Surplus or deficit','Estimated maintenance','Coaching guidance'])await coachingCard.getByRole('button',{name:`Next view: ${next}`,exact:true}).dispatchEvent('click');await expect(coachingCard.locator('.swipe-carousel-title')).toHaveText('Coaching guidance');
   const acceptedResponse=await context.request.post('/api/coach/accept',{headers,data:{id:randomUUID(),revision:proposal.revision}});expect(acceptedResponse.ok(),await acceptedResponse.text()).toBeTruthy();
   state=await (await context.request.get('/api/state')).json();const nextResult=JSON.parse(state.plans[0].resultJson) as {calories:number;weeklyCalories:number;dailyCalories:number[]};expect(state.plans[0].id).not.toBe(active.id);expect(nextResult.dailyCalories).toEqual(proposal.result.dailyCalories);expect(nextResult.dailyCalories.reduce((sum,value)=>sum+value,0)).toBe(nextResult.weeklyCalories);
   await page.reload();await resolveMissingDays(page);await page.getByRole('button',{name:'Settings',exact:true}).click();await context.setOffline(true);
@@ -506,7 +506,7 @@ test('mobile scan shortcut supports food photos and label autofill before review
     await page.locator('input[type="file"]').setInputFiles('public/icon-512.png');
     // The preview must decode, not just exist: the prepared photo is bare base64.
     await expect.poll(()=>page.locator('.ai-photo-preview img').evaluate((img:HTMLImageElement)=>img.complete?img.naturalWidth:0)).toBeGreaterThan(0);
-    await page.getByRole('button',{name:mode==='label'?'Read label':'Estimate meal',exact:true}).click();
+    await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
     const foodName=mode==='label'?'Label yoghurt':'Photo meal';
     if(mode==='photo'){
       await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();

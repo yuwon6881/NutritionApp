@@ -61,14 +61,14 @@ test('AI body-fat estimate needs three photos and fills the field only when used
   await page.goto('/');
   await page.getByRole('button',{name:'Add body record',exact:true}).click();
   const add=page.getByRole('dialog',{name:'Add body record'});
-  await expect(add.getByRole('button',{name:'Estimate body fat',exact:true})).toBeDisabled();
+  await expect(add.getByRole('button',{name:'Estimate with AI',exact:true})).toBeDisabled();
   await expect(add.getByText('Add front, side, and back photos to estimate.',{exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
 
   await page.getByRole('button',{name:'Open history',exact:true}).click();
   await page.getByRole('button',{name:'Edit',exact:true}).first().click();
   const dialog=page.getByRole('dialog',{name:'Edit body record'});
-  const estimate=dialog.getByRole('button',{name:'Estimate body fat',exact:true});
+  const estimate=dialog.getByRole('button',{name:'Estimate with AI',exact:true});
   await expect(estimate).toBeEnabled();
   const request=page.waitForRequest('**/api/body-records/body-fat-estimate');
   await estimate.click();
@@ -89,7 +89,7 @@ test('AI body-fat estimate errors stay beside the action and keep manual entry a
   await openNewestRecord(page);
   await page.getByRole('button',{name:'Edit record',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Edit body record'});
-  await dialog.getByRole('button',{name:'Estimate body fat',exact:true}).click();
+  await dialog.getByRole('button',{name:'Estimate with AI',exact:true}).click();
   await expect(dialog.getByRole('alert')).toContainText('The photos could not be assessed.');
   await dialog.getByLabel('Body fat (%)',{exact:true}).fill('19');
   await expect(dialog.getByLabel('Body fat (%)',{exact:true})).toHaveValue('19');
