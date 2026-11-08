@@ -5,7 +5,7 @@ import {Button} from './ui/Button';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayWeight,weightLabel} from '../lib/units';
 import {number,readableDate} from '../lib/format';
-import {angleLabel,angles,measurementGroups,measurementLabel} from '../lib/bodyMeasurements';
+import {angleLabel,angles,circumferenceUnitFor,measurementGroups,measurementLabel} from '../lib/bodyMeasurements';
 import {CompareOverlay} from './CompareOverlay';
 import {CompareRecordPicker} from './body/CompareRecordPicker';
 import {windowTier} from '../lib/breakpoints';
@@ -35,7 +35,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
   const [pastId,setPastId]=useState(defaultPastId);
   const [angle,setAngle]=useState<PhysiqueAngle>('front');
   const [mode,setMode]=useState<CompareMode>('all');
-  const [unit,setUnit]=useState<'cm'|'in'>('cm');
+  const [unit,setUnit]=useState<'cm'|'in'>(()=>circumferenceUnitFor(weightUnit));
 
   const presentRecord=sorted.find(r=>r.id===presentId)??sorted[0];
   const pastRecord=sorted.find(r=>r.id===pastId)??(sorted.length>1?sorted[sorted.length-1]:sorted[0]);
@@ -91,7 +91,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
     <th scope="row">{label}</th>
     <td data-label="Past">{past}</td>
     <td data-label="Present">{present}</td>
-    <td data-label="Change">{delta?<span className={`compare-delta-badge ${delta.value<0?'negative':'positive'}`}>{delta.text}</span>:'—'}</td>
+    <td data-label="Change">{delta?<span className={`compare-delta-badge ${Math.abs(delta.value)<0.05?'neutral':delta.value<0?'negative':'positive'}`}>{delta.text}</span>:'—'}</td>
   </tr>;
 
   return <section className="panel body-compare-panel">

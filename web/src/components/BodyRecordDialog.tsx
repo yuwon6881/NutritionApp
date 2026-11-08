@@ -14,7 +14,7 @@ import {Field} from './ui/Field';
 import {FileInput} from './ui/FileInput';
 import {prepareImage} from '../lib/image';
 import {unitsFor} from '../lib/units';
-import {allMeasurementKeys,angleLabel,angles,measurementGroups,measurementLabel,toCentimetres} from '../lib/bodyMeasurements';
+import {allMeasurementKeys,angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementGroups,measurementLabel,toCentimetres} from '../lib/bodyMeasurements';
 import {buildEstimateRequest} from '../lib/bodyFatEstimate';
 import {BodyFatEstimate} from './body/BodyFatEstimate';
 import {useOnlineStatus} from './ui/useOnlineStatus';
@@ -50,7 +50,7 @@ export interface BodyRecordDialogProps{
 
 export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRecordDialogProps){
   const current=today(store.state!.profile?.timeZone);
-  const defaultUnit=unitsFor(store.state!.settings).weight==='lb'?'in':'cm';
+  const defaultUnit=circumferenceUnitFor(unitsFor(store.state!.settings).weight);
   const [date,setDate]=useState(current);
   const [unit,setUnit]=useState<'cm'|'in'>(defaultUnit);
   const [values,setValues]=useState<Record<BodyMeasurementKey,string>>(()=>Object.fromEntries(allMeasurementKeys.map(k=>[k,''])) as Record<BodyMeasurementKey,string>);
@@ -62,6 +62,10 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
   const {busy,run,reset,pending:busyPending}=useAsyncAction();
   const online=useOnlineStatus();
   const initialRef=useRef({date,values,slots});
+  // Exact centimetres behind each field, and which fields the person typed in. Toggling units re-displays from
+  // the exact value, and saving sends only typed fields, so a tab flip never rounds a measurement they left alone.
+  const exactCm=useRef<Partial<Record<BodyMeasurementKey,number>>>({});
+  const editedKeys=useRef(new Set<BodyMeasurementKey>());
 
   useEffect(()=>{
     if(!open)return;
@@ -70,8 +74,10 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
       const val=record?.measurements[key];
       if(val==null)return [key,''];
       if(key==='bodyFatPercent')return [key,String(val)];
-      return [key,initialUnit==='in'?String(Math.round((val/2.54)*10)/10):String(val)];
+      return [key,initialUnit==='in'?String(Math.round(fromCentimetres(val,'in')*10)/10):String(val)];
     })) as Record<BodyMeasurementKey,string>;
+    exactCm.current=Object.fromEntries(allMeasurementKeys.filter(key=>key!=='bodyFatPercent'&&record?.measurements[key]!=null).map(key=>[key,record!.measurements[key]!]));
+    editedKeys.current=new Set();
     const nextSlots=makeBodySlots(record);
     setDate(record?.date??current);
     setUnit(initialUnit);
@@ -90,21 +96,16 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
     setValues(prev=>{
       const converted={...prev};
       for(const key of allMeasurementKeys){
-        if(key==='bodyFatPercent'||!prev[key].trim())continue;
-        const num=Number(prev[key]);
-        if(!Number.isFinite(num))continue;
-        if(nextUnit==='in'){
-          converted[key]=String(Math.round((num/2.54)*10)/10);
-        }else{
-          converted[key]=String(Math.round((num*2.54)*10)/10);
-        }
+        const exact=exactCm.current[key];
+        if(key==='bodyFatPercent'||exact==null||!prev[key].trim())continue;
+        converted[key]=String(Math.round(fromCentimetres(exact,nextUnit)*10)/10);
       }
       return converted;
     });
     setUnit(nextUnit);
   };
 
-  const dirty=omitScale||omitTrend||date!==initialRef.current.date||allMeasurementKeys.some(k=>values[k]!==initialRef.current.values[k])||slots.some(s=>s.changed||s.deleted);
+  const dirty=omitScale||omitTrend||date!==initialRef.current.date||values.bodyFatPercent!==initialRef.current.values.bodyFatPercent||editedKeys.current.size>0||slots.some(s=>s.changed||s.deleted);
 
   const selectPhoto=async(photoAngle:PhysiqueAngle,event:ChangeEvent<HTMLInputElement>)=>{
     const file=event.currentTarget.files?.[0];
@@ -126,6 +127,8 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
     for(const key of allMeasurementKeys){
       const raw=values[key].trim();
       if(!record&&raw==='')continue;
+      // Untouched fields keep their stored value exactly; only typed ones are converted and sent.
+      if(record&&key!=='bodyFatPercent'&&!editedKeys.current.has(key))continue;
       if(raw===''){
         measurements[key]=null;
       }else{
@@ -195,7 +198,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
       {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
         <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
         <div className="body-field-grid">
-          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;setValues(cv=>({...cv,[key]:val}));}}/>)}
+          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;editedKeys.current.add(key);const num=Number(val);if(val.trim()!==''&&Number.isFinite(num))exactCm.current[key]=unit==='in'?num*2.54:num;else delete exactCm.current[key];setValues(cv=>({...cv,[key]:val}));}}/>)}
         </div>
       </section>)}
 

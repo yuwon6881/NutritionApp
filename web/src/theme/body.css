@@ -192,6 +192,7 @@
 :root[data-theme=dark] .body-history-row { background: var(--raised) !important; border-color: transparent !important; }
 .body-history-date { font-weight: 750 !important; font-size: 1.05rem !important; letter-spacing: -0.02em !important; color: var(--ink-strong) !important; font-variant-numeric: tabular-nums; }
 .body-history-meta { font-size: 0.8125rem !important; color: var(--muted-foreground) !important; line-height: 1.4; }
+.body-history-row { content-visibility: auto; contain-intrinsic-size: auto 112px; }
 .body-history-thumb { width: 72px; height: 88px; object-fit: cover; border-radius: 14px !important; background: var(--card); border: 1px solid transparent !important; }
 :root[data-theme=dark] .body-history-thumb { border-color: var(--border) !important; }
 .body-history-thumb-empty {
@@ -293,10 +294,12 @@
   border-radius: 18px !important; overflow: hidden; position: relative;
   width: 100%; max-width: 520px; margin: 0 auto; aspect-ratio: 3 / 4;
   background: var(--muted);
+  touch-action: pan-y; cursor: ew-resize;
 }
 .compare-overlay-frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain !important; }
 @media (max-width: 639px) {
-  .compare-overlay-frame { max-height: min(100%, calc(min(52vh, 420px) * 3 / 4)); }
+  /* The height is the limit and the 3 / 4 ratio sets the width, so the frame never collapses or overflows. */
+  .compare-overlay-frame { width: auto; max-width: 100%; height: min(60vh, 520px); }
 }
 :root[data-theme=dark] .compare-overlay-frame { background: var(--background); }
 .compare-overlay-divider {
@@ -336,6 +339,7 @@
 :root[data-theme=dark] .compare-delta-badge.negative { background: var(--primary-tint) !important; color: var(--primary) !important; }
 .compare-delta-badge.positive { background: var(--muted) !important; color: var(--foreground) !important; }
 :root[data-theme=dark] .compare-delta-badge.positive { background: var(--raised) !important; }
+.compare-delta-badge.neutral { background: transparent !important; color: var(--muted-foreground) !important; border: 1px solid var(--border); }
 @media (max-width: 639px) {
   .compare-table tbody tr:not(.compare-table-group-header) {
     display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important;

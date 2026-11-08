@@ -29,7 +29,7 @@ public sealed class BodyRecordTests
         await using(db)
         {
             var id=Guid.NewGuid();
-            var operation=new BodyMutation(id,0,new BodyPatch(new DateOnly(2026,9,12),new Dictionary<string,double?> {{"waistCm",82}}));
+            var operation=new BodyMutation(id,0,new BodyPatch(new DateOnly(2026,9,12),new Dictionary<string,double?> {{"waistCm",82},{"neckCm",38}}));
             var created=await service.Apply(id,operation,default);
             Assert.Equal(82,created.Measurements.WaistCm);
             var replay=await service.Apply(id,operation,default);

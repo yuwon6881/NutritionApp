@@ -13,11 +13,13 @@ public static class PhotoEndpoints
         app.MapPost("/api/photos",async(PhotoSetInput input,PhotoService photos,CancellationToken ct)=>Results.Ok(await photos.Upload(input,ct)));
         app.MapGet("/api/photos/{id:guid}/content",async(HttpContext http,Guid id,PhotoService photos,CancellationToken ct)=>
         {
-            var content=await photos.ContentWithMetadata(id,ct);
-            var etag=content.Generation is null?null:$"\"gcs:{content.Generation}\"";
+            // Validate against the stored generation first: a 304 must not cost an object-storage read.
+            var generation=await photos.Generation(id,ct);
+            var etag=generation is null?null:$"\"gcs:{generation}\"";
             http.Response.Headers.CacheControl="private, max-age=0, must-revalidate";
             if(etag is not null&&http.Request.Headers.IfNoneMatch==etag){http.Response.Headers.ETag=etag;return Results.StatusCode(StatusCodes.Status304NotModified);}
-            if(etag is not null)http.Response.Headers.ETag=etag;
+            var content=await photos.ContentWithMetadata(id,ct);
+            if(content.Generation is not null)http.Response.Headers.ETag=$"\"gcs:{content.Generation}\"";
             return Results.File(content.Bytes,"image/jpeg");
         });
         app.MapPost("/api/photos/{id:guid}/delete",async(Guid id,PhotoService photos,CancellationToken ct)=>{await photos.Delete(id,ct);return Results.NoContent();});

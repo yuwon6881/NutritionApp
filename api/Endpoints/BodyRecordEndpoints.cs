@@ -9,8 +9,8 @@ public static class BodyRecordEndpoints
 {
     public static void MapBodyRecords(this WebApplication app)
     {
-        app.MapGet("/api/body-records",async(BodyRecordService body,string? cursor,bool? photosOnly,CancellationToken ct)
-            =>Results.Ok(await body.Page(cursor,photosOnly??false,ct)));
+        app.MapGet("/api/body-records",async(BodyRecordService body,string? cursor,bool? photosOnly,int? limit,CancellationToken ct)
+            =>Results.Ok(await body.Page(cursor,photosOnly??false,ct,limit??20)));
         app.MapGet("/api/body-records/weight-context",async(BodyRecordService body,DateOnly date,CancellationToken ct)
             =>Results.Ok(await body.Capture(date,ct)));
         // A paid provider call: shares the scan rate limit and the daily AI allowance.

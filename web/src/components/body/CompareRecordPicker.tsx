@@ -14,6 +14,12 @@ export interface CompareRecordPickerProps{
 }
 
 /** A date select with one-step older/newer buttons, so either side can walk the timeline. */
+/** Says whether a date has photos, so the person is not led to an empty comparison frame. */
+const photoNote=(record:BodyRecord)=>{
+  const count=record.photos.filter(photo=>photo.status==='complete').length;
+  return count===0?' · no photos':` · ${count} ${count===1?'photo':'photos'}`;
+};
+
 export function CompareRecordPicker({role,records,value,onChange}:CompareRecordPickerProps){
   const ids=records.map(record=>record.id);
   const older=stepRecordId(ids,value,'older');
@@ -23,7 +29,7 @@ export function CompareRecordPicker({role,records,value,onChange}:CompareRecordP
     <div className="compare-picker-row">
       <Button variant="secondary" size="icon" className="compare-picker-step" disabled={!older} onClick={()=>older&&onChange(older)} aria-label={`Older ${role.toLowerCase()} record`}><ChevronLeft size={18} aria-hidden="true"/></Button>
       <SelectField label={`${role} record`} value={value} onChange={onChange}>
-        {records.map((record,index)=><option key={record.id} value={record.id}>{`${readableDate(record.date)}${suffix(index)}`}</option>)}
+        {records.map((record,index)=><option key={record.id} value={record.id}>{`${readableDate(record.date)}${suffix(index)}${photoNote(record)}`}</option>)}
       </SelectField>
       <Button variant="secondary" size="icon" className="compare-picker-step" disabled={!newer} onClick={()=>newer&&onChange(newer)} aria-label={`Newer ${role.toLowerCase()} record`}><ChevronRight size={18} aria-hidden="true"/></Button>
     </div>

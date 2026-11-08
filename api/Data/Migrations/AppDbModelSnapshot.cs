@@ -1470,9 +1470,16 @@ namespace Nutrition.Api.Data.Migrations
 
                     b.HasKey("UserId", "Id");
 
+                    b.HasIndex("Status", "Created")
+                        .HasFilter("\"Status\" IN ('deleting','uploading')");
+
                     b.HasIndex("UserId", "Date");
 
                     b.HasIndex("UserId", "SetId");
+
+                    b.HasIndex("UserId", "Deleted", "Status", "Date", "SetId");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "Deleted", "Status", "Date", "SetId"), new[] { "Bytes" });
 
                     b.ToTable("Photos");
                 });

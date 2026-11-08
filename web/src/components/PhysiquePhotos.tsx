@@ -53,13 +53,14 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
 
   const bodyRead=useRef(0);
   const photoRead=useRef(0);
-  const loadBodyPage=useCallback(async(reset=false)=>{
+  const loadBodyPage=useCallback(async(reset=false,limit?:number)=>{
     if(bodyLoadingRef.current&&!reset)return 0;
     const request=++bodyRead.current;bodyLoadingRef.current=true;setBodyLoading(true);
     if(reset)setBodyError('');
     try{
       const cursor=reset?null:bodyCursor;
-      const response=await api<BodyPage>('/body-records'+(cursor?'?cursor='+encodeURIComponent(cursor):''));
+      const query=[cursor?'cursor='+encodeURIComponent(cursor):'',limit?'limit='+limit:''].filter(Boolean).join('&');
+      const response=await api<BodyPage>('/body-records'+(query?'?'+query:''));
       if(request!==bodyRead.current)return 0;
       setBodyCursor(response.nextCursor);setBodyHasMore(response.hasMore);setBodyLoaded(true);
       setBodyRecords(current=>{
@@ -101,6 +102,11 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
       return()=>window.cancelAnimationFrame(frame);
     }
   },[page,loaded,loadPage,bodyLoaded,loadBodyPage]);
+
+  // Comparing reaches every dated record, not just the first page: walk the rest in large pages.
+  useEffect(()=>{
+    if(page==='compare'&&bodyLoaded&&bodyHasMore&&!bodyLoading&&!bodyError)void loadBodyPage(false,100);
+  },[page,bodyLoaded,bodyHasMore,bodyLoading,bodyError,loadBodyPage]);
 
   // The hub sits in the middle of the Dashboard: opening a sub-view brings it to the top of the
   // window, and coming back returns to where the hub was.
@@ -158,7 +164,7 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
       <section className="panel body-history-panel">
         <div className="section-heading"><div><h2>Measurements and photos</h2><p>Newest first.</p></div><Button variant="secondary" disabled={bodyRecords.length<2} onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare</Button></div>
         {!bodyRecords.length&&!bodyError&&(bodyLoaded?<p className="empty">No Body records yet.</p>:<BodyListSkeleton kind="history" label="Loading Body history…"/>)}
-        <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
+        <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} weightUnit={weightUnit} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
         {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busyPending} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
       </section>
       {bodyDrafts.map(draft=><BodyDraftNotice key={draft.mutationId} draft={draft} store={store}/>)}

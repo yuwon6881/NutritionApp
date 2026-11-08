@@ -1,7 +1,7 @@
 import type {BodyMeasurementKey,BodyRecord,PhysiqueAngle} from '../../types';
 import {number,readableDate} from '../../lib/format';
 import {displayWeight,weightLabel} from '../../lib/units';
-import {angleLabel,angles,measurementGroups,measurementLabel} from '../../lib/bodyMeasurements';
+import {angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementGroups,measurementLabel,type CircumferenceUnit} from '../../lib/bodyMeasurements';
 import {SegmentedControl} from '../ui/SegmentedControl';
 import {PhotoFrame} from './PhotoFrame';
 import {RecordNavigator} from './RecordNavigator';
@@ -23,6 +23,7 @@ export interface BodyRecordViewerProps{
 /** One Body record with its photo, measurements (compared with the next older record), and weight context. */
 export function BodyRecordViewer({records,index,angle,weightUnit,onAngle,onIndex}:BodyRecordViewerProps){
   const record=records[index];
+  const unit=circumferenceUnitFor(weightUnit);
   const previous=records[index+1];
   if(!record)return null;
   const onOlder=index+1<records.length?()=>onIndex(index+1):undefined;
@@ -43,8 +44,8 @@ export function BodyRecordViewer({records,index,angle,weightUnit,onAngle,onIndex
         <RecordNavigator noun="Record" index={index} total={records.length} date={readableDate(record.date)} onOlder={onOlder} onNewer={onNewer}/>
       </div>
       <div className="body-measurement-summary">
-        <div className="body-summary-heading"><h3>Measurements</h3><span>cm</span></div>
-        {measurementGroups.map(([group,keys])=><div className="body-measurement-group" key={group}><h4>{group}</h4>{keys.map(key=><MeasurementLine key={key} label={measurementLabel(key)} value={record.measurements[key]} difference={difference(key)}/>)}</div>)}
+        <div className="body-summary-heading"><h3>Measurements</h3><span>{unit}</span></div>
+        {measurementGroups.map(([group,keys])=><div className="body-measurement-group" key={group}><h4>{group}</h4>{keys.map(key=><MeasurementLine key={key} label={measurementLabel(key)} value={record.measurements[key]} difference={difference(key)} unit={unit}/>)}</div>)}
         <div className="body-measurement-group"><h4>Composition</h4><MeasurementLine label="Body fat" value={record.measurements.bodyFatPercent} difference={difference('bodyFatPercent')} suffix="%" bodyFat/></div>
         <div className="body-weight-context"><h4>Weight context</h4>
           <p>Scale {record.weightContext.scaleKg==null?'—':displayWeight(record.weightContext.scaleKg,weightUnit,1)+' '+weightLabel(weightUnit)}{record.weightContext.scaleDate?' · '+record.weightContext.scaleDate:''}</p>
@@ -55,10 +56,12 @@ export function BodyRecordViewer({records,index,angle,weightUnit,onAngle,onIndex
   </section>;
 }
 
-function MeasurementLine({label,value,difference,suffix='',bodyFat=false}:{label:string;value:number|null;difference:number|null;suffix?:string;bodyFat?:boolean}){
-  const delta=difference==null?'':(difference>0?'+':'')+number(difference,1)+(bodyFat?' pp':'');
+function MeasurementLine({label,value,difference,suffix='',bodyFat=false,unit}:{label:string;value:number|null;difference:number|null;suffix?:string;bodyFat?:boolean;unit?:CircumferenceUnit}){
+  // Stored centimetres are shown in the person's unit; body fat is a percentage and never converted.
+  const shown=(cm:number)=>unit?fromCentimetres(cm,unit):cm;
+  const delta=difference==null?'':(difference>0?'+':'')+number(shown(difference),1)+(bodyFat?' pp':'');
   return <div className="body-measurement-line"><span>{label}</span><span className="body-measurement-value">
     {delta&&<small className="body-measurement-difference">{delta}</small>}
-    <strong>{value==null?'—':number(value,1)+suffix}</strong>
+    <strong>{value==null?'—':number(shown(value),1)+suffix}</strong>
   </span></div>;
 }

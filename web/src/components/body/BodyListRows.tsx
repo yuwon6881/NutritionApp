@@ -2,16 +2,17 @@ import {useEffect,useRef,useState} from 'react';
 import type {NutritionStore} from '../../useNutritionStore';
 import type {BodyDraft,BodyRecord,PhysiqueDraft,PhysiquePhoto,PhysiquePhotoSet} from '../../types';
 import {number,readableDate} from '../../lib/format';
-import {allMeasurementKeys,angleLabel,angles,measurementLabel} from '../../lib/bodyMeasurements';
+import {allMeasurementKeys,angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementLabel} from '../../lib/bodyMeasurements';
 import {Button} from '../ui/Button';
 import {SkeletonBlock} from '../ui/Skeleton';
 
 const measurementCount=(record:BodyRecord)=>allMeasurementKeys.filter(key=>record.measurements[key]!=null).length;
 
-export function BodyHistoryRow({record,onOpen,onEdit}:{record:BodyRecord;onOpen:()=>void;onEdit:(trigger:HTMLElement)=>void}){
+export function BodyHistoryRow({record,weightUnit,onOpen,onEdit}:{record:BodyRecord;weightUnit:'kg'|'lb';onOpen:()=>void;onEdit:(trigger:HTMLElement)=>void}){
+  const unit=circumferenceUnitFor(weightUnit);
   const preview=record.photos.find(photo=>photo.status==='complete');
   const count=measurementCount(record);
-  const summary=allMeasurementKeys.filter(key=>record.measurements[key]!=null).slice(0,2).map(key=>measurementLabel(key)+' '+number(record.measurements[key],1)+(key==='bodyFatPercent'?'%':' cm')).join(' · ');
+  const summary=allMeasurementKeys.filter(key=>record.measurements[key]!=null).slice(0,2).map(key=>measurementLabel(key)+' '+number(key==='bodyFatPercent'?record.measurements[key]:fromCentimetres(record.measurements[key]!,unit),1)+(key==='bodyFatPercent'?'%':' '+unit)).join(' · ');
   return <article className="body-history-row">
     <Button presentation="plain" className="body-history-main" onClick={onOpen}>
       <span className="body-history-date">{readableDate(record.date)}</span>
@@ -19,7 +20,7 @@ export function BodyHistoryRow({record,onOpen,onEdit}:{record:BodyRecord;onOpen:
       {summary&&<span className="body-history-meta">{summary}</span>}
       {record.weightContext.provenance!=='legacy-unavailable'&&<span className="body-history-meta">Weight snapshot {record.weightContext.scaleKg==null&&record.weightContext.trendKg==null?'unavailable':'attached'}</span>}
     </Button>
-    {preview?<img className="body-history-thumb" src={'/api/photos/'+preview.id+'/content'} alt={'Body record '+readableDate(record.date)}/>:<div className="body-history-thumb body-history-thumb-empty" aria-hidden="true">No photo</div>}
+    {preview?<img className="body-history-thumb" loading="lazy" decoding="async" src={'/api/photos/'+preview.id+'/content'} alt={'Body record '+readableDate(record.date)}/>:<div className="body-history-thumb body-history-thumb-empty" aria-hidden="true">No photo</div>}
     <Button variant="tertiary" size="md" onClick={event=>onEdit(event.currentTarget)}>Edit</Button>
   </article>;
 }
@@ -45,7 +46,8 @@ function LazyPhoto({photo,label}:{photo:PhysiquePhoto;label:string}){
   const ref=useRef<HTMLDivElement>(null);const [near,setNear]=useState(false);
   useEffect(()=>{
     if(!ref.current)return;
-    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setNear(true);observer.disconnect();}},{rootMargin:'240px'});
+    // Track visibility continuously: an image far off screen is unmounted so a long gallery never holds every decoded bitmap.
+    const observer=new IntersectionObserver(entries=>{const latest=entries.at(-1);if(latest)setNear(latest.isIntersecting);},{rootMargin:'480px'});
     observer.observe(ref.current);return()=>observer.disconnect();
   },[]);
   return <div ref={ref} className="photo-lazy-frame">{near?<img loading="lazy" decoding="async" src={`/api/photos/${photo.id}/content`} alt={label}/>:<div className="photo-lazy-placeholder" aria-label={`Loading ${label}`}/>}</div>;

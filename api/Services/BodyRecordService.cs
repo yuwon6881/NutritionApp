@@ -21,14 +21,18 @@ public sealed record BodyPage(Guid AccountId, long Revision, bool Configured, lo
 
 public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfiguration config, GoogleHealthBodyFatSyncService? bodyFatSync = null)
 {
+    /// No single tape measurement on a person approaches this; it catches a slipped decimal point (800 cm), not a large body.
+    public const double MaxCircumferenceCm=250;
     public const string TrendVersion = "coach-trend-half-life-7d-v1";
     public static readonly IReadOnlyDictionary<string,PropertyInfo> MeasurementFields = typeof(BodyMeasurements)
         .GetProperties().ToDictionary(p=>char.ToLowerInvariant(p.Name[0])+p.Name[1..],StringComparer.Ordinal);
 
-    public async Task<BodyPage> Page(string? cursor, bool photosOnly, CancellationToken ct)
+    public async Task<BodyPage> Page(string? cursor, bool photosOnly, CancellationToken ct, int limit = 20)
     {
         var uid=db.CurrentUser??throw new DomainException("Sign in again.",401);
-        await MigrateLegacyPhotoSets(ct);
+        limit=Math.Clamp(limit,1,100);
+        // Legacy sets only need backfilling once; later pages of a walk never re-scan every photo.
+        if(string.IsNullOrEmpty(cursor))await MigrateLegacyPhotoSets(ct);
         var query=db.BodyRecords.AsNoTracking().Where(b=>!b.Deleted);
         if(photosOnly)query=query.Where(b=>db.Photos.Any(p=>p.SetId==b.Id&&!p.Deleted&&p.Status=="complete"));
         if(!string.IsNullOrEmpty(cursor))
@@ -36,13 +40,13 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
             var after=DecodeCursor(cursor);
             query=query.Where(b=>b.Date<after.Date||(b.Date==after.Date&&b.CreationOrder<after.Order));
         }
-        var records=await query.OrderByDescending(b=>b.Date).ThenByDescending(b=>b.CreationOrder).Take(21).ToListAsync(ct);
-        var hasMore=records.Count>20;
-        var page=records.Take(20).ToList();
+        var records=await query.OrderByDescending(b=>b.Date).ThenByDescending(b=>b.CreationOrder).Take(limit+1).ToListAsync(ct);
+        var hasMore=records.Count>limit;
+        var page=records.Take(limit).ToList();
         var ids=page.Select(b=>b.Id).ToArray();
         var photos=await db.Photos.AsNoTracking().Where(p=>ids.Contains(p.SetId)&&!p.Deleted).ToListAsync(ct);
         return new(uid,await db.Users.Where(u=>u.Id==uid).Select(u=>u.Revision).SingleAsync(ct),store.Configured,
-            await db.Photos.Where(p=>!p.Deleted).SumAsync(p=>(long)p.Bytes,ct),config.GetValue("Physique:MaxBytesPerUser",268435456L),
+            await db.Photos.Where(p=>!p.Deleted).SumAsync(p=>(long)p.Bytes,ct),PhotoService.MaxBytes(config),
             page.Select(b=>View(b,photos.Where(p=>p.SetId==b.Id))).ToList(),hasMore?EncodeCursor(page[^1]):null,hasMore);
     }
 
@@ -144,6 +148,10 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
                 }
                 else
                 {
+                    // An edit may clear fields but never leave an empty shell: a record keeps a measurement or a photo.
+                    var keepsPhoto=Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson).Count>0||await db.Photos.AnyAsync(p=>p.SetId==recordId&&!p.Deleted,ct);
+                    Validation.Require(MeasurementFields.Values.Any(p=>p.GetValue(body.Measurements)!=null)||keepsPhoto,
+                        "A Body record needs at least one measurement or photo. Delete the record instead.");
                     // A date correction, measurement edit or photo replacement never captures again.
                     Validation.Require(patch.WeightContext==null,"Saved weight attachments are frozen; they can only be omitted.");
                     body.WeightContextJson=Json.Write(Omit(Json.Read<BodyWeightContext>(body.WeightContextJson),patch));
@@ -224,8 +232,8 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
         foreach(var (name,value) in patch)
         {
             Validation.Require(MeasurementFields.TryGetValue(name,out var field),"Unknown Body measurement.");
-            if(value is {} number)Validation.Require(double.IsFinite(number)&&number>0&&(name!="bodyFatPercent"||number<100),
-                name=="bodyFatPercent"?"Estimated body fat must be strictly between 0 and 100%.":"Circumference must be a finite positive number.");
+            if(value is {} number)Validation.Require(double.IsFinite(number)&&number>0&&(name=="bodyFatPercent"?number<100:number<=MaxCircumferenceCm),
+                name=="bodyFatPercent"?"Estimated body fat must be strictly between 0 and 100%.":$"Circumference must be a positive number up to {MaxCircumferenceCm:0} cm.");
             field!.SetValue(target,value is null?null:(double?)value);
         }
     }

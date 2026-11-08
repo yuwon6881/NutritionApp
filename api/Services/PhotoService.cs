@@ -16,6 +16,11 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     /// Every physique object an account owns lives under this prefix, which is what lets erasure find old generations.
     public static string ObjectPrefix(Guid userId)=>$"nutrition-physique/{userId}/";
     private static readonly DateOnly EarliestDate=new(2000,1,1);
+    /// 2 GiB per account: weekly three-view photos at the 750 KB cap last roughly 17 years.
+    public const long DefaultMaxBytesPerUser=2147483648L;
+    /// A queued photo intent that never produced an upload within this many days is abandoned.
+    public const int PendingIntentDays=7;
+    public static long MaxBytes(IConfiguration config)=>config.GetValue("Physique:MaxBytesPerUser",DefaultMaxBytesPerUser);
     public bool Configured => store.Configured;
 
     public async Task<PhotoPage> Page(string? cursor,int limit,CancellationToken ct)
@@ -57,7 +62,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     }
 
     private async Task<(long UsedBytes,long MaxBytes)> Totals(CancellationToken ct)
-        => (await db.Photos.Where(photo=>!photo.Deleted).SumAsync(photo=>(long)photo.Bytes,ct),config.GetValue("Physique:MaxBytesPerUser",268435456L));
+        => (await db.Photos.Where(photo=>!photo.Deleted).SumAsync(photo=>(long)photo.Bytes,ct),MaxBytes(config));
 
     public static string EncodeCursor(DateOnly date,Guid setId)
         =>Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{date:yyyy-MM-dd}|{setId:D}"))
@@ -84,7 +89,9 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     {
         Validation.Require(store.Configured,"Physique photo storage is not configured yet.",503);
         Validation.Require(input.Id!=Guid.Empty,"Photo set identity is required.");
-        Validation.Require(input.Date>=EarliestDate&&input.Date<=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1),"Choose a valid photo date.");
+        // Same ceiling as Body record edits (the profile's today), so a photo-created record is never locked out of editing.
+        var profileJson=await db.Users.Where(u=>u.Id==db.CurrentUser).Select(u=>u.ProfileJson).SingleOrDefaultAsync(ct);
+        Validation.Require(input.Date>=EarliestDate&&input.Date<=RetentionService.Today(profileJson),"Choose a valid photo date.");
         var parts=input.Photos??Array.Empty<PhotoPart>();
         Validation.Require(parts.Count<=3,"A physique photo set can contain at most three views.");
         Validation.Require(parts.Select(part=>part.Angle).Distinct(StringComparer.Ordinal).Count()==parts.Count&&parts.All(part=>part.Angle is "front" or "side" or "back"),"Choose one front, side, and back photo at most.");
@@ -147,7 +154,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                 var oldBytes=existing is {Deleted:false}?existing.Bytes:0;
                 total-=oldBytes;
                 total+=preparedPhoto.Bytes.Length;
-                Validation.Require(total<=config.GetValue("Physique:MaxBytesPerUser",268435456L),"Your photo storage budget is full. Remove photos or adjust the configured budget.",507);
+                Validation.Require(total<=MaxBytes(config),"Your photo storage budget is full. Remove photos or adjust the configured budget.",507);
                 if(existing==null)
                 {
                     existing=new PhysiquePhoto
@@ -235,9 +242,15 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
 
     public async Task<(byte[] Bytes,string? Generation)> ContentWithMetadata(Guid id,CancellationToken ct)
     {
-        var photo=await db.Photos.SingleOrDefaultAsync(p=>p.Id==id&&!p.Deleted&&p.Status=="complete",ct)??throw new DomainException("Photo not found.",404);
+        var photo=await Visible(id,ct);
         return (await store.Get(photo.ObjectPath,ct),photo.ObjectGeneration);
     }
+
+    /// The stored generation alone identifies the bytes, so a conditional request is answered from the database without reading the object.
+    public async Task<string?> Generation(Guid id,CancellationToken ct)=>(await Visible(id,ct)).ObjectGeneration;
+
+    private async Task<PhysiquePhoto> Visible(Guid id,CancellationToken ct)
+        =>await db.Photos.AsNoTracking().SingleOrDefaultAsync(p=>p.Id==id&&!p.Deleted&&p.Status=="complete",ct)??throw new DomainException("Photo not found.",404);
 
     public async Task Delete(Guid id,CancellationToken ct)
     {
@@ -289,8 +302,31 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                 item.NextAttemptAt=DateTime.UtcNow.AddMinutes(Math.Min(60,Math.Pow(2,Math.Min(item.Attempts,6))));
             }
         }
+        count+=await SweepAbandonedIntents(now,ct);
         await db.PhotoObjectDeletions.IgnoreQueryFilters().Where(item=>item.Status=="completed"&&item.CompletedAt<DateTime.UtcNow.AddDays(-7)).ExecuteDeleteAsync(ct);
         await db.SaveChangesAsync(ct);return count;
+    }
+
+    /// A photo intent whose binary never arrived would show "Upload pending" forever. The device keeps its own
+    /// draft, so dropping the server-side marker after a week only stops the stale label.
+    private async Task<int> SweepAbandonedIntents(DateTime now,CancellationToken ct)
+    {
+        var cutoff=now.AddDays(-PendingIntentDays);
+        var stale=await db.BodyRecords.IgnoreQueryFilters()
+            .Where(b=>!b.Deleted&&b.PendingPhotosJson!="[]"&&b.Updated<cutoff)
+            .OrderBy(b=>b.Updated).Take(100).ToListAsync(ct);
+        var count=0;
+        foreach(var record in stale)
+        {
+            await using var gate=await MutationLock.Acquire(db,record.UserId,ct);
+            await db.Entry(record).ReloadAsync(ct);
+            if(record.Deleted||record.PendingPhotosJson=="[]"||record.Updated>=cutoff)continue;
+            var user=await db.Users.IgnoreQueryFilters().SingleAsync(u=>u.Id==record.UserId,ct);
+            record.PendingPhotosJson="[]";
+            record.Revision=++user.Revision;user.BodyRevision=user.Revision;record.Updated=now;
+            await db.SaveChangesAsync(ct);await gate.Commit(ct);count++;
+        }
+        return count;
     }
 
     /// The browser prepares, resizes, and strips photos to JPEG; accept nothing else.

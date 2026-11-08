@@ -34,6 +34,11 @@ export function stepRecordId(ids:string[],currentId:string,direction:'older'|'ne
   return next>=0&&next<ids.length?ids[next]:null;
 }
 
+export type CircumferenceUnit='cm'|'in';
+/** Circumferences follow the weight system: pounds users read and enter inches. */
+export const circumferenceUnitFor=(weightUnit:'kg'|'lb'):CircumferenceUnit=>weightUnit==='lb'?'in':'cm';
+export const fromCentimetres=(cm:number,unit:CircumferenceUnit)=>unit==='in'?cm/2.54:cm;
+
 /** Converts an entered circumference to centimetres with the stored one-decimal precision. */
 export function toCentimetres(value:number,unit:'cm'|'in'){
   return Math.round((unit==='in'?value*2.54:value)*10)/10;

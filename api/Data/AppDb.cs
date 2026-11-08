@@ -138,6 +138,10 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         // account deletion. The service enforces the account-owned association.
         m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.Date });
         m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.SetId });
+        // Serves the keyset walk and the used-bytes total as index-only reads however many photos accumulate.
+        m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.UserId,x.Deleted,x.Status,x.Date,x.SetId }).IncludeProperties(x=>x.Bytes);
+        // The hourly sweep only ever looks at the few rows still in flight.
+        m.Entity<PhysiquePhoto>().HasIndex(x=>new { x.Status,x.Created }).HasFilter("\"Status\" IN ('deleting','uploading')");
         m.Entity<MutationReceipt>().HasIndex(x=>x.Created);
         m.Entity<DiaryEntry>().HasIndex(x => new { x.UserId, x.Date });
         m.Entity<Food>().HasIndex(x => new { x.UserId, x.Barcode, x.Deleted });
