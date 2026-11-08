@@ -265,10 +265,7 @@ export function useTimelineDrag({
     if(current&&current.pointerId===event.pointerId)action(current);
   };
 
-  return {
-    draggingEntry,
-    dropOverTime,
-    bindDrag:(entry:Entry)=>({
+  const gestureHandlers=(entry:Entry)=>({
       onPointerDown:(event:React.PointerEvent<HTMLElement>)=>onPointerDown(entry,event),
       onPointerMove:(event:React.PointerEvent<HTMLElement>)=>forActive(event,current=>{
         if(current.mouseHoldTimer&&Math.hypot(event.clientX-current.gesture.originX,event.clientY-current.gesture.originY)>=8){
@@ -292,8 +289,29 @@ export function useTimelineDrag({
       }),
       // Android would otherwise open its own long-press menu over the lifted card.
       onContextMenu:(event:React.MouseEvent<HTMLElement>)=>{if(activeRef.current?.gesture.touch)event.preventDefault();},
+  });
+
+  // The handlers read the newest render's closure through this ref, so the props handed to a card
+  // keep one identity and React.memo on the card can skip it while its own data is unchanged.
+  const latestHandlers=useRef(gestureHandlers);
+  useEffect(()=>{latestHandlers.current=gestureHandlers;});
+  const propsCache=useRef(new Map<string,{entry:Entry;dragging:boolean;enabled:boolean;props:Record<string,unknown>}>());
+  const bindDrag=(entry:Entry):Record<string,unknown>=>{
+    const dragging=draggingEntry?.id===entry.id;
+    const cached=propsCache.current.get(entry.id);
+    if(cached&&cached.entry===entry&&cached.dragging===dragging&&cached.enabled===enabled)return cached.props;
+    const props={
+      onPointerDown:(event:React.PointerEvent<HTMLElement>)=>latestHandlers.current(entry).onPointerDown(event),
+      onPointerMove:(event:React.PointerEvent<HTMLElement>)=>latestHandlers.current(entry).onPointerMove(event),
+      onPointerUp:(event:React.PointerEvent<HTMLElement>)=>latestHandlers.current(entry).onPointerUp(event),
+      onPointerCancel:(event:React.PointerEvent<HTMLElement>)=>latestHandlers.current(entry).onPointerCancel(event),
+      onContextMenu:(event:React.MouseEvent<HTMLElement>)=>latestHandlers.current(entry).onContextMenu(event),
       'data-draggable':enabled?true:undefined,
-      'data-dragging':draggingEntry?.id===entry.id?true:undefined,
-    }),
+      'data-dragging':dragging?true:undefined,
+    };
+    propsCache.current.set(entry.id,{entry,dragging,enabled,props});
+    return props;
   };
+
+  return {draggingEntry,dropOverTime,bindDrag};
 }

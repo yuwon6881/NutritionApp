@@ -1,11 +1,11 @@
 import {useCallback,useEffect,useLayoutEffect,useRef} from 'react';
-import {dragDirection,lockAxis,startsOutsideEdge,swipeOutcome,swipeTranslate,type SwipeAxis} from '../lib/daySwipe';
+import {cardHoldTookOver,dragDirection,lockAxis,startsOutsideEdge,swipeOutcome,swipeTranslate,type SwipeAxis} from '../lib/daySwipe';
 import {hapticTick} from '../lib/haptics';
 import {motionTiming,useReducedMotion} from './ui/Motion';
 import {useFrameTask} from './ui/useFrameTask';
 
-/** Cards own their sideways swipe; the strip, fields, and popups own their own touches. */
-const OWN_TOUCH='.food-time-card,.food-week-strip,input,select,textarea,dialog,[role=dialog],[role=listbox],[role=slider]';
+/** The strip, fields, and popups own their own touches. Cards allow a day swipe until their hold begins. */
+const OWN_TOUCH='.food-week-strip,input,select,textarea,dialog,[role=dialog],[role=listbox],[role=slider]';
 /** A committed swipe slides the day out this far (as a share of its width) before the next one slides in. */
 const TRAVEL=.35;
 
@@ -16,6 +16,7 @@ interface Drag {
   startTime:number;
   dx:number;
   axis:SwipeAxis;
+  onCard:boolean;
 }
 
 /**
@@ -113,13 +114,15 @@ export function useDaySwipe({enabled,date,canPrevious,canNext,onNavigate}:{
         // Portaled popups still bubble through React, so ignore touches that are not inside the page.
         if(!event.currentTarget.contains(target)||target.closest(OWN_TOUCH))return;
         if(!startsOutsideEdge(event.clientX,window.innerWidth))return;
-        drag.current={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,startTime:event.timeStamp,dx:0,axis:'pending'};
+        drag.current={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,startTime:event.timeStamp,dx:0,axis:'pending',onCard:Boolean(target.closest('.food-time-card'))};
       },
       onPointerMove:(event:React.PointerEvent<HTMLElement>)=>{
         const current=drag.current;
         if(!current||current.pointerId!==event.pointerId)return;
         const dx=event.clientX-current.startX;
         if(current.axis==='pending'){
+          // A hold on a card selects or drags it; that gesture keeps the pointer.
+          if(cardHoldTookOver(current.onCard,event.timeStamp-current.startTime)){drag.current=null;return;}
           current.axis=lockAxis(dx,event.clientY-current.startY);
           if(current.axis==='vertical'){drag.current=null;return;}
           if(current.axis==='horizontal'){

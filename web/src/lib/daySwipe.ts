@@ -3,6 +3,8 @@
  * the next day, moving right the previous one. Pure so the thresholds are
  * testable without a browser.
  */
+import {CARD_HOLD_MS} from './cardGesture';
+
 export const DAY_SWIPE_LOCK_PX=10;
 export const DAY_SWIPE_COMMIT_PX=64;
 /** A short, quick flick commits before it reaches the full distance. */
@@ -46,4 +48,9 @@ export function swipeOutcome(dx:number,elapsedMs:number,canPrevious:boolean,canN
 /** Whether a touch starting at this x may begin a day swipe. */
 export function startsOutsideEdge(x:number,viewportWidth:number){
   return x>=DAY_SWIPE_EDGE_PX&&x<=viewportWidth-DAY_SWIPE_EDGE_PX;
+}
+
+/** A touch that began on a diary card and outlasted its hold belongs to the card (select or drag), never to the day. */
+export function cardHoldTookOver(startedOnCard:boolean,elapsedMs:number):boolean{
+  return startedOnCard&&elapsedMs>=CARD_HOLD_MS;
 }

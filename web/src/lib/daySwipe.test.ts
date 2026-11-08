@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {dragDirection,lockAxis,startsOutsideEdge,swipeOutcome,swipeTranslate} from './daySwipe';
+import {cardHoldTookOver,dragDirection,lockAxis,startsOutsideEdge,swipeOutcome,swipeTranslate} from './daySwipe';
 
 describe('day swipe',()=>{
   it('locks to the horizontal axis only for a clearly sideways move',()=>{
@@ -38,5 +38,17 @@ describe('day swipe',()=>{
     expect(startsOutsideEdge(8,390)).toBe(false);
     expect(startsOutsideEdge(200,390)).toBe(true);
     expect(startsOutsideEdge(384,390)).toBe(false);
+  });
+});
+
+describe('cardHoldTookOver',()=>{
+  it('leaves a quick sideways swipe on a card to the day',()=>{
+    expect(cardHoldTookOver(true,120)).toBe(false);
+  });
+  it('gives a touch that outlasted the hold to the card',()=>{
+    expect(cardHoldTookOver(true,400)).toBe(true);
+  });
+  it('never applies away from cards',()=>{
+    expect(cardHoldTookOver(false,2000)).toBe(false);
   });
 });

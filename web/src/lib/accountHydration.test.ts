@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 vi.mock('./local',()=>({readLocal:vi.fn(async()=>undefined)}));
 import {readLocal} from './local';
-import {hydrateAccount,clearAccountHydration} from './accountHydration';
+import {hydrateAccount,clearAccountHydration,getHydratedAccount} from './accountHydration';
 beforeEach(()=>{clearAccountHydration();vi.clearAllMocks();});
 it('shares startup hydration only for the active account',async()=>{
   const first=hydrateAccount('alice');
@@ -14,4 +14,17 @@ it('shares startup hydration only for the active account',async()=>{
   expect(readLocal).toHaveBeenCalledWith('alice', false);
   clearAccountHydration();await hydrateAccount('bob');
   expect(readLocal).toHaveBeenCalledTimes(3);
+});
+it('exposes the finished read synchronously for that account only',async()=>{
+  const data={state:{id:'alice'}} as never;
+  vi.mocked(readLocal).mockResolvedValueOnce(data);
+  expect(getHydratedAccount('alice')).toBeUndefined();
+  const pending=hydrateAccount('alice');
+  expect(getHydratedAccount('alice')).toBeUndefined();
+  await pending;
+  expect(getHydratedAccount('alice')).toBe(data);
+  expect(getHydratedAccount('bob')).toBeUndefined();
+  expect(getHydratedAccount(undefined)).toBeUndefined();
+  clearAccountHydration('alice');
+  expect(getHydratedAccount('alice')).toBeUndefined();
 });

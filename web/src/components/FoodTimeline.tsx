@@ -1,4 +1,4 @@
-import {useCallback,useRef,useEffect,useState} from 'react';
+import {useCallback,useMemo,useRef,useEffect,useState} from 'react';
 import {readableDate} from '../lib/format';
 import {Plus} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
@@ -102,6 +102,8 @@ export function FoodTimeline({
   const stableToggleSelect=useCallback((id:string)=>onToggleSelectRef.current?.(id),[]);
   const onEditRef=useRef(onEdit);
   onEditRef.current=onEdit;
+  const queue=store.local?.queue;
+  const pendingEntryIds=useMemo(()=>new Set((queue??[]).filter(op=>op.kind==='entry').map(op=>op.recordId)),[queue]);
   const stableCardEdit=useCallback((item:Entry)=>onEditRef.current(item),[]);
 
   return <>
@@ -138,7 +140,6 @@ export function FoodTimeline({
             </div>
           )}
           {group.entries.map(entry=>{
-            const pending=store.local?.queue.filter(op=>op.kind==='entry'&&op.recordId===entry.id)??[];
             const dragProps=bindDrag(entry);
             return <FoodTimeCard
               key={entry.id}
@@ -150,7 +151,7 @@ export function FoodTimeline({
               isSelected={Boolean(selectedIds?.has(entry.id))}
               isMoved={movedIds.has(entry.id)}
               isAdded={addedIds.has(entry.id)}
-              isPendingSync={pending.length>0}
+              isPendingSync={pendingEntryIds.has(entry.id)}
               onEdit={stableCardEdit}
               onToggleSelect={stableToggleSelect}
               dragProps={dragProps}

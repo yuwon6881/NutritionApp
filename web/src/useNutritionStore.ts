@@ -14,7 +14,7 @@ import { dispatchWait, nextDispatchableMutation, undoHeldMutations } from './lib
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
 import { normalizePhotoDraft, type SyncKind, type SyncPhase, type SyncState } from './lib/nutritionDrafts';
-import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
+import {hydrateAccount,clearAccountHydration,getHydratedAccount} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
 import {singleFlight} from './lib/singleFlight';
 import {useTrainingSummaries} from './useTrainingSummaries';
@@ -28,11 +28,13 @@ import {classifySyncFailure} from './lib/syncFailure';
 export type { SyncKind, SyncPhase, SyncState };
 export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   const [calendarDate, setCalendarDate] = useState(today());
-  const [local, setLocal] = useState<LocalData>();
+  // A finished startup read seeds the first render so a returning account never flashes the skeleton.
+  const [initial]=useState(()=>{const hydrated=getHydratedAccount(user);return hydrated?stripLegacyScanDrafts(hydrated):undefined;});
+  const [local, setLocal] = useState<LocalData|undefined>(initial);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [sync, setSync] = useState<SyncState>({ phase: 'idle' });
-  const ref = useRef<LocalData | undefined>(undefined);
+  const ref = useRef<LocalData | undefined>(initial);
   const writes = useRef(Promise.resolve());
   const draining = useRef(false);
   const processingDrafts = useRef(false);

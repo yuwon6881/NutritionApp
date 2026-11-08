@@ -40,12 +40,12 @@ test('calendar scrolling preserves selection and tapping changes day',async({pag
   await expect(strip.getByRole('button',{name:/future/}).first()).toBeDisabled();
 });
 
-test('a sideways swipe on a card reveals nothing; deletion lives in the selection bar',async({page})=>{
+test('a sideways swipe on a card moves the day and reveals no card action',async({page})=>{
   const coffee=card(page,'Black coffee');
   const start=await centerOf(coffee.locator('.food-time-card-details'));
   await swipe(page,start,{x:start.x-180,y:start.y+4});
   await expect(page.getByRole('button',{name:'Delete Black coffee',exact:true})).toHaveCount(0);
-  await expect(coffee).toBeVisible();
+  await expect(dayHeading(page)).toHaveText('Tomorrow');
 });
 
 test('bulk actions sit above the bottom navigation and bulk delete is undoable',async({page})=>{
