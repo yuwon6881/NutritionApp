@@ -5,7 +5,7 @@ Applies only to this independent repository; app-specific rules override the par
 ## Keep this guidance concise
 
 - Update the implemented-feature index in the same change as a feature addition, removal, or material behavior change. Edit an existing bullet before adding one; group related capabilities and link to details instead of keeping a changelog here.
-- Record implemented behavior only; label incomplete work in a plan. Keep this file near 100 lines or fewer. Put enhancement findings in `ENHANCEMENT_PLAN.md`, product details in `README.md`, and UI detail in the two design documents below.
+- Record implemented behavior only; label incomplete work in a plan. Keep this file near 100 lines or fewer. Put product details in `README.md`, and UI detail in the two design documents below.
 
 ## Implemented feature index
 
