@@ -34,6 +34,8 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   const onChangeRef=useRef(onChange);
   onChangeRef.current=onChange;
   const resizingUntil=useRef(0);
+  const programmaticUntil=useRef(0);
+  const userSwiped=useRef(false);
   const current=Math.min(Math.max(0,active),slides.length-1);
 
   useEffect(()=>{
@@ -43,6 +45,7 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
       setActive(target);
       const track=trackRef.current;
       if(track&&track.clientWidth){
+        programmaticUntil.current=performance.now()+400;
         track.scrollTo({left:target*track.clientWidth,behavior:reduced?'instant':'smooth'});
       }
     }
@@ -54,10 +57,24 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
     // While the width is settling a scroll position is not a reading; look again once it has.
     const wait=resizingUntil.current-performance.now();
     if(wait>0){window.setTimeout(()=>settleRef.current(),wait+20);return;}
-    const next=Math.round(track.scrollLeft/track.clientWidth);
+    if(programmaticUntil.current>performance.now()){
+      const targetLeft=activeRef.current*track.clientWidth;
+      if(Math.abs(track.scrollLeft-targetLeft)>2)return;
+      programmaticUntil.current=0;
+    }
+    const ratio=track.scrollLeft/track.clientWidth;
+    const next=Math.round(ratio);
+    if(Math.abs(track.scrollLeft-next*track.clientWidth)>2)return;
     if(next>=0&&next<slides.length){
       setActive(next);
-      if(next!==activeRef.current){hasSwiped=true;setSwiped(true);onChangeRef.current?.(slides[next].id);}
+      if(next!==activeRef.current){
+        hasSwiped=true;
+        setSwiped(true);
+        if(userSwiped.current){
+          userSwiped.current=false;
+          onChangeRef.current?.(slides[next].id);
+        }
+      }
     }
   },[slides]);
   const settleRef=useRef(settle);
@@ -65,10 +82,18 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   useEffect(()=>{
     const track=trackRef.current;
     if(!track)return;
-    let frame=0;
-    const onScroll=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(settle);};
+    let timer=0;
+    const onScroll=()=>{
+      window.clearTimeout(timer);
+      timer=window.setTimeout(settle,60);
+    };
     track.addEventListener('scroll',onScroll,{passive:true});
-    return()=>{cancelAnimationFrame(frame);track.removeEventListener('scroll',onScroll);};
+    track.addEventListener('scrollend',settle,{passive:true});
+    return()=>{
+      window.clearTimeout(timer);
+      track.removeEventListener('scroll',onScroll);
+      track.removeEventListener('scrollend',settle);
+    };
   },[settle]);
 
   // A resize or rotation changes the slide width: hold the view that was showing rather than let the
@@ -103,6 +128,7 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   const go=(index:number)=>{
     const track=trackRef.current;
     if(!track||index<0||index>=slides.length)return;
+    programmaticUntil.current=performance.now()+400;
     track.scrollTo({left:index*track.clientWidth,behavior:reduced?'instant':'smooth'});
     setActive(index);
     if(index!==activeRef.current){
@@ -117,7 +143,8 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
       {toolbar&&<div className="swipe-carousel-toolbar">{toolbar}</div>}
       <Button variant="secondary" size="icon" className="swipe-carousel-arrow" aria-label={`Next view: ${slides[current+1]?.ariaLabel??''}`} disabled={current===slides.length-1} onClick={()=>go(current+1)}><ChevronRight size={18} aria-hidden="true"/></Button>
     </div>
-    <div ref={trackRef} className="swipe-carousel-track" style={height?{height}:undefined} data-reduced={reduced||undefined}>
+    <div ref={trackRef} className="swipe-carousel-track" style={height?{height}:undefined} data-reduced={reduced||undefined}
+      onPointerDown={()=>void(userSwiped.current=true)} onTouchStart={()=>void(userSwiped.current=true)}>
       {slides.map((slide,index)=><div key={slide.id} ref={element=>{slideRefs.current[index]=element;}}
         className="swipe-carousel-slide" role="group" aria-roledescription="slide" aria-label={`${slide.ariaLabel}, ${index+1} of ${slides.length}`}
         id={`${baseId}-${slide.id}`} inert={index!==current}>

@@ -94,7 +94,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 Validation.Require(energyChartView is null or "intake" or "balance" or "maintenance" or "coaching", "Choose a valid energy chart view.");
                 Validation.Require(weightPeriod is null or "week" or "month" or "six-months" or "year" or "all", "Choose a valid weight period.");
                 Validation.Require(energyPeriod is null or "week" or "month" or "six-months" or "year" or "all", "Choose a valid energy period.");
-                if(user.CheckInWeekday!=weekday){user.CadenceRevision=revision;user.CadenceChangedDate=RetentionService.Today(user.ProfileJson);}
+                if(user.CheckInWeekday!=weekday||user.WeightGoalMetric!=weightGoalMetric){user.CadenceRevision=revision;user.CadenceChangedDate=RetentionService.Today(user.ProfileJson);}
                 user.CheckInWeekday = weekday;
                 user.WeightUnit = weightUnit;
                 user.EnergyUnit = energyUnit;

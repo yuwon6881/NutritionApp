@@ -31,6 +31,13 @@ test.beforeAll(async({request})=>{
   session=await request.storageState();
 });
 
+test.beforeEach(async({request})=>{
+  const state=await (await request.get('/api/state')).json();
+  if(state.settings?.weightChartView&&state.settings.weightChartView!=='trend'){
+    await request.post('/api/sync',{headers,data:{id:randomUUID(),kind:'settings',recordId:state.id,expectedRevision:state.settings.revision,delete:false,data:{weightChartView:'trend'}}});
+  }
+});
+
 for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[1440,'dark']] as const){
   test(`${theme} ${width}: this week and weight trend insights`,async({page,context})=>{
     await context.addCookies(session.cookies);

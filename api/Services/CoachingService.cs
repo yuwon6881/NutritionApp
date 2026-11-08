@@ -117,8 +117,14 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         // based proposal. Continuous guidance and active targets have separate
         // lifecycles.
         var canAccept = result.Eligible && due;
-        return new(user.Revision, result, canAccept, hold, weekStart, nextCheckIn, changes, result.Evidence);
+        var coachingRevision = ComputeCoachingRevision(user, phaseDecision, last);
+        return new(coachingRevision, result, canAccept, hold, weekStart, nextCheckIn, changes, result.Evidence);
     }
+
+    private static long ComputeCoachingRevision(AppUser user, PhaseDecision? phaseDecision, AcceptedPlan? last)
+        => user.ProfileRevision + user.CadenceRevision + user.TrajectoryRevision +
+           user.DiaryRevision + user.BodyRevision +
+           (phaseDecision?.Revision ?? 0) + (last?.Revision ?? 0);
 
     public async Task<AcceptedPlan> Accept(Guid id, long inputRevision, CancellationToken ct)
     {
