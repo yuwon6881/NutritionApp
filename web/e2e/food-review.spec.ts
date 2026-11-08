@@ -333,7 +333,7 @@ test('barcode label recovery normalizes a declared serving before explicit save'
   const onePixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
   await page.getByLabel('Photograph the nutrition label',{exact:true}).setInputFiles({name:'label.png',mimeType:'image/png',buffer:onePixel});
   await expect(page.getByText('Location metadata removed · deleted after processing.',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Read nutrition label',exact:true}).click();
+  await page.getByRole('button',{name:'Read label',exact:true}).click();
   await expect(page.getByLabel('Calories (kcal)',{exact:true})).toHaveValue('180');
   await expect(page.getByLabel('Protein (g)',{exact:true})).toHaveValue('');
   await expect(page.locator('#food-portion-definition-0-label')).toHaveValue('can');

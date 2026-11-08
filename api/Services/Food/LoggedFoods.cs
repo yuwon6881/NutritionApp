@@ -26,7 +26,7 @@ public static class LoggedFoods
             .Select(group=>new {group.Key.Source,group.Key.Name,Count=group.Count()})
             .ToListAsync(ct);
         var matches=logged
-            .Where(food=>food.Name.Trim().Length>0&&FoodRanking.NamesEveryWord(food.Name,query))
+            .Where(food=>!IsAiEstimate(food.Source)&&food.Name.Trim().Length>0&&FoodRanking.NamesEveryWord(food.Name,query))
             .OrderByDescending(food=>food.Count)
             .ThenBy(food=>food.Name,StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -73,6 +73,7 @@ public static class LoggedFoods
     /// </summary>
     public static FoodResult? FromEntry(DiaryEntry entry)
     {
+        if(IsAiEstimate(entry.Source))return null;
         var amount=entry.Unit=="g"?entry.Quantity:entry.PortionGrams is { } grams?entry.Quantity*grams:(double?)null;
         if(amount is not > 0||!double.IsFinite(amount.Value)||!double.IsFinite(entry.Calories))return null;
         var factor=100/amount.Value;
@@ -84,6 +85,8 @@ public static class LoggedFoods
         return new FoodResult(entry.Name,calories,Per100(entry.Protein),Per100(entry.Fat),Per100(entry.Carbs),Per100(entry.Fiber),
             entry.Source,100,portions,Code(entry.Source),FoodResults.ServingCalories(calories,portions),"per100g",entry.Measure);
     }
+
+    private static bool IsAiEstimate(string source)=>source.Trim().StartsWith("AI ",StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Provider rows carry their barcode as the last part of the source ("… / ODbL / 3428274200259").</summary>
     private static string? Code(string source)

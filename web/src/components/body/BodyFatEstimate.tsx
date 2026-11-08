@@ -1,5 +1,4 @@
 import {useEffect,useRef} from 'react';
-import {Sparkles} from 'lucide-react';
 import {number} from '../../lib/format';
 import {measurementLabel} from '../../lib/bodyMeasurements';
 import type {BodyMeasurementKey} from '../../types';
@@ -30,7 +29,7 @@ export function BodyFatEstimate({slots,online,disabled,request,onUse}:BodyFatEst
   return <div className="body-fat-estimate">
     <div className="body-fat-estimate-action">
       <Button variant="secondary" disabled={!readiness.ready||disabled||pending} aria-describedby="body-fat-estimate-note" onClick={()=>void estimate(request)}>
-        <Sparkles size={16} aria-hidden="true"/>{busy?'Estimating…':result?'Estimate again':'Estimate with AI'}
+        {busy ? 'Estimating…' : result ? 'Estimate again' : 'Estimate body fat'}
       </Button>
       <p id="body-fat-estimate-note" className="source body-fat-estimate-note">
         {readiness.reason??'Sends the three photos, with your height, weight, sex, age, and entered measurements, to the AI provider for this estimate only. The provider does not keep them. Visual estimates can be off by several points.'}

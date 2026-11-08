@@ -1,6 +1,6 @@
 import type {Entry} from '../types';
 import {timeLabel} from './foodDiary';
-import {RECENT_WINDOW_DAYS,type RecentFoodContext} from './recentFoods';
+import {RECENT_WINDOW_DAYS,isAiEstimateSource,type RecentFoodContext} from './recentFoods';
 
 /**
  * How far either side of now a past entry still counts as eaten "around this time". The picks
@@ -55,7 +55,7 @@ export function recentFoodSections(entries:readonly Entry[],context:RecentFoodCo
   const today=dayNumber(context.date);
   const groups=new Map<string,Entry[]>();
   for(const entry of entries){
-    if(entry.deleted||entry.date>context.date||!entry.name.trim())continue;
+    if(entry.deleted||entry.date>context.date||!entry.name.trim()||isAiEstimateSource(entry.source))continue;
     const key=entry.name.trim().toLowerCase();
     const group=groups.get(key);
     if(group)group.push(entry);else groups.set(key,[entry]);

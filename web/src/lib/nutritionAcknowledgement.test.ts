@@ -51,3 +51,11 @@ it('does not replace a newer weigh-in or settings with an older acknowledgement'
   expect(acknowledgeLocalWrite({state,queue:[dayOp]},dayOp,2,{revision:2,days:[{id:'d',date:'2026-01-01',status:'not_logged',revision:2,deleted:false}]}).state.days[0]).toMatchObject({status:'complete',revision:5});
   expect(acknowledgeState(state,{...op,kind:'settings',recordId:'a',data:{checkInWeekday:1}},2).settings).toEqual(state.settings);
 });
+
+it('acknowledges dashboard chart preferences with the updated revision',()=>{
+  const state:AppState={id:'a',displayName:'A',revision:5,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-01-02',entries:[],foods:[],weights:[],days:[],plans:[],settings:{checkInWeekday:1,revision:5,weightChartView:'both'}};
+  const op:Mutation={id:'pref',kind:'settings',recordId:'a',expectedRevision:5,delete:false,data:{weightChartView:'scale',energyChartView:'balance',progressTab:'energy'}};
+  const next=acknowledgeState(state,op,6);
+  expect(next.settings).toEqual({checkInWeekday:1,revision:6,weightChartView:'scale',energyChartView:'balance',progressTab:'energy'});
+  expect(next.revision).toBe(6);
+});

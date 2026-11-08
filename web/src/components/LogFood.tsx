@@ -1,5 +1,5 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {Search,ScanBarcode,Sparkles,Zap,PencilLine,Star,ArrowLeft,ListChecks} from 'lucide-react';
+import {Search,ScanBarcode,Zap,PencilLine,Star,ArrowLeft,ListChecks} from 'lucide-react';
 import type {LogFoodProps} from './LogFoodProps';
 import type {Entry,Food} from '../types';
 import {blankNutrients} from '../types';
@@ -420,7 +420,7 @@ export function LogFood({
       {value:'search',label:<><Search size={16}/><span>Search</span></>,ariaLabel:'Search'},
       {value:'saved',label:<><Star size={16}/><span className="tab-label-full">Your foods</span><span className="tab-label-short">Saved</span></>,ariaLabel:'Your foods'},
       {value:'barcode',label:<><ScanBarcode size={16}/><span className="tab-label-full">Barcode</span><span className="tab-label-short">Scan</span></>,ariaLabel:'Barcode'},
-      ...(selectionPurpose==='log'?[{value:'ai' as const,label:<><Sparkles size={16}/><span className="tab-label-full">AI logging</span><span className="tab-label-short">AI</span></>,ariaLabel:'AI logging'}]:[]),
+      ...(selectionPurpose==='log'?[{value:'ai' as const,label:<><span className="tab-label-full">Analyze</span><span className="tab-label-short">Analyze</span></>,ariaLabel:'Analyze'}]:[]),
     ]} onChange={selectTab}/>
     <MotionPanel motionKey={tab} axis="fade" className="food-method-panel">
     {tab==='saved'&&<LogFoodSavedFoods

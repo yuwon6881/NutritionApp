@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {ArrowLeft, Camera, Images, LoaderCircle, MessageSquareText, ScanText, Sparkles, UploadCloud, X} from 'lucide-react';
+import {ArrowLeft, Camera, Images, LoaderCircle, MessageSquareText, ScanText, UploadCloud, X} from 'lucide-react';
 import type {FoodScanDraft} from '../lib/foodScans';
 import {Button} from './ui/Button';
 import {TextArea} from './ui/Field';
@@ -178,11 +178,11 @@ export function LogFoodAiForm({
 
   const failed = scanDraft?.date === date && scanDraft.status === 'failed' && scanDraft.error;
   const interrupted = scanDraft?.error === 'Upload interrupted. Try again.';
-  const submitLabel = busy ? 'Estimating…'
-    : hasSavedReview ? 'Review saved estimate'
-    : scanDraft?.status === 'failed' ? (interrupted ? 'Retry saved scan' : 'Try again')
-    : scanDraft?.status === 'submitted' ? 'Resume saved scan'
-    : mode === 'label' ? 'Read nutrition label' : 'Estimate my meal';
+  const submitLabel = busy ? (mode === 'label' ? 'Analyzing label…' : 'Analyzing meal…')
+    : hasSavedReview ? 'Review saved analysis'
+    : scanDraft?.status === 'failed' ? (interrupted ? 'Retry analysis' : 'Try again')
+    : scanDraft?.status === 'submitted' ? 'Resume analysis'
+    : mode === 'label' ? 'Analyze label' : 'Analyze meal';
 
   return <Form onSubmit={onSubmit} className="ai-logging-form">
     {pendingBarcode && <>
@@ -194,7 +194,7 @@ export function LogFoodAiForm({
         <p>Barcode {pendingBarcode.code} · review the extracted values before saving.</p>
       </div>
     </>}
-    {!pendingBarcode && <h3>AI logging</h3>}
+    {!pendingBarcode && <h3>Analyze meal</h3>}
     {!pendingBarcode && (
       <SegmentedControl<AiMode>
         id="ai-log-mode"
@@ -204,7 +204,7 @@ export function LogFoodAiForm({
         value={mode}
         onChange={value => { if (!pending) onModeChange(value); }}
         options={[
-          {value:'description', label:<><MessageSquareText size={18} aria-hidden="true"/><span>Describe</span></>, ariaLabel:'Describe my meal', disabled:pending&&mode!=='description'},
+          {value:'description', label:<><MessageSquareText size={18} aria-hidden="true"/><span>Describe</span></>, ariaLabel:'Describe meal', disabled:pending&&mode!=='description'},
           {value:'photo', label:<><Camera size={18} aria-hidden="true"/><span>Photo</span></>, ariaLabel:'Meal photo', disabled:pending&&mode!=='photo'},
           {value:'label', label:<><ScanText size={18} aria-hidden="true"/><span>Label</span></>, ariaLabel:'Nutrition label', disabled:pending&&mode!=='label'},
         ]}
@@ -244,33 +244,33 @@ export function LogFoodAiForm({
           onChange={handleFileChange}
         />
 
-        {isMobile ? (
-          <div className="custom-file-dropzone ai-photo-mobile-controls" data-validation-focus>
-            <div className="ai-photo-mobile-buttons">
-              <Button
-                type="button"
-                variant="secondary"
-                className="ai-photo-btn ai-photo-btn-camera"
-                disabled={pending}
-                onClick={triggerCamera}
-              >
-                <Camera size={18} aria-hidden="true" />
-                <span>{photo ? 'Retake photo' : 'Take photo'}</span>
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="ai-photo-btn ai-photo-btn-gallery"
-                disabled={pending}
-                onClick={triggerGallery}
-              >
-                <Images size={18} aria-hidden="true" />
-                <span>{photo ? 'Change photo' : 'Upload photo'}</span>
-              </Button>
+        {!photo ? (
+          isMobile ? (
+            <div className="custom-file-dropzone ai-photo-mobile-controls" data-validation-focus>
+              <div className="ai-photo-mobile-buttons">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="ai-photo-btn ai-photo-btn-camera"
+                  disabled={pending}
+                  onClick={triggerCamera}
+                >
+                  <Camera size={18} aria-hidden="true" />
+                  <span>Take photo</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="ai-photo-btn ai-photo-btn-gallery"
+                  disabled={pending}
+                  onClick={triggerGallery}
+                >
+                  <Images size={18} aria-hidden="true" />
+                  <span>Upload photo</span>
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : (
-          !photo ? (
+          ) : (
             <div
               className={`custom-file-dropzone ai-photo-desktop-dropzone ${isDragging ? 'dragging' : ''} ${pending ? 'disabled' : ''}`}
               onClick={triggerGallery}
@@ -291,44 +291,74 @@ export function LogFoodAiForm({
               <UploadCloud size={24} className="dropzone-icon" />
               <span className="dropzone-main-text">Choose a photo or drag & drop</span>
             </div>
-          ) : (
-            <div className="ai-photo-desktop-controls">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={pending}
-                onClick={triggerGallery}
-              >
-                <UploadCloud size={16} aria-hidden="true" />
-                <span>Change photo</span>
-              </Button>
-            </div>
           )
-        )}
-
-        {photo && (
+        ) : (
           <div className="ai-photo-card">
             <figure className="ai-photo-preview">
-              <img
-                src={`data:image/jpeg;base64,${photo}`}
-                alt={mode === 'label' ? 'Selected nutrition label photo' : 'Selected meal photo'}
-              />
-              <div className="ai-photo-preview-bar">
-                <figcaption>Location metadata removed · deleted after processing.</figcaption>
+              <div className="ai-photo-image-frame">
+                <img
+                  src={`data:image/jpeg;base64,${photo}`}
+                  alt={mode === 'label' ? 'Selected nutrition label photo' : 'Selected meal photo'}
+                />
                 {onClearPhoto && (
                   <Button
                     type="button"
                     variant="tertiary"
                     size="sm"
+                    className="ai-photo-overlay-remove"
                     disabled={pending}
                     onClick={onClearPhoto}
                     aria-label="Remove photo"
+                    title="Remove photo"
                   >
-                    <X size={14} aria-hidden="true" />
-                    <span>Remove</span>
+                    <X size={15} aria-hidden="true" />
                   </Button>
                 )}
+              </div>
+              <div className="ai-photo-preview-bar">
+                <div className="ai-photo-actions-row">
+                  <div className="ai-photo-action-group">
+                    {isMobile ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="ai-photo-action-btn"
+                          disabled={pending}
+                          onClick={triggerCamera}
+                        >
+                          <Camera size={14} aria-hidden="true" />
+                          <span>Retake</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="ai-photo-action-btn"
+                          disabled={pending}
+                          onClick={triggerGallery}
+                        >
+                          <Images size={14} aria-hidden="true" />
+                          <span>Replace</span>
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="ai-photo-action-btn"
+                        disabled={pending}
+                        onClick={triggerGallery}
+                      >
+                        <UploadCloud size={14} aria-hidden="true" />
+                        <span>Change photo</span>
+                      </Button>
+                    )}
+                  </div>
+                  <figcaption className="ai-photo-caption">Deleted after analysis</figcaption>
+                </div>
               </div>
             </figure>
           </div>
@@ -338,7 +368,7 @@ export function LogFoodAiForm({
           id="ai-photo-details"
           name="details"
           disabled={pending}
-          label="Details for the AI (optional)"
+          label="Additional details (optional)"
           rows={2}
           maxLength={3000}
           value={description}
@@ -349,11 +379,11 @@ export function LogFoodAiForm({
 
     {hasSavedReview && <p className="notice" role="status">This scan is saved on this device and ready for review.</p>}
     {failed && <p className="notice" role="status">{interrupted ? 'The photo is retained on this device. Retry will use the same scan identity.' : 'The previous scan failed. Try again to start a new scan; the failed request will not be duplicated.'}</p>}
-    {busy && <p className="ai-busy-status" role="status">Estimating nutrients. This scan is saved on this device, so it can resume if the connection drops.</p>}
+    {busy && <p className="ai-busy-status" role="status">Analyzing nutrients. This scan is saved on this device, so it can resume if the connection drops.</p>}
     {storageError && <p className="error" role="alert">{storageError}</p>}
     <div className="modal-actions">
       <Button variant="primary" disabled={pending || !!storageError} type="submit">
-        {busy ? <LoaderCircle size={18} className="spin-icon" aria-hidden="true" /> : <Sparkles size={18} aria-hidden="true" />}
+        {busy && <LoaderCircle size={18} className="spin-icon" aria-hidden="true" />}
         {submitLabel}
       </Button>
     </div>

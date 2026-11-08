@@ -68,8 +68,8 @@ test('food, recipe and image actions explain invalid drafts without queuing writ
   await food(page);await page.getByRole('button',{name:'Your foods',exact:true}).click();await page.getByRole('button',{name:'New recipe',exact:true}).click();await page.getByRole('button',{name:'Save recipe',exact:true}).click();
   await expect(page.getByText('Enter recipe name.')).toBeVisible();await expect(page.getByText('Add at least one ingredient.')).toBeVisible();expect(writes).toBe(1);
   await page.reload();await food(page);await page.getByRole('button',{name:'AI logging',exact:true}).click();
-  await page.getByRole('button',{name:'Estimate my meal'}).click();await expect(page.getByText('Enter meal description and portions.')).toBeVisible();
-  await page.getByRole('group',{name:'How would you like to log?',exact:true}).getByRole('button',{name:'Nutrition label',exact:true}).click();await page.getByRole('button',{name:'Read nutrition label'}).click();
+  await page.getByRole('button',{name:'Estimate meal'}).click();await expect(page.getByText('Enter meal description and portions.')).toBeVisible();
+  await page.getByRole('group',{name:'How would you like to log?',exact:true}).getByRole('button',{name:'Nutrition label',exact:true}).click();await page.getByRole('button',{name:'Read label'}).click();
   await expect(page.getByText('Choose a photo before continuing.')).toBeVisible();
 });
 

@@ -52,7 +52,7 @@ test('mobile photo preparation stays asynchronous',async({page,context,browser})
       state.photoFrameActive=false;
       return {duration:performance.getEntriesByName('nutrition:photo.prepare').at(-1)!.duration,intervals:state.photoFrameIntervals};
     });
-    await expect(page.getByRole('button',{name:'Estimate my meal',exact:true})).toBeEnabled();
+    await expect(page.getByRole('button',{name:'Estimate meal',exact:true})).toBeEnabled();
     runs.push({run,kind:run<5?'cold-cache':'warm',...result});
   }
   const durations=runs.slice(5).map(run=>run.duration).sort((a,b)=>a-b);

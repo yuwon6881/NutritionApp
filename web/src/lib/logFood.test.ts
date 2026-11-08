@@ -34,6 +34,7 @@ describe('log food helpers',()=>{
     const saved={id:'1',revision:1,deleted:false,name:'Milk',calories:50,protein:3,fat:2,carbs:5,fiber:null,source:'manual',servingGrams:100,favourite:false,barcode:null,ingredientsJson:'[]',portionsJson:'[]',cookedYieldGrams:null};
     expect(foodToSearchResult({...saved,measure:'ml'}).measure).toBe('ml');
     expect(foodToSearchResult(saved).measure).toBeUndefined();
+    expect(foodToSearchResult({...saved,source:'AI label estimate'}).source).toBe('Saved food / AI label estimate');
   });
 
   it('keeps a label reading per serving when the serving weight is unknown',()=>{

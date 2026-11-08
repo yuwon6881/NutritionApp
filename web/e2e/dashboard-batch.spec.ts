@@ -80,7 +80,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   });
   await page.getByRole('button',{name:'AI logging',exact:true}).click();
   await page.getByLabel('Meal description and portions').fill('one bowl of rice');
-  await page.getByRole('button',{name:'Estimate my meal',exact:true}).click();
+  await page.getByRole('button',{name:'Estimate meal',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();
   await expect(page.getByLabel('Meal time',{exact:true})).toHaveValue('13:45');
   await expect(page.locator('.batch-food').filter({hasText:'Text meal'})).toBeVisible();

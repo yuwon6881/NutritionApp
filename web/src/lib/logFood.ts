@@ -1,5 +1,6 @@
 import type {AiEstimate,Entry,Food,FoodSearchResult} from '../types';
 import {blankNutrients} from '../types';
+import {isAiEstimateSource} from './recentFoods';
 import {measureOf,parsePortions,serializePortions} from './portions';
 import type {FoodDraft} from '../components/FoodEditor';
 
@@ -27,7 +28,7 @@ export function foodToSearchResult(food:Food):FoodSearchResult{
     fat:food.fat,
     carbs:food.carbs,
     fiber:food.fiber,
-    source:food.source,
+    source:isAiEstimateSource(food.source)?`Saved food / ${food.source}`:food.source,
     servingGrams:food.servingGrams||100,
     portions:parsePortions(food.portionsJson),
     code:barcodeValue(food.barcode),

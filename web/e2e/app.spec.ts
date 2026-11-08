@@ -506,7 +506,7 @@ test('mobile scan shortcut supports food photos and label autofill before review
     await page.locator('input[type="file"]').setInputFiles('public/icon-512.png');
     // The preview must decode, not just exist: the prepared photo is bare base64.
     await expect.poll(()=>page.locator('.ai-photo-preview img').evaluate((img:HTMLImageElement)=>img.complete?img.naturalWidth:0)).toBeGreaterThan(0);
-    await page.getByRole('button',{name:mode==='label'?'Read nutrition label':'Estimate my meal',exact:true}).click();
+    await page.getByRole('button',{name:mode==='label'?'Read label':'Estimate meal',exact:true}).click();
     const foodName=mode==='label'?'Label yoghurt':'Photo meal';
     if(mode==='photo'){
       await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();

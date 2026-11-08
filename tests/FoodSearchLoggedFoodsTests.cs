@@ -186,4 +186,19 @@ public sealed class FoodSearchLoggedFoodsTests : IAsyncLifetime
 
         Assert.Equal(400,rejected.Status);
     }
+
+    [Fact]
+    public async Task Weighed_ai_estimates_are_not_returned_from_history()
+    {
+        await using var db=Db();
+        var user=await TestUsers.CreateAsync(db,"ai-history");
+        db.CurrentUser=user.Id;
+        db.Entries.AddRange(Entry(user.Id,"Chicken rice","AI estimate",600,300),
+            Entry(user.Id,"Chicken rice label","AI label estimate",200,100),
+            Entry(user.Id,"Chicken rice saved","Saved food",200,100));
+        await db.SaveChangesAsync();
+        var results=await LoggedFoods.Matching("chicken rice",db,default);
+        Assert.Equal("Chicken rice saved",Assert.Single(results).Name);
+        Assert.Null(LoggedFoods.FromEntry(Entry(user.Id,"Chicken rice","AI estimate",600,300)));
+    }
 }

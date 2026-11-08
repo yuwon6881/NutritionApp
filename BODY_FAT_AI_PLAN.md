@@ -63,7 +63,7 @@ Review `BodyRecordService.cs`, `PhotoService.cs`, `BodyRecordEndpoints.cs`, `web
 
 ### B1. Behavior
 
-- Location: `BodyRecordDialog.tsx`, Composition section, an "Estimate with AI" secondary button beside the Body fat (%) field.
+- Location: `BodyRecordDialog.tsx`, Composition section, an "Estimate body fat" secondary button beside the Body fat (%) field.
 - Enabled only when all three angles (front, side, back) have a usable image in the dialog: a newly selected image, or an existing `complete` server photo not marked for deletion. Otherwise disabled with a visible reason ("Add front, side, and back photos to estimate"). Also disabled offline ("Estimating needs a connection") and while busy.
 - On click: send the request; show progress in the button; on success show a result panel beneath the field: estimated value, a range (for example 16–20%), confidence (Low/Medium/High in plain words), a short explanation, and which inputs were used (photos, weight, height, sex, age, measurements). The user then chooses "Use 18%" to fill the field, or dismisses. The estimate never saves itself; the normal Save still owns persistence (matches "AI results remain editable drafts until explicit logging").
 - Disclosure under the button: the three photos are sent to the AI provider for this estimate only and are not stored by the provider (`store: false`). Visual estimates can be off by several percentage points.

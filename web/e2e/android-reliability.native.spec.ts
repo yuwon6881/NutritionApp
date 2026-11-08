@@ -62,8 +62,8 @@ test('shared image attaches as a captured draft and analysis remains explicit', 
   await expect(page.getByRole('dialog', { name: 'Attach shared photo' })).toBeVisible();
   await page.getByRole('button', { name: 'Attach photo', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Attach shared photo' })).not.toBeVisible();
-  await expect(page.getByRole('button', { name: 'Estimate my meal', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Estimate meal', exact: true })).toBeVisible();
   expect(requests).toBe(0);
-  await page.getByRole('button', { name: 'Estimate my meal', exact: true }).click();
+  await page.getByRole('button', { name: 'Estimate meal', exact: true }).click();
   await expect.poll(() => requests).toBeGreaterThan(0);
 });

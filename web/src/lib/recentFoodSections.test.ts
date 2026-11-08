@@ -67,6 +67,16 @@ describe('recent food sections',()=>{
     expect(sparse.aroundNow).toHaveLength(1);
   });
 
+  it('excludes AI estimates before grouping and keeps saved food entries',()=>{
+    const ai=(name:string,date:string,source:string)=>({...entry(name,date,'08:00'),source});
+    const result=recentFoodSections([
+      ai('Rice','2026-09-24','AI estimate'),ai('Rice','2026-09-25','AI estimate'),
+      ai('Label','2026-09-25','AI label estimate'),ai('Rice','2026-09-23','Saved food'),
+    ],breakfast);
+    expect(result.aroundNow).toEqual([]);
+    expect(result.latest.map(item=>item.source)).toEqual(['Saved food']);
+  });
+
   it('names the nearest hour for the picks heading',()=>{
     expect(picksHourLabel(12*60)).toBe('12 PM');
     expect(picksHourLabel(12*60+40)).toBe('1 PM');

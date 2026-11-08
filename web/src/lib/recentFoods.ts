@@ -34,11 +34,13 @@ function circularDistance(a:number,b:number){
 
 const newerFirst=(a:Entry,b:Entry)=>b.date.localeCompare(a.date)||(b.time??'').localeCompare(a.time??'');
 
+export const isAiEstimateSource=(source:string)=>source.trim().toLowerCase().startsWith('ai ');
+
 export function rankRecentFoods(entries:readonly Entry[],context:RecentFoodContext,limit=8):Entry[]{
   const today=dayNumber(context.date);
   const groups=new Map<string,Entry[]>();
   for(const entry of entries){
-    if(entry.deleted||entry.date>context.date||!entry.name.trim())continue;
+    if(entry.deleted||entry.date>context.date||!entry.name.trim()||isAiEstimateSource(entry.source))continue;
     const key=entry.name.trim().toLowerCase();
     const group=groups.get(key);
     if(group)group.push(entry);else groups.set(key,[entry]);
