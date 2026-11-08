@@ -6,7 +6,7 @@ using Nutrition.Api.Domain;
 namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
-public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null, string? WeightGoalMetric = null);
+public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null, string? WeightGoalMetric = null, string? ProgressTab = null, string? WeightChartView = null, string? EnergyChartView = null, string? WeightPeriod = null, string? EnergyPeriod = null);
 public sealed partial class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null,GoogleHealthNutritionSyncService? nutritionSync=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
@@ -80,10 +80,20 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 var heightUnit = settings.HeightUnit ?? user.HeightUnit;
                 var missingDayAction = settings.MissingDayAction ?? user.MissingDayAction;
                 var weightGoalMetric = settings.WeightGoalMetric ?? user.WeightGoalMetric;
+                var progressTab = settings.ProgressTab ?? user.ProgressTab;
+                var weightChartView = settings.WeightChartView ?? user.WeightChartView;
+                var energyChartView = settings.EnergyChartView ?? user.EnergyChartView;
+                var weightPeriod = settings.WeightPeriod ?? user.WeightPeriod;
+                var energyPeriod = settings.EnergyPeriod ?? user.EnergyPeriod;
                 CheckInWeek.ValidateWeekday(weekday);
                 Validation.Units(weightUnit, energyUnit, heightUnit);
                 Validation.Require(missingDayAction is "ask" or "fasting" or "not_logged", "Choose a valid unlogged day setting.");
                 Validation.Require(weightGoalMetric is "scale" or "trend", "Choose a valid weight goal metric.");
+                Validation.Require(progressTab is null or "weight" or "energy" or "body" or "activity", "Choose a valid progress tab.");
+                Validation.Require(weightChartView is null or "both" or "scale" or "trend", "Choose a valid weight chart view.");
+                Validation.Require(energyChartView is null or "intake" or "balance" or "maintenance" or "coaching", "Choose a valid energy chart view.");
+                Validation.Require(weightPeriod is null or "week" or "month" or "six-months" or "year" or "all", "Choose a valid weight period.");
+                Validation.Require(energyPeriod is null or "week" or "month" or "six-months" or "year" or "all", "Choose a valid energy period.");
                 if(user.CheckInWeekday!=weekday){user.CadenceRevision=revision;user.CadenceChangedDate=RetentionService.Today(user.ProfileJson);}
                 user.CheckInWeekday = weekday;
                 user.WeightUnit = weightUnit;
@@ -91,6 +101,11 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 user.HeightUnit = heightUnit;
                 user.MissingDayAction = missingDayAction;
                 user.WeightGoalMetric = weightGoalMetric;
+                user.ProgressTab = progressTab;
+                user.WeightChartView = weightChartView;
+                user.EnergyChartView = energyChartView;
+                user.WeightPeriod = weightPeriod;
+                user.EnergyPeriod = energyPeriod;
                 user.CoachingSettingsRevision = revision;
                 user.CoachingSettingsChangedDate = RetentionService.Today(user.ProfileJson);
                 break;

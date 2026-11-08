@@ -40,7 +40,23 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
   const date=today(state.profile?.timeZone);
   const energyUnit=unitsFor(state.settings).energy;
   // The weight card and its weigh-in list, at the foot of the page, read the same period.
-  const [weightPeriod,setWeightPeriod]=useState<ProgressPeriod>('month');
+  const [weightPeriod,setWeightPeriod]=useState<ProgressPeriod>(()=>(state.settings?.weightPeriod as ProgressPeriod)??'month');
+  useEffect(()=>{
+    const saved=state.settings?.weightPeriod as ProgressPeriod|undefined;
+    if(saved&&saved!==weightPeriod)setWeightPeriod(saved);
+  },[state.settings?.weightPeriod]);
+  const handleWeightPeriod=(next:ProgressPeriod)=>{
+    setWeightPeriod(next);
+    if(next!==state.settings?.weightPeriod){
+      void store.mutate({
+        kind:'settings',
+        recordId:state.id,
+        expectedRevision:state.settings?.revision??0,
+        data:{weightPeriod:next},
+        delete:false
+      });
+    }
+  };
   const weightProgress=useWeightProgress(store,weightPeriod);
   const [checkInOpen,setCheckInOpen]=useState(false);
   const [intro]=useState(()=>!dashboardIntroPlayed);
@@ -125,7 +141,7 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
           <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
         </section>}
       </div>
-      <Suspense fallback={<ChartCardSkeleton/>}><WeightProgressCard store={store} period={weightPeriod} onPeriod={setWeightPeriod} progress={weightProgress}/></Suspense>
+      <Suspense fallback={<ChartCardSkeleton/>}><WeightProgressCard store={store} period={weightPeriod} onPeriod={handleWeightPeriod} progress={weightProgress}/></Suspense>
       <Suspense fallback={<ChartCardSkeleton/>}><EnergyProgressCard store={store}/></Suspense>
       </section>
       <section className="dashboard-section dashboard-section-body" aria-labelledby="dashboard-body-title">

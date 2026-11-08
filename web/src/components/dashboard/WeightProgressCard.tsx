@@ -41,12 +41,28 @@ function WeightStats({view,summary,units}:{view:WeightChartView;summary:Progress
  * Weight over a chosen period: swipe between the trend, the scale readings, and both together,
  * then the weigh-ins behind them. Adding, editing, and deleting a weigh-in stay on this card.
  */
-export function WeightProgressCard({store,period,onPeriod,progress}:{store:NutritionStore;period:ProgressPeriod;onPeriod:(period:ProgressPeriod)=>void;progress:WeightProgress}){
+export function WeightProgressCard({store,period,onPeriod,progress,view:controlledView,onView:onControlledView}:{store:NutritionStore;period:ProgressPeriod;onPeriod:(period:ProgressPeriod)=>void;progress:WeightProgress;view?:WeightChartView;onView?:(view:WeightChartView)=>void}){
   const {summary,error,loading,retry}=progress;
   const pending=useDelayedPending(loading&&Boolean(summary));
   const state=store.state!;
   const units=unitsFor(state.settings);
   const queuedEdits=(store.local?.queue??[]).some(item=>SYNCED_KINDS.has(item.kind));
+  const savedView=state.settings?.weightChartView??'trend';
+  const activeView=controlledView??savedView;
+
+  const handleViewChange=(newView:string)=>{
+    onControlledView?.(newView as WeightChartView);
+    if(!controlledView&&newView!==savedView){
+      void store.mutate({
+        kind:'settings',
+        recordId:state.id,
+        expectedRevision:state.settings?.revision??0,
+        data:{weightChartView:newView as WeightChartView},
+        delete:false
+      });
+    }
+  };
+
   const chart=(view:WeightChartView)=>summary
     ?<><WeightStats view={view} summary={summary} units={units}/>
       <WeightChart view={view} series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end}/></>
@@ -64,7 +80,7 @@ export function WeightProgressCard({store,period,onPeriod,progress}:{store:Nutri
     {summary?.weight.historyUnavailable&&!error&&<HistoryNotice customMessage="Showing weigh-ins saved on this device. History unavailable offline." contextKey={period} store={store}/>}
     {!summary&&error&&<CardFeedback title="Weight summary unavailable" message={`Not available offline. ${error}`} action={{label:'Retry',onClick:()=>void retry(),disabled:loading}}/>}
     {summary&&(queuedEdits||summary.awaitingSynchronization)&&<p className="notice" role="status">Recent edits will update after sync.</p>}
-    <SwipeCarousel label="Weight view" slides={slides} toolbar={<SelectField className="select-compact" label="Weight history period" value={period} onChange={value=>onPeriod(value as ProgressPeriod)}>
+    <SwipeCarousel label="Weight view" slides={slides} activeId={activeView} onChange={handleViewChange} toolbar={<SelectField className="select-compact" label="Weight history period" value={period} onChange={value=>onPeriod(value as ProgressPeriod)}>
       {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
     </SelectField>}/>
   </section>;

@@ -268,6 +268,12 @@ namespace Nutrition.Api.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("EnergyChartView")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EnergyPeriod")
+                        .HasColumnType("text");
+
                     b.Property<string>("EnergyUnit")
                         .IsRequired()
                         .HasColumnType("text");
@@ -296,17 +302,26 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<long>("ProfileRevision")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("ProgressTab")
+                        .HasColumnType("text");
+
                     b.Property<long>("Revision")
                         .HasColumnType("bigint");
 
                     b.Property<long>("TrajectoryRevision")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("WeightChartView")
+                        .HasColumnType("text");
+
                     b.Property<string>("WeightGoalMetric")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("scale");
+
+                    b.Property<string>("WeightPeriod")
+                        .HasColumnType("text");
 
                     b.Property<string>("WeightUnit")
                         .IsRequired()

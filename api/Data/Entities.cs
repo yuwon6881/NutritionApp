@@ -22,6 +22,11 @@ public class AppUser
     public string HeightUnit { get; set; } = "cm";
     public string MissingDayAction { get; set; } = "ask";
     public string WeightGoalMetric { get; set; } = "scale";
+    public string? ProgressTab { get; set; }         // "weight"|"energy"|"body"|"activity"
+    public string? WeightChartView { get; set; }     // "both"|"scale"|"trend"
+    public string? EnergyChartView { get; set; }     // "intake"|"balance"|"maintenance"|"coaching"
+    public string? WeightPeriod { get; set; }        // "week"|"month"|"six-months"|"year"|"all"
+    public string? EnergyPeriod { get; set; }        // "week"|"month"|"six-months"|"year"|"all"
     public string ProfileJson { get; set; } = "";
     /// Central Fitness Account subject.
     public string IdentitySubject { get; set; } = "";

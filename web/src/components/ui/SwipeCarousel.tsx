@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useId,useRef,useState,type ReactNode} from 'react';
+import {useCallback,useEffect,useId,useMemo,useRef,useState,type ReactNode} from 'react';
 import {ChevronLeft,ChevronRight,MoveHorizontal} from 'lucide-react';
 import {Button} from './Button';
 import {useReducedMotion} from './Motion';
@@ -16,18 +16,37 @@ export type CarouselSlide={id:string;ariaLabel:string;content:ReactNode};
  * only. Dots show the position. Only the visible slide is reachable, and the card is as tall as
  * that slide. Charts keep their own horizontal scrolling: swipe outside the plot to change view.
  */
-export function SwipeCarousel({label,slides,className='',toolbar}:{label:string;slides:readonly CarouselSlide[];className?:string;toolbar?:ReactNode}){
+export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChange}:{label:string;slides:readonly CarouselSlide[];className?:string;toolbar?:ReactNode;activeId?:string;onChange?:(id:string)=>void}){
   const reduced=useReducedMotion();
   const trackRef=useRef<HTMLDivElement>(null);
   const slideRefs=useRef<(HTMLDivElement|null)[]>([]);
-  const [active,setActive]=useState(0);
+  const initialIndex=useMemo(()=>{
+    if(!activeId)return 0;
+    const i=slides.findIndex(s=>s.id===activeId);
+    return i>=0?i:0;
+  },[activeId,slides]);
+  const [active,setActive]=useState(initialIndex);
   const [height,setHeight]=useState<number>();
   const [swiped,setSwiped]=useState(hasSwiped);
   const baseId=useId();
-  const activeRef=useRef(0);
+  const activeRef=useRef(active);
   activeRef.current=active;
+  const onChangeRef=useRef(onChange);
+  onChangeRef.current=onChange;
   const resizingUntil=useRef(0);
-  const current=Math.min(active,slides.length-1);
+  const current=Math.min(Math.max(0,active),slides.length-1);
+
+  useEffect(()=>{
+    if(!activeId)return;
+    const target=slides.findIndex(s=>s.id===activeId);
+    if(target>=0&&target!==activeRef.current){
+      setActive(target);
+      const track=trackRef.current;
+      if(track&&track.clientWidth){
+        track.scrollTo({left:target*track.clientWidth,behavior:reduced?'instant':'smooth'});
+      }
+    }
+  },[activeId,slides,reduced]);
 
   const settle=useCallback(()=>{
     const track=trackRef.current;
@@ -36,9 +55,11 @@ export function SwipeCarousel({label,slides,className='',toolbar}:{label:string;
     const wait=resizingUntil.current-performance.now();
     if(wait>0){window.setTimeout(()=>settleRef.current(),wait+20);return;}
     const next=Math.round(track.scrollLeft/track.clientWidth);
-    setActive(next);
-    if(next!==activeRef.current){hasSwiped=true;setSwiped(true);}
-  },[]);
+    if(next>=0&&next<slides.length){
+      setActive(next);
+      if(next!==activeRef.current){hasSwiped=true;setSwiped(true);onChangeRef.current?.(slides[next].id);}
+    }
+  },[slides]);
   const settleRef=useRef(settle);
   settleRef.current=settle;
   useEffect(()=>{
@@ -56,6 +77,9 @@ export function SwipeCarousel({label,slides,className='',toolbar}:{label:string;
     const track=trackRef.current;
     if(!track||typeof ResizeObserver==='undefined')return;
     let width=track.clientWidth;
+    if(width>0&&activeRef.current>0){
+      track.scrollTo({left:activeRef.current*width,behavior:'instant'});
+    }
     const observer=new ResizeObserver(()=>{
       if(track.clientWidth===width)return;
       width=track.clientWidth;
@@ -80,7 +104,10 @@ export function SwipeCarousel({label,slides,className='',toolbar}:{label:string;
     const track=trackRef.current;
     if(!track||index<0||index>=slides.length)return;
     track.scrollTo({left:index*track.clientWidth,behavior:reduced?'instant':'smooth'});
-    if(reduced)setActive(index);
+    setActive(index);
+    if(index!==activeRef.current){
+      onChangeRef.current?.(slides[index].id);
+    }
   };
 
   return <div className={`swipe-carousel ${className}`.trim()} role="group" aria-roledescription="carousel" aria-label={label}>

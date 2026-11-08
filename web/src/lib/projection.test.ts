@@ -67,6 +67,24 @@ it('projects cadence edits without changing the active profile revision',()=>{
   expect(result.plans).toEqual(withPlan.plans);
 });
 it('matches time-aware seven-day smoothing',()=>expect(trend([{date:'2026-01-01',kg:80},{date:'2026-01-08',kg:82}])[1].kg).toBe(81));
+it('projects and coalesces dashboard chart preferences without dropping existing settings',()=>{
+  const initial={...state,settings:{checkInWeekday:1,revision:10,progressTab:'weight' as const,weightChartView:'both' as const}};
+  const pref1:Mutation={id:'pref1',kind:'settings',recordId:'a',expectedRevision:10,delete:false,data:{progressTab:'energy',energyChartView:'balance'}};
+  const pref2:Mutation={id:'pref2',kind:'settings',recordId:'a',expectedRevision:10,delete:false,data:{weightPeriod:'six-months',energyPeriod:'year'}};
+  const queue=enqueueMutation(enqueueMutation({state:initial,queue:[]},pref1),pref2).queue;
+  expect(queue).toHaveLength(1);
+  expect(queue[0].data).toEqual({progressTab:'energy',energyChartView:'balance',weightPeriod:'six-months',energyPeriod:'year'});
+  const projected=project(initial,queue);
+  expect(projected.settings).toMatchObject({
+    checkInWeekday:1,
+    revision:10,
+    progressTab:'energy',
+    weightChartView:'both',
+    energyChartView:'balance',
+    weightPeriod:'six-months',
+    energyPeriod:'year'
+  });
+});
 });
 
 it('preserves archived totals when a day decision is queued',()=>{
