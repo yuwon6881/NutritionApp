@@ -44,15 +44,10 @@
   html[data-keyboard='open'] .undo-toast{bottom:12px}
 }
 
-/* Diary card swipe: the card slides left over Copy / Move / Delete (width matches CARD_REVEAL_WIDTH). */
-.food-card-swipe{position:relative;min-width:0;border-radius:14px}
-.food-card-swipe>.food-time-card{position:relative;z-index:1}
-.food-card-swipe.swiping>.food-time-card,.food-card-swipe[data-revealed]>.food-time-card{transform:translateX(var(--swipe-x))}
-.food-card-swipe.swiping>.food-time-card{transition:none}
-.food-card-swipe-actions{position:absolute;top:0;right:0;bottom:0;width:204px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px 0 4px 4px}
-.food-card-swipe-actions>.button{flex-direction:column;gap:2px;padding:4px;min-height:var(--touch-target);font-size:.72rem;border-radius:10px}
+/* Diary cards: hold selects or drags; there is no sideways swipe. */
+.food-time-cards>.food-time-card{position:relative;min-width:0}
 @media (pointer:coarse){
-  /* Horizontal movement stays with the card so a swipe is not taken as a page pan. */
+  /* Horizontal movement stays with the card so a drag is not taken as a page pan. */
   .food-time-card[data-draggable]{touch-action:pan-y}
 }
 

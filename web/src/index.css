@@ -1955,7 +1955,6 @@ html,body{min-height:100dvh;-webkit-text-size-adjust:100%;overscroll-behavior-x:
 @media(max-width:639px){.auth-page{padding:24px 16px}.auth-header{margin-bottom:18px}.auth-header .brand{font-size:1.4rem}.auth-card.panel{padding:26px 22px}.auth-footer{font-size:.65rem}}
 @media(max-height:560px){.auth-page{place-items:start center;padding-block:20px}.auth-header{margin-bottom:14px}.auth-card.panel{padding-block:22px}}
 
-.food-card-swipe.swiping>.food-time-card{will-change:transform}
 
 /*
  * Dashboard landing cascade: once per launch, cards rise in reading order while

@@ -216,35 +216,6 @@
   }
 }
 
-/* Swipe actions with token colours */
-.food-card-swipe,
-.food-card-swipe-actions {
-  border-radius: 18px;
-}
-.food-card-swipe-actions {
-  gap: 6px;
-  padding: 4px;
-}
-.food-card-swipe-actions > .button {
-  border-radius: 12px;
-  font-weight: 600;
-  border: 1px solid var(--border);
-}
-.food-card-swipe-actions > .button:nth-child(1) {
-  background: var(--muted);
-  color: var(--foreground);
-}
-.food-card-swipe-actions > .button:nth-child(2) {
-  background: var(--primary-tint);
-  color: var(--primary-ink);
-  border-color: color-mix(in srgb, var(--primary) 25%, transparent);
-}
-.food-card-swipe-actions > .button.destructive {
-  background: color-mix(in srgb, var(--destructive) 14%, var(--card));
-  color: var(--destructive);
-  border-color: color-mix(in srgb, var(--destructive) 25%, transparent);
-}
-
 /* Phones: a full-width name above portion and macros, with energy on the trailing edge. The older
    four-column phone template in logging.css would otherwise squeeze the name into an auto track. */
 @media (max-width: 639px) {

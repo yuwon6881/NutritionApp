@@ -313,8 +313,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
               changeDate(destDate);
             }
           }}
-          onCopy={copy}
-          onDelete={remove}
           showEmptySlots
           timelineView={timelineView}
           onAddAtTime={readOnly?undefined:onLog}

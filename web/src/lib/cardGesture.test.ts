@@ -34,16 +34,12 @@ describe('card gesture',()=>{
     expect(effects).toEqual(['start-hold-timer','abort','none','none']);
   });
 
-  it('swipes when a touch moves clearly sideways before the hold',()=>{
+  it('does not reveal actions on a sideways touch; it abandons the gesture like any other move',()=>{
     expect(run([touchDown,{type:'move',x:80,y:102},{type:'move',x:40,y:103},{type:'hold'},{type:'up'}]))
-      .toEqual(['start-hold-timer','begin-swipe','swipe-track','none','swipe-end']);
+      .toEqual(['start-hold-timer','abort','none','none','none']);
   });
 
-  it('keeps a diagonal flick as a scroll rather than a swipe',()=>{
-    expect(run([touchDown,{type:'move',x:90,y:88}])).toEqual(['start-hold-timer','abort']);
-  });
-
-  it('never swipes with a mouse; sideways mouse movement drags',()=>{
+  it('moves a mouse sideways as a drag',()=>{
     expect(run([mouseDown,{type:'move',x:80,y:100}])).toEqual(['none','begin-drag']);
   });
 
@@ -64,9 +60,5 @@ describe('card gesture',()=>{
     expect(run([touchDown,{type:'hold'},{type:'cancel'}])).toEqual(['start-hold-timer','lift','abort']);
     expect(run([touchDown,{type:'hold'},{type:'move',x:100,y:140},{type:'cancel'}])).toEqual(['start-hold-timer','lift','begin-drag','abort']);
     expect(run([{type:'cancel'}])).toEqual(['none']);
-  });
-
-  it('settles a swipe the browser cancels instead of aborting it',()=>{
-    expect(run([touchDown,{type:'move',x:60,y:102},{type:'cancel'}])).toEqual(['start-hold-timer','begin-swipe','swipe-end']);
   });
 });

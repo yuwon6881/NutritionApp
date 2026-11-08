@@ -5,7 +5,7 @@ import {motionTiming,useReducedMotion} from './ui/Motion';
 import {useFrameTask} from './ui/useFrameTask';
 
 /** Cards own their sideways swipe; the strip, fields, and popups own their own touches. */
-const OWN_TOUCH='[data-swipe-id],.food-week-strip,input,select,textarea,dialog,[role=dialog],[role=listbox],[role=slider]';
+const OWN_TOUCH='.food-time-card,.food-week-strip,input,select,textarea,dialog,[role=dialog],[role=listbox],[role=slider]';
 /** A committed swipe slides the day out this far (as a share of its width) before the next one slides in. */
 const TRAVEL=.35;
 

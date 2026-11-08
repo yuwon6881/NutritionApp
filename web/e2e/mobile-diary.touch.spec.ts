@@ -2,8 +2,8 @@ import {test,expect,type Page} from '@playwright/test';
 import {seedMobileUser} from './helpers/seed';
 import {centerOf,swipe} from './helpers/touch';
 
-// Diary ergonomics on a phone: day switching by week strip and swipe, swipe
-// actions on cards, undoable deletion, and bulk actions in the thumb zone.
+// Diary ergonomics on a phone: day switching by week strip and swipe, undoable
+// deletion, and bulk actions in the thumb zone.
 let session:Awaited<ReturnType<typeof seedMobileUser>>;
 
 test.beforeAll(async({request})=>{
@@ -40,19 +40,12 @@ test('calendar scrolling preserves selection and tapping changes day',async({pag
   await expect(strip.getByRole('button',{name:/future/}).first()).toBeDisabled();
 });
 
-test('swiping a card reveals its actions and Undo restores a deleted entry',async({page})=>{
+test('a sideways swipe on a card reveals nothing; deletion lives in the selection bar',async({page})=>{
   const coffee=card(page,'Black coffee');
   const start=await centerOf(coffee.locator('.food-time-card-details'));
   await swipe(page,start,{x:start.x-180,y:start.y+4});
-  const remove=page.getByRole('button',{name:'Delete Black coffee',exact:true});
-  await expect(remove).toBeVisible();
-
-  await remove.click();
-  await expect(coffee).toHaveCount(0);
-  const undo=page.locator('.undo-toast');
-  await expect(undo).toContainText('Deleted Black coffee');
-  await undo.getByRole('button',{name:'Undo',exact:true}).click();
-  await expect(card(page,'Black coffee')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Delete Black coffee',exact:true})).toHaveCount(0);
+  await expect(coffee).toBeVisible();
 });
 
 test('bulk actions sit above the bottom navigation and bulk delete is undoable',async({page})=>{

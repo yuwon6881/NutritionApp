@@ -1,7 +1,6 @@
-import {memo,type CSSProperties} from 'react';
-import {Check,Copy,Flame,MoveRight,Trash2} from 'lucide-react';
+import {memo} from 'react';
+import {Check,Flame} from 'lucide-react';
 import type {Entry} from '../types';
-import {Button} from './ui/Button';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {displayEnergy,energyLabel,type EnergyUnit} from '../lib/units';
 import {displayMass,displayPortion} from '../lib/portions';
@@ -20,11 +19,6 @@ export interface FoodTimeCardProps {
   onEdit?:(entry:Entry)=>void;
   onToggleSelect:(id:string)=>void;
   dragProps:Record<string,unknown>;
-  /** Touch swipe state from the timeline: offset in px (≤ 0) and whether actions are open. */
-  swipe?:{offset:number;dragging:boolean;revealed:boolean};
-  onCopy?:(entry:Entry,trigger:HTMLElement)=>void;
-  onMove?:(entry:Entry,trigger:HTMLElement)=>void;
-  onDelete?:(entry:Entry)=>void;
 }
 
 export const FoodTimeCard=memo(function FoodTimeCard({
@@ -40,33 +34,17 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   onEdit,
   onToggleSelect,
   dragProps,
-  swipe,
-  onCopy,
-  onMove,
-  onDelete,
 }:FoodTimeCardProps){
   // Touch hold (select or drag) and mouse drag are one gesture owned by the
   // timeline; see useTimelineDrag. Nothing competes for the same pointer.
   const pointerProps=isSelecting?{}:dragProps;
 
-  // A plain tap, click, or Enter/Space opens the editor. Hold, drag, and swipe are owned by the
+  // A plain tap, click, or Enter/Space opens the editor. Hold and drag are owned by the
   // timeline gesture (the drag hook swallows the click a mouse release would add), and a card the
   // viewer cannot change stays inert.
   const editable=Boolean(onEdit)&&!readOnly&&!isSelecting;
-  const showActions=Boolean(swipe&&(swipe.revealed||swipe.dragging||swipe.offset<0));
   const showCheckbox=isSelecting||checkboxLeaving;
-  return <div
-    className={`food-card-swipe${swipe?.dragging?' swiping':''}`}
-    data-swipe-id={entry.id}
-    data-revealed={swipe?.revealed?true:undefined}
-    style={{'--swipe-x':`${swipe?.offset??0}px`} as CSSProperties}
-  >
-    {showActions&&!isSelecting&&!readOnly&&<div className="food-card-swipe-actions" inert={!swipe?.revealed||undefined}>
-      <Button variant="secondary" size="sm" onClick={event=>onCopy?.(entry,event.currentTarget)}><Copy size={16} aria-hidden="true"/>Copy</Button>
-      <Button variant="secondary" size="sm" onClick={event=>onMove?.(entry,event.currentTarget)}><MoveRight size={16} aria-hidden="true"/>Move</Button>
-      <Button variant="destructive" size="sm" aria-label={`Delete ${entry.name}`} onClick={()=>onDelete?.(entry)}><Trash2 size={16} aria-hidden="true"/>Delete</Button>
-    </div>}
-    <article
+  return <article
       className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${showCheckbox?'food-time-card-selecting':''}`.trim()}
       data-selected={isSelected?true:undefined}
       tabIndex={editable?0:undefined}
@@ -109,6 +87,5 @@ export const FoodTimeCard=memo(function FoodTimeCard({
         <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat}/>
       </div>
       {isPendingSync&&<small className="sync-label" role="status">Pending sync</small>}
-    </article>
-  </div>;
+    </article>;
 });
