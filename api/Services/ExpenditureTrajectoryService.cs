@@ -189,9 +189,7 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         return dates.Select(date =>
         {
             var status = statuses.LastOrDefault(day => day.Date == date);
-            var hasFood = status?.Archived == true ? status.EntryCount > 0 : totals.ContainsKey(date);
-            return new NutritionDay(date, LoggingDay.Status(date, current, status?.Status, hasFood),
-                status?.Archived == true ? status.Calories : totals.GetValueOrDefault(date));
+            return new NutritionDay(date, LoggingDay.Status(date, current, status?.Status, totals.ContainsKey(date)), totals.GetValueOrDefault(date));
         }).ToList();
     }
 

@@ -244,7 +244,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
             &&photos.Select(p=>p.Angle).Distinct().Count()==photos.Count&&photos.Select(p=>p.Id).Distinct().Count()==photos.Count,
             "Choose at most one Front, Side and Back photo, with independent identities.");
     }
-    public static void ValidateDate(DateOnly date,string profileJson)=>Validation.Require(date>=new DateOnly(2000,1,1)&&date<=RetentionService.Today(profileJson),"Choose a valid Body record date.");
+    public static void ValidateDate(DateOnly date,string profileJson)=>Validation.Require(date>=new DateOnly(2000,1,1)&&date<=ProfileClock.Today(profileJson),"Choose a valid Body record date.");
     public static void ValidateContext(BodyWeightContext context,DateOnly date)
     {
         Validation.Require(context.Provenance is "server" or "cached","Identify the weight snapshot source.");

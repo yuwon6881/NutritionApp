@@ -39,6 +39,5 @@ export function projectedDayIntakes(local:LocalData|null|undefined,dates:readonl
 export function projectedDayCalories(local:LocalData|null|undefined,date:string):number|null{
   const day=projectedDay(local,date);
   if(!day)return null;
-  if(day.day?.archived)return day.day.calories??null;
   return day.entries.filter(entry=>!entry.deleted).reduce((sum,entry)=>sum+entry.calories,0);
 }

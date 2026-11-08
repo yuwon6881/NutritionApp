@@ -64,7 +64,7 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
   const [checkInRestore,setCheckInRestore]=useState<HTMLElement|null>(null);
   const entries=state.entries.filter(e=>!e.deleted&&e.date===date);
   const savedDay=state.days.find(d=>d.date===date&&!d.deleted);
-  const total=savedDay?.archived?(savedDay.calories??0):entries.reduce((s,e)=>s+e.calories,0);
+  const total=entries.reduce((s,e)=>s+e.calories,0);
   const accepted=state.plans.find(p=>!p.deleted);
   const latestPlan:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const targets=targetsForDate(planForDate(state,date),date);

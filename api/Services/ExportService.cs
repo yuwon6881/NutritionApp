@@ -17,11 +17,6 @@ public sealed record ExportSettings(
     string MissingDayAction = "ask",
     string WeightGoalMetric = "scale");
 
-public sealed record ExportRetention(
-    int DetailDays,
-    DateOnly DetailCutoff,
-    IReadOnlyList<string> Notes);
-
 public sealed record ExportPhoto(
     Guid Id,
     Guid SetId,
@@ -37,7 +32,7 @@ public sealed record NutritionExport(
     DateTime ExportedAt,
     Profile? Profile,
     ExportSettings Settings,
-    ExportRetention Retention,
+    IReadOnlyList<string> Notes,
     IReadOnlyList<DiaryEntry> Entries,
     IReadOnlyList<Food> Foods,
     IReadOnlyList<Weight> Weights,
@@ -52,26 +47,19 @@ public sealed record NutritionExport(
 
 public sealed record ExportStepDay(DateOnly Date, int? StepCount);
 
-public sealed class ExportService(AppDb db, RetentionService retention, IGoogleHealthKms? kms = null)
+public sealed class ExportService(AppDb db, IGoogleHealthKms? kms = null)
 {
     public async Task<NutritionExport> BuildJsonDocument(CancellationToken ct)
     {
         var user = await db.Users.AsNoTracking().SingleAsync(item => item.Id == db.CurrentUser, ct);
         var profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
-        var today = RetentionService.Today(user.ProfileJson);
-        var detailDays = retention.DetailDays;
-        var detailCutoff = RetentionService.Cutoff(today, detailDays);
 
         return new NutritionExport(
-            SchemaVersion: 4,
+            SchemaVersion: 5,
             ExportedAt: DateTime.UtcNow,
             Profile: profile,
             Settings: new ExportSettings(user.CheckInWeekday, user.CoachingSettingsRevision, user.CoachingSettingsChangedDate, user.WeightUnit, user.EnergyUnit, user.HeightUnit, user.MissingDayAction ?? "ask", user.WeightGoalMetric ?? "scale"),
-            Retention: new ExportRetention(detailDays, detailCutoff, [
-                "Meal detail before detailCutoff is removed by scheduled retention compaction.",
-                "Archived days retain daily totals; deleted meal detail cannot be restored.",
-                "Physique photo binaries are excluded; download_path is an authenticated metadata route."
-            ]),
+            Notes: ["Physique photo binaries are excluded; download_path is an authenticated metadata route."],
             Entries: await db.Entries.AsNoTracking().Where(item => !item.Deleted).OrderBy(item => item.Date).ThenBy(item => item.Time).ThenBy(item => item.Id).ToListAsync(ct),
             Foods: await db.Foods.AsNoTracking().Where(item => !item.Deleted).OrderBy(item => item.Name).ThenBy(item => item.Id).ToListAsync(ct),
             Weights: await db.Weights.AsNoTracking().Where(item => !item.Deleted).OrderBy(item => item.Date).ThenBy(item => item.Id).ToListAsync(ct),
@@ -91,9 +79,6 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
     public async Task WriteCsvBundle(Stream output, CancellationToken ct)
     {
         var user = await db.Users.AsNoTracking().SingleAsync(item => item.Id == db.CurrentUser, ct);
-        var today = RetentionService.Today(user.ProfileJson);
-        var detailDays = retention.DetailDays;
-        var detailCutoff = RetentionService.Cutoff(today, detailDays);
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
 
         using var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
@@ -109,7 +94,7 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
         counts["physique-photos.csv"] = await WritePhotos(archive, ct);
         counts["body-records.csv"] = await WriteBodyRecords(archive, ct);
         counts["google-health-steps.csv"] = await WriteGoogleHealthSteps(archive, ct);
-        await WriteReadme(archive, counts, detailDays, detailCutoff, ct);
+        await WriteReadme(archive, counts, ct);
     }
 
     private static async Task<int> WriteProfile(ZipArchive archive, AppUser user, CancellationToken ct)
@@ -152,11 +137,11 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
     private async Task<int> WriteDays(ZipArchive archive, CancellationToken ct)
         => await WriteCsv(archive, "days.csv", async writer =>
         {
-            await writer.WriteAsync(Csv.Line("id", "date", "status", "archived", "entry_count", "calories", "protein_g", "fat_g", "carbs_g", "fiber_g", "revision"));
+            await writer.WriteAsync(Csv.Line("id", "date", "status", "revision"));
             var count = 0;
             await foreach (var item in db.Days.AsNoTracking().Where(day => !day.Deleted).OrderBy(day => day.Date).ThenBy(day => day.Id).AsAsyncEnumerable().WithCancellation(ct))
             {
-                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Date), Csv.Field(item.Status), Csv.Field(item.Archived), Csv.Field(item.EntryCount), Csv.Field(item.Calories), Csv.Field(item.Protein), Csv.Field(item.Fat), Csv.Field(item.Carbs), Csv.Field(item.Fiber), Csv.Field(item.Revision)));
+                await writer.WriteAsync(Csv.Line(Csv.Field(item.Id), Csv.Field(item.Date), Csv.Field(item.Status), Csv.Field(item.Revision)));
                 count++;
             }
             return count;
@@ -254,13 +239,13 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
             return count;
         }, ct);
 
-    private static async Task WriteReadme(ZipArchive archive, IReadOnlyDictionary<string, int> counts, int detailDays, DateOnly detailCutoff, CancellationToken ct)
+    private static async Task WriteReadme(ZipArchive archive, IReadOnlyDictionary<string, int> counts, CancellationToken ct)
     {
         var entry = archive.CreateEntry("README.txt", CompressionLevel.Fastest);
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, leaveOpen: false);
         await writer.WriteAsync("NutritionApp CSV export\r\n");
-        await writer.WriteAsync("csvSchemaVersion=6\r\n\r\n");
+        await writer.WriteAsync("csvSchemaVersion=7\r\n\r\n");
         await writer.WriteAsync("Files use RFC 4180 commas and CRLF line endings. CSV files are UTF-8 with a BOM for spreadsheet compatibility.\r\n");
         await writer.WriteAsync("Null values are empty cells. Text beginning with =, +, -, @, tab, or carriage return is prefixed with an apostrophe.\r\n");
         await writer.WriteAsync("Dates use yyyy-MM-dd; timestamps use yyyy-MM-ddTHH:mm:ssZ; numeric values are invariant round-trip values.\r\n");
@@ -268,7 +253,6 @@ public sealed class ExportService(AppDb db, RetentionService retention, IGoogleH
         await writer.WriteAsync("The optional context column records the user's explanation for an unusual weigh-in; temporary contexts are excluded from calorie-estimation trends.\r\n");
         await writer.WriteAsync("The weights.csv source column is manual for weigh-ins entered or edited in NutritionApp and google_health for unedited weigh-ins imported from Google Health.\r\n");
         await writer.WriteAsync("body-records.csv uses canonical centimetres and kilograms. Body fat uses percent; blank measurements and snapshots are unknown. Photo set_id is the Body record id; photo_ids includes pending relationships. Frozen weight source dates, capture time, provenance and calculation version are exported unchanged.\r\n");
-        await writer.WriteAsync($"Meal-level detail is retained for {detailDays} days from {detailCutoff:yyyy-MM-dd}; earlier dates export as daily totals only because detail was deleted on schedule.\r\n");
         await writer.WriteAsync("Physique photo binaries are excluded. physique-photos.csv includes metadata and authenticated download paths.\r\n");
         await writer.WriteAsync("google-health-steps.csv includes rolling daily step counts imported from Google Health without authentication tokens, ciphertext, or provider identifiers.\r\n\r\n");
         await writer.WriteAsync("Data rows per file:\r\n");

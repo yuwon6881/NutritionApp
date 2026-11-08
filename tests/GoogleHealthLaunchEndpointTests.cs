@@ -26,7 +26,7 @@ public sealed class GoogleHealthLaunchEndpointTests
         try
         {
             using var factory = new Factory(path, provider);
-            var today = RetentionService.Today(Json.Write(new Profile {TimeZone = "Asia/Kuala_Lumpur"}));
+            var today = ProfileClock.Today(Json.Write(new Profile {TimeZone = "Asia/Kuala_Lumpur"}));
             using (var scope = factory.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDb>();
@@ -87,7 +87,7 @@ public sealed class GoogleHealthLaunchEndpointTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Calls++;
-            var date = RetentionService.Today(Json.Write(new Profile {TimeZone = "Asia/Kuala_Lumpur"}));
+            var date = ProfileClock.Today(Json.Write(new Profile {TimeZone = "Asia/Kuala_Lumpur"}));
             var body = request.RequestUri!.Host == "oauth2.googleapis.com" ? "{\"access_token\":\"token\"}"
                 : JsonSerializer.Serialize(new {rollupDataPoints = new[] {new {
                     civilStartTime = new {date = new {year = date.Year, month = date.Month, day = date.Day}}, steps = new {countSum = "9876"}

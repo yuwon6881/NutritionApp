@@ -40,10 +40,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         var days = dates.Select(date =>
         {
             var d = statuses.Find(item => item.Date == date);
-            return new NutritionDay(date,
-                LoggingDay.Status(date, today, d?.Status,
-                    d?.Archived == true ? d.EntryCount > 0 : totals.ContainsKey(date)),
-                d?.Archived == true ? d.Calories : totals.GetValueOrDefault(date));
+            return new NutritionDay(date, LoggingDay.Status(date, today, d?.Status, totals.ContainsKey(date)), totals.GetValueOrDefault(date));
         }).ToList();
         var weights = await db.Weights.Where(w => w.Date >= since.AddDays(-56) && w.Date <= today && !w.Deleted)
             .OrderBy(w => w.Date).Select(w => new WeightPoint(w.Date, w.Kg, w.Context)).ToListAsync(ct);

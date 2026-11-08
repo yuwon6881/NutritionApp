@@ -5,7 +5,7 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services;
 
-public sealed class BootstrapReadService(AppDb db, RetentionService retention, ExpenditureTrajectoryService trajectory)
+public sealed class BootstrapReadService(AppDb db, ExpenditureTrajectoryService trajectory)
 {
     public async Task<IResult> Get(HttpContext http, CancellationToken ct)
     {
@@ -16,10 +16,10 @@ public sealed class BootstrapReadService(AppDb db, RetentionService retention, E
             .SingleOrDefaultAsync(ct);
         var training = await db.WorkoutSummaries.AsNoTracking()
             .Select(s => new {s.Revision, s.LastErrorAt, s.LastError}).SingleOrDefaultAsync(ct);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         var connected = grant?.Connected == true;
         var warning = connected && training?.LastErrorAt != null && !string.IsNullOrWhiteSpace(training?.LastError);
-        var etag = ReadValidators.Bootstrap(user, today, retention.DetailDays, grant?.Revision ?? 0, training?.Revision ?? 0, connected, warning);
+        var etag = ReadValidators.Bootstrap(user, today, grant?.Revision ?? 0, training?.Revision ?? 0, connected, warning);
         if (http.Request.Headers.IfNoneMatch == etag)
         {
             http.Response.Headers.ETag = etag;
@@ -43,7 +43,7 @@ public sealed class BootstrapReadService(AppDb db, RetentionService retention, E
                     weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale",
                     progressTab=user.ProgressTab,weightChartView=user.WeightChartView,energyChartView=user.EnergyChartView,weightPeriod=user.WeightPeriod,energyPeriod=user.EnergyPeriod},
                 profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson),
-                start, end = today, detailCutoff = RetentionService.Cutoff(today,retention.DetailDays), detailDays = retention.DetailDays,
+                start, end = today,
                 energyEstimates = energySnapshots.Select(s => new {date=s.Date,revision=s.SourceRevision,expenditure=s.Expenditure,suggestedCalories=s.SuggestedCalories,
                     confidence=s.Confidence,holdReason=s.HoldReason,algorithmVersion=s.AlgorithmVersion,trendWeightKg=s.TrendWeightKg}),
                 acceptedTargetIntervals = RecordEndpoints.BuildAcceptedTargetIntervals(orderedPlans,today),

@@ -12,7 +12,7 @@ public sealed class NutritionPeerSummaryService(AppDb db, NutritionDailySummaryS
     {
         var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == db.CurrentUser, ct);
         Validation.Require(user.IdentitySubject == subject, "Shared summary identity does not match the current account.", 403);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         var end = to ?? today;
         var start = from ?? end.AddDays(1 - (days ?? 14));
         Validation.Require(start <= end && end <= today && end.DayNumber - start.DayNumber < 28

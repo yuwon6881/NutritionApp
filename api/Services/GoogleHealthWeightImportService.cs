@@ -40,7 +40,7 @@ public sealed class GoogleHealthWeightImportService(
 
         var profileJson = await db.Users.Where(user => user.Id == userId).Select(user => user.ProfileJson).SingleAsync(ct);
         var zone = ProfileZone(profileJson);
-        var today = RetentionService.Today(profileJson);
+        var today = ProfileClock.Today(profileJson);
         var start = today.AddDays(-GoogleHealthWeightImportPlanner.LookbackDays);
 
         IReadOnlyList<GoogleHealthWeightReading> readings;

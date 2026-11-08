@@ -6,13 +6,13 @@ import {useHistoryWindow} from '../useHistoryWindow';
 import {longDate,today} from '../lib/format';
 import {shiftDate} from '../lib/energyBalance';
 import {dayStatus} from '../lib/loggingDay';
-import {mealReadOnly,moveEntry,showsDeviceOnlyToday,type TimelineView} from '../lib/foodDiary';
+import {moveEntry,showsDeviceOnlyToday,type TimelineView} from '../lib/foodDiary';
 import {useOnlineStatus} from './ui/useOnlineStatus';
 import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
 import {FoodTimeline} from './FoodTimeline';
 import {SegmentedControl} from './ui/SegmentedControl';
-import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
+import {unitsFor} from '../lib/units';
 import {CardFeedback} from './ui/CardFeedback';
 import {HistoryNotice} from './ui/HistoryNotice';
 import {useFoodSelection} from '../lib/useFoodSelection';
@@ -64,10 +64,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
   const state=history.state??(currentUncached?store.state:undefined);
   const entries=state?.entries.filter(e=>!e.deleted&&e.date===date)??[];
   const day=state?.days.find(d=>d.date===date);
-  const archived=!!day?.archived;
-  const readOnly=!state||mealReadOnly(state,date);
-  const count=archived?day?.entryCount??0:entries.length;
-  const total=archived?day?.calories??0:entries.reduce((sum,e)=>sum+e.calories,0);
+  const count=entries.length;
+  const total=entries.reduce((sum,e)=>sum+e.calories,0);
   const energyUnit=unitsFor(store.state?.settings).energy;
   const status=dayStatus(date,current,day&&!day.deleted?day.status:undefined,count>0);
 
@@ -169,7 +167,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
               presentation="plain"
               className="food-diary-dropdown-item"
               role="menuitem"
-              disabled={entries.length===0||readOnly}
+              disabled={entries.length===0}
               onClick={()=>{setIsMenuOpen(false);clipboard.clear();selection.enterSelection();}}
             >
               <CheckCheck size={16} aria-hidden="true"/>
@@ -179,7 +177,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
               presentation="plain"
               className="food-diary-dropdown-item food-diary-dropdown-item-danger"
               role="menuitem"
-              disabled={entries.length===0||readOnly}
+              disabled={entries.length===0}
               onClick={()=>{setIsMenuOpen(false);setConfirmingClearDay(true);}}
             >
               <Trash2 size={16} aria-hidden="true"/>
@@ -187,7 +185,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
             </Button>
           </div>}
         </div>
-        <Button variant="primary" disabled={readOnly} onClick={()=>onLog()}><Plus size={18}/>Log food</Button>
+        <Button variant="primary" disabled={!state} onClick={()=>onLog()}><Plus size={18}/>Log food</Button>
       </div>
     </header>
     <div className="food-day-swipe" {...swipe.bind}>
@@ -227,7 +225,6 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
         energyUnit={energyUnit}
         isPastDay={date<current}
         statusValue={status==='fasting'||status==='not_logged'?status:'incomplete'}
-        statusDisabled={count>0&&readOnly}
         canFast={count===0&&total===0}
         checkInDue={isCheckInDue}
         date={date}
@@ -238,96 +235,93 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
           void act(()=>store.mutate({kind:'day',recordId:day?.id??crypto.randomUUID(),expectedRevision:day?.revision??0,data:{date,status:value},delete:false}));
         }}
       />
-      {readOnly?<DiaryEmptyState status={status} archived detailDays={state.detailDays} summary={`${count} food ${count===1?'entry':'entries'}${count?` · ${displayEnergy(total,energyUnit)} ${energyLabel(energyUnit)}`:''}`}/>:<>
-        <div className="food-timeline-toolbar">
-          <h2>Food timeline</h2>
-          <SegmentedControl<TimelineView> id="food-timeline-view" label="Food timeline hours" value={timelineView} onChange={setTimelineView} options={[{value:'data',label:'Hours with data'},{value:'full',label:'Full day'}]}/>
-        </div>
-        {!entries.length&&timelineView==='data'&&<DiaryEmptyState status={status} offline={currentUncached} onLog={()=>onLog()}/>}
-        {(isSelectionActive||isSelectionLeaving)&&<FoodSelectionBar
-          selectedCount={selectedEntries.length}
-          totalCount={entries.length}
-          totalCalories={selectedCalories}
-          copiedCount={clipboard.count}
-          copiedCalories={clipboard.totalCalories}
-          energyUnit={energyUnit}
-          leaving={isSelectionLeaving}
-          onSelectAll={()=>selection.selectAll(entries.map(e=>e.id))}
-          onDeselectAll={selection.deselectAll}
-          onEdit={()=>{
-            if(selectedEntries.length===1){
-              const target=selectedEntries[0];
-              exitSelectionAndCopy();
-              editAfterSelection(target);
-            }
-          }}
-          onCopy={()=>{
-            clipboard.copy(selectedEntries,date);
-          }}
-          onMove={trigger=>{
-            setSelectionRestoreFocus(trigger);
-            setBulkMoving(selectedEntries);
-          }}
-          onDelete={()=>{
-            const deleting=selectedEntries;
+      <div className="food-timeline-toolbar">
+        <h2>Food timeline</h2>
+        <SegmentedControl<TimelineView> id="food-timeline-view" label="Food timeline hours" value={timelineView} onChange={setTimelineView} options={[{value:'data',label:'Hours with data'},{value:'full',label:'Full day'}]}/>
+      </div>
+      {!entries.length&&timelineView==='data'&&<DiaryEmptyState status={status} offline={currentUncached} onLog={()=>onLog()}/>}
+      {(isSelectionActive||isSelectionLeaving)&&<FoodSelectionBar
+        selectedCount={selectedEntries.length}
+        totalCount={entries.length}
+        totalCalories={selectedCalories}
+        copiedCount={clipboard.count}
+        copiedCalories={clipboard.totalCalories}
+        energyUnit={energyUnit}
+        leaving={isSelectionLeaving}
+        onSelectAll={()=>selection.selectAll(entries.map(e=>e.id))}
+        onDeselectAll={selection.deselectAll}
+        onEdit={()=>{
+          if(selectedEntries.length===1){
+            const target=selectedEntries[0];
             exitSelectionAndCopy();
-            void removeEntries(deleting).catch(()=>{});
-          }}
-          onPaste={()=>{
-            if(clipboard.clipboard){
-              void pasteEntriesTo(clipboard.clipboard.entries,date).catch(()=>{});
-            }
-          }}
-          onPasteToToday={()=>{
-            if(clipboard.clipboard){
-              void pasteEntriesTo(clipboard.clipboard.entries,current).catch(()=>{});
-            }
-          }}
-          onPasteToTomorrow={()=>{
-            if(clipboard.clipboard){
-              void pasteEntriesTo(clipboard.clipboard.entries,shiftDate(current,1)).catch(()=>{});
-            }
-          }}
-          onPasteDateAndTime={trigger=>{
-            if(clipboard.clipboard){
-              setSelectionRestoreFocus(trigger);
-              setBulkCopying(clipboard.clipboard.entries);
-            }
-          }}
-          onBackFromCopy={()=>{
-            clipboard.clear();
-            if(selectedEntries.length===0){
-              selection.exitSelection();
-            }else if(!selection.isSelecting){
-              selection.enterSelection();
-            }
-          }}
-          onDone={exitSelectionAndCopy}
-        />}
-        <FoodTimeline
-          store={store}
-          date={date}
-          currentDate={current}
-          entries={entries}
-          readOnly={readOnly}
-          onEdit={onEdit}
-          onMove={async(moving,destDate,destTime)=>{
-            await move(moving,destDate,destTime);
-            if(destDate!==date){
-              changeDate(destDate);
-            }
-          }}
-          showEmptySlots
-          timelineView={timelineView}
-          onAddAtTime={readOnly?undefined:onLog}
-          isSelecting={selection.isSelecting&&clipboard.count===0}
-          selectedIds={selection.selectedIds}
-          onToggleSelect={selection.toggle}
-          onLongPressSelect={id=>{clipboard.clear();selection.enterSelection(id);}}
-          clipboardCount={clipboard.count}
-          onPasteAtTime={readOnly?undefined:handlePasteAtTime}
-        />
-      </>}
+            editAfterSelection(target);
+          }
+        }}
+        onCopy={()=>{
+          clipboard.copy(selectedEntries,date);
+        }}
+        onMove={trigger=>{
+          setSelectionRestoreFocus(trigger);
+          setBulkMoving(selectedEntries);
+        }}
+        onDelete={()=>{
+          const deleting=selectedEntries;
+          exitSelectionAndCopy();
+          void removeEntries(deleting).catch(()=>{});
+        }}
+        onPaste={()=>{
+          if(clipboard.clipboard){
+            void pasteEntriesTo(clipboard.clipboard.entries,date).catch(()=>{});
+          }
+        }}
+        onPasteToToday={()=>{
+          if(clipboard.clipboard){
+            void pasteEntriesTo(clipboard.clipboard.entries,current).catch(()=>{});
+          }
+        }}
+        onPasteToTomorrow={()=>{
+          if(clipboard.clipboard){
+            void pasteEntriesTo(clipboard.clipboard.entries,shiftDate(current,1)).catch(()=>{});
+          }
+        }}
+        onPasteDateAndTime={trigger=>{
+          if(clipboard.clipboard){
+            setSelectionRestoreFocus(trigger);
+            setBulkCopying(clipboard.clipboard.entries);
+          }
+        }}
+        onBackFromCopy={()=>{
+          clipboard.clear();
+          if(selectedEntries.length===0){
+            selection.exitSelection();
+          }else if(!selection.isSelecting){
+            selection.enterSelection();
+          }
+        }}
+        onDone={exitSelectionAndCopy}
+      />}
+      <FoodTimeline
+        store={store}
+        date={date}
+        currentDate={current}
+        entries={entries}
+        onEdit={onEdit}
+        onMove={async(moving,destDate,destTime)=>{
+          await move(moving,destDate,destTime);
+          if(destDate!==date){
+            changeDate(destDate);
+          }
+        }}
+        showEmptySlots
+        timelineView={timelineView}
+        onAddAtTime={onLog}
+        isSelecting={selection.isSelecting&&clipboard.count===0}
+        selectedIds={selection.selectedIds}
+        onToggleSelect={selection.toggle}
+        onLongPressSelect={id=>{clipboard.clear();selection.enterSelection(id);}}
+        clipboardCount={clipboard.count}
+        onPasteAtTime={handlePasteAtTime}
+      />
     </>}
     </div>
     </div>

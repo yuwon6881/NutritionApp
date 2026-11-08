@@ -47,7 +47,6 @@ builder.Services.AddScoped<NutritionNotificationService>();
 builder.Services.AddHttpClient<INutritionPushSender, NutritionFcmPushSender>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient<INutritionWakeQueue, CloudTasksNutritionWakeQueue>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddScoped<ScanService>();builder.Services.AddScoped<StorageService>();
-builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<PhotoService>();builder.Services.AddScoped<ProgressSummaryService>();
 builder.Services.AddScoped<BootstrapReadService>();

@@ -5,7 +5,7 @@ using Nutrition.Api.Domain;
 
 namespace Nutrition.Api.Services.AI.Tools;
 
-// The summary and baseline share one read path; archived diary totals survive detail retention.
+// The summary and baseline share one read path.
 internal static class AiNutritionValues
 {
     public static double? Energy(double? kcal, AiToolContext context) =>
@@ -20,7 +20,7 @@ internal static class AiNutritionValues
 public sealed class GetDailySummaryTool(AppDb db) : IAiTool
 {
     public string Name => "get_daily_summary";
-    public string Description => "Daily logged intake and accepted targets, including archived totals. Missing intake and nutrients stay unknown.";
+    public string Description => "Daily logged intake and accepted targets. Missing intake and nutrients stay unknown.";
     public System.Text.Json.Nodes.JsonObject ParametersSchema => new()
     {
         ["type"] = "object",
@@ -41,7 +41,7 @@ public sealed class GetDailySummaryTool(AppDb db) : IAiTool
         var rows = await new NutritionDailySummaryService(db).Get(from, to, context.Today, cancellationToken);
         var summaries = rows.Select(d => new
         {
-            date = d.Date.ToString("yyyy-MM-dd"), status = d.Status, archived = d.Archived, entryCount = d.EntryCount,
+            date = d.Date.ToString("yyyy-MM-dd"), status = d.Status, entryCount = d.EntryCount,
             calories = AiNutritionValues.Energy(d.Calories, context), protein = d.Protein, fat = d.Fat, carbs = d.Carbs, fiber = d.Fiber,
             targets = d.Targets == null ? null : new { calories = AiNutritionValues.Energy(d.Targets.Calories, context),
                 protein = d.Targets.Protein, fat = d.Targets.Fat, carbs = d.Targets.Carbs, planDate = d.Targets.PlanDate.ToString("yyyy-MM-dd") }

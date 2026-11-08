@@ -145,7 +145,7 @@ public sealed class AiAssistantService
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _db.CurrentUser, cancellationToken);
         var energyUnit = user?.EnergyUnit ?? "kcal";
         var weightUnit = user?.WeightUnit ?? "kg";
-        var today = RetentionService.Today(user?.ProfileJson);
+        var today = ProfileClock.Today(user?.ProfileJson);
         var profile = string.IsNullOrWhiteSpace(user?.ProfileJson) ? null : Nutrition.Api.Services.Json.Read<Nutrition.Api.Domain.Profile>(user.ProfileJson);
         var toolContext = new AiToolContext(energyUnit, weightUnit, today, timeZone: profile?.TimeZone ?? "UTC");
 

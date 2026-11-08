@@ -35,7 +35,7 @@ public sealed class TrainingContextService(AppDb db, IMemoryCache? cache = null)
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.IdentitySubject == subject, ct);
         Validation.Require(user != null, "That shared account is not mapped to this Nutrition account.", 403);
         Validation.Require(!string.IsNullOrWhiteSpace(user!.ProfileJson), "Nutrition has no confirmed training context for this account.", 409);
-        var day = RetentionService.Today(user.ProfileJson);
+        var day = ProfileClock.Today(user.ProfileJson);
         if (cache is null) return await Build(subject, user, ct);
         CachedContext stored;
         lock (CacheGate)
@@ -59,7 +59,7 @@ public sealed class TrainingContextService(AppDb db, IMemoryCache? cache = null)
     private async Task<TrainingContextResponse> Build(string subject, AppUser user, CancellationToken ct)
     {
         var profile = Json.Read<Profile>(user.ProfileJson);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         var phase = await db.PhaseDecisions.AsNoTracking()
             .SingleOrDefaultAsync(d => d.ProfileRevision == user.ProfileRevision && !d.Deleted, ct);
         var weight = await WeightHistory.Compute(db, today.AddDays(-WeightSignalWindowDays), today,

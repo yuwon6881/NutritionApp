@@ -14,12 +14,10 @@ describe('DiaryCoordinator', () => {
     coordinator = new DiaryCoordinator('user-1');
   });
 
-  it('preserves pending explicit decisions and archived nutrient totals',()=>{
+  it('preserves pending explicit decisions',()=>{
     coordinator.primeDays([{date:'2026-09-10',entries:[],revision:1,fetchedAt:0}]);
     const op:Mutation={id:'m',kind:'day',recordId:'d',expectedRevision:0,delete:false,data:{date:'2026-09-10',status:'fasting'}};
     expect(coordinator.projectDate('2026-09-10',[op])?.day?.status).toBe('fasting');
-    coordinator.primeDays([{date:'2026-09-10',entries:[],day:{id:'d',date:'2026-09-10',status:'complete',archived:true,calories:1234,entryCount:2,protein:null,revision:1,deleted:false},revision:1,fetchedAt:0}]);
-    expect(coordinator.projectDate('2026-09-10',[{...op,data:{date:'2026-09-10',status:'not_logged'}}])?.day).toMatchObject({status:'not_logged',calories:1234,entryCount:2,protein:null});
   });
 
   it('applies a later explicit decision after an entry change in queue order',()=>{

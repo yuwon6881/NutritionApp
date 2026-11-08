@@ -6,8 +6,8 @@ describe('energy balance history',()=>{
     expect(rows.map(r=>r.balance)).toEqual([-500,null,-2300]);expect(rows[1].intake).toBe(1200);
     expect(groupEnergy(rows,'month')[0].balance).toBeNull();
   });
-  it('preserves archived totals and never guesses historical maintenance',()=>{
-    const rows=energyDays({entries:[],days:[{date:'2026-09-01',status:'complete',deleted:false,archived:true,calories:2100,entryCount:20}],estimates:[]},'2026-09-01','2026-09-02');
+  it('never guesses historical maintenance',()=>{
+    const rows=energyDays({entries:[{date:'2026-09-01',calories:2100,deleted:false}],days:[{date:'2026-09-01',status:'complete',deleted:false}],estimates:[]},'2026-09-01','2026-09-02');
     expect(rows[0].intake).toBe(2100);expect(rows[0].balance).toBeNull();expect(rows[1].intake).toBeNull();
   });
 });

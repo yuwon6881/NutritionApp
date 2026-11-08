@@ -21,8 +21,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
     {
         ["PublicOrigin"] = "https://nutrition.example.com",
         ["GoogleHealth:ClientId"] = "test-client-id.apps.googleusercontent.com",
-        ["GoogleHealth:ClientSecret"] = "test-client-secret",
-        ["Retention:MealDetailDays"] = "90"
+        ["GoogleHealth:ClientSecret"] = "test-client-secret"
     }).Build();
 
     private readonly IGoogleHealthKms kms;
@@ -285,7 +284,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             await db.SaveChangesAsync();
         }
 
-        var today = RetentionService.Today(Json.Write(profile));
+        var today = ProfileClock.Today(Json.Write(profile));
         var yesterday = today.AddDays(-1);
         var dayBeforeYesterday = today.AddDays(-2);
 
@@ -539,7 +538,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             await db.SaveChangesAsync();
         }
 
-        var today = RetentionService.Today(null);
+        var today = ProfileClock.Today(null);
         var mockHttp = new MockHttpHandler
         {
             TokenResponse = new { access_token = "at-fresh", refresh_token = "rt-fresh", expires_in = 3600 },
@@ -599,7 +598,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
             await db.SaveChangesAsync();
         }
 
-        var today = RetentionService.Today(null);
+        var today = ProfileClock.Today(null);
         var mockHttp = new MockHttpHandler
         {
             TokenResponse = new { access_token = "at-1", refresh_token = "rt-1", expires_in = 3600 },
@@ -762,7 +761,7 @@ public sealed class GoogleHealthTests : IAsyncLifetime
 
         await using (var db = Open(userId))
         {
-            var exportService = new ExportService(db, new RetentionService(db, Config), kms);
+            var exportService = new ExportService(db, kms);
 
             // 1. JSON Export
             var jsonDoc = await exportService.BuildJsonDocument(default);

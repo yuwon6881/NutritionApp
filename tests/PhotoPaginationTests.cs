@@ -30,7 +30,7 @@ public sealed class PhotoPaginationTests
         using var cache=new MemoryCache(new MemoryCacheOptions());
         using var http=new HttpClient(new Handler());
         var service=new PhotoService(db,new GcsPhotoStore(http,config,_=>Task.FromResult("token")),config,new StorageService(db,cache,new TemporaryImageStore(http,config)));
-        var date=RetentionService.Today(user.ProfileJson);
+        var date=ProfileClock.Today(user.ProfileJson);
         for(var i=0;i<3;i++)
         {
             var input=new PhotoSetInput(Guid.NewGuid(),date,[new PhotoPart(Guid.NewGuid(),"front",Convert.ToBase64String([255,216,1,2,255,217]))]);

@@ -16,19 +16,18 @@ public static class AiEndpoints
         // Photo cleanup must run before database tombstone purging. It keeps the
         // object path as a durable retry marker until GCS confirms deletion; the
         // storage sweep may then safely remove only already-confirmed rows.
-        app.MapPost("/internal/cleanup",async(StorageService storage,RetentionService retention,PhotoService photos,NutritionNotificationService notifications,IServiceScopeFactory scopes,IConfiguration config,CancellationToken ct)=>
+        app.MapPost("/internal/cleanup",async(StorageService storage,PhotoService photos,NutritionNotificationService notifications,IServiceScopeFactory scopes,IConfiguration config,CancellationToken ct)=>
         {
             using var budget=new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(config.GetValue("Maintenance:MaxSeconds",45),5,120)));
             using var linked=CancellationTokenSource.CreateLinkedTokenSource(ct,budget.Token);
             var cleanupCt=linked.Token;
             var deletedPhotos=await photos.Cleanup(cleanupCt);
             var deleted=await storage.Cleanup(cleanupCt);
-            var compactedEntries=await retention.CompactAll(cleanupCt);
             var expiredNotificationDeliveries=await notifications.CleanupAsync(DateTime.UtcNow,cleanupCt);
             // Daily backstop for Google Health uploads that neither their own request nor a later visit sent. It
             // uses the request token, not the cleanup budget: cancelling mid-create would mark an upload uncertain.
             var googleHealth=await GoogleHealthOutboundSync.RunAsync(scopes,null,TimeSpan.FromSeconds(30),ct);
-            return new { deleted,compactedEntries,deletedPhotos,expiredNotificationDeliveries,googleHealth };
+            return new { deleted,deletedPhotos,expiredNotificationDeliveries,googleHealth };
         });
     }
 }

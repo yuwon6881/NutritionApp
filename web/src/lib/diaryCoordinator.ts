@@ -132,8 +132,7 @@ export class DiaryCoordinator {
             revision: op.expectedRevision,
             deleted: op.delete,
             date,
-            status: (op.data as any)?.status ?? 'incomplete',
-            archived: day?.archived
+            status: (op.data as any)?.status ?? 'incomplete'
           };
           dayModified=false;
         }
@@ -166,7 +165,7 @@ export class DiaryCoordinator {
       }
     }
 
-    if (dayModified && day && !day.archived) {
+    if (dayModified && day) {
       day.status = 'incomplete';
     }
 

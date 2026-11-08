@@ -28,7 +28,7 @@ public sealed class GoogleHealthWeightImportTests : IAsyncLifetime
         var user = await TestUsers.CreateAsync(db, "import-user");
         userId = user.Id;
         db.CurrentUser = userId;
-        today = RetentionService.Today(null);
+        today = ProfileClock.Today(null);
         db.GoogleHealthConnections.Add(new GoogleHealthConnection
         {
             UserId = userId,

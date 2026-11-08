@@ -496,32 +496,11 @@ namespace Nutrition.Api.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("Archived")
-                        .HasColumnType("boolean");
-
-                    b.Property<double>("Calories")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("Carbs")
-                        .HasColumnType("double precision");
-
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
                     b.Property<bool>("Deleted")
                         .HasColumnType("boolean");
-
-                    b.Property<int>("EntryCount")
-                        .HasColumnType("integer");
-
-                    b.Property<double?>("Fat")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("Fiber")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("Protein")
-                        .HasColumnType("double precision");
 
                     b.Property<long>("Revision")
                         .IsConcurrencyToken()
@@ -558,6 +537,9 @@ namespace Nutrition.Api.Data.Migrations
 
                     b.Property<bool>("Deleted")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<double?>("Fat")
                         .HasColumnType("double precision");

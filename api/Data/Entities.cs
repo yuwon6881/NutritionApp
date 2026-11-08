@@ -106,6 +106,10 @@ public class DiaryEntry : NutrientRecord
     public double? PortionGrams { get; set; }
     /// What <see cref="Quantity"/> (unit "g") and <see cref="PortionGrams"/> are measured in: "g" or "ml".
     public string Measure { get; set; } = Measures.Grams;
+    /// When the user deleted the entry; the maintenance sweep purges the tombstone once the window passes.
+    /// Never sent to clients.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DateTime? DeletedAt { get; set; }
 }
 public class Food : NutrientRecord
 {
@@ -151,13 +155,6 @@ public class DayStatus : OwnedRecord
 {
     public DateOnly Date { get; set; }
     public string Status { get; set; } = "incomplete";
-    public bool Archived { get; set; }
-    public int EntryCount { get; set; }
-    public double Calories { get; set; }
-    public double? Protein { get; set; }
-    public double? Fat { get; set; }
-    public double? Carbs { get; set; }
-    public double? Fiber { get; set; }
 }
 public class AcceptedPlan : OwnedRecord
 {

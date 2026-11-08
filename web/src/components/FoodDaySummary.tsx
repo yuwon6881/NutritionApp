@@ -44,7 +44,6 @@ export function FoodDaySummary({
   energyUnit,
   isPastDay = false,
   statusValue = 'incomplete',
-  statusDisabled = false,
   canFast = false,
   onStatusChange,
   checkInDue = false,
@@ -62,14 +61,12 @@ export function FoodDaySummary({
   energyUnit:EnergyUnit;
   isPastDay?:boolean;
   statusValue?:string;
-  statusDisabled?:boolean;
   canFast?:boolean;
   onStatusChange?:(value:string)=>void;
   checkInDue?:boolean;
   date?:string;
   currentDate?:string;
 }){
-  const archived=!!day?.archived;
   const energyKnown=count>0||fasting;
   const calorieTarget=targets.calories;
   const isCurrentOrFuture=date&&currentDate?date>=currentDate:!isPastDay;
@@ -81,12 +78,11 @@ export function FoodDaySummary({
       <div className="food-day-title-group">
         <h2>{title}</h2>
         {/* A past day can record a decision: fasting or not logging without food, or "not fully logged" when a meal is missing. */}
-        {isPastDay && !statusDisabled ? (
+        {isPastDay ? (
           <div className="food-day-status-control">
             <SelectField
               label="Logging status"
               className="food-day-status-select"
-              disabled={statusDisabled}
               value={statusValue}
               onChange={onStatusChange ?? (() => {})}
             >

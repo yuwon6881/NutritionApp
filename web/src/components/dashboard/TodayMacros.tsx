@@ -20,7 +20,7 @@ const MACROS:{key:Macro;label:string}[]=[
 export function TodayMacros({entries,savedDay,targets}:{entries:Entry[];savedDay:Day|undefined;targets:MacroTargets}){
   const {intake,partial}=dayIntake(entries,savedDay);
   // Nothing logged yet today is a known zero; a nutrient no logged food reports stays unknown.
-  const empty=!entries.length&&!savedDay?.archived;
+  const empty=!entries.length;
   return <article className="panel macros">
     <p className="eyebrow">Macronutrients</p>
     {MACROS.map(({key,label})=>{

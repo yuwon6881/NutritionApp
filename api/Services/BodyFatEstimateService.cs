@@ -41,7 +41,7 @@ public sealed class BodyFatEstimateService(AppDb db,GcsPhotoStore store,BodyReco
         var profile=user.ProfileJson.Length==0?null:Json.Read<Profile>(user.ProfileJson);
         var sex=profile?.Sex is "male" or "female"?profile.Sex:null;
         var height=profile is {HeightCm:>0}?profile.HeightCm:(double?)null;
-        int? age=profile is {DateOfBirth:not null}||profile is {Age:>0}?Coach.AgeAt(profile,RetentionService.Today(user.ProfileJson)):null;
+        int? age=profile is {DateOfBirth:not null}||profile is {Age:>0}?Coach.AgeAt(profile,ProfileClock.Today(user.ProfileJson)):null;
         var recorded=BodyRecordService.MeasurementFields
             .Where(field=>field.Key!="bodyFatPercent"&&field.Value.GetValue(measurements) is double)
             .Select(field=>new KeyValuePair<string,double>(field.Key,(double)field.Value.GetValue(measurements)!)).ToList();

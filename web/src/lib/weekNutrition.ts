@@ -35,16 +35,11 @@ const none=():Amounts=>({calories:null,protein:null,carbs:null,fat:null});
 const flags=()=>({calories:false,protein:false,carbs:false,fat:false});
 
 /**
- * One date's logged intake: the archived summary when meal detail was compacted, a known zero on
- * a fasting day, otherwise the sum of entries. A nutrient no entry reports stays null, and one
- * some entries lack is flagged partial.
+ * One date's logged intake: a known zero on a fasting day, otherwise the sum of entries. A nutrient
+ * no entry reports stays null, and one some entries lack is flagged partial.
  */
 export function dayIntake(entries:Entry[],day:Day|undefined){
   const intake=none(),partial=flags();
-  if(day?.archived){
-    for(const key of WEEK_NUTRIENTS)intake[key]=day[key]??null;
-    return {intake,partial,evidence:(day.entryCount??0)>0||day.status==='fasting'};
-  }
   if(!entries.length){
     if(day?.status!=='fasting')return {intake,partial,evidence:false};
     for(const key of WEEK_NUTRIENTS)intake[key]=0;

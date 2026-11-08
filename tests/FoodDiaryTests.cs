@@ -24,8 +24,8 @@ public class FoodDiaryTests
 
     [Fact] public Task Quick_add_keeps_time_unknown_macros_and_idempotency()=>WithDiary(async(db,user,config)=>
     {
-        var sync=new SyncService(db,null,new RetentionService(db,config));
-        var date=RetentionService.Today(user.ProfileJson);
+        var sync=new SyncService(db);
+        var date=ProfileClock.Today(user.ProfileJson);
         var op=new Mutation(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,time="00:00",name="Quick add",calories=450,quantity=1,unit="serving",source="Quick add"}));
         var revision=await sync.Apply(op,default);
         Assert.Equal(revision,await sync.Apply(op,default));
@@ -39,8 +39,8 @@ public class FoodDiaryTests
 
     [Fact] public Task A_millilitre_entry_keeps_its_measure_through_an_older_clients_edit()=>WithDiary(async(db,user,config)=>
     {
-        var sync=new SyncService(db,null,new RetentionService(db,config));
-        var date=RetentionService.Today(user.ProfileJson);
+        var sync=new SyncService(db);
+        var date=ProfileClock.Today(user.ProfileJson);
         var id=Guid.NewGuid();
         var revision=await sync.Apply(new(Guid.NewGuid(),"entry",id,0,JsonSerializer.SerializeToElement(new {date,name="Milk",calories=100,quantity=250,unit="g",measure="ml"})),default);
         Assert.Equal("ml",(await db.Entries.SingleAsync()).Measure);
@@ -52,8 +52,8 @@ public class FoodDiaryTests
 
     [Fact] public Task An_unknown_measure_is_rejected_and_grams_is_the_default()=>WithDiary(async(db,user,config)=>
     {
-        var sync=new SyncService(db,null,new RetentionService(db,config));
-        var date=RetentionService.Today(user.ProfileJson);
+        var sync=new SyncService(db);
+        var date=ProfileClock.Today(user.ProfileJson);
         await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,name="Milk",calories=100,measure="oz"})),default));
         await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(new(Guid.NewGuid(),"food",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {name="Milk",calories=50,measure="cup"})),default));
         await sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,name="Rice",calories=100})),default);
@@ -62,7 +62,7 @@ public class FoodDiaryTests
 
     [Fact] public Task A_saved_millilitre_food_keeps_its_measure_through_an_older_clients_edit()=>WithDiary(async(db,user,config)=>
     {
-        var sync=new SyncService(db,null,new RetentionService(db,config));
+        var sync=new SyncService(db);
         var id=Guid.NewGuid();
         var revision=await sync.Apply(new(Guid.NewGuid(),"food",id,0,JsonSerializer.SerializeToElement(new {name="Milk",calories=50,servingGrams=250,measure="ml"})),default);
         await sync.Apply(new(Guid.NewGuid(),"food",id,revision,JsonSerializer.SerializeToElement(new {name="Milk",calories=52,servingGrams=250})),default);
@@ -74,42 +74,16 @@ public class FoodDiaryTests
     [InlineData("24:00")][InlineData("12:60")][InlineData("9:00")][InlineData("12:00\n")]
     public Task Invalid_time_is_rejected(string time)=>WithDiary(async(db,user,config)=>
     {
-        var sync=new SyncService(db,null,new RetentionService(db,config));
-        var date=RetentionService.Today(user.ProfileJson);
+        var sync=new SyncService(db);
+        var date=ProfileClock.Today(user.ProfileJson);
         await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,time,name="Meal",calories=300})),default));
         Assert.Empty(await db.Entries.ToListAsync());
     });
 
-    [Fact] public Task Default_retention_keeps_90_calendar_days_and_preserves_rollups()=>WithDiary(async(db,user,config)=>
-    {
-        var today=RetentionService.Today(user.ProfileJson);
-        var retention=new RetentionService(db,config);Assert.Equal(90,retention.DetailDays);
-        db.Entries.AddRange(
-            new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-89),Name="Kept",Calories=200,Time="23:59"},
-            new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-90),Name="Quick add",Calories=450,Time="12:00"});
-        await db.SaveChangesAsync();
-        Assert.Equal(1,await retention.CompactUser(user.Id,today,default));
-        Assert.Equal("Kept",(await db.Entries.SingleAsync()).Name);
-        var summary=await db.Days.SingleAsync();Assert.True(summary.Archived);Assert.Equal(450,summary.Calories);Assert.Null(summary.Protein);
-        Assert.Equal(0,await retention.CompactUser(user.Id,today,default));
-    });
-
-    [Fact] public Task Previously_archived_days_stay_read_only_inside_extended_retention()=>WithDiary(async(db,user,config)=>
-    {
-        var date=RetentionService.Today(user.ProfileJson).AddDays(-12);
-        var day=new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Archived=true,Calories=450,EntryCount=1,Status="complete"};
-        db.Days.Add(day);await db.SaveChangesAsync();
-        var sync=new SyncService(db,null,new RetentionService(db,config));
-        var error=await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(new(Guid.NewGuid(),"entry",Guid.NewGuid(),0,JsonSerializer.SerializeToElement(new {date,time="12:00",name="Meal",calories=300})),default));
-        Assert.Equal(409,error.Status);
-        await sync.Apply(new(Guid.NewGuid(),"day",day.Id,day.Revision,JsonSerializer.SerializeToElement(new {date,status="not_logged"})),default);
-        Assert.True(day.Archived);Assert.Equal(450,day.Calories);Assert.Equal(1,day.EntryCount);Assert.Null(day.Protein);
-    });
-
     [Fact] public Task Time_only_move_preserves_entry_and_resets_day_status()=>WithDiary(async(db,user,config)=>
     {
-        var sync=new SyncService(db,null,new RetentionService(db,config));
-        var date=RetentionService.Today(user.ProfileJson);
+        var sync=new SyncService(db);
+        var date=ProfileClock.Today(user.ProfileJson);
         var entryId=Guid.NewGuid();
         var original=new DiaryEntry{
             Id=entryId,UserId=user.Id,Date=date,Time="08:00",Name="Breakfast",

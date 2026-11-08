@@ -25,7 +25,7 @@ export async function prepare(page:Page,data:LocalData) {
     if(path==='/api/bootstrap')return route.fulfill({json:state,headers:{ETag:'"performance"'}});
     if(path==='/api/revisions')return route.fulfill({status:304,headers:{ETag:'"performance"'}});
     if(path==='/api/foods')return route.fulfill({json:{foods:state.foods,revision:1,foodRevision:1}});
-    if(path==='/api/diary')return route.fulfill({json:{from:state.start,to:state.end,revision:1,detailCutoff:state.start,detailDays:90,entries:state.entries,days:state.days}});
+    if(path==='/api/diary')return route.fulfill({json:{from:state.start,to:state.end,revision:1,entries:state.entries,days:state.days}});
     if(path==='/api/progress/summary')return route.fulfill({json:performanceSummary(state),headers:{ETag:'"progress"'}});
     if(path==='/api/training/summary')return route.fulfill({json:{summaries:[],workoutConnected:false}});
     if(path==='/api/sync')return route.fulfill({status:503,json:{message:'Benchmark retains local work.'}});

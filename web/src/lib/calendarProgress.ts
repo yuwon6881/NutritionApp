@@ -16,7 +16,6 @@ export function calorieProgress(intake:number|null,target:number|null):number|nu
 
 export function calendarIntake(day:DatedDiaryDay|undefined):number|null{
   if(!day)return null;
-  if(day.day?.archived)return day.day.calories??null;
   const entries=day.entries.filter(entry=>!entry.deleted);
   if(entries.length)return entries.reduce((sum,entry)=>sum+entry.calories,0);
   return day.day?.status==='fasting'?0:null;

@@ -5,7 +5,7 @@ import { today } from './format';
 type Ref<T> = { current: T };
 export type NutritionRevisions = {
   account: number; profile: number; settings: number; trajectory: number; foods: number; diary: number; body: number;
-  training: number; google: number; localDay: string; detailDays: number;
+  training: number; google: number; localDay: string;
 };
 
 export function bootstrapNeedsRefresh(state: LocalData['state'], revision: NutritionRevisions): boolean {

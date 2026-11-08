@@ -38,14 +38,17 @@ public sealed class CrossAppAiTests
             new AcceptedPlan { Id = Guid.NewGuid(), UserId = user.Id, Date = today, ProfileJson = "{}", ResultJson = Json.Write(new CoachResult(true, false, 2200, 2500, 160, 65, 210, "new")) });
         db.Days.AddRange(new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-3), Status = "fasting" },
             new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-2), Status = "not_logged" },
-            new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-1), Archived = true, EntryCount = 2, Calories = 1800, Protein = null });
-        db.Entries.Add(new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = today, Calories = 500, Protein = 25 });
+            new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-1), Status = "complete" });
+        db.Entries.AddRange(
+            new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-1), Calories = 1000, Protein = null },
+            new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-1), Calories = 800, Protein = 30 },
+            new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = today, Calories = 500, Protein = 25 });
         await db.SaveChangesAsync();
         var rows = await new NutritionDailySummaryService(db).Get(today.AddDays(-4), today, today, default);
         Assert.Null(rows.Single(d => d.Date == today.AddDays(-4)).Calories);
         Assert.Equal(0, rows.Single(d => d.Status == "fasting").Calories);
         Assert.Null(rows.Single(d => d.Status == "not_logged").Calories);
-        var historical = rows.Single(d => d.Archived);
+        var historical = rows.Single(d => d.Date == today.AddDays(-1));
         Assert.Null(historical.Protein);
         Assert.Equal(2000, historical.Targets!.Calories);
         Assert.Equal(2200, rows.Single(d => d.Date == today).Targets!.Calories);

@@ -41,15 +41,6 @@ public sealed class GetFoodLogTool : IAiTool
             .ThenBy(e => e.Name)
             .ToListAsync(cancellationToken);
 
-        var archived = await _db.Days.AsNoTracking()
-            .Where(d => d.Date == date && d.Archived && !d.Deleted).FirstOrDefaultAsync(cancellationToken);
-        if (archived != null)
-            return AiToolResult.Of(new { date = date.ToString("yyyy-MM-dd"), archived = true,
-                itemCount = archived.EntryCount, energyUnit = context.EnergyUnit,
-                totals = new { calories = AiNutritionValues.Energy(archived.Calories, context),
-                    protein = archived.Protein, fat = archived.Fat, carbs = archived.Carbs, fiber = archived.Fiber },
-                items = Array.Empty<object>(), message = "Meal details were archived. Only daily totals remain available." });
-
         if (entries.Count == 0)
         {
             return AiToolResult.Of(new
@@ -92,7 +83,6 @@ public sealed class GetFoodLogTool : IAiTool
             date = date.ToString("yyyy-MM-dd"),
             itemCount = items.Count,
             energyUnit = context.EnergyUnit,
-            archived = false,
             totals = new
             {
                 calories = AiNutritionValues.Energy(totalCalories, context),

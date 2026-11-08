@@ -91,7 +91,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         Validation.Require(input.Id!=Guid.Empty,"Photo set identity is required.");
         // Same ceiling as Body record edits (the profile's today), so a photo-created record is never locked out of editing.
         var profileJson=await db.Users.Where(u=>u.Id==db.CurrentUser).Select(u=>u.ProfileJson).SingleOrDefaultAsync(ct);
-        Validation.Require(input.Date>=EarliestDate&&input.Date<=RetentionService.Today(profileJson),"Choose a valid photo date.");
+        Validation.Require(input.Date>=EarliestDate&&input.Date<=ProfileClock.Today(profileJson),"Choose a valid photo date.");
         var parts=input.Photos??Array.Empty<PhotoPart>();
         Validation.Require(parts.Count<=3,"A physique photo set can contain at most three views.");
         Validation.Require(parts.Select(part=>part.Angle).Distinct(StringComparer.Ordinal).Count()==parts.Count&&parts.All(part=>part.Angle is "front" or "side" or "back"),"Choose one front, side, and back photo at most.");

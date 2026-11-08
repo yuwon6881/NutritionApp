@@ -22,7 +22,7 @@ export function historySource(local:LocalData,key:string,range:{start:string;end
 }
 /** A stored snapshot with the retained queue applied; clip it to the range being read. */
 export function projectHistorySource(local:LocalData,saved:AppState):AppState{
-  return project({...saved,profile:local.state.profile,detailDays:local.state.detailDays,detailCutoff:local.state.detailCutoff},local.queue);
+  return project({...saved,profile:local.state.profile},local.queue);
 }
 export function historyState(local:LocalData,key:string):AppState|undefined{
   const range=historyRange(key,today(local.state.profile?.timeZone));

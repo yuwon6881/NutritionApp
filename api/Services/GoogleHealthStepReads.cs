@@ -25,7 +25,7 @@ public static class GoogleHealthStepReads
             try
             {
                 var profile = await db.Users.Where(x => x.Id == userId).Select(x => x.ProfileJson).SingleAsync(ct);
-                var today = RetentionService.Today(profile);
+                var today = ProfileClock.Today(profile);
                 var zone = string.IsNullOrWhiteSpace(profile) ? "Asia/Kuala_Lumpur" : Json.Read<Profile>(profile).TimeZone;
                 if (GoogleHealthService.SyncCache.TryGetValue<GoogleHealthService.CachedSync>(userId, out var cached)
                     && cached is not null && cached.ConnectionGeneration == connection.ConnectionGeneration

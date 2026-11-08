@@ -10,13 +10,13 @@ export function performanceFixture(days:number,outbox=0):LocalData {
     diaryRevision:1,trajectoryRevision:1,bodyRevision:1,foodRevision:1,
     profile:{age:30,dateOfBirth:null,heightCm:175,weightKg:80,sex:'male',activity:1.4,goal:'maintain',maintenance:2400,
       proteinGrams:null,resistanceTraining:false,pregnancyOrBreastfeeding:false,medicalNutrition:false,timeZone:'UTC'},
-    settings:{checkInWeekday:1,revision:1},start:date(89),end,detailCutoff:date(89),detailDays:90,
+    settings:{checkInWeekday:1,revision:1},start:date(89),end,
     entries:[],weights:[],foods:[],days:[],
     plans:[{id:'accepted-fixture-plan',revision:1,deleted:false,date:end,inputRevision:1,profileRevision:1,resultJson:JSON.stringify(accepted)}],
     checkIns:[],phaseDecisions:[],trainingSummaries:[],workoutConnected:false};
   for(let i=0;i<days;i++) {
     state.weights.push({id:`weight-${i}`,revision:1,deleted:false,date:date(i),kg:80+i%4*.1});
-    state.days.push({id:`day-${i}`,revision:1,deleted:false,date:date(i),status:'complete',archived:i>=90,entryCount:8,calories:1600});
+    state.days.push({id:`day-${i}`,revision:1,deleted:false,date:date(i),status:'complete'});
     if(i<90)for(let j=0;j<8;j++)state.entries.push({id:`entry-${i}-${j}`,revision:1,deleted:false,date:date(i),time:`${String(8+j).padStart(2,'0')}:00`,
       name:`Food ${j}`,calories:200,protein:10,carbs:20,fat:5,fiber:null,source:'manual',quantity:100,unit:'g'});
   }

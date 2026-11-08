@@ -13,7 +13,6 @@ public sealed class ExportServiceTests : IAsyncLifetime
 {
     private readonly string path = Path.Combine(Path.GetTempPath(), $"nutrition-export-{Guid.NewGuid()}.db");
     private AppDb Open(Guid? user = null) => new(new DbContextOptionsBuilder<AppDb>().UseSqlite($"Data Source={path}").Options) { CurrentUser = user };
-    private static IConfiguration Config => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"] = "90" }).Build();
 
     public async Task InitializeAsync() { await using var db = Open(); await db.Database.EnsureCreatedAsync(); }
     public Task DisposeAsync() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(path); return Task.CompletedTask; }
@@ -43,7 +42,7 @@ public sealed class ExportServiceTests : IAsyncLifetime
         }
 
         await using var db = Open(alice.Id);
-        var service = new ExportService(db, new RetentionService(db, Config));
+        var service = new ExportService(db);
         var json = await service.BuildJsonDocument(default);
         var entry = Assert.Single(json.Entries);
         Assert.Equal("Rice", entry.Name);
@@ -67,7 +66,7 @@ public sealed class ExportServiceTests : IAsyncLifetime
         Assert.Contains("barcode",foodsCsv,StringComparison.Ordinal);
         Assert.Contains("9551234567890",foodsCsv,StringComparison.Ordinal);
         var readme=await Read(archive,"README.txt");
-        Assert.Contains("csvSchemaVersion=6",readme,StringComparison.Ordinal);
+        Assert.Contains("csvSchemaVersion=7",readme,StringComparison.Ordinal);
         var bodyCsv=await Read(archive,"body-records.csv");
         Assert.Contains("waist_cm",bodyCsv,StringComparison.Ordinal);
         Assert.Contains("82",bodyCsv,StringComparison.Ordinal);

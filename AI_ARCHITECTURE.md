@@ -14,7 +14,7 @@ Ask AI is a read-only assistant with reviewable screen-opening proposals. It doe
 
 ## Nutrition semantics
 
-Daily summaries and food logs preserve archived day totals, unknown nutrients, and explicit logging-day status. Targets use the effective plan for each date, including weekday calories and macro scaling; a newer plan does not rewrite historical targets. Calories convert to the account's kcal/kJ preference. Food search labels the nutrient basis honestly rather than treating every serving as 100 g. Expenditure is identified as an estimate. Dates follow the profile timezone.
+Daily summaries and food logs preserve unknown nutrients, and explicit logging-day status. Targets use the effective plan for each date, including weekday calories and macro scaling; a newer plan does not rewrite historical targets. Calories convert to the account's kcal/kJ preference. Food search labels the nutrient basis honestly rather than treating every serving as 100 g. Expenditure is identified as an estimate. Dates follow the profile timezone.
 
 `get_coaching_history` reads the most recent accepted plans, check-in decisions, and goal-phase decisions (bounded per kind), along with the goal and body settings the coach uses. It leaves out clinical eligibility flags. Past plans are history: only the current recommendation can be accepted, through the Coach screen. Physique photos are not exposed to chat.
 

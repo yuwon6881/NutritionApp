@@ -56,7 +56,7 @@ public sealed class BodyPhotoHardeningTests
         var (db,photos,_,_,_)=await CreateAsync();
         await using(db)
         {
-            var today=RetentionService.Today(null);
+            var today=ProfileClock.Today(null);
             await Assert.ThrowsAsync<DomainException>(()=>photos.Upload(Photo(today.AddDays(1)),default));
             Assert.Single(await photos.Upload(Photo(today),default));
         }

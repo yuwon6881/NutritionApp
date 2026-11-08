@@ -49,7 +49,7 @@ public sealed class CheckInTests
         await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
         var user = await NewUser(db);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         var yesterday = today.AddDays(-1);
         db.Plans.Add(AddPlan(user, yesterday));
         await db.SaveChangesAsync();
@@ -71,7 +71,7 @@ public sealed class CheckInTests
         await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
         var user = await NewUser(db);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         // Accepted on the previous check-in day, so this week's check-in is exactly due.
         var plan = AddPlan(user, CheckInWeek.WeekStart(today).AddDays(-7));
         db.Plans.Add(plan);
@@ -106,7 +106,7 @@ public sealed class CheckInTests
         await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
         var user = await NewUser(db);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         db.Plans.Add(AddPlan(user, CheckInWeek.WeekStart(today).AddDays(-7)));
         await db.SaveChangesAsync();
         db.CurrentUser = user.Id;
@@ -133,7 +133,7 @@ public sealed class CheckInTests
         await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
         await db.Database.EnsureCreatedAsync();
         var user = await NewUser(db);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         db.Plans.Add(AddPlan(user, today));
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
@@ -175,7 +175,7 @@ public sealed class CheckInTests
         user.ProfileJson = Json.Write(profile);
         user.ProfileRevision++;
         user.Revision++;
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         db.Weights.AddRange(
             new Weight { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-3), Kg = 80 },
             new Weight { Id = Guid.NewGuid(), UserId = user.Id, Date = today.AddDays(-2), Kg = 80 },

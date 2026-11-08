@@ -20,11 +20,10 @@ describe('logging calendar',()=>{
 
   it('marks food, explicit decisions, missed days, today, and dates not on the device',()=>{
     const cells=foodCalendar(state({
-      entries:[entry('2026-09-05'),entry('2026-09-06',true)],
+      entries:[entry('2026-09-04'),entry('2026-09-05'),entry('2026-09-06',true)],
       days:[
         {id:'d1',revision:0,deleted:false,date:'2026-09-07',status:'fasting'},
         {id:'d2',revision:0,deleted:false,date:'2026-09-08',status:'not_logged'},
-        {id:'d3',revision:0,deleted:false,date:'2026-09-04',status:'complete',archived:true,entryCount:3},
       ],
     }),'2026-09-10','2026-09-11',9);
     expect(status(cells)).toEqual({

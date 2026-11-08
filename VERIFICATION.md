@@ -27,31 +27,11 @@ Local implementation verified on 2026-09-10. This is not a production release ce
 - NuGet vulnerability scan: no known vulnerable dependencies. npm audit after updating Vite to 8.2.2: zero vulnerabilities.
 - Browser suite: 37 end-to-end scenarios passed against the isolated local API, including sync feedback, onboarding, responsive screen and 44px touch-target audits, API idempotency and CSRF origin protection, physique-photo offline drafts, validation, motion, retry, and phase pacing. Screens were checked at 390, 768, and 1440 px with zero horizontal overflow and compliant touch targets.
 
-## Ten-year storage experiment
-
-Command: `dotnet run --project tools/StorageBenchmark/StorageBenchmark.csproj`.
-
-Two users, 20 entries per day, ten years, with daily statuses, weigh-ins, mutation receipts and indexes:
-
-| Measurement | Result |
-|---|---:|
-| Initial detailed entries | 146,000 |
-| Entries retained after compaction | 280 |
-| Archived day summaries | 7,286 |
-| Weights retained | 7,300 |
-| Recent receipts retained | 3,600 |
-| SQLite allocated bytes before cleanup | 108,175,360 |
-| Allocated bytes after deletion alone | 108,175,360 |
-| Bytes after explicit benchmark VACUUM | 4,923,392 |
-| Compacted storage reduction | 95.4% |
-
-The experiment uses a disposable SQLite database. It excludes personal food libraries, accepted plans, photo metadata and PostgreSQL catalog overhead. It verifies the retention algorithm and demonstrates the difference between reusable free pages and physically reclaimed file space. It does **not** establish the Neon 350 MB total-database design budget. Do not run automatic production VACUUM FULL based on this experiment.
-
 ## Neon and storage provisioning
 
 - Applied all three nutrition migrations to the replacement Neon database. Verified direct and pooled connections with certificate validation and required channel binding. The previously retracted project ID was not linked or used.
-- Isolated PostgreSQL verification passed: two concurrent registration slots, tenant isolation, idempotent replay, and equivalent coaching results after compaction. The temporary schema was removed; no test users were added to public application tables.
-- A ten-year fixture of 7,300 summaries and 7,300 weights used 4,005,888 bytes including indexes in its isolated schema. This excludes other long-term entity types. The application database measured 8,421,376 bytes after removal of that schema.
+- Isolated PostgreSQL verification passed: two concurrent registration slots, tenant isolation, and idempotent replay. The temporary schema was removed; no test users were added to public application tables.
+- The application database measured 8,421,376 bytes after removal of the isolated verification schema.
 - Created an independent Cloud Run runtime identity and scoped Secret Manager access. Credentials are in ignored local deployment files and Secret Manager, excluded from Docker input.
 - Created private scan bucket `nutrition-scans-396431756440`, with soft delete disabled and an age-one-day deletion lifecycle for the nutrition scan prefix. Lifecycle deletion is asynchronous; hourly application cleanup is still needed for the intended expiry contract.
 - Added a nutrition-prefix-only runtime grant on the existing physique bucket. Its versioning and 30-day soft-delete settings were preserved.

@@ -72,7 +72,7 @@ public class DiaryEndpointsTests
     {
         await WithClient(async (client, db, userA, userB) =>
         {
-            var today = RetentionService.Today(userA.ProfileJson);
+            var today = ProfileClock.Today(userA.ProfileJson);
 
             // Missing parameters
             var res1 = await client.GetAsync("/api/diary");
@@ -112,7 +112,7 @@ public class DiaryEndpointsTests
     {
         await WithClient(async (client, db, userA, userB) =>
         {
-            var today = RetentionService.Today(userA.ProfileJson);
+            var today = ProfileClock.Today(userA.ProfileJson);
 
             // Seed entries for user A and user B
             db.Entries.AddRange(
@@ -158,42 +158,30 @@ public class DiaryEndpointsTests
     }
 
     [Fact]
-    public async Task Empty_and_archived_days_in_diary()
+    public async Task Old_days_return_their_meal_detail_and_no_retention_fields()
     {
         await WithClient(async (client, db, userA, userB) =>
         {
-            var today = RetentionService.Today(userA.ProfileJson);
-            var pastDate = today.AddDays(-20);
+            var today = ProfileClock.Today(userA.ProfileJson);
+            var pastDate = today.AddDays(-400);
 
-            // Seed an archived day summary without detail entries
-            db.Days.Add(new DayStatus
-            {
-                Id = Guid.NewGuid(),
-                UserId = userA.Id,
-                Date = pastDate,
-                Status = "complete",
-                Archived = true,
-                Calories = 2100,
-                Protein = 150,
-                Carbs = 200,
-                Fat = 70,
-                EntryCount = 5
-            });
+            db.Days.Add(new DayStatus { Id = Guid.NewGuid(), UserId = userA.Id, Date = pastDate, Status = "complete" });
+            db.Entries.Add(new DiaryEntry { Id = Guid.NewGuid(), UserId = userA.Id, Date = pastDate, Name = "Rice", Calories = 2100 });
             await db.SaveChangesAsync();
 
             var res = await client.GetAsync($"/api/diary?from={pastDate.AddDays(-1):yyyy-MM-dd}&to={pastDate.AddDays(1):yyyy-MM-dd}");
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             var doc = await res.Content.ReadFromJsonAsync<JsonElement>();
 
-            // entries is empty because archived days have no detail entries
-            Assert.Empty(doc.GetProperty("entries").EnumerateArray().ToList());
+            var entries = doc.GetProperty("entries").EnumerateArray().ToList();
+            Assert.Single(entries);
+            Assert.Equal(2100, entries[0].GetProperty("calories").GetInt32());
+            Assert.False(doc.TryGetProperty("detailDays", out _));
+            Assert.False(doc.TryGetProperty("detailCutoff", out _));
 
-            // days has 1 day
             var days = doc.GetProperty("days").EnumerateArray().ToList();
             Assert.Single(days);
-            Assert.True(days[0].GetProperty("archived").GetBoolean());
-            Assert.Equal(2100, days[0].GetProperty("calories").GetInt32());
-            Assert.Equal(5, days[0].GetProperty("entryCount").GetInt32());
+            Assert.False(days[0].TryGetProperty("archived", out _));
             Assert.Equal("complete", days[0].GetProperty("status").GetString());
         });
     }
@@ -203,7 +191,7 @@ public class DiaryEndpointsTests
     {
         await WithClient(async (client, db, userA, userB) =>
         {
-            var today = RetentionService.Today(userA.ProfileJson);
+            var today = ProfileClock.Today(userA.ProfileJson);
 
             var progress = await client.GetAsync("/api/progress/summary?period=month");
             Assert.Equal(HttpStatusCode.OK, progress.StatusCode);
@@ -273,7 +261,7 @@ public class DiaryEndpointsTests
     {
         await WithClient(async (client, db, userA, userB) =>
         {
-            var today = RetentionService.Today(userA.ProfileJson);
+            var today = ProfileClock.Today(userA.ProfileJson);
             db.Entries.Add(new DiaryEntry { Id = Guid.NewGuid(), UserId = userA.Id, Date = today, Name = "Salad", Calories = 150, Time = "12:00" });
             db.Foods.Add(new Food { Id = Guid.NewGuid(), UserId = userA.Id, Name = "Lettuce", Calories = 15, ServingGrams = 100, IngredientsJson = "[]", PortionsJson = "[]" });
             await db.SaveChangesAsync();

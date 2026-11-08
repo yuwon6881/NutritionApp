@@ -44,8 +44,8 @@ describe('week nutrition',()=>{
     expect(only.partial.protein).toBe(false);
   });
 
-  it('reads archived day totals and leaves dates off the device unknown',()=>{
-    const week=weekNutrition(state({start:'2026-09-08',days:[day('2026-09-08',{archived:true,entryCount:2,calories:1500,protein:90,carbs:null,fat:40})]}),current);
+  it('leaves dates off the device unknown',()=>{
+    const week=weekNutrition(state({start:'2026-09-08',entries:[entry('2026-09-08',1500,{protein:90,carbs:null,fat:40})]}),current);
     expect(week[0].status).toBe('unknown');
     expect(week[1]).toMatchObject({status:'known',intake:{calories:1500,protein:90,carbs:null,fat:40}});
   });

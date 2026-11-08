@@ -22,7 +22,7 @@ export function missingDays(state:AppState,current=today(state.profile?.timeZone
   const result:string[]=[];
   for(let date=start;date<current&&date<=state.end;date=shiftDate(date,1)){
     const day=days.get(date);
-    const food=day?.archived?(day.entryCount??0)>0:logged.has(date);
+    const food=logged.has(date);
     if(!food&&day?.status!=='fasting'&&day?.status!=='not_logged')result.push(date);
   }
   return result;

@@ -27,7 +27,7 @@ public sealed class ProgressSummaryTests
     }
 
     [Fact]
-    public async Task Summary_uses_archived_totals_and_returns_bounded_weight_series()
+    public async Task Summary_reads_the_whole_history_and_returns_bounded_weight_series()
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
@@ -36,23 +36,24 @@ public sealed class ProgressSummaryTests
         var user=await TestUsers.CreateAsync(db, "progress-user");
         var profile=new Profile{Age=30,DateOfBirth=new DateOnly(1996,1,1),HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2400,TimeZone="Asia/Kuala_Lumpur"};
         user.ProfileJson=Json.Write(profile);user.Revision=1;db.CurrentUser=user.Id;
-        var current=RetentionService.Today(user.ProfileJson);
+        var current=ProfileClock.Today(user.ProfileJson);
         for(var i=0;i<450;i++)db.Weights.Add(new Weight{Id=Guid.NewGuid(),UserId=user.Id,Date=current.AddDays(-449+i),Kg=80+i%9*.1});
-        var archived=current.AddDays(-450);
-        db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=archived,Archived=true,Status="complete",EntryCount=2,Calories=2300,Protein=120,Carbs=240,Fat=70});
+        var oldest=current.AddDays(-450);
+        db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=oldest,Status="complete"});
+        db.Entries.AddRange(new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=oldest,Name="Breakfast",Calories=1000},new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=oldest,Name="Dinner",Calories=1300});
         await db.SaveChangesAsync();
         using var cache=new MemoryCache(new MemoryCacheOptions{SizeLimit=32});
         var service=new ProgressSummaryService(db,new ExpenditureTrajectoryService(db),cache);
 
         var summary=await service.Get("all",default);
 
-        Assert.Equal(archived,summary.Start);
+        Assert.Equal(oldest,summary.Start);
         Assert.Equal(current,summary.End);
         Assert.Equal("monthly",summary.Grouping.Energy);
         Assert.True(summary.Weight.Series.Count<=400);
         Assert.Equal(current.AddDays(-449),summary.Weight.Series[0].Date);
         Assert.Equal(current,summary.Weight.Series[^1].Date);
-        Assert.Contains(summary.Energy.Series,bucket=>bucket.Date==archived&&bucket.Intake==2300);
+        Assert.Contains(summary.Energy.Series,bucket=>bucket.Date==oldest&&bucket.Intake==2300);
         Assert.Equal(10,summary.Weight.EditableWeighIns.Count);
         var week=await service.Get("week",default);
         // The week reads a bounded warm-up, so it agrees with the full read to well below display precision.
@@ -71,7 +72,7 @@ public sealed class ProgressSummaryTests
         var user=await TestUsers.CreateAsync(db, "progress-user");
         user.ProfileJson=Json.Write(new Profile{Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2400,TimeZone="Asia/Kuala_Lumpur"});
         user.Revision=1;db.CurrentUser=user.Id;
-        var current=RetentionService.Today(user.ProfileJson);
+        var current=ProfileClock.Today(user.ProfileJson);
         AcceptedPlan Plan(int daysAgo,long revision,double expenditure,bool deleted=false)=>new(){Id=Guid.NewGuid(),UserId=user.Id,Date=current.AddDays(-daysAgo),
             Revision=revision,Deleted=deleted,ResultJson=Json.Write(new CoachResult(true,false,expenditure,expenditure,150,80,300,"accepted")),ProfileJson=user.ProfileJson};
         // The same-date later revision wins, and a deleted plan never applies.

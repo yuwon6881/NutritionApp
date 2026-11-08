@@ -8,7 +8,6 @@ import {displayMass,displayPortion} from '../lib/portions';
 export interface FoodTimeCardProps {
   entry:Entry;
   energyUnit:EnergyUnit;
-  readOnly:boolean;
   isSelecting:boolean;
   /** Selection just ended: the checkbox plays its exit animation without taking input. */
   checkboxLeaving?:boolean;
@@ -24,7 +23,6 @@ export interface FoodTimeCardProps {
 export const FoodTimeCard=memo(function FoodTimeCard({
   entry,
   energyUnit,
-  readOnly,
   isSelecting,
   checkboxLeaving=false,
   isSelected,
@@ -40,9 +38,8 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   const pointerProps=isSelecting?{}:dragProps;
 
   // A plain tap, click, or Enter/Space opens the editor. Hold and drag are owned by the
-  // timeline gesture (the drag hook swallows the click a mouse release would add), and a card the
-  // viewer cannot change stays inert.
-  const editable=Boolean(onEdit)&&!readOnly&&!isSelecting;
+  // timeline gesture (the drag hook swallows the click a mouse release would add).
+  const editable=Boolean(onEdit)&&!isSelecting;
   const showCheckbox=isSelecting||checkboxLeaving;
   return <article
       className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${showCheckbox?'food-time-card-selecting':''}`.trim()}

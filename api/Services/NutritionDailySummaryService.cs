@@ -26,19 +26,18 @@ public sealed class NutritionDailySummaryService(AppDb db)
         {
             var items = grouped.GetValueOrDefault(date, []);
             var status = statuses.GetValueOrDefault(date);
-            var archived = status?.Archived == true;
-            var count = archived ? status!.EntryCount : items.Count;
-            var resolved = LoggingDay.Status(date, today, status?.Status, count > 0);
-            var known = count > 0 || resolved == "fasting";
-            double? Nutrient(Func<DiaryEntry, double?> select, double? saved) => !known ? null
-                : archived ? saved : items.Any(e => !select(e).HasValue) ? null : items.Sum(e => select(e) ?? 0);
+            var resolved = LoggingDay.Status(date, today, status?.Status, items.Count > 0);
+            var known = items.Count > 0 || resolved == "fasting";
+            double? Nutrient(Func<DiaryEntry, double?> select) => !known ? null
+                : items.Any(e => !select(e).HasValue) ? null : items.Sum(e => select(e) ?? 0);
             var plan = plans.FirstOrDefault(p => p.Date <= date);
             var result = ReadPlan(plan);
             estimates.TryGetValue(date, out var estimate);
-            summaries.Add(new(date, resolved, archived, count,
-                known ? archived ? status!.Calories : items.Sum(e => e.Calories) : null,
-                Nutrient(e => e.Protein, status?.Protein), Nutrient(e => e.Fat, status?.Fat),
-                Nutrient(e => e.Carbs, status?.Carbs), Nutrient(e => e.Fiber, status?.Fiber), Targets(plan, date),
+            // The vendored cross-app contract still carries Archived; meal detail is never archived, so it is always false.
+            summaries.Add(new(date, resolved, false, items.Count,
+                known ? items.Sum(e => e.Calories) : null,
+                Nutrient(e => e.Protein), Nutrient(e => e.Fat),
+                Nutrient(e => e.Carbs), Nutrient(e => e.Fiber), Targets(plan, date),
                 estimate?.Expenditure ?? result?.Expenditure, estimate?.Confidence, estimate?.HoldReason,
                 estimate != null ? "expenditure_snapshot" : result?.Expenditure != null ? "accepted_plan_estimate" : null));
         }

@@ -8,7 +8,7 @@ test('frame intervals during repeated mobile card swipes',async({page,context,br
     const path=new URL(route.request().url()).pathname;
     if(path==='/api/auth/me')return route.fulfill({json:{id:fixture.state.id,displayName:'Performance'}});
     if(path==='/api/bootstrap')return route.fulfill({json:fixture.state});
-    if(path==='/api/diary')return route.fulfill({json:{entries:fixture.state.entries,days:fixture.state.days,revision:1,from:fixture.state.end,to:fixture.state.end,detailDays:90}});
+    if(path==='/api/diary')return route.fulfill({json:{entries:fixture.state.entries,days:fixture.state.days,revision:1,from:fixture.state.end,to:fixture.state.end}});
     return route.fulfill({json:{status:'disconnected',days:[],summaries:[],workoutConnected:false,configured:false}});
   });
   const cdp=await context.newCDPSession(page);

@@ -20,7 +20,7 @@ public static class RecordEndpoints
 
     public static void MapRecords(this WebApplication app)
     {
-        app.MapGet("/api/revisions", async (HttpContext http, AppDb db, RetentionService retention, CancellationToken ct) =>
+        app.MapGet("/api/revisions", async (HttpContext http, AppDb db, CancellationToken ct) =>
         {
             var user = await db.Users.AsNoTracking()
                 .Where(u => u.Id == db.CurrentUser)
@@ -41,8 +41,8 @@ public static class RecordEndpoints
                 .SingleAsync(ct);
             var training = user.Training ?? 0;
             var google = user.Google ?? 0;
-            var localDay = RetentionService.Today(user.ProfileJson);
-            var etag = $"\"revisions:{user.Id:N}:{user.Revision}:{user.ProfileRevision}:{user.CoachingSettingsRevision}:{user.TrajectoryRevision}:{user.FoodRevision}:{user.DiaryRevision}:{user.BodyRevision}:{training}:{google}:{localDay:yyyy-MM-dd}:{retention.DetailDays}\"";
+            var localDay = ProfileClock.Today(user.ProfileJson);
+            var etag = $"\"revisions:{user.Id:N}:{user.Revision}:{user.ProfileRevision}:{user.CoachingSettingsRevision}:{user.TrajectoryRevision}:{user.FoodRevision}:{user.DiaryRevision}:{user.BodyRevision}:{training}:{google}:{localDay:yyyy-MM-dd}\"";
             if (http.Request.Headers.IfNoneMatch == etag)
             {
                 http.Response.Headers.ETag = etag;
@@ -60,14 +60,13 @@ public static class RecordEndpoints
                 body = user.BodyRevision,
                 training,
                 google,
-                localDay,
-                detailDays = retention.DetailDays
+                localDay
             });
         });
 
         app.MapGet("/api/bootstrap", (HttpContext http, BootstrapReadService read, CancellationToken ct) => read.Get(http, ct));
 
-        app.MapGet("/api/diary", async (HttpContext http, AppDb db, RetentionService retention, DateOnly? from, DateOnly? to, CancellationToken ct) =>
+        app.MapGet("/api/diary", async (HttpContext http, AppDb db, DateOnly? from, DateOnly? to, CancellationToken ct) =>
         {
             Validation.Require(from is not null && to is not null, "Specify both 'from' and 'to' dates.");
             var startDate = from!.Value;
@@ -75,12 +74,12 @@ public static class RecordEndpoints
             Validation.Require(startDate <= endDate, "The start date must be before or equal to the end date.");
             Validation.Require(endDate.DayNumber - startDate.DayNumber + 1 <= 31, "Diary range cannot exceed 31 days.");
             var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
-            var today = RetentionService.Today(user.ProfileJson);
+            var today = ProfileClock.Today(user.ProfileJson);
             Validation.Require(startDate >= new DateOnly(2000, 1, 1) && endDate <= today.AddDays(1), "Choose a supported diary date.");
 
-            // Diary reads depend on diary mutations and the local-day retention boundary. Profile,
+            // Diary reads depend on diary mutations and the local day. Profile,
             // food, or training changes do not invalidate an unchanged historical range.
-            var etag = $"\"diary:{user.Id:N}:{user.DiaryRevision}:{startDate:yyyy-MM-dd}:{endDate:yyyy-MM-dd}:{today:yyyy-MM-dd}:{retention.DetailDays}\"";
+            var etag = $"\"diary:{user.Id:N}:{user.DiaryRevision}:{startDate:yyyy-MM-dd}:{endDate:yyyy-MM-dd}:{today:yyyy-MM-dd}\"";
             if (http.Request.Headers.IfNoneMatch == etag)
             {
                 http.Response.Headers.ETag = etag;
@@ -89,15 +88,12 @@ public static class RecordEndpoints
 
             var entries = await db.Entries.AsNoTracking().Where(e => e.Date >= startDate && e.Date <= endDate).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct);
             var days = await db.Days.AsNoTracking().Where(d => d.Date >= startDate && d.Date <= endDate).OrderBy(d => d.Date).ToListAsync(ct);
-            var cutoff = RetentionService.Cutoff(today, retention.DetailDays);
 
             http.Response.Headers.ETag = etag;
             return Results.Ok(new {
                 from = startDate,
                 to = endDate,
                 revision = user.Revision,
-                detailCutoff = cutoff,
-                detailDays = retention.DetailDays,
                 entries,
                 days
             });
@@ -125,11 +121,11 @@ public static class RecordEndpoints
         app.MapGet("/api/training/summary", TrainingSummary);
         app.MapGet("/api/training", TrainingSummary);
 
-        app.MapGet("/api/state",async(AppDb db,RetentionService retention,ExpenditureTrajectoryService trajectory,WorkoutSummaryService training,DateOnly? date,int? year,CancellationToken ct) =>
+        app.MapGet("/api/state",async(AppDb db,ExpenditureTrajectoryService trajectory,WorkoutSummaryService training,DateOnly? date,int? year,CancellationToken ct) =>
         {
             var user=await db.Users.SingleAsync(u=>u.Id==db.CurrentUser,ct);
             var snapshots=await trajectory.EnsureThroughToday(ct);
-            var today=RetentionService.Today(user.ProfileJson);
+            var today=ProfileClock.Today(user.ProfileJson);
             Validation.Require(date==null || date>=new DateOnly(2000,1,1)&&date<=today,"Choose a supported diary date.");
             var end=date??today; var start=end.AddDays(-89);
             if(year is {} y){Validation.Require(y>=2000&&y<=today.Year,"Choose a supported history year.");start=new(y,1,1);end=new(y,12,31);}
@@ -150,7 +146,6 @@ public static class RecordEndpoints
                 diaryRevision = user.DiaryRevision, trajectoryRevision = user.TrajectoryRevision, bodyRevision = user.BodyRevision, foodRevision = user.FoodRevision,
                 settings=new { checkInWeekday=user.CheckInWeekday,revision=user.CoachingSettingsRevision,changedDate=user.CoachingSettingsChangedDate,cadenceRevision=user.CadenceRevision,cadenceChangedDate=user.CadenceChangedDate,weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale",progressTab=user.ProgressTab,weightChartView=user.WeightChartView,energyChartView=user.EnergyChartView,weightPeriod=user.WeightPeriod,energyPeriod=user.EnergyPeriod },
                 profile=user.ProfileJson.Length==0?null:Json.Read<Profile>(user.ProfileJson), start,end,
-                detailCutoff=RetentionService.Cutoff(RetentionService.Today(user.ProfileJson),retention.DetailDays),detailDays=retention.DetailDays,
                 energyEstimates=energySnapshots.Select(snapshot=>new { date=snapshot.Date,revision=snapshot.SourceRevision,expenditure=snapshot.Expenditure,suggestedCalories=snapshot.SuggestedCalories,confidence=snapshot.Confidence,holdReason=snapshot.HoldReason,algorithmVersion=snapshot.AlgorithmVersion,trendWeightKg=snapshot.TrendWeightKg }),
                 acceptedTargetIntervals,
                 entries=await db.Entries.AsNoTracking().Where(e=>e.Date>=start&&e.Date<=end).OrderBy(e=>e.Date).ThenBy(e=>e.Id).ToListAsync(ct),
@@ -170,7 +165,7 @@ public static class RecordEndpoints
         {
             var user=await db.Users.AsNoTracking().SingleAsync(u=>u.Id==db.CurrentUser,ct);
             var normalized=ProgressSummaryService.NormalizePeriod(period);
-            var day=RetentionService.Today(user.ProfileJson);
+            var day=ProfileClock.Today(user.ProfileJson);
             var etag=ReadValidators.Progress(user,normalized,day);
             if(http.Request.Headers.IfNoneMatch==etag){http.Response.Headers.ETag=etag;return Results.StatusCode(304);}
             var summary=await progress.Get(normalized,ct);
@@ -204,7 +199,7 @@ public static class RecordEndpoints
         DateOnly? from, DateOnly? to, bool? cacheOnly, CancellationToken ct)
     {
         var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         var profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson);
         var start = from ?? today.AddDays(-89);
         var end = to ?? today.AddDays(14);

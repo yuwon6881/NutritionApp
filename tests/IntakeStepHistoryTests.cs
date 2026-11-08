@@ -26,7 +26,7 @@ public sealed class IntakeStepHistoryTests
         });
         user.ProfileRevision = 1;
         user.TrajectoryRevision = 1;
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         var step = today.AddDays(-30);
         db.CurrentUser = user.Id;
         for (var date = today.AddDays(-45); date < today; date = date.AddDays(1))

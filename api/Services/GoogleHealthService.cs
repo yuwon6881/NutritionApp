@@ -443,7 +443,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             .Select(connection => new { connection.ConnectionGeneration, connection.Status })
             .SingleOrDefaultAsync(ct);
         var profileJson = await db.Users.AsNoTracking().Where(user => user.Id == userId).Select(user => user.ProfileJson).SingleAsync(ct);
-        var localDate = RetentionService.Today(profileJson);
+        var localDate = ProfileClock.Today(profileJson);
         var timeZone = string.IsNullOrWhiteSpace(profileJson) ? "Asia/Kuala_Lumpur" : Json.Read<Profile>(profileJson).TimeZone;
         // Check 2-minute memory cache
         if (!force && cacheContext is not null && cacheContext.Status == "connected"
@@ -608,7 +608,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
 
         // Query Google Health steps dailyRollUp for today + preceding 30 calendar days (31 days)
         var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == userId, ct);
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         var start = today.AddDays(-30);
         var endPlusOne = today.AddDays(1);
 

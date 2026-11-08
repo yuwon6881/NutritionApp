@@ -60,7 +60,7 @@ export function foodCalendar(state:AppState,current:string,end:string,days:numbe
     if(date>current)return {date,status:'future'};
     if(!held(state,date))return {date,status:'unknown'};
     const day=dayRecords.get(date);
-    const hasFood=day?.archived?(day.entryCount??0)>0:foodDates.has(date);
+    const hasFood=foodDates.has(date);
     if(hasFood)return {date,status:'logged'};
     if(day?.status==='fasting')return {date,status:'fasting'};
     if(day?.status==='not_logged')return {date,status:'not_logged'};

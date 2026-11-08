@@ -87,12 +87,6 @@ it('projects and coalesces dashboard chart preferences without dropping existing
 });
 });
 
-it('preserves archived totals when a day decision is queued',()=>{
-  const archived={...state,days:[{...state.days[0],archived:true,calories:1700,entryCount:3,protein:null}]};
-  const op:Mutation={id:'decision',kind:'day',recordId:'d',expectedRevision:1,delete:false,data:{date:'2026-02-01',status:'not_logged'}};
-  const day=project(archived,[op]).days[0];
-  expect(day.status).toBe('not_logged');expect(day.archived).toBe(true);expect(day.calories).toBe(1700);expect(day.protein).toBeNull();
-});
 describe('queued deletes of records missing from the projected state',()=>{
   // A history window, or a refresh after another device's delete, can lack the record a queued delete targets.
   const withEntry:AppState={...state,entries:[{id:'kept',revision:1,deleted:false,date:'2026-02-02',name:'Oats',calories:300,quantity:1,unit:'serving'} as AppState['entries'][number]]};

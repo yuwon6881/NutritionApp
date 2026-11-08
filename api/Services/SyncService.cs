@@ -7,7 +7,7 @@ namespace Nutrition.Api.Services;
 
 public record Mutation(Guid Id, string Kind, Guid RecordId, long ExpectedRevision, JsonElement Data, bool Delete = false);
 public record CoachingSettingsInput(int? CheckInWeekday = null, string? WeightUnit = null, string? EnergyUnit = null, string? HeightUnit = null, string? MissingDayAction = null, string? WeightGoalMetric = null, string? ProgressTab = null, string? WeightChartView = null, string? EnergyChartView = null, string? WeightPeriod = null, string? EnergyPeriod = null);
-public sealed partial class SyncService(AppDb db,StorageService? storage=null,RetentionService? retention=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null,GoogleHealthNutritionSyncService? nutritionSync=null)
+public sealed partial class SyncService(AppDb db,StorageService? storage=null,ExpenditureTrajectoryService? trajectory=null,GoogleHealthWeightSyncService? weightSync=null,GoogleHealthNutritionSyncService? nutritionSync=null)
 {
     public async Task<long> Apply(Mutation op, CancellationToken ct)
     {
@@ -19,10 +19,6 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         var receipt = await db.Receipts.SingleOrDefaultAsync(x => x.Id == op.Id, ct);
         if (receipt != null) { Validation.Require(receipt.Hash == hash, "Idempotency key reused for different data.", 409); return receipt.Revision; }
         var user = await db.Users.SingleAsync(u => u.Id == uid, ct);
-        if(retention!=null&&op.Kind == "entry")
-        {
-            if(op.Data.TryGetProperty("date",out var date)) retention.RequireEditable(date.Deserialize<DateOnly>(),user.ProfileJson);
-        }
         // A dated record is read before the write replaces it: a move or a delete has to rebuild the
         // trajectory from the earliest date it touches, which the incoming payload alone cannot name.
         DateOnly? storedDate=null,mutatedDate=null;
@@ -38,19 +34,12 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
             else if(op.Kind=="entry")
             {
                 previousEntry=await db.Entries.SingleOrDefaultAsync(e=>e.Id==op.RecordId,ct);
-                if(previousEntry!=null)retention?.RequireEditable(previousEntry.Date,user.ProfileJson);
                 storedDate=previousEntry?.Date;
             }
             else
                 storedDate=await db.Days.Where(d=>d.Id==op.RecordId).Select(d=>(DateOnly?)d.Date).SingleOrDefaultAsync(ct);
             if(op.Data.ValueKind==JsonValueKind.Object&&op.Data.TryGetProperty("date",out var dateValue)&&dateValue.ValueKind==JsonValueKind.String)
                 mutatedDate=dateValue.Deserialize<DateOnly>();
-        }
-        if(op.Kind=="entry")
-        {
-            var requestedDate=mutatedDate??storedDate;
-            Validation.Require(!await db.Days.AnyAsync(d=>d.Archived&&(d.Date==requestedDate||d.Date==storedDate),ct),
-                "This day has already been summarized. Meal details are read-only.",409);
         }
         var revision = user.Revision + 1;
         if(op.Kind=="weight"&&!op.Delete&&previousWeight==null&&op.ExpectedRevision==0&&mutatedDate!=null)
@@ -69,7 +58,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 if (profile.Sex == "male") profile = profile with { PregnancyOrBreastfeeding = false };
                 profile = ActivityLevels.Apply(profile);
                 Validation.Profile(profile); user.ProfileJson = Json.Write(profile); user.ProfileRevision = revision;
-                trajectoryFrom = RetentionService.Today(user.ProfileJson).AddDays(-(ExpenditureTrajectoryService.BackfillDays - 1));
+                trajectoryFrom = ProfileClock.Today(user.ProfileJson).AddDays(-(ExpenditureTrajectoryService.BackfillDays - 1));
                 break;
             case "settings":
                 Validation.Require(!op.Delete && op.ExpectedRevision == user.CoachingSettingsRevision, "Coaching settings changed on another device. Review before retrying.", 409);
@@ -94,7 +83,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 Validation.Require(energyChartView is null or "intake" or "balance" or "maintenance" or "coaching", "Choose a valid energy chart view.");
                 Validation.Require(weightPeriod is null or "week" or "month" or "six-months" or "year" or "all", "Choose a valid weight period.");
                 Validation.Require(energyPeriod is null or "week" or "month" or "six-months" or "year" or "all", "Choose a valid energy period.");
-                if(user.CheckInWeekday!=weekday||user.WeightGoalMetric!=weightGoalMetric){user.CadenceRevision=revision;user.CadenceChangedDate=RetentionService.Today(user.ProfileJson);}
+                if(user.CheckInWeekday!=weekday||user.WeightGoalMetric!=weightGoalMetric){user.CadenceRevision=revision;user.CadenceChangedDate=ProfileClock.Today(user.ProfileJson);}
                 user.CheckInWeekday = weekday;
                 user.WeightUnit = weightUnit;
                 user.EnergyUnit = energyUnit;
@@ -107,7 +96,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 user.WeightPeriod = weightPeriod;
                 user.EnergyPeriod = energyPeriod;
                 user.CoachingSettingsRevision = revision;
-                user.CoachingSettingsChangedDate = RetentionService.Today(user.ProfileJson);
+                user.CoachingSettingsChangedDate = ProfileClock.Today(user.ProfileJson);
                 break;
             case "entry": await Upsert<DiaryEntry>(op, revision, e =>
                 {
@@ -148,7 +137,6 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 }, ct); break;
             case "day":
                 var savedDay=await db.Days.SingleOrDefaultAsync(d=>d.Id==op.RecordId,ct);
-                Validation.Require(!(op.Delete && savedDay?.Archived == true),"Daily summaries cannot be deleted.",409);
                 if(await ResolveStaleDayDecision(op,savedDay,revision,ct) is {} resolved)
                 {
                     keptSavedDay=resolved.Kept;
@@ -160,10 +148,8 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
                 {
                     Date(d.Date,user.ProfileJson,true);
                     Validation.Require(savedDay==null || savedDay.Date==d.Date,"A day decision cannot be moved to another date.",409);
-                    Validation.Require(d.Date < RetentionService.Today(user.ProfileJson) || d.Status == "incomplete","Today is still open for logging.");
+                    Validation.Require(d.Date < ProfileClock.Today(user.ProfileJson) || d.Status == "incomplete","Today is still open for logging.");
                     Validation.Require(d.Status is "complete" or "incomplete" or "fasting" or "not_logged","Unknown day status.");
-                    d.Archived=savedDay?.Archived??false;d.Calories=savedDay?.Calories??0;d.EntryCount=savedDay?.EntryCount??0;
-                    d.Protein=savedDay?.Protein;d.Fat=savedDay?.Fat;d.Carbs=savedDay?.Carbs;d.Fiber=savedDay?.Fiber;
                 },ct);break;
             default: throw new DomainException("Unknown record type.");
         }
@@ -171,7 +157,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         if (op.Kind is "entry" or "weight" or "day")
             trajectoryFrom = new[] { mutatedDate, storedDate }
                 .Where(date => date != null).Select(date => date!.Value)
-                .DefaultIfEmpty(RetentionService.Today(user.ProfileJson)).Min();
+                .DefaultIfEmpty(ProfileClock.Today(user.ProfileJson)).Min();
         // Food edits clear fasting or missing-intake decisions; elapsed dates resolve automatically.
         if (op.Kind == "entry")
         {
@@ -186,7 +172,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         if (op.Kind == "day" && !op.Delete && !keptSavedDay)
         {
             var day = db.ChangeTracker.Entries<DayStatus>().Single().Entity;
-            if (day.Status == "fasting") Validation.Require(day.Calories == 0 && !await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
+            if (day.Status == "fasting") Validation.Require(!await db.Entries.AnyAsync(e => e.Date == day.Date && !e.Deleted && e.Calories > 0, ct), "A fasting day cannot contain calories.");
         }
         user.Revision = revision;
         if (op.Kind == "food") user.FoodRevision = revision;
@@ -199,7 +185,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         if (op.Kind is "profile" or "entry" or "weight" or "day")
         {
             user.TrajectoryRevision = revision;
-            if (trajectory != null) await trajectory.RebuildFromUnderLock(trajectoryFrom ?? RetentionService.Today(user.ProfileJson), revision, ct, op.Kind == "profile");
+            if (trajectory != null) await trajectory.RebuildFromUnderLock(trajectoryFrom ?? ProfileClock.Today(user.ProfileJson), revision, ct, op.Kind == "profile");
         }
         await db.SaveChangesAsync(ct);
         var canonical=op.Kind is "weight" or "day"?Json.Write(await SyncWriteResults.Capture(db,op,revision,ct)):null;
@@ -258,6 +244,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         {
             existing!.Deleted = true; existing.Revision = revision;
             if (existing is Food deletedFood) deletedFood.DeletedAt = DateTime.UtcNow;
+            if (existing is DiaryEntry deletedEntry) deletedEntry.DeletedAt = DateTime.UtcNow;
             return;
         }
         var next = op.Data.Deserialize<T>(Json.Options) ?? throw new DomainException("Record is required.");
@@ -283,8 +270,9 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Re
         if (validateStored != null) await validateStored(next);
         next.Id = op.RecordId; next.UserId = db.CurrentUser!.Value; next.Revision = revision; next.Deleted = false;
         if (next is Food restoredFood) restoredFood.DeletedAt = null;
+        if (next is DiaryEntry restoredEntry) restoredEntry.DeletedAt = null;
         if (existing == null) db.Set<T>().Add(next);
         else db.Entry(existing).CurrentValues.SetValues(next);
     }
-    private static void Date(DateOnly date,string profileJson,bool tomorrow=false) => Validation.Require(date >= new DateOnly(2000,1,1) && date <= RetentionService.Today(profileJson).AddDays(tomorrow?1:0), tomorrow?"Choose a date from 2000 through tomorrow.":"Choose a date from 2000 through today.");
+    private static void Date(DateOnly date,string profileJson,bool tomorrow=false) => Validation.Require(date >= new DateOnly(2000,1,1) && date <= ProfileClock.Today(profileJson).AddDays(tomorrow?1:0), tomorrow?"Choose a date from 2000 through tomorrow.":"Choose a date from 2000 through today.");
 }

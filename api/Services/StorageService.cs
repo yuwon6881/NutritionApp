@@ -104,6 +104,17 @@ public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageSto
             .Where(w => (w.ProcessingState == "succeeded" || w.ProcessingState == "cancelled")
                 && !db.BodyRecords.IgnoreQueryFilters().Any(b => b.UserId == w.UserId && b.Id == w.BodyRecordId))
             .ExecuteDeleteAsync(ct);
+        // Diary entries are kept for good: only a deletion marker ages out, like any other tombstone.
+        await db.Entries.IgnoreQueryFilters().Where(e=>e.Deleted&&e.DeletedAt!=null&&e.DeletedAt<tombstoneCutoff).ExecuteDeleteAsync(ct);
+        // A finished upload row is the edit/delete mapping for its entry; once the entry is gone it only grows the queue.
+        // In-flight, failed, and unknown rows stay: they still need delivery or explicit recovery.
+        await db.GoogleHealthNutritionSyncWork.IgnoreQueryFilters()
+            .Where(w=>(w.ProcessingState=="succeeded"||w.ProcessingState=="cancelled")
+                &&!db.Entries.IgnoreQueryFilters().Any(e=>e.UserId==w.UserId&&e.Id==w.EntryId))
+            .ExecuteDeleteAsync(ct);
+        // A receipt only guards replay of a recent write; persistent entities also reject replay through their revision checks.
+        var receiptDays=Math.Max(1,config?.GetValue("Retention:ReceiptDays",90)??90);
+        await db.Receipts.IgnoreQueryFilters().Where(r=>r.Created<now.AddDays(-receiptDays)).ExecuteDeleteAsync(ct);
         cache.Remove(OverviewCacheKey);
         return count;
     }

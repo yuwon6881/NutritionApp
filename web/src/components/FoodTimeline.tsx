@@ -15,7 +15,6 @@ export interface FoodTimelineProps {
   date:string;
   currentDate:string;
   entries:Entry[];
-  readOnly:boolean;
   onEdit:(entry:Entry)=>void;
   onMove:(moving:Entry[],date:string,time:string|null|undefined)=>Promise<void>|void;
   showEmptySlots?:boolean;
@@ -34,7 +33,6 @@ export function FoodTimeline({
   date,
   currentDate,
   entries,
-  readOnly,
   onEdit,
   onMove,
   showEmptySlots=false,
@@ -90,7 +88,7 @@ export function FoodTimeline({
   };
 
   const {draggingEntry,dropOverTime,bindDrag}=useTimelineDrag({
-    enabled:!readOnly&&!isSelecting,
+    enabled:!isSelecting,
     onDrop:(entry,targetTime)=>void handleMove([entry],date,targetTime),
     onHoldSelect:entry=>onLongPressSelect?.(entry.id),
   });
@@ -145,7 +143,6 @@ export function FoodTimeline({
               key={entry.id}
               entry={entry}
               energyUnit={energyUnit}
-              readOnly={readOnly}
               isSelecting={isSelecting}
               checkboxLeaving={checkboxesLeaving}
               isSelected={Boolean(selectedIds?.has(entry.id))}

@@ -16,8 +16,7 @@ public sealed record ProgressSummaryResponse(string Period, DateOnly Start, Date
 
 /// <summary>
 /// Builds the long-range progress contract without loading diary meal detail.
-/// Archived day totals and grouped database aggregates are sufficient for energy
-/// history; the shared trend uses all preceding weigh-ins before reducing its display series.
+/// Grouped database aggregates are sufficient for energy history; the shared trend uses all preceding weigh-ins before reducing its display series.
 /// </summary>
 public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryService trajectory, IMemoryCache cache)
 {
@@ -28,7 +27,7 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
         using var timing = PerformanceMetrics.Measure("progress.read");
         var user = await db.Users.AsNoTracking().SingleAsync(item => item.Id == db.CurrentUser, ct);
         var profile = string.IsNullOrWhiteSpace(user.ProfileJson) ? null : Json.Read<Profile>(user.ProfileJson);
-        var current = RetentionService.Today(user.ProfileJson);
+        var current = ProfileClock.Today(user.ProfileJson);
         var period = NormalizePeriod(requestedPeriod);
         var earliest = period == "all" ? await EarliestRelevantDate(current, ct) : current;
         var (start, end) = ResolveRange(period, current, earliest);
@@ -141,7 +140,7 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
         IReadOnlyList<DailyExpenditureEstimate> snapshots,
         CancellationToken ct)
     {
-        var archived = await db.Days.AsNoTracking()
+        var statuses = await db.Days.AsNoTracking()
             .Where(item => !item.Deleted && item.Date >= start && item.Date <= end)
             .ToDictionaryAsync(item => item.Date, ct);
         var totals = await db.Entries.AsNoTracking()
@@ -176,13 +175,10 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
         {
             while (cursor < maintenance.Count && maintenance[cursor].Date <= date)
                 activeMaintenance = maintenance[cursor++].Value;
-            archived.TryGetValue(date, out var status);
-            var hasFood = status?.Archived == true ? status.EntryCount > 0 : totals.ContainsKey(date);
-            var resolved = LoggingDay.Status(date, current, status?.Status, hasFood);
+            statuses.TryGetValue(date, out var status);
+            var resolved = LoggingDay.Status(date, current, status?.Status, totals.ContainsKey(date));
             var complete = resolved is "complete" or "fasting";
-            double? intake = status?.Archived == true
-                ? (complete || status.EntryCount > 0 ? status.Calories : null)
-                : totals.TryGetValue(date, out var total) ? total.Calories : complete ? 0 : null;
+            double? intake = totals.TryGetValue(date, out var total) ? total.Calories : complete ? 0 : null;
             daily.Add(new ProgressEnergyBucket(date, date, intake, activeMaintenance,
                 complete && intake is not null && activeMaintenance is not null ? intake - activeMaintenance : null,
                 complete, 1, intake is null ? 0 : 1));

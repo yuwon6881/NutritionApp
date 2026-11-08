@@ -53,13 +53,13 @@ public sealed class ReadPerformanceTests
             user.ProfileJson = Json.Write(new Profile {Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2400,TimeZone="UTC"});
             user.Revision = 1;
             db.CurrentUser = user.Id;
-            var today = RetentionService.Today(user.ProfileJson);
+            var today = ProfileClock.Today(user.ProfileJson);
             for (var i = 0; i < days; i++)
             {
                 var date = today.AddDays(-i);
                 db.Weights.Add(new Weight {Id=Guid.NewGuid(),UserId=user.Id,Date=date,Kg=80+i%4*.1});
-                db.Days.Add(new DayStatus {Id=Guid.NewGuid(),UserId=user.Id,Date=date,Status="complete",Archived=i>=90,Calories=1600,EntryCount=8});
-                if (i < 90) for (var meal = 0; meal < 8; meal++)
+                db.Days.Add(new DayStatus {Id=Guid.NewGuid(),UserId=user.Id,Date=date,Status="complete"});
+                for (var meal = 0; meal < 8; meal++)
                     db.Entries.Add(new DiaryEntry {Id=Guid.NewGuid(),UserId=user.Id,Date=date,Name="Synthetic food",Calories=200,Source="manual",Quantity=100,Unit="g"});
             }
             var token = Guid.NewGuid().ToString("N");

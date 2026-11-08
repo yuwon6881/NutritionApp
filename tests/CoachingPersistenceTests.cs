@@ -152,7 +152,7 @@ public class CoachingPersistenceTests
         user.ProfileJson=Json.Write(new Profile { Age=30,HeightCm=175,WeightKg=78,Sex="male",Activity=1.4,Goal="lose",
             Maintenance=2500,PhaseMode="weight",TargetWeightKg=79,PhaseStartWeightKg=82,GoalRatePercent=-.5,TimeZone="UTC" });
         user.ProfileRevision=++user.Revision;
-        var today=RetentionService.Today(user.ProfileJson);
+        var today=ProfileClock.Today(user.ProfileJson);
         for(var i=1;i<=28;i++){
             db.Entries.Add(new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Name="Meals",Calories=2500});
             db.Weights.Add(new Weight{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-i),Kg=78});
@@ -192,7 +192,7 @@ public class CoachingPersistenceTests
         var user=await TestUsers.CreateAsync(db,"step-limit");db.CurrentUser=user.Id;
         var profile=new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500,TimeZone="UTC" };
         user.ProfileJson=Json.Write(profile);user.ProfileRevision=1;user.Revision=2;user.TrajectoryRevision=1;
-        var today=RetentionService.Today(user.ProfileJson);
+        var today=ProfileClock.Today(user.ProfileJson);
         db.Plans.Add(AcceptedPlan(user,profile,today.AddDays(-7),2500,2500));
         for(var i=1;i<=28;i++)
         {
@@ -214,7 +214,7 @@ public class CoachingPersistenceTests
         var user=await TestUsers.CreateAsync(db,"activity");db.CurrentUser=user.Id;
         var before=new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500,TimeZone="UTC" };
         user.ProfileJson=Json.Write(before);user.ProfileRevision=1;user.Revision=2;user.TrajectoryRevision=1;
-        var today=RetentionService.Today(user.ProfileJson);
+        var today=ProfileClock.Today(user.ProfileJson);
         db.Plans.Add(AcceptedPlan(user,before,today.AddDays(-7),2500,2500));
         await db.SaveChangesAsync();
         var trajectory=new ExpenditureTrajectoryService(db);await trajectory.EnsureThroughToday(default);
@@ -237,7 +237,7 @@ public class CoachingPersistenceTests
         var user=await TestUsers.CreateAsync(db,"maintenance");db.CurrentUser=user.Id;
         var before=new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500,TimeZone="UTC" };
         user.ProfileJson=Json.Write(before);user.ProfileRevision=1;user.Revision=2;user.TrajectoryRevision=1;
-        var today=RetentionService.Today(user.ProfileJson);
+        var today=ProfileClock.Today(user.ProfileJson);
         db.Plans.Add(AcceptedPlan(user,before,today.AddDays(-7),2500,2500));
         await db.SaveChangesAsync();
         var trajectory=new ExpenditureTrajectoryService(db);await trajectory.EnsureThroughToday(default);
@@ -260,7 +260,7 @@ public class CoachingPersistenceTests
         var user=await TestUsers.CreateAsync(db,"profile-edit");db.CurrentUser=user.Id;
         var before=new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500,TimeZone="UTC" };
         user.ProfileJson=Json.Write(before);user.ProfileRevision=1;user.Revision=2;user.TrajectoryRevision=1;
-        var today=RetentionService.Today(user.ProfileJson);
+        var today=ProfileClock.Today(user.ProfileJson);
         db.Plans.Add(AcceptedPlan(user,before,today.AddDays(-7),2500,2500));
         await db.SaveChangesAsync();
         var trajectory=new ExpenditureTrajectoryService(db);await trajectory.EnsureThroughToday(default);
@@ -283,7 +283,7 @@ public class CoachingPersistenceTests
         var trajectory=new ExpenditureTrajectoryService(db);var sync=new SyncService(db,trajectory:trajectory);
         await sync.Apply(new(Guid.NewGuid(),"profile",user.Id,0,JsonSerializer.SerializeToElement(
             new Profile { Age=30,HeightCm=175,WeightKg=80,Sex="male",Activity=1.4,Goal="maintain",Maintenance=2500,TimeZone="UTC" },Json.Options)),default);
-        var date=RetentionService.Today(user.ProfileJson).AddDays(-40);
+        var date=ProfileClock.Today(user.ProfileJson).AddDays(-40);
         var id=Guid.NewGuid();
         var added=await sync.Apply(new(Guid.NewGuid(),"weight",id,0,JsonSerializer.SerializeToElement(new { date,kg=79.5 })),default);
         // A delete carries no date of its own, so the stored date has to drive the rebuild.

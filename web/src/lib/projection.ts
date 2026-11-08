@@ -35,11 +35,6 @@ export function project(state:AppState,queue:Mutation[]):AppState{
       result.settings={...(result.settings??{checkInWeekday:1,revision:0}),...settings};
       continue;
     }
-    if(op.kind==='entry'){
-      const dates=[(op.data as {date?:string}).date,result.entries.find(e=>e.id===op.recordId)?.date];
-      // Keep expired/conflicting work in the queue, without changing an authoritative summary.
-      if(result.days.some(day=>day.archived&&dates.includes(day.date)))continue;
-    }
     if(op.kind==='weight_move'){
       copy('weights');
       const data=op.data as {date:string;kg:number;context?:import('../types').WeightContextCode|null;destinationId?:string|null};

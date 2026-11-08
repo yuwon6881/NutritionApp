@@ -15,7 +15,6 @@ export function recentIntake(entries:readonly Entry[],days:readonly Day[],date:s
     const saved=days.find(item=>!item.deleted&&item.date===day);
     if(saved?.status==='not_logged')continue;
     if(saved?.status==='fasting'){totals.push(0);continue;}
-    if(saved?.archived){if(saved.calories!=null)totals.push(saved.calories);continue;}
     const logged=entries.filter(entry=>!entry.deleted&&entry.date===day);
     if(logged.length)totals.push(logged.reduce((sum,entry)=>sum+entry.calories,0));
   }
@@ -32,7 +31,6 @@ export function previousDayUnlogged(entries:readonly Entry[],days:readonly Day[]
   const saved=days.find(item=>!item.deleted&&item.date===day);
   if(saved?.status==='not_logged')return true;
   if(saved?.status==='fasting')return false;
-  if(saved?.archived)return (saved.entryCount??0)===0;
   return !entries.some(entry=>!entry.deleted&&entry.date===day);
 }
 

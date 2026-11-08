@@ -1,11 +1,11 @@
 import {afterEach,expect,it,vi} from 'vitest';
 import type {AppState,Entry,LocalData,Mutation} from '../types';
-import {mealReadOnly,mealTime,scanMealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget,showsDeviceOnlyToday} from './foodDiary';
+import {mealTime,scanMealTime,timelineGroups,timelineSlots,normalizeTime,moveTargets,moveEntry,moveAnnouncement,dropTarget,showsDeviceOnlyToday} from './foodDiary';
 import {project} from './projection';
 import {acknowledgeHistory,historyState} from './history';
 import {createPasteMutations} from './useFoodClipboard';
 
-const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-06-12',end:'2026-09-09',entries:[],foods:[],weights:[],days:[],plans:[],detailDays:90};
+const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-06-12',end:'2026-09-09',entries:[],foods:[],weights:[],days:[],plans:[]};
 const entry=(id:string,time?:string|null):Entry=>({id,time,date:'2026-09-09',name:'Quick add',quantity:1,unit:'serving',calories:300,protein:null,carbs:null,fat:null,fiber:null,source:'Quick add',revision:0,deleted:false});
 afterEach(()=>vi.useRealTimers());
 
@@ -32,12 +32,9 @@ it('switches between occupied hours and the complete midnight-to-11pm day',()=>{
   expect(full.at(-1)?.time).toBe('');
   expect(full.filter(group=>group.time).length).toBe(26);
 });
-it('uses the profile time zone and keeps already archived days read-only',()=>{
+it('uses the profile time zone',()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date('2026-09-08T16:05:00Z'));
   expect(mealTime('Asia/Kuala_Lumpur')).toBe('00:05');
-  expect(mealReadOnly(state,'2026-06-12')).toBe(false);
-  expect(mealReadOnly(state,'2026-06-11')).toBe(true);
-  expect(mealReadOnly({...state,days:[{id:'d',date:'2026-09-01',archived:true,status:'complete',revision:1,deleted:false}]},'2026-09-01')).toBe(true);
 });
 it('derives meal time from an explicit moment instead of the current time',()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-14T22:24:00Z'));
@@ -68,19 +65,11 @@ it('distinguishes missing cache coverage and rejects another account cache',()=>
   expect(historyState(local,'2025')).toBeUndefined();
   expect(historyState(local,'2026-09-09')?.entries).toEqual([]);
 });
-it('selects fresher covered history and retains archived unknown totals',()=>{
-  const archived:AppState={...state,revision:2,days:[{id:'d',date:'2026-09-01',archived:true,calories:450,protein:null,entryCount:1,status:'complete',revision:2,deleted:false}]};
-  const local:LocalData={state,queue:[],history:{recent:archived}};
+it('selects fresher covered history',()=>{
+  const recent:AppState={...state,revision:2,days:[{id:'d',date:'2026-09-01',status:'complete',revision:2,deleted:false}]};
+  const local:LocalData={state,queue:[],history:{recent}};
   const selected=historyState(local,'2026-09-01')!;
-  expect(selected.days[0].calories).toBe(450);expect(selected.days[0].protein).toBeNull();
-});
-it('does not project a queued entry edit over an archived summary',()=>{
-  const archived:AppState={...state,days:[{id:'d',date:'2026-09-09',archived:true,calories:450,entryCount:1,status:'not_logged',revision:2,deleted:false}]};
-  const op:Mutation={id:'m',recordId:'e',kind:'entry',expectedRevision:0,delete:false,data:entry('e','12:00')};
-  const local:LocalData={state:archived,queue:[op]};
-  const selected=historyState(local,'2026-09-09')!;
-  expect(selected.entries).toEqual([]);expect(selected.days[0].status).toBe('not_logged');
-  expect(selected.days[0].calories).toBe(450);expect(local.queue).toEqual([op]);
+  expect(selected.days[0].revision).toBe(2);
 });
 
 it('normalizes time matching server rules', () => {

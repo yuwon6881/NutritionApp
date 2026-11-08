@@ -7,7 +7,7 @@ vi.mock('./api',()=>({apiWithMeta:vi.fn()}));
 afterEach(()=>vi.unstubAllGlobals());
 
 const state={revision:7} as AppState;
-const revisions={account:7,profile:0,settings:0,trajectory:0,foods:0,diary:0,body:0,training:0,google:0,localDay:'',detailDays:90} satisfies NutritionRevisions;
+const revisions={account:7,profile:0,settings:0,trajectory:0,foods:0,diary:0,body:0,training:0,google:0,localDay:''} satisfies NutritionRevisions;
 
 describe('bootstrap revision coordination',()=>{
   it('refreshes when an account-level mutation changes coaching state',()=>{

@@ -15,7 +15,7 @@ public sealed class NormalUseLogicTests
     private static Mutation Op(string kind,Guid id,long revision,object data,bool delete=false)
         =>new(Guid.NewGuid(),kind,id,revision,JsonSerializer.SerializeToElement(data,Json.Options),delete);
     [Fact] public async Task Deleted_weight_is_restored_using_its_reserved_identity(){
-        await using var db=await Open();var sync=new SyncService(db);var date=RetentionService.Today("");var id=Guid.NewGuid();
+        await using var db=await Open();var sync=new SyncService(db);var date=ProfileClock.Today("");var id=Guid.NewGuid();
         var revision=await sync.Apply(Op("weight",id,0,new{date,kg=80}),default);
         revision=await sync.Apply(Op("weight",id,revision,new{date,kg=80},true),default);
         var replacement=Op("weight",Guid.NewGuid(),0,new{date,kg=81});
@@ -28,7 +28,7 @@ public sealed class NormalUseLogicTests
         Assert.Equal(restored,replay.Weights[0].Revision);
     }
     [Fact] public async Task Weight_move_rejection_keeps_both_records_and_valid_move_is_idempotent(){
-        await using var db=await Open();var sync=new SyncService(db);var date=RetentionService.Today("");var a=Guid.NewGuid();var b=Guid.NewGuid();
+        await using var db=await Open();var sync=new SyncService(db);var date=ProfileClock.Today("");var a=Guid.NewGuid();var b=Guid.NewGuid();
         var ar=await sync.Apply(Op("weight",a,0,new{date=date.AddDays(-1),kg=80}),default);
         var br=await sync.Apply(Op("weight",b,0,new{date,kg=81}),default);
         await Assert.ThrowsAsync<DomainException>(()=>sync.Apply(Op("weight_move",a,ar,new{date,kg=82,destinationId=b,destinationRevision=0}),default));
@@ -39,7 +39,7 @@ public sealed class NormalUseLogicTests
     }
     [Fact] public async Task Preferences_do_not_change_cadence_but_weekday_changes_do(){
         await using var db=await Open();var user=await db.Users.SingleAsync();var sync=new SyncService(db);
-        var today=RetentionService.Today("");
+        var today=ProfileClock.Today("");
         db.Plans.Add(new AcceptedPlan{Id=Guid.NewGuid(),UserId=user.Id,Date=today.AddDays(-14),Revision=0,ProfileRevision=0,CheckInWeekday=1});await db.SaveChangesAsync();
         var revision=await sync.Apply(Op("settings",user.Id,0,new{weightUnit="lb"}),default);
         Assert.Equal(0,user.CadenceRevision);Assert.Null(user.CadenceChangedDate);

@@ -40,15 +40,19 @@ public sealed class AskAiReviewTests
 
 
     [Fact]
-    public async Task SummaryUsesArchivedTotalsUnknownMacrosAndHistoricalDatedTargets()
+    public async Task SummaryUsesLoggedTotalsUnknownMacrosAndHistoricalDatedTargets()
     {
         var (connection, db) = await CreateAsync();
         await using var connectionLifetime = connection;
         await using var dbLifetime = db;
         var today = new DateOnly(2026, 9, 30);
         var historical = today.AddDays(-10);
-        db.Days.Add(new DayStatus { Id = Guid.NewGuid(), UserId = db.CurrentUser!.Value,
-            Date = historical, Archived = true, Status = "complete", EntryCount = 3, Calories = 1800, Protein = null });
+        var userId = db.CurrentUser!.Value;
+        db.Days.Add(new DayStatus { Id = Guid.NewGuid(), UserId = userId, Date = historical, Status = "complete" });
+        db.Entries.AddRange(
+            new DiaryEntry { Id = Guid.NewGuid(), UserId = userId, Date = historical, Name = "Rice", Calories = 800, Protein = null },
+            new DiaryEntry { Id = Guid.NewGuid(), UserId = userId, Date = historical, Name = "Chicken", Calories = 700, Protein = 40 },
+            new DiaryEntry { Id = Guid.NewGuid(), UserId = userId, Date = historical, Name = "Fruit", Calories = 300, Protein = 1 });
         db.Plans.Add(new AcceptedPlan { Id = Guid.NewGuid(), UserId = db.CurrentUser.Value,
             Date = historical.AddDays(-1), ResultJson = Json.Write(new CoachResult(true, false, 2000, 2500, 150, 60, 210, "old")
                 { DailyCalories = [1900, 1900, 2100, 1900, 1900, 2200, 2200] }), ProfileJson = "{}" });
@@ -65,7 +69,7 @@ public sealed class AskAiReviewTests
         Assert.Equal(Math.Round(2200 * 4.184), day.GetProperty("targets").GetProperty("calories").GetDouble());
         var foodLog = await new GetFoodLogTool(db).ExecuteAsync(
             AiToolArgs.Parse(JsonSerializer.Serialize(new { date = historical.ToString("yyyy-MM-dd") })), context, default);
-        Assert.True(JsonSerializer.SerializeToElement(foodLog.Data).GetProperty("archived").GetBoolean());
+        Assert.Equal(3, JsonSerializer.SerializeToElement(foodLog.Data).GetProperty("itemCount").GetInt32());
     }
 
     private static async Task<(Microsoft.Data.Sqlite.SqliteConnection Connection, AppDb Db)> CreateAsync()

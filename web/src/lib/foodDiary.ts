@@ -1,6 +1,4 @@
-import type {AppState,Entry,Mutation} from '../types';
-import {today} from './format';
-import {shiftDate} from './energyBalance';
+import type {Entry,Mutation} from '../types';
 import type {FoodScanDraft} from './foodScans';
 
 export function mealTime(zone='Asia/Kuala_Lumpur',at:Date|number=new Date()){
@@ -18,13 +16,6 @@ export function scanMealTime(scanDraft:Pick<FoodScanDraft,'capturedAt'>|null|und
 export function timeLabel(time:string){
   const [hour,minute]=time.split(':').map(Number);
   return `${hour%12||12}${minute?`:${String(minute).padStart(2,'0')}`:''} ${hour<12?'AM':'PM'}`;
-}
-export function detailCutoff(state:AppState){
-  // Recalculate on an offline foreground wake as well as accepting the server cutoff.
-  return [state.detailCutoff??'2000-01-01',shiftDate(today(state.profile?.timeZone),1-(state.detailDays??90))].sort().at(-1)!;
-}
-export function mealReadOnly(state:AppState,date:string){
-  return date<detailCutoff(state)||state.days.some(day=>day.date===date&&day.archived);
 }
 export function timelineGroups(entries:Entry[]){
   const times=[...new Set(entries.map(e=>e.time).filter((t):t is string=>!!t))].sort();

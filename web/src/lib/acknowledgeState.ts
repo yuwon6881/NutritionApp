@@ -1,7 +1,7 @@
 import type {AppState,Mutation} from '../types';
 import {project} from './projection';
 
-/** Acknowledgement may touch an archived record that projection deliberately left shared. */
+/** Acknowledges one queued operation against a state, never regressing a newer saved revision. */
 export function acknowledgeState(state:AppState,op:Mutation,revision:number):AppState{
   const key=({entry:'entries',food:'foods',weight:'weights',weight_move:'weights',day:'days'} as const);
   const moveRevision=op.kind==='weight_move'?Math.max(0,...state.weights

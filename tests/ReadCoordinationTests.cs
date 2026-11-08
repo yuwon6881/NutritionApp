@@ -7,17 +7,16 @@ namespace Nutrition.Tests;
 public sealed class ReadCoordinationTests
 {
     [Fact]
-    public void Validators_include_account_date_retention_and_domain_revisions()
+    public void Validators_include_account_date_and_domain_revisions()
     {
         var user = new AppUser {Id=Guid.NewGuid(),Revision=1};
         var day = new DateOnly(2026,9,28);
-        var tag = ReadValidators.Bootstrap(user,day,90,0,0,false,false);
-        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day.AddDays(1),90,0,0,false,false));
-        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day,30,0,0,false,false));
-        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day,90,1,0,false,false));
-        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day,90,0,1,false,false));
+        var tag = ReadValidators.Bootstrap(user,day,0,0,false,false);
+        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day.AddDays(1),0,0,false,false));
+        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day,1,0,false,false));
+        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day,0,1,false,false));
         user.FoodRevision++;
-        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day,90,0,0,false,false));
+        Assert.NotEqual(tag,ReadValidators.Bootstrap(user,day,0,0,false,false));
         var progress = ReadValidators.Progress(user,"month",day);
         Assert.NotEqual(progress,ReadValidators.Progress(user,"year",day));
         Assert.NotEqual(progress,ReadValidators.Progress(user,"month",day.AddDays(1)));

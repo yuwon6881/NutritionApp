@@ -16,20 +16,20 @@ it('rebases day writes without mutating retained queue records or source days',(
   expect(next.state.diaryRevision).toBe(5);
 });
 
-it('never mutates a shared archived record while acknowledging a delayed response',()=>{
+it('never mutates a shared record while acknowledging a delayed response',()=>{
   const entry={id:'e',date:'2026-01-01',revision:1,deleted:false,name:'Food',calories:100} as AppState['entries'][number];
   Object.freeze(entry);
-  const state:AppState={id:'a',displayName:'A',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-01-02',entries:[entry],foods:[],weights:[],days:[{id:'d',date:'2026-01-01',revision:1,deleted:false,status:'complete',archived:true}],plans:[]};
+  const state:AppState={id:'a',displayName:'A',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-01-02',entries:[entry],foods:[],weights:[],days:[{id:'d',date:'2026-01-01',revision:1,deleted:false,status:'complete'}],plans:[]};
   const next=acknowledgeState(state,{id:'m',kind:'entry',recordId:'e',expectedRevision:1,delete:false,data:{date:'2026-01-01',calories:200}},5);
   expect(entry.revision).toBe(1);
-  expect(next.entries[0]).toMatchObject({revision:5,calories:100});
+  expect(next.entries[0]).toMatchObject({revision:5,calories:200});
   expect(state.days[0].revision).toBe(1);
 });
 
 it('uses the canonical saved decision instead of the requested decision',()=>{
   const state:AppState={id:'a',displayName:'A',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-01-02',entries:[],foods:[],weights:[],days:[],plans:[]};
   const op:Mutation={id:'op',kind:'day',recordId:'local',expectedRevision:0,delete:false,data:{date:'2026-01-01',status:'not_logged'}};
-  const canonical={id:'saved',revision:1,deleted:false,date:'2026-01-01',status:'fasting' as const,archived:true,calories:0,entryCount:0};
+  const canonical={id:'saved',revision:1,deleted:false,date:'2026-01-01',status:'fasting' as const};
   expect(acknowledgeLocalWrite({state,queue:[op]},op,2,{revision:2,days:[canonical]}).state.days).toEqual([canonical]);
 });
 

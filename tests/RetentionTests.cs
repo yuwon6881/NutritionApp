@@ -7,62 +7,54 @@ using Xunit;
 namespace Nutrition.Tests;
 public class RetentionTests
 {
-    [Fact] public async Task Rollup_preserves_totals_unknowns_weights_and_coaching_then_rejects_old_detail_writes()
+    private static async Task<(Microsoft.Data.Sqlite.SqliteConnection connection,AppDb db)> Open()
     {
-        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
-        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();
-        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
-        var today=new DateOnly(2026,9,7);var old=today.AddDays(-10);
-        db.Entries.AddRange(new DiaryEntry { Id=Guid.NewGuid(),UserId=user.Id,Date=old,Name="Rice",Calories=200,Protein=null,Carbs=40,Fat=2 },new DiaryEntry { Id=Guid.NewGuid(),UserId=user.Id,Date=old,Name="Egg",Calories=100,Protein=6,Carbs=1,Fat=7 });
-        db.Days.Add(new DayStatus { Id=Guid.NewGuid(),UserId=user.Id,Date=old,Status="complete" });
-        db.Weights.Add(new Weight { Id=Guid.NewGuid(),UserId=user.Id,Date=old,Kg=80 });await db.SaveChangesAsync();
-        var retention=new RetentionService(db,config);
-        Assert.Equal(2,await retention.CompactUser(user.Id,today,default));
-        var summary=await db.Days.SingleAsync();Assert.True(summary.Archived);Assert.Equal(300,summary.Calories);Assert.Null(summary.Protein);Assert.Equal(41,summary.Carbs);Assert.Equal(2,summary.EntryCount);Assert.Equal("complete",summary.Status);
-        Assert.Empty(await db.Entries.ToListAsync());Assert.Single(await db.Weights.ToListAsync());
-        Assert.Equal(0,await retention.CompactUser(user.Id,today,default));Assert.Equal(300,(await db.Days.SingleAsync()).Calories);
-        Assert.Throws<DomainException>(()=>retention.RequireEditable(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-100),""));
+        var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
+        var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
+        return (connection,db);
     }
-    [Fact] public async Task Compaction_prunes_finished_nutrition_sync_rows_only_for_entries_it_removed()
+    private static StorageService Storage(AppDb db,IConfiguration config)
+        => new(db,new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),new TemporaryImageStore(new HttpClient(),config),config);
+
+    [Fact] public async Task Meal_detail_is_never_compacted_and_old_entries_stay_editable()
     {
-        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
-        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();
-        var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
-        var today=new DateOnly(2026,9,7);var old=today.AddDays(-10);var recent=today.AddDays(-1);
-        var oldEntry=new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=old,Name="Rice",Calories=200};
-        var recentEntry=new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=recent,Name="Egg",Calories=100};
-        db.Entries.AddRange(oldEntry,recentEntry);
-        GoogleHealthNutritionSyncWork Work(Guid entry,DateOnly date,string state)=>new(){Id=Guid.NewGuid(),UserId=user.Id,EntryId=entry,DesiredDate=date,ProcessingState=state};
-        // A row whose entry was moved to a retained date still maps that entry, whatever its last synced date.
-        var moved=Work(Guid.NewGuid(),old,"succeeded");
-        db.Entries.Add(new DiaryEntry{Id=moved.EntryId,UserId=user.Id,Date=recent,Name="Moved",Calories=50});
-        var kept=new[]{Work(Guid.NewGuid(),old,"failed"),Work(Guid.NewGuid(),old,"unknown"),Work(Guid.NewGuid(),old,"pending"),Work(recentEntry.Id,recent,"succeeded"),moved};
-        var pruned=new[]{Work(oldEntry.Id,old,"succeeded"),Work(Guid.NewGuid(),old,"cancelled")};
-        db.GoogleHealthNutritionSyncWork.AddRange([..kept,..pruned]);
+        var (connection,db)=await Open();await using var _c=connection;await using var _d=db;
+        var user=await TestUsers.CreateAsync(db,"alice");db.CurrentUser=user.Id;
+        var today=ProfileClock.Today(user.ProfileJson);var old=today.AddDays(-200);var id=Guid.NewGuid();
+        var sync=new SyncService(db);
+        var revision=await sync.Apply(new(Guid.NewGuid(),"entry",id,0,System.Text.Json.JsonSerializer.SerializeToElement(new{date=old,time="08:00",name="Rice",calories=200})),default);
+        await sync.Apply(new(Guid.NewGuid(),"entry",id,revision,System.Text.Json.JsonSerializer.SerializeToElement(new{date=old,time="08:00",name="Rice",calories=250})),default);
+        await Storage(db,new ConfigurationBuilder().Build()).Cleanup(default);
+        var entry=await db.Entries.SingleAsync();Assert.Equal(250,entry.Calories);Assert.Equal(old,entry.Date);
+        Assert.Empty(await db.Days.ToListAsync());
+    }
+    [Fact] public async Task Cleanup_purges_only_deleted_entries_past_the_tombstone_window()
+    {
+        var (connection,db)=await Open();await using var _c=connection;await using var _d=db;
+        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{["Retention:TombstoneDays"]="90"}).Build();
+        var user=await TestUsers.CreateAsync(db,"alice");db.CurrentUser=user.Id;
+        var now=DateTime.UtcNow;var date=DateOnly.FromDateTime(now).AddDays(-400);
+        DiaryEntry Entry(string name,bool deleted,DateTime? deletedAt)=>new(){Id=Guid.NewGuid(),UserId=user.Id,Date=date,Name=name,Calories=100,Deleted=deleted,DeletedAt=deletedAt};
+        db.Entries.AddRange(Entry("live",false,null),Entry("long gone",true,now.AddDays(-100)),Entry("just deleted",true,now.AddDays(-5)));
         await db.SaveChangesAsync();
-
-        await new RetentionService(db,config).CompactUser(user.Id,today,default);
-
+        await Storage(db,config).Cleanup(default);
+        var names=(await db.Entries.IgnoreQueryFilters().Select(e=>e.Name).ToListAsync()).Order().ToArray();
+        Assert.Equal(["just deleted","live"],names);
+    }
+    [Fact] public async Task Cleanup_prunes_finished_nutrition_sync_rows_only_for_entries_that_no_longer_exist()
+    {
+        var (connection,db)=await Open();await using var _c=connection;await using var _d=db;
+        var user=await TestUsers.CreateAsync(db,"alice");db.CurrentUser=user.Id;
+        var date=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-200);
+        var live=new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Name="Rice",Calories=200};
+        db.Entries.Add(live);
+        GoogleHealthNutritionSyncWork Work(Guid entry,string state)=>new(){Id=Guid.NewGuid(),UserId=user.Id,EntryId=entry,DesiredDate=date,ProcessingState=state};
+        var kept=new[]{Work(live.Id,"succeeded"),Work(Guid.NewGuid(),"failed"),Work(Guid.NewGuid(),"unknown"),Work(Guid.NewGuid(),"pending")};
+        var pruned=new[]{Work(Guid.NewGuid(),"succeeded"),Work(Guid.NewGuid(),"cancelled")};
+        db.GoogleHealthNutritionSyncWork.AddRange([..kept,..pruned]);await db.SaveChangesAsync();
+        await Storage(db,new ConfigurationBuilder().Build()).Cleanup(default);
         var remaining=(await db.GoogleHealthNutritionSyncWork.Select(w=>w.Id).ToListAsync()).ToHashSet();
         Assert.True(remaining.SetEquals(kept.Select(w=>w.Id)));
-    }
-    [Fact] public void Cutoff_keeps_seven_recent_calendar_days() => Assert.Equal(new DateOnly(2026,9,1),RetentionService.Cutoff(new DateOnly(2026,9,7),7));
-    [Fact] public async Task Twenty_eight_day_coaching_result_is_identical_after_detail_compaction()
-    {
-        await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
-        await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Retention:MealDetailDays"]="7" }).Build();var user=await TestUsers.CreateAsync(db, "alice");db.CurrentUser=user.Id;
-        var today=new DateOnly(2026,9,7);var weights=new List<WeightPoint>();
-        for(var i=1;i<=28;i++){var date=today.AddDays(-i);weights.Add(new(date,80));db.Entries.Add(new DiaryEntry{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Name="Daily total",Calories=2500});db.Days.Add(new DayStatus{Id=Guid.NewGuid(),UserId=user.Id,Date=date,Status="complete"});}
-        await db.SaveChangesAsync();
-        var profile=new Profile{Age=30,HeightCm=175,WeightKg=80,Sex="male",Maintenance=2500};
-        var before=Coach.Calculate(profile,weights.Select(w=>new NutritionDay(w.Date,"complete",2500)).ToList(),weights,new(2500,2500),today);
-        await new RetentionService(db,config).CompactUser(user.Id,today,default);
-        var entries=await db.Entries.ToListAsync();var statuses=await db.Days.ToListAsync();
-        var after=Coach.Calculate(profile,statuses.Select(d=>new NutritionDay(d.Date,d.Status,d.Archived?d.Calories:entries.Where(e=>e.Date==d.Date).Sum(e=>e.Calories))).ToList(),weights,new(2500,2500),today);
-        Assert.Equal(before,after);Assert.True(after.Adaptive);
     }
 
     [Fact]
@@ -144,14 +136,12 @@ public class RetentionTests
 
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Retention:MealDetailDays"] = "90",
             ["Retention:ReceiptDays"] = "30"
         }).Build();
-        var retention = new RetentionService(db, config);
 
-        await retention.CompactUser(user.Id, DateOnly.FromDateTime(now), default);
+        await Storage(db, config).Cleanup(default);
 
-        var remaining = await db.Receipts.Where(r => r.UserId == user.Id).ToListAsync();
+        var remaining = await db.Receipts.IgnoreQueryFilters().Where(r => r.UserId == user.Id).ToListAsync();
         Assert.Single(remaining);
         Assert.True(remaining[0].Created > now.AddDays(-10));
     }
@@ -304,122 +294,11 @@ public class RetentionTests
         Assert.Contains(remaining, w => w.Id == liveSucceeded.Id);
     }
 
-    [Fact]
-    public async Task Compaction_batches_queries_and_preserves_rules_revisions_and_recent_entries()
-    {
-        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
-        await db.Database.EnsureCreatedAsync();
-
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Retention:MealDetailDays"] = "7" }).Build();
-        var user = await TestUsers.CreateAsync(db, "alice");
-        db.CurrentUser = user.Id;
-
-        var today = new DateOnly(2026, 9, 7);
-        var old1 = today.AddDays(-10);
-        var old2 = today.AddDays(-9);
-        var old3 = today.AddDays(-8);
-        var recent = today.AddDays(-1);
-
-        // Date 1: 2 entries, one with null Protein
-        var entry1 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old1, Name = "Rice", Calories = 200, Protein = null, Carbs = 40, Fat = 2 };
-        var entry2 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old1, Name = "Egg", Calories = 100, Protein = 6, Carbs = 1, Fat = 7 };
-
-        // Date 2: 2 entries, one Deleted
-        var entry3 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old2, Name = "Chicken", Calories = 250, Protein = 30, Carbs = 0, Fat = 5 };
-        var entry4 = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = old2, Name = "Deleted snack", Calories = 50, Protein = 2, Carbs = 5, Fat = 1, Deleted = true };
-
-        // Date 3: old not_logged day with no entries
-        var day3 = new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = old3, Status = "not_logged" };
-
-        // Recent entry
-        var recentEntry = new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = recent, Name = "Apple", Calories = 80, Protein = 0, Carbs = 20, Fat = 0 };
-
-        db.Entries.AddRange(entry1, entry2, entry3, entry4, recentEntry);
-        db.Days.Add(day3);
-        await db.SaveChangesAsync();
-
-        var retention = new RetentionService(db, config);
-        var removed = await retention.CompactUser(user.Id, today, default);
-
-        Assert.Equal(4, removed);
-
-        var days = (await db.Days.ToListAsync()).ToDictionary(d => d.Date);
-        Assert.Equal(3, days.Count);
-
-        var d1 = days[old1];
-        Assert.True(d1.Archived);
-        Assert.Equal(300, d1.Calories);
-        Assert.Null(d1.Protein);
-        Assert.Equal(41, d1.Carbs);
-        Assert.Equal(9, d1.Fat);
-        Assert.Equal(2, d1.EntryCount);
-        Assert.Equal("complete", d1.Status);
-
-        var d2 = days[old2];
-        Assert.True(d2.Archived);
-        Assert.Equal(250, d2.Calories);
-        Assert.Equal(30, d2.Protein);
-        Assert.Equal(0, d2.Carbs);
-        Assert.Equal(5, d2.Fat);
-        Assert.Equal(1, d2.EntryCount);
-        Assert.Equal("complete", d2.Status);
-
-        var d3 = days[old3];
-        Assert.True(d3.Archived);
-        Assert.Equal(0, d3.Calories);
-        Assert.Equal(0, d3.Protein);
-        Assert.Equal(0, d3.Carbs);
-        Assert.Equal(0, d3.Fat);
-        Assert.Equal(0, d3.EntryCount);
-        Assert.Equal("not_logged", d3.Status);
-
-        Assert.Equal(3, new[] { d1.Revision, d2.Revision, d3.Revision }.Distinct().Count());
-
-        var reloadedUser = await db.Users.SingleAsync(u => u.Id == user.Id);
-        Assert.Equal(reloadedUser.Revision, reloadedUser.DiaryRevision);
-
-        var remainingEntries = await db.Entries.ToListAsync();
-        Assert.Single(remainingEntries);
-        Assert.Equal(recentEntry.Id, remainingEntries[0].Id);
-    }
-
-    [Fact]
-    public async Task Compaction_clears_raw_entries_left_on_already_archived_days_so_newer_days_are_reached()
-    {
-        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
-        await db.Database.EnsureCreatedAsync();
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Retention:MealDetailDays"] = "7" }).Build();
-        var user = await TestUsers.CreateAsync(db, "alice");
-        db.CurrentUser = user.Id;
-        var today = new DateOnly(2026, 9, 7);
-        // More leftover archived days than one batch takes, so a skip-only pass would never reach the newer day.
-        for (var i = 0; i < 125; i++)
-        {
-            var date = today.AddDays(-400 + i);
-            db.Days.Add(new DayStatus { Id = Guid.NewGuid(), UserId = user.Id, Date = date, Status = "complete", Archived = true, Calories = 111, EntryCount = 1 });
-            db.Entries.Add(new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = date, Name = "Leftover", Calories = 999 });
-        }
-        var newer = today.AddDays(-10);
-        db.Entries.Add(new DiaryEntry { Id = Guid.NewGuid(), UserId = user.Id, Date = newer, Name = "Rice", Calories = 200 });
-        await db.SaveChangesAsync();
-        var retention = new RetentionService(db, config);
-
-        await retention.CompactUser(user.Id, today, default);
-        await retention.CompactUser(user.Id, today, default);
-
-        Assert.Empty(await db.Entries.ToListAsync());
-        Assert.True((await db.Days.SingleAsync(d => d.Date == newer)).Archived);
-        Assert.All(await db.Days.Where(d => d.Date < newer).ToListAsync(), d => Assert.Equal(111, d.Calories));
-    }
 
     [Theory]
     [InlineData("Not/AZone")]
     [InlineData("")]
     [InlineData(null)]
     public void Unknown_time_zone_falls_back_to_the_default_instead_of_throwing(string? id)
-        => Assert.Equal("Asia/Kuala_Lumpur", RetentionService.ResolveZone(id).Id);
+        => Assert.Equal("Asia/Kuala_Lumpur", ProfileClock.ResolveZone(id).Id);
 }

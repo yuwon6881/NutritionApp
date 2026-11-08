@@ -34,7 +34,7 @@ public sealed class ProfileExpenditurePersistenceTests
         await coach.Accept(Guid.NewGuid(), proposal.Revision, default);
         var accepted = await db.Plans.SingleAsync();
         var acceptedJson = accepted.ResultJson;
-        var today = RetentionService.Today(user.ProfileJson);
+        var today = ProfileClock.Today(user.ProfileJson);
         if (diaryWeight)
             await sync.Apply(new(Guid.NewGuid(), "weight", Guid.NewGuid(), 0,
                 JsonSerializer.SerializeToElement(new { date = today, kg = 66 }, Json.Options)), default);

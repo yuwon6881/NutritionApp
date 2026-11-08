@@ -22,11 +22,11 @@ describe('calendar calorie progress',()=>{
     expect(calorieProgress(500,null)).toBeNull();
     expect(calorieProgress(500,0)).toBeNull();
   });
-  it('distinguishes no intake evidence, explicit fasting, and archived calories',()=>{
+  it('distinguishes no intake evidence, explicit fasting, and logged calories',()=>{
     expect(calendarIntake({...day,entries:[]})).toBeNull();
     expect(calendarIntake({...day,entries:[],day:{id:'day',date:entry.date,revision:1,deleted:false,status:'not_logged'}})).toBeNull();
     expect(calendarIntake({...day,entries:[],day:{id:'day',date:entry.date,revision:1,deleted:false,status:'fasting'}})).toBe(0);
-    expect(calendarIntake({...day,day:{id:'day',date:entry.date,revision:1,deleted:false,status:'complete',archived:true,calories:1800}})).toBe(1800);
+    expect(calendarIntake({...day,day:{id:'day',date:entry.date,revision:1,deleted:false,status:'complete'}})).toBe(day.entries.reduce((sum,item)=>sum+item.calories,0));
   });
   it('projects retained entry changes into progress without changing authoritative summaries',()=>{
     const coordinator=new DiaryCoordinator('calendar-user');
