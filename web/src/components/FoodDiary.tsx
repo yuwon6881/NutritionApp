@@ -18,6 +18,7 @@ import {HistoryNotice} from './ui/HistoryNotice';
 import {useFoodSelection} from '../lib/useFoodSelection';
 import {useAfterLayersSettle} from '../lib/useAfterLayersSettle';
 import {useFoodClipboard,createPasteMutations} from '../lib/useFoodClipboard';
+import {useLingering} from './ui/useLingering';
 import {FoodSelectionBar} from './FoodSelectionBar';
 import {FoodWeekStrip} from './FoodWeekStrip';
 import {FoodDaySummary} from './FoodDaySummary';
@@ -47,6 +48,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
 
   const selection=useFoodSelection();
   const clipboard=useFoodClipboard();
+  const isSelectionActive=selection.isSelecting||clipboard.count>0;
+  const isSelectionLeaving=useLingering(isSelectionActive);
   const exitSelectionAndCopy=()=>{
     clipboard.clear();
     selection.exitSelection();
@@ -241,13 +244,14 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
           <SegmentedControl<TimelineView> id="food-timeline-view" label="Food timeline hours" value={timelineView} onChange={setTimelineView} options={[{value:'data',label:'Hours with data'},{value:'full',label:'Full day'}]}/>
         </div>
         {!entries.length&&timelineView==='data'&&<DiaryEmptyState status={status} offline={currentUncached} onLog={()=>onLog()}/>}
-        {(selection.isSelecting||clipboard.count>0)&&<FoodSelectionBar
+        {(isSelectionActive||isSelectionLeaving)&&<FoodSelectionBar
           selectedCount={selectedEntries.length}
           totalCount={entries.length}
           totalCalories={selectedCalories}
           copiedCount={clipboard.count}
           copiedCalories={clipboard.totalCalories}
           energyUnit={energyUnit}
+          leaving={isSelectionLeaving}
           onSelectAll={()=>selection.selectAll(entries.map(e=>e.id))}
           onDeselectAll={selection.deselectAll}
           onEdit={()=>{

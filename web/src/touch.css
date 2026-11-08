@@ -54,7 +54,11 @@
 /* Bulk selection actions sit in the thumb zone on phones, just above the bottom navigation. */
 @media (max-width:639px){
   .food-selection-bar{position:fixed;top:auto;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));width:auto;margin:0;z-index:120}
+  .food-log-page{transition:padding-bottom var(--motion-exit) var(--motion-ease)}
   .food-log-page:has(.food-selection-bar){padding-bottom:180px}
+}
+@media (prefers-reduced-motion:reduce){
+  .food-log-page{transition:none}
 }
 
 /* Food Log day swipe: vertical scrolling stays with the browser, sideways drags belong to the page. */

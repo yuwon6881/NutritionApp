@@ -87,6 +87,14 @@ for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[1440,'dark
     await expect(weight.getByRole('heading',{name:'Weight',exact:true})).toBeVisible();
     const carousel=weight.getByRole('group',{name:'Weight view',exact:true});
     const title=carousel.locator('.swipe-carousel-title');
+    for(let step=0;step<3&&(await title.textContent())!=='Trend weight';step++){
+      if(width>=640){
+        const prev=carousel.getByRole('button',{name:/^Previous view:/});
+        if(await prev.isEnabled())await prev.click();
+      }else{
+        await carousel.locator('.swipe-carousel-track').evaluate(track=>track.scrollTo({left:0,behavior:'instant'}));
+      }
+    }
     await expect(title).toHaveText('Trend weight');
     const figure=/^[+−-]?[\d.]+ kg$/;
     const stat=(slide:Locator,label:string)=>slide.locator('.energy-stats > div').filter({hasText:label}).locator('dd');

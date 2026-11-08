@@ -80,7 +80,6 @@ test('queued weigh-ins project onto the Dashboard weight card and history withou
   await page.getByLabel('Weight (kg)',{exact:true}).fill('80.2');
   await page.getByRole('button',{name:/Update weigh-in|Save weigh-in/,exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Log weight',exact:true})).not.toBeVisible();
-  await expect(weightCard.getByText('Recent edits will update after sync.')).toBeVisible();
   // The queued weigh-in shows in the weigh-ins list at once.
   await expect(page.locator('.weight-history-card .weigh-in-list .weigh-in-row').first()).toContainText('80.2');
   expect(progressReads).toBe(readsBefore);

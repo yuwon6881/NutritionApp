@@ -32,4 +32,10 @@
 .swipe-carousel-toolbar .select-compact{margin:0;width:auto}
 .select-compact .select-label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .select-compact .custom-select-wrapper{width:auto}
-.select-compact .custom-select-trigger{width:auto;min-width:0;gap:8px;padding:8px 12px;border-radius:999px;font-size:.8125rem;font-weight:550}
+.select-compact .custom-select-trigger{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:140px;min-width:140px;padding:8px 12px;border-radius:999px;font-size:.8125rem;font-weight:550;text-align:center}
+.select-compact .selected-text{flex:0 1 auto;min-width:0;text-align:center}
+.select-compact .select-chevron{flex-shrink:0}
+@media(min-width:1024px){
+  .swipe-carousel-arrow{min-height:36px!important}
+  .select-compact .custom-select-trigger{min-height:36px;padding:6px 12px}
+}

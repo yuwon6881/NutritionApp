@@ -27,7 +27,6 @@ for(const width of [390,1440])test(`steps calculator opens as an empty dialog an
   await page.goto('/');
   const card=page.locator('.activity-card');
   await expect(card).toBeVisible();
-  await showView(card,1);
   await expect(page.getByRole('textbox',{name:/Energy to burn/})).toHaveCount(0);
   await page.getByRole('button',{name:'Steps for an energy target'}).click();
   const dialog=page.getByRole('dialog',{name:'Steps calculator'});
@@ -39,7 +38,6 @@ for(const width of [390,1440])test(`steps calculator opens as an empty dialog an
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 
-  await showView(card,0);
   const steps=activeSlide(card);
   const later=steps.getByRole('button',{name:'Show earlier days'});
   if(width>=1024){

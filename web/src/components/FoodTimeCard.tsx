@@ -58,17 +58,17 @@ export const FoodTimeCard=memo(function FoodTimeCard({
       {...pointerProps}
     >
       <div className="food-time-card-header">
-        {isSelecting&&<div
-          className={`food-card-select-checkbox ${isSelected?'checked':''}`}
-          role="checkbox"
-          aria-checked={isSelected}
-          aria-label={`Select ${entry.name}`}
-          tabIndex={0}
-          onKeyDown={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();onToggleSelect(entry.id);}}}
+        {showCheckbox&&<div
+          className={`food-card-select-checkbox ${isSelected?'checked':''} ${checkboxLeaving?'leaving':''}`.trim()}
+          role={isSelecting?'checkbox':undefined}
+          aria-checked={isSelecting?isSelected:undefined}
+          aria-label={isSelecting?`Select ${entry.name}`:undefined}
+          aria-hidden={!isSelecting?true:undefined}
+          tabIndex={isSelecting?0:undefined}
+          onKeyDown={isSelecting?e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();onToggleSelect(entry.id);}}:undefined}
         >
           {isSelected&&<Check size={14} className="food-check-icon"/>}
         </div>}
-        {!isSelecting&&checkboxLeaving&&<div className="food-card-select-checkbox leaving" aria-hidden="true"/>}
         <h3 className="food-time-card-title">
           <span className="food-time-card-title-text">{entry.name}</span>
         </h3>

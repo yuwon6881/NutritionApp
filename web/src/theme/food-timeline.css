@@ -321,6 +321,7 @@
 .food-time-card .food-card-select-checkbox.leaving {
   animation: foodCheckOut var(--motion-exit) var(--motion-ease) both;
   pointer-events: none;
+  overflow: hidden;
 }
 @keyframes foodCheckOut {
   to { width: 0; margin-right: 0; border-width: 0; opacity: 0; scale: .4; }

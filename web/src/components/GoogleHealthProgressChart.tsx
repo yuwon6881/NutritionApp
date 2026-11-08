@@ -1,4 +1,4 @@
-import {useId} from 'react';
+import {useId, type ReactNode} from 'react';
 import {ChevronRight} from 'lucide-react';
 import {number,readableDate} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, calculateKnownDayAverage} from '../lib/googleHealth';
@@ -17,6 +17,7 @@ interface GoogleHealthProgressChartProps {
   todayDate?: string;
   loading?: boolean;
   onOpenSettings?: () => void;
+  children?: ReactNode;
 }
 
 const HEIGHT = 196;
@@ -33,6 +34,7 @@ export function GoogleHealthProgressChart({
   todayDate,
   loading = false,
   onOpenSettings,
+  children,
 }: GoogleHealthProgressChartProps) {
   const viewport = useBarViewport(days.length);
   const scrub = useChartScrub(days.map((_, index) => viewport.slot * (index + .5)), {tapToSelect: true});
@@ -53,6 +55,7 @@ export function GoogleHealthProgressChart({
             Connect Google Health in Settings <ChevronRight size={13} aria-hidden="true" />
           </Button>
         )}
+        {children}
       </section>
     );
   }
@@ -171,6 +174,7 @@ export function GoogleHealthProgressChart({
           </tbody>
         </table>
       </div>
+      {children}
     </section>
   );
 }

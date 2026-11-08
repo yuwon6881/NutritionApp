@@ -53,7 +53,6 @@ export function EnergyBalance({store,period,summary,error,view:fixedView}:{store
       <SkeletonChart height={240}/>
     </SkeletonRegion>}
     {summary&&<>
-      {summary.awaitingSynchronization&&<p className="notice" role="status">Recent edits will update after sync.</p>}
       <EnergyStats stats={stats} energyUnit={units.energy}/>
       {rows.length?<div className="chart-scrub energy-charts" role="group" aria-label={`Energy charts. Tap a bar or use the left and right arrow keys to read a ${groupingSingular[grouping]}.`} aria-describedby={readoutId} {...scrub.groupProps}>
         {!fixedView&&<div className="section-heading chart-heading">

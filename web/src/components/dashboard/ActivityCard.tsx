@@ -23,8 +23,11 @@ export function ActivityCard({store,onSettings}:{store:NutritionStore;onSettings
   const workoutSettled=Boolean(store.trainingResolved||state.trainingSyncedAt||(state.trainingSummaries&&state.trainingSummaries.length>0));
   const loading=healthLoading||(!workoutSettled&&state.workoutConnected!==false);
   const slides:CarouselSlide[]=[
-    {id:'steps',ariaLabel:'Daily steps',content:<GoogleHealthProgressChart days={health.days??[]} status={health.status} freshness={health.freshness} todayDate={today(state.profile?.timeZone)} loading={healthLoading} onOpenSettings={onSettings}/>},
-    {id:'calories',ariaLabel:'Calories from steps',content:<StepCalorieCalculator store={store} variant="panel"/>},
+    {id:'steps',ariaLabel:'Daily steps',content:(
+      <GoogleHealthProgressChart days={health.days??[]} status={health.status} freshness={health.freshness} todayDate={today(state.profile?.timeZone)} loading={healthLoading} onOpenSettings={onSettings}>
+        <StepCalorieCalculator store={store} variant="panel"/>
+      </GoogleHealthProgressChart>
+    )},
     {id:'workouts',ariaLabel:'Workouts',content:<TrainingSummaryCard syncedAt={state.trainingSyncedAt} summaries={state.trainingSummaries} settings={state.settings} timeZone={state.profile?.timeZone} workoutConnected={state.workoutConnected} warning={state.workoutWarning} loading={store.trainingLoading} resolved={store.trainingResolved} error={store.trainingError} onOpenSettings={onSettings} onRetry={()=>void loadTrainingSummaries?.(true)}/>},
   ];
   return <section className="panel dashboard-wide-card activity-card" aria-labelledby="dashboard-activity-title">

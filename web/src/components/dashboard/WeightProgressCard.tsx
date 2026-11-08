@@ -13,8 +13,6 @@ import type {WeightProgress} from './useWeightProgress';
 
 type Units=ReturnType<typeof unitsFor>;
 
-const SYNCED_KINDS=new Set(['entry','weight','day','profile','settings']);
-
 function Stat({label,value,note}:{label:string;value:ReactNode;note?:string}){
   return <div><dt>{label}</dt><dd>{value}</dd>{note&&<small>{note}</small>}</div>;
 }
@@ -46,7 +44,6 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
   const pending=useDelayedPending(loading&&Boolean(summary));
   const state=store.state!;
   const units=unitsFor(state.settings);
-  const queuedEdits=(store.local?.queue??[]).some(item=>SYNCED_KINDS.has(item.kind));
   const savedView=state.settings?.weightChartView??'trend';
   const activeView=controlledView??savedView;
 
@@ -79,7 +76,6 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
     {summary&&error&&<HistoryNotice error={error} hasState={true} onRetry={()=>void retry()} retryLabel="Retry" contextKey={period} store={store}/>}
     {summary?.weight.historyUnavailable&&!error&&<HistoryNotice customMessage="Showing weigh-ins saved on this device. History unavailable offline." contextKey={period} store={store}/>}
     {!summary&&error&&<CardFeedback title="Weight summary unavailable" message={`Not available offline. ${error}`} action={{label:'Retry',onClick:()=>void retry(),disabled:loading}}/>}
-    {summary&&(queuedEdits||summary.awaitingSynchronization)&&<p className="notice" role="status">Recent edits will update after sync.</p>}
     <SwipeCarousel label="Weight view" slides={slides} activeId={activeView} onChange={handleViewChange} toolbar={<SelectField className="select-compact" label="Weight history period" value={period} onChange={value=>onPeriod(value as ProgressPeriod)}>
       {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
     </SelectField>}/>

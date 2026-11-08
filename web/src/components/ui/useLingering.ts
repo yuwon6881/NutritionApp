@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useState} from 'react';
 import {motionTiming,useReducedMotion} from './Motion';
 
 /**
@@ -8,20 +8,23 @@ import {motionTiming,useReducedMotion} from './Motion';
  */
 export function useLingering(active:boolean):boolean{
   const reduced=useReducedMotion();
+  const [prevActive,setPrevActive]=useState(active);
   const [lingering,setLingering]=useState(false);
-  const wasActive=useRef(active);
+
+  if(active!==prevActive){
+    setPrevActive(active);
+    if(!active&&prevActive&&!reduced){
+      setLingering(true);
+    }else{
+      setLingering(false);
+    }
+  }
 
   useEffect(()=>{
-    const ended=wasActive.current&&!active;
-    wasActive.current=active;
-    if(active||!ended||reduced){
-      setLingering(false);
-      return;
-    }
-    setLingering(true);
+    if(!lingering)return;
     const timer=window.setTimeout(()=>setLingering(false),motionTiming('--motion-exit',180).duration);
     return()=>window.clearTimeout(timer);
-  },[active,reduced]);
+  },[lingering]);
 
   return lingering;
 }

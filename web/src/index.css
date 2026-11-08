@@ -75,7 +75,9 @@
 .food-selection-bar-actions{grid-area:actions;display:flex;align-items:center;gap:8px;justify-content:flex-end;min-width:0}
 .food-selection-bar-tools{grid-area:tools;display:flex;align-items:center;gap:4px;padding-left:12px;border-left:1px solid var(--border)}
 @keyframes foodSelectionIn{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
-@media(prefers-reduced-motion:reduce){.food-selection-bar{animation:none}}
+.food-selection-bar.food-selection-bar-leaving{animation:foodSelectionOut var(--motion-exit) var(--motion-ease) both;pointer-events:none}
+@keyframes foodSelectionOut{from{opacity:1;transform:none}to{opacity:0;transform:translate3d(0,10px,0)}}
+@media(prefers-reduced-motion:reduce){.food-selection-bar,.food-selection-bar.food-selection-bar-leaving{animation:none}}
 .food-diary-menu-anchor{position:relative;display:inline-flex}
 .food-diary-menu-trigger{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;padding:0!important;border-radius:12px}
 .food-diary-dropdown{position:absolute;top:calc(100% + 6px);right:0;z-index:100;min-width:180px;padding:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);display:flex;flex-direction:column;gap:2px;animation:fadeIn .12s ease-out}
@@ -1766,6 +1768,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .step-calculator-value{margin:0;font-size:1.45rem;font-weight:600;color:var(--ink-strong);line-height:1.2}
 .step-calculator-value .unit{font-size:.8rem;font-weight:500;color:var(--muted-foreground)}
 .step-calculator-basis{font-size:.72rem;line-height:1.45}
+.google-health-progress-section .step-calculator-panel{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
 .inline-link{display:inline-flex;align-items:center;gap:3px;background:transparent;border:0;padding:0;color:var(--primary-ink);font-weight:600;font-size:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 @media (hover:hover) and (pointer:fine){
 .inline-link:hover{color:var(--foreground)}}
