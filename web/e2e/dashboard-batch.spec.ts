@@ -78,9 +78,9 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
     const input=route.request().postDataJSON();expect(input.mode).toBe('description');expect(input.imageBase64).toBeNull();
     await route.fulfill({json:{id:input.id,status:'complete',resultJson:JSON.stringify({foods:[{name:'Text meal',quantity:1,unit:'serving',calories:230,protein:null,carbs:30,fat:7,fiber:null,notes:'Estimated portion'}],questions:[],explanation:'Estimate'})}});
   });
-  await page.getByRole('button',{name:'AI logging',exact:true}).click();
+  await page.getByRole('button',{name:'Analyze',exact:true}).click();
   await page.getByLabel('Meal description and portions').fill('one bowl of rice');
-  await page.getByRole('button',{name:'Estimate meal',exact:true}).click();
+  await page.getByRole('button',{name:'Analyze meal',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Batch (2 foods)'})).toBeVisible();
   await expect(page.getByLabel('Meal time',{exact:true})).toHaveValue('13:45');
   await expect(page.locator('.batch-food').filter({hasText:'Text meal'})).toBeVisible();
@@ -122,7 +122,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
     await textRow.locator('.batch-food-actions').getByRole('button',{name:'Remove Text meal',exact:true}).click();
   }
   await page.getByRole('button',{name:'Add more food'}).click();
-  await page.getByRole('button',{name:'AI logging',exact:true}).click();
+  await page.getByRole('button',{name:'Analyze',exact:true}).click();
   await expect(page.getByLabel('Meal description and portions')).toHaveValue('');
   await page.getByRole('button',{name:'Your foods',exact:true}).click();
   await page.getByRole('button',{name:'New recipe',exact:true}).click();
