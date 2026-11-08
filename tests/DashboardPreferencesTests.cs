@@ -190,4 +190,30 @@ public sealed class DashboardPreferencesTests
             try { if (File.Exists(tempDb)) File.Delete(tempDb); } catch { }
         }
     }
+
+    [Fact]
+    public async Task Dashboard_preferences_update_does_not_invalidate_coaching_proposal()
+    {
+        await using var db = await Open();
+        var user = await db.Users.SingleAsync();
+        var sync = new SyncService(db);
+        var coach = new CoachingService(db, new ExpenditureTrajectoryService(db));
+
+        var profile = new Profile { Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4, Goal = "maintain", Maintenance = 2500 };
+        await sync.Apply(Op("profile", user.Id, 0, profile), default);
+
+        var preview = await coach.Preview(default);
+        Assert.True(preview.CanAccept);
+
+        // Update dashboard preference (e.g. switch chart view)
+        await sync.Apply(Op("settings", user.Id, user.CoachingSettingsRevision, new
+        {
+            energyChartView = "coaching"
+        }), default);
+
+        // Accepting the proposal with the previously obtained preview.Revision succeeds
+        var planId = Guid.NewGuid();
+        var plan = await coach.Accept(planId, preview.Revision, default);
+        Assert.Equal(planId, plan.Id);
+    }
 }

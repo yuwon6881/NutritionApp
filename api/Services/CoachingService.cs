@@ -117,14 +117,17 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
         // based proposal. Continuous guidance and active targets have separate
         // lifecycles.
         var canAccept = result.Eligible && due;
-        var coachingRevision = ComputeCoachingRevision(user, phaseDecision, last);
-        return new(coachingRevision, result, canAccept, hold, weekStart, nextCheckIn, changes, result.Evidence);
+        return new(user.Revision, result, canAccept, hold, weekStart, nextCheckIn, changes, result.Evidence);
     }
 
-    private static long ComputeCoachingRevision(AppUser user, PhaseDecision? phaseDecision, AcceptedPlan? last)
-        => user.ProfileRevision + user.CadenceRevision + user.TrajectoryRevision +
-           user.DiaryRevision + user.BodyRevision +
-           (phaseDecision?.Revision ?? 0) + (last?.Revision ?? 0);
+    private static bool CoachingDataUnchanged(AppUser user, PhaseDecision? phaseDecision, AcceptedPlan? last, long inputRevision)
+        => user.ProfileRevision <= inputRevision
+        && user.CadenceRevision <= inputRevision
+        && user.TrajectoryRevision <= inputRevision
+        && user.DiaryRevision <= inputRevision
+        && user.BodyRevision <= inputRevision
+        && (phaseDecision == null || phaseDecision.Revision <= inputRevision)
+        && (last == null || last.Revision <= inputRevision);
 
     public async Task<AcceptedPlan> Accept(Guid id, long inputRevision, CancellationToken ct)
     {
@@ -136,9 +139,12 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
             return duplicate;
         }
         var preview = await PreviewCore(ct);
-        Validation.Require(preview.Revision == inputRevision, "Your data changed. Refresh this proposal before accepting.", 409);
-        Validation.Require(preview.CanAccept, preview.HoldReason ?? preview.Result.Explanation, 409);
         var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+        var last = await db.Plans.AsNoTracking().OrderByDescending(p => p.Date).ThenByDescending(p => p.Revision).FirstOrDefaultAsync(ct);
+        var phaseDecision = await db.PhaseDecisions.AsNoTracking().OrderByDescending(d => d.Date).ThenByDescending(d => d.Revision).FirstOrDefaultAsync(ct);
+        var fresh = preview.Revision == inputRevision || (inputRevision <= preview.Revision && CoachingDataUnchanged(user, phaseDecision, last, inputRevision));
+        Validation.Require(fresh, "Your data changed. Refresh this proposal before accepting.", 409);
+        Validation.Require(preview.CanAccept, preview.HoldReason ?? preview.Result.Explanation, 409);
         var profile = Json.Read<Profile>(user.ProfileJson);
         var today = Today(profile);
         var plan = new AcceptedPlan
@@ -171,9 +177,12 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
             return duplicate;
         }
         var preview = await PreviewCore(ct);
-        Validation.Require(preview.Revision == inputRevision, "Your data changed. Refresh this proposal before declining.", 409);
-        Validation.Require(preview.CanAccept, preview.HoldReason ?? preview.Result.Explanation, 409);
         var user = await db.Users.SingleAsync(u => u.Id == db.CurrentUser, ct);
+        var last = await db.Plans.AsNoTracking().OrderByDescending(p => p.Date).ThenByDescending(p => p.Revision).FirstOrDefaultAsync(ct);
+        var phaseDecision = await db.PhaseDecisions.AsNoTracking().OrderByDescending(d => d.Date).ThenByDescending(d => d.Revision).FirstOrDefaultAsync(ct);
+        var fresh = preview.Revision == inputRevision || (inputRevision <= preview.Revision && CoachingDataUnchanged(user, phaseDecision, last, inputRevision));
+        Validation.Require(fresh, "Your data changed. Refresh this proposal before declining.", 409);
+        Validation.Require(preview.CanAccept, preview.HoldReason ?? preview.Result.Explanation, 409);
         var profile = Json.Read<Profile>(user.ProfileJson);
         var decision = new CheckInDecision
         {
