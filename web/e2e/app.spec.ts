@@ -504,7 +504,7 @@ test('mobile scan shortcut supports food photos and label autofill before review
   });
   for(const mode of ['photo','label']){
   await page.getByRole('group',{name:'How would you like to log?',exact:true}).getByRole('button',{name:mode==='label'?'Nutrition label':'Meal photo',exact:true}).click();
-    await expect(page.locator('.custom-file-dropzone')).toBeVisible();
+    await expect(page.locator('.ai-capture')).toBeVisible();
     await expect(page.locator('input[type="file"]')).toHaveAttribute('capture','environment');
     await page.locator('input[type="file"]').setInputFiles('public/icon-512.png');
     // The preview must decode, not just exist: the prepared photo is bare base64.

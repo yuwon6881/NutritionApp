@@ -43,7 +43,7 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   // The last index this carousel reported or was told about. A late echo of an older saved choice
   // (rapid swiping while settings sync) differs from it and must not pull the view back.
   const reportedRef=useRef(initialIndex);
-  const lastUserAt=useRef(0);
+  const lastUserAt=useRef(Number.NEGATIVE_INFINITY);
   const emitTimer=useRef(0);
   const pendingEmit=useRef<string|undefined>(undefined);
   const navTimer=useRef(0);

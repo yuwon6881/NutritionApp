@@ -139,6 +139,12 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
         await expect(page.locator('.body-hub-skeleton, .physique-photo-home[aria-busy="true"]')).toHaveCount(0);
       }
       if(section==='Energy'){
+        // The chosen view is remembered, so an earlier test may have left another one showing.
+        const title=page.locator('.energy-progress-card .swipe-carousel-title');
+        for(let i=0;i<4&&(await title.textContent())!=='Intake and maintenance';i++){
+          await page.locator('.energy-progress-card').getByRole('button',{name:/^Previous view/}).dispatchEvent('click');
+        }
+        await expect(title).toHaveText('Intake and maintenance');
         await expect(page.locator('.energy-progress-card .swipe-carousel-slide:not([inert]) .energy-stats')).toBeVisible();
         await expect(page.locator('.energy-progress-card .swipe-carousel-slide:not([inert]) .energy-readout')).toBeVisible();
         await expect(page.locator('.energy-history .skeleton[aria-busy="true"], [role="status"][aria-busy="true"]')).toHaveCount(0);
