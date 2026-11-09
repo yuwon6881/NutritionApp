@@ -96,7 +96,7 @@
   line-height: 1.15;
   color: var(--ink-strong);
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .energy-side .energy-over,
@@ -237,6 +237,24 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0 18px;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1279px) {
+  /* The side-by-side Today card leaves the energy panel about 390 px: a smaller ring and figures keep each value on one line. */
+  .energy-overview {
+    gap: 10px;
+  }
+
+  .daily-grid .energy-overview .energy-ring,
+  .energy-panel .energy-overview .energy-ring,
+  .energy-overview .energy-ring {
+    width: 104px;
+    height: 104px;
+  }
+
+  .energy-side strong {
+    font-size: 1.3rem;
   }
 }
 
