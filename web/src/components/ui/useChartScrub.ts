@@ -15,14 +15,16 @@ import {useGestureRect} from './useGestureRect';
  * scrolls the bars, and only a tap (a touch the browser did not take over for
  * scrolling) selects one. The mouse still follows the pointer.
  */
-export function useChartScrub(positions:readonly number[],{tapToSelect=false}:{tapToSelect?:boolean}={}){
+export function useChartScrub(positions:readonly number[],{tapToSelect=false,selectedIndex,onSelectIndex}:{tapToSelect?:boolean;selectedIndex?:number;onSelectIndex?:(index:number)=>void}={}){
   const count=positions.length;
-  const [index,setIndex]=useState(Math.max(0,count-1));
+  const [internalIndex,setInternalIndex]=useState(Math.max(0,count-1));
+  const index=selectedIndex!==undefined?Math.min(selectedIndex,Math.max(0,count-1)):internalIndex;
   const target=useRef<SVGSVGElement|null>(null);
   const geometry=useGestureRect(target);
+  const setIndex=(next:number)=>{setInternalIndex(next);onSelectIndex?.(next);};
   const selection=useFrameTask((x:number)=>{const next=nearestIndex(positions,x);if(next>=0)setIndex(next);});
-  // A new series (period change, view change) starts again from its latest point.
-  useEffect(()=>{setIndex(Math.max(0,count-1));},[count]);
+  // A new series (period change, view change) starts again from its latest point unless controlled.
+  useEffect(()=>{if(selectedIndex===undefined)setIndex(Math.max(0,count-1));},[count]);
 
   const pick=(event:React.PointerEvent<SVGSVGElement>)=>{
     const svg=event.currentTarget;

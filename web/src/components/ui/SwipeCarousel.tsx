@@ -38,18 +38,35 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   const userSwiped=useRef(false);
   const current=Math.min(Math.max(0,active),slides.length-1);
 
+  const navTimer=useRef(0);
+
+  const clearNavigating=useCallback(()=>{
+    window.clearTimeout(navTimer.current);
+    programmaticUntil.current=0;
+    const track=trackRef.current;
+    if(track)delete track.dataset.navigating;
+  },[]);
+
+  const navigateTo=useCallback((index:number,smooth:boolean)=>{
+    const track=trackRef.current;
+    if(!track||index<0||index>=slides.length)return;
+    const width=track.clientWidth;
+    if(!width)return;
+    programmaticUntil.current=performance.now()+450;
+    track.dataset.navigating='true';
+    track.scrollTo({left:index*width,behavior:smooth?'smooth':'instant'});
+    window.clearTimeout(navTimer.current);
+    navTimer.current=window.setTimeout(clearNavigating,450);
+  },[slides.length,clearNavigating]);
+
   useEffect(()=>{
     if(!activeId)return;
     const target=slides.findIndex(s=>s.id===activeId);
     if(target>=0&&target!==activeRef.current){
       setActive(target);
-      const track=trackRef.current;
-      if(track&&track.clientWidth){
-        programmaticUntil.current=performance.now()+400;
-        track.scrollTo({left:target*track.clientWidth,behavior:reduced?'instant':'smooth'});
-      }
+      navigateTo(target,!reduced);
     }
-  },[activeId,slides,reduced]);
+  },[activeId,slides,reduced,navigateTo]);
 
   const settle=useCallback(()=>{
     const track=trackRef.current;
@@ -57,14 +74,18 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
     // While the width is settling a scroll position is not a reading; look again once it has.
     const wait=resizingUntil.current-performance.now();
     if(wait>0){window.setTimeout(()=>settleRef.current(),wait+20);return;}
+    const tolerance=Math.max(4,Math.round(track.clientWidth*0.02));
     if(programmaticUntil.current>performance.now()){
       const targetLeft=activeRef.current*track.clientWidth;
-      if(Math.abs(track.scrollLeft-targetLeft)>2)return;
-      programmaticUntil.current=0;
+      if(Math.abs(track.scrollLeft-targetLeft)>tolerance)return;
+      clearNavigating();
+    }else if(programmaticUntil.current>0){
+      clearNavigating();
     }
+    delete track.dataset.navigating;
     const ratio=track.scrollLeft/track.clientWidth;
     const next=Math.round(ratio);
-    if(Math.abs(track.scrollLeft-next*track.clientWidth)>2)return;
+    if(Math.abs(track.scrollLeft-next*track.clientWidth)>tolerance)return;
     if(next>=0&&next<slides.length){
       setActive(next);
       if(next!==activeRef.current){
@@ -74,9 +95,11 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
           userSwiped.current=false;
           onChangeRef.current?.(slides[next].id);
         }
+      }else{
+        userSwiped.current=false;
       }
     }
-  },[slides]);
+  },[slides,clearNavigating]);
   const settleRef=useRef(settle);
   settleRef.current=settle;
   useEffect(()=>{
@@ -128,13 +151,14 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   const go=(index:number)=>{
     const track=trackRef.current;
     if(!track||index<0||index>=slides.length)return;
-    programmaticUntil.current=performance.now()+400;
-    track.scrollTo({left:index*track.clientWidth,behavior:reduced?'instant':'smooth'});
+    navigateTo(index,!reduced);
     setActive(index);
     if(index!==activeRef.current){
       onChangeRef.current?.(slides[index].id);
     }
   };
+
+  const endUserSwipe=()=>void(userSwiped.current=false);
 
   return <div className={`swipe-carousel ${className}`.trim()} role="group" aria-roledescription="carousel" aria-label={label}>
     <div className="swipe-carousel-bar">
@@ -144,7 +168,8 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
       <Button variant="secondary" size="icon" className="swipe-carousel-arrow" aria-label={`Next view: ${slides[current+1]?.ariaLabel??''}`} disabled={current===slides.length-1} onClick={()=>go(current+1)}><ChevronRight size={18} aria-hidden="true"/></Button>
     </div>
     <div ref={trackRef} className="swipe-carousel-track" style={height?{height}:undefined} data-reduced={reduced||undefined}
-      onPointerDown={()=>void(userSwiped.current=true)} onTouchStart={()=>void(userSwiped.current=true)}>
+      onPointerDown={()=>void(userSwiped.current=true)} onTouchStart={()=>void(userSwiped.current=true)}
+      onPointerUp={endUserSwipe} onPointerCancel={endUserSwipe} onTouchEnd={endUserSwipe} onTouchCancel={endUserSwipe}>
       {slides.map((slide,index)=><div key={slide.id} ref={element=>{slideRefs.current[index]=element;}}
         className="swipe-carousel-slide" role="group" aria-roledescription="slide" aria-label={`${slide.ariaLabel}, ${index+1} of ${slides.length}`}
         id={`${baseId}-${slide.id}`} inert={index!==current}>

@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import {useState,type ReactNode} from 'react';
 import type {NutritionStore} from '../../useNutritionStore';
 import type {ProgressPeriod,ProgressSummary} from '../../types';
 import {displayWeight,unitsFor,weightLabel} from '../../lib/units';
@@ -8,7 +8,9 @@ import {HistoryNotice} from '../ui/HistoryNotice';
 import {SelectField} from '../ui/Field';
 import {SwipeCarousel,type CarouselSlide} from '../ui/SwipeCarousel';
 import {useDelayedPending} from '../ui/useDelayedPending';
-import {WeightChart,type WeightChartView} from '../WeightChart';
+import {DAY,MIN_DAY_WIDTH,WeightChart,type WeightChartView} from '../WeightChart';
+import {useBarViewport} from '../ui/useBarViewport';
+import {useWindowTier} from '../ui/useWindowTier';
 import type {WeightProgress} from './useWeightProgress';
 
 type Units=ReturnType<typeof unitsFor>;
@@ -47,6 +49,16 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
   const savedView=state.settings?.weightChartView??'trend';
   const activeView=controlledView??savedView;
 
+  const series=summary?.weight.series??[];
+  const first=series.length?series[0].date:undefined;
+  const last=series.length?series.at(-1)!.date:undefined;
+  const start=first?Date.parse(summary?.start&&summary.start<first?summary.start:first):0;
+  const end=last?Date.parse(summary?.end&&summary.end>last?summary.end:last):0;
+  const totalDays=series.length?Math.max(0,Math.round((end-start)/DAY)):0;
+  const tier=useWindowTier();
+  const viewport=useBarViewport(totalDays+1,MIN_DAY_WIDTH[tier]);
+  const [scrubIndex,setScrubIndex]=useState<number>();
+
   const handleViewChange=(newView:string)=>{
     onControlledView?.(newView as WeightChartView);
     if(!controlledView&&newView!==savedView){
@@ -62,7 +74,7 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
 
   const chart=(view:WeightChartView)=>summary
     ?<><WeightStats view={view} summary={summary} units={units}/>
-      <WeightChart view={view} series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end}/></>
+      <WeightChart view={view} series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end} viewport={viewport} selectedIndex={scrubIndex} onSelectIndex={setScrubIndex}/></>
     :<div className="empty"><h3>Loading weight…</h3></div>;
   const slides:CarouselSlide[]=[
     {id:'trend',ariaLabel:'Trend weight',content:chart('trend')},

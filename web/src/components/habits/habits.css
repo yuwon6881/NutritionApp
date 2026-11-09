@@ -10,17 +10,17 @@
 .habit-calendar.habit-weight,.habit-months.habit-weight{--habit-on:var(--weight);--habit-on-ink:var(--card)}
 .habit-months.habit-food{--habit-on:var(--energy);--habit-on-ink:var(--card)}
 
-.habit-calendar-trigger{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head grid" "count grid" "streak grid";align-items:start;column-gap:20px;width:100%;min-height:44px;padding:20px 24px;margin:0;border:0;border-radius:inherit;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color var(--motion-control) ease}
+.habit-calendar-trigger{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head grid" "sub grid";align-items:start;column-gap:20px;width:100%;min-height:44px;padding:20px 24px;margin:0;border:0;border-radius:inherit;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color var(--motion-control) ease}
 @media (hover:hover) and (pointer:fine){
   .habit-calendar-trigger:hover{background:color-mix(in srgb,var(--muted) 55%,transparent)}
   .habit-calendar-trigger:hover .habit-calendar-expand{opacity:1}
 }
 .habit-calendar-trigger:focus-visible{outline:2px solid var(--ring);outline-offset:-3px}
+.habit-calendar-trigger:focus-visible .habit-calendar-expand{opacity:1}
 .habit-calendar-heading{grid-area:head;display:flex;align-items:center;gap:8px}
-.habit-calendar-heading .eyebrow{margin:0!important}
-.habit-calendar-expand{color:var(--muted-foreground);opacity:.6;transition:opacity var(--motion-control) ease}
-.habit-calendar-count{grid-area:count;display:block;margin:12px 0 2px;font-size:1.45rem;font-weight:700;letter-spacing:-.025em;color:var(--ink-strong);font-variant-numeric:tabular-nums}
-.habit-calendar-streak{grid-area:streak;font-size:.85rem;color:var(--muted-foreground);line-height:1.4}
+.habit-calendar-title{margin:0;font-size:1.45rem;font-weight:700;letter-spacing:-.025em;color:var(--ink-strong);line-height:1.2}
+.habit-calendar-expand{color:var(--muted-foreground);opacity:.6;transition:opacity var(--motion-control) ease;flex-shrink:0}
+.habit-calendar-subtitle{grid-area:sub;margin:4px 0 0;font-size:.85rem;color:var(--muted-foreground);line-height:1.4}
 
 .habit-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
 /* Thirty days read oldest to newest in three rows of ten; the dialog keeps the weekday calendar. */
@@ -47,20 +47,20 @@
 .habit-day[data-status=unknown],.habit-day[data-status=before],.habit-day[data-status=future]{color:var(--muted-foreground)}
 
 /* Below 1024 px both cards stay side by side with the grid under the summary, so a
-   narrow card never squeezes its title and count beside the grid. */
+   narrow card never squeezes its title beside the grid. */
 @media(max-width:1023px){
-  /* The two cards share four row tracks, so a title that wraps on one card moves both
-     cards' counts and grids together and the grids stay on one line. */
-  .habit-calendars{gap:0 16px;grid-template-rows:repeat(4,auto)}
-  .panel.habit-calendar{display:grid;grid-row:span 4;grid-template-rows:subgrid}
-  .habit-calendar-trigger{grid-row:1/-1;grid-template-rows:subgrid;row-gap:0;grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "count" "streak" "grid";padding:18px 20px}
+  /* The two cards share three row tracks, so a title that wraps on one card moves both
+     cards' subtitles and grids together and the grids stay on one line. */
+  .habit-calendars{gap:0 16px;grid-template-rows:repeat(3,auto)}
+  .panel.habit-calendar{display:grid;grid-row:span 3;grid-template-rows:subgrid}
+  .habit-calendar-trigger{grid-row:1/-1;grid-template-rows:subgrid;row-gap:0;grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "sub" "grid";padding:18px 20px}
   .habit-grid-compact{align-self:end;width:100%;max-width:236px;margin-top:14px}
 }
 @media(max-width:639px){
   .habit-calendars{gap:0 12px;margin-bottom:18px}
   .habit-calendar-trigger{padding:16px}
-  .habit-calendar-count{margin-top:10px;font-size:1.25rem}
-  .habit-calendar-streak{font-size:.8125rem}
+  .habit-calendar-title{font-size:1.25rem}
+  .habit-calendar-subtitle{font-size:.8125rem}
   .habit-grid-compact{max-width:190px;margin-top:12px;gap:3px}
   .habit-cell{border-radius:3px}
 }

@@ -56,12 +56,12 @@
   .dashboard-cards .daily-grid .macro strong{font-size:1.15rem}
 }
 
-/* Habits: rounded cells and a bold weekly figure. */
-.dashboard-cards .habit-calendar-count{font-size:1.6rem;font-weight:760;letter-spacing:-.035em}
+/* Habits: rounded cells and a bold title. */
+.dashboard-cards .habit-calendar-title{font-size:1.45rem;font-weight:760;letter-spacing:-.025em}
 .dashboard-cards .habit-cell{border-radius:5px}
 .dashboard-cards .habit-grid-compact{gap:5px}
 @media(max-width:639px){
-  .dashboard-cards .habit-calendar-count{font-size:1.3rem}
+  .dashboard-cards .habit-calendar-title{font-size:1.25rem}
   .dashboard-cards .habit-grid-compact{gap:4px}
   .dashboard-cards .habit-cell{border-radius:4px}
 }

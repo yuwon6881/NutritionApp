@@ -25,9 +25,6 @@ const countAcrossMonths=async(dialog:Locator,text:RegExp)=>{
   }
   return total;
 };
-/** Offsets 0 (today) through this one fall in the current Monday-based week. */
-const weekdayOffset=(new Date(`${current}T12:00:00Z`).getUTCDay()+6)%7;
-const thisWeek=(offsets:number[])=>offsets.filter(offset=>offset<=weekdayOffset).length;
 const daysAgo=(offset:number)=>{const day=new Date(`${current}T12:00:00Z`);day.setUTCDate(day.getUTCDate()-offset);return day.toISOString().slice(0,10);};
 
 test.beforeAll(async({request})=>{
@@ -51,20 +48,27 @@ test.beforeAll(async({request})=>{
 
 for(const width of [390,768,1440])for(const theme of ['light','dark']){
   test(`${theme} ${width}: dashboard sections and habit calendars`,async({page,context})=>{
+    await context.clearCookies();
     await context.addCookies(session.cookies);
     await page.setViewportSize({width,height:900});
     await page.addInitScript(value=>localStorage.setItem('nutrition-theme',value),theme);
     await page.goto('/');
     for(const name of ['Today','Habits','Insights & analytics'])await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
 
-    const food=page.getByRole('button',{name:/^Food logging: /});
+    const food=page.getByRole('button',{name:/^Food Logging: /});
     const weight=page.getByRole('button',{name:/^Weigh-ins: /});
-    // A fasting day keeps the habit; an explicit not-logging day ends the streak.
-    // The headline counts this week's kept days; fasting (6 days ago) counts, not-logging (7) does not.
-    const foodWeek=thisWeek([1,2,3,4,5,6,8,9,10]);
-    await expect(food).toHaveAccessibleName(new RegExp(`^Food logging: ${foodWeek} of ${weekdayOffset+1} days logged so far, 6-day streak`));
-    await expect(weight).toHaveAccessibleName(new RegExp(`^Weigh-ins: ${thisWeek([0,2,4,6,8,10])} of ${weekdayOffset+1} days logged so far, 1-day streak`));
-    await expect(food.locator('.habit-calendar-count')).toHaveText(`${foodWeek}/${weekdayOffset+1} so far`);
+    await expect(food).toHaveAccessibleName('Food Logging: Last 30 days. Open full calendar');
+    await expect(weight).toHaveAccessibleName('Weigh-ins: Last 30 days. Open full calendar');
+    await expect(food.locator('.habit-calendar-title')).toHaveText('Food Logging');
+    await expect(food.locator('.habit-calendar-subtitle')).toHaveText('Last 30 days');
+    await expect(weight.locator('.habit-calendar-title')).toHaveText('Weigh-ins');
+    await expect(weight.locator('.habit-calendar-subtitle')).toHaveText('Last 30 days');
+    await expect(food.locator('.habit-calendar-count')).toHaveCount(0);
+    await expect(food.locator('.habit-calendar-streak')).toHaveCount(0);
+    await expect(food).not.toHaveText(/streak/i);
+    await expect(food).not.toHaveText(/so far/i);
+    await expect(weight).not.toHaveText(/streak/i);
+    await expect(weight).not.toHaveText(/so far/i);
 
     await page.evaluate(()=>document.fonts.ready);
     // The landing cascade staggers the two cards; measure once it settles.
@@ -89,7 +93,7 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
 
     // The card opens the full calendar; Escape closes it and returns focus.
     await food.click();
-    const dialog=page.getByRole('dialog',{name:'Food logging'});
+    const dialog=page.getByRole('dialog',{name:'Food Logging'});
     await expect(dialog).toBeVisible();
     // One month at a time, opening on the current month.
     await expect(dialog.locator('.habit-grid-full')).toHaveCount(1);
@@ -109,3 +113,23 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await page.keyboard.press('Escape');
   });
 }
+
+test('narrow 320px viewport: habit cards and compact heatmaps fit without overflow',async({page,context})=>{
+  await context.clearCookies();
+  await context.addCookies(session.cookies);
+  await page.setViewportSize({width:320,height:900});
+  await page.goto('/');
+  const food=page.getByRole('button',{name:/^Food Logging: /});
+  const weight=page.getByRole('button',{name:/^Weigh-ins: /});
+  await expect(food).toBeVisible();
+  await expect(weight).toBeVisible();
+  await page.evaluate(()=>document.fonts.ready);
+  await expect.poll(()=>page.evaluate(()=>document.getAnimations().filter(animation=>animation.playState==='running').length)).toBe(0);
+  const foodBox=(await food.boundingBox())!;
+  const weightBox=(await weight.boundingBox())!;
+  expect(Math.abs(foodBox.y-weightBox.y)).toBeLessThanOrEqual(1);
+  const foodGrid=(await food.locator('.habit-grid-compact').boundingBox())!;
+  const weightGrid=(await weight.locator('.habit-grid-compact').boundingBox())!;
+  expect(Math.abs(foodGrid.y-weightGrid.y)).toBeLessThanOrEqual(1);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});

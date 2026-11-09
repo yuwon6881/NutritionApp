@@ -6,23 +6,23 @@ import {dateAxisOffsets,dateAxisStep,niceTicks} from '../lib/barChart';
 import {dateSpan} from '../lib/chartLabels';
 import {monthYear,readableDate,readoutDate,shortDate} from '../lib/format';
 import {BAR_AXIS_WIDTH,BarChartFrame,BarChartNav} from './ui/BarChartFrame';
-import {useBarViewport,useRevealBar} from './ui/useBarViewport';
+import {useBarViewport,useRevealBar,type BarViewport} from './ui/useBarViewport';
 import {useWindowTier} from './ui/useWindowTier';
 import {useChartScrub} from './ui/useChartScrub';
 
 export type WeightChartView='both'|'scale'|'trend';
 type View=WeightChartView;
 const TOP=16;
-const DAY=86400000;
+export const DAY=86400000;
 /**
  * The narrowest a day may get before the chart scrolls instead of squeezing: a phone shows
  * about six weeks, a desktop window six months, and longer periods scroll from the latest day.
  */
-const MIN_DAY_WIDTH:Record<ReturnType<typeof useWindowTier>,number>={compact:7,medium:6,expanded:5};
+export const MIN_DAY_WIDTH:Record<ReturnType<typeof useWindowTier>,number>={compact:7,medium:6,expanded:5};
 const isoDay=(time:number)=>new Date(time).toISOString().slice(0,10);
 
 /** With `view` the caller chooses what is drawn and the chart's own title and switch are left out. */
-export function WeightChart({series,weightUnit='kg',periodStart,periodEnd,view:fixedView}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit;periodStart?:string;periodEnd?:string;view?:WeightChartView}){
+export function WeightChart({series,weightUnit='kg',periodStart,periodEnd,view:fixedView,viewport:externalViewport,selectedIndex,onSelectIndex}:{series:ProgressWeightPoint[];weightUnit?:WeightUnit;periodStart?:string;periodEnd?:string;view?:WeightChartView;viewport?:BarViewport;selectedIndex?:number;onSelectIndex?:(index:number)=>void}){
   // A wide window has the room for a taller plot, so a month of weigh-ins reads as a trend, not a strip.
   const tier=useWindowTier();
   const height=tier==='expanded'?300:214;
@@ -39,12 +39,13 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd,view:f
   const end=last?Date.parse(periodEnd&&periodEnd>last?periodEnd:last):0;
   const totalDays=series.length?Math.max(0,Math.round((end-start)/DAY)):0;
   // One slot per calendar day, so weigh-ins keep their true spacing; each window shows the same days as the Energy charts.
-  const viewport=useBarViewport(totalDays+1,MIN_DAY_WIDTH[tier]);
+  const internalViewport=useBarViewport(totalDays+1,MIN_DAY_WIDTH[tier]);
+  const viewport=externalViewport??internalViewport;
   const {slot,contentWidth,edges}=viewport;
   const dayOf=(date:string)=>Math.round((Date.parse(date)-start)/DAY);
   const x=(date:string)=>slot*(dayOf(date)+.5);
-  // Ticks are chosen in the display unit so the axis reads 170, 171 lb rather than converted kilograms.
-  const shown=series.flatMap(point=>view==='scale'?[point.scaleKg]:view==='trend'?[point.trendKg]:[point.scaleKg,point.trendKg]).filter((value):value is number=>value!==null).map(kg=>weightValue(kg,weightUnit)!);
+  // Ticks are chosen across both scale and trend in the display unit so switching views keeps a steady axis and gridlines.
+  const shown=series.flatMap(point=>[point.scaleKg,point.trendKg]).filter((value):value is number=>value!==null).map(kg=>weightValue(kg,weightUnit)!);
   const ticks=shown.length?niceTicks(Math.min(...shown),Math.max(...shown),4):[0,1];
   const low=ticks[0],high=ticks.at(-1)!;
   const valueY=(value:number)=>base-(value-low)/Math.max(1e-9,high-low)*(base-TOP);
@@ -61,7 +62,7 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd,view:f
   };
   const line=(points:ProgressWeightPoint[],field:'scaleKg'|'trendKg')=>points.map(point=>`${x(point.date)},${y(point[field]!)}`).join(' ');
   const area=(points:ProgressWeightPoint[])=>`M${x(points[0].date)} ${base} ${points.map(point=>`L${x(point.date)} ${y(point.trendKg!)}`).join(' ')} L${x(points.at(-1)!.date)} ${base} Z`;
-  const scrub=useChartScrub(series.map(point=>x(point.date)),{tapToSelect:true});
+  const scrub=useChartScrub(series.map(point=>x(point.date)),{tapToSelect:true,selectedIndex,onSelectIndex});
   const selected=series[scrub.index];
   useRevealBar(viewport,selected?dayOf(selected.date):0);
   // Dots shrink with the day width so neighbouring weigh-ins never merge into a smear.

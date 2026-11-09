@@ -15,8 +15,8 @@
 .bar-chart-plot .bar-axis-label.is-selected{fill:var(--ink-strong);font-weight:600}
 .bar-slot-selected{fill:var(--muted)}
 .bar-missing{fill:var(--border)}
-.maintenance-line{fill:none;stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.75}
-.average-line{stroke:var(--ink-strong);stroke-width:1.5;stroke-dasharray:5 4;opacity:.55}
+.maintenance-line{fill:none;stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.75;animation:chartTrendReveal var(--motion-layout) var(--motion-ease) both;transition:stroke var(--motion-control) ease,opacity var(--motion-control) ease}
+.average-line{stroke:var(--ink-strong);stroke-width:1.5;stroke-dasharray:5 4;opacity:.55;animation:chartTrendReveal var(--motion-layout) var(--motion-ease) both;transition:stroke var(--motion-control) ease,opacity var(--motion-control) ease,y1 var(--motion-layout) var(--motion-ease),y2 var(--motion-layout) var(--motion-ease)}
 .bar-chart-nav{display:flex;align-items:center;justify-content:center;min-height:32px;margin:6px 0}
 .bar-chart-range{flex:1;margin:0;text-align:center;font-size:.8125rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
 .bar-chart-hint{display:none}

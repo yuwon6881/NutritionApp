@@ -7,6 +7,7 @@ import {progressPeriodOptions,progressRange} from '../../lib/progress';
 import {SelectField} from '../ui/Field';
 import {SwipeCarousel,type CarouselSlide} from '../ui/SwipeCarousel';
 import {useDelayedPending} from '../ui/useDelayedPending';
+import {useBarViewport} from '../ui/useBarViewport';
 import {EnergyBalance} from '../EnergyBalance';
 import {MaintenanceChart} from '../MaintenanceChart';
 import {CoachingProgress} from '../CoachingProgress';
@@ -60,7 +61,11 @@ export function EnergyProgressCard({store,view:controlledView,onView:onControlle
     }
   };
 
-  const balance=(view:'intake'|'balance')=><EnergyBalance store={store} view={view} period={energy.displayedPeriod} summary={energy.summary} error={energy.error}/>;
+  const rows=energy.summary?.energy.series??[];
+  const viewport=useBarViewport(rows.length);
+  const [scrubIndex,setScrubIndex]=useState<number>();
+
+  const balance=(view:'intake'|'balance')=><EnergyBalance store={store} view={view} period={energy.displayedPeriod} summary={energy.summary} error={energy.error} viewport={viewport} selectedIndex={scrubIndex} onSelectIndex={setScrubIndex}/>;
   const slides:CarouselSlide[]=[
     {id:'intake',ariaLabel:'Intake and maintenance',content:balance('intake')},
     {id:'balance',ariaLabel:'Surplus or deficit',content:balance('balance')},

@@ -7,7 +7,7 @@ import {CardFeedback} from './ui/CardFeedback';
 import {HistoryNotice} from './ui/HistoryNotice';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {useChartScrub} from './ui/useChartScrub';
-import {useBarViewport,useRevealBar} from './ui/useBarViewport';
+import {useBarViewport,useRevealBar,type BarViewport} from './ui/useBarViewport';
 import {BarChartNav} from './ui/BarChartFrame';
 import {BalanceChart,IntakeChart} from './EnergyBalanceCharts';
 import {EnergyReadout,type EnergyView} from './EnergyReadout';
@@ -18,14 +18,15 @@ const groupingNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
 
 /** With `view` the caller chooses the chart and the card's own title and chart switch are left out. */
-export function EnergyBalance({store,period,summary,error,view:fixedView}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string;view?:EnergyView}){
+export function EnergyBalance({store,period,summary,error,view:fixedView,viewport:externalViewport,selectedIndex,onSelectIndex}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string;view?:EnergyView;viewport?:BarViewport;selectedIndex?:number;onSelectIndex?:(index:number)=>void}){
   const state=store.state!;
   const units=unitsFor(state.settings);
   const rows=summary?.energy.series??[];
   const grouping=summary?.grouping.energy??'daily';
   const stats=summary?.energy.statistics;
-  const viewport=useBarViewport(rows.length);
-  const scrub=useChartScrub(rows.map((_,index)=>viewport.slot*(index+.5)),{tapToSelect:true});
+  const internalViewport=useBarViewport(rows.length);
+  const viewport=externalViewport??internalViewport;
+  const scrub=useChartScrub(rows.map((_,index)=>viewport.slot*(index+.5)),{tapToSelect:true,selectedIndex,onSelectIndex});
   useRevealBar(viewport,scrub.index);
   const selected=rows[scrub.index];
   const readoutId=useId();

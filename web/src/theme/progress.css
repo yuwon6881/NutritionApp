@@ -285,7 +285,7 @@
 .scale-line {
   stroke: var(--muted-foreground) !important;
   stroke-width: 1.5px !important;
-  opacity: 0.45 !important;
+  opacity: 0.45;
 }
 
 .scale-dot {

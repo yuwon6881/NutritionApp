@@ -1,6 +1,6 @@
 import {useMemo} from 'react';
 import type {AppState} from '../../types';
-import {foodCalendar,summarizeCalendar,summarizeWeek,weightCalendar,type FoodCalendarStatus,type WeightCalendarStatus} from '../../lib/loggingCalendar';
+import {foodCalendar,summarizeCalendar,weightCalendar,type FoodCalendarStatus,type WeightCalendarStatus} from '../../lib/loggingCalendar';
 import {HabitCalendarCard,type HabitLegendItem} from './HabitCalendarCard';
 
 /** The compact grid shows the last thirty days ending today; the dialog holds the real calendar. */
@@ -45,12 +45,12 @@ export function HabitCalendars({state,current}:{state:AppState;current:string}){
     const food=foodCalendar(state,current,current,historyDays);
     const weight=weightCalendar(state,current,current,historyDays);
     return {
-      food:{recent:foodCalendar(state,current,current,RECENT_DAYS),history:food,summary:summarizeCalendar(food,current),week:summarizeWeek(food,current)},
-      weight:{recent:weightCalendar(state,current,current,RECENT_DAYS),history:weight,summary:summarizeCalendar(weight,current),week:summarizeWeek(weight,current)},
+      food:{recent:foodCalendar(state,current,current,RECENT_DAYS),history:food,summary:summarizeCalendar(food,current)},
+      weight:{recent:weightCalendar(state,current,current,RECENT_DAYS),history:weight,summary:summarizeCalendar(weight,current)},
     };
   },[state,current]);
   return <div className="habit-calendars">
-    <HabitCalendarCard title="Food logging" tone="food" current={current} legend={FOOD_LEGEND}
+    <HabitCalendarCard title="Food Logging" tone="food" current={current} legend={FOOD_LEGEND}
       describe={status=>FOOD_LABELS[status as FoodCalendarStatus]??status} {...calendars.food}/>
     <HabitCalendarCard title="Weigh-ins" tone="weight" current={current} legend={WEIGHT_LEGEND}
       describe={status=>WEIGHT_LABELS[status as WeightCalendarStatus]??status} {...calendars.weight}/>
