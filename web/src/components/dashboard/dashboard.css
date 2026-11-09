@@ -9,6 +9,8 @@
 .dashboard-wide-card .weight-history-panel{padding:0}
 .dashboard-wide-card .swipe-carousel-slide .energy-stats{margin-bottom:16px}
 .activity-connect .chart-description{margin-bottom:16px}
+.activity-connect{display:flex;flex-direction:column}
+.activity-connect .button{align-self:flex-end}
 .dashboard-section-body>.panel,.dashboard-section-body .panel:last-child{margin-bottom:24px}
 @media(max-width:639px){
   .activity-connect .button{width:100%}

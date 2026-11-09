@@ -328,9 +328,9 @@ test('phase pace and target-weight goals preserve learned maintenance',async({pa
   expect(result.expenditure).toBeCloseTo(1871.4,2);expect(result.calories).toBe(1560);expect(state.profile.goalRatePercent).toBe(-0.35);
   await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();
   const energyCard=page.locator('.energy-progress-card');await energyCard.scrollIntoViewIfNeeded();await expect(energyCard.getByRole('heading',{name:'Energy',exact:true})).toBeVisible();
-  // Balance is its own carousel view; it explains why no bar is drawn.
+  // Balance is its own carousel view; with nothing to compare it stays an empty chart.
   await energyCard.getByRole('button',{name:'Next view: Surplus or deficit',exact:true}).dispatchEvent('click');
-  await expect(page.getByText('No complete days to compare.',{exact:true})).toBeVisible();
+  await expect(page.getByText('No complete days to compare.',{exact:true})).toHaveCount(0);
 
   const shift=(date:string,days:number)=>new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
   let latest=await (await context.request.get('/api/state')).json();

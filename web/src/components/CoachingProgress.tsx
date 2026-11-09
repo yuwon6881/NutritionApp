@@ -41,7 +41,7 @@ export function CoachingProgress({store,rangeStart,rangeEnd}:{store:NutritionSto
   const hasGoal=goal.length>0;
   const hasLegend=hasMaintenance||hasGoal||hasAccepted;
   return <section className="panel coaching-progress">
-    {points.length<2?<p className="notice">Not enough data yet.</p>:<>
+    {points.length>=2&&<>
       <svg ref={chart.ref} viewBox={`0 0 ${chart.width} 245`} className="weight-chart" role="img" aria-label="Continuous maintenance and provisional goal calorie guidance with accepted target intervals. Missing values remain unplotted.">
         {ticks.map(value=><g key={value}><line x1={chart.left} y1={y(value)} x2={chart.right} y2={y(value)} className="chart-grid"/><text x={chart.left-8} y={y(value)+4} textAnchor="end">{displayEnergy(value,units.energy)}</text></g>)}
         {accepted.map(interval=>{const target=interval.calories??(interval.dailyCalories?.length?interval.dailyCalories.reduce((sum,value)=>sum+value,0)/7:null);if(target==null||interval.end<start||interval.start>end)return null;const clampedStart=interval.start<start?start:interval.start;const clampedEnd=interval.end>end?end:interval.end;const [x1,x2]=acceptedLineSpan(x(clampedStart),x(clampedEnd),chart.left);return <line key={interval.start} x1={x1} x2={x2} y1={y(target)} y2={y(target)} className="accepted-target-line"><title>{mediumDate(interval.start)} to {mediumDate(interval.end)}: accepted target {displayEnergy(target,units.energy)} {energyUnit}/day (active plan)</title></line>;})}

@@ -76,7 +76,6 @@ export function EnergyBalance({store,period,summary,error,view:fixedView,viewpor
           </ul>
         </div>:<div className="chart-block">
           <p className="sr-only">Logged intake minus estimated maintenance. Above zero you ate more than you burned; below zero, less. Only fully logged {groupingNoun[grouping]} with an estimate get a bar.</p>
-          {!rows.some(row=>row.balance!=null)&&<p className="notice chart-empty-note">No complete days to compare.</p>}
           <BalanceChart {...chartProps}/>
           <ul className="chart-legend" aria-label="Surplus or deficit chart key">
             <li><span className="legend-swatch swatch-surplus" aria-hidden="true"/>Surplus</li>

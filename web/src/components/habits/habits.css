@@ -54,7 +54,7 @@
   .habit-calendars{gap:0 16px;grid-template-rows:repeat(3,auto)}
   .panel.habit-calendar{display:grid;grid-row:span 3;grid-template-rows:subgrid}
   .habit-calendar-trigger{grid-row:1/-1;grid-template-rows:subgrid;row-gap:0;grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "sub" "grid";padding:18px 20px}
-  .habit-grid-compact{align-self:end;width:100%;max-width:236px;margin-top:14px}
+  .habit-grid-compact{align-self:end;width:100%;margin-top:14px}
 }
 @media(max-width:639px){
   .habit-calendars{gap:0 12px;margin-bottom:18px}

@@ -1,7 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {ArrowLeft, Camera, Images, LoaderCircle, MessageSquareText, ScanText, UploadCloud, X} from 'lucide-react';
+import {ArrowLeft, Camera, Images, LoaderCircle, MessageSquareText, Plus, ScanText, Sparkles, UploadCloud, X} from 'lucide-react';
 import type {FoodScanDraft} from '../lib/foodScans';
 import {Button} from './ui/Button';
+import {AiPhotoPicker} from './AiPhotoPicker';
 import {TextArea} from './ui/Field';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Form} from './ui/Form';
@@ -74,7 +75,11 @@ export function LogFoodAiForm({
 }){
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  // Optional details stay out of the way until asked for, but never hide text already typed.
+  const [detailsOpen, setDetailsOpen] = useState(() => description.trim().length > 0);
+  useEffect(() => {
+    if (description.trim()) setDetailsOpen(true);
+  }, [description]);
   const cameraActiveRef = useRef(false);
   const unregisterCameraBack = useRef<(() => void) | null>(null);
 
@@ -158,24 +163,6 @@ export function LogFoodAiForm({
     disarmCameraGuard();
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!pending) setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (pending) return;
-    const file = e.dataTransfer.files?.[0];
-    if (file) onPhotoFile(file);
-  };
-
   const failed = scanDraft?.date === date && scanDraft.status === 'failed' && scanDraft.error;
   const interrupted = scanDraft?.error === 'Upload interrupted. Try again.';
   const submitLabel = busy ? (mode === 'label' ? 'Analyzing label…' : 'Analyzing meal…')
@@ -245,53 +232,7 @@ export function LogFoodAiForm({
         />
 
         {!photo ? (
-          isMobile ? (
-            <div className="custom-file-dropzone ai-photo-mobile-controls" data-validation-focus>
-              <div className="ai-photo-mobile-buttons">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="ai-photo-btn ai-photo-btn-camera"
-                  disabled={pending}
-                  onClick={triggerCamera}
-                >
-                  <Camera size={18} aria-hidden="true" />
-                  <span>Take photo</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="ai-photo-btn ai-photo-btn-gallery"
-                  disabled={pending}
-                  onClick={triggerGallery}
-                >
-                  <Images size={18} aria-hidden="true" />
-                  <span>Upload photo</span>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div
-              className={`custom-file-dropzone ai-photo-desktop-dropzone ${isDragging ? 'dragging' : ''} ${pending ? 'disabled' : ''}`}
-              onClick={triggerGallery}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              data-validation-focus
-              role="button"
-              tabIndex={pending ? -1 : 0}
-              onKeyDown={e => {
-                if (e.target !== e.currentTarget) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  triggerGallery();
-                }
-              }}
-            >
-              <UploadCloud size={24} className="dropzone-icon" />
-              <span className="dropzone-main-text">Choose a photo or drag & drop</span>
-            </div>
-          )
+          <AiPhotoPicker mode={mode} isMobile={isMobile} pending={pending} onCamera={triggerCamera} onGallery={triggerGallery} onFile={onPhotoFile} />
         ) : (
           <div className="ai-photo-card">
             <figure className="ai-photo-preview">
@@ -304,7 +245,7 @@ export function LogFoodAiForm({
                   <Button
                     type="button"
                     variant="tertiary"
-                    size="sm"
+                    size="icon"
                     className="ai-photo-overlay-remove"
                     disabled={pending}
                     onClick={onClearPhoto}
@@ -357,23 +298,37 @@ export function LogFoodAiForm({
                       </Button>
                     )}
                   </div>
-                  <figcaption className="ai-photo-caption">Deleted after analysis</figcaption>
                 </div>
               </div>
             </figure>
           </div>
         )}
 
-        <TextArea
-          id="ai-photo-details"
-          name="details"
-          disabled={pending}
-          label="Additional details (optional)"
-          rows={2}
-          maxLength={3000}
-          value={description}
-          onChange={event => onDescriptionChange(event.target.value)}
-        />
+        {detailsOpen ? (
+          <TextArea
+            id="ai-photo-details"
+            name="details"
+            disabled={pending}
+            label="Additional details (optional)"
+            rows={2}
+            maxLength={3000}
+            autoFocus={!description}
+            value={description}
+            onChange={event => onDescriptionChange(event.target.value)}
+          />
+        ) : (
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            className="ai-details-toggle"
+            disabled={pending}
+            onClick={() => setDetailsOpen(true)}
+          >
+            <Plus size={16} aria-hidden="true" />
+            Add details
+          </Button>
+        )}
       </>
     )}
 
@@ -383,7 +338,7 @@ export function LogFoodAiForm({
     {storageError && <p className="error" role="alert">{storageError}</p>}
     <div className="modal-actions">
       <Button variant="primary" disabled={pending || !!storageError} type="submit">
-        {busy && <LoaderCircle size={18} className="spin-icon" aria-hidden="true" />}
+        {busy ? <LoaderCircle size={18} className="spin-icon" aria-hidden="true" /> : <Sparkles size={18} fill="currentColor" strokeWidth={1.75} className="ai-analyze-icon" aria-hidden="true" />}
         {submitLabel}
       </Button>
     </div>

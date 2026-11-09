@@ -77,6 +77,12 @@ const presetLabel=(id:string|null|undefined)=>macroPresets.find(p=>p.id===id)?.l
 export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?:boolean}){
   const [profile,setProfile]=useState<ProfileDraft>(()=>normalizeProfileSex(store.state!.profile??defaults));
   const [message,setMessage]=useState('');
+  // The confirmation is a passing acknowledgement, not a standing banner.
+  useEffect(()=>{
+    if(!message)return;
+    const timer=window.setTimeout(()=>setMessage(''),4000);
+    return()=>window.clearTimeout(timer);
+  },[message]);
   const {busy:saving,run:runSave,pending:savingPending}=useAsyncAction();
   const [mainTab,setMainTab]=useState<MainTab>('targets');
   const previousTab=useRef<MainTab>(mainTab);

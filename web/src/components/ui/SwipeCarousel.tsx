@@ -9,6 +9,11 @@ let hasSwiped=false;
 
 export type CarouselSlide={id:string;ariaLabel:string;content:ReactNode};
 
+/** How long after the user's own change a saved value arriving from elsewhere is treated as a stale echo. */
+const echoWindowMs=2000;
+/** Saving waits for the swiping to stop, so a burst persists once, where the user landed. */
+const saveDelayMs=350;
+
 /**
  * Related views of one measure inside a single card. A finger swipes between them (CSS scroll
  * snap, so the browser owns the gesture); from 640 px the arrows beside the view's name do the
@@ -35,13 +40,33 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   onChangeRef.current=onChange;
   const resizingUntil=useRef(0);
   const programmaticUntil=useRef(0);
-  const userSwiped=useRef(false);
+  // The last index this carousel reported or was told about. A late echo of an older saved choice
+  // (rapid swiping while settings sync) differs from it and must not pull the view back.
+  const reportedRef=useRef(initialIndex);
+  const lastUserAt=useRef(0);
+  const emitTimer=useRef(0);
+  const pendingEmit=useRef<string|undefined>(undefined);
+  const navTimer=useRef(0);
+  const frame=useRef(0);
   const current=Math.min(Math.max(0,active),slides.length-1);
 
-  const navTimer=useRef(0);
+  const flushEmit=useCallback(()=>{
+    window.clearTimeout(emitTimer.current);
+    const id=pendingEmit.current;
+    pendingEmit.current=undefined;
+    if(id!==undefined)onChangeRef.current?.(id);
+  },[]);
+  const emit=useCallback((id:string)=>{
+    lastUserAt.current=performance.now();
+    pendingEmit.current=id;
+    window.clearTimeout(emitTimer.current);
+    emitTimer.current=window.setTimeout(flushEmit,saveDelayMs);
+  },[flushEmit]);
+  useEffect(()=>flushEmit,[flushEmit]);
 
   const clearNavigating=useCallback(()=>{
     window.clearTimeout(navTimer.current);
+    window.cancelAnimationFrame(frame.current);
     programmaticUntil.current=0;
     const track=trackRef.current;
     if(track)delete track.dataset.navigating;
@@ -52,21 +77,47 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
     if(!track||index<0||index>=slides.length)return;
     const width=track.clientWidth;
     if(!width)return;
-    programmaticUntil.current=performance.now()+450;
-    track.dataset.navigating='true';
-    track.scrollTo({left:index*width,behavior:smooth?'smooth':'instant'});
+    window.cancelAnimationFrame(frame.current);
     window.clearTimeout(navTimer.current);
-    navTimer.current=window.setTimeout(clearNavigating,450);
+    const target=index*width;
+    track.dataset.navigating='true';
+    if(!smooth){
+      track.scrollTo({left:target,behavior:'instant'});
+      programmaticUntil.current=performance.now()+60;
+      navTimer.current=window.setTimeout(clearNavigating,60);
+      return;
+    }
+    // A short eased tween: the browser's own smooth scroll is slow and its length is not ours to set.
+    const from=track.scrollLeft;
+    const duration=Math.min(260,140+Math.abs(target-from)/width*60);
+    const start=performance.now();
+    programmaticUntil.current=start+duration+80;
+    const step=(now:number)=>{
+      const t=Math.min(1,(now-start)/duration);
+      track.scrollLeft=from+(target-from)*(1-Math.pow(1-t,3));
+      if(t<1)frame.current=window.requestAnimationFrame(step);
+    };
+    frame.current=window.requestAnimationFrame(step);
+    navTimer.current=window.setTimeout(clearNavigating,duration+80);
   },[slides.length,clearNavigating]);
 
   useEffect(()=>{
     if(!activeId)return;
     const target=slides.findIndex(s=>s.id===activeId);
-    if(target>=0&&target!==activeRef.current){
-      setActive(target);
-      navigateTo(target,!reduced);
-    }
+    if(target<0||target===reportedRef.current)return;
+    if(performance.now()-lastUserAt.current<echoWindowMs)return;
+    reportedRef.current=target;
+    setActive(target);
+    navigateTo(target,!reduced);
   },[activeId,slides,reduced,navigateTo]);
+
+  // While a finger drags, the title, dots and height follow the page most in view.
+  const follow=useCallback(()=>{
+    const track=trackRef.current;
+    if(!track||!track.clientWidth||programmaticUntil.current>performance.now()||resizingUntil.current>performance.now())return;
+    const next=Math.round(track.scrollLeft/track.clientWidth);
+    if(next>=0&&next<slides.length&&next!==activeRef.current)setActive(next);
+  },[slides.length]);
 
   const settle=useCallback(()=>{
     const track=trackRef.current;
@@ -83,41 +134,39 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
       clearNavigating();
     }
     delete track.dataset.navigating;
-    const ratio=track.scrollLeft/track.clientWidth;
-    const next=Math.round(ratio);
+    const next=Math.round(track.scrollLeft/track.clientWidth);
     if(Math.abs(track.scrollLeft-next*track.clientWidth)>tolerance)return;
     if(next>=0&&next<slides.length){
       setActive(next);
-      if(next!==activeRef.current){
+      if(next!==reportedRef.current){
+        reportedRef.current=next;
         hasSwiped=true;
         setSwiped(true);
-        if(userSwiped.current){
-          userSwiped.current=false;
-          onChangeRef.current?.(slides[next].id);
-        }
-      }else{
-        userSwiped.current=false;
+        emit(slides[next].id);
       }
     }
-  },[slides,clearNavigating]);
+  },[slides,clearNavigating,emit]);
   const settleRef=useRef(settle);
   settleRef.current=settle;
   useEffect(()=>{
     const track=trackRef.current;
     if(!track)return;
     let timer=0;
+    let raf=0;
     const onScroll=()=>{
       window.clearTimeout(timer);
       timer=window.setTimeout(settle,60);
+      if(!raf)raf=window.requestAnimationFrame(()=>{raf=0;follow();});
     };
     track.addEventListener('scroll',onScroll,{passive:true});
     track.addEventListener('scrollend',settle,{passive:true});
     return()=>{
       window.clearTimeout(timer);
+      window.cancelAnimationFrame(raf);
       track.removeEventListener('scroll',onScroll);
       track.removeEventListener('scrollend',settle);
     };
-  },[settle]);
+  },[settle,follow]);
 
   // A resize or rotation changes the slide width: hold the view that was showing rather than let the
   // browser's snap land on a neighbour while the layout settles.
@@ -149,16 +198,19 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   },[current,slides.length]);
 
   const go=(index:number)=>{
-    const track=trackRef.current;
-    if(!track||index<0||index>=slides.length)return;
+    if(index<0||index>=slides.length)return;
     navigateTo(index,!reduced);
     setActive(index);
-    if(index!==activeRef.current){
-      onChangeRef.current?.(slides[index].id);
+    if(index!==reportedRef.current){
+      reportedRef.current=index;
+      hasSwiped=true;
+      setSwiped(true);
+      emit(slides[index].id);
     }
   };
 
-  const endUserSwipe=()=>void(userSwiped.current=false);
+  // A finger on the track takes over from any running tween.
+  const takeOver=()=>{if(programmaticUntil.current>0)clearNavigating();};
 
   return <div className={`swipe-carousel ${className}`.trim()} role="group" aria-roledescription="carousel" aria-label={label}>
     <div className="swipe-carousel-bar">
@@ -168,8 +220,7 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
       <Button variant="secondary" size="icon" className="swipe-carousel-arrow" aria-label={`Next view: ${slides[current+1]?.ariaLabel??''}`} disabled={current===slides.length-1} onClick={()=>go(current+1)}><ChevronRight size={18} aria-hidden="true"/></Button>
     </div>
     <div ref={trackRef} className="swipe-carousel-track" style={height?{height}:undefined} data-reduced={reduced||undefined}
-      onPointerDown={()=>void(userSwiped.current=true)} onTouchStart={()=>void(userSwiped.current=true)}
-      onPointerUp={endUserSwipe} onPointerCancel={endUserSwipe} onTouchEnd={endUserSwipe} onTouchCancel={endUserSwipe}>
+      onPointerDown={takeOver} onTouchStart={takeOver}>
       {slides.map((slide,index)=><div key={slide.id} ref={element=>{slideRefs.current[index]=element;}}
         className="swipe-carousel-slide" role="group" aria-roledescription="slide" aria-label={`${slide.ariaLabel}, ${index+1} of ${slides.length}`}
         id={`${baseId}-${slide.id}`} inert={index!==current}>
