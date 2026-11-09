@@ -96,7 +96,7 @@
   line-height: 1.15;
   color: var(--ink-strong);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .energy-side .energy-over,
@@ -255,6 +255,7 @@
 
   .energy-side strong {
     font-size: 1.3rem;
+    white-space: nowrap;
   }
 }
 
