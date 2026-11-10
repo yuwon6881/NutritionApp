@@ -124,7 +124,7 @@ Quick add and Manual entry in the Log food dialog are quiet text actions on the 
 
 The Body hub is a summary: one row per area (Measurements & records, Photo gallery) states what is on file (latest date and counts, or an honest empty line) beside its actions, and Compare past & present sits in the section header. Wide windows give the Weight chart a taller plot (300 px against 214 px).
 
-Barcode search embeds the camera trigger directly into the digits input field as a trailing icon action, avoiding separate button rows and unifying manual and camera lookup. A scan resolves account-private saved-food barcode mappings before Open Food Facts, and a miss or incomplete provider result offers link-existing, nutrition-label, or manual recovery without inventing a serving weight. Saved custom foods may carry one optional 8–14 digit barcode; omitted legacy mutation fields preserve the existing mapping.
+Barcode search embeds the camera trigger directly into the digits input field as a trailing icon action, avoiding separate button rows and unifying manual and camera lookup. A scan resolves account-private saved-food barcode mappings before Open Food Facts, and an unknown or incomplete product and provider lookup failures open the nutrition-label scan without inventing a serving weight. Saved custom foods may carry one optional 8–14 digit barcode; omitted legacy mutation fields preserve the existing mapping.
 
 The "Your foods" selection tab organizes saved foods, custom items, recipes, and recent diary items with persistent search, category segment filtering (`All`, `Favourites`, `Recipes`, `Recent`), and structured recent food cards containing portion and energy context.
 

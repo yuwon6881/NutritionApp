@@ -4,7 +4,7 @@ import type {LogFoodProps} from './LogFoodProps';
 import type {Entry,Food} from '../types';
 import {blankNutrients} from '../types';
 import {prepareImage} from '../lib/image';
-import {api,ApiError} from '../lib/api';
+import {api} from '../lib/api';
 import {requestFoodScanEstimate,type FoodScanDraft} from '../lib/foodScans';
 import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,labelManualEntryDraft} from '../lib/logFood';
 import {lineFromPer100,lineKey,type BasketLine} from '../lib/foodBasket';
@@ -28,7 +28,6 @@ import {useFoodStepFocus} from './useFoodStepFocus';
 import {useAsyncAction} from './ui/useAsyncAction';
 import {unitsFor} from '../lib/units';
 import {LogFoodSavedFoods,type SavedFilter} from './LogFoodSavedFoods';
-import {LogFoodBarcodeRecovery,type BarcodeRecovery} from './LogFoodBarcodeRecovery';
 import {LogFoodAiForm} from './LogFoodAiForm';
 import {LogFoodRecents} from './LogFoodRecents';
 import {lineFromEntry,rankRecentFoods} from '../lib/recentFoods';
@@ -69,10 +68,8 @@ export function LogFood({
   const [step,setStep]=useState<FoodStep>(editing?'editor':initialStep??'selection');
   const [selectionPurpose,setSelectionPurpose]=useState<'log'|'recipe'>('log');
   const recipe=useRecipeDraft();
-  const [barcodeRecovery,setBarcodeRecovery]=useState<BarcodeRecovery>();
   const [pendingBarcode,setPendingBarcode]=useState<PendingBarcode>();
   const [autoLabelCamera,setAutoLabelCamera]=useState(false);
-  const [pendingLinkBarcode,setPendingLinkBarcode]=useState<PendingBarcode>();
   const [stepDirty,setStepDirty]=useState(false);
   const [tab,setTab]=useState(defaultTab);
   const [query,setQuery]=useState('');
@@ -99,9 +96,7 @@ export function LogFood({
       setStep(editing?'editor':initialStep??'selection');
       setSelectionPurpose('log');
       recipe.reset();
-      setBarcodeRecovery(undefined);
       setPendingBarcode(undefined);
-      setPendingLinkBarcode(undefined);
       setStepDirty(false);
       setTab(defaultTab);
       setQuery(initialQuery??'');
@@ -148,8 +143,6 @@ export function LogFood({
     if(next!==tab)hapticTick('selection');
     setSavedFilter('all');
     setQuery('');setResults([]);setError('');setCamera(false);setTab(next);
-    setBarcodeRecovery(undefined);
-    if(next!=='saved')setPendingLinkBarcode(undefined);
     if(next!=='ai')setPendingBarcode(undefined);
     window.requestAnimationFrame(()=>selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTo({top:0,left:0,behavior:'auto'}));
   };
@@ -205,7 +198,7 @@ export function LogFood({
     if(source==='cancel'&&choosingIngredient){cancelRecipeIngredient();return;}
     try{await Promise.all([basket.clear(),saveFoodBasketDraft(accountId,date,[])]);}catch{}
     if(scanDraftRef.current)await removeScanDraft(date).catch(()=>undefined);
-    setDescription('');setPhoto(null);setLabelNote('');setStepDirty(false);recipe.reset();setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);setPendingLinkBarcode(undefined);setBarcodeRecovery(undefined);
+    setDescription('');setPhoto(null);setLabelNote('');setStepDirty(false);recipe.reset();setSaveFood(false);setDraft(undefined);setPendingBarcode(undefined);
     onClose();
   };
   const submitAiEstimate=async()=>{
@@ -312,25 +305,9 @@ export function LogFood({
     if(local)return foodToSearchResult(local);
     return api<SearchResult>('/foods/barcode/'+encodeURIComponent(normalized),undefined,'GET',{signal});
   };
-  const retryBarcode=()=>{
-    const recovery=barcodeRecovery;
-    if(!recovery)return;
-    setBarcodeRecovery(undefined);
-    setResults([]);
-    setQuery(recovery.code);
-    void run(async()=>{
-      try{
-        setResults([await resolveBarcode(recovery.code)]);
-      }catch(ex){
-        const problem=ex instanceof ApiError?ex:new ApiError('Barcode lookup unavailable. Scan the label or enter this food manually.',503);
-        if([404,422,429,503].includes(problem.status)){barcodeFailed(recovery.code,problem);return;}
-        throw ex;
-      }
-    });
-  };
   const openReview=(line:BasketLine)=>{
     if(step==='selection')selectionScroll.current=selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTop??0;
-    setBarcodeRecovery(undefined);setSaveFood(false);setDraft({...line,time:newTime()});go('editor');
+    setSaveFood(false);setDraft({...line,time:newTime()});go('editor');
   };
   const choose=(food:SearchResult)=>openReview(lineFromPer100(food));
   // A recent food opens the same portion review a search result does, at its last portion; it joins the batch only from there.
@@ -340,7 +317,6 @@ export function LogFood({
     openReview(lineFromEntry(entry));
   };
   const chooseRecipe=(food:SearchResult)=>{
-    setBarcodeRecovery(undefined);
     recipe.pickIngredient(food);
     setStep('recipe');
   };
@@ -369,45 +345,11 @@ export function LogFood({
     [open,store.state!.entries,zone,nowHours,nowMinutes]);
   const recentSections=useMemo(()=>recentFoodSections(open?store.state!.entries:[],{date:today(zone),minutes:nowHours*60+nowMinutes}),
     [open,store.state!.entries,zone,nowHours,nowMinutes]);
-  const beginBarcodeLink=()=>{
-    if(!barcodeRecovery)return;
-    setPendingLinkBarcode({code:barcodeRecovery.code,purpose:selectionPurpose});
-    setBarcodeRecovery(undefined);
-    selectTab('saved');
+  const barcodeFailed=(code:string)=>{
+    setResults([]);setPendingBarcode({code,purpose:selectionPurpose});setCamera(false);
+    setMode('label');setDescription('');setPhoto(null);setError('');setAutoLabelCamera(true);setTab(selectionPurpose==='recipe'?'barcode':'ai');
   };
-  const beginLabelScan=(code:string,autoCamera:boolean)=>{
-    setPendingBarcode({code,purpose:selectionPurpose});
-    setBarcodeRecovery(undefined);setCamera(false);
-    setMode('label');setDescription('');setPhoto(null);setError('');setAutoLabelCamera(autoCamera);setTab(selectionPurpose==='recipe'?'barcode':'ai');
-  };
-  // No provider knows this product: the label is the only way forward, so go straight to it.
-  const barcodeFailed=(code:string,problem:{status:number;message:string})=>{
-    setResults([]);
-    if(problem.status===404){beginLabelScan(code,true);return;}
-    setBarcodeRecovery({code,status:problem.status,message:problem.message});
-  };
-  const beginBarcodeManual=()=>{
-    if(!barcodeRecovery)return;
-    setPendingBarcode({code:barcodeRecovery.code,purpose:selectionPurpose});
-    setLabelNote('');setSaveFood(true);setDraft({...blankNutrients,name:`Packaged food ${barcodeRecovery.code}`,quantity:100,unit:'g',barcode:barcodeRecovery.code});
-    setBarcodeRecovery(undefined);go('editor');
-  };
-  const chooseSaved=(food:Food)=>{
-    const link=pendingLinkBarcode;
-    if(!link){chooseForPurpose(foodToSearchResult(food));return;}
-    void run(async()=>{
-      await store.mutate({kind:'food',recordId:food.id,expectedRevision:food.revision,delete:false,data:{...food,barcode:link.code}});
-      setPendingLinkBarcode(undefined);setBarcodeRecovery(undefined);
-      const linked=foodToSearchResult({...food,barcode:link.code});
-      if(link.purpose==='recipe'){
-        setSelectionPurpose('recipe');
-        chooseRecipe(linked);
-      }else{
-        setSelectionPurpose('log');
-        choose(linked);
-      }
-    });
-  };
+  const chooseSaved=(food:Food)=>chooseForPurpose(foodToSearchResult(food));
   const selectionDirty=Boolean(basket.lines.length);
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(selectionPurpose==='recipe'?'Choose ingredient':initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
   const descriptionText=step==='selection'?(date===today(zone)?`Today · ${longDate(date)}`:longDate(date)):undefined;
@@ -425,8 +367,6 @@ export function LogFood({
     <MotionPanel motionKey={tab} axis="fade" className="food-method-panel">
     {tab==='saved'&&<LogFoodSavedFoods
       purpose={selectionPurpose}
-      linkBarcode={pendingLinkBarcode?.code}
-      onCancelLink={()=>{setPendingLinkBarcode(undefined);setTab('barcode');}}
       query={query}
       onQueryChange={setQuery}
       filter={savedFilter}
@@ -452,7 +392,6 @@ export function LogFood({
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
     {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={reviewRecent}/>}
-    {tab==='barcode'&&!pendingBarcode&&barcodeRecovery&&<LogFoodBarcodeRecovery recovery={barcodeRecovery} onRetry={retryBarcode} onLink={beginBarcodeLink} onLabel={()=>beginLabelScan(barcodeRecovery.code,false)} onManual={beginBarcodeManual}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
       date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}
       onModeChange={value=>{setMode(value);setPhoto(null);}}

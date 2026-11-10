@@ -288,28 +288,16 @@ test('direct barcode result without declared serving displays / 100 g',async({pa
   await expect(row.locator('.food-description > small')).toContainText('370 kcal / 100 g');
 });
 
-test('incomplete barcode products can link a private food and repeat offline from the local mapping',async({page,context})=>{
+for(const status of [404,408,422,429,500,503])test(`barcode lookup failure ${status} opens label scanning`,async({page,context})=>{
   await context.addCookies(session.cookies);
-  let providerCalls=0;
-  await page.route('**/api/foods/barcode/*',route=>{
-    providerCalls++;
-    return route.fulfill({status:422,json:{message:'Product data is incomplete.'}});
-  });
+  await page.route('**/api/foods/barcode/*',route=>route.fulfill({status,json:{message:'Lookup failed.'}}));
   await openLog(page);
   await page.getByRole('button',{name:'Barcode',exact:true}).click();
   await page.getByLabel('Barcode digits').fill('9559876543210');
   await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Product data is incomplete',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Link an existing food',exact:true}).click();
-  await expect(page.getByText(/Choose one saved non-recipe food/)).toBeVisible();
-  await page.locator('.food-row.interactive').filter({hasText:'Greek Yogurt 0%'}).click();
-  await expect(page.getByRole('heading',{name:'Greek Yogurt 0%',exact:true})).toBeVisible();
-  await page.locator('.food-modal').getByRole('button',{name:'Back',exact:true}).first().click();
-  await page.getByRole('button',{name:'Barcode',exact:true}).click();
-  await page.getByLabel('Barcode digits').fill('9559876543210');
-  await page.locator('form').getByRole('button',{name:'Search',exact:true}).click();
-  await expect(page.locator('.food-row').filter({hasText:'Greek Yogurt 0%'})).toBeVisible();
-  expect(providerCalls).toBe(1);
+  await expect(page.getByRole('heading',{name:'Scan nutrition label',exact:true})).toBeVisible();
+  for(const name of ['Retry lookup','Link an existing food','Scan nutrition label','Enter manually'])
+    await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
 });
 
 test('barcode label recovery normalizes a declared serving before explicit save',async({page,context})=>{

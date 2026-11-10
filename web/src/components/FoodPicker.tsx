@@ -133,7 +133,7 @@ export function FoodPicker({
     void run(async()=>{try{const valueResult=await resolve(value);const found=Array.isArray(valueResult)?valueResult:[valueResult];if(id===requestId.current)setResults(found);}catch(error){
       if(id===requestId.current&&tab==='barcode'){
         const problem=error instanceof ApiError?error:new ApiError('Barcode lookup unavailable. Scan the label or enter this food manually.',503);
-        if([404,422,429,503].includes(problem.status)&&onBarcodeError){onBarcodeError(value,problem);return;}
+        if(([404,408,422,429].includes(problem.status)||problem.status>=500)&&onBarcodeError){onBarcodeError(value,problem);return;}
       }
       if(id===requestId.current)throw error;
     }});
@@ -166,7 +166,7 @@ export function FoodPicker({
         }catch(error){
           if(id===requestId.current&&tab==='barcode'){
             const problem=error instanceof ApiError?error:new ApiError('Barcode lookup unavailable. Scan the label or enter this food manually.',503);
-            if([404,422,429,503].includes(problem.status)&&onBarcodeError){onBarcodeError(query,problem);return;}
+            if(([404,408,422,429].includes(problem.status)||problem.status>=500)&&onBarcodeError){onBarcodeError(query,problem);return;}
           }
           if(id===requestId.current)throw error;
         }

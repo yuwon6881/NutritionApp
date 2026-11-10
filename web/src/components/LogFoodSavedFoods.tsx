@@ -15,8 +15,6 @@ export type SavedFilter='all'|'favourites'|'recipes'|'recent';
 /** The "Your foods" tab: saved foods, recipes, favourites, and recent diary items. */
 export function LogFoodSavedFoods({
   purpose,
-  linkBarcode,
-  onCancelLink,
   query,
   onQueryChange,
   filter,
@@ -32,8 +30,6 @@ export function LogFoodSavedFoods({
   onNewRecipe,
 }:{
   purpose:'log'|'recipe';
-  linkBarcode?:string;
-  onCancelLink:()=>void;
   query:string;
   onQueryChange:(value:string)=>void;
   filter:SavedFilter;
@@ -49,13 +45,12 @@ export function LogFoodSavedFoods({
   onNewRecipe:()=>void;
 }){
   const logging=purpose==='log';
-  const linking=Boolean(linkBarcode);
 
   // isRecipe parses each food's ingredients; do it once per library rather than per use per render.
   const recipes=useMemo(()=>new Set(savedFoods.filter(isRecipe).map(food=>food.id)),[savedFoods]);
 
   const foods=savedFoods.filter(food=>{
-    if((!logging||linking)&&recipes.has(food.id))return false;
+    if(!logging&&recipes.has(food.id))return false;
     const matchesQuery=!query.trim()||food.name.toLowerCase().includes(query.toLowerCase().trim());
     if(!matchesQuery)return false;
     if(filter==='favourites')return food.favourite;
@@ -103,7 +98,7 @@ export function LogFoodSavedFoods({
     </div>
   </div>;
   // The overview is split into labelled groups, favourites first, so a starred food is not buried in one long list.
-  const sectioned=logging&&!linking&&filter==='all'&&!query.trim();
+  const sectioned=logging&&filter==='all'&&!query.trim();
   const favourites=sectioned?foods.filter(food=>food.favourite):[];
   const others=sectioned?foods.filter(food=>!food.favourite):[];
   const group=(id:string,title:string,count:number|null,items:Food[])=>items.length>0&&<section className="recent-foods-section" aria-labelledby={id} key={id}>
@@ -119,10 +114,6 @@ export function LogFoodSavedFoods({
         <Button variant="secondary" onClick={onNewRecipe}><Plus size={16}/>New recipe</Button>
       </div>}
     </div>
-    {linkBarcode&&<div className="notice barcode-link-notice" role="status">
-      <p>Choose one saved non-recipe food to link to barcode {linkBarcode}.</p>
-      <Button variant="tertiary" onClick={onCancelLink}>Cancel</Button>
-    </div>}
     <div className="saved-foods-search">
       <Field id="log-food-search" name="query" autoComplete="off" autoCorrect="off" spellCheck={false} data-modal-autofocus label="Find your food" placeholder="Filter by food or recipe name…" value={query} onChange={event=>onQueryChange(event.target.value)}/>
     </div>
@@ -134,14 +125,14 @@ export function LogFoodSavedFoods({
       options={[
         {value:'all',label:'All'},
         {value:'favourites',label:'Favourites'},
-        ...(logging&&!linking?[{value:'recipes' as const,label:'Recipes'},{value:'recent' as const,label:'Recent'}]:[]),
+        ...(logging?[{value:'recipes' as const,label:'Recipes'},{value:'recent' as const,label:'Recent'}]:[]),
       ]}
       onChange={onFilterChange}
     />
-    {logging&&!linking&&filter==='recent'
+    {logging&&filter==='recent'
       ?(recentEntries.length>0?recentGrid(recentEntries):<p className="empty recent-empty">No recent diary items yet.</p>)
       :<>
-        {logging&&!linking&&filter==='all'&&!query.trim()&&recentEntries.length>0&&<section className="recent-foods-section" aria-labelledby="recent-section-heading">
+        {logging&&filter==='all'&&!query.trim()&&recentEntries.length>0&&<section className="recent-foods-section" aria-labelledby="recent-section-heading">
           <div className="recent-foods-heading"><h4 id="recent-section-heading">Recent items</h4>{recentEntries.length>4&&<Button variant="tertiary" size="sm" onClick={()=>onFilterChange('recent')}>See all {recentEntries.length}</Button>}</div>
           {recentGrid(recentEntries.slice(0,4))}
         </section>}
