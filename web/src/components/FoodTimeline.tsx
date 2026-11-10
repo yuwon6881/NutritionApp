@@ -7,6 +7,7 @@ import {timelineGroups,timelineSlots,moveAnnouncement,type TimelineView} from '.
 import {Button} from './ui/Button';
 import {unitsFor} from '../lib/units';
 import {FoodTimeCard} from './FoodTimeCard';
+import {FoodTimeSummary} from './FoodTimeSummary';
 import {useTimelineDrag} from './useTimelineDrag';
 import {useLingering} from './ui/useLingering';
 
@@ -137,6 +138,7 @@ export function FoodTimeline({
               </Button>}
             </div>
           )}
+          {group.entries.length>0&&<FoodTimeSummary entries={group.entries} energyUnit={energyUnit}/>}
           {group.entries.map(entry=>{
             const dragProps=bindDrag(entry);
             return <FoodTimeCard

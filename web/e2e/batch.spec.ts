@@ -129,7 +129,7 @@ test('batch multi-food logging: checkboxes, live totals rescaling, removal, atom
   const row1530=page.locator('[data-time-row="15:30"]');
   await expect(row1530).toBeVisible();
   await expect(row1530.getByText('Greek Yogurt 0%')).toBeVisible();
-  await expect(row1530.getByText('118 kcal')).toBeVisible();
+  await expect(row1530.locator('.food-time-card').getByText('118 kcal')).toBeVisible();
 });
 
 test('unfinished food batch is restored after the app reloads',async({page,context})=>{

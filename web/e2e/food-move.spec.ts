@@ -66,6 +66,18 @@ test('food timeline supports single-item move to custom time, move to existing t
   await expect(row08).toBeVisible();
   await expect(row08.getByText('Rolled oats')).toBeVisible();
   await expect(row08.getByText('Black coffee')).toBeVisible();
+  const summary=row08.getByLabel('Time group totals');
+  await expect(summary).toContainText('385 kcal');
+  await expect(summary).toContainText('13 g partial');
+  await expect(summary).toContainText('— g');
+  if(process.env.NUTRITION_TIMELINE_SCREENSHOTS){
+    for(const [name,width] of [['mobile',390],['tablet',768],['desktop',1440]] as const){
+      await page.setViewportSize({width,height:900});
+      await page.getByRole('heading',{name:'Food timeline'}).scrollIntoViewIfNeeded();
+      if(width===390)await page.evaluate(()=>window.scrollBy(0,180));
+      await page.screenshot({path:`${process.env.NUTRITION_TIMELINE_SCREENSHOTS}/${name}.png`});
+    }
+  }
 
   // Enter selection mode via Day options -> Bulk select and select Rolled oats
   await page.getByRole('button',{name:'Day options',exact:true}).click();
@@ -98,7 +110,7 @@ test('food timeline supports single-item move to custom time, move to existing t
   const row1215=page.locator('[data-time-row="12:15"]');
   await expect(row1215).toBeVisible();
   await expect(row1215.getByText('Rolled oats')).toBeVisible();
-  await expect(row1215.getByText('380 kcal')).toBeVisible();
+  await expect(row1215.locator('.food-time-card').getByText('380 kcal')).toBeVisible();
   await expect(row08.getByText('Black coffee')).toBeVisible();
   await expect(row08.getByText('Rolled oats')).toHaveCount(0);
 

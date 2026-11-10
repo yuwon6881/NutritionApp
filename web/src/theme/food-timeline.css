@@ -346,3 +346,20 @@
   .food-time-card .food-card-select-checkbox,
   .food-card-select-checkbox.checked .food-check-icon { animation: none; }
 }
+
+.food-time-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 2px 2px 0;
+  color: var(--muted-foreground);
+  font-size: .8rem;
+}
+.food-time-summary strong { color: var(--ink-strong); font-size: .9rem; }
+.food-time-summary strong small { font-size: .75rem; font-weight: 500; }
+.food-time-summary-macro b { font-weight: 700; }
+.food-time-summary-macro.protein b { color: var(--protein); }
+.food-time-summary-macro.carbs b { color: var(--carbs); }
+.food-time-summary-macro.fat b { color: var(--fat); }
+.food-time-summary-partial { font-size: .7rem; }
