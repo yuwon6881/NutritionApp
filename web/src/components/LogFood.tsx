@@ -299,11 +299,11 @@ export function LogFood({
       go('batch');
     }
   };
-  const resolveBarcode=async(code:string,signal?:AbortSignal):Promise<SearchResult>=>{
+  const resolveBarcode=async(code:string,signal?:AbortSignal,skipAvailabilityRetry=false):Promise<SearchResult>=>{
     const normalized=code.trim();
     const local=store.state!.foods.find(food=>!food.deleted&&food.barcode?.trim()===normalized);
     if(local)return foodToSearchResult(local);
-    return api<SearchResult>('/foods/barcode/'+encodeURIComponent(normalized),undefined,'GET',{signal});
+    return api<SearchResult>('/foods/barcode/'+encodeURIComponent(normalized),undefined,'GET',{signal,skipAvailabilityRetry});
   };
   const openReview=(line:BasketLine)=>{
     if(step==='selection')selectionScroll.current=selectionRef.current?.closest<HTMLElement>('.modal-body')?.scrollTop??0;
@@ -386,7 +386,7 @@ export function LogFood({
       query={query} setQuery={setQuery} results={results} setResults={setResults}
       busy={busy} pending={busyPending} error={error} setError={setError} camera={camera} setCamera={setCamera}
       onChoose={food=>void chooseSearch(food)}
-      lookup={async(kind,value)=>kind==='barcode'?resolveBarcode(value):api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value))}
+      lookup={async(kind,value)=>kind==='barcode'?resolveBarcode(value,undefined,true):api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value))}
       onBarcodeError={barcodeFailed}
       isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}

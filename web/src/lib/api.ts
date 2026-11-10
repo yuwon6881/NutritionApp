@@ -49,6 +49,7 @@ export interface ApiFetchOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
   allowNotModified?: boolean;
+  skipAvailabilityRetry?: boolean;
 }
 
 export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DELETE',options?:ApiFetchOptions):Promise<T>{
@@ -65,7 +66,7 @@ export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DEL
     signal,
     headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(body===undefined?{}:{body:JSON.stringify(body)})
-  },retryablePath(path),requestTimeoutMs(path));
+  },!options?.skipAvailabilityRetry&&retryablePath(path),requestTimeoutMs(path));
   if(response.status===304)return null as T;
   if(!response.ok){
     await responseError(path,response);
