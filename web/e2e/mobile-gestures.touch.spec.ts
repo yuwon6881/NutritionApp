@@ -53,8 +53,11 @@ test('holding then moving a card drags it to another hour',async({page})=>{
   await openFoodLog(page);
   const apple=card(page,'Apple');
   const targetRow=page.locator('.food-time-row[data-time-row="13:00"]');
-  await targetRow.scrollIntoViewIfNeeded();
-  const target=await centerOf(targetRow.locator('.food-time-label'));
+  // Position the source first: centering it may scroll the destination.
+  await centerOf(apple.locator('.food-time-card-details'));
+  const targetBox=await targetRow.locator('.food-time-label').boundingBox();
+  expect(targetBox).not.toBeNull();
+  const target={x:targetBox!.x+targetBox!.width/2,y:targetBox!.y+targetBox!.height/2};
 
   await holdAndDrag(page,apple.locator('.food-time-card-details'),target);
 
