@@ -34,4 +34,16 @@ describe('Android shortcut import', () => {
     await importNativeShortcut();
     expect(consumeReadyNutritionShortcut(localStorage, { authenticated: true, profileReady: true })).toBeNull();
   });
+  it('drops a launch shortcut that becomes ready after the user already opened a dialog', async () => {
+    // A cold server delays authentication; the user starts logging meanwhile, so the late shortcut must
+    // not close that dialog, jump to the Dashboard and discard a photo taken in the meantime.
+    await importNativeShortcut();
+    expect(consumeReadyNutritionShortcut(localStorage, { authenticated: true, profileReady: true, workInProgress: true })).toBeNull();
+    expect(consumeReadyNutritionShortcut(localStorage, { authenticated: true, profileReady: true })).toBeNull();
+  });
+  it('keeps the shortcut while not ready even if work is open, then applies it once ready and idle', async () => {
+    await importNativeShortcut();
+    expect(consumeReadyNutritionShortcut(localStorage, { authenticated: false, profileReady: true, workInProgress: true })).toBeNull();
+    expect(consumeReadyNutritionShortcut(localStorage, { authenticated: true, profileReady: true })).toBe('scan-barcode');
+  });
 });

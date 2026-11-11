@@ -2,11 +2,11 @@ import { useEffect, useEffectEvent } from 'react';
 import { consumeReadyNutritionShortcut, NATIVE_SHORTCUT_READY, type NutritionShortcutAction } from '../lib/nutritionShortcuts';
 
 export function useReadyNutritionShortcut(authenticated: boolean, profileReady: boolean,
-  onAction: (action: NutritionShortcutAction) => void) {
+  onAction: (action: NutritionShortcutAction) => void, workInProgress: () => boolean = () => false) {
   const dispatch = useEffectEvent(() => {
     if (!authenticated || !profileReady) return;
     let action: NutritionShortcutAction | null = null;
-    try { action = consumeReadyNutritionShortcut(localStorage, { authenticated, profileReady }); }
+    try { action = consumeReadyNutritionShortcut(localStorage, { authenticated, profileReady, workInProgress: workInProgress() }); }
     catch { return; }
     if (action) onAction(action);
   });

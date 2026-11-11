@@ -3,7 +3,7 @@ import {App} from '@capacitor/app';
 import {RefreshCw} from 'lucide-react';
 import {isFirebasePushConfigured} from '../../lib/push/firebaseConfig';
 import {onForegroundMessage} from '../../lib/push/firebaseMessaging';
-import {getPwaUpdateNoticeState,hasUncommittedPwaWork} from '../../lib/pwaUpdate';
+import {deferredRouteToApply,getPwaUpdateNoticeState,hasUncommittedPwaWork} from '../../lib/pwaUpdate';
 import {registerAppServiceWorker,waitForAppServiceWorker} from '../../lib/registerAppServiceWorker';
 import {isNativeApp} from '../../lib/nativeApp';
 import {getOrCreatePushDeviceId} from '../../lib/push/deviceId';
@@ -211,17 +211,19 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
   const current=useRef({userId,authReady});
   const pendingRoute=useRef<string|null>(null);
 
-  const openPendingRoute=()=>{
-    const route=pendingRoute.current;
-    if(!route||!current.current.userId||!current.current.authReady)return;
+  const openPendingRoute=(deferred=false)=>{
+    if(!pendingRoute.current||!current.current.userId||!current.current.authReady)return;
+    const workOpen=hasUncommittedPwaWork(!!document.querySelector('dialog[open]'),!!document.querySelector('[data-pwa-dirty="true"]'));
+    const route=deferredRouteToApply(pendingRoute.current,deferred,workOpen);
     pendingRoute.current=null;
+    if(!route)return;
     window.history.replaceState(window.history.state,'',route);
     window.dispatchEvent(new CustomEvent('nutrition-push-navigation',{detail:{route}}));
   };
 
   useEffect(()=>{
     current.current={userId,authReady};
-    openPendingRoute();
+    openPendingRoute(true);
   },[userId,authReady]);
 
   useEffect(()=>{

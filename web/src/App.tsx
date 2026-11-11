@@ -178,7 +178,9 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     window.addEventListener('nutrition-push-navigation',openRoute);
     return()=>window.removeEventListener('nutrition-push-navigation',openRoute);
   },[]);
-  useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);setFoodDate(current);setWeightDate(current);setCopyDate(current);}},[store.state?.profile?.timeZone]);
+  // A profile arriving from a waking server may carry another time zone; re-dating an open dialog
+  // would change its key and remount it, discarding a photo captured there. Each opener sets its own date.
+  useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);if(!foodOpen)setFoodDate(current);if(!weightOpen)setWeightDate(current);if(!copyOpen)setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
   const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string,initialQuery?:string,initialStep?:'selection'|'quick')=>{
     foodOpening.current?.();
@@ -212,7 +214,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       setWeightReturnFocus(null);
       setWeightOpen(true);
     }
-  });
+  },()=>foodOpen||weightOpen||copyOpen||showAddSheet||aiOpen);
   const addOptions:ActionSheetOption[]=[
     {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},

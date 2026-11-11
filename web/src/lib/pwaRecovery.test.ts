@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {getPwaUpdateNoticeState,hasUncommittedPwaWork} from './pwaUpdate';
+import {deferredRouteToApply,getPwaUpdateNoticeState,hasUncommittedPwaWork} from './pwaUpdate';
 import {summarizePwaPendingWork} from './pwaReadiness';
 import {parseNutritionReminderPayload} from './push/pushPayload';
 
@@ -15,6 +15,14 @@ describe('safe PWA update recovery',()=>{
     expect(getPwaUpdateNoticeState(true,hasUncommittedPwaWork(false,true)))
       .toEqual({kind:'activated',canReload:false});
     expect(hasUncommittedPwaWork(false,false)).toBe(false);
+  });
+
+  it('applies a launch route that waited for sign-in only while no work is open',()=>{
+    expect(deferredRouteToApply('/',true,false)).toBe('/');
+    expect(deferredRouteToApply('/coach',true,true)).toBeNull();
+    // A live tap on a notification is an explicit request and still navigates.
+    expect(deferredRouteToApply('/coach',false,true)).toBe('/coach');
+    expect(deferredRouteToApply(null,true,false)).toBeNull();
   });
 
   it('includes durable scan uploads in saved-work status and never shows all-clear while checking fails',()=>{

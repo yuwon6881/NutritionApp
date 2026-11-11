@@ -97,11 +97,14 @@ export function consumePendingNutritionShortcut(
 
 export function consumeReadyNutritionShortcut(
   storage: ShortcutStorage,
-  readiness: { authenticated: boolean; profileReady: boolean },
+  readiness: { authenticated: boolean; profileReady: boolean; workInProgress?: boolean },
   now = Date.now(),
 ): NutritionShortcutAction | null {
   if (!readiness.authenticated || !readiness.profileReady) return null;
-  return consumePendingNutritionShortcut(storage, now);
+  const action = consumePendingNutritionShortcut(storage, now);
+  // Sign-in can lag behind a cold server, so the user may already be mid-task (a dialog or a
+  // captured photo). The shortcut is consumed but not applied, so it never replaces that work.
+  return readiness.workInProgress ? null : action;
 }
 
 export function clearPendingNutritionShortcut(storage: ShortcutStorage): void {
