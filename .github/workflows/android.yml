@@ -124,7 +124,7 @@ jobs:
           ANDROID_SIGNING_CERT_SHA256="$ANDROID_DEBUG_SIGNING_CERT_SHA256" node scripts/android-release-manifest.mjs android/app/build/outputs/apk/debug/app-debug.apk device-test
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: nutrition-android-debug-${{ github.event_name == 'pull_request' && 'pull-request' || 'device-test' }}
+          name: nutrition-android-debug-apk
           path: |
             web/android/app/build/outputs/apk/debug/app-debug.apk
             web/android/app/build/outputs/apk/debug/android-release.json
@@ -184,7 +184,7 @@ jobs:
         run: node scripts/android-release-manifest.mjs android/app/build/outputs/apk/release/app-release.apk release
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: nutrition-android-release-aab
+          name: nutrition-android-release-aab-and-apk
           path: |
             web/android/app/build/outputs/bundle/release/app-release.aab
             web/android/app/build/outputs/apk/release/app-release.apk
