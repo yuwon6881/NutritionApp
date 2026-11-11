@@ -9,6 +9,7 @@
 }
 
 /* The account has logged this food before; search already ranks it first, this says why. */
+.food-modal .food-row .food-description .food-row-saved { margin-left: 6px; vertical-align: middle; }
 .food-modal .food-row .food-description .food-row-logged {
   display: inline-flex;
   margin-left: 6px;

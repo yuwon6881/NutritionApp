@@ -36,6 +36,7 @@ import {longDate,today} from '../lib/format';
 import {hapticTick} from '../lib/haptics';
 import './logfood.css';
 import {findSavedFood} from '../lib/savedFoods';
+import {withSavedFoods} from '../lib/savedFoodSearch';
 import {saveFoodBasketDraft} from '../lib/local';
 import {useFoodScanDraft,type PendingBarcode} from './useFoodScanDraft';
 import {useFoodDetail} from './useFoodDetail';
@@ -246,7 +247,7 @@ export function LogFood({
       const scanFoodId=saveFood===true&&scanDraftRef.current?.status==='review'?scanDraftRef.current.id:null;
       const foodId=saveFood===true?(scanFoodId??crypto.randomUUID()):saveFood.id;
       const alreadySaved=!!scanFoodId&&store.state!.foods.some(food=>food.id===scanFoodId&&!food.deleted);
-      if(!alreadySaved)await store.mutate({kind:'food',recordId:foodId,expectedRevision:saveFood===true?0:saveFood.revision,delete:false,data:{...savedData,servingGrams:100,favourite:saveFood===true?true:saveFood.favourite,ingredientsJson:saveFood===true?'[]':saveFood.ingredientsJson,cookedYieldGrams:saveFood===true?null:saveFood.cookedYieldGrams}});
+      if(!alreadySaved)await store.mutate({kind:'food',recordId:foodId,expectedRevision:saveFood===true?0:saveFood.revision,delete:false,data:{...savedData,servingGrams:100,favourite:saveFood===true?false:saveFood.favourite,ingredientsJson:saveFood===true?'[]':saveFood.ingredientsJson,cookedYieldGrams:saveFood===true?null:saveFood.cookedYieldGrams}});
       if(scanFoodId)await removeScanDraft(date).catch(()=>setScanDraftStorageError('The reviewed scan is still saved on this device. It can be safely cleared after this food finishes saving.'));
       setSaveFood(false);setDraft(undefined);
       setLabelNote('');
@@ -349,6 +350,8 @@ export function LogFood({
     setResults([]);setPendingBarcode({code,purpose:selectionPurpose});setCamera(false);
     setMode('label');setDescription('');setPhoto(null);setError('');setAutoLabelCamera(true);setTab(selectionPurpose==='recipe'?'barcode':'ai');
   };
+  // The person's own foods answer a search alongside the catalogue, and still do when it is unreachable.
+  const searchRows=useMemo(()=>tab==='search'?withSavedFoods(results,allSavedFoods,query,selectionPurpose==='log'):results,[tab,results,allSavedFoods,query,selectionPurpose]);
   const chooseSaved=(food:Food)=>chooseForPurpose(foodToSearchResult(food));
   const selectionDirty=Boolean(basket.lines.length);
   const title=step==='batch'?`Batch (${basket.lines.length} ${basket.lines.length===1?'food':'foods'})`:step==='selection'?(selectionPurpose==='recipe'?'Choose ingredient':initialAi?'Scan food or label':'Log food'):step==='quick'?'Quick add':step==='recipe'?'New recipe':editing?'Edit food':saveFood?'Save custom food':'Review food';
@@ -383,7 +386,7 @@ export function LogFood({
     />}
     {(tab==='search'||tab==='barcode')&&!pendingBarcode&&<FoodPicker
       tab={tab} searchLabel={selectionPurpose==='recipe'?'Search ingredients':'Search term'}
-      query={query} setQuery={setQuery} results={results} setResults={setResults}
+      query={query} setQuery={setQuery} results={searchRows} setResults={setResults}
       busy={busy} pending={busyPending} error={error} setError={setError} camera={camera} setCamera={setCamera}
       onChoose={food=>void chooseSearch(food)}
       lookup={async(kind,value)=>kind==='barcode'?resolveBarcode(value,undefined,true):api<SearchResult[]>('/foods/search?q='+encodeURIComponent(value))}
@@ -391,7 +394,7 @@ export function LogFood({
       isSaved={food=>findSavedFood(store.state!.foods,food)?.favourite===true}
       onToggleSave={toggleFavourite} run={run} open={open} step={step} energyUnit={energyUnit} searchCache={searchCache}
     />}
-    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!results.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={reviewRecent}/>}
+    {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!searchRows.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={reviewRecent}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
       date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}
       onModeChange={value=>{setMode(value);setPhoto(null);}}

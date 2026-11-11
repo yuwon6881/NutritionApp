@@ -1,7 +1,7 @@
 import {useMemo,type CSSProperties} from 'react';
 import {Plus,Star} from 'lucide-react';
 import type {EnergyUnit,Entry,Food} from '../types';
-import {isRecipe} from '../lib/logFood';
+import {savedFoodKind} from '../lib/savedFoodSearch';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {measureOf} from '../lib/portions';
 import {Button} from './ui/Button';
@@ -10,9 +10,9 @@ import {SegmentedControl} from './ui/SegmentedControl';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {RecentFoodCard} from './RecentFoodCard';
 
-export type SavedFilter='all'|'favourites'|'recipes'|'recent';
+export type SavedFilter='all'|'favourites'|'custom'|'recipes'|'recent';
 
-/** The "Your foods" tab: saved foods, recipes, favourites, and recent diary items. */
+/** The "Your foods" tab: favourites, custom foods, recipes, other saved foods, and recent diary items. */
 export function LogFoodSavedFoods({
   purpose,
   query,
@@ -46,14 +46,16 @@ export function LogFoodSavedFoods({
 }){
   const logging=purpose==='log';
 
-  // isRecipe parses each food's ingredients; do it once per library rather than per use per render.
-  const recipes=useMemo(()=>new Set(savedFoods.filter(isRecipe).map(food=>food.id)),[savedFoods]);
+  // The kind parses each food's ingredients; do it once per library rather than per use per render.
+  const kinds=useMemo(()=>new Map(savedFoods.map(food=>[food.id,savedFoodKind(food)])),[savedFoods]);
+  const recipes={has:(id:string)=>kinds.get(id)==='recipe'};
 
   const foods=savedFoods.filter(food=>{
     if(!logging&&recipes.has(food.id))return false;
     const matchesQuery=!query.trim()||food.name.toLowerCase().includes(query.toLowerCase().trim());
     if(!matchesQuery)return false;
     if(filter==='favourites')return food.favourite;
+    if(filter==='custom')return kinds.get(food.id)==='custom';
     if(filter==='recipes')return recipes.has(food.id);
     return true;
   }).sort((a,b)=>Number(b.favourite)-Number(a.favourite));
@@ -71,6 +73,7 @@ export function LogFoodSavedFoods({
       <div className="saved-food-title-row" id={`saved-${food.id}-name`}>
         <strong>{food.name}</strong>
         {recipes.has(food.id)&&<span className="food-badge recipe-badge">Recipe</span>}
+        {kinds.get(food.id)==='custom'&&<span className="food-badge recipe-badge">Custom</span>}
       </div>
       <div className="saved-food-meta" id={`saved-${food.id}-summary`}>
         <span className="saved-food-energy">{displayEnergy(food.calories,energyUnit)} {energyLabel(energyUnit)} / 100 {measureOf(food)}</span>
@@ -97,10 +100,14 @@ export function LogFoodSavedFoods({
       </Button>}
     </div>
   </div>;
-  // The overview is split into labelled groups, favourites first, so a starred food is not buried in one long list.
+  // The overview is split into labelled groups, favourites first, so a starred food is not buried in one long
+  // list. A favourite shows only under Favourites; the rest fall under what they are.
   const sectioned=logging&&filter==='all'&&!query.trim();
   const favourites=sectioned?foods.filter(food=>food.favourite):[];
-  const others=sectioned?foods.filter(food=>!food.favourite):[];
+  const rest=sectioned?foods.filter(food=>!food.favourite):[];
+  const customFoods=rest.filter(food=>kinds.get(food.id)==='custom');
+  const recipeFoods=rest.filter(food=>kinds.get(food.id)==='recipe');
+  const others=rest.filter(food=>kinds.get(food.id)==='provider');
   const group=(id:string,title:string,count:number|null,items:Food[])=>items.length>0&&<section className="recent-foods-section" aria-labelledby={id} key={id}>
     <div className="recent-foods-heading"><h4 id={id}>{title}{count!=null&&` (${count})`}</h4></div>
     {items.map(foodRow)}
@@ -125,6 +132,7 @@ export function LogFoodSavedFoods({
       options={[
         {value:'all',label:'All'},
         {value:'favourites',label:'Favourites'},
+        {value:'custom',label:'Custom'},
         ...(logging?[{value:'recipes' as const,label:'Recipes'},{value:'recent' as const,label:'Recent'}]:[]),
       ]}
       onChange={onFilterChange}
@@ -142,6 +150,8 @@ export function LogFoodSavedFoods({
               ?`No saved foods matching “${query}”.`
               :filter==='favourites'
               ?'No favourite foods yet. Star foods to find them quickly here.'
+              :filter==='custom'
+              ?'No custom foods yet. Create one with the Custom food button.'
               :filter==='recipes'
               ?'No recipes yet. Create one with the New recipe button.'
               :'No saved foods yet.'}
@@ -149,7 +159,9 @@ export function LogFoodSavedFoods({
           :sectioned
           ?<>
             {group('favourite-foods-heading','Favourites',null,favourites)}
-            {group('saved-foods-heading',favourites.length>0?'Other saved foods':'Saved foods',null,others)}
+            {group('custom-foods-heading','Custom foods',null,customFoods)}
+            {group('recipe-foods-heading','Recipes',null,recipeFoods)}
+            {group('saved-foods-heading','Other saved foods',null,others)}
           </>
           :foods.map(foodRow)}
       </>}

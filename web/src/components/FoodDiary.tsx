@@ -1,4 +1,4 @@
-import {useState,useRef} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {CheckCheck,Copy,MoreVertical,Plus,Trash2} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {Entry} from '../types';
@@ -55,7 +55,16 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
     selection.exitSelection();
   };
   // Leaving selection mode removes its Back guard; the edit dialog opens once that has settled.
-  const editAfterSelection=useAfterLayersSettle<Entry>(onEdit);
+  // Editing from selection opens the dialog first: the chosen card keeps its selected look until the
+  // dialog covers it, so nothing is seen sliding back before the editor appears.
+  const [heldSelectionId,setHeldSelectionId]=useState<string>();
+  const heldTimer=useRef(0);
+  useEffect(()=>()=>window.clearTimeout(heldTimer.current),[]);
+  const editAfterSelection=useAfterLayersSettle<Entry>(entry=>{
+    onEdit(entry);
+    window.clearTimeout(heldTimer.current);
+    heldTimer.current=window.setTimeout(()=>setHeldSelectionId(undefined),400);
+  },{waitForExit:false});
 
   const current=today(store.state!.profile?.timeZone);
   const isCheckInDue=checkInDue??(store.state?.profile?checkInDueHelper(store.state,current):false);
@@ -253,6 +262,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
         onEdit={()=>{
           if(selectedEntries.length===1){
             const target=selectedEntries[0];
+            setHeldSelectionId(target.id);
             exitSelectionAndCopy();
             editAfterSelection(target);
           }
@@ -316,6 +326,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
         timelineView={timelineView}
         onAddAtTime={onLog}
         isSelecting={selection.isSelecting&&clipboard.count===0}
+        heldSelectionId={heldSelectionId}
         selectedIds={selection.selectedIds}
         onToggleSelect={selection.toggle}
         onLongPressSelect={id=>{clipboard.clear();selection.enterSelection(id);}}

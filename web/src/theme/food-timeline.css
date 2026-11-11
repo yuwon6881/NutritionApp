@@ -306,39 +306,49 @@
   }
 }
 
-/* Selection mode grows each checkbox in, so the card contents slide aside rather than jump, and the
+/* Selection mode. The checkbox takes its place at once and what it pushed aside slides in from where
+   it stood, so only transforms and opacity animate: no card is laid out again on every frame. The
    tick pops in when a card is chosen. */
+.food-time-card { --check-shift: 30px; }
 .food-time-card .food-card-select-checkbox {
   animation: foodCheckIn var(--motion-panel) var(--motion-ease) both;
+}
+.food-time-card-selecting .food-time-card-title,
+.food-time-card-selecting .food-time-card-details {
+  animation: foodSelectSlideIn var(--motion-panel) var(--motion-ease) both;
 }
 .food-card-select-checkbox.checked .food-check-icon {
   animation: foodCheckPop var(--motion-panel) cubic-bezier(.3, 1.6, .5, 1) both;
 }
 @keyframes foodCheckIn {
-  from { width: 0; margin-right: 0; border-width: 0; opacity: 0; scale: .4; }
+  from { opacity: 0; scale: .4; }
 }
-/* Leaving selection, the boxes shrink away and the card contents slide back. */
+@keyframes foodSelectSlideIn {
+  from { translate: calc(-1 * var(--check-shift)) 0; }
+}
+/* Leaving selection, the box fades as the contents slide back over it; removing it then moves nothing. */
 .food-time-card .food-card-select-checkbox.leaving {
   animation: foodCheckOut var(--motion-exit) var(--motion-ease) both;
   pointer-events: none;
-  overflow: hidden;
+}
+.food-time-card-leaving .food-time-card-title,
+.food-time-card-leaving .food-time-card-details {
+  animation: foodSelectSlideOut var(--motion-exit) var(--motion-ease) both;
 }
 @keyframes foodCheckOut {
-  to { width: 0; margin-right: 0; border-width: 0; opacity: 0; scale: .4; }
+  to { opacity: 0; scale: .4; }
+}
+@keyframes foodSelectSlideOut {
+  to { translate: calc(-1 * var(--check-shift)) 0; }
 }
 @keyframes foodCheckPop {
   from { opacity: 0; scale: .3; }
 }
-/* From 640 px the checkbox owns a grid column, so its column gap closes with it. */
+/* From 640 px the checkbox owns a grid column and the portion is a grid item of its own. */
 @media (min-width: 640px) {
-  .food-time-card .food-card-select-checkbox { animation-name: foodCheckInWide; }
-  .food-time-card .food-card-select-checkbox.leaving { animation-name: foodCheckOutWide; }
-  @keyframes foodCheckInWide {
-    from { width: 0; margin-right: -16px; border-width: 0; opacity: 0; scale: .4; }
-  }
-  @keyframes foodCheckOutWide {
-    to { width: 0; margin-right: -16px; border-width: 0; opacity: 0; scale: .4; }
-  }
+  .food-time-card { --check-shift: 38px; }
+  .food-time-card-selecting .food-time-card-portion { animation: foodSelectSlideIn var(--motion-panel) var(--motion-ease) both; }
+  .food-time-card-leaving .food-time-card-portion { animation: foodSelectSlideOut var(--motion-exit) var(--motion-ease) both; }
 }
 @media (prefers-reduced-motion: reduce) {
   .food-time-card.panel[data-pressing],

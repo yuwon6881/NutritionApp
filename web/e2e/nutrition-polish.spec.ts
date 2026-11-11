@@ -62,7 +62,9 @@ test('starring reuses a barcode mapping and appears in Saved before sync finishe
   await page.getByRole('button',{name:'Food Log',exact:true}).click();
   await page.getByRole('button',{name:'Log food',exact:true}).click();
   await page.getByLabel('Search term',{exact:true}).fill('oats');
-  await page.getByRole('button',{name:'Save Provider oats to your foods',exact:true}).click();
+  // The saved food answers the search itself and replaces the catalogue row carrying its barcode.
+  await expect(page.getByRole('button',{name:'Save Provider oats to your foods',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Save My saved oats to your foods',exact:true}).click();
   await page.getByRole('group',{name:'Food logging method'}).getByRole('button',{name:'Your foods',exact:true}).click();
   await expect(page.getByRole('button',{name:'Unfavourite My saved oats',exact:true})).toBeVisible();
   await expect.poll(()=>writes.length).toBe(1);
@@ -186,9 +188,12 @@ test('an existing account reminder has a spaced device warning',async({page},tes
   await page.getByRole('button',{name:'Settings',exact:true}).first().click();
   const warning=page.getByRole('alert').filter({hasText:'Reminders are not enabled here'});
   await expect(warning).toBeVisible();
-  const before=(await page.locator('.notification-settings>.setting-row').boundingBox())!;
-  const box=(await warning.boundingBox())!;
-  expect(box.y-before.y-before.height).toBeGreaterThanOrEqual(15);
+  // The page scales in as it arrives, so the gap is read once the layout has settled.
+  await expect.poll(async()=>{
+    const before=(await page.locator('.notification-settings>.setting-row').boundingBox())!;
+    const box=(await warning.boundingBox())!;
+    return box.y-before.y-before.height;
+  }).toBeGreaterThanOrEqual(15);
   await warning.scrollIntoViewIfNeeded();
   await page.screenshot({path:testInfo.outputPath('reminder-warning.png'),fullPage:true});
 });

@@ -253,11 +253,12 @@ export function FoodPicker({
           <div className="food-description">
             <strong id={`${id}-name`}>
               {result.name}
+              {result.saved&&<span className="food-badge recipe-badge food-row-saved">{result.saved==='recipe'?'Recipe':'Custom'}</span>}
               {result.logged&&<span className="food-row-logged" title="Logged before"><History size={14} aria-hidden="true"/><span className="sr-only">, logged before</span></span>}
             </strong>
             <small id={`${id}-summary`}>
               {nutritionSummary(result,energyUnit)}
-              {!isFatSecretSource(result.source)?` · ${result.source}`:''}
+              {!result.saved&&!isFatSecretSource(result.source)?` · ${result.source}`:''}
             </small>
             {nutrition&&<FoodMacroSummary protein={nutrition.protein} carbs={nutrition.carbs} fat={nutrition.fat}/>}
           </div>

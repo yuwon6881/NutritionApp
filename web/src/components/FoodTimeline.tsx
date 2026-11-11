@@ -22,6 +22,8 @@ export interface FoodTimelineProps {
   timelineView?:TimelineView;
   onAddAtTime?:(time:string)=>void;
   isSelecting?:boolean;
+  /** Set while the editor opens from selection: every card holds its selection look and this one stays chosen. */
+  heldSelectionId?:string;
   selectedIds?:Set<string>;
   onToggleSelect?:(id:string)=>void;
   onLongPressSelect?:(id:string)=>void;
@@ -40,6 +42,7 @@ export function FoodTimeline({
   timelineView='full',
   onAddAtTime,
   isSelecting=false,
+  heldSelectionId,
   selectedIds,
   onToggleSelect,
   onLongPressSelect,
@@ -49,7 +52,9 @@ export function FoodTimeline({
   const [announcement,setAnnouncement]=useState('');
   const energyUnit=unitsFor(store.state?.settings).energy;
   // Checkboxes stay for their exit animation after selection ends, so the cards slide back.
-  const checkboxesLeaving=useLingering(isSelecting);
+  const lingering=useLingering(isSelecting);
+  // Leaving for the editor, the cards stay as they are until the dialog is up, then drop the checkbox unseen.
+  const checkboxesLeaving=lingering&&!heldSelectionId;
 
   const groups=showEmptySlots?timelineSlots(entries,0,23,timelineView):timelineGroups(entries);
   const previousTimes=useRef(new Map<string,string|null>());
@@ -90,7 +95,11 @@ export function FoodTimeline({
 
   const {draggingEntry,dropOverTime,bindDrag}=useTimelineDrag({
     enabled:!isSelecting,
-    onDrop:(entry,targetTime)=>void handleMove([entry],date,targetTime),
+    // A sitting's row is keyed by its first time; dropping a food back on its own row moves nothing.
+    onDrop:(entry,targetTime)=>{
+      if(groups.find(group=>group.time===targetTime)?.entries.some(item=>item.id===entry.id))return;
+      void handleMove([entry],date,targetTime);
+    },
     onHoldSelect:entry=>onLongPressSelect?.(entry.id),
   });
 
@@ -117,6 +126,7 @@ export function FoodTimeline({
       >
         <div className="food-time-label">
           <span className="food-time-label-main">{group.time?<time dateTime={`${date}T${group.time}`}>{group.label}</time>:group.label}</span>
+          {group.endLabel&&<span className="food-time-label-end"><span className="sr-only">to </span><span aria-hidden="true">–</span>{group.endLabel}</span>}
           <div className="food-slot-actions">
             {group.entries.length>0&&group.time&&onAddAtTime&&<Button
               variant="tertiary"
@@ -147,7 +157,8 @@ export function FoodTimeline({
               energyUnit={energyUnit}
               isSelecting={isSelecting}
               checkboxLeaving={checkboxesLeaving}
-              isSelected={Boolean(selectedIds?.has(entry.id))}
+              selectionHeld={Boolean(heldSelectionId)}
+              isSelected={Boolean(selectedIds?.has(entry.id))||entry.id===heldSelectionId}
               isMoved={movedIds.has(entry.id)}
               isAdded={addedIds.has(entry.id)}
               isPendingSync={pendingEntryIds.has(entry.id)}

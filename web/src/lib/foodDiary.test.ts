@@ -211,3 +211,22 @@ it('never uses the device-only fallback for loaded history or other dates',()=>{
   expect(showsDeviceOnlyToday({isToday:true,hasHistory:true,loading:false,online:false})).toBe(false);
   expect(showsDeviceOnlyToday({isToday:false,hasHistory:false,loading:false,online:false})).toBe(false);
 });
+
+it('groups foods logged minutes apart into one sitting, keyed by its first time',()=>{
+  const groups=timelineGroups([entry('rice','12:01'),entry('egg','12:00'),entry('tea','12:20'),entry('snack','15:30')]);
+  expect(groups.map(group=>group.time)).toEqual(['12:00','15:30']);
+  expect(groups[0].entries.map(item=>item.id)).toEqual(['egg','rice','tea']);
+  expect(groups[0].label).toBe('12 PM');
+  expect(groups[0].endLabel).toBe('12:20 PM');
+  expect(groups[1].endLabel).toBeUndefined();
+});
+it('splits a sitting after a half-hour gap, and after an hour from its first food',()=>{
+  expect(timelineGroups([entry('a','08:00'),entry('b','08:31')]).map(group=>group.time)).toEqual(['08:00','08:31']);
+  // Every gap is within half an hour, yet the row may not stretch past an hour from 08:00.
+  const grazing=timelineGroups([entry('a','08:00'),entry('b','08:25'),entry('c','08:50'),entry('d','09:15'),entry('e','09:40')]);
+  expect(grazing.map(group=>group.entries.map(item=>item.id))).toEqual([['a','b','c'],['d','e']]);
+});
+it('keeps foods at one shared time without an end label and untimed foods in their own row',()=>{
+  const groups=timelineGroups([entry('a','08:00'),entry('b','08:00'),entry('old')]);
+  expect(groups.map(group=>[group.time,group.endLabel,group.entries.length])).toEqual([['08:00',undefined,2],['',undefined,1]]);
+});

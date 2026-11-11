@@ -11,6 +11,8 @@ export interface FoodTimeCardProps {
   isSelecting:boolean;
   /** Selection just ended: the checkbox plays its exit animation without taking input. */
   checkboxLeaving?:boolean;
+  /** Selection ended to open the editor: the card holds its selected look, unanimated, until the dialog covers it. */
+  selectionHeld?:boolean;
   isSelected:boolean;
   isMoved:boolean;
   isAdded?:boolean;
@@ -25,6 +27,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   energyUnit,
   isSelecting,
   checkboxLeaving=false,
+  selectionHeld=false,
   isSelected,
   isMoved,
   isAdded=false,
@@ -40,9 +43,9 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   // A plain tap, click, or Enter/Space opens the editor. Hold and drag are owned by the
   // timeline gesture (the drag hook swallows the click a mouse release would add).
   const editable=Boolean(onEdit)&&!isSelecting;
-  const showCheckbox=isSelecting||checkboxLeaving;
+  const showCheckbox=isSelecting||checkboxLeaving||selectionHeld;
   return <article
-      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${showCheckbox?'food-time-card-selecting':''}`.trim()}
+      className={`panel food-time-card ${isMoved?'food-time-card-moved':''} ${isAdded?'food-time-card-added':''} ${isSelected?'food-time-card-selected':''} ${showCheckbox?'food-time-card-selecting':''} ${checkboxLeaving?'food-time-card-leaving':''}`.trim()}
       data-selected={isSelected?true:undefined}
       tabIndex={editable?0:undefined}
       aria-label={editable?`Edit ${entry.name}`:undefined}

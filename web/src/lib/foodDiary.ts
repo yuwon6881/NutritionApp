@@ -17,12 +17,49 @@ export function timeLabel(time:string){
   const [hour,minute]=time.split(':').map(Number);
   return `${hour%12||12}${minute?`:${String(minute).padStart(2,'0')}`:''} ${hour<12?'AM':'PM'}`;
 }
-export function timelineGroups(entries:Entry[]){
-  const times=[...new Set(entries.map(e=>e.time).filter((t):t is string=>!!t))].sort();
-  return [...times,...(entries.some(e=>!e.time)?['']:[])].map(time=>({
-    time,label:time?timeLabel(time):'Time not recorded',
-    entries:entries.filter(e=>(e.time??'')===time).sort((a,b)=>a.id.localeCompare(b.id))
-  }));
+/** Foods logged within this many minutes of the one before belong to the same sitting. */
+export const sittingGapMinutes=30;
+/** A sitting never runs longer than this from its first food, so a day of grazing still splits. */
+export const sittingSpanMinutes=60;
+
+export type TimelineGroup={
+  /** The group's first logged time; it keys the row and is where an added or dropped food lands. */
+  time:string;
+  label:string;
+  /** The last logged time, when the sitting spans more than one. */
+  endLabel?:string;
+  entries:Entry[];
+};
+
+const minutesOf=(time:string)=>{const [hour,minute]=time.split(':').map(Number);return hour*60+minute;};
+
+/**
+ * One row per sitting rather than per exact minute: a food joins the row before it when it was logged
+ * within `sittingGapMinutes` of the previous food and within `sittingSpanMinutes` of the row's first.
+ * A meal entered item by item therefore reads as one group with one set of totals. Foods with no
+ * recorded time stay in their own last row.
+ */
+export function timelineGroups(entries:Entry[]):TimelineGroup[]{
+  const timed=entries.filter((entry):entry is Entry&{time:string}=>!!entry.time)
+    .sort((a,b)=>a.time.localeCompare(b.time)||a.id.localeCompare(b.id));
+  const groups:TimelineGroup[]=[];
+  let previous=-Infinity;
+  let start=-Infinity;
+  for(const entry of timed){
+    const minutes=minutesOf(entry.time);
+    const current=groups[groups.length-1];
+    if(current&&minutes-previous<=sittingGapMinutes&&minutes-start<=sittingSpanMinutes){
+      current.entries.push(entry);
+      if(entry.time!==current.time)current.endLabel=timeLabel(entry.time);
+    }else{
+      groups.push({time:entry.time,label:timeLabel(entry.time),entries:[entry]});
+      start=minutes;
+    }
+    previous=minutes;
+  }
+  const untimed=entries.filter(entry=>!entry.time).sort((a,b)=>a.id.localeCompare(b.id));
+  if(untimed.length)groups.push({time:'',label:'Time not recorded',entries:untimed});
+  return groups;
 }
 
 /**
@@ -35,7 +72,7 @@ export type TimelineView='data'|'full';
 export function timelineSlots(entries:Entry[],startHour=0,endHour=23,view:TimelineView='full'){
   const occupied=timelineGroups(entries).filter(group=>group.time!=='');
   if(view==='data')return [...occupied,...(entries.some(entry=>!entry.time)?[{time:'',label:'Time not recorded',entries:entries.filter(entry=>!entry.time)}]:[])];
-  const groups=new Map(occupied.map(group=>[group.time,group]));
+  const groups=new Map<string,TimelineGroup>(occupied.map(group=>[group.time,group]));
   for(let hour=startHour;hour<=endHour;hour++){
     const time=`${String(hour).padStart(2,'0')}:00`;
     if(!groups.has(time))groups.set(time,{time,label:timeLabel(time),entries:[]});

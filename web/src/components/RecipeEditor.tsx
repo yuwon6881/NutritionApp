@@ -107,7 +107,7 @@ export function RecipeEditor({
           portionsJson,
           cookedYieldGrams:draft.yieldGrams,
           ingredientsJson:JSON.stringify(draft.items),
-          favourite:true,
+          favourite:false,
         }
       }));
       if(onSaved)onSaved();

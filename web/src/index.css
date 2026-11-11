@@ -461,6 +461,7 @@ summary{cursor:pointer}
 /* The time sits above its add button so the label never runs out of room beside it. */
 .food-log-page .food-time-label{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;gap:6px;padding-top:17px}
 .food-time-label-main{white-space:nowrap}
+.food-time-label-end{white-space:nowrap;font-size:.92em;opacity:.8}
 /* A quiet add affordance under each time: a small filled circle inside the full touch target. */
 .food-slot-add{--slot-fill:var(--muted);width:36px;min-width:36px;min-height:36px;padding:0;border-radius:50%;color:var(--muted-foreground);border:0!important;background:radial-gradient(circle at center,var(--slot-fill) 0 14px,transparent 14.5px)!important;transition:color var(--motion-control) ease,transform 100ms var(--motion-ease)}
 @media (hover:hover) and (pointer:fine){

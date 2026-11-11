@@ -7,8 +7,11 @@ import {motionTiming,useReducedMotion} from '../components/ui/Motion';
  * finished leaving history and their exit animations have finished. Opening a dialog earlier lets
  * their pending Back pop the dialog's own history entry (closing it immediately) and causes main-thread
  * rendering stutter during the dismiss transition. Call the returned function after dismissing.
+ *
+ * `waitForExit: false` skips the animation wait for a caller that holds the dismissed layer still
+ * until the dialog covers it, so the dialog opens as soon as history allows.
  */
-export function useAfterLayersSettle<T>(run:(value:T)=>void){
+export function useAfterLayersSettle<T>(run:(value:T)=>void,{waitForExit=true}:{waitForExit?:boolean}={}){
   const reduced=useReducedMotion();
   const [pending,setPending]=useState<{value:T;queuedAt:number}|null>(null);
   const runRef=useRef(run);
@@ -25,7 +28,7 @@ export function useAfterLayersSettle<T>(run:(value:T)=>void){
     const {value,queuedAt}=pending;
     setPending(null);
     backCoordinator().afterLayersSettle(()=>{
-      const targetDuration=reduced?0:motionTiming('--motion-exit',180).duration;
+      const targetDuration=reduced||!waitForExit?0:motionTiming('--motion-exit',180).duration;
       const elapsed=Date.now()-queuedAt;
       const remaining=Math.max(0,targetDuration-elapsed);
       if(remaining===0){
@@ -37,6 +40,6 @@ export function useAfterLayersSettle<T>(run:(value:T)=>void){
         },remaining);
       }
     });
-  },[pending,reduced]);
+  },[pending,reduced,waitForExit]);
   return useCallback((value:T)=>setPending({value,queuedAt:Date.now()}),[]);
 }
