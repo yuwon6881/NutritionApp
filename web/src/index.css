@@ -1653,8 +1653,10 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .integration-card .card-feedback{margin-top:16px}
 .integration-state{margin-top:18px}
 .integration-state .description{margin:0 0 16px;font-size:.84rem;line-height:1.6}
+.integration-state .actions{display:flex;gap:8px;justify-content:flex-end}
 .connected-app-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .connected-app-row>.source,.connected-app-row>.description{margin:0}
+.connected-app-row>.actions{margin-left:auto}
 .integration-note{margin:18px 0 0;padding-top:14px;border-top:1px dashed var(--border);font-size:.74rem;line-height:1.55;color:var(--muted-foreground)}
 .freshness-note{margin:0 0 12px;color:var(--carbs)}
 .google-health-weight-sync,.google-health-weight-import{margin:0 0 16px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--muted)}
