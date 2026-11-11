@@ -357,8 +357,6 @@ summary{cursor:pointer}
   .goal-history-card.goal-history-card-active:hover{border-color:color-mix(in srgb,var(--primary) 55%,var(--border));background:color-mix(in srgb,var(--primary-tint) 35%,var(--card))}
 }
 .goal-history-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.goal-history-title-group{display:flex;flex-direction:column;gap:2px}
-.goal-history-title-group .eyebrow{margin:0;font-size:.66rem;font-weight:600;letter-spacing:.08em;color:var(--muted-foreground)}
 .goal-history-title{font-size:1.05rem;font-weight:700;color:var(--ink-strong);margin:0;line-height:1.3}
 .goal-history-status-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:600;line-height:1.3}
 .goal-history-status-badge.active{background:color-mix(in srgb,var(--primary) 14%,var(--card));color:var(--primary-ink);border:1px solid color-mix(in srgb,var(--primary) 30%,transparent)}

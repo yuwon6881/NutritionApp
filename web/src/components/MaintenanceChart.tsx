@@ -63,7 +63,7 @@ export function MaintenanceChart({points,energyUnit,rangeStart,rangeEnd}:{points
         </dl>
       </div>
       <div className="chart-scrub" role="group" aria-label="Maintenance chart. Touch the chart or use the left and right arrow keys to read a date." aria-describedby={readoutId} {...scrub.groupProps}>
-        <BarChartNav viewport={viewport} range={visibleSpan}/>
+        <BarChartNav range={visibleSpan}/>
         <BarChartFrame viewport={viewport} height={height} axis={axis} plotProps={scrub.svgProps} pager="days"
           label={`Estimated maintenance across ${days.length} days; held on ${heldDays} of them.`}>
           {holds.map(run=><rect key={run.from} className="maintenance-hold-band" x={run.from*slot} y={TOP-6} width={(run.to-run.from+1)*slot} height={base-TOP+6}>

@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {ArrowLeft, Camera, Images, LoaderCircle, MessageSquareText, Plus, ScanText, Sparkles, UploadCloud, X} from 'lucide-react';
+import {ArrowLeft, Camera, Images, LoaderCircle, MessageSquareText, Plus, ScanText, UploadCloud, X} from 'lucide-react';
 import type {FoodScanDraft} from '../lib/foodScans';
 import {Button} from './ui/Button';
 import {AiPhotoPicker} from './AiPhotoPicker';
@@ -232,7 +232,7 @@ export function LogFoodAiForm({
         />
 
         {!photo ? (
-          <AiPhotoPicker mode={mode} isMobile={isMobile} pending={pending} onCamera={triggerCamera} onGallery={triggerGallery} onFile={onPhotoFile} />
+          <AiPhotoPicker isMobile={isMobile} pending={pending} onCamera={triggerCamera} onGallery={triggerGallery} onFile={onPhotoFile} />
         ) : (
           <div className="ai-photo-card">
             <figure className="ai-photo-preview">
@@ -338,7 +338,7 @@ export function LogFoodAiForm({
     {storageError && <p className="error" role="alert">{storageError}</p>}
     <div className="modal-actions">
       <Button variant="primary" disabled={pending || !!storageError} type="submit">
-        {busy ? <LoaderCircle size={18} className="spin-icon" aria-hidden="true" /> : <Sparkles size={18} fill="currentColor" strokeWidth={1.75} className="ai-analyze-icon" aria-hidden="true" />}
+        {busy && <LoaderCircle size={18} className="spin-icon" aria-hidden="true" />}
         {submitLabel}
       </Button>
     </div>

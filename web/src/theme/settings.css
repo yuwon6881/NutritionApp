@@ -312,3 +312,16 @@
 /* Settings choices use the shared pill track; long destructive labels wrap instead of clipping. */
 .settings-choice.segmented-control > .button { border-radius: 999px; }
 .settings-section .button.destructive { white-space: normal; text-overflow: clip; }
+
+/* ==========================================================================
+   SETTINGS COPY
+   Compact windows carry labels and controls; explanations stay for wider layouts.
+   ========================================================================== */
+@media (max-width: 639px) {
+  .settings-section-header p,
+  .settings-account-copy p,
+  .setting-row-description > .setting-row-wide-only { display: none; }
+}
+
+/* The schedule's status line takes no room while it has nothing to say. */
+.notification-save-actions:has(> .setting-row-status:empty) { display: none; }

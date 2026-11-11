@@ -64,7 +64,7 @@ export function EnergyBalance({store,period,summary,error,view:fixedView,viewpor
           ]}/>}
         </div>}
         <EnergyReadout id={readoutId} row={selected} grouping={grouping} energyUnit={units.energy} view={view}/>
-        <BarChartNav viewport={viewport} range={visibleSpan}/>
+        <BarChartNav range={visibleSpan}/>
         {view==='intake'?<div className="chart-block">
           <p className="sr-only">Bars are the calories you logged. The line is your estimated maintenance: roughly what keeps your weight steady.</p>
           <IntakeChart {...chartProps}/>

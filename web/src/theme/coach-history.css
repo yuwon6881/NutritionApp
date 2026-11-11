@@ -41,13 +41,21 @@
   flex-wrap: wrap;
 }
 
-.goal-history-title-group .eyebrow {
-  margin: 0 0 2px !important;
-  font-size: 0.7rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color: var(--muted-foreground) !important;
+/* A tinted tile that names a Coach row or card at a glance: plan details and goal history. */
+.coach-icon-tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--primary-tint);
+  color: var(--primary-ink);
 }
+
+:root[data-theme=dark] .coach-icon-tile { color: var(--primary); }
+
+.goal-history-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
 
 .goal-history-title {
   font-size: 1.2rem;
@@ -134,4 +142,28 @@
 .goal-history-stat-arrow {
   color: var(--muted-foreground);
   opacity: 0.6;
+}
+
+.goal-history-delta-badge { color: var(--weight); }
+
+.goal-history-status-badge { flex: none; white-space: nowrap; }
+
+.goal-history-heading { flex: 1 1 auto; }
+
+/* Phones: the three figures share the card's width instead of bunching at its leading edge. */
+@media (max-width: 639px) {
+  .goal-history-card { padding: 16px; }
+  .goal-history-card-header { align-items: center; gap: 10px; }
+  .goal-history-heading { gap: 10px; }
+  .goal-history-heading .coach-icon-tile { width: 32px; height: 32px; border-radius: 10px; }
+  .goal-history-title { font-size: 1.05rem; }
+  .goal-history-status-badge { padding: 4px 10px; }
+  .goal-history-stats { flex-wrap: nowrap; gap: 10px; padding: 12px 14px; }
+  .goal-history-stat-point { flex: 1 1 0; }
+  .goal-history-change-tag {
+    flex: 1 1 0;
+    margin-left: 0;
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+  }
 }

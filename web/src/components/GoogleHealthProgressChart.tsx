@@ -124,7 +124,7 @@ export function GoogleHealthProgressChart({
               <div><dt>Vs average</dt><dd>{selectedCount === null || average === null || selected?.date === todayDate ? '—' : `${selectedCount >= average ? '+' : '−'}${number(Math.abs(selectedCount - average))}`}</dd></div>
             </dl>
           </div>
-          <BarChartNav viewport={viewport} range={visibleSpan}/>
+          <BarChartNav range={visibleSpan}/>
           <BarChartFrame viewport={viewport} height={HEIGHT} axis={axis} plotProps={scrub.svgProps} pager="days"
             label={`Daily step counts over the last 30 days. Average is ${average !== null ? number(average) : 'unavailable'} steps per day.`}>
             {ticks.map(value => <line key={value} className={value === 0 ? 'chart-baseline' : 'chart-grid'} x1={0} x2={contentWidth} y1={y(value)} y2={y(value)}/>)}

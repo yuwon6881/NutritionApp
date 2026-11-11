@@ -37,9 +37,9 @@ export function BarChartFrame({viewport,height,axis,label,plotProps,pager,childr
   </div>;
 }
 
-/** The dates currently in view; compact windows add a swipe hint. */
-export function BarChartNav({viewport,range}:{viewport:BarViewport;range:string}){
+/** The dates currently in view. The scroller's faded edge shows where more days wait. */
+export function BarChartNav({range}:{range:string}){
   return <div className="bar-chart-nav">
-    <p className="bar-chart-range">{range}{viewport.scrollable&&<span className="bar-chart-hint"> · swipe for more</span>}</p>
+    <p className="bar-chart-range">{range}</p>
   </div>;
 }

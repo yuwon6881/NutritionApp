@@ -1,43 +1,12 @@
-/* Photo and label capture: a viewfinder stage over two actions. Semantic tokens only. */
-.ai-capture{display:grid;gap:12px;margin:0 0 16px}
-.ai-capture-stage{--mark:color-mix(in srgb,var(--primary) 70%,transparent);position:relative;display:grid;justify-items:center;gap:6px;padding:30px 20px 26px;border-radius:20px;text-align:center;overflow:hidden;
-  background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--primary) 14%,transparent),transparent 65%),var(--card);
-  border:1px solid color-mix(in srgb,var(--primary) 22%,var(--border))}
-:root[data-theme=dark] .ai-capture-stage{background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--primary) 16%,transparent),transparent 65%),var(--raised)}
-.ai-capture-corner{position:absolute;width:20px;height:20px;border:0 solid var(--mark);pointer-events:none}
-.ai-capture-corner.tl{top:12px;left:12px;border-top-width:2px;border-left-width:2px;border-top-left-radius:8px}
-.ai-capture-corner.tr{top:12px;right:12px;border-top-width:2px;border-right-width:2px;border-top-right-radius:8px}
-.ai-capture-corner.bl{bottom:12px;left:12px;border-bottom-width:2px;border-left-width:2px;border-bottom-left-radius:8px}
-.ai-capture-corner.br{bottom:12px;right:12px;border-bottom-width:2px;border-right-width:2px;border-bottom-right-radius:8px}
-.ai-capture-orb{display:grid;place-items:center;width:64px;height:64px;margin-bottom:6px;border-radius:50%;color:var(--primary-ink);
-  background:color-mix(in srgb,var(--primary) 16%,var(--card));
-  box-shadow:0 0 0 8px color-mix(in srgb,var(--primary) 8%,transparent),0 0 0 16px color-mix(in srgb,var(--primary) 4%,transparent)}
-.ai-capture-title{margin:0;font-size:1rem;font-weight:650;letter-spacing:-.01em;color:var(--ink-strong)}
-.ai-capture-hint{margin:0;max-width:30ch;font-size:.8125rem;line-height:1.4;color:var(--muted-foreground)}
+/* Photo and label capture: two plain actions on phones, one drop target on desktop. Semantic tokens only. */
+.ai-capture{margin:0 0 16px}
 .ai-capture-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ai-capture-action{min-width:0;white-space:nowrap}
-.ai-capture-drop{cursor:pointer;border-radius:20px;outline-offset:3px;transition:transform var(--motion-control) ease}
-.ai-capture-drop .ai-capture-stage{transition:border-color var(--motion-control) ease,background-color var(--motion-control) ease}
-.ai-capture-drop-cta{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:9px 16px;border-radius:999px;font-size:.875rem;font-weight:600;color:var(--ink-strong);background:var(--muted);border:1px solid var(--border)}
+.ai-capture-drop{display:flex;align-items:center;justify-content:center;gap:8px;min-height:96px;padding:16px;border-radius:16px;border:1px dashed var(--border);font-size:.875rem;font-weight:600;color:var(--ink-strong);text-align:center;cursor:pointer;outline-offset:3px;transition:border-color var(--motion-control) ease,background-color var(--motion-control) ease}
 .ai-capture-drop:focus-visible{outline:2px solid var(--ring)}
-.ai-capture-drop.dragging .ai-capture-stage{border-color:var(--primary);background:var(--primary-tint)}
+.ai-capture-drop.dragging{border-color:var(--primary);background:var(--primary-tint)}
 .ai-capture-drop.disabled{cursor:not-allowed;opacity:.6}
 @media (hover:hover) and (pointer:fine){
-  .ai-capture-drop:not(.disabled):hover .ai-capture-stage{border-color:var(--primary)}
-  .ai-capture-drop:not(.disabled):hover .ai-capture-drop-cta{border-color:color-mix(in srgb,var(--primary) 45%,var(--border));color:var(--primary-ink)}
+  .ai-capture-drop:not(.disabled):hover{border-color:var(--primary);color:var(--primary-ink)}
 }
-@media (max-width:639px){
-  .ai-capture-stage{padding:24px 16px 20px}
-  .ai-capture-orb{width:56px;height:56px}
-}
-@media (prefers-reduced-motion:reduce){.ai-capture-drop,.ai-capture-drop .ai-capture-stage{transition:none}}
-
-/* The Analyze button's sparkle: filled, and it twinkles once on hover or focus, never idly. */
-.ai-analyze-icon{flex-shrink:0}
-@media (prefers-reduced-motion:no-preference){
-  .button:focus-visible .ai-analyze-icon{animation:aiTwinkle 700ms ease-in-out 1}
-}
-@media (prefers-reduced-motion:no-preference) and (hover:hover){
-  .button:hover .ai-analyze-icon{animation:aiTwinkle 700ms ease-in-out 1}
-}
-@keyframes aiTwinkle{0%,100%{transform:scale(1) rotate(0)}40%{transform:scale(1.2) rotate(14deg)}70%{transform:scale(.94) rotate(-6deg)}}
+@media (prefers-reduced-motion:reduce){.ai-capture-drop{transition:none}}

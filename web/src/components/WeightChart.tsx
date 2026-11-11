@@ -95,7 +95,7 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd,view:f
       </dl>
     </div>
     <div className="chart-scrub" role="group" aria-label="Weight chart. Touch the chart or use the left and right arrow keys to read a date." aria-describedby={readoutId} {...scrub.groupProps}>
-    <BarChartNav viewport={viewport} range={visibleSpan}/>
+    <BarChartNav range={visibleSpan}/>
     <BarChartFrame viewport={viewport} height={height} axis={axis} plotProps={scrub.svgProps} pager="days"
       label={`${viewName} weight chart across ${series.length} weigh-ins.`}>
       <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" className="trend-fill-start"/><stop offset="100%" className="trend-fill-end"/></linearGradient></defs>

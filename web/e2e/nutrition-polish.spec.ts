@@ -97,7 +97,7 @@ test('reminder toggle saves once and schedule edits save automatically',async({p
   const toggle=page.getByRole('switch',{name:'Send a reminder on my check-in day'});
   await toggle.check();
   await expect.poll(()=>writes.length).toBe(1);
-  await expect(page.getByText('Schedule saved automatically')).toBeVisible();
+  await expect(page.getByText('Weekly coaching reminder saved.')).toBeVisible();
   await page.getByLabel('Day',{exact:true}).selectOption('2');
   await expect.poll(()=>writes.length).toBe(2);
   expect(writes[1].weekday).toBe(2);

@@ -1,11 +1,8 @@
 import {useCallback,useEffect,useId,useMemo,useRef,useState,type ReactNode} from 'react';
-import {ChevronLeft,ChevronRight,MoveHorizontal} from 'lucide-react';
+import {ChevronLeft,ChevronRight} from 'lucide-react';
 import {Button} from './Button';
 import {useReducedMotion} from './Motion';
 import './swipe-carousel.css';
-
-// One swipe teaches the gesture for every carousel, so the hint then retires for the session.
-let hasSwiped=false;
 
 export type CarouselSlide={id:string;ariaLabel:string;content:ReactNode};
 
@@ -13,13 +10,29 @@ export type CarouselSlide={id:string;ariaLabel:string;content:ReactNode};
 const echoWindowMs=2000;
 /** Saving waits for the swiping to stop, so a burst persists once, where the user landed. */
 const saveDelayMs=350;
+/** How far a finger must travel past the first or last view before the carousel wraps round. */
+const wrapSwipePx=56;
+
+/**
+ * True when the touched element handles sideways movement itself: a chart that scrolls its bars, or
+ * one that scrubs under the finger. A swipe there belongs to the chart and never wraps the carousel.
+ */
+function ownsSidewaysTouch(target:EventTarget|null,track:HTMLElement){
+  for(let node=target instanceof Element?target:null;node&&node!==track;node=node.parentElement){
+    const style=window.getComputedStyle(node);
+    if(style.touchAction==='pan-y'||style.touchAction==='none')return true;
+    if(node.scrollWidth>node.clientWidth+1&&(style.overflowX==='auto'||style.overflowX==='scroll'))return true;
+  }
+  return false;
+}
 
 /**
  * Related views of one measure inside a single card. A finger swipes between them (CSS scroll
- * snap, so the browser owns the gesture); from 640 px the arrows beside the view's name do the
- * same for mouse and keyboard, and below that they stay reachable by keyboard and screen reader
- * only. Dots show the position. Only the visible slide is reachable, and the card is as tall as
- * that slide. Charts keep their own horizontal scrolling: swipe outside the plot to change view.
+ * snap, so the browser owns the gesture) and the pager under the views (an arrow either side of
+ * the position dots) does the same for tap, mouse and keyboard. The views form a loop: past the
+ * last comes the first, and before the first the last. Only the visible slide is reachable, and
+ * the card is as tall as that slide. Charts keep their own horizontal scrolling: swipe outside the
+ * plot to change view.
  */
 export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChange}:{label:string;slides:readonly CarouselSlide[];className?:string;toolbar?:ReactNode;activeId?:string;onChange?:(id:string)=>void}){
   const reduced=useReducedMotion();
@@ -32,7 +45,6 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   },[activeId,slides]);
   const [active,setActive]=useState(initialIndex);
   const [height,setHeight]=useState<number>();
-  const [swiped,setSwiped]=useState(hasSwiped);
   const baseId=useId();
   const activeRef=useRef(active);
   activeRef.current=active;
@@ -98,7 +110,8 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
       if(t<1)frame.current=window.requestAnimationFrame(step);
     };
     frame.current=window.requestAnimationFrame(step);
-    navTimer.current=window.setTimeout(clearNavigating,duration+80);
+    // Frames can be starved (a throttled or backgrounded page); the view still lands where it was sent.
+    navTimer.current=window.setTimeout(()=>{track.scrollLeft=target;clearNavigating();},duration+80);
   },[slides.length,clearNavigating]);
 
   useEffect(()=>{
@@ -140,8 +153,6 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
       setActive(next);
       if(next!==reportedRef.current){
         reportedRef.current=next;
-        hasSwiped=true;
-        setSwiped(true);
         emit(slides[next].id);
       }
     }
@@ -197,14 +208,15 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
     return()=>observer.disconnect();
   },[current,slides.length]);
 
-  const go=(index:number)=>{
-    if(index<0||index>=slides.length)return;
+  /** Moves by one view in either direction, wrapping round at both ends. */
+  const step=(direction:1|-1)=>{
+    const count=slides.length;
+    if(count<2)return;
+    const index=(current+direction+count)%count;
     navigateTo(index,!reduced);
     setActive(index);
     if(index!==reportedRef.current){
       reportedRef.current=index;
-      hasSwiped=true;
-      setSwiped(true);
       emit(slides[index].id);
     }
   };
@@ -212,24 +224,47 @@ export function SwipeCarousel({label,slides,className='',toolbar,activeId,onChan
   // A finger on the track takes over from any running tween.
   const takeOver=()=>{if(programmaticUntil.current>0)clearNavigating();};
 
+  // The track cannot scroll past its ends, so a swipe that pushes beyond one is read here and wraps.
+  const edgeSwipe=useRef<{x:number;y:number}|null>(null);
+  const startTouch=(event:React.TouchEvent<HTMLDivElement>)=>{
+    takeOver();
+    const track=trackRef.current;
+    const touch=event.touches[0];
+    const atEnd=current===0||current===slides.length-1;
+    edgeSwipe.current=track&&touch&&event.touches.length===1&&atEnd&&!ownsSidewaysTouch(event.target,track)
+      ?{x:touch.clientX,y:touch.clientY}:null;
+  };
+  const endTouch=(event:React.TouchEvent<HTMLDivElement>)=>{
+    const start=edgeSwipe.current;
+    edgeSwipe.current=null;
+    const touch=event.changedTouches[0];
+    if(!start||!touch)return;
+    const dx=touch.clientX-start.x;
+    const dy=touch.clientY-start.y;
+    if(Math.abs(dx)<wrapSwipePx||Math.abs(dx)<Math.abs(dy)*1.5)return;
+    if(dx<0&&current===slides.length-1)step(1);
+    else if(dx>0&&current===0)step(-1);
+  };
+  const previous=slides[(current-1+slides.length)%slides.length];
+  const next=slides[(current+1)%slides.length];
+
   return <div className={`swipe-carousel ${className}`.trim()} role="group" aria-roledescription="carousel" aria-label={label}>
     <div className="swipe-carousel-bar">
-      <Button variant="secondary" size="icon" className="swipe-carousel-arrow" aria-label={`Previous view: ${slides[current-1]?.ariaLabel??''}`} disabled={current===0} onClick={()=>go(current-1)}><ChevronLeft size={18} aria-hidden="true"/></Button>
       <p className="swipe-carousel-title" aria-live="polite">{slides[current].ariaLabel}</p>
       {toolbar&&<div className="swipe-carousel-toolbar">{toolbar}</div>}
-      <Button variant="secondary" size="icon" className="swipe-carousel-arrow" aria-label={`Next view: ${slides[current+1]?.ariaLabel??''}`} disabled={current===slides.length-1} onClick={()=>go(current+1)}><ChevronRight size={18} aria-hidden="true"/></Button>
     </div>
     <div ref={trackRef} className="swipe-carousel-track" style={height?{height}:undefined} data-reduced={reduced||undefined}
-      onPointerDown={takeOver} onTouchStart={takeOver}>
+      onPointerDown={takeOver} onTouchStart={startTouch} onTouchEnd={endTouch} onTouchCancel={()=>{edgeSwipe.current=null;}}>
       {slides.map((slide,index)=><div key={slide.id} ref={element=>{slideRefs.current[index]=element;}}
         className="swipe-carousel-slide" role="group" aria-roledescription="slide" aria-label={`${slide.ariaLabel}, ${index+1} of ${slides.length}`}
         id={`${baseId}-${slide.id}`} inert={index!==current}>
         {slide.content}
       </div>)}
     </div>
-    <div className="swipe-carousel-footer" aria-hidden="true">
-      <div className="swipe-carousel-dots">{slides.map((slide,index)=><span key={slide.id} className="swipe-carousel-dot" data-active={index===current||undefined}/>)}</div>
-      {!swiped&&slides.length>1&&<p className="swipe-carousel-hint"><MoveHorizontal size={14}/>Swipe for more views</p>}
-    </div>
+    {slides.length>1&&<div className="swipe-carousel-footer">
+      <Button variant="tertiary" size="icon" className="swipe-carousel-arrow" aria-label={`Previous view: ${previous.ariaLabel}`} onClick={()=>step(-1)}><ChevronLeft size={18} aria-hidden="true"/></Button>
+      <div className="swipe-carousel-dots" aria-hidden="true">{slides.map((slide,index)=><span key={slide.id} className="swipe-carousel-dot" data-active={index===current||undefined}/>)}</div>
+      <Button variant="tertiary" size="icon" className="swipe-carousel-arrow" aria-label={`Next view: ${next.ariaLabel}`} onClick={()=>step(1)}><ChevronRight size={18} aria-hidden="true"/></Button>
+    </div>}
   </div>;
 }

@@ -79,7 +79,7 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
   const slides:CarouselSlide[]=[
     {id:'trend',ariaLabel:'Trend weight',content:chart('trend')},
     {id:'scale',ariaLabel:'Scale weight',content:chart('scale')},
-    {id:'both',ariaLabel:'Trend and scale weight',content:chart('both')},
+    {id:'both',ariaLabel:'Trend and scale',content:chart('both')},
   ];
   return <section className="panel dashboard-wide-card weight-progress-card" aria-labelledby="dashboard-weight-title" data-pending={pending||undefined}>
     <div className="dashboard-card-head">

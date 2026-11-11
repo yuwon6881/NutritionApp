@@ -56,7 +56,7 @@ export function LocalDataSettings({accountId,onLogout}:{accountId:string;onLogou
 
   return <>
     <SettingRow className="setting-row-danger" label={<h3 className="setting-row-heading">Local Nutrition data</h3>}
-      description="Clears this account's offline copy and unsynced work here, then signs you out. Synced records stay in your account.">
+      description="Clears this account's offline copy and unsynced work here, then signs you out.">
       <Button variant="destructive" disabled={busyPending} onClick={review}>Remove local data…</Button>
     </SettingRow>
     {error&&<CardFeedback title="Local data unavailable" message={error}/>}

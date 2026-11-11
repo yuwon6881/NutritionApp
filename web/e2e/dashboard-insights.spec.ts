@@ -114,8 +114,8 @@ for(const [width,theme] of [[390,'light'],[390,'dark'],[768,'light'],[1440,'dark
     await expect(stat(scaleSlide,'Average scale weight')).toHaveText(figure);
     await expect(stat(scaleSlide,'Lowest')).toHaveText(/^80(\.0)? kg$/);
     await expect(stat(scaleSlide,'Highest')).toHaveText(/^81(\.0)? kg$/);
-    await showView(2,'Trend and scale weight');
-    await expect(carousel.getByRole('group',{name:'Trend and scale weight, 3 of 3'}).locator('.energy-stats > div')).toHaveCount(3);
+    await showView(2,'Trend and scale');
+    await expect(carousel.getByRole('group',{name:'Trend and scale, 3 of 3'}).locator('.energy-stats > div')).toHaveCount(3);
 
     const history=page.locator('.weight-history-card');
     await history.scrollIntoViewIfNeeded();

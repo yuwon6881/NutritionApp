@@ -274,11 +274,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
     {!loading&&supportError&&<CardFeedback tone="info" message={supportError}/>}
     {!loading&&status?.configured&&<>
       {pushBuildConfigured&&<SettingRow label="This device"
-        description={<>
-          <span className="notification-permission">{isNativeAndroid()?'App permission':'Browser permission'}: <strong>{permissionLabel}</strong></span>
-          {status.thisDeviceSubscribed&&<span className="setting-row-status is-positive"><Bell size={14} aria-hidden="true"/>This device can receive reminders.</span>}
-          {!status.thisDeviceSubscribed&&permissionGranted&&<span className="setting-row-status">Not turned on for this device yet.</span>}
-        </>}>
+        description={<span className="notification-permission">{isNativeAndroid()?'App permission':'Browser permission'}: <strong>{permissionLabel}</strong></span>}>
         {status.thisDeviceSubscribed
           ?<Button variant="secondary" disabled={busy} onClick={()=>void disableThisDevice()}><BellOff size={16} aria-hidden="true"/>Turn off on this device</Button>
           :<Button variant="secondary" disabled={busy||!!supportError} onClick={()=>void enableThisDevice()}><Bell size={16} aria-hidden="true"/>{busy?'Updating…':enableLabel}</Button>}
@@ -286,7 +282,7 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
       {pushBuildConfigured&&savedReminder?.enabled&&!status.thisDeviceSubscribed&&<CardFeedback tone="warning" title="Reminders are not enabled here" message="Your account reminder is on. Turn this device on to receive it here." action={{label:permissionGranted?"Turn on for this device":"Enable on this device",onClick:()=>void enableThisDevice(),disabled:busy||!!supportError}}/>}
       {!scheduleLoaded&&<SkeletonRegion label="Loading reminder settings…"><SkeletonSettingRows count={2}/></SkeletonRegion>}
       {scheduleLoaded&&<div className="setting-row-group">
-        <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Sent to every device with notifications on, including this one.">
+        <SettingRow label={<h3 className="setting-row-heading">Weekly coaching reminder</h3>} description="Sent to every device with notifications on.">
           <Checkbox id="nutrition-checkin-reminder-enabled" role="switch" aria-label="Send a reminder on my check-in day" checked={reminder.enabled} disabled={fieldsDisabled||(!reminder.enabled&&!!supportError)} onChange={toggleReminder}/>
         </SettingRow>
         <div className="form-grid notification-schedule-fields">
@@ -296,8 +292,9 @@ export function NotificationsSettings({store}:{store:NutritionStore}){
           <TimePicker id="nutrition-checkin-reminder-time" name="localTime" label="Time" value={reminder.localTime} disabled={fieldsDisabled} onChange={localTime=>setReminder(current=>({...current,localTime}))}/>
 
         </div>
+        {/* Edits save themselves, so the line speaks only while a save is pending or has just landed. */}
         <div className="actions notification-save-actions">
-          <span className="setting-row-status" role="status">{busy?'Saving…':reminderDirty?'Changes not yet saved':message||'Schedule saved automatically'}</span>
+          <span className="setting-row-status" role="status">{busy?'Saving…':reminderDirty?'Changes not yet saved':message}</span>
         </div>
       </div>}
     </>}

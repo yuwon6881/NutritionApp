@@ -19,7 +19,6 @@
 .average-line{stroke:var(--ink-strong);stroke-width:1.5;stroke-dasharray:5 4;opacity:.55;animation:chartTrendReveal var(--motion-layout) var(--motion-ease) both;transition:stroke var(--motion-control) ease,opacity var(--motion-control) ease,y1 var(--motion-layout) var(--motion-ease),y2 var(--motion-layout) var(--motion-ease)}
 .bar-chart-nav{display:flex;align-items:center;justify-content:center;min-height:32px;margin:6px 0}
 .bar-chart-range{flex:1;margin:0;text-align:center;font-size:.8125rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
-.bar-chart-hint{display:none}
 /* Mouse users page earlier and later from buttons over the plot edges; touch windows scroll by finger. */
 .bar-chart-frame{position:relative}
 .button.bar-chart-edge{display:none}
@@ -89,7 +88,6 @@
 .weigh-in-actions .weigh-in-delete:focus-visible{color:var(--destructive)}
 
 @media(max-width:639px){
-  .bar-chart-hint{display:inline}
   .chart-readout-grid dl{gap:8px}
   /* Two lines are reserved for every value, so a longer one never pushes the chart down. */
   .chart-readout-grid dd{min-height:2.6em;font-size:.875rem;line-height:1.3}

@@ -67,9 +67,9 @@ export function EnergyProgressCard({store,view:controlledView,onView:onControlle
 
   const balance=(view:'intake'|'balance')=><EnergyBalance store={store} view={view} period={energy.displayedPeriod} summary={energy.summary} error={energy.error} viewport={viewport} selectedIndex={scrubIndex} onSelectIndex={setScrubIndex}/>;
   const slides:CarouselSlide[]=[
-    {id:'intake',ariaLabel:'Intake and maintenance',content:balance('intake')},
+    {id:'intake',ariaLabel:'Intake',content:balance('intake')},
     {id:'balance',ariaLabel:'Surplus or deficit',content:balance('balance')},
-    {id:'maintenance',ariaLabel:'Estimated maintenance',content:<MaintenanceChart points={state.energyEstimates??[]} energyUnit={units.energy} rangeStart={range.start} rangeEnd={range.end}/>},
+    {id:'maintenance',ariaLabel:'Maintenance',content:<MaintenanceChart points={state.energyEstimates??[]} energyUnit={units.energy} rangeStart={range.start} rangeEnd={range.end}/>},
     {id:'coaching',ariaLabel:'Coaching guidance',content:<CoachingProgress store={store} rangeStart={range.start} rangeEnd={range.end}/>},
   ];
   return <section className="panel dashboard-wide-card energy-progress-card" aria-labelledby="dashboard-energy-title" data-pending={pending||undefined}>

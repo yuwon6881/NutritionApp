@@ -37,7 +37,7 @@ export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Pro
   return <div className="settings-page">
     <header className="page-heading settings-heading">
       <h1 data-page-heading tabIndex={-1}>Settings</h1>
-      {saving&&<p className="settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><span><strong>{savingLabel}</strong><small>Changes are saved automatically.</small></span></p>}
+      {saving&&<p className="settings-save-status" role="status"><span className="settings-save-indicator" aria-hidden="true"/><strong>{savingLabel}</strong></p>}
     </header>
 
     <section className="panel settings-account" aria-labelledby="account-title">
@@ -54,20 +54,20 @@ export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Pro
     <div className="settings-shell">
       <SettingsNav links={sections}/>
       <div className="settings-sections">
-        <SettingsSection {...general} title="General" description="Units apply across your diary, charts, and coach.">
+        <SettingsSection {...general} title="General">
           <GeneralSettings store={store} theme={theme} onTheme={changeTheme}/>
         </SettingsSection>
-        <SettingsSection {...diary} title="Diary & coaching" description="How past days resolve and when your weekly check-in is due.">
+        <SettingsSection {...diary} title="Diary & coaching">
           <DiarySettings store={store}/>
         </SettingsSection>
-        <SettingsSection {...notifications} title="Notifications" description="Weekly check-in reminders. The text never shows your food, weight, or account.">
+        <SettingsSection {...notifications} title="Notifications" description="Reminder text never shows your food, weight, or account.">
           <NotificationsSettings store={store}/>
         </SettingsSection>
-        <SettingsSection {...connections} layout="plain" title="Connected apps" description="Connected services add context. They never change your calorie or macro targets.">
+        <SettingsSection {...connections} layout="plain" title="Connected apps" description="Connected services never change your calorie or macro targets.">
           <GoogleHealthSettings/>
           <ConnectedApps store={store}/>
         </SettingsSection>
-        <SettingsSection {...device} title="This device" description="Data kept here for offline use.">
+        <SettingsSection {...device} title="This device">
           <LocalDataSettings accountId={state.id} onLogout={onLogout}/>
           <AppVersionInfo/>
         </SettingsSection>

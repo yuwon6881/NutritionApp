@@ -53,18 +53,39 @@ test('the weight card swipes between trend, scale, and both views with their own
   await expect(card.getByRole('img',{name:/^Scale weight chart across \d+ weigh-ins\.$/})).toBeVisible();
 
   await showView(card,2);
-  await expect(card.locator('.swipe-carousel-title')).toHaveText('Trend and scale weight');
+  await expect(card.locator('.swipe-carousel-title')).toHaveText('Trend and scale');
   await expect(stats(2)).toHaveText(['Trend weight','Average scale weight','Change in trend']);
   await expect(card.getByRole('img',{name:/^Scale and trend weight chart across \d+ weigh-ins\.$/})).toBeVisible();
 });
 
-test('on a desktop window the arrows beside the view name change the weight view',async({page})=>{
+test('the pager arrows change the weight view and loop round at both ends',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   const card=page.locator('.weight-progress-card');
-  await expect(card.getByRole('button',{name:/^Previous view/})).toBeDisabled();
+  const title=card.locator('.swipe-carousel-title');
   await card.getByRole('button',{name:'Next view: Scale weight'}).click();
-  await expect(card.locator('.swipe-carousel-title')).toHaveText('Scale weight');
+  await expect(title).toHaveText('Scale weight');
   await expect(card.getByRole('group',{name:'Scale weight, 2 of 3'})).not.toHaveAttribute('inert');
+  await card.getByRole('button',{name:'Next view: Trend and scale'}).click();
+  await expect(title).toHaveText('Trend and scale');
+  // Past the last view comes the first, and before the first the last.
+  await card.getByRole('button',{name:'Next view: Trend weight'}).click();
+  await expect(title).toHaveText('Trend weight');
+  await expect(card.getByRole('group',{name:'Trend weight, 1 of 3'})).not.toHaveAttribute('inert');
+  await card.getByRole('button',{name:'Previous view: Trend and scale'}).click();
+  await expect(title).toHaveText('Trend and scale');
+});
+
+test('on a phone the pager is visible and tappable, with no swipe hint text',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const card=page.locator('.weight-progress-card');
+  await expect(card.getByText(/swipe for more/i)).toHaveCount(0);
+  const next=card.getByRole('button',{name:'Next view: Scale weight'});
+  await expect(next).toBeVisible();
+  const box=await next.boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(43);
+  expect(box!.height).toBeGreaterThanOrEqual(43);
+  await next.click();
+  await expect(card.locator('.swipe-carousel-title')).toHaveText('Scale weight');
 });
 
 test('energy charts switch between intake and balance, with a readout for the selected day',async({page})=>{

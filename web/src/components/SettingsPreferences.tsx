@@ -20,7 +20,7 @@ const weekdays=[
 /** Vibration on touch gestures and completed logs, remembered per device. */
 function TouchFeedbackSetting(){
   const [enabled,setEnabled]=useState(hapticsEnabled);
-  return <SettingRow label="Touch feedback" description="Short vibrations when you select, move, or log food on this device.">
+  return <SettingRow label="Touch feedback" description="Vibrates when you select, move, or log food.">
     <SegmentedControl<'on'|'off'> id="settings-haptics" label="Touch feedback" className="settings-choice" value={enabled?'on':'off'} onChange={value=>{
       setHapticsEnabled(value==='on');
       setEnabled(value==='on');
@@ -61,24 +61,24 @@ export function useSettingsSave(store:NutritionStore){
 export function GeneralSettings({store,theme,onTheme}:{store:NutritionStore;theme:Theme;onTheme:(theme:Theme)=>void}){
   const {current,save}=useSettingsSave(store);
   return <>
-    <SettingRow label="Appearance" description="Applies to this device.">
+    <SettingRow label="Appearance">
       <SegmentedControl id="settings-theme" label="Appearance" className="settings-choice" value={theme} onChange={onTheme} options={[
         {value:'light',label:<><Sun size={15} aria-hidden="true"/>Light</>},
         {value:'dark',label:<><Moon size={15} aria-hidden="true"/>Dark</>}
       ]}/>
     </SettingRow>
     <TouchFeedbackSetting/>
-    <SettingRow label="Weight" description="Scale entries, goals, and weight charts.">
+    <SettingRow label="Weight">
       <SegmentedControl<WeightUnit> id="settings-weight-unit" label="Weight unit" className="settings-choice" value={current.weightUnit} onChange={weightUnit=>void save({weightUnit})} options={[
         {value:'kg',label:'kg',ariaLabel:'Kilograms (kg)'},{value:'lb',label:'lb',ariaLabel:'Pounds (lb)'}
       ]}/>
     </SettingRow>
-    <SettingRow label="Energy" description="Calorie targets, diary totals, and expenditure.">
+    <SettingRow label="Energy">
       <SegmentedControl<EnergyUnit> id="settings-energy-unit" label="Energy unit" className="settings-choice" value={current.energyUnit} onChange={energyUnit=>void save({energyUnit})} options={[
         {value:'kcal',label:'kcal',ariaLabel:'Kilocalories (kcal)'},{value:'kj',label:'kJ',ariaLabel:'Kilojoules (kJ)'}
       ]}/>
     </SettingRow>
-    <SettingRow label="Height" description="Profile and body measurements.">
+    <SettingRow label="Height">
       <SegmentedControl<HeightUnit> id="settings-height-unit" label="Height unit" className="settings-choice" value={current.heightUnit} onChange={heightUnit=>void save({heightUnit})} options={[
         {value:'cm',label:'cm',ariaLabel:'Centimetres (cm)'},{value:'ft-in',label:'ft · in',ariaLabel:'Feet and inches'}
       ]}/>
@@ -108,7 +108,7 @@ export function DiarySettings({store}:{store:NutritionStore}){
         {value:'scale',label:'Scale'},{value:'trend',label:'Trend'}
       ]}/>
     </SettingRow>
-    {state.profile&&<SettingRow label="Check-in day" description={<><span>Next check-in:<strong className="settings-check-in-date">{longDate(next)}</strong>.</span><span>Changing the day keeps the active plan in place.</span></>}>
+    {state.profile&&<SettingRow label="Check-in day" description={<><span>Next check-in:<strong className="settings-check-in-date">{longDate(next)}</strong>.</span><span className="setting-row-wide-only">Changing the day keeps the active plan in place.</span></>}>
       <SelectField id="coaching-check-in-weekday" name="checkInWeekday" label="Check-in weekday" value={String(current.checkInWeekday)} onChange={value=>void save({checkInWeekday:Number(value)})}>
         {weekdays.map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </SelectField>

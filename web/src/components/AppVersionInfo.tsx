@@ -15,7 +15,7 @@ export function AppVersionInfo(){
     }).catch(()=>{});
     return()=>{active=false;};
   },[]);
-  return <SettingRow label={<h3 className="setting-row-heading">App version</h3>} description="What is installed on this device.">
+  return <SettingRow label={<h3 className="setting-row-heading">App version</h3>}>
     <dl className="app-versions">
       <div><dt>Nutrition</dt><dd>{__APP_VERSION__}</dd></div>
       {android&&<div><dt>Android app</dt><dd>{android.version} <span>build {android.build}</span></dd></div>}
