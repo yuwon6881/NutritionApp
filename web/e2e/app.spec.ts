@@ -125,7 +125,7 @@ test('Body records save, review, edit, and clear measurement values',async({page
   await page.getByRole('button',{name:'Open history',exact:true}).click();await expect(page.getByRole('heading',{name:'Body history',exact:true})).toBeVisible();
   // The save is queued independently of closing the editor; reopen history after the retained write settles.
   await expect.poll(async()=>{const response=await context.request.get('/api/body-records');return (await response.json()).records.length;}).toBe(1);
-  if(await page.getByRole('button',{name:/2 measurements/}).count()===0){await page.getByRole('button',{name:'Back to Body',exact:true}).click();await page.getByRole('button',{name:'Open history',exact:true}).click();}
+  if(await page.getByRole('button',{name:/2 measurements/}).count()===0){await page.getByRole('button',{name:'Back to Dashboard',exact:true}).click();await page.getByRole('button',{name:'Open history',exact:true}).click();}
   const historyRow=page.getByRole('button',{name:/2 measurements/}).first();await expect(historyRow).toBeVisible();await historyRow.click();
   await expect(page.getByRole('heading',{name:'Body record',exact:true})).toBeVisible();await expect(page.getByText('82',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Back to Body history',exact:true}).click();await page.getByRole('button',{name:'Edit',exact:true}).click();

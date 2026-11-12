@@ -3,6 +3,7 @@ import {ArrowLeft,Camera,Scale,ArrowLeftRight} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {BodyPage,BodyRecord,PhysiqueAngle,PhysiquePhotoPage,PhysiquePhotoSet} from '../types';
 import {api} from '../lib/api';
+import {backCoordinator} from '../lib/appHistory';
 import {allMeasurementKeys,clampIndex} from '../lib/bodyMeasurements';
 import {readableDate} from '../lib/format';
 import {Button} from './ui/Button';
@@ -20,9 +21,23 @@ import './body/body.css';
 const measurementTotal=(record:BodyRecord)=>allMeasurementKeys.filter(key=>record.measurements[key]!=null).length;
 
 type BodyView='home'|'history'|'body-viewer'|'gallery'|'viewer'|'compare';
+export type BodyRoot='history'|'gallery';
 
-export function PhysiquePhotos({store}:{store:NutritionStore}){
-  const [page,setPage]=useState<BodyView>('home');
+interface PhysiquePhotosProps {
+  store:NutritionStore;
+  /** Set on the dedicated Body page; the Dashboard hub omits it and shows only the summary card. */
+  root?:BodyRoot;
+  /** Hub only: asks the app to open the dedicated page. */
+  onOpenPage?:(root:BodyRoot)=>void;
+  /** Dedicated page only: leaves the Body page for the Dashboard. */
+  onExit?:()=>void;
+}
+
+// Where Back goes from each inner view; the two roots leave the page instead.
+const PARENT_VIEW:Partial<Record<BodyView,BodyView>>={'body-viewer':'history',compare:'history',viewer:'gallery'};
+
+export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProps){
+  const [page,setPage]=useState<BodyView>(root??'home');
   const [bodyRecords,setBodyRecords]=useState<BodyRecord[]>([]);
   const [bodyCursor,setBodyCursor]=useState<string|null>(null);
   const [bodyHasMore,setBodyHasMore]=useState(false);
@@ -108,18 +123,14 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
     if(page==='compare'&&bodyLoaded&&bodyHasMore&&!bodyLoading&&!bodyError)void loadBodyPage(false,100);
   },[page,bodyLoaded,bodyHasMore,bodyLoading,bodyError,loadBodyPage]);
 
-  // The hub sits in the middle of the Dashboard: opening a sub-view brings it to the top of the
-  // window, and coming back returns to where the hub was.
-  const anchor=useRef<HTMLDivElement>(null);
-  const homeScroll=useRef<number|null>(null);
-  const previousPage=useRef<BodyView>('home');
+  // Hardware and browser Back step out of an inner view before leaving the page.
+  const pageRef=useRef(page);
+  pageRef.current=page;
+  const inInnerView=!!PARENT_VIEW[page];
   useEffect(()=>{
-    const before=previousPage.current;
-    previousPage.current=page;
-    if(before===page)return;
-    if(before==='home'){homeScroll.current=window.scrollY;anchor.current?.scrollIntoView({block:'start',behavior:'auto'});}
-    else if(page==='home'&&homeScroll.current!==null){window.scrollTo({top:homeScroll.current,behavior:'auto'});homeScroll.current=null;}
-  },[page]);
+    if(!inInnerView)return;
+    return backCoordinator().register(()=>{const parent=PARENT_VIEW[pageRef.current];if(parent)setPage(parent);});
+  },[inInnerView]);
 
   useEffect(()=>()=>{++bodyRead.current;++photoRead.current;},[]);
   useEffect(()=>{
@@ -131,9 +142,8 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
   // A deleted record or a reload can shorten the list under an open viewer.
   const bodyIndex=clampIndex(bodyViewerIndex,bodyRecords.length);
   const rememberGallery=()=>{galleryScroll.current=window.scrollY;};
-  const openGallery=()=>{galleryScroll.current=-1;setPage('gallery');};
-  const closeGallery=()=>{rememberGallery();setPage('home');};
-  const openHistory=()=>{setPage('history');void loadBodyPage(true);};
+  const openGallery=()=>{galleryScroll.current=-1;onOpenPage?.('gallery');};
+  const closeGallery=()=>{rememberGallery();onExit?.();};
   const openBodyEditor=(record:BodyRecord|undefined,trigger?:HTMLElement|null)=>{setBodyEditor(record);setBodyReturnFocus(trigger??null);setBodyOpen(true);};
   const closeBodyEditor=()=>{setBodyOpen(false);setBodyEditor(undefined);void loadBodyPage(true);};
   const openUpload=(set:PhysiquePhotoSet|undefined,trigger:HTMLElement)=>{setEditingSet(set);setUploadReturnFocus(trigger);setUploadOpen(true);};
@@ -159,7 +169,7 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
     view=<BodyCompare records={bodyRecords} initialPresentIndex={bodyIndex} initialPastIndex={bodyRecords.length>1?bodyRecords.length-1:0} weightUnit={weightUnit} onBack={()=>setPage('history')} onEditRecord={rec=>openBodyEditor(rec)}/>;
   }else if(page==='history'){
     view=<>
-      <header className="page-heading photo-view-heading"><div className="subpage-header-title">{back('Back to Body',()=>setPage('home'))}<h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
+      <header className="page-heading photo-view-heading"><div className="subpage-header-title">{back('Back to Dashboard',()=>onExit?.())}<h2>Body history</h2></div><Button variant="primary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button></header>
       {bodyError&&<CardFeedback title="Body history unavailable" message={bodyError} action={{label:'Retry history',onClick:()=>void loadBodyPage(!bodyRecords.length),disabled:busy}}/>}
       <section className="panel body-history-panel">
         <div className="section-heading"><div><h2>Measurements and photos</h2><p>Newest first.</p></div><Button variant="secondary" disabled={bodyRecords.length<2} onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare</Button></div>
@@ -177,7 +187,7 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
     </>;
   }else if(page==='gallery'){
     view=<>
-      <header className="page-heading photo-view-heading"><div className="subpage-header-title">{back('Back to Body',closeGallery)}<h2>Gallery</h2></div><Button variant="primary" onClick={event=>openUpload(undefined,event.currentTarget)}>Add photo set</Button></header>
+      <header className="page-heading photo-view-heading"><div className="subpage-header-title">{back('Back to Dashboard',closeGallery)}<h2>Gallery</h2></div><Button variant="primary" onClick={event=>openUpload(undefined,event.currentTarget)}>Add photo set</Button></header>
       {error&&<CardFeedback title="Photo gallery unavailable" message={error} action={{label:'Retry gallery',onClick:()=>void loadPage(!sets.length),disabled:busy}}/>}
       <section className="panel physique-gallery-panel">
         <div className="section-heading"><div><h2>Photo sets</h2><p>Newest first.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}><ArrowLeftRight size={16} aria-hidden="true"/>Step through sets</Button></div>
@@ -205,7 +215,7 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
             </div>
             <div className="body-hub-actions">
               <Button variant="primary" aria-label="Add body record" onClick={event=>openBodyEditor(undefined,event.currentTarget)}><span className="tab-label-full">Add body record</span><span className="tab-label-short">Add record</span></Button>
-              <Button variant="secondary" onClick={openHistory}>Open history</Button>
+              <Button variant="secondary" onClick={()=>onOpenPage?.('history')}>Open history</Button>
             </div>
           </section>
           <section className="body-hub-row" aria-labelledby="body-hub-photos">
@@ -228,7 +238,6 @@ export function PhysiquePhotos({store}:{store:NutritionStore}){
   }
 
   return <>
-    <div ref={anchor} className="body-hub-anchor"/>
     <MotionPanel motionKey={page} axis="fade">
       {view}
     </MotionPanel>

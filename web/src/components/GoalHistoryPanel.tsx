@@ -10,6 +10,7 @@ const goalIcon=(goal:string)=>goal==='lose'?TrendingDown:goal==='gain'?TrendingU
 export function GoalHistoryPanel({plans,settings,latestKg}:{plans:readonly Plan[];settings?:CoachingSettings;latestKg?:number|null}){
   const unit=unitsFor(settings).weight;
   const metric=settings?.weightGoalMetric??'scale';
+  const metricName=metric==='trend'?'trend weight':'scale weight';
   const entries=buildGoalHistory(plans,metric);
   return <section className="panel">
     <div className="section-heading">
@@ -41,7 +42,7 @@ export function GoalHistoryPanel({plans,settings,latestKg}:{plans:readonly Plan[
           </div>
           <div className="goal-history-stats">
             <div className="goal-history-stat-point">
-              <span className="goal-history-stat-label">Start</span>
+              <span className="sr-only">Start {metricName}</span>
               <span className="goal-history-stat-val">
                 {entry.startKg!=null?(
                   <>{displayWeight(entry.startKg,unit,1)} <span className="unit">{weightLabel(unit)}</span></>
@@ -52,7 +53,7 @@ export function GoalHistoryPanel({plans,settings,latestKg}:{plans:readonly Plan[
               <ArrowRight size={14}/>
             </div>
             <div className="goal-history-stat-point">
-              <span className="goal-history-stat-label">{isCurrent?'Latest':'End'}{metric==='trend'&&' trend'}</span>
+              <span className="sr-only">{isCurrent?'Latest':'End'} {metricName}</span>
               <span className="goal-history-stat-val">
                 {endKg!=null?(
                   <>{displayWeight(endKg,unit,1)} <span className="unit">{weightLabel(unit)}</span></>

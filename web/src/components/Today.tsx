@@ -30,12 +30,13 @@ const WeightProgressCard=lazy(()=>import('./dashboard/WeightProgressCard').then(
 const WeightHistoryCard=lazy(()=>import('./dashboard/WeightHistoryCard').then(module=>({default:module.WeightHistoryCard})));
 const EnergyProgressCard=lazy(()=>import('./dashboard/EnergyProgressCard').then(module=>({default:module.EnergyProgressCard})));
 const ActivityCard=lazy(()=>import('./dashboard/ActivityCard').then(module=>({default:module.ActivityCard})));
+import type {BodyRoot} from './PhysiquePhotos';
 const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
 
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
 
-export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:()=>void;onSettings?:()=>void}){
+export function Today({store,onCoach,onSettings,onOpenBody}:{store:NutritionStore;onCoach:()=>void;onSettings?:()=>void;onOpenBody:(root:BodyRoot)=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
   const energyUnit=unitsFor(state.settings).energy;
@@ -146,7 +147,7 @@ export function Today({store,onCoach,onSettings}:{store:NutritionStore;onCoach:(
       </section>
       <section className="dashboard-section dashboard-section-body" aria-labelledby="dashboard-body-title">
         <h2 id="dashboard-body-title" className="dashboard-section-title sr-only">Body</h2>
-        <Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store}/></Suspense>
+        <Suspense fallback={<BodyHubSkeleton/>}><PhysiquePhotos store={store} onOpenPage={onOpenBody}/></Suspense>
       </section>
       <section className="dashboard-section dashboard-section-activity">
         <Suspense fallback={<ChartCardSkeleton/>}><ActivityCard store={store} onSettings={onSettings}/></Suspense>

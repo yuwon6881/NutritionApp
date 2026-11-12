@@ -16,7 +16,7 @@ export type GoalHistoryEntry={
 
 export const goalLabel=(goal:string)=>goal==='lose'?'Fat loss':goal==='gain'?'Bulking':'Maintenance';
 
-type Snapshot={date:string;goal:string;profileRevision:number;startKg:number|null;weightKg:number|null;complete:boolean};
+type Snapshot={date:string;goal:string;profileRevision:number;startKg:number|null;trendKg:number|null;weightKg:number|null;complete:boolean};
 
 function snapshot(plan:Plan,metric:WeightGoalMetric):Snapshot|null{
   let result:CoachResult;
@@ -25,7 +25,7 @@ function snapshot(plan:Plan,metric:WeightGoalMetric):Snapshot|null{
   const goal=progress?.goal??result.effectiveGoal;
   if(!goal)return null;
   const [first,second]=metric==='trend'?[progress?.trendWeight,progress?.scaleWeight]:[progress?.scaleWeight,progress?.trendWeight];
-  return {date:plan.date,goal,profileRevision:plan.profileRevision??0,startKg:progress?.startWeight??null,weightKg:first??second??null,complete:Boolean(result.phaseComplete||progress?.complete)};
+  return {date:plan.date,goal,profileRevision:plan.profileRevision??0,startKg:progress?.startWeight??null,trendKg:progress?.trendWeight??null,weightKg:first??second??null,complete:Boolean(result.phaseComplete||progress?.complete)};
 }
 
 const sameGoal=(left:Snapshot,right:Snapshot)=>left.goal===right.goal&&left.profileRevision===right.profileRevision&&(left.startKg==null||right.startKg==null||Math.abs(left.startKg-right.startKg)<0.05);
@@ -52,7 +52,8 @@ export function buildGoalHistory(plans:readonly Plan[],metric:WeightGoalMetric='
     const base={
       startDate:first.date,
       goal:first.goal,
-      startKg:period.find(item=>item.startKg!=null)?.startKg??first.weightKg,
+      // The recorded start weight is a scale reading; a trend period starts from the trend at its first plan so both ends share one metric.
+      startKg:(metric==='trend'?period.find(item=>item.trendKg!=null)?.trendKg:undefined)??period.find(item=>item.startKg!=null)?.startKg??first.weightKg,
       endKg:[...period].reverse().find(item=>item.weightKg!=null)?.weightKg??null
     };
     if(next)return {...base,status:'changed',endDate:next[0].date};

@@ -86,4 +86,13 @@ describe('currentEndKg',()=>{
     const entry:GoalHistoryEntry={startDate:'2026-08-01',goal:'maintain',startKg:66,endKg:66,status:'changed',endDate:'2026-09-08'};
     expect(currentEndKg(entry,62.5)).toBe(66);
   });
+
+  it('measures start and end with the same metric when trend is chosen',()=>{
+    const history=buildGoalHistory([
+      plan('b','2026-10-20','lose',66.3,66.9,66.4),
+      plan('a','2026-10-13','lose',66.3,66.3,66.0)
+    ],'trend');
+    expect(history[0].startKg).toBe(66.0);
+    expect(history[0].endKg).toBe(66.4);
+  });
 });

@@ -19,6 +19,9 @@ import {ActionSheet,type ActionSheetOption} from './components/ui/ActionSheet';
 import {Auth} from './components/Auth';
 import {AiAssistantLauncher,warmAiAssistant} from './components/AiAssistantLauncher';
 import {Today} from './components/Today';
+import {OpeningDiary} from './components/OpeningDiary';
+import {useOnlineStatus} from './components/ui/useOnlineStatus';
+import type {BodyRoot} from './components/PhysiquePhotos';
 import {FoodDiary} from './components/FoodDiary';
 import {WeightEntryDialog} from './components/WeightEntryDialog';
 import {CopyDayDialog} from './components/CopyDayDialog';
@@ -33,7 +36,7 @@ import {readPushDeviceCredential,savePushRevocation} from './lib/local';
 import {getOrCreatePushDeviceId} from './lib/push/deviceId';
 import {drainPendingPushRevocations} from './lib/push/revocations';
 import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
-import {backCoordinator,isLayerEntry,readState,PAGE_KEY} from './lib/appHistory';
+import {backCoordinator,isLayerEntry,pageDepth,readState,PAGE_KEY} from './lib/appHistory';
 import {BACK_TO_HOME_EVENT,isNativeApp} from './lib/nativeApp';
 import {captureNutritionShortcut,clearPendingNutritionShortcut} from './lib/nutritionShortcuts';
 import {useReadyNutritionShortcut} from './components/useReadyNutritionShortcut';
@@ -41,13 +44,16 @@ import {useReadyNutritionShortcut} from './components/useReadyNutritionShortcut'
 // Dashboard and Food Log stay in the first bundle; the other views load on first visit and are precached for offline use.
 const IncomingPhoto=lazy(()=>import('./components/IncomingPhoto').then(module=>({default:module.IncomingPhoto})));
 const Coach=lazy(()=>import('./components/Coach').then(module=>({default:module.Coach})));
+const BodyPhotos=lazy(()=>import('./components/PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
 const Settings=lazy(()=>import('./components/Settings').then(module=>({default:module.Settings})));
 // The food dialog mounts on first use; its chunk is warmed once the app is idle.
 const loadLogFood=()=>import('./components/LogFood');
 const LogFood=lazy(()=>loadLogFood().then(module=>({default:module.LogFood})));
 
-type Page='today'|'food'|'coach'|'settings';
-const PAGES:readonly Page[]=['today','food','coach','settings'];
+// 'body' is a sub-page of the Dashboard (history, gallery, compare): it has its own history entry
+// but no dock item, so the Dashboard stays highlighted while it is open.
+type Page='today'|'food'|'coach'|'settings'|'body';
+const PAGES:readonly Page[]=['today','food','coach','settings','body'];
 const asPage=(value:unknown):Page|undefined=>PAGES.find(page=>page===value);
 
 function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:string;authReady:boolean;onLogout:()=>Promise<void>;onUsable?:()=>void;onSessionExpired?:()=>void}){
@@ -63,6 +69,8 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   },[!!store.state]);
   const initialPage=typeof window!=='undefined'&&window.location.pathname==='/coach'?'coach':typeof window!=='undefined'&&(window.location.pathname==='/settings'||window.location.search.includes('google_health')||hasConnectIntent())?'settings':'today';
   const [page,setPage]=useState<Page>(initialPage);
+  const online=useOnlineStatus();
+  const [bodyRoot,setBodyRoot]=useState<BodyRoot>('history');
   const [foodOpen,setFoodOpen]=useState(false);
   const foodOpening=useRef<(()=>void)|undefined>(undefined);
   const foodMounted=useRef(false);
@@ -221,6 +229,12 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     {id:'scan',label:'Scan food or label',description:'Scan a packaged food barcode or nutrition label.',icon:<Camera size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'barcode',addReturnFocus)},
     {id:'quick',label:'Quick add',description:'Enter calories and macros without searching.',icon:<Zap size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus,undefined,undefined,'quick')},
   ];
+  const openBody=(root:BodyRoot)=>{setBodyRoot(root);requestPage('body');};
+  // Back to the Dashboard by unwinding the entry the page pushed, so the Dashboard keeps its scroll.
+  const leaveBody=()=>{
+    if(pageDepth(readState(window.history))>0)window.history.back();
+    else{backCoordinator().replacePage('today');showPage('today');}
+  };
   const navigate=(next:Page)=>{
     if(next===page){
       const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -231,6 +245,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     requestPage(next);
   };
   const foodSavedPage=foodOriginPage==='food'?'food':'today';
+  const navPage:Page=page==='body'?'today':page;
   const nav=[
     {id:'today',label:'Dashboard',icon:LayoutDashboard},
     {id:'food',label:'Food Log',icon:BookOpen},
@@ -239,7 +254,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   ] as const;
 
   // Background sync indicators update independently of the live page's data.
-  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,onLogout]);
+  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')} onOpenBody={openBody}/>:!needsProfile&&page==='body'?<BodyPhotos store={store} root={bodyRoot} onExit={leaveBody}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,bodyRoot,onLogout]);
 
   const [accountHead,accountTail]=splitAtSign(store.state?.displayName??'');
 
@@ -248,16 +263,16 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     <aside className="sidebar">
       <a className="brand" href="/" aria-label="Nutrition home"><Brand/><span>Nutrition</span></a>
       <nav aria-label="Main navigation">
-        <SelectionIndicator active={page} className="nav-mobile-items nav-selection">
-          <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={page==='today'?'nav-active':''} aria-current={page==='today'?'page':undefined} onClick={()=>navigate('today')}><LayoutDashboard size={20}/><span>Dashboard</span></Button>
-          <Button data-selection-key="food" disabled={needsProfile} variant="tertiary" className={page==='food'?'nav-active':''} aria-current={page==='food'?'page':undefined} onClick={()=>navigate('food')}><BookOpen size={20}/><span>Food Log</span></Button>
+        <SelectionIndicator active={navPage} className="nav-mobile-items nav-selection">
+          <Button data-selection-key="today" disabled={needsProfile} variant="tertiary" className={navPage==='today'?'nav-active':''} aria-current={navPage==='today'?'page':undefined} onClick={()=>navigate('today')}><LayoutDashboard size={20}/><span>Dashboard</span></Button>
+          <Button data-selection-key="food" disabled={needsProfile} variant="tertiary" className={navPage==='food'?'nav-active':''} aria-current={navPage==='food'?'page':undefined} onClick={()=>navigate('food')}><BookOpen size={20}/><span>Food Log</span></Button>
           <Button disabled={needsProfile} variant="primary" className="nav-center-add" aria-label="Add entry" onClick={event=>{setAddReturnFocus(event.currentTarget);setShowAddSheet(true);}}><Plus size={22} className="nav-icon"/><span>Add</span></Button>
-          <Button data-selection-key="coach" variant="tertiary" className={page==='coach'?'nav-active':''} aria-current={page==='coach'?'page':undefined} onClick={()=>navigate('coach')}><Compass size={20}/><span>Coach</span></Button>
-          <Button data-selection-key="settings" disabled={needsProfile} variant="tertiary" className={page==='settings'?'nav-active':''} aria-current={page==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={20}/><span>Settings</span></Button>
+          <Button data-selection-key="coach" variant="tertiary" className={navPage==='coach'?'nav-active':''} aria-current={navPage==='coach'?'page':undefined} onClick={()=>navigate('coach')}><Compass size={20}/><span>Coach</span></Button>
+          <Button data-selection-key="settings" disabled={needsProfile} variant="tertiary" className={navPage==='settings'?'nav-active':''} aria-current={navPage==='settings'?'page':undefined} onClick={()=>navigate('settings')}><SettingsIcon size={20}/><span>Settings</span></Button>
         </SelectionIndicator>
-        <SelectionIndicator active={page} className="nav-desktop-items nav-selection">
+        <SelectionIndicator active={navPage} className="nav-desktop-items nav-selection">
           <Button disabled={needsProfile} variant="primary" className="nav-add-desktop" aria-label="Add entry" title="Add entry" onClick={event=>{setAddReturnFocus(event.currentTarget);setShowAddSheet(true);}}><Plus size={19}/><span>Add entry</span></Button>
-          {nav.map(item=>{const Icon=item.icon;return <Button data-selection-key={item.id} key={item.id} disabled={needsProfile&&item.id!=='coach'} variant="tertiary" className={page===item.id?'nav-active':''} aria-current={page===item.id?'page':undefined} onClick={()=>navigate(item.id)}><Icon size={21}/><span>{item.label}</span></Button>;})}
+          {nav.map(item=>{const Icon=item.icon;return <Button data-selection-key={item.id} key={item.id} disabled={needsProfile&&item.id!=='coach'} variant="tertiary" className={navPage===item.id?'nav-active':''} aria-current={navPage===item.id?'page':undefined} onClick={()=>navigate(item.id)}><Icon size={21}/><span>{item.label}</span></Button>;})}
           <Button disabled={needsProfile} variant="tertiary" className="nav-ai-button" aria-label="Ask AI" onClick={()=>setAiOpen(true)}><Sparkles size={21}/><span>Ask AI</span></Button>
         </SelectionIndicator>
       </nav>
@@ -286,7 +301,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       <UndoToastHost/>
       <PwaUpdateNotice/>
       <ConnectionFeedback message={store.error} drain={store.drain} refresh={store.refresh}/>
-      {!store.state?<><PageSkeleton page={page} label="Opening your diary…"/><div className="actions"><Button variant="tertiary" onClick={()=>void onLogout()}>Back to sign in</Button></div></>:<Suspense fallback={<PageSkeleton page={needsProfile?'coach':page} label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
+      {!store.state?<OpeningDiary page={navPage} online={online} onSignOut={()=>void onLogout()}/>:<Suspense fallback={<PageSkeleton page={needsProfile?'coach':navPage} label="Opening this page…"/>}><MotionScene sceneKey={needsProfile?'coach':page}>
         {pageContent}
       </MotionScene></Suspense>}
       {!needsProfile&&store.state?.profile&&<MissedDays store={store}/>}
