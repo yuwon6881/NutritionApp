@@ -1,5 +1,6 @@
 import {useId,useMemo} from 'react';
-import {Pause,TrendingUp} from 'lucide-react';
+import {Flame,Pause,TrendingUp} from 'lucide-react';
+import {EmptyState} from './ui/EmptyState';
 import type {EnergyUnit,TrajectoryPoint} from '../types';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {dateAxisOffsets,dateAxisStep,niceTicks} from '../lib/barChart';
@@ -83,6 +84,6 @@ export function MaintenanceChart({points,energyUnit,rangeStart,rangeEnd}:{points
         <li><span className="legend-line swatch-maintenance-adapting" aria-hidden="true"/>Adapting</li>
         <li><span className="legend-swatch swatch-maintenance-hold" aria-hidden="true"/>Holding</li>
       </ul>
-    </>:<div className="empty"><h3>No estimate yet</h3></div>}
+    </>:<EmptyState icon={Flame} title="No estimate yet" description="Maintenance appears once you have logged enough food and weigh-ins."/>}
   </section>;
 }

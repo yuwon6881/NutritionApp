@@ -1,11 +1,12 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {CloudDownload,MoreHorizontal,Pencil,Trash2} from 'lucide-react';
+import {CloudDownload,MoreHorizontal,Pencil,Scale,Trash2} from 'lucide-react';
 import type {ProgressSummary,Weight} from '../types';
 import {displayWeight,weightLabel,type unitsFor} from '../lib/units';
 import {monthShort,readoutDate,weekdayShort} from '../lib/format';
 import {changeSincePrevious,mergeWeighInRows} from '../lib/weighInList';
 import {weightContextLabel} from '../lib/weightContext';
 import {Button} from './ui/Button';
+import {EmptyState} from './ui/EmptyState';
 import {ActionSheet,type ActionSheetOption} from './ui/ActionSheet';
 import {CardFeedback} from './ui/CardFeedback';
 import {SkeletonBlock} from './ui/Skeleton';
@@ -87,7 +88,7 @@ export function WeighInHistory({summary,units,onEdit,onDelete,pendingDeletes}:{s
         {hasHidden?<Button variant="secondary" aria-expanded={showAll} disabled={history.loading} onClick={showMore}>Show more</Button>
           :<Button variant="secondary" aria-expanded={showAll} onClick={()=>setShowAll(false)}>Show fewer</Button>}
       </div>}</>
-      :<p className="empty">No weigh-ins in this period.</p>}
+      :<EmptyState icon={Scale} title="No weigh-ins in this period" description="Pick a longer period, or log a weigh-in to see it here."/>}
     </section>
     <ActionSheet isOpen={menuOpen} onClose={()=>setMenuOpen(false)} restoreFocus={menuTarget?.trigger} title="Weigh-in" subtitle={menuTarget?readoutDate(menuTarget.weight.date):undefined} options={menuOptions}/>
   </>;

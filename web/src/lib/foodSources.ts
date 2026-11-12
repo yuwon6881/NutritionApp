@@ -4,3 +4,6 @@ export const FATSECRET_SOURCE='Powered by fatsecret';
 export const FATSECRET_ATTRIBUTION_URL='https://platform.fatsecret.com';
 
 export const isFatSecretSource=(source:string)=>source===FATSECRET_SOURCE||source==='fatsecret'||source.toLowerCase().includes('fatsecret');
+
+/** A saved food reads "Saved food" whatever estimate it began as; the AI origin only matters while reviewing the estimate. */
+export const displaySource=(source:string)=>/^saved food\s*\/\s*ai\b/i.test(source)?'Saved food':source;

@@ -54,7 +54,9 @@ export function withSavedFoods(results:readonly FoodSearchResult[],foods:readonl
   const sameFood=(row:FoodSearchResult)=>matches.some(food=>{
     const barcode=barcodeValue(food.barcode);
     if(barcode&&barcode===barcodeValue(row.code))return true;
-    return food.name.trim().toLowerCase()===row.name.trim().toLowerCase()&&food.source===row.source;
+    const sameName=food.name.trim().toLowerCase()===row.name.trim().toLowerCase();
+    // A diary entry logged from a saved food carries the "Saved food / …" source, not the food's own.
+    return sameName&&(food.source===row.source||row.source.startsWith('Saved food'));
   });
   const own=matches.map(food=>({...foodToSearchResult(food),saved:savedFoodKind(food)==='recipe'?'recipe' as const:'custom' as const}));
   return [...own,...results.filter(row=>!sameFood(row))];

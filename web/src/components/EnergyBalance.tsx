@@ -1,4 +1,6 @@
 import {useId,useState} from 'react';
+import {Flame} from 'lucide-react';
+import {EmptyState} from './ui/EmptyState';
 import type {NutritionStore} from '../useNutritionStore';
 import type {ProgressPeriod,ProgressSummary} from '../types';
 import {unitsFor} from '../lib/units';
@@ -83,7 +85,7 @@ export function EnergyBalance({store,period,summary,error,view:fixedView,viewpor
             <li><span className="legend-swatch swatch-missing" aria-hidden="true"/>Not known</li>
           </ul>
         </div>}
-      </div>:<div className="empty"><h3>No energy data in this period</h3></div>}
+      </div>:<EmptyState icon={Flame} title="No energy data in this period" description="Log food in this period to compare intake with maintenance."/>}
     </>}
   </section>;
 }

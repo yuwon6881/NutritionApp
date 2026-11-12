@@ -91,11 +91,7 @@
 }
 @media(min-width:1024px){.food-calendar-navigation>.button{width:36px;min-width:36px;min-height:36px;height:36px}}
 .food-log-page .food-date-navigation{grid-template-columns:minmax(160px,260px) auto}
-.diary-empty-state{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 24px;background:var(--card);border-radius:16px;border:1px solid var(--border)}
-.diary-empty-state h3,.diary-empty-state p{margin:0;max-width:380px}
-.diary-empty-state p{font-size:.875rem;color:var(--muted-foreground);line-height:1.5}
-.diary-empty-state>.button{margin-left:0}
-.diary-empty-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--muted);color:var(--primary-ink)}
+.diary-empty-state{padding:0}
 .notification-settings>.card-feedback{margin-top:16px;margin-bottom:16px}
 .food-modal .section-segments .button{justify-content:center;padding-inline:4px;gap:6px}
 .saved-foods-actions .button{white-space:nowrap}

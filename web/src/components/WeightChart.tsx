@@ -1,4 +1,6 @@
 import {useId,useMemo,useState} from 'react';
+import {Scale} from 'lucide-react';
+import {EmptyState} from './ui/EmptyState';
 import {SegmentedControl} from './ui/SegmentedControl';
 import type {ProgressWeightPoint,WeightUnit} from '../types';
 import {displayWeight,weightLabel,weightValue} from '../lib/units';
@@ -118,6 +120,6 @@ export function WeightChart({series,weightUnit='kg',periodStart,periodEnd,view:f
     {(!fixedView||view==='both')&&<ul className="chart-legend" aria-label="Weight chart key">
       {view!=='trend'&&<li><span className="legend-dot swatch-scale" aria-hidden="true"/>Scale weigh-in</li>}
       {view!=='scale'&&<li><span className="legend-line swatch-trend" aria-hidden="true"/>Trend</li>}
-    </ul>}</>:<div className="empty"><h3>No weigh-ins yet</h3></div>}
+    </ul>}</>:<EmptyState icon={Scale} title="No weigh-ins yet" description="Log your weight to see your trend here."/>}
   </section>;
 }

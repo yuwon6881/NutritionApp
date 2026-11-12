@@ -9,7 +9,7 @@ import {Form} from './ui/Form';
 import {BarcodeCamera} from './BarcodeCamera';
 import {Modal} from './ui/Modal';
 import {displayEnergy,energyLabel} from '../lib/units';
-import {isFatSecretSource} from '../lib/foodSources';
+import {displaySource,isFatSecretSource} from '../lib/foodSources';
 import {useSearchAsYouType,type SearchCache} from './useSearchAsYouType';
 import {nativeBarcodeScannerAvailable} from '../lib/barcode/nativeScannerAvailability';
 const NativeBarcodeScanner=lazy(()=>import('./NativeBarcodeScanner').then(module=>({default:module.NativeBarcodeScanner})));
@@ -154,6 +154,7 @@ export function FoodPicker({
     </div>}
     <Form onSubmit={event=>{
       event.preventDefault();
+      if(!query.trim())return;
       // On a touch phone the keyboard's Search key is the way to put the keyboard away and see the
       // results; a mouse-and-keyboard user keeps the field focused to refine the query.
       if(window.matchMedia?.('(pointer: coarse)').matches&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
@@ -177,7 +178,7 @@ export function FoodPicker({
           id="food-search-input"
           name="query"
           key={tab}
-          validate={()=>tab==='barcode'&&!/^[0-9]{8,14}$/.test(query)?'Enter an 8–14 digit barcode.':tab==='search'&&(query.trim().length<2||query.trim().length>100)?'Enter 2–100 characters.':undefined}
+          validate={()=>!query.trim()?undefined:tab==='barcode'&&!/^[0-9]{8,14}$/.test(query)?'Enter an 8–14 digit barcode.':tab==='search'&&(query.trim().length<2||query.trim().length>100)?'Enter 2–100 characters.':undefined}
           inputMode={tab==='barcode'?'numeric':undefined}
           enterKeyHint="search"
           data-modal-autofocus
@@ -191,7 +192,6 @@ export function FoodPicker({
           leading={tab==='barcode'?undefined:<Search size={18}/>}
           placeholder={tab==='barcode'?undefined:searchLabel==='Search term'?'Search foods by name or brand':'Search ingredients by name or brand'}
           hint={tab==='barcode'?'Enter 8–14 digits or scan with the camera.':undefined}
-          required
           value={query}
           onChange={event=>{
             requestId.current++;
@@ -258,7 +258,7 @@ export function FoodPicker({
             </strong>
             <small id={`${id}-summary`}>
               {nutritionSummary(result,energyUnit)}
-              {!result.saved&&!isFatSecretSource(result.source)?` · ${result.source}`:''}
+              {!result.saved&&!isFatSecretSource(result.source)?` · ${displaySource(result.source)}`:''}
             </small>
             {nutrition&&<FoodMacroSummary protein={nutrition.protein} carbs={nutrition.carbs} fat={nutrition.fat}/>}
           </div>

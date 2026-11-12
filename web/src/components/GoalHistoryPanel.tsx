@@ -1,4 +1,5 @@
-import {ArrowRight,Calendar,Equal,TrendingDown,TrendingUp} from 'lucide-react';
+import {ArrowRight,Calendar,Equal,Target,TrendingDown,TrendingUp} from 'lucide-react';
+import {EmptyState} from './ui/EmptyState';
 import type {CoachingSettings,Plan} from '../types';
 import {buildGoalHistory,currentEndKg,goalLabel,type GoalHistoryEntry} from '../lib/goalHistory';
 import {displayWeight,unitsFor,weightLabel} from '../lib/units';
@@ -16,7 +17,7 @@ export function GoalHistoryPanel({plans,settings,latestKg}:{plans:readonly Plan[
     <div className="section-heading">
       <div><h2>Goal history</h2></div>
     </div>
-    {entries.length===0?<p className="empty">No goals yet.</p>:<div className="goal-history-list">
+    {entries.length===0?<EmptyState icon={Target} title="No goals yet" description="Each goal you accept in Coach is listed here with its start and result."/>:<div className="goal-history-list">
       {entries.map(entry=>{
         const isCurrent=entry.status==='active';
         const endKg=currentEndKg(entry,latestKg);

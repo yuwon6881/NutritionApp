@@ -9,7 +9,7 @@ public static class FoodRanking
     /// <summary>
     /// Foods this account has logged lead when their name or brand carries every word of a query of
     /// two or more words: searching again for something already eaten finds it first, most-logged
-    /// first. With one word only a plain food leads ("banana" puts a logged "Banana" first, not a
+    /// first. With one word only a plain food or a product of that brand leads ("banana" puts a logged "Banana" first, not a
     /// logged "Banana smoothie"), because a single word names too many foods for a past meal to
     /// outrank the food itself. The rest keep name relevance ahead of personal frequency, then
     /// prefer a declared gram serving and the incoming order. The foods the query names come first
@@ -33,6 +33,7 @@ public static class FoodRanking
                 index,
                 nameRank=SearchNameRank(result.Name,needle,queryTokens),
                 isPlain=IsPlainFood(result.Name,queryTokens),
+                isBrand=IsBrandProduct(result.Name,queryTokens),
                 frequency=Frequency(result,frequencies),
                 hasServing=result.Portions?.Count>0,
             })
@@ -43,7 +44,7 @@ public static class FoodRanking
             // The foods the query names form the first tier; exact and prefix matches share the
             // next, so a food that merely starts with the word stays behind them. Weaker name
             // matches never jump a tier.
-            .OrderBy(item=>item.frequency>0&&item.nameRank<=AllTokensRank&&(queryTokens.Length>1||item.isPlain)?0:1)
+            .OrderBy(item=>item.frequency>0&&item.nameRank<=AllTokensRank&&(queryTokens.Length>1||item.isPlain||item.isBrand)?0:1)
             .ThenBy(item=>item.isPlain&&item.nameRank<=AllTokensRank?0:item.nameRank<=1?1:item.nameRank)
             .ThenByDescending(item=>item.frequency)
             .ThenBy(item=>preference(item.result))
@@ -78,6 +79,13 @@ public static class FoodRanking
     /// a plain food's name also uses is the food, not a brand: "rice" stays a food query although
     /// "Akita Rice" is a brand. Lists with only one kind of result keep their order.
     /// </summary>
+    /// <summary>True when a query word is the brand after " · " ("Lemon Tea · Lipton" for "lipton"): a brand search wants every product of that brand the account has eaten first.</summary>
+    private static bool IsBrandProduct(string name,IReadOnlyList<string> queryTokens)
+    {
+        var parts=name.Split(" · ",2,StringSplitOptions.None);
+        return parts.Length==2&&SearchTokens(parts[1]).Any(word=>queryTokens.Any(token=>TokenMatches(word,token)));
+    }
+
     private static Func<FoodResult,int> KindPreference(IReadOnlyList<FoodResult> results,IReadOnlyList<string> queryTokens)
     {
         if(!results.Any(result=>result.IsGeneric)||results.All(result=>result.IsGeneric))return _=>0;

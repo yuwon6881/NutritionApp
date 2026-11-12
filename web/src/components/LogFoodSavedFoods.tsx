@@ -1,10 +1,11 @@
 import {useMemo,type CSSProperties} from 'react';
-import {Plus,Star} from 'lucide-react';
+import {BookOpen,Clock,Plus,Search,Star,Utensils,UtensilsCrossed} from 'lucide-react';
 import type {EnergyUnit,Entry,Food} from '../types';
 import {savedFoodKind} from '../lib/savedFoodSearch';
 import {displayEnergy,energyLabel} from '../lib/units';
 import {measureOf} from '../lib/portions';
 import {Button} from './ui/Button';
+import {EmptyState} from './ui/EmptyState';
 import {Field} from './ui/Field';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {FoodMacroSummary} from './FoodMacroSummary';
@@ -138,24 +139,22 @@ export function LogFoodSavedFoods({
       onChange={onFilterChange}
     />
     {logging&&filter==='recent'
-      ?(recentEntries.length>0?recentGrid(recentEntries):<p className="empty recent-empty">No recent diary items yet.</p>)
+      ?(recentEntries.length>0?recentGrid(recentEntries):<EmptyState icon={Clock} title="No recent items yet" description="Foods you log show up here so you can add them again in one tap."/>)
       :<>
         {logging&&filter==='all'&&!query.trim()&&recentEntries.length>0&&<section className="recent-foods-section" aria-labelledby="recent-section-heading">
           <div className="recent-foods-heading"><h4 id="recent-section-heading">Recent items</h4>{recentEntries.length>4&&<Button variant="tertiary" size="sm" onClick={()=>onFilterChange('recent')}>See all {recentEntries.length}</Button>}</div>
           {recentGrid(recentEntries.slice(0,4))}
         </section>}
         {foods.length===0
-          ?<p className="empty">
-            {query.trim()
-              ?`No saved foods matching “${query}”.`
-              :filter==='favourites'
-              ?'No favourite foods yet. Star foods to find them quickly here.'
-              :filter==='custom'
-              ?'No custom foods yet. Create one with the Custom food button.'
-              :filter==='recipes'
-              ?'No recipes yet. Create one with the New recipe button.'
-              :'No saved foods yet.'}
-          </p>
+          ?(query.trim()
+            ?<EmptyState icon={Search} title="No matching saved foods" description={`Nothing saved matches “${query}”. Try a different word.`}/>
+            :filter==='favourites'
+            ?<EmptyState icon={Star} title="No favourite foods yet" description="Star foods to find them quickly here."/>
+            :filter==='custom'
+            ?<EmptyState icon={UtensilsCrossed} title="No custom foods yet" description="Create one with the Custom food button."/>
+            :filter==='recipes'
+            ?<EmptyState icon={BookOpen} title="No recipes yet" description="Create one with the New recipe button."/>
+            :<EmptyState icon={Utensils} title="No saved foods yet" description="Foods you save, create or star will be listed here."/>)
           :sectioned
           ?<>
             {group('favourite-foods-heading','Favourites',null,favourites)}

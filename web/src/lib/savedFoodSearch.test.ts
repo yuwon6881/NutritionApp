@@ -48,6 +48,11 @@ describe('saved foods in food search',()=>{
     expect(merged.map(result=>result.saved)).toEqual(['custom','custom','recipe',undefined]);
   });
 
+  it('drops a diary-logged copy of a saved food whose source reads Saved food',()=>{
+    const merged=withSavedFoods([row('Homemade Protein Bar','Saved food / AI label estimate')],[custom],'protein',true);
+    expect(merged.map(result=>result.name)).toEqual(['Homemade Protein Bar']);
+  });
+
   it('returns the catalogue rows untouched when nothing saved matches',()=>{
     const results=[row('Rice','USDA FoodData Central')];
     expect(withSavedFoods(results,foods,'rice',true)).toEqual(results);

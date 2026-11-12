@@ -60,6 +60,19 @@ public sealed class FoodSearchPersonalizationTests
     }
 
     [Fact]
+    public void With_one_word_a_logged_product_of_that_brand_leads()
+    {
+        var unlogged=new FoodResult("Lipton sparkling",0,null,null,null,null,"test");
+        var logged=new FoodResult("Lemon Tea · Lipton",115,null,null,null,null,"test");
+        var ranked=FoodRanking.PrioritizeResults(
+            [unlogged,logged],
+            "lipton",
+            new Dictionary<string,int>(StringComparer.Ordinal) {[FoodRanking.UsageKey(logged)]=1});
+
+        Assert.Equal([logged.Name,unlogged.Name],ranked.Select(result=>result.Name));
+    }
+
+    [Fact]
     public void Frequency_breaks_equivalent_name_matches_without_overriding_name_relevance()
     {
         var exact=new FoodResult("Banana",100,null,null,null,null,"test");

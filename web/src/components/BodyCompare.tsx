@@ -2,6 +2,7 @@ import {Fragment,useState} from 'react';
 import {ArrowLeft,ArrowLeftRight,Calendar,Scale} from 'lucide-react';
 import type {BodyMeasurementKey,BodyRecord,PhysiqueAngle} from '../types';
 import {Button} from './ui/Button';
+import {EmptyState} from './ui/EmptyState';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayWeight,weightLabel} from '../lib/units';
 import {number,readableDate} from '../lib/format';
@@ -44,12 +45,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
   if(sorted.length<2){
     return <section className="panel body-compare-panel">
       <header className="page-heading photo-view-heading"><div className="subpage-header-title">{backButton}<h2>Compare records</h2></div></header>
-      <div className="body-compare-empty">
-        <Scale size={32} className="empty-icon" aria-hidden="true"/>
-        <h3>At least 2 records required</h3>
-        <p>Add another record to compare.</p>
-        <Button variant="secondary" onClick={onBack}>Return to records</Button>
-      </div>
+      <EmptyState size="card" icon={Scale} title="At least 2 records required" description="Add another record to compare." action={<Button variant="secondary" onClick={onBack}>Return to records</Button>}/>
     </section>;
   }
 

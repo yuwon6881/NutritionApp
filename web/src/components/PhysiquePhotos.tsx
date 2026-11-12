@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {ArrowLeft,Camera,Scale,ArrowLeftRight} from 'lucide-react';
+import {ArrowLeft,Camera,Scale,ArrowLeftRight,Images,Ruler} from 'lucide-react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {BodyPage,BodyRecord,PhysiqueAngle,PhysiquePhotoPage,PhysiquePhotoSet} from '../types';
 import {api} from '../lib/api';
@@ -7,6 +7,7 @@ import {backCoordinator} from '../lib/appHistory';
 import {allMeasurementKeys,clampIndex} from '../lib/bodyMeasurements';
 import {readableDate} from '../lib/format';
 import {Button} from './ui/Button';
+import {EmptyState} from './ui/EmptyState';
 import {PhotoUploadDialog} from './PhotoUploadDialog';
 import {unitsFor} from '../lib/units';
 import {CardFeedback} from './ui/CardFeedback';
@@ -173,7 +174,7 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
       {bodyError&&<CardFeedback title="Body history unavailable" message={bodyError} action={{label:'Retry history',onClick:()=>void loadBodyPage(!bodyRecords.length),disabled:busy}}/>}
       <section className="panel body-history-panel">
         <div className="section-heading"><div><h2>Measurements and photos</h2><p>Newest first.</p></div><Button variant="secondary" disabled={bodyRecords.length<2} onClick={()=>openCompare(0)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare</Button></div>
-        {!bodyRecords.length&&!bodyError&&(bodyLoaded?<p className="empty">No Body records yet.</p>:<BodyListSkeleton kind="history" label="Loading Body history…"/>)}
+        {!bodyRecords.length&&!bodyError&&(bodyLoaded?<EmptyState size="card" icon={Ruler} title="No Body records yet" description="Add a record to track measurements, body fat and progress photos over time." action={<Button variant="secondary" onClick={event=>openBodyEditor(undefined,event.currentTarget)}>Add body record</Button>}/>:<BodyListSkeleton kind="history" label="Loading Body history…"/>)}
         <div className="body-history-list">{bodyRecords.map((record,index)=><BodyHistoryRow key={record.id} record={record} weightUnit={weightUnit} onOpen={()=>openBodyViewer(index)} onEdit={trigger=>openBodyEditor(record,trigger)}/>)}</div>
         {bodyHasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busyPending} onClick={()=>void loadBodyPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
       </section>
@@ -183,7 +184,7 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
     const current=bodyRecords[bodyIndex];
     view=<>
       <header className="page-heading photo-view-heading"><div className="subpage-header-title">{back('Back to Body history',()=>setPage('history'))}<h2>Body record</h2></div><div className="physique-hub-actions"><Button variant="secondary" disabled={bodyRecords.length<2} onClick={()=>openCompare(bodyIndex)}><ArrowLeftRight size={16} aria-hidden="true"/>Compare</Button><Button variant="secondary" disabled={!current} onClick={event=>openBodyEditor(current,event.currentTarget)}>Edit record</Button></div></header>
-      {current?<BodyRecordViewer records={bodyRecords} index={bodyIndex} angle={bodyViewerAngle} weightUnit={weightUnit} onAngle={setBodyViewerAngle} onIndex={setBodyViewerIndex}/>:<p className="empty">No Body records yet.</p>}
+      {current?<BodyRecordViewer records={bodyRecords} index={bodyIndex} angle={bodyViewerAngle} weightUnit={weightUnit} onAngle={setBodyViewerAngle} onIndex={setBodyViewerIndex}/>:<EmptyState size="card" icon={Ruler} title="No Body records yet" description="Add a record to track measurements, body fat and progress photos over time."/>}
     </>;
   }else if(page==='gallery'){
     view=<>
@@ -191,7 +192,7 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
       {error&&<CardFeedback title="Photo gallery unavailable" message={error} action={{label:'Retry gallery',onClick:()=>void loadPage(!sets.length),disabled:busy}}/>}
       <section className="panel physique-gallery-panel">
         <div className="section-heading"><div><h2>Photo sets</h2><p>Newest first.</p></div><Button variant="secondary" disabled={!sets.length} onClick={openViewer}><ArrowLeftRight size={16} aria-hidden="true"/>Step through sets</Button></div>
-        {!sets.length&&!error&&(loaded?<p className="empty">No photo sets yet.</p>:<BodyListSkeleton kind="gallery" label="Loading gallery…"/>)}
+        {!sets.length&&!error&&(loaded?<EmptyState size="card" icon={Images} title="No photo sets yet" description="Front, side and back photos stay private to you." action={<Button variant="secondary" onClick={event=>openUpload(undefined,event.currentTarget)}>Add photo set</Button>}/>:<BodyListSkeleton kind="gallery" label="Loading gallery…"/>)}
         <div className="photo-gallery-list">{sets.map(set=><PhotoSetRow key={set.id} set={set} onEdit={openUpload}/>)}</div>
         {hasMore&&<div className="modal-actions"><Button variant="secondary" disabled={busyPending} onClick={()=>void loadPage(false)}>{busy?'Loading…':'Load more'}</Button></div>}
       </section>

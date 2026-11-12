@@ -1,5 +1,6 @@
 import {useId, type ReactNode} from 'react';
-import {ChevronRight} from 'lucide-react';
+import {ChevronRight,Footprints} from 'lucide-react';
+import {EmptyState} from './ui/EmptyState';
 import {number,readableDate} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, calculateKnownDayAverage} from '../lib/googleHealth';
 import {niceTicks} from '../lib/barChart';
@@ -109,11 +110,7 @@ export function GoogleHealthProgressChart({
           <SkeletonChart height={HEIGHT}/>
         </SkeletonRegion>
       ) : !hasRenderableHistory ? (
-        <div className="chart-empty-state" role="status">
-          {freshness === 'unavailable'
-            ? 'Step history unavailable.'
-            : 'No steps recorded.'}
-        </div>
+        <EmptyState icon={Footprints} title={freshness === 'unavailable' ? 'Step history unavailable.' : 'No steps recorded.'} description={freshness === 'unavailable' ? 'Try again in a moment.' : 'Steps from Google Health appear here once they sync.'}/>
       ) : (
         <div className="chart-scrub step-chart" role="group" aria-label="Step chart. Tap a bar or use the left and right arrow keys to read a day." aria-describedby={readoutId} {...scrub.groupProps}>
           {/* The readout always holds a day, so selecting a bar never moves the chart. */}

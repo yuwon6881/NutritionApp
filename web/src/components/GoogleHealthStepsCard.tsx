@@ -3,6 +3,7 @@ import {Footprints, ArrowUpRight} from 'lucide-react';
 import {number} from '../lib/format';
 import {GoogleHealthDay, GoogleHealthFreshness, GoogleHealthStatus, getTodayStepCount} from '../lib/googleHealth';
 import {Button} from './ui/Button';
+import {EmptyState} from './ui/EmptyState';
 import {CardFeedback} from './ui/CardFeedback';
 
 interface GoogleHealthStepsCardProps {
@@ -83,7 +84,7 @@ export function GoogleHealthStepsCard({
         )}
 
         {status === 'connected' && count === null && (
-          warningMessage ? null : <p className="source">No step activity recorded for today yet.</p>
+          warningMessage ? null : <EmptyState size="compact" icon={Footprints} title="No steps yet today" description="Step activity appears here once it syncs."/>
         )}
 
         {status === 'connected' && count !== null && (
