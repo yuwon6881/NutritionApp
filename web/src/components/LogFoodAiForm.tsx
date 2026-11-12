@@ -6,6 +6,7 @@ import {AiPhotoPicker} from './AiPhotoPicker';
 import {TextArea} from './ui/Field';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Form} from './ui/Form';
+import {ScanOverlay} from './ui/ScanOverlay';
 import {backCoordinator} from '../lib/appHistory';
 import {isNativeApp} from '../lib/nativeApp';
 import type {AiMode, PendingBarcode} from './useFoodScanDraft';
@@ -241,7 +242,8 @@ export function LogFoodAiForm({
                   src={`data:image/jpeg;base64,${photo}`}
                   alt={mode === 'label' ? 'Selected nutrition label photo' : 'Selected meal photo'}
                 />
-                {onClearPhoto && (
+                <ScanOverlay active={busy} label={mode === 'label' ? 'Reading label' : 'Scanning meal'} />
+                {onClearPhoto && !busy && (
                   <Button
                     type="button"
                     variant="tertiary"

@@ -1,0 +1,11 @@
+.scan-overlay{position:absolute;inset:0;overflow:hidden;pointer-events:none;background:color-mix(in srgb,var(--primary) 8%,transparent)}
+.scan-overlay-sweep{position:absolute;left:0;right:0;top:0;height:42%;transform:translateY(-100%);background:linear-gradient(to bottom,transparent,color-mix(in srgb,var(--primary) 34%,transparent) 88%,color-mix(in srgb,var(--primary) 70%,transparent) 100%);animation:scanOverlaySweep 2.2s var(--motion-ease) infinite}
+.scan-overlay-corner{position:absolute;width:22px;height:22px;border:0 solid var(--primary);opacity:.9;animation:scanOverlayPulse 2.2s ease-in-out infinite}
+.scan-overlay-corner-tl{top:12px;left:12px;border-top-width:3px;border-left-width:3px;border-top-left-radius:8px}
+.scan-overlay-corner-tr{top:12px;right:12px;border-top-width:3px;border-right-width:3px;border-top-right-radius:8px}
+.scan-overlay-corner-bl{bottom:12px;left:12px;border-bottom-width:3px;border-left-width:3px;border-bottom-left-radius:8px}
+.scan-overlay-corner-br{bottom:12px;right:12px;border-bottom-width:3px;border-right-width:3px;border-bottom-right-radius:8px}
+.scan-overlay-badge{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:4px 12px;border-radius:999px;background:var(--card);color:var(--primary-ink);border:1px solid var(--border);font-size:.75rem;font-weight:600;box-shadow:var(--shadow-raised);white-space:nowrap}
+@keyframes scanOverlaySweep{0%{transform:translateY(-100%)}100%{transform:translateY(240%)}}
+@keyframes scanOverlayPulse{0%,100%{opacity:.55}50%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.scan-overlay-sweep{animation:none;transform:none;top:0;height:100%;background:color-mix(in srgb,var(--primary) 10%,transparent)}.scan-overlay-corner{animation:none;opacity:.9}}
