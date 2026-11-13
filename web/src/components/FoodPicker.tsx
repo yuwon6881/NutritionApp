@@ -181,7 +181,6 @@ export function FoodPicker({
           validate={()=>!query.trim()?undefined:tab==='barcode'&&!/^[0-9]{8,14}$/.test(query)?'Enter an 8–14 digit barcode.':tab==='search'&&(query.trim().length<2||query.trim().length>100)?'Enter 2–100 characters.':undefined}
           inputMode={tab==='barcode'?'numeric':undefined}
           enterKeyHint="search"
-          data-modal-autofocus
           autoComplete="off"
           // Brand and dish names are not dictionary words; autocorrect would rewrite the query.
           autoCorrect="off"

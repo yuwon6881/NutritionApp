@@ -34,7 +34,7 @@ export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:Nutriti
         <ArrowLeft size={16} aria-hidden="true"/>Back
       </Button>
     </div>}
-    <Field id="quick-add-calories" name="calories" className="quick-add-calories" placeholder="0" enterKeyHint="done" data-modal-autofocus label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={calories} onChange={event=>setCalories(event.target.value)}/>
+    <Field id="quick-add-calories" name="calories" className="quick-add-calories" placeholder="0" enterKeyHint="done" label={`Calories (${energyLabel(energyUnit)})`} type="number" min="0" max={energyUnit==='kj'?83680:20000} step="any" required value={calories} onChange={event=>setCalories(event.target.value)}/>
     <TimePicker id="quick-add-time" name="time" label="Meal time" required value={time} onChange={setTime}/>
     {error&&<p className="error" role="alert">{error}</p>}
     <div className="modal-actions">

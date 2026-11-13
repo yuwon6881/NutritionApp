@@ -2,6 +2,7 @@ import {useCallback,useEffect,useId,useRef,useState,type ReactNode} from 'react'
 import {X} from 'lucide-react';
 import {Button} from './Button';
 import {GUARD_KEY,MODAL_KEY,modalStack,readState,withModalEntry} from '../../lib/appHistory';
+import {isEditable} from '../../lib/virtualKeyboard';
 
 export type ModalWidth='sm'|'md'|'lg'|'xl';
 
@@ -99,7 +100,10 @@ export function Modal({
           try{element.showModal();}catch{element.setAttribute('open','');/* Keep the controlled surface visible if a browser closes the native dialog during a fast route change. */}
         }
         setPhase('open');
-        const target=element.querySelector<HTMLElement>('[data-modal-autofocus]')??focusable(element)[0]??element;
+        const autofocusElement=element.querySelector<HTMLElement>('[data-modal-autofocus]');
+        const target=(autofocusElement&&(!isEditable(autofocusElement)||(typeof window!=='undefined'&&window.matchMedia?.('(hover: hover) and (pointer: fine)').matches)))
+          ? autofocusElement
+          : element;
         lastEditorFocus.current=target;
         target.focus({preventScroll:true});
       });
@@ -233,6 +237,12 @@ export function Modal({
     const items=focusable(confirming?confirmation.current??event.currentTarget:event.currentTarget);
     if(!items.length){event.preventDefault();event.currentTarget.focus();return;}
     const first=items[0];const last=items[items.length-1];
+    if(document.activeElement===event.currentTarget){
+      event.preventDefault();
+      if(event.shiftKey)last.focus();
+      else first.focus();
+      return;
+    }
     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
   };
@@ -240,6 +250,8 @@ export function Modal({
   if(!present)return null;
   return <dialog
     ref={dialog}
+    tabIndex={-1}
+    style={{outline:'none'}}
     className={`modal-shell modal-width-${width} modal-${phase} ${className}`.trim()}
     aria-labelledby={titleId}
     aria-describedby={ariaDescribedBy ?? (description ? descriptionId : undefined)}

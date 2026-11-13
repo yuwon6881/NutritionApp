@@ -208,7 +208,7 @@ export function FoodEditor({
         </>
       ) : (
         <>
-          <Field id="food-name" name="name" autoComplete="off" data-modal-autofocus={title !== 'Review' ? '' : undefined} label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
+          <Field id="food-name" name="name" autoComplete="off" data-modal-autofocus={isBatchEdit ? '' : undefined} label="Food name" required maxLength={160} value={draft.name} onChange={event=>set('name',event.target.value)}/>
           {!isSaveFood&&!isBatchEdit&&<TimePicker id="food-time" name="time" label="Meal time" value={draft.time??''} onChange={val=>set('time',val||null)} hint={!draft.time?'Time not recorded':undefined}/>}
           <div className={showBasisFields?'form-grid':'form-grid nutrient-grid'}>
             {showBasisFields&&<>

@@ -17,7 +17,6 @@ export interface TimePickerProps {
   id?: string;
   name?: string;
   className?: string;
-  dataModalAutofocus?: boolean;
 }
 
 function parseTimeParts(val: string, now: string): {hour12: number; minute: number; period: 'AM' | 'PM'} {
@@ -70,7 +69,6 @@ export function TimePicker({
   id: idProp,
   name: nameProp,
   className = '',
-  dataModalAutofocus = false,
 }: TimePickerProps) {
   const generatedId = useId();
   const timeId = idProp ?? generatedId;
@@ -215,7 +213,6 @@ export function TimePicker({
         <button
           ref={triggerRef}
           id={`${timeId}-trigger`}
-          data-modal-autofocus={dataModalAutofocus || undefined}
           type="button"
           disabled={disabled}
           className={`custom-time-trigger ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}

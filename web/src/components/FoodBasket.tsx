@@ -105,7 +105,7 @@ export function FoodBasket({
     <DayEnergyPreview store={store} date={date} batchCalories={totals.calories}/>
 
     <Form onSubmit={submitBatch}>
-      <TimePicker id="batch-time" name="time" label="Meal time" required dataModalAutofocus value={time} onChange={value=>{setTime(value);onTimeChange?.(value);}}/>
+      <TimePicker id="batch-time" name="time" label="Meal time" required value={time} onChange={value=>{setTime(value);onTimeChange?.(value);}}/>
 
       <FieldFrame
         label="Batch foods"

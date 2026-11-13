@@ -1,4 +1,5 @@
 import {useLayoutEffect,type RefObject} from 'react';
+import {isEditable} from '../lib/virtualKeyboard';
 
 /** Focus the live destination while outgoing food-dialog content may still be mounted. */
 export function useFoodStepFocus(open:boolean,step:string,tab:string,selectionFocus?:RefObject<HTMLElement|null>){
@@ -13,7 +14,7 @@ export function useFoodStepFocus(open:boolean,step:string,tab:string,selectionFo
         :undefined;
       const target=retained?.isConnected?retained:row??document.querySelector<HTMLElement>(step==='batch'?'.food-modal [data-step-focus]':'.food-modal [data-modal-autofocus],.food-modal [data-validation-focus]');
       if(step==='selection'&&selectionFocus)selectionFocus.current=null;
-      if(target?.isConnected)target.focus({preventScroll:true});
+      if(target?.isConnected&&!isEditable(target))target.focus({preventScroll:true});
     });
     return()=>window.cancelAnimationFrame(frame);
   },[open,step,tab,selectionFocus]);

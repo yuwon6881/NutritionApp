@@ -35,7 +35,7 @@
 }
 @media (max-width: 639px) {
   .food-time-row {
-    grid-template-columns: 3.75rem minmax(0, 1fr);
+    grid-template-columns: 3rem minmax(0, 1fr);
     gap: 12px;
   }
 }
@@ -52,7 +52,7 @@
 }
 @media (max-width: 639px) {
   .food-time-cards {
-    padding-left: 14px;
+    padding-left: 12px;
     gap: 8px;
   }
 }
@@ -71,7 +71,7 @@
 }
 @media (max-width: 639px) {
   .food-time-label::after {
-    right: -19px;
+    right: -17px;
     width: 8px;
     height: 8px;
     top: 7px;

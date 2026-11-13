@@ -314,7 +314,6 @@ export function LogFoodAiForm({
             label="Additional details (optional)"
             rows={2}
             maxLength={3000}
-            autoFocus={!description}
             value={description}
             onChange={event => onDescriptionChange(event.target.value)}
           />

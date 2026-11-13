@@ -123,7 +123,7 @@ export function LogFoodSavedFoods({
       </div>}
     </div>
     <div className="saved-foods-search">
-      <Field id="log-food-search" name="query" autoComplete="off" autoCorrect="off" spellCheck={false} data-modal-autofocus label="Find your food" placeholder="Filter by food or recipe name…" value={query} onChange={event=>onQueryChange(event.target.value)}/>
+      <Field id="log-food-search" name="query" autoComplete="off" autoCorrect="off" spellCheck={false} label="Find your food" placeholder="Filter by food or recipe name…" value={query} onChange={event=>onQueryChange(event.target.value)}/>
     </div>
     <SegmentedControl<SavedFilter>
       layout="scroll"

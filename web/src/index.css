@@ -461,6 +461,7 @@ summary{cursor:pointer}
 /* The time sits above its add button so the label never runs out of room beside it. */
 .food-log-page .food-time-label{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;gap:6px;padding-top:17px}
 .food-time-label-main{white-space:nowrap}
+[data-time-row=""] .food-time-label-main{white-space:normal;text-align:right}
 .food-time-label-end{white-space:nowrap;font-size:.92em;opacity:.8}
 /* A quiet add affordance under each time: a small filled circle inside the full touch target. */
 .food-slot-add{--slot-fill:var(--muted);width:36px;min-width:36px;min-height:36px;padding:0;border-radius:50%;color:var(--muted-foreground);border:0!important;background:radial-gradient(circle at center,var(--slot-fill) 0 14px,transparent 14.5px)!important;transition:color var(--motion-control) ease,transform 100ms var(--motion-ease)}
@@ -484,7 +485,7 @@ summary{cursor:pointer}
   .food-log-page .page-heading>div>p,.food-timeline-toolbar>div>p{display:none}
   .food-log-page .page-heading>div>h1{margin-bottom:0}
   .food-date-navigation .date-picker-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-  .food-log-page .food-time-row{grid-template-columns:4.0625rem minmax(0,1fr);gap:12px}
+  .food-log-page .food-time-row{grid-template-columns:3rem minmax(0,1fr);gap:12px}
   .food-log-page .food-time-cards{padding-left:12px}
   .food-log-page .food-time-card.panel{padding:14px}
   .food-log-page .food-time-label{flex-direction:column;align-items:flex-end;padding-top:13px}
