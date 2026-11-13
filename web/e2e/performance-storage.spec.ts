@@ -23,7 +23,7 @@ test('legacy food compaction preserves authoritative emptiness and unsynced work
       tx.objectStore('accounts').put(value,value.state.id);
       tx.objectStore('saved_foods').put({foods:[],revision:1,loaded:true,fetchedAt:Date.now()},value.state.id);
       tx.objectStore('mutations').put({queue:[{id:'pending-weight',kind:'weight',recordId:'offline-weight',expectedRevision:0,delete:false,
-        data:{date:value.state.end,kg:83},error:'Retained conflict'}]},value.state.id);
+        data:{date:value.state.end,kg:83},error:'Retained unsynced edit'}]},value.state.id);
       tx.objectStore('drafts').put({photoDrafts:[{id:'retained',date:value.state.end,photos:[{id:'photo',angle:'front',imageBase64:'retained-image'}],error:'Review retained photo'}]},value.state.id);
       tx.objectStore('meta').delete(`migrated_v2:${value.state.id}`);
       tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
