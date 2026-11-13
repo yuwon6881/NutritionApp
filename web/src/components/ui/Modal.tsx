@@ -101,9 +101,11 @@ export function Modal({
         }
         setPhase('open');
         const autofocusElement=element.querySelector<HTMLElement>('[data-modal-autofocus]');
-        const target=(autofocusElement&&(!isEditable(autofocusElement)||(typeof window!=='undefined'&&window.matchMedia?.('(hover: hover) and (pointer: fine)').matches)))
+        const nonEditable=focusable(element).find(item=>!isEditable(item));
+        const hasFinePointer=typeof window!=='undefined'&&window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+        const target=(autofocusElement&&(!isEditable(autofocusElement)||hasFinePointer))
           ? autofocusElement
-          : element;
+          : (nonEditable??element);
         lastEditorFocus.current=target;
         target.focus({preventScroll:true});
       });
