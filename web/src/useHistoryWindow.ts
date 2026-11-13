@@ -3,7 +3,7 @@ import type { AppState } from './types';
 import type { NutritionStore } from './useNutritionStore';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { today } from './lib/format';
-import { historyState } from './lib/history';
+import {cachedHistoryWindow,historyState} from './lib/history';
 
 export function useHistoryWindow(store: NutritionStore, key: string, enabled = true) {
   const [failure, setFailure] = useState<{ key: string; message: string }>();
@@ -83,11 +83,7 @@ export function useHistoryWindow(store: NutritionStore, key: string, enabled = t
 
     const projected = sharedDiaryCoordinator.projectDate(key, queue);
     if (projected) {
-      return {
-        ...base,
-        entries: projected.entries,
-        days: projected.day ? [projected.day] : []
-      };
+      return cachedHistoryWindow(base,key,todayDate,projected);
     }
 
     if (store.local) {

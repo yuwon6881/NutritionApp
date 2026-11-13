@@ -24,6 +24,7 @@ import {WeekNutritionCard} from './dashboard/WeekNutritionCard';
 import type {ProgressPeriod} from '../types';
 import {useWeightProgress} from './dashboard/useWeightProgress';
 import {BodyHubSkeleton} from './body/BodyHubSkeleton';
+import {ConflictReview} from './dashboard/ConflictReview';
 
 // The chart cards are the heaviest part of the Dashboard and sit below the fold, so their code loads after the first paint.
 const WeightProgressCard=lazy(()=>import('./dashboard/WeightProgressCard').then(module=>({default:module.WeightProgressCard})));
@@ -90,6 +91,7 @@ export function Today({store,onCoach,onSettings,onOpenBody}:{store:NutritionStor
   const showGoogleHealthSteps = shouldShowDashboardSteps(ghState,ghLoading);
   return <>
     <header className="page-heading"><h1 data-page-heading tabIndex={-1}>Dashboard</h1></header>
+    <ConflictReview store={store}/>
     <GoalReachedBanner progress={goalProgress} store={store} onChooseGoal={onCoach} action="Open coach"/>
     {!loaded?online
       // Online, today is simply still arriving (a cold start or a waking server): show its shape, not an offline notice.

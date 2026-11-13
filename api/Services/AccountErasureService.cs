@@ -20,6 +20,7 @@ public interface IAccountDeletionNoticeValidator
 /// because afterwards nothing would remember where the images were.
 public sealed class AccountErasureService(
     AppDb db,
+    AuthService auth,
     GcsPhotoStore photos,
     TemporaryImageStore scans,
     GoogleHealthService googleHealth,
@@ -34,7 +35,9 @@ public sealed class AccountErasureService(
         db.MaintenanceAccess = true;
 
         // Sign every device out first so nothing new is written while erasure runs.
+        var sessionHashes = await db.Sessions.Where(session => session.UserId == user.Id).Select(session => session.Hash).ToListAsync(ct);
         await db.Sessions.Where(session => session.UserId == user.Id).ExecuteDeleteAsync(ct);
+        auth.InvalidateSessionHashes(sessionHashes);
         await googleHealth.DisconnectAsync(user.Id, ct);
         await PurgeStoredImages(user.Id, ct);
         await db.Users.Where(u => u.Id == user.Id).ExecuteDeleteAsync(ct);

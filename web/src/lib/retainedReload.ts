@@ -1,7 +1,12 @@
 import type {LocalData} from '../types';
-import {readDrafts,readLocal,readMutations} from './local';
+import {readDrafts,readLocal,readRetainedMutations} from './local';
 
 export type RetainedPartition='queue'|'drafts';
+
+function conflictsMatch(left:LocalData['conflicts'],right:LocalData['conflicts']):boolean{
+  const saved=left??[];const current=right??[];
+  return saved.length===current.length&&saved.every((conflict,index)=>conflict.id===current[index]?.id&&conflict.createdAt===current[index]?.createdAt);
+}
 
 /** Re-reads the retained work a dispatcher is about to send. Another tab may have queued or
  * finished work without its broadcast arriving, so the durable partition is always read. The
@@ -11,8 +16,8 @@ export type RetainedPartition='queue'|'drafts';
 export async function reloadRetainedWork(user:string,current:LocalData|null|undefined,partition:RetainedPartition):Promise<LocalData|undefined>{
   if(!current)return readLocal(user);
   if(partition==='queue'){
-    const queue=await readMutations(user);
-    if(JSON.stringify(queue)===JSON.stringify(current.queue))return current;
+    const retained=await readRetainedMutations(user);
+    if(JSON.stringify(retained.queue)===JSON.stringify(current.queue)&&conflictsMatch(retained.conflicts,current.conflicts))return current;
   }else{
     // Drafts can hold multi-megabyte images: only the empty case is compared, never their content.
     const drafts=await readDrafts(user);

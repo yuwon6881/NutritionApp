@@ -3,6 +3,7 @@ import {useMemo} from 'react';
 import type {LocalData, PhysiqueDraft, BodyDraft} from './types';
 import {saveLocalAndRetireFoodBasketDraft} from './lib/local';
 import {queueEntries, type SyncKind} from './lib/nutritionDrafts';
+import {resolveMutationConflicts} from './lib/mutationConflicts';
 
 type Persist = (account: string, data: LocalData, previous: LocalData) => Promise<void>;
 type Commit = (change: (data: LocalData) => LocalData, persist?: Persist) => Promise<void>;
@@ -15,6 +16,7 @@ export function useNutritionStoreActions(
   runPendingDrafts: () => Promise<void>
 ) {
   return useMemo(() => ({
+    resolveConflicts: (ids:readonly string[])=>commit(current=>resolveMutationConflicts(current,ids)),
     logEntries: async (entries: unknown[], options?: {retireFoodBasketDate?: string}) => {
       const persist = options?.retireFoodBasketDate
         ? (account: string, data: LocalData, previous: LocalData) => saveLocalAndRetireFoodBasketDraft(account, data, options.retireFoodBasketDate!, previous)

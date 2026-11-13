@@ -25,6 +25,7 @@ import {useProgressReads} from './useProgressReads';
 import {rejectedEditMessage} from './lib/rejectedEdit';
 import {showNotice} from './components/ui/UndoToast';
 import {classifySyncFailure} from './lib/syncFailure';
+import {retainMutationConflict} from './lib/mutationConflicts';
 export type { SyncKind, SyncPhase, SyncState };
 export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   const [calendarDate, setCalendarDate] = useState(today());
@@ -275,6 +276,10 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
         } catch (ex) {
           const failure = classifySyncFailure(ex);
           if (failure === 'session-expired') expireSession();
+          if (failure === 'conflict') {
+            await commit(current=>retainMutationConflict(current,op,ex instanceof ApiError?ex.message:'This change conflicts with saved data.',Date.now()));
+            sent=true;continue;
+          }
           if (failure === 'rejected') {
             // A terminal rejection leaves the saved server record in place. Retaining the edit for
             // review could never change that outcome, so the device drops it, refreshes onto the

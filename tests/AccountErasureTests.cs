@@ -33,17 +33,22 @@ public sealed class AccountErasureTests
         {
             using var factory = new ErasureFactory(dbPath);
             Guid doomed, survivor;
+            var doomedSessionToken = Guid.NewGuid().ToString("N");
             using (var scope = factory.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDb>();
                 await db.Database.EnsureCreatedAsync();
                 doomed = await SeedAccount(db, "doomed-subject");
                 survivor = await SeedAccount(db, "surviving-subject");
+                db.Sessions.Add(new Session { UserId = doomed, Hash = AuthService.Hash(doomedSessionToken), Expires = DateTime.UtcNow.AddDays(1) });
+                await db.SaveChangesAsync();
             }
             factory.Storage.Seed("physique-bucket", $"nutrition-physique/{doomed}/front.jpg", "1", "2");
             factory.Storage.Seed("scan-bucket", $"nutrition-scans/{doomed}/scan.jpg", "7");
             factory.Storage.Seed("physique-bucket", $"nutrition-physique/{survivor}/front.jpg", "3");
             using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+            client.DefaultRequestHeaders.Add("Cookie", $"{AuthService.Cookie}={doomedSessionToken}");
+            using (var authenticated = await client.GetAsync("/api/auth/me")) Assert.Equal(HttpStatusCode.OK, authenticated.StatusCode);
 
             // No session cookie and no browser origin: the signed notice is the only credential.
             var rejected = await client.PostAsync(AccountDeletionEndpoints.Path, Notice("forged"));
@@ -54,6 +59,7 @@ public sealed class AccountErasureTests
             var erased = await client.PostAsync(AccountDeletionEndpoints.Path, Notice("valid:doomed-subject"));
 
             Assert.Equal(HttpStatusCode.NoContent, erased.StatusCode);
+            using (var erasedSession = await client.GetAsync("/api/auth/me")) Assert.Equal(HttpStatusCode.Unauthorized, erasedSession.StatusCode);
             using (var scope = factory.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDb>();

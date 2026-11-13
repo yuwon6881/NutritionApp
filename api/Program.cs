@@ -1,9 +1,12 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
+using System.IO.Compression;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Nutrition.Api.Data;
 using Nutrition.Api.Domain;
 using Nutrition.Api.Endpoints;
@@ -26,6 +29,8 @@ builder.Services.AddResponseCompression(o=>
     o.EnableForHttps=true;
     o.MimeTypes=["application/json","text/plain","text/css","application/javascript"];
 });
+builder.Services.Configure<BrotliCompressionProviderOptions>(o=>o.Level=CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o=>o.Level=CompressionLevel.Fastest);
 builder.Services.AddSingleton<DatabaseMetricsInterceptor>();
 builder.Services.AddSingleton<DatabaseConnectionMetricsInterceptor>();
 builder.Services.AddTransient<ExternalCallMetricsHandler>();
@@ -167,8 +172,8 @@ var requestCount=requestMeter.CreateCounter<long>("http.server.request.count");
 var requestDuration=requestMeter.CreateHistogram<double>("http.server.request.duration", "ms");
 var responseBytes=requestMeter.CreateHistogram<long>("http.server.response.bytes", "bytes");
 app.UseForwardedHeaders();
-app.UseAuthentication();
 app.UseResponseCompression();
+app.UseAuthentication();
 app.Use(async(http,next)=>
 {
     var started=Stopwatch.GetTimestamp();
@@ -208,8 +213,21 @@ app.Use(async(http,next)=>
             var token=http.Request.Cookies[AuthService.Cookie];
             Validation.Require(!string.IsNullOrEmpty(token),"Sign in to sync your diary.",401);
             var hash=AuthService.Hash(token!);
-            var session=await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s=>s.Hash==hash&&s.Expires>DateTime.UtcNow,http.RequestAborted);
-            Validation.Require(session!=null,"Your session expired. Local work is retained; sign in again.",401);db.CurrentUser=session!.UserId;
+            var cache=http.RequestServices.GetRequiredService<IMemoryCache>();
+            var cacheKey=AuthService.SessionCacheKey(hash);
+            var now=DateTime.UtcNow;
+            if(!cache.TryGetValue<(Guid UserId,DateTime Expires)>(cacheKey,out var session)||session.Expires<=now)
+            {
+                var stored=await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s=>s.Hash==hash&&s.Expires>now,http.RequestAborted);
+                Validation.Require(stored!=null,"Your session expired. Local work is retained; sign in again.",401);
+                var remaining=stored!.Expires-DateTime.UtcNow;
+                Validation.Require(remaining>TimeSpan.Zero,"Your session expired. Local work is retained; sign in again.",401);
+                session=(stored.UserId,stored.Expires);
+                var ttl=remaining<TimeSpan.FromSeconds(45)?remaining:TimeSpan.FromSeconds(45);
+                cache.Set(cacheKey,session,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=ttl });
+            }
+            Validation.Require(session.Expires>DateTime.UtcNow,"Your session expired. Local work is retained; sign in again.",401);
+            db.CurrentUser=session.UserId;
         }
         await next();
     }

@@ -6,13 +6,13 @@ export async function writeLocalSnapshot(
   db: IDBDatabase, user: string, data: LocalData, previous?: LocalData, retireFoodBasketDate?: string
 ): Promise<void> {
   const accountChanged = !previous || data.state !== previous.state || data.progress !== previous.progress || data.foodsLoaded !== previous.foodsLoaded;
-  const queueChanged = !previous || data.queue !== previous.queue;
+  const retainedChanged = !previous || data.queue !== previous.queue || data.conflicts !== previous.conflicts;
   const draftsChanged = !previous || data.photoDrafts !== previous.photoDrafts || data.bodyDrafts !== previous.bodyDrafts;
   const foodsChanged = data.foodsLoaded !== false && (!previous || previous.foodsLoaded === false ||
     data.state.foods !== previous.state.foods || data.state.foodRevision !== previous.state.foodRevision);
   const stores: string[] = [];
   if (accountChanged) stores.push('accounts');
-  if (queueChanged) stores.push('mutations');
+  if (retainedChanged) stores.push('mutations');
   if (draftsChanged) stores.push('drafts');
   if (foodsChanged) stores.push('saved_foods');
   if (retireFoodBasketDate !== undefined) stores.push('food_drafts');
@@ -35,12 +35,14 @@ export async function writeLocalSnapshot(
           store.put({state:{...data.state,foods:[]},progress:data.progress,foodsLoaded:data.foodsLoaded},user);
         });
       }
-      if (queueChanged) {
+      if (retainedChanged) {
         const store=tx.objectStore('mutations');
         const request=store.get(user);
         request.onsuccess=()=>guard(()=>{
-          data.queue=mergeRetained(request.result?.queue??previous?.queue??[],previous?.queue??[],data.queue,item=>item.id);
-          store.put({queue:data.queue},user);
+          const saved=request.result as {queue?:LocalData['queue'];conflicts?:LocalData['conflicts']}|undefined;
+          data.queue=mergeRetained(saved?.queue??previous?.queue??[],previous?.queue??[],data.queue,item=>item.id);
+          data.conflicts=mergeRetained(saved?.conflicts??previous?.conflicts??[],previous?.conflicts??[],data.conflicts??[],item=>item.id);
+          store.put({queue:data.queue,conflicts:data.conflicts},user);
         });
       }
       if (draftsChanged) {

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { clipHistory, historyState } from './history';
+import {cachedHistoryWindow,clipHistory,historyState} from './history';
 import type { AppState } from '../types';
 
 const state = { id: 'a', revision: 1, profile: { timeZone: 'UTC' }, start: '2026-01-01', end: '2026-03-31',
@@ -15,6 +15,15 @@ it('retains the exact inclusive diary range and 56-day seed boundary without mut
   expect(clipped.weights).toEqual([state.weights[3]]);
   expect(clipped.weightTrendSeed).toEqual([state.weights[1]]);
   expect(state.weightTrendSeed).toEqual([{ date: '2026-01-04', kg: 70 }]);
+});
+it('windows cached diary state while leaving the Dashboard trend source untouched',()=>{
+  const day={date:'2026-03-01',entries:[{id:'cached-entry',date:'2026-03-01',calories:120}],day:{id:'cached-day',date:'2026-03-01',status:'complete'},revision:2,fetchedAt:1};
+  const windowed=cachedHistoryWindow(state,'2026-03-01','2026-03-01',day as unknown as import('../types').DatedDiaryDay);
+  expect(windowed.entries).toEqual(day.entries);
+  expect(windowed.days).toEqual([day.day]);
+  expect(windowed.weights).toEqual([state.weights[3]]);
+  expect(windowed.weightTrendSeed).toEqual([state.weights[1]]);
+  expect(state.weights).toHaveLength(4);
 });
 it('projects pending diary edits in the fallback and rejects another account’s history', () => {
   const local = { state, queue: [{ id: 'm', kind: 'entry' as const, recordId: 'e', expectedRevision: 1, delete: false,

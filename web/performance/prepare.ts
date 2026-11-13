@@ -18,11 +18,14 @@ export async function prepare(page:Page,data:LocalData) {
       return transaction;
     };
   });
+  await page.route('**/health*',route=>route.fulfill({json:{status:'ok',database:'ready'}}));
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
     const state=data.state;
     if(path==='/api/auth/me')return route.fulfill({json:{id:state.id,displayName:state.displayName}});
     if(path==='/api/bootstrap')return route.fulfill({json:state,headers:{ETag:'"performance"'}});
+    if(path==='/api/body-records')return route.fulfill({json:{records:[],nextCursor:null,hasMore:false}});
+    if(path==='/api/photos')return route.fulfill({json:{configured:false,usedBytes:0,maxBytes:0,sets:[],nextCursor:null,hasMore:false}});
     if(path==='/api/revisions')return route.fulfill({status:304,headers:{ETag:'"performance"'}});
     if(path==='/api/foods')return route.fulfill({json:{foods:state.foods,revision:1,foodRevision:1}});
     if(path==='/api/diary')return route.fulfill({json:{from:state.start,to:state.end,revision:1,entries:state.entries,days:state.days}});
@@ -40,7 +43,7 @@ export async function prepare(page:Page,data:LocalData) {
     await new Promise<void>((resolve,reject)=>{
       const tx=db.transaction(['accounts','mutations','drafts','saved_foods','meta'],'readwrite');
       tx.objectStore('accounts').put(value,value.state.id);
-      tx.objectStore('mutations').put({queue:value.queue},value.state.id);
+      tx.objectStore('mutations').put({queue:value.queue,conflicts:value.conflicts??[]},value.state.id);
       tx.objectStore('drafts').put({photoDrafts:value.photoDrafts,bodyDrafts:value.bodyDrafts},value.state.id);
       tx.objectStore('saved_foods').put({foods:value.state.foods,revision:1,loaded:true},value.state.id);
       tx.objectStore('meta').put(true,`migrated_v2:${value.state.id}`);

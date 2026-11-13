@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
 using Nutrition.Api.Data;
 using Nutrition.Api.Services;
 using Xunit;
@@ -10,7 +11,8 @@ public class UserDeletionTests
     {
         await using var connection=new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");await connection.OpenAsync();
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);await db.Database.EnsureCreatedAsync();
-        var auth=new AuthService(db);
+        using var cache=new MemoryCache(new MemoryCacheOptions());
+        var auth=new AuthService(db,cache);
         var user=await TestUsers.CreateAsync(db, "alice");
         var other=await TestUsers.CreateAsync(db, "bob");
         db.CurrentUser=user.Id;

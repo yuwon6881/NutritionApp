@@ -19,7 +19,7 @@ for(const days of [7,365,3650])test(`mobile performance ${days} days`,async({pag
   mkdirSync('artifacts/performance',{recursive:true});
   const label=process.env.NUTRITION_PERFORMANCE_LABEL??'current';
   const writeReport=(complete:boolean)=>writeFileSync(`artifacts/performance/mobile-${days}-${label}.json`,JSON.stringify({
-    label,complete,days,outbox:fixture.queue.length,browser:browser.version(),viewport:info.project.use.viewport,cpuThrottle:4,
+    label,complete,days,outbox:fixture.queue.length,conflicts:fixture.conflicts?.length??0,browser:browser.version(),viewport:info.project.use.viewport,cpuThrottle:4,
     requests,transferredBytes,encodedNetworkBytes,runs},null,2));
   for(let run=0;run<25;run++) {
     if(run<5)await cdp.send('Network.clearBrowserCache');

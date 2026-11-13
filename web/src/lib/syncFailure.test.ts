@@ -3,8 +3,11 @@ import {ApiError} from './api';
 import {classifySyncFailure} from './syncFailure';
 
 describe('diary sync failure handling',()=>{
-  it.each([400,403,404,409,413,422])('drops an edit the server terminally rejected with %i',status=>{
+  it.each([400,403,404,413,422])('drops an edit the server terminally rejected with %i',status=>{
     expect(classifySyncFailure(new ApiError('Rejected',status))).toBe('rejected');
+  });
+  it('retains a version conflict for explicit review',()=>{
+    expect(classifySyncFailure(new ApiError('The record changed.',409))).toBe('conflict');
   });
   it('stops sending, rather than retrying forever, when the session has expired',()=>{
     expect(classifySyncFailure(new ApiError('Your session expired.',401))).toBe('session-expired');

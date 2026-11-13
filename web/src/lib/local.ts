@@ -1,4 +1,4 @@
-import type { AppState, BodyDraft, Food, LocalData, Mutation, PhysiqueDraft } from '../types';
+import type { AppState, BodyDraft, Food, LocalData, Mutation, MutationConflict, PhysiqueDraft } from '../types';
 import type { SavedFoodsCache } from './savedFoods';
 import type { BasketLine } from './foodBasket';
 import type { FoodScanDraft } from './foodScans';
@@ -6,6 +6,7 @@ import { idbDelete, idbGet, idbGetAllKeys, idbPut } from './idb';
 import { migrateV1ToV2 } from './localMigration';
 import {publishAccountWork} from './accountWork';
 import {DATABASE_VERSION,upgradeLocalDatabase} from './localSchema';
+import {readRetainedMutations as readPersistedMutations,type RetainedMutations} from './retainedMutations';
 
 export { idbDelete, idbGet, idbGetAllKeys, idbPut };
 export * from './localMigration';
@@ -116,15 +117,18 @@ export async function saveSavedFoods(user: string, foods: Food[], revision: numb
   return idbPut(db, 'saved_foods', { foods, revision, fetchedAt: Date.now(), loaded: true }, user);
 }
 
-export async function readMutations(user: string): Promise<Mutation[]> {
-  const db = await database();
-  const record = await idbGet<{ queue: Mutation[] }>(db, 'mutations', user);
-  return record?.queue ?? [];
+export async function readRetainedMutations(user:string):Promise<RetainedMutations>{
+  return readPersistedMutations(await database(),user);
 }
 
-export async function saveMutations(user: string, queue: Mutation[]): Promise<void> {
+export async function readMutations(user: string): Promise<Mutation[]> {
+  return (await readRetainedMutations(user)).queue;
+}
+
+export async function saveMutations(user: string, queue: Mutation[],conflicts?:MutationConflict[]): Promise<void> {
   const db = await database();
-  return idbPut(db, 'mutations', { queue }, user);
+  const saved=conflicts===undefined?await readRetainedMutations(user):undefined;
+  return idbPut(db, 'mutations', {queue,conflicts:conflicts??saved?.conflicts??[]}, user);
 }
 
 export interface StoredDrafts {
@@ -227,8 +231,8 @@ export async function readLocal(user: string, includeSavedFoods = true): Promise
     // Keep the original snapshot readable if atomic compaction cannot finish.
   });
 
-  const [queue,drafts,foodsRecord] = await Promise.all([
-    readMutations(user),
+  const [retained,drafts,foodsRecord] = await Promise.all([
+    readRetainedMutations(user),
     readDrafts(user),
     includeSavedFoods ? readSavedFoods(user).catch(() => undefined) : Promise.resolve(undefined)
   ]);
@@ -245,7 +249,8 @@ export async function readLocal(user: string, includeSavedFoods = true): Promise
     ...raw,
     state,
     foodsLoaded: includeSavedFoods ? (foodsRecord?cacheHasLoadedData:raw.foodsLoaded===true||Boolean(raw.state?.foods?.length)) : false,
-    queue,
+    queue:retained.queue,
+    conflicts:retained.conflicts,
     photoDrafts: drafts.photoDrafts ?? raw.photoDrafts,
     bodyDrafts: drafts.bodyDrafts ?? raw.bodyDrafts
   };

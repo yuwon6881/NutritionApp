@@ -50,10 +50,9 @@ public static class AuthEndpoints
             return new { user.Id, displayName = user.DisplayName };
         });
 
-        app.MapPost("/api/auth/logout", async (AppDb db, HttpContext http, CancellationToken ct) =>
+        app.MapPost("/api/auth/logout", async (AuthService auth, HttpContext http, CancellationToken ct) =>
         {
-            var hash = AuthService.Hash(http.Request.Cookies[AuthService.Cookie] ?? "");
-            await db.Sessions.Where(s => s.Hash == hash).ExecuteDeleteAsync(ct);
+            await auth.RevokeSession(http.Request.Cookies[AuthService.Cookie] ?? "", ct);
             http.Response.Cookies.Delete(AuthService.Cookie, new CookieOptions { Path = "/" });
             return Results.NoContent();
         });

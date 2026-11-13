@@ -3,11 +3,11 @@ import {writeLocalSnapshot} from './localSnapshot';
 import type {LocalData} from '../types';
 
 const data:LocalData={state:{id:'a',displayName:'A',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-01-02',entries:[],foods:[],weights:[],days:[],plans:[]},queue:[],foodsLoaded:true};
-function database(fail=false){
+function database(fail=false,saved?:unknown){
   const put=vi.fn(()=>{if(fail)throw new Error('clone failed');});
   const remove=vi.fn();const abort=vi.fn();
   const transaction=vi.fn(()=>{
-    const tx={oncomplete:null as null|(()=>void),onerror:null,onabort:null,error:null,objectStore:()=>({put,delete:remove,get:()=>{const r={result:undefined,onsuccess:null as null|(()=>void)};queueMicrotask(()=>r.onsuccess?.());return r;}}),abort};
+    const tx={oncomplete:null as null|(()=>void),onerror:null,onabort:null,error:null,objectStore:()=>({put,delete:remove,get:()=>{const r={result:saved,onsuccess:null as null|(()=>void)};queueMicrotask(()=>r.onsuccess?.());return r;}}),abort};
     queueMicrotask(()=>queueMicrotask(()=>tx.oncomplete?.()));return tx;
   });
   return {db:{transaction} as unknown as IDBDatabase,transaction,put,remove,abort};
@@ -20,6 +20,21 @@ it('retires the basket in the same transaction as the queued mutation',async()=>
   const mock=database();await writeLocalSnapshot(mock.db,'a',{...data,queue:[{id:'m',kind:'entry',recordId:'e',expectedRevision:0,delete:false,data:{}}]},data,'2026-01-01');
   expect(mock.transaction).toHaveBeenCalledWith(['mutations','food_drafts'],'readwrite');
   expect(mock.remove).toHaveBeenCalledWith('a:2026-01-01');
+});
+it('moves conflicts atomically while preserving another tab’s newer queue and conflict rows',async()=>{
+  const failed={id:'failed',kind:'weight' as const,recordId:'w1',expectedRevision:1,delete:false,data:{date:'2026-01-01',kg:81}};
+  const queued={id:'queued',kind:'weight' as const,recordId:'w2',expectedRevision:1,delete:false,data:{date:'2026-01-02',kg:82}};
+  const remoteConflict={id:'remote',mutation:failed,message:'Review this change.',date:'2026-01-01',createdAt:1};
+  const conflict={id:'failed',mutation:failed,message:'The saved record changed.',date:'2026-01-01',createdAt:2};
+  const previous={...data,queue:[failed,queued],conflicts:[]};
+  const next={...previous,queue:[queued],conflicts:[conflict]};
+  const newerQueue={...queued,retryAt:100};
+  const mock=database(false,{queue:[failed,newerQueue],conflicts:[remoteConflict]});
+
+  await writeLocalSnapshot(mock.db,'a',next,previous);
+
+  expect(mock.transaction).toHaveBeenCalledWith(['mutations'],'readwrite');
+  expect(mock.put).toHaveBeenCalledWith({queue:[newerQueue],conflicts:[remoteConflict,conflict]},'a');
 });
 it('aborts synchronous write failures and performs no transaction for unchanged references',async()=>{
   const mock=database(true);await expect(writeLocalSnapshot(mock.db,'a',data)).rejects.toThrow('clone failed');

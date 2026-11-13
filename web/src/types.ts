@@ -46,6 +46,7 @@ export type TrainingResponse={summaries:TrainingSummary[];workoutConnected?:bool
 export type TrainingSummary={id:string;status:'scheduled'|'in_progress'|'completed'|'upcoming';localDate:string;actualDate?:string|null;startedAt:string|null;finishedAt:string|null;workoutName:string;muscleGroups:string[];workingSetCount:number;externalVolumeKg:number|null;systemVolumeKg:number|null;averageRpe:number|null;programWeek?:number|null;programPosition?:number|null};
 /** `holdUntil` is local only: an undoable deletion is not sent before that time (see lib/heldMutations). */
 export type Mutation={id:string;kind:'profile'|'settings'|'entry'|'food'|'weight'|'weight_move'|'day';recordId:string;expectedRevision:number;data:unknown;delete:boolean;holdUntil?:number;retryAt?:number};
+export type MutationConflict={id:string;mutation:Mutation;message:string;date:string|null;createdAt:number};
 export type AiFood={name:string;quantity:number;unit:'g'|'serving';portionLabel?:string|null;portionGrams?:number|null;calories:number;protein:number|null;fat:number|null;carbs:number|null;fiber:number|null;notes:string};
 export type AiEstimate={foods:AiFood[];questions:string[];explanation:string};
 export type PhysiqueAngle='front'|'side'|'back';
@@ -71,7 +72,7 @@ export type ProgressEnergyBucket={date:string;end:string;intake:number|null;main
 export type ProgressEnergyStatistics={days:number;loggedDays:number;completeDays:number;totalIntake:number|null;averageIntake:number|null;averageMaintenance:number|null;totalBalance:number|null;surplusDays:number;deficitDays:number};
 export type ProgressEnergySummary={statistics:ProgressEnergyStatistics;series:ProgressEnergyBucket[]};
 export type ProgressSummary={period:ProgressPeriod;start:string;end:string;revision:number;grouping:ProgressGrouping;weight:ProgressWeightSummary;energy:ProgressEnergySummary;awaitingSynchronization?:boolean};
-export type LocalData={state:AppState;queue:Mutation[];foodsLoaded?:boolean;photoDrafts?:PhysiqueDraft[];bodyDrafts?:BodyDraft[];history?:Record<string,AppState>;progress?:Record<string,ProgressSummary>};
+export type LocalData={state:AppState;queue:Mutation[];conflicts?:MutationConflict[];foodsLoaded?:boolean;photoDrafts?:PhysiqueDraft[];bodyDrafts?:BodyDraft[];history?:Record<string,AppState>;progress?:Record<string,ProgressSummary>};
 export const blankNutrients:Nutrients={name:'',calories:0,protein:null,fat:null,carbs:null,fiber:null,source:'manual'};
 
 export type SyncAcknowledgement={revision:number;days?:Day[]|null;weights?:Weight[]|null};

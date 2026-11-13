@@ -1,4 +1,4 @@
-import type {AppState,LocalData} from '../types';
+import type {AppState,DatedDiaryDay,LocalData} from '../types';
 import {project} from './projection';
 import {shiftDate} from './energyBalance';
 import {today} from './format';
@@ -13,6 +13,10 @@ export function clipHistory(state:AppState,start:string,end:string):AppState{
   const seedStart=shiftDate(start,-56);
   const seeds=new Map([...(state.weightTrendSeed??[]),...state.weights].filter(w=>w.date<start&&w.date>=seedStart).map(w=>[w.date,w]));
   return {...state,start,end,entries:state.entries.filter(inside),days:state.days.filter(inside),weights:state.weights.filter(inside),weightTrendSeed:[...seeds.values()].filter(w=>!w.deleted).sort((a,b)=>a.date.localeCompare(b.date))};
+}
+export function cachedHistoryWindow(state:AppState,key:string,current:string,day:DatedDiaryDay):AppState{
+  const range=historyRange(key,current);
+  return {...clipHistory(state,range.start,range.end),entries:day.entries,days:day.day?[day.day]:[]};
 }
 /** The newest stored snapshot of this account that covers the whole range. */
 export function historySource(local:LocalData,key:string,range:{start:string;end:string}):AppState|undefined{

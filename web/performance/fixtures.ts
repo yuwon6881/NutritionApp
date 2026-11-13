@@ -1,4 +1,4 @@
-import type {AppState,CoachResult,LocalData,ProgressSummary} from '../src/types';
+import type {AppState,CoachResult,LocalData,Mutation,ProgressSummary} from '../src/types';
 
 export function performanceFixture(days:number,outbox=0):LocalData {
   const date=(offset:number)=>new Date(Date.now()-offset*86400000).toISOString().slice(0,10);
@@ -22,9 +22,11 @@ export function performanceFixture(days:number,outbox=0):LocalData {
   }
   state.foods=Array.from({length:1000},(_,i)=>({id:`food-${i}`,revision:1,deleted:false,name:`Saved food ${i}`,calories:100,protein:null,carbs:null,fat:null,fiber:null,
     source:'manual',servingGrams:100,favourite:false,ingredientsJson:'',portionsJson:'[]',cookedYieldGrams:null}));
-  const queue:LocalData['queue']=Array.from({length:outbox},(_,i)=>({id:`retained-${i}`,kind:'weight',recordId:`weight-${i}`,expectedRevision:1,delete:false,
-    data:{date:date(i),kg:81},error:'Retained conflict'}));
-  return {state,foodsLoaded:true,queue,photoDrafts:days<3650?[]:[{id:'retained-photo',date:end,
+  const conflicts:NonNullable<LocalData['conflicts']> = Array.from({length:outbox},(_,i)=>{
+    const mutation:Mutation={id:`retained-${i}`,kind:'weight',recordId:`weight-${i}`,expectedRevision:1,delete:false,data:{date:date(i),kg:81}};
+    return {id:mutation.id,mutation,message:'This saved change needs review.',date:date(i),createdAt:Date.now()-i};
+  });
+  return {state,foodsLoaded:true,queue:[],conflicts,photoDrafts:days<3650?[]:[{id:'retained-photo',date:end,
     photos:[{id:'photo',angle:'front',imageBase64:'A'.repeat(1_500_000)}],error:'Retained benchmark draft'}]};
 }
 

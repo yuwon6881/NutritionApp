@@ -27,3 +27,21 @@
 /* Enlarged text: readout cells wrap their labels instead of overflowing the card. */
 .dashboard-wide-card .energy-readout-cells>div{min-width:0}
 .dashboard-wide-card .energy-readout-cells dt{overflow-wrap:anywhere}
+.dashboard-conflict-review{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+.dashboard-conflict-review h2,.conflict-review-group h3,.conflict-review-item h4{margin:0}
+.dashboard-conflict-review p,.conflict-review-item p,.conflict-review-empty p,.conflict-review-bulk p{margin:6px 0 0}
+.dashboard-conflict-review>.button{align-self:flex-end}
+.conflict-review-content{display:grid;gap:20px}
+.conflict-review-group{display:grid;gap:10px}
+.conflict-review-list{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.conflict-review-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:16px;padding:12px 0}
+.conflict-review-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+.conflict-review-confirm-copy{font-weight:600}
+.conflict-review-bulk,.conflict-review-empty{display:grid;justify-items:end;gap:12px}
+@media(max-width:639px){
+  .dashboard-conflict-review{align-items:stretch;flex-direction:column}
+  .dashboard-conflict-review>.button{align-self:stretch;width:100%}
+  .conflict-review-item{grid-template-columns:minmax(0,1fr)}
+  .conflict-review-actions{width:100%}
+  .conflict-review-actions>.button{flex:1}
+}

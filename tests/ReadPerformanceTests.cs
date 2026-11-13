@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -67,6 +68,8 @@ public sealed class ReadPerformanceTests
             await db.SaveChangesAsync();
             using var client = factory.CreateClient();
             client.DefaultRequestHeaders.Add("Cookie", $"{AuthService.Cookie}={token}");
+            client.DefaultRequestHeaders.Add("Origin", "https://localhost");
+            client.DefaultRequestHeaders.Add("X-Nutrition-Request", "1");
             long commands = 0;
             using var listener = new MeterListener();
             listener.InstrumentPublished = (instrument, meter) =>
@@ -94,9 +97,31 @@ public sealed class ReadPerformanceTests
                         sqlCommands=Interlocked.Read(ref commands)-before,responseBodyBytes=body.Length});
                 }
             }
-            var output = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../artifacts/performance"));
+            for (var run = 0; run < 25; run++)
+            {
+                var before = Interlocked.Read(ref commands);
+                var timer = Stopwatch.StartNew();
+                using var response = await client.PostAsJsonAsync("/api/sync", new
+                {
+                    id = Guid.NewGuid(),
+                    kind = "weight",
+                    recordId = Guid.NewGuid(),
+                    expectedRevision = 0,
+                    data = new {date = today.AddDays(-days-run-1).ToString("yyyy-MM-dd"), kg = 80.5},
+                    delete = false
+                });
+                var body = await response.Content.ReadAsByteArrayAsync();
+                timer.Stop();
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var json = JsonDocument.Parse(body);
+                samples.Add(new {resource="/api/sync",run,kind="write",durationMs=timer.Elapsed.TotalMilliseconds,
+                    sqlCommands=Interlocked.Read(ref commands)-before,responseBodyBytes=body.Length});
+            }
+            var label = Environment.GetEnvironmentVariable("NUTRITION_PERFORMANCE_LABEL") ?? "current";
+            Assert.Matches("^[a-zA-Z0-9-]+$", label);
+            var output = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../web/artifacts/performance"));
             Directory.CreateDirectory(output);
-            await File.WriteAllTextAsync(Path.Combine(output,$"api-{days}.json"),JsonSerializer.Serialize(new {days,database="isolated SQLite",samples},new JsonSerializerOptions {WriteIndented=true}));
+            await File.WriteAllTextAsync(Path.Combine(output,$"api-{days}-{label}.json"),JsonSerializer.Serialize(new {label,days,database="isolated SQLite",samples},new JsonSerializerOptions {WriteIndented=true}));
         }
         finally
         {
