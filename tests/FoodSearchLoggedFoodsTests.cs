@@ -95,6 +95,29 @@ public sealed class FoodSearchLoggedFoodsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_logged_gold_standard_leads_gold_only_for_its_account()
+    {
+        await using var db=Db();
+        var alice=await TestUsers.CreateAsync(db,"gold-standard-alice");
+        var bob=await TestUsers.CreateAsync(db,"gold-standard-bob");
+        db.MaintenanceAccess=true;
+        db.Entries.Add(Entry(alice.Id,"Gold Standard","manual",180,100));
+        await db.SaveChangesAsync();
+        db.MaintenanceAccess=false;
+        var provider=new FakeFoodProvider("off"){OnSearch=_=>[Generic("Gold")]};
+        var catalog=Catalog(provider);
+
+        db.CurrentUser=alice.Id;
+        var aliceResults=await catalog.Search("gold",db,default);
+        db.CurrentUser=bob.Id;
+        var bobResults=await catalog.Search("gold",db,default);
+
+        Assert.Equal(["Gold Standard","Gold"],aliceResults.Select(result=>result.Name));
+        Assert.Equal("Gold",bobResults[0].Name);
+        Assert.DoesNotContain(bobResults,result=>result.Name=="Gold Standard");
+    }
+
+    [Fact]
     public async Task A_provider_row_with_the_logged_barcode_takes_the_logged_name_and_leads()
     {
         await using var db=Db();

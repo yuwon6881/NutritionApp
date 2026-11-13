@@ -42,7 +42,7 @@ public sealed class FoodSearchPersonalizationTests
     }
 
     [Fact]
-    public void With_one_word_only_a_plain_logged_food_leads()
+    public void With_one_word_logged_foods_lead_unlogged_foods()
     {
         var unlogged=new FoodResult("Banana, raw",100,null,null,null,null,"test");
         var loggedPlain=new FoodResult("Banana",100,null,null,null,null,"test");
@@ -56,7 +56,23 @@ public sealed class FoodSearchPersonalizationTests
                 [FoodRanking.UsageKey(loggedPlain)]=2,
             });
 
-        Assert.Equal([loggedPlain.Name,unlogged.Name,loggedOther.Name],ranked.Select(result=>result.Name));
+        Assert.Equal([loggedPlain.Name,loggedOther.Name,unlogged.Name],ranked.Select(result=>result.Name));
+    }
+
+    [Fact]
+    public void A_logged_multi_word_food_leads_an_exact_match_for_a_one_word_query()
+    {
+        var exact=new FoodResult("Gold",100,null,null,null,null,"test");
+        var logged=new FoodResult("Gold Standard",100,null,null,null,null,"test");
+        var ranked=FoodRanking.PrioritizeResults(
+            [exact,logged],
+            "gold",
+            new Dictionary<string,int>(StringComparer.Ordinal)
+            {
+                [FoodRanking.UsageKey(logged)]=1,
+            });
+
+        Assert.Equal([logged.Name,exact.Name],ranked.Select(result=>result.Name));
     }
 
     [Fact]
@@ -73,7 +89,7 @@ public sealed class FoodSearchPersonalizationTests
     }
 
     [Fact]
-    public void Frequency_breaks_equivalent_name_matches_without_overriding_name_relevance()
+    public void A_logged_match_of_every_query_word_leads_a_more_exact_unlogged_match()
     {
         var exact=new FoodResult("Banana",100,null,null,null,null,"test");
         var frequentWeak=new FoodResult("Banana smoothie",100,null,null,null,null,"test");
@@ -85,7 +101,7 @@ public sealed class FoodSearchPersonalizationTests
                 [FoodRanking.UsageKey(frequentWeak)]=20,
             });
 
-        Assert.Equal([exact.Name,frequentWeak.Name],ranked.Select(result=>result.Name));
+        Assert.Equal([frequentWeak.Name,exact.Name],ranked.Select(result=>result.Name));
     }
 
     [Fact]
