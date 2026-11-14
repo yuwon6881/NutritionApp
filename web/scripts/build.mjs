@@ -32,7 +32,8 @@ const KIB = 1024;
 // Non-disruptive floating history connection notices add a small offline allowance.
 // Dashboard preferences persistence across devices adds a small offline allowance.
 // Retaining 409 conflicts for review and calm scan overlay feedback add a small first-load and offline allowance.
-const budgets = { firstLoad: 489 * KIB, precache: 1333 * KIB };
+// High-contrast chart styling, guidance line differentiation, and dark-theme grid clarity add a small precache allowance.
+const budgets = { firstLoad: 489 * KIB, precache: 1335 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

@@ -212,23 +212,31 @@
   text-align: left;
 }
 
-.energy-stats .is-surplus dd,
-.energy-stats .is-deficit dd {
-  color: var(--energy);
-}
+.energy-stats .is-surplus dd { color: var(--energy); }
+.energy-stats .is-deficit dd { color: var(--muted-foreground); }
 
 /* Charts: subtle gridlines, muted axis text, smooth trend line with gradient area */
 .chart-grid {
   stroke: var(--border) !important;
   stroke-width: 1px !important;
   stroke-dasharray: 4 4 !important;
-  opacity: 0.55 !important;
+  opacity: 0.85 !important;
+}
+
+:root[data-theme=dark] .chart-grid {
+  stroke: color-mix(in srgb, var(--border) 65%, var(--muted-foreground)) !important;
+  opacity: 0.75 !important;
 }
 
 .chart-baseline {
-  stroke: var(--border) !important;
+  stroke: var(--muted-foreground) !important;
   stroke-width: 1.5px !important;
-  opacity: 0.8 !important;
+  opacity: 0.85 !important;
+}
+
+:root[data-theme=dark] .chart-baseline {
+  stroke: color-mix(in srgb, var(--border) 40%, var(--foreground)) !important;
+  opacity: 0.9 !important;
 }
 
 .chart-crosshair {
@@ -243,20 +251,26 @@
 .bar-axis-label {
   fill: var(--muted-foreground) !important;
   font-size: 11px !important;
-  font-weight: 500 !important;
+  font-weight: 550 !important;
   font-variant-numeric: tabular-nums !important;
 }
 
-.bar-chart-plot .bar-axis-label.is-selected {
-  fill: var(--ink-strong) !important;
-  font-weight: 700 !important;
+.bar-chart-plot .bar-axis-label.is-selected { fill: var(--ink-strong) !important; font-weight: 700 !important; }
+.bar-chart-nav { color: var(--muted-foreground); font-size: 0.8125rem; font-weight: 550; }
+
+/* Coaching guidance lines: burn rate (energy), coach goal (ink-strong), accepted plan (foreground) */
+.coaching-progress .coaching-maintenance-line,
+.coaching-progress .trend-line {
+  stroke: var(--energy) !important;
+  stroke-width: 3.5px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
 }
 
-.bar-chart-nav {
-  color: var(--muted-foreground);
-  font-size: 0.8125rem;
-  font-weight: 550;
-}
+.goal-trend-line,
+.accepted-target-line { stroke-width: 2.5px !important; stroke-linecap: round !important; }
+.goal-trend-line { stroke: var(--ink-strong) !important; stroke-dasharray: 6 5 !important; stroke-linejoin: round !important; fill: none !important; }
+.accepted-target-line { stroke: var(--foreground) !important; stroke-dasharray: 3 4 !important; opacity: 0.95 !important; }
 
 /* Weight trend line: vibrant accent line with soft glowing area beneath */
 .trend-line {
@@ -266,50 +280,26 @@
   stroke-linejoin: round !important;
 }
 
-.trend-fill-start {
-  stop-color: var(--weight) !important;
-  stop-opacity: 0.32 !important;
-}
+.trend-fill-start { stop-color: var(--weight) !important; stop-opacity: 0.32 !important; }
+.trend-fill-end, :root[data-theme=dark] .trend-fill-end { stop-color: var(--weight) !important; stop-opacity: 0 !important; }
+:root[data-theme=dark] .trend-fill-start { stop-color: var(--weight) !important; stop-opacity: 0.24 !important; }
 
-.trend-fill-end,
-:root[data-theme=dark] .trend-fill-end {
-  stop-color: var(--weight) !important;
-  stop-opacity: 0 !important;
-}
+.scale-line { stroke: var(--muted-foreground) !important; stroke-width: 1.5px !important; opacity: 0.7 !important; }
+:root[data-theme=dark] .scale-line { opacity: 0.65 !important; }
 
-:root[data-theme=dark] .trend-fill-start {
-  stop-color: var(--weight) !important;
-  stop-opacity: 0.24 !important;
-}
+.scale-dot { fill: var(--card) !important; stroke: var(--muted-foreground) !important; stroke-width: 2px !important; }
+.trend-dot { fill: var(--weight) !important; stroke: var(--card) !important; stroke-width: 2px !important; }
+.scale-dot.is-selected, .trend-dot.is-selected { stroke: var(--ink-strong) !important; stroke-width: 2.5px !important; }
 
-.scale-line {
-  stroke: var(--muted-foreground) !important;
-  stroke-width: 1.5px !important;
-  opacity: 0.45;
-}
-
-.scale-dot {
-  fill: var(--card) !important;
-  stroke: var(--muted-foreground) !important;
-  stroke-width: 2px !important;
-}
-
-.trend-dot {
-  fill: var(--weight) !important;
-  stroke: var(--card) !important;
-  stroke-width: 2px !important;
-}
-
-.scale-dot.is-selected,
-.trend-dot.is-selected {
-  stroke: var(--ink-strong) !important;
-  stroke-width: 2.5px !important;
-}
+.maintenance-line, .average-line { stroke: var(--ink-strong) !important; stroke-width: 2px !important; }
+.maintenance-line { stroke-dasharray: 6 4 !important; stroke-linejoin: round !important; opacity: 0.9 !important; fill: none !important; }
+.average-line { stroke-dasharray: 5 4 !important; opacity: 0.85 !important; }
 
 /* Rounded bar tops in bar charts */
 .energy-intake,
 .energy-surplus,
 .energy-deficit,
+.bar-rect,
 .gh-bar {
   rx: 6px;
 }

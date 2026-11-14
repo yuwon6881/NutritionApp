@@ -31,6 +31,8 @@
 .dashboard-cards .daily-grid .macro strong small{display:block;margin-top:2px;white-space:nowrap;font-size:.75rem;font-weight:550;letter-spacing:0;color:var(--muted-foreground)}
 .dashboard-cards .daily-grid .macro progress{height:8px;margin-top:auto;background:color-mix(in srgb,var(--macro) 16%,var(--track))}
 .dashboard-cards .daily-grid .macro progress::-webkit-progress-bar{background:color-mix(in srgb,var(--macro) 16%,var(--track))}
+.dashboard-cards .daily-grid .macro progress::-webkit-progress-value{background:var(--macro);border-radius:999px}
+.dashboard-cards .daily-grid .macro progress::-moz-progress-bar{background:var(--macro);border-radius:999px}
 
 @media(min-width:640px) and (max-width:899px){
   .dashboard-cards .daily-grid>.panel.macros{gap:12px;padding:22px 24px 24px}
