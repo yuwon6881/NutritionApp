@@ -872,9 +872,9 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .weekly-invalid-badge{color:var(--destructive);background:color-mix(in srgb,var(--destructive) 12%,transparent)}
 .weekly-program .error{margin:10px 0 0;font-size:.76rem}
 .weekly-program-hint{margin-top:8px;font-size:.75rem}
-.goal-trend-line{stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:7 5;fill:none;stroke-linejoin:round}
-.coaching-progress .coaching-maintenance-line,.coaching-progress .trend-line{stroke:var(--energy)}
-.accepted-target-line{stroke:var(--muted-foreground);stroke-width:2;stroke-dasharray:3 4;opacity:.8}
+.chart-key-maintenance{color:var(--primary-ink)}
+.chart-key-goal{color:var(--protein)}
+.chart-key-accepted{color:var(--muted-foreground)}
 @media(max-width:1023px){.weekly-program-grid,.weekly-preview-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:639px){.weekly-program{padding:14px}.weekly-program .section-heading{flex-direction:column;align-items:stretch;gap:10px}.weekly-heading-actions{justify-content:flex-start}.weekly-row-controls{gap:6px}.weekly-number input{width:82px;min-width:82px;padding:7px 6px}.weekly-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.weekly-custom-toolbar{flex-direction:column;align-items:stretch;gap:8px}}
 @media(max-width:480px){.weekly-row-controls{flex-wrap:wrap;gap:8px 10px}.weekly-row-controls .weekly-range{order:2;width:100%;flex:1 1 100%;min-width:0}.weekly-row-controls .weekly-lock-btn{order:1}.weekly-row-controls .weekly-number{order:1;margin-left:auto}}

@@ -4,6 +4,7 @@ import type {ProgressPeriod,ProgressSummary} from '../../types';
 import {displayWeight,unitsFor,weightLabel} from '../../lib/units';
 import {progressPeriodOptions} from '../../lib/progress';
 import {CardFeedback} from '../ui/CardFeedback';
+import {SkeletonBlock,SkeletonRegion,SkeletonStats} from '../ui/Skeleton';
 import {HistoryNotice} from '../ui/HistoryNotice';
 import {SelectField} from '../ui/Field';
 import {SwipeCarousel,type CarouselSlide} from '../ui/SwipeCarousel';
@@ -75,7 +76,10 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
   const chart=(view:WeightChartView)=>summary
     ?<><WeightStats view={view} summary={summary} units={units}/>
       <WeightChart view={view} series={summary.weight.series} weightUnit={units.weight} periodStart={summary.start} periodEnd={summary.end} viewport={viewport} selectedIndex={scrubIndex} onSelectIndex={setScrubIndex}/></>
-    :<div className="empty"><h3>Loading weight…</h3></div>;
+    :error?null:<SkeletonRegion label="Loading weight…">
+      <SkeletonStats count={view==='trend'?2:3}/>
+      <SkeletonBlock height={tier==='expanded'?300:214} radius={16}/>
+    </SkeletonRegion>;
   const slides:CarouselSlide[]=[
     {id:'trend',ariaLabel:'Trend weight',content:chart('trend')},
     {id:'scale',ariaLabel:'Scale weight',content:chart('scale')},

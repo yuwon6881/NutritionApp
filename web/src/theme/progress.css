@@ -258,7 +258,7 @@
 .bar-chart-plot .bar-axis-label.is-selected { fill: var(--ink-strong) !important; font-weight: 700 !important; }
 .bar-chart-nav { color: var(--muted-foreground); font-size: 0.8125rem; font-weight: 550; }
 
-/* Coaching guidance lines: burn rate (energy), coach goal (ink-strong), accepted plan (foreground) */
+/* Coaching guidance maintenance line: the energy colour, matching its legend swatch. */
 .coaching-progress .coaching-maintenance-line,
 .coaching-progress .trend-line {
   stroke: var(--energy) !important;
@@ -267,10 +267,6 @@
   stroke-linejoin: round !important;
 }
 
-.goal-trend-line,
-.accepted-target-line { stroke-width: 2.5px !important; stroke-linecap: round !important; }
-.goal-trend-line { stroke: var(--ink-strong) !important; stroke-dasharray: 6 5 !important; stroke-linejoin: round !important; fill: none !important; }
-.accepted-target-line { stroke: var(--foreground) !important; stroke-dasharray: 3 4 !important; opacity: 0.95 !important; }
 
 /* Weight trend line: vibrant accent line with soft glowing area beneath */
 .trend-line {

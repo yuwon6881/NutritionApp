@@ -307,3 +307,9 @@
 .food-search-spinner{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;color:var(--muted-foreground)}
 .food-search-spinner>svg{animation:spin 900ms linear infinite}
 @media (prefers-reduced-motion:reduce){.food-search-spinner>svg{animation:none}}
+/* Picker placeholder while the diary date or an unfinished batch opens; rows share the real row card's outline. */
+.log-food-skeleton{gap:14px}
+.log-food-skeleton-shortcuts{display:flex;gap:8px;justify-content:flex-end}
+.log-food-skeleton-list{display:grid;gap:8px;margin-top:6px}
+.log-food-skeleton-row{display:flex;align-items:center;gap:14px;min-height:64px;padding:12px 14px;border:1px solid var(--border);border-radius:14px}
+.log-food-skeleton-copy{flex:1;display:grid;gap:8px;min-width:0}

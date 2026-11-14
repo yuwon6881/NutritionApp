@@ -7,6 +7,7 @@ import {backCoordinator} from '../lib/appHistory';
 import {allMeasurementKeys,clampIndex} from '../lib/bodyMeasurements';
 import {readableDate} from '../lib/format';
 import {Button} from './ui/Button';
+import {SkeletonBlock} from './ui/Skeleton';
 import {EmptyState} from './ui/EmptyState';
 import {PhotoUploadDialog} from './PhotoUploadDialog';
 import {unitsFor} from '../lib/units';
@@ -162,8 +163,8 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
 
   // The hub says what is already on file, so it reads as a summary rather than a menu.
   const latestMeasurements=bodyRecords[0]?measurementTotal(bodyRecords[0]):0;
-  const bodyStatus=bodyError?'Records are unavailable right now.':!bodyLoaded?'Checking your records…':bodyRecords.length?`Latest record ${readableDate(bodyRecords[0].date)} · ${latestMeasurements} measurement${latestMeasurements===1?'':'s'}`:'No records yet. Measurements, body fat and photos live here.';
-  const photoStatus=error?'The gallery is unavailable right now.':!loaded?'Checking your photos…':sets.length?`Latest set ${readableDate(sets[0].date)} · ${sets[0].photos.length} of 3 views`:'No photo sets yet. Front, side and back photos stay private.';
+  const bodyStatus=bodyError?'Records are unavailable right now.':!bodyLoaded?<><span className="sr-only">Checking your records…</span><SkeletonBlock width="70%" height={11} className="body-hub-status-skeleton"/></>:bodyRecords.length?`Latest record ${readableDate(bodyRecords[0].date)} · ${latestMeasurements} measurement${latestMeasurements===1?'':'s'}`:'No records yet. Measurements, body fat and photos live here.';
+  const photoStatus=error?'The gallery is unavailable right now.':!loaded?<><span className="sr-only">Checking your photos…</span><SkeletonBlock width="70%" height={11} className="body-hub-status-skeleton"/></>:sets.length?`Latest set ${readableDate(sets[0].date)} · ${sets[0].photos.length} of 3 views`:'No photo sets yet. Front, side and back photos stay private.';
 
   let view: React.ReactNode;
   if(page==='compare'){
@@ -212,7 +213,7 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
             <div className="body-hub-icon-wrap" aria-hidden="true"><Scale size={20}/></div>
             <div className="body-hub-text">
               <h3 id="body-hub-records">Measurements & records</h3>
-              <p>{bodyStatus}</p>
+              <p aria-busy={!bodyLoaded&&!bodyError||undefined}>{bodyStatus}</p>
             </div>
             <div className="body-hub-actions">
               <Button variant="primary" aria-label="Add body record" onClick={event=>openBodyEditor(undefined,event.currentTarget)}><span className="tab-label-full">Add body record</span><span className="tab-label-short">Add record</span></Button>
@@ -223,7 +224,7 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
             <div className="body-hub-icon-wrap" aria-hidden="true"><Camera size={20}/></div>
             <div className="body-hub-text">
               <h3 id="body-hub-photos">Photo gallery</h3>
-              <p>{photoStatus}</p>
+              <p aria-busy={!loaded&&!error||undefined}>{photoStatus}</p>
             </div>
             <div className="body-hub-actions">
               <Button variant="secondary" onClick={event=>openUpload(undefined,event.currentTarget)}>Add photo set</Button>

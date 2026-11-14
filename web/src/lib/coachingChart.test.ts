@@ -1,63 +1,67 @@
 import {describe,expect,it} from 'vitest';
-import {acceptedLineSpan,filterPointsToRange} from './coachingChart';
+import type {AcceptedTargetInterval,TrajectoryPoint} from '../types';
+import {acceptedDailyCalories,coachingDays,knownRuns,targetGapLabel} from './coachingChart';
 
-describe('acceptedLineSpan',()=>{
-  it('keeps normal interval unchanged',()=>{
-    expect(acceptedLineSpan(50,150,20)).toEqual([50,150]);
-    expect(acceptedLineSpan(25,30,20)).toEqual([25,30]);
+const point=(date:string,expenditure:number|null,suggestedCalories:number|null,revision=1):TrajectoryPoint=>
+  ({date,revision,expenditure,suggestedCalories,confidence:1,holdReason:null,algorithmVersion:'test',trendWeightKg:null});
+const plan=(start:string,end:string,calories:number|null,dailyCalories:number[]|null=null):AcceptedTargetInterval=>
+  ({start,end,calories,weeklyCalories:null,dailyCalories});
+
+describe('acceptedDailyCalories',()=>{
+  it('prefers the stated daily figure and otherwise averages seven daily targets',()=>{
+    expect(acceptedDailyCalories(plan('2026-10-01','2026-10-07',1900))).toBe(1900);
+    expect(acceptedDailyCalories(plan('2026-10-01','2026-10-07',null,[1800,1800,1800,1800,1800,2150,2150]))).toBe(1900);
   });
 
-  it('draws a stub ending at x2 when length is zero',()=>{
-    expect(acceptedLineSpan(100,100,20)).toEqual([72,100]);
-    expect(acceptedLineSpan(200,200,50)).toEqual([172,200]);
-  });
-
-  it('clamps stub at left edge when near or beyond left',()=>{
-    expect(acceptedLineSpan(30,30,20)).toEqual([20,30]);
-    expect(acceptedLineSpan(20,20,20)).toEqual([20,20]);
-    expect(acceptedLineSpan(10,10,20)).toEqual([20,10]);
-  });
-
-  it('supports custom stub width',()=>{
-    expect(acceptedLineSpan(100,100,20,40)).toEqual([60,100]);
-    expect(acceptedLineSpan(35,35,20,40)).toEqual([20,35]);
+  it('stays unknown without a full week of daily targets',()=>{
+    expect(acceptedDailyCalories(plan('2026-10-01','2026-10-07',null,[1800,1800]))).toBeNull();
+    expect(acceptedDailyCalories(plan('2026-10-01','2026-10-07',null))).toBeNull();
   });
 });
 
-describe('filterPointsToRange',()=>{
-  const points=[
-    {date:'2026-03-01',val:1},
-    {date:'2026-03-10',val:2},
-    {date:'2026-03-20',val:3},
-    {date:'2026-03-31',val:4},
-  ];
-
-  it('keeps all points when no range is given',()=>{
-    expect(filterPointsToRange(points)).toEqual(points);
+describe('coachingDays',()=>{
+  it('joins consecutive plans with no gap at their boundary',()=>{
+    const days=coachingDays([],[plan('2026-10-01','2026-10-02',1900),plan('2026-10-03','2026-10-04',2430)],'2026-10-01','2026-10-04');
+    expect(days.map(day=>day.target)).toEqual([1900,1900,2430,2430]);
   });
 
-  it('filters inclusive of start and end dates',()=>{
-    expect(filterPointsToRange(points,'2026-03-10','2026-03-20')).toEqual([
-      {date:'2026-03-10',val:2},
-      {date:'2026-03-20',val:3},
+  it('lets a later plan supersede an earlier one on overlapping days',()=>{
+    const days=coachingDays([],[plan('2026-10-01','2026-10-07',1900),plan('2026-10-03','2026-10-04',2430)],'2026-10-02','2026-10-04');
+    expect(days.map(day=>day.target)).toEqual([1900,2430,2430]);
+  });
+
+  it('reads the newest revision and keeps missing figures unknown',()=>{
+    const days=coachingDays([point('2026-10-02',2250,null,1),point('2026-10-02',2240,2450,2),point('2026-10-04',2230,null)],[],'2026-10-01','2026-10-04');
+    expect(days).toEqual([
+      {date:'2026-10-02',maintenance:2240,goal:2450,target:null},
+      {date:'2026-10-03',maintenance:null,goal:null,target:null},
+      {date:'2026-10-04',maintenance:2230,goal:null,target:null}
     ]);
   });
 
-  it('filters with start only',()=>{
-    expect(filterPointsToRange(points,'2026-03-20')).toEqual([
-      {date:'2026-03-20',val:3},
-      {date:'2026-03-31',val:4},
-    ]);
+  it('starts at the range start when a plan began before it, and is empty without guidance',()=>{
+    expect(coachingDays([],[plan('2026-09-01','2026-12-31',2000)],'2026-10-01','2026-10-02').map(day=>day.date)).toEqual(['2026-10-01','2026-10-02']);
+    expect(coachingDays([point('2026-09-01',2200,null)],[],'2026-10-01','2026-10-02')).toEqual([]);
+  });
+});
+
+describe('knownRuns',()=>{
+  it('breaks runs across unknown values',()=>{
+    expect(knownRuns([1,2,null,3,null,null,4,5])).toEqual([{from:0,to:1},{from:3,to:3},{from:6,to:7}]);
+    expect(knownRuns([null,null])).toEqual([]);
+  });
+});
+
+describe('targetGapLabel',()=>{
+  const format=(value:number)=>value.toLocaleString('en-US');
+  it('names a deficit or surplus in plain language',()=>{
+    expect(targetGapLabel({maintenance:2250,target:1900},format,'kcal')).toBe('Target is 350 kcal/day below maintenance (a deficit)');
+    expect(targetGapLabel({maintenance:2240,target:2430},format,'kcal')).toBe('Target is 190 kcal/day above maintenance (a surplus)');
+    expect(targetGapLabel({maintenance:2240,target:2240.4},format,'kcal')).toBe('Target matches maintenance');
   });
 
-  it('filters with end only',()=>{
-    expect(filterPointsToRange(points,undefined,'2026-03-10')).toEqual([
-      {date:'2026-03-01',val:1},
-      {date:'2026-03-10',val:2},
-    ]);
-  });
-
-  it('returns empty when no points fall within range',()=>{
-    expect(filterPointsToRange(points,'2026-04-01','2026-04-30')).toEqual([]);
+  it('says nothing when either figure is unknown',()=>{
+    expect(targetGapLabel({maintenance:null,target:1900},format,'kcal')).toBeNull();
+    expect(targetGapLabel({maintenance:2250,target:null},format,'kcal')).toBeNull();
   });
 });

@@ -105,9 +105,17 @@
 }
 
 /* Static skeletons (no shimmer): shapes of the content they replace. */
-.skeleton-block{display:block;background:var(--muted);max-width:100%}
+/* Tinted from the foreground so placeholders stay visible on cards in both themes (muted is nearly the card colour in dark). */
+.skeleton-block{display:block;background:color-mix(in srgb,var(--foreground) 9%,transparent);max-width:100%}
 .skeleton-panel{display:grid;gap:12px;box-shadow:none}
 .dashboard-skeleton .skeleton-heading{margin:0 0 28px}
+.dashboard-skeleton .skeleton-end{justify-self:end}
+.dashboard-skeleton-macro-label{text-transform:capitalize}
+.dashboard-skeleton .macro strong{display:flex;align-items:center;min-height:21px}
+.dashboard-skeleton-habits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-bottom:24px}
+.dashboard-skeleton-habits>.panel{margin:0}
+@media(max-width:639px){.dashboard-skeleton-habits{gap:12px;margin-bottom:18px}}
+.dashboard-skeleton-habit{min-height:180px;align-content:start}
 /* Page-shaped skeletons (PageSkeletons.tsx): heading, tabs, tiles and rows in the page's own arrangement. */
 .page-skeleton .skeleton-heading{margin:0 0 24px}
 .page-skeleton-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,104px));gap:6px;margin:0 0 24px}
@@ -135,7 +143,6 @@
 .food-day-skeleton-value{display:grid;gap:5px;margin:2px 0 6px}
 .food-day-skeleton-switch{max-width:360px}
 .food-day-skeleton-time{margin-left:auto}
-.food-day-skeleton .skeleton-block{background:color-mix(in srgb,var(--foreground) 9%,transparent)}
 .food-day-skeleton .food-time-label::after{background:var(--muted)}
 .food-day-skeleton .food-time-card.panel{display:flex;flex-direction:column;align-items:stretch}
 .food-day-skeleton .food-time-card .food-day-skeleton-header{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:28px}
@@ -172,3 +179,4 @@
 .opening-diary-copy p{margin:2px 0 0;color:var(--muted-foreground);font-size:.9rem}
 .opening-diary-outline{display:grid;gap:16px}
 .opening-diary-actions{justify-content:flex-end}
+.body-hub-status-skeleton{margin:5px 0 3px}

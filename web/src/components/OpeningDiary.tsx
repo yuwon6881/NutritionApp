@@ -1,6 +1,6 @@
 import {BookOpen,CloudOff} from 'lucide-react';
 import {Button} from './ui/Button';
-import {ChartCardSkeleton,DashboardSkeleton,SkeletonBlock} from './ui/Skeleton';
+import {DashboardSkeleton} from './ui/Skeleton';
 import {useDelayedPending} from './ui/useDelayedPending';
 import type {SkeletonPage} from './ui/PageSkeletons';
 import {PageSkeleton} from './ui/PageSkeletons';
@@ -26,11 +26,7 @@ export function OpeningDiary({page,online,onSignOut}:{page:SkeletonPage;online:b
       </div>
     </section>
     <div className="opening-diary-outline" aria-hidden="true">
-      {page==='today'?<>
-        <DashboardSkeleton label="" heading={false}/>
-        <div className="panel skeleton-panel"><SkeletonBlock width="34%" height={16}/><SkeletonBlock height={64} radius={16}/></div>
-        <ChartCardSkeleton/>
-      </>:<PageSkeleton page={page} label=""/>}
+      {page==='today'?<DashboardSkeleton label="" heading={false}/>:<PageSkeleton page={page} label=""/>}
     </div>
     <div className="actions opening-diary-actions"><Button variant="tertiary" onClick={onSignOut}>Back to sign in</Button></div>
   </div>;

@@ -9,14 +9,47 @@ export function SkeletonBlock({width='100%',height=14,radius=8,className=''}:{wi
   return <span className={`skeleton-block ${className}`.trim()} aria-hidden="true" style={{width,height,borderRadius:radius} as CSSProperties}/>;
 }
 
-/** Placeholder for the Dashboard while the diary opens from this device or the server. */
+/**
+ * Placeholder for the Dashboard while the diary opens from this device or the server. It uses the
+ * real section titles and card classes (energy figures either side of the ring, three macro rows,
+ * the two habit cards, then an insight card) so each card lands where its outline was.
+ */
 export function DashboardSkeleton({label,heading=true}:{label:string;heading?:boolean}){
   return <div className="dashboard-skeleton" aria-busy="true">
     <p className="sr-only" role="status">{label}</p>
     {heading&&<SkeletonBlock width="46%" height={34} className="skeleton-heading"/>}
-    <div className="daily-grid">
-      <div className="panel skeleton-panel"><SkeletonBlock width="30%" height={10}/><SkeletonBlock width="55%" height={30}/><SkeletonBlock width="40%"/></div>
-      <div className="panel skeleton-panel">{[0,1,2].map(index=><SkeletonBlock key={index} height={10}/>)}</div>
+    <div className="dashboard-cards" aria-hidden="true">
+      <section className="dashboard-section dashboard-section-today">
+        <p className="dashboard-section-title">Today</p>
+        <div className="daily-grid">
+          <div className="panel energy-panel energy-panel-overview">
+            <p className="eyebrow">Energy</p>
+            <div className="energy-overview">
+              <span className="energy-side"><SkeletonBlock width="70%" height={26}/><SkeletonBlock width="50%" height={11}/></span>
+              <svg className="energy-ring" viewBox="0 0 120 120"><circle className="ring-track" cx="60" cy="60" r="48"/></svg>
+              <span className="energy-side energy-target"><SkeletonBlock width="70%" height={26} className="skeleton-end"/><SkeletonBlock width="50%" height={11} className="skeleton-end"/></span>
+            </div>
+          </div>
+          <div className="panel macros">
+            <p className="eyebrow">Macronutrients</p>
+            {MACRO_TILES.map(macro=><div key={macro} className={`macro ${macro}`}>
+              <span className="dashboard-skeleton-macro-label">{macro}</span>
+              <strong><SkeletonBlock width={56} height={16}/></strong>
+              <progress value={0} max={1} tabIndex={-1}/>
+            </div>)}
+          </div>
+        </div>
+      </section>
+      <section className="dashboard-section">
+        <p className="dashboard-section-title">Habits</p>
+        <div className="dashboard-skeleton-habits">{[0,1].map(index=><div key={index} className="panel skeleton-panel dashboard-skeleton-habit">
+          <SkeletonBlock width="60%" height={20}/><SkeletonBlock width="40%" height={11}/><SkeletonBlock height={64} radius={12}/>
+        </div>)}</div>
+      </section>
+      <section className="dashboard-section">
+        <p className="dashboard-section-title">Insights &amp; analytics</p>
+        <ChartCardSkeleton/>
+      </section>
     </div>
   </div>;
 }

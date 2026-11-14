@@ -7,6 +7,7 @@ import {TextArea} from './ui/Field';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Form} from './ui/Form';
 import {ScanOverlay} from './ui/ScanOverlay';
+import {AiDescribeProgress} from './AiDescribeProgress';
 import {backCoordinator} from '../lib/appHistory';
 import {isNativeApp} from '../lib/nativeApp';
 import type {AiMode, PendingBarcode} from './useFoodScanDraft';
@@ -200,17 +201,19 @@ export function LogFoodAiForm({
     )}
 
     {mode === 'description' && (
-      <TextArea
-        id="ai-meal-description"
-        name="description"
-        disabled={pending}
-        required
-        label="Meal description and portions"
-        maxLength={3000}
-        value={description}
-        onChange={event => onDescriptionChange(event.target.value)}
-        placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"
-      />
+      <div className={busy ? 'ai-description-reading' : undefined}>
+        <TextArea
+          id="ai-meal-description"
+          name="description"
+          disabled={pending}
+          required
+          label="Meal description and portions"
+          maxLength={3000}
+          value={description}
+          onChange={event => onDescriptionChange(event.target.value)}
+          placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"
+        />
+      </div>
     )}
 
     {mode !== 'description' && (
@@ -335,7 +338,8 @@ export function LogFoodAiForm({
 
     {hasSavedReview && <p className="notice" role="status">This scan is saved on this device and ready for review.</p>}
     {failed && <p className="notice" role="status">{interrupted ? 'The photo is retained on this device. Retry will use the same scan identity.' : 'The previous scan failed. Try again to start a new scan; the failed request will not be duplicated.'}</p>}
-    {busy && <p className="ai-busy-status" role="status">Analyzing nutrients. This scan is saved on this device, so it can resume if the connection drops.</p>}
+    {busy && mode === 'description' && <AiDescribeProgress/>}
+    {busy && mode !== 'description' && <p className="ai-busy-status" role="status">Analyzing nutrients. This scan is saved on this device, so it can resume if the connection drops.</p>}
     {storageError && <p className="error" role="alert">{storageError}</p>}
     <div className="modal-actions">
       <Button variant="primary" disabled={pending || !!storageError} type="submit">

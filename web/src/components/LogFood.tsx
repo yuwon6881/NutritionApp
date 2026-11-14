@@ -10,6 +10,8 @@ import {barcodeFoodPer100,barcodeValue,foodToSearchResult,labelFoodDraft,labelMa
 import {lineFromPer100,lineKey,type BasketLine} from '../lib/foodBasket';
 import {serializePortions,parsePortions} from '../lib/portions';
 import {Button} from './ui/Button';
+import {CardFeedback} from './ui/CardFeedback';
+import {LogFoodSkeleton} from './LogFoodSkeleton';
 import {FoodEditor,type FoodDraft} from './FoodEditor';
 import {RecipeEditor} from './RecipeEditor';
 import {useRecipeDraft} from './useRecipeDraft';
@@ -430,8 +432,10 @@ export function LogFood({
   useEffect(()=>{previousStep.current=step;},[step]);
   const animatedChild=<MotionPanel motionKey={step==='detail'?'editor':step} direction={stepDirection} axis="fade">{child}</MotionPanel>;
 
-  const historyUnavailable=<div className="dialog-step"><p role="status" aria-busy="true">{history.error?'This date is not available on this device. Connect to load its history.':'Loading this diary date…'}</p>{history.error&&<Button onClick={history.retry}>Retry history</Button>}</div>;
-  const readyContent=!basket.ready?<div className="dialog-step"><p role="status" aria-busy="true">Restoring your unfinished food batch…</p></div>:basket.storageError?<div className="dialog-step"><p className="notice" role="alert">{basket.storageError}</p><Button variant="secondary" onClick={()=>void basket.retrySave().catch(()=>{})}>Retry saving this batch</Button>{animatedChild}</div>:animatedChild;
+  const historyUnavailable=history.error
+    ?<div className="dialog-step"><CardFeedback tone="warning" title="Diary date unavailable" message="This date is not on this device yet. Connect to load its history." action={{label:'Retry',onClick:history.retry}}/></div>
+    :<LogFoodSkeleton label="Opening this diary date…"/>;
+  const readyContent=!basket.ready?<LogFoodSkeleton label="Restoring your unfinished food batch…"/>:basket.storageError?<div className="dialog-step"><p className="notice" role="alert">{basket.storageError}</p><Button variant="secondary" onClick={()=>void basket.retrySave().catch(()=>{})}>Retry saving this batch</Button>{animatedChild}</div>:animatedChild;
   const resolvedContent=history.state?readyContent:historyUnavailable;
   return <>
     <Modal open={open} onClose={onClose} onCancel={cancel} onDiscard={discard} restoreFocus={restoreFocus} title={title} description={descriptionText} headerActions={step==='selection'&&basket.lines.length>0?<Button className="batch-header-button" variant="secondary" aria-label={`View batch, ${basket.lines.length} foods`} onClick={()=>go('batch')}><ListChecks size={16} aria-hidden="true"/><span>Batch</span><span className="batch-header-separator" aria-hidden="true">·</span><span className="batch-header-count">{basket.lines.length}</span></Button>:undefined} dirty={stepDirty||selectionDirty||recipeDirty} width="lg" className="food-modal">{resolvedContent}</Modal>

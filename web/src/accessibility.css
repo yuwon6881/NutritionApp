@@ -18,7 +18,7 @@
   .food-time-card-selected,.food-time-card[data-dragging],.food-week-day[aria-current='date'],.nav-active{outline:3px solid Highlight;outline-offset:1px}
   .food-card-select-checkbox.checked{background:Highlight;border-color:Highlight}
   .trend-line,.coaching-maintenance-line,.ring-fill,.chart-crosshair{stroke:Highlight}
-  .goal-trend-line,.accepted-target-line,.average-line,.maintenance-line,.scale-line{stroke:CanvasText}
+  .coaching-target-line,.coaching-goal-line,.average-line,.maintenance-line,.scale-line{stroke:CanvasText}
   .ring-pending{stroke:GrayText}
   .day-energy-swatch.logged{background:Highlight}
   .bar-rect,.energy-intake,.energy-surplus{fill:Highlight}

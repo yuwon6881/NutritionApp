@@ -15,8 +15,8 @@
 .bar-chart-plot .bar-axis-label.is-selected{fill:var(--ink-strong);font-weight:600}
 .bar-slot-selected{fill:var(--muted)}
 .bar-missing{fill:var(--border)}
-.maintenance-line{fill:none;stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.9;animation:chartTrendReveal var(--motion-layout) var(--motion-ease) both;transition:stroke var(--motion-control) ease,opacity var(--motion-control) ease}
-.average-line{stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:5 4;opacity:.85;animation:chartTrendReveal var(--motion-layout) var(--motion-ease) both;transition:stroke var(--motion-control) ease,opacity var(--motion-control) ease,y1 var(--motion-layout) var(--motion-ease),y2 var(--motion-layout) var(--motion-ease)}
+.maintenance-line{fill:none;stroke:var(--ink-strong);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.75;animation:chartTrendReveal var(--motion-layout) var(--motion-ease) both;transition:stroke var(--motion-control) ease,opacity var(--motion-control) ease}
+.average-line{stroke:var(--ink-strong);stroke-width:1.5;stroke-dasharray:5 4;opacity:.55;animation:chartTrendReveal var(--motion-layout) var(--motion-ease) both;transition:stroke var(--motion-control) ease,opacity var(--motion-control) ease,y1 var(--motion-layout) var(--motion-ease),y2 var(--motion-layout) var(--motion-ease)}
 .bar-chart-nav{display:flex;align-items:center;justify-content:center;min-height:32px;margin:6px 0}
 .bar-chart-range{flex:1;margin:0;text-align:center;font-size:.8125rem;line-height:1.4;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
 /* Mouse users page earlier and later from buttons over the plot edges; touch windows scroll by finger. */
@@ -32,7 +32,7 @@
 .chart-readout-grid dd{margin:3px 0 0;font-size:1.1rem;font-weight:700;color:var(--ink-strong)}
 .chart-readout-grid dd small{font-weight:400;color:var(--muted-foreground)}
 .chart-readout-grid dd.is-surplus{color:var(--energy)}
-.chart-readout-grid dd.is-deficit{color:var(--muted-foreground)}
+.chart-readout-grid dd.is-deficit{color:var(--energy)}
 
 /* Legends show the mark itself next to its meaning. */
 .chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;list-style:none;margin:12px 0 0;padding:0;font-size:.8125rem;line-height:1.45;color:var(--muted-foreground)}
@@ -46,11 +46,8 @@
 .swatch-maintenance,.swatch-average{border-top-style:dashed;border-color:var(--ink-strong)}
 .swatch-surplus{background:var(--energy)}
 .swatch-deficit{background:var(--muted-foreground)}
-.swatch-scale{background:var(--card);border:2px solid var(--muted-foreground)}
+.swatch-scale{background:var(--muted-foreground)}
 .swatch-trend{border-color:var(--weight);border-top-width:3px}
-.swatch-coaching-maintenance{border-top:3.5px solid var(--energy);border-top-style:solid}
-.swatch-coaching-goal{border-top:2.5px dashed var(--ink-strong);border-top-style:dashed}
-.swatch-coaching-accepted{border-top:2.5px dotted var(--foreground);border-top-style:dotted;opacity:.95}
 .legend-hint{font-size:.72rem;color:var(--muted-foreground);margin-left:2px}
 
 /* Energy: two charts of one period, one scroll position. */
@@ -127,7 +124,7 @@
 .energy-readout-cells dd .unit{font-size:.8125rem;font-weight:500}
 .energy-readout-cells dd .is-unknown{color:var(--muted-foreground)}
 .energy-readout-cells .is-surplus dd{color:var(--energy)}
-.energy-readout-cells .is-deficit dd{color:var(--muted-foreground)}
+.energy-readout-cells .is-deficit dd{color:var(--energy)}
 /* Phones give each figure its own row: name and note on the left, the value on the trailing edge. */
 @media(max-width:639px){
   .chart-readout.energy-readout{padding:12px 0 4px;gap:8px}
@@ -148,7 +145,7 @@
 .energy-stats dd .unit{font-size:.875rem;letter-spacing:0;font-weight:500}
 .energy-stats small{font-size:.8125rem;color:var(--muted-foreground)}
 .energy-stats .is-surplus dd{color:var(--energy)}
-.energy-stats .is-deficit dd{color:var(--muted-foreground)}
+.energy-stats .is-deficit dd{color:var(--energy)}
 @media(max-width:639px){
   .energy-stats{grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:20px}
   .energy-stats>div{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label value" "note value";align-items:center;column-gap:12px;row-gap:2px;padding:14px 0}

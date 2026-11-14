@@ -1,0 +1,17 @@
+/* AI meal description in progress: a calm reading sweep over the submitted text, then the outline of the coming review. */
+.ai-description-reading textarea{background-image:linear-gradient(to bottom,transparent 0%,color-mix(in srgb,var(--primary) 14%,transparent) 50%,transparent 100%);background-size:100% 70%;background-repeat:no-repeat;background-position:0 -140%;animation:aiDescriptionRead 2.4s var(--motion-ease) infinite}
+@keyframes aiDescriptionRead{0%{background-position:0 -140%}100%{background-position:0 240%}}
+.ai-describe-progress{display:grid;gap:12px;margin:0 0 12px;padding:14px;border:1px solid var(--border);border-radius:14px;background:color-mix(in srgb,var(--primary) 5%,var(--card));animation:aiDescribeProgressIn var(--motion-panel) var(--motion-ease) both}
+.ai-describe-progress-head{display:flex;align-items:flex-start;gap:10px}
+.ai-describe-progress-head>div{display:grid;gap:2px;min-width:0}
+.ai-describe-progress-head strong{font-size:.875rem;line-height:1.4}
+.ai-describe-progress-head small{font-size:.8125rem;line-height:1.4}
+.ai-describe-progress-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;flex-shrink:0;background:var(--primary-tint);color:var(--primary-ink)}
+.ai-describe-progress-rows{display:grid;gap:6px}
+.ai-describe-progress-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid var(--border)}
+.ai-describe-progress-copy{flex:1;display:grid;gap:7px;min-width:0}
+@keyframes aiDescribeProgressIn{0%{opacity:0;transform:translateY(4px)}100%{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .ai-description-reading textarea{animation:none;background-image:none;background-color:color-mix(in srgb,var(--primary) 6%,var(--card))}
+  .ai-describe-progress{animation:none}
+}
