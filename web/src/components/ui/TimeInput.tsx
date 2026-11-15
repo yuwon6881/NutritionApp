@@ -10,6 +10,7 @@ import {
 import {Clock} from 'lucide-react';
 import {FieldFrame} from './Form';
 import {useProfileClock} from './ProfileClock';
+import {TimePopover} from './TimePopover';
 import {
   parseTime,
   to24HourString,
@@ -57,6 +58,7 @@ export function TimeInput({
   const [activeSegment, setActiveSegment] = useState<TimeSegment | null>(null);
   const [buffer, setBuffer] = useState('');
   const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const nativeInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,21 +118,14 @@ export function TimeInput({
   const handleClockClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (disabled) return;
-    try {
-      if (typeof nativeInputRef.current?.showPicker === 'function') {
-        nativeInputRef.current.showPicker();
-        return;
-      }
-    } catch {
-      // Browser blocked showPicker or unsupported
-    }
-    if (!rawValue) {
-      emitChange(clock.time());
-      setActiveSegment('hour');
-    } else {
-      setActiveSegment(activeSegment ? null : 'hour');
-    }
-    wrapperRef.current?.focus();
+    // The browser's own time list ignores the theme, so the shared themed popover opens instead.
+    if (!rawValue) emitChange(clock.time());
+    setPickerOpen(open => !open);
+  };
+
+  const closePicker = () => {
+    setPickerOpen(false);
+    wrapperRef.current?.focus({preventScroll: true});
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -359,6 +354,17 @@ export function TimeInput({
         </label>
       )}
       {action ? <div className="field-input-row">{fieldInput}{action}</div> : fieldInput}
+      {/* Outside the control so portal events never bubble into its segment key handling. */}
+      {pickerOpen && (
+        <TimePopover
+          label={label}
+          value={rawValue}
+          onChange={emitChange}
+          onClose={closePicker}
+          anchorRef={wrapperRef}
+          containerRef={wrapperRef}
+        />
+      )}
       {hint && <small id={`${id}-hint`}>{hint}</small>}
     </FieldFrame>
   );

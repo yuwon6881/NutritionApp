@@ -18,6 +18,13 @@ public static class LoggedFoods
 
     /// <summary>The account's logged foods matching every word of <paramref name="query"/>, most-logged first.</summary>
     public static async Task<IReadOnlyList<FoodResult>> Matching(string query,AppDb db,CancellationToken ct)
+        =>await Rebuild(await MatchingNames(query,db,ct),db,ct);
+
+    /// <summary>A logged food's identity and how often it was logged.</summary>
+    public sealed record LoggedName(string Source,string Name,int Count);
+
+    /// <summary>The names behind <see cref="Matching"/>, before any per-100 values are rebuilt.</summary>
+    public static async Task<IReadOnlyList<LoggedName>> MatchingNames(string query,AppDb db,CancellationToken ct)
     {
         // Grouped in SQL; only the distinct names are matched here, never every diary row.
         var logged=await db.Entries.AsNoTracking()
@@ -25,11 +32,17 @@ public static class LoggedFoods
             .GroupBy(entry=>new {entry.Source,entry.Name})
             .Select(group=>new {group.Key.Source,group.Key.Name,Count=group.Count()})
             .ToListAsync(ct);
-        var matches=logged
+        return logged
             .Where(food=>!IsAiEstimate(food.Source)&&food.Name.Trim().Length>0&&FoodRanking.NamesEveryWord(food.Name,query))
             .OrderByDescending(food=>food.Count)
             .ThenBy(food=>food.Name,StringComparer.OrdinalIgnoreCase)
+            .Select(food=>new LoggedName(food.Source,food.Name,food.Count))
             .ToArray();
+    }
+
+    /// <summary>Rebuilds per-100 values for logged names; a name with no weighed entry is left out.</summary>
+    public static async Task<IReadOnlyList<FoodResult>> Rebuild(IReadOnlyList<LoggedName> matches,AppDb db,CancellationToken ct)
+    {
         var results=new List<FoodResult>();
         foreach(var food in matches)
         {

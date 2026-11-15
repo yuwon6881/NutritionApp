@@ -211,6 +211,25 @@ public sealed class FoodSearchLoggedFoodsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_logged_food_beyond_the_provider_cap_still_leads_a_one_word_search()
+    {
+        await using var db=Db();
+        var user=await TestUsers.CreateAsync(db,"tortilla-cap");
+        db.CurrentUser=user.Id;
+        var chips=Generic("Tortilla chips, flavored");
+        var broad=Enumerable.Range(0,10).Select(i=>Generic($"Tortilla, kind {i:00}")).ToArray();
+        // A serving with no weight cannot be rebuilt, and the broad answer is capped before the chips.
+        db.Entries.Add(Entry(user.Id,chips.Name,chips.Source,415,4,"package"));
+        await db.SaveChangesAsync();
+        var provider=new FakeFoodProvider("off"){OnSearch=query=>query.Contains("chips")?[chips]:broad};
+
+        var results=await Catalog(provider).Search("tortilla",db,default);
+
+        Assert.Equal("Tortilla chips, flavored",results[0].Name);
+        Assert.True(results[0].Logged);
+    }
+
+    [Fact]
     public async Task Weighed_ai_estimates_are_not_returned_from_history()
     {
         await using var db=Db();

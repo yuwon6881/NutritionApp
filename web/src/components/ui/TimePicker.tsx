@@ -1,10 +1,7 @@
-import {useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent} from 'react';
-import {useProfileClock} from './ProfileClock';
-import {createPortal} from 'react-dom';
+import {useId, useRef, useState, type KeyboardEvent} from 'react';
 import {Clock} from 'lucide-react';
 import {FieldFrame} from './Form';
-import {useDismissablePopover} from './useDismissablePopover';
-import {useViewportAlign} from './useViewportAlign';
+import {TimePopover, format12Display} from './TimePopover';
 
 export interface TimePickerProps {
   label: string;
@@ -18,45 +15,6 @@ export interface TimePickerProps {
   name?: string;
   className?: string;
 }
-
-function parseTimeParts(val: string, now: string): {hour12: number; minute: number; period: 'AM' | 'PM'} {
-  if (!val || !val.includes(':')) {
-    const [nowHour, nowMinute] = now.split(':').map(Number);
-    const h24 = nowHour;
-    return {
-      hour12: h24 % 12 || 12,
-      minute: nowMinute,
-      period: h24 >= 12 ? 'PM' : 'AM',
-    };
-  }
-  const [hStr, mStr] = val.split(':');
-  const h24 = Number(hStr) || 0;
-  const minute = Number(mStr) || 0;
-  return {
-    hour12: h24 % 12 || 12,
-    minute: Math.min(59, Math.max(0, minute)),
-    period: h24 >= 12 ? 'PM' : 'AM',
-  };
-}
-
-function format24(hour12: number, minute: number, period: 'AM' | 'PM'): string {
-  const h24 = period === 'PM' ? (hour12 % 12) + 12 : hour12 % 12;
-  return `${String(h24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
-function format12Display(val: string): string {
-  if (!val || !val.includes(':')) return 'Select time';
-  const [hStr, mStr] = val.split(':');
-  const h24 = Number(hStr);
-  const m = Number(mStr);
-  if (!Number.isFinite(h24) || !Number.isFinite(m)) return 'Select time';
-  const h12 = h24 % 12 || 12;
-  const period = h24 >= 12 ? 'PM' : 'AM';
-  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
-}
-
-const HOURS_12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-const MINUTES_5 = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
 export function TimePicker({
   label,
@@ -76,105 +34,15 @@ export function TimePicker({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [popoverPosition, setPopoverPosition] = useState<{left: number; top: number} | null>(null);
-
-  const clock = useProfileClock();
-  const {hour12, minute, period} = parseTimeParts(value, clock.time());
 
   const closePopover = () => {
     setIsOpen(false);
-    setPopoverPosition(null);
     triggerRef.current?.focus({preventScroll: true});
   };
-
-  const alignPopover = () => {
-    const popover = popoverRef.current;
-    const anchor = triggerRef.current;
-    if (!popover || !anchor) return;
-
-    const vv = window.visualViewport;
-    const viewportLeft = vv?.pageLeft ?? window.scrollX;
-    const viewportTop = vv?.pageTop ?? window.scrollY;
-    const viewportWidth = vv?.width ?? window.innerWidth;
-    const viewportHeight = vv?.height ?? window.innerHeight;
-
-    // Cap maximum popover height to available visual viewport minus 24px margin
-    const maxAvailableHeight = Math.max(120, viewportHeight - 24);
-    popover.style.maxHeight = `${maxAvailableHeight}px`;
-
-    const anchorRect = anchor.getBoundingClientRect();
-    const host = containerRef.current?.closest('dialog');
-    const hostRect = host?.getBoundingClientRect();
-
-    const popoverWidth = popover.offsetWidth;
-    const popoverHeight = popover.offsetHeight;
-
-    // Anchor coords in page coordinate space
-    const anchorPageLeft = anchorRect.left + window.scrollX;
-    const anchorPageTop = anchorRect.top + window.scrollY;
-    const anchorPageBottom = anchorRect.bottom + window.scrollY;
-
-    // Horizontal clamp within visual viewport bounds
-    const minLeft = viewportLeft + 12;
-    const maxLeft = viewportLeft + viewportWidth - popoverWidth - 12;
-    const pageLeft = Math.max(minLeft, Math.min(anchorPageLeft, Math.max(minLeft, maxLeft)));
-
-    // Vertical placement: preferred is below anchor, flip to above if below does not fit
-    const spaceBelow = (viewportTop + viewportHeight) - (anchorPageBottom + 6);
-    const spaceAbove = (anchorPageTop - 6) - viewportTop;
-
-    let preferredTop: number;
-    if (spaceBelow >= popoverHeight || spaceBelow >= spaceAbove) {
-      preferredTop = anchorPageBottom + 6;
-    } else {
-      preferredTop = anchorPageTop - 6 - popoverHeight;
-    }
-
-    // Clamp vertical position strictly within visual viewport [viewportTop + 12, viewportTop + viewportHeight - popoverHeight - 12]
-    const minTop = viewportTop + 12;
-    const maxTop = Math.max(minTop, viewportTop + viewportHeight - popoverHeight - 12);
-    const pageTop = Math.max(minTop, Math.min(preferredTop, maxTop));
-
-    if (hostRect) {
-      const hostPageLeft = hostRect.left + window.scrollX;
-      const hostPageTop = hostRect.top + window.scrollY;
-      setPopoverPosition({
-        left: pageLeft - hostPageLeft,
-        top: pageTop - hostPageTop,
-      });
-    } else {
-      setPopoverPosition({
-        left: pageLeft,
-        top: pageTop,
-      });
-    }
-  };
-  // A fresh opening starts unplaced (hidden) until the first measurement.
-  useLayoutEffect(() => { if (isOpen) setPopoverPosition(null); }, [isOpen]);
-  useViewportAlign(isOpen, alignPopover, popoverRef);
-
-  useDismissablePopover(isOpen, [containerRef, popoverRef], () => {
-    setIsOpen(false);
-    setPopoverPosition(null);
-  });
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closePopover();
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Tab' && isOpen) {
       setIsOpen(false);
-      setPopoverPosition(null);
       return;
     }
     if (e.key === 'Escape' && isOpen) {
@@ -182,22 +50,6 @@ export function TimePicker({
       e.stopPropagation();
       closePopover();
     }
-  };
-
-  const handleSetNow = () => {
-    onChange(clock.time());
-  };
-
-  const updateHour = (h: number) => {
-    onChange(format24(h, minute, period));
-  };
-
-  const updateMinute = (m: number) => {
-    onChange(format24(hour12, m, period));
-  };
-
-  const updatePeriod = (p: 'AM' | 'PM') => {
-    onChange(format24(hour12, minute, p));
   };
 
   return (
@@ -238,105 +90,15 @@ export function TimePicker({
           tabIndex={-1}
         />
 
-        {isOpen && createPortal(
-          <div
-            ref={popoverRef}
-            className="custom-time-popover"
-            role="dialog"
-            aria-label={`Choose ${label}`}
-            style={{
-              left: popoverPosition?.left ?? 0,
-              top: popoverPosition?.top ?? 0,
-              visibility: popoverPosition ? 'visible' : 'hidden',
-            }}
-          >
-            <div className="custom-time-header">
-              <span className="custom-time-current">{format12Display(value)}</span>
-              <button
-                type="button"
-                className="custom-time-now-btn"
-                onClick={handleSetNow}
-              >
-                Now
-              </button>
-            </div>
-
-            <div className="custom-time-columns">
-              {/* Hour column */}
-              <div className="custom-time-column" role="listbox" aria-label="Hour">
-                <span className="custom-time-col-header">Hour</span>
-                <div className="custom-time-col-scroll">
-                  {HOURS_12.map(h => {
-                    const isSelected = h === hour12;
-                    return (
-                      <button
-                        key={h}
-                        type="button"
-                        className={`custom-time-option ${isSelected ? 'selected' : ''}`}
-                        aria-selected={isSelected}
-                        onClick={() => updateHour(h)}
-                      >
-                        {String(h).padStart(2, '0')}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Minute column */}
-              <div className="custom-time-column" role="listbox" aria-label="Minute">
-                <span className="custom-time-col-header">Min</span>
-                <div className="custom-time-col-scroll">
-                  {MINUTES_5.map(m => {
-                    const isSelected = Math.abs(m - minute) < 3 || m === minute;
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        className={`custom-time-option ${isSelected ? 'selected' : ''}`}
-                        aria-selected={isSelected}
-                        onClick={() => updateMinute(m)}
-                      >
-                        {String(m).padStart(2, '0')}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* AM/PM column */}
-              <div className="custom-time-column period-column" role="listbox" aria-label="Period">
-                <span className="custom-time-col-header">Period</span>
-                <div className="custom-time-col-scroll">
-                  {(['AM', 'PM'] as const).map(p => {
-                    const isSelected = p === period;
-                    return (
-                      <button
-                        key={p}
-                        type="button"
-                        className={`custom-time-option ${isSelected ? 'selected' : ''}`}
-                        aria-selected={isSelected}
-                        onClick={() => updatePeriod(p)}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="custom-time-footer">
-              <button
-                type="button"
-                className="button primary custom-time-done-btn"
-                onClick={closePopover}
-              >
-                Done
-              </button>
-            </div>
-          </div>,
-          containerRef.current?.closest('dialog') ?? document.body
+        {isOpen && (
+          <TimePopover
+            label={label}
+            value={value}
+            onChange={onChange}
+            onClose={() => setIsOpen(false)}
+            anchorRef={triggerRef}
+            containerRef={containerRef}
+          />
         )}
       </div>
       {hint && <small id={`${timeId}-hint`}>{hint}</small>}

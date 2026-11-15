@@ -66,8 +66,34 @@ public sealed class FoodCatalog
             if(answer.Count==0)throw;
             return await FoodRanking.RankForUser(answer,query.Trim(),db,ct);
         }
-        var logged=await LoggedFoods.Matching(query.Trim(),db,ct);
-        return await FoodRanking.RankForUser(LoggedFoods.AddMissing(results,logged),query.Trim(),db,ct);
+        var names=await LoggedFoods.MatchingNames(query.Trim(),db,ct);
+        var merged=LoggedFoods.AddMissing(results,await LoggedFoods.Rebuild(names,db,ct));
+        merged=await AddLoggedByName(merged,names,ct);
+        return await FoodRanking.RankForUser(merged,query.Trim(),db,ct);
+    }
+
+    /// <summary>
+    /// A provider caps a broad query ("tortilla") at its best rows, so a logged food ranked below
+    /// the cap is absent, and its diary entry may carry no weight to rebuild it from. Searching
+    /// the logged name itself finds the provider's own row for it.
+    /// </summary>
+    private async Task<IReadOnlyList<FoodResult>> AddLoggedByName(IReadOnlyList<FoodResult> results,IReadOnlyList<LoggedFoods.LoggedName> names,CancellationToken ct)
+    {
+        var merged=results.ToList();
+        foreach(var food in names.Take(LoggedFoods.MaxRows))
+        {
+            var key=FoodRanking.UsageKey(new FoodResult(food.Name,0,null,null,null,null,food.Source));
+            if(merged.Any(result=>FoodRanking.UsageKey(result)==key))continue;
+            var name=food.Name.Trim();
+            if(name.Length is <2 or >100)continue;
+            try
+            {
+                var own=await SearchShared(name,null,ct);
+                if(own.FirstOrDefault(result=>FoodRanking.UsageKey(result)==key) is { } row)merged.Add(row);
+            }
+            catch(DomainException) { /* a provider outage must not hide the rest of the answer */ }
+        }
+        return merged;
     }
 
     private async Task<IReadOnlyList<FoodResult>> SearchShared(string query,AppDb? db,CancellationToken ct)
