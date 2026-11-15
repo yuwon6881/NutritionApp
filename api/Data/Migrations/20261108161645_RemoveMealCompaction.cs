@@ -14,12 +14,12 @@ namespace Nutrition.Api.Data.Migrations
             // Compaction replaced a day's meal detail with these totals. Dropping them would erase a
             // day that has no entries behind it, so refuse to run rather than lose history.
             migrationBuilder.Sql("""
-                DO $
+                DO $$
                 BEGIN
                     IF EXISTS (SELECT 1 FROM "Days" WHERE "Archived") THEN
                         RAISE EXCEPTION 'Archived days exist; their daily totals cannot be rebuilt from meal detail.';
                     END IF;
-                END $;
+                END $$;
                 """);
 
             migrationBuilder.DropColumn(
