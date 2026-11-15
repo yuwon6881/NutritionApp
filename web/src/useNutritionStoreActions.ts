@@ -17,13 +17,22 @@ export function useNutritionStoreActions(
 ) {
   return useMemo(() => ({
     resolveConflicts: (ids:readonly string[])=>commit(current=>resolveMutationConflicts(current,ids)),
-    logEntries: async (entries: unknown[], options?: {retireFoodBasketDate?: string}) => {
+    logEntries: async (entries: unknown[], options?: {retireFoodBasketDate?: string;holdMs?:number}) => {
       const persist = options?.retireFoodBasketDate
         ? (account: string, data: LocalData, previous: LocalData) => saveLocalAndRetireFoodBasketDraft(account, data, options.retireFoodBasketDate!, previous)
         : undefined;
-      await commit(current => {const queue=queueEntries(current,entries);queue.slice(current.queue.length).forEach(op=>validateFoodDestination(current.state,op));return {...current,queue};},persist);
+      let ids:string[]=[];
+      await commit(current => {
+        const queue=queueEntries(current,entries);
+        const added=queue.slice(current.queue.length);
+        const holdUntil=options?.holdMs?Date.now()+options.holdMs:undefined;
+        added.forEach(op=>{validateFoodDestination(current.state,op);if(holdUntil)op.holdUntil=holdUntil;});
+        ids=added.map(op=>op.id);
+        return {...current,queue};
+      },persist);
       markSyncQueued('entry');
       void drain();
+      return ids;
     },
     addPhoto: async (draft: PhysiqueDraft) => {
       await commit(current => ({

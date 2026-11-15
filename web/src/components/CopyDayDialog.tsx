@@ -8,6 +8,9 @@ import {Button} from './ui/Button';
 import {DatePicker} from './ui/DatePicker';
 import {Modal} from './ui/Modal';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {createPasteMutations} from '../lib/useFoodClipboard';
+import {UNDO_WINDOW_MS} from '../lib/heldMutations';
+import {showUndo} from './ui/UndoToast';
 
 export interface CopyDayDialogProps {
   open:boolean;
@@ -37,7 +40,9 @@ export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocu
     setError('');setCopied(0);
     try{
       await run(async()=>{
-        await store.logEntries(entries.map(entry=>({...entry,date:destination})));setCopied(entries.length);
+        const ids=await store.mutateMany(createPasteMutations(entries,destination),{holdMs:UNDO_WINDOW_MS});
+        setCopied(entries.length);
+        showUndo(`Copied ${entries.length} ${entries.length===1?'food':'foods'}`,()=>store.undo(ids));
       });
       onClose();
     }catch(ex){setError((ex as Error).message);}

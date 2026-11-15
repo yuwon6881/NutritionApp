@@ -28,6 +28,8 @@ import {MotionPanel} from './ui/Motion';
 import {useOpeningFrame} from './ui/useOpeningFrame';
 import {useFoodStepFocus} from './useFoodStepFocus';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {showUndo} from './ui/UndoToast';
+import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {unitsFor} from '../lib/units';
 import {LogFoodSavedFoods,type SavedFilter} from './LogFoodSavedFoods';
 import {LogFoodAiForm} from './LogFoodAiForm';
@@ -279,7 +281,8 @@ export function LogFood({
         }
       }else go('selection');
     }else if(editing){
-      await store.mutate({kind:'entry',recordId:editing.id,expectedRevision:editing.revision,delete:false,data:{...data,date}});
+      const id=await store.mutate({kind:'entry',recordId:editing.id,expectedRevision:editing.revision,delete:false,data:{...data,date}},{holdMs:UNDO_WINDOW_MS});
+      showUndo(`Edited ${editing.name}`,()=>store.undo([id]));
       onSaved();
     }else{
       if(data.time)setBatchTime(data.time);

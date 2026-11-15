@@ -114,6 +114,19 @@ test('food timeline supports single-item move to custom time, move to existing t
   await expect(row08.getByText('Black coffee')).toBeVisible();
   await expect(row08.getByText('Rolled oats')).toHaveCount(0);
 
+  // Undo returns the same food to its original time, then the move can be repeated.
+  await page.getByRole('button',{name:'Undo',exact:true}).click();
+  await expect(row08.getByText('Rolled oats')).toBeVisible();
+  await expect(row1215.getByText('Rolled oats')).toHaveCount(0);
+  await page.getByRole('button',{name:'Day options',exact:true}).click();
+  await page.getByRole('menuitem',{name:'Bulk select',exact:true}).click();
+  await row08.locator('.food-time-card').filter({hasText:'Rolled oats'}).first().click();
+  await bar.getByRole('button',{name:/Move/}).click();
+  await page.getByRole('dialog',{name:'Move Rolled oats'}).getByRole('button',{name:/Date and time/i}).click();
+  await page.getByLabel('Move to time (optional)',{exact:true}).fill('12:15');
+  await page.getByRole('button',{name:'Move',exact:true}).click();
+  await expect(row1215.getByText('Rolled oats')).toBeVisible();
+
   // Move Black coffee to 12:15 via selection mode
   await page.getByRole('button',{name:'Day options',exact:true}).click();
   await page.getByRole('menuitem',{name:'Bulk select',exact:true}).click();

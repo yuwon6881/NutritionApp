@@ -6,7 +6,7 @@ import {Button} from './Button';
 /**
  * One undo notice at a time, announced politely and placed above the bottom
  * navigation. It closes when its window ends; a newer notice replaces an
- * older one, whose deletion then simply completes.
+ * older one, whose operation then simply completes.
  */
 interface UndoNotice {
   id:number;
@@ -51,9 +51,16 @@ export function UndoToastHost(){
 
   const undo=async()=>{
     if(!notice?.onUndo)return;
-    const restored=await notice.onUndo();
-    if(current?.id===notice.id)publish(null);
-    setResult(restored?'Restored.':'Too late to undo; the deletion was already sent.');
+    try{
+      const restored=await notice.onUndo();
+      if(current?.id!==notice.id)return;
+      publish(null);
+      setResult(restored?'Undone.':'Could not undo; the action expired or a later edit depends on it.');
+    }catch{
+      if(current?.id!==notice.id)return;
+      publish(null);
+      setResult('Could not undo. Your saved changes are unchanged.');
+    }
   };
 
   if(!notice&&!result)return null;

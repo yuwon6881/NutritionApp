@@ -42,6 +42,20 @@ describe('undoable (held) deletions',()=>{
     expect(result.queue).toBe(queue);
   });
 
+  it('does not partially undo a batch when one operation is expired or missing',()=>{
+    const queue=[held('m',2000),held('x',1000,'other')];
+    expect(undoHeldMutations(queue,['m','x'],1500)).toEqual({queue,undone:[]});
+    expect(undoHeldMutations(queue,['m','missing'],1500)).toEqual({queue,undone:[]});
+  });
+
+  it('preserves later edits that depend on an operation being undone',()=>{
+    const move={...held('m',2000),delete:false,data:{...state.entries[0],date:'2026-02-02'}};
+    const later={...move,id:'later',holdUntil:undefined,data:{...state.entries[0],date:'2026-02-02',calories:200}};
+    const queue=[move,later];
+    expect(undoHeldMutations(queue,['m'],1500)).toEqual({queue,undone:[]});
+    expect(undoHeldMutations([move],['m'],1500).queue).toEqual([]);
+  });
+
   it('never sends the local hold to the server',()=>{
     expect(wireMutation(held('m',2000))).not.toHaveProperty('holdUntil');
   });

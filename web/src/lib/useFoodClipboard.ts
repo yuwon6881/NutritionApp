@@ -18,14 +18,15 @@ export function createPasteMutations(
 ):PasteMutation[]{
   return entries.map(entry=>{
     const time=targetTime!==undefined?targetTime:(entry.time??null);
+    const id=crypto.randomUUID();
     return {
       kind:'entry',
-      recordId:crypto.randomUUID(),
+      recordId:id,
       expectedRevision:0,
       delete:false,
       data:{
         ...entry,
-        id:crypto.randomUUID(),
+        id,
         date:targetDate,
         time,
       }

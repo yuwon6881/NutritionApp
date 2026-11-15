@@ -49,7 +49,7 @@ For short derived date metadata, use `DatePicker hintPlacement="label"` and pres
 
 Keep bundled font subsets as same-origin files in production CSS, including subsets below Vite's asset inlining threshold; the font CSP permits only same-origin resources.
 
-For held deletion feedback, reuse the themed `UndoToast` card, wrapping message and 44 px secondary Undo action. Weigh-in deletion requires date/weight confirmation before queuing; verify Cancel, Escape/Back, focus restoration and the unchanged five-second Undo window.
+For held food-action and deletion feedback, reuse the themed `UndoToast` card, wrapping message and 44 px secondary Undo action. Weigh-in deletion requires date/weight confirmation before queuing; verify Cancel, Escape/Back, focus restoration and the unchanged five-second Undo window.
 
 For each new interaction, define and render the states that apply:
 

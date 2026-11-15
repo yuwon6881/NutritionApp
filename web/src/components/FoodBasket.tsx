@@ -15,6 +15,8 @@ import {DayEnergyPreview} from './DayEnergyPreview';
 import {parsePortions} from '../lib/portions';
 import {hapticTick} from '../lib/haptics';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {showUndo} from './ui/UndoToast';
+import {UNDO_WINDOW_MS} from '../lib/heldMutations';
 import {useBackLayer} from '../lib/useBackLayer';
 
 export interface FoodBasketProps {
@@ -72,7 +74,8 @@ export function FoodBasket({
       await run(async()=>{
         const entries=basketEntries(basket.lines,{date,time});
         await basket.flush();
-        await store.logEntries(entries,{retireFoodBasketDate:date});
+        const ids=await store.logEntries(entries,{retireFoodBasketDate:date,holdMs:UNDO_WINDOW_MS});
+        showUndo(`Logged ${entries.length} ${entries.length===1?'food':'foods'}`,()=>store.undo(ids));
         hapticTick('success');
         basket.clearAfterOutboxCommit();
       });

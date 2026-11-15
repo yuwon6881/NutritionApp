@@ -95,11 +95,12 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
         const operation=moveEntry(currentEntry,targetTime,destinationDate);
         if(operation)operations.push(operation);
       }
-      await store.mutateMany(operations);
+      if(!operations.length)return;
+      const ids=await store.mutateMany(operations,{holdMs:UNDO_WINDOW_MS});
+      showUndo(operations.length===1?`Moved ${moving[0].name}`:`Moved ${operations.length} foods`,()=>store.undo(ids));
     },true);
   };
 
-  const copy=async(entry:Entry,destinationDate:string,time:string|null)=>{await act(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{...entry,date:destinationDate,time}}),true);};
   // Deletion is immediate and undoable: the request waits out the undo window before it is sent.
   const removeEntries=async(removing:Entry[])=>{
     const ids:string[]=[];
@@ -120,7 +121,8 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
     if(!items.length)return;
     await act(async()=>{
       const mutations=createPasteMutations(items,targetDate,targetTime);
-      await store.mutateMany(mutations);
+      const ids=await store.mutateMany(mutations,{holdMs:UNDO_WINDOW_MS});
+      showUndo(items.length===1?`Pasted ${items[0].name}`:`Pasted ${items.length} foods`,()=>store.undo(ids));
     },true);
     exitSelectionAndCopy();
     if(targetDate!==date){
