@@ -146,7 +146,7 @@ public static class Expenditure
         // From 14 settled days on, the long-standing checks (60% coverage) apply unchanged.
         if (windowDays < FullEvidenceSettledDays && coverage < ShortWindowCoverage)
             return new(false, expenditure, null, 0, evidence,
-                prefix + $" Holding: after an intake change the shorter window needs at least {ShortWindowCoverage:P0} of days logged.");
+                prefix + $" Holding: after an intake change the shorter window needs at least {ShortWindowCoverage * 100:0}% of days logged.");
         if (retained.Count < minimumWeighIns || span < minimumSpan || firstHalf < 3 || secondHalf < 3 ||
             mostRecent is not {} recent || recent < today.AddDays(-4))
             return new(false, expenditure, null, 0, evidence,
