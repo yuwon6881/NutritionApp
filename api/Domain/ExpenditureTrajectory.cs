@@ -14,8 +14,8 @@ public sealed record TrajectoryPoint(
 
 public static class ExpenditureTrajectory
 {
-    // v9: unlogged days count at a trend-based estimate, and a significant unlogged-day trend gap holds the biased direction.
-    public const string AlgorithmVersion = "v9-unlogged-days";
+    // v10: historical estimates only use context confirmations available by their date.
+    public const string AlgorithmVersion = "v10-as-of-weights";
 
     public static TrajectoryPoint Calculate(
         Profile profile,
@@ -24,8 +24,9 @@ public static class ExpenditureTrajectory
         IReadOnlyList<WeightPoint> weights,
         double previousExpenditure)
     {
-        var estimate = Expenditure.EstimateDaily(days, weights, previousExpenditure, date);
-        var trendWeight = WeightSignal.CleanTrend(weights, date).LastOrDefault()?.Kg ?? profile.WeightKg;
+        var availableWeights = weights.Where(weight => weight.Date <= date).ToArray();
+        var estimate = Expenditure.EstimateDaily(days, availableWeights, previousExpenditure, date);
+        var trendWeight = WeightSignal.CleanTrend(availableWeights, date).LastOrDefault()?.Kg ?? profile.WeightKg;
         int? suggested = estimate.Adaptive
             ? SuggestedCalories(profile, estimate.Expenditure, trendWeight)
             : null;

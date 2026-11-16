@@ -118,6 +118,29 @@ public sealed class ExpenditureTests
     }
 
     [Fact]
+    public void Historical_trajectory_ignores_confirming_weigh_ins_after_its_date()
+    {
+        var profile = new Profile
+        {
+            Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
+            Goal = "maintain", Maintenance = 2500
+        };
+        var historical = Weights().Select((weight, index) => weight with
+        {
+            Kg = index >= 23 ? 81 : 80,
+            Context = index == 27 ? "travel" : null
+        }).ToArray();
+        var later = historical.Concat(Enumerable.Range(1, 3)
+            .Select(offset => new WeightPoint(Today.AddDays(offset), 81))).ToArray();
+
+        var expected = ExpenditureTrajectory.Calculate(profile, Today, Days(), historical, 2500);
+        var rebuilt = ExpenditureTrajectory.Calculate(profile, Today, Days(), later, 2500);
+
+        Assert.Equal(expected, rebuilt);
+        Assert.Contains(WeightContextPolicy.ForCalorieEstimation(later), point => point.Context == "travel");
+    }
+
+    [Fact]
     public void Coaching_target_uses_the_weight_trend_without_temporary_entries()
     {
         var profile = new Profile
