@@ -15,7 +15,7 @@ public sealed record TrajectoryPoint(
 public static class ExpenditureTrajectory
 {
     // v10: historical estimates only use context confirmations available by their date.
-    public const string AlgorithmVersion = "v10-as-of-weights";
+    public const string AlgorithmVersion = "v11-settle-10";
 
     public static TrajectoryPoint Calculate(
         Profile profile,

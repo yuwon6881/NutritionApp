@@ -192,6 +192,109 @@ public sealed class WeightSignalTests
     }
 
     [Fact]
+    public void Ten_settled_days_after_an_intake_change_are_enough_to_resume()
+    {
+        // Step on window day 10: settled from day 17, so 11 settled days at day 28.
+        var days = Days(i => i < 10 ? 3000 : 2500);
+        var weights = Weights(i => i < 10 ? 80 : 80 - Math.Min(4, i - 9) * .25);
+
+        var estimate = Expenditure.Estimate(days, weights, 2500, Today);
+
+        Assert.True(estimate.Adaptive);
+        Assert.Equal(11, estimate.Evidence.WindowDays);
+        Assert.InRange(estimate.Expenditure, 2490, 2510);
+    }
+
+    [Theory]
+    [InlineData(26)]
+    [InlineData(25)]
+    [InlineData(24)]
+    public void A_short_run_of_high_days_at_the_end_is_not_a_sustained_intake_change(int spikeStart)
+    {
+        var days = Days(i => i < spikeStart ? 2500 : 3200);
+
+        var estimate = Expenditure.Estimate(days, Weights(_ => 80), 2500, Today);
+
+        Assert.DoesNotContain("intake changed", estimate.Reason);
+    }
+
+    [Fact]
+    public void A_change_that_has_lasted_five_days_is_detected()
+    {
+        var days = Days(i => i < 23 ? 2500 : 3200);
+
+        var estimate = Expenditure.Estimate(days, Weights(_ => 80), 2500, Today);
+
+        Assert.Contains("intake changed", estimate.Reason);
+    }
+
+    [Fact]
+    public void A_sustained_change_after_a_sparse_baseline_is_still_detected()
+    {
+        // Three unlogged days before the step leave four logged baseline days.
+        var days = Days(i => i < 10 ? 3000 : 2500).Where((_, i) => i is < 3 or > 5).ToArray();
+
+        var estimate = Expenditure.Estimate(days, Weights(i => i < 10 ? 80 : 80 - Math.Min(4, i - 9) * .25), 2500, Today);
+
+        Assert.Contains("intake changed", estimate.Reason);
+    }
+
+    [Fact]
+    public void The_estimate_resumes_on_the_tenth_settled_day_and_not_the_ninth()
+    {
+        // A step on window day d settles from d + 7, so 21 - d settled days remain at day 28.
+        NutritionDay[] Step(int d) => Days(i => i < d ? 3000 : 2500);
+        WeightPoint[] Trend(int d) => Weights(i => i < d ? 80 : 80 - Math.Min(4, i - d + 1) * .25);
+
+        var ninth = Expenditure.Estimate(Step(12), Trend(12), 2500, Today);
+        var tenth = Expenditure.Estimate(Step(11), Trend(11), 2500, Today);
+
+        Assert.False(ninth.Adaptive);
+        Assert.Contains("waits for 10 settled days", ninth.Reason);
+        Assert.True(tenth.Adaptive);
+        Assert.Equal(10, tenth.Evidence.WindowDays);
+    }
+
+    [Fact]
+    public void A_real_change_with_gaps_in_its_first_week_is_confirmed_by_later_logs()
+    {
+        // The step is on window day 10; days 12-14 (its first week) are unlogged.
+        var days = Days(i => i < 10 ? 3000 : 2500).Where((_, i) => i is < 12 or > 14).ToArray();
+
+        var estimate = Expenditure.Estimate(days, Weights(i => i < 10 ? 80 : 80 - Math.Min(4, i - 9) * .25), 2500, Today);
+
+        Assert.Contains("intake changed", estimate.Reason);
+    }
+
+    [Fact]
+    public void Weekday_only_logging_resumes_at_fourteen_settled_days_as_before()
+    {
+        bool Weekend(int i) => Day(i).DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+        NutritionDay[] Step(int d) => Days(i => i < d ? 3000 : 2500).Where((_, i) => !Weekend(i)).ToArray();
+        WeightPoint[] Trend(int d) => Weights(i => i < d ? 80 : 80 - Math.Min(4, i - d + 1) * .25);
+
+        var fourteen = Expenditure.Estimate(Step(7), Trend(7), 2500, Today);
+        var twelve = Expenditure.Estimate(Step(9), Trend(9), 2500, Today);
+
+        Assert.True(fourteen.Adaptive);
+        Assert.Equal(14, fourteen.Evidence.WindowDays);
+        Assert.False(twelve.Adaptive);
+        Assert.Contains("85%", twelve.Reason);
+    }
+
+    [Fact]
+    public void A_shortened_window_with_missing_days_holds_because_bias_cannot_be_checked()
+    {
+        // Settled window is days 18-27; four of its ten days are unlogged.
+        var days = Days(i => i < 11 ? 3000 : 2500).Where((_, i) => i is not (19 or 21 or 23 or 25)).ToArray();
+
+        var estimate = Expenditure.Estimate(days, Weights(i => i < 11 ? 80 : 80 - Math.Min(4, i - 10) * .25), 2500, Today);
+
+        Assert.False(estimate.Adaptive);
+        Assert.Contains("85%", estimate.Reason);
+    }
+
+    [Fact]
     public void After_an_intake_change_the_estimate_uses_only_the_settled_period()
     {
         var days = Days(i => i < 7 ? 3000 : 2500);

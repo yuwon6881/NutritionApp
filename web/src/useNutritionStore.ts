@@ -34,6 +34,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   const [local, setLocal] = useState<LocalData|undefined>(initial);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sendingRecordId, setSendingRecordId] = useState<string | undefined>(); // on the wire now; queued work waits
   const [sync, setSync] = useState<SyncState>({ phase: 'idle' });
   const ref = useRef<LocalData | undefined>(initial);
   const writes = useRef(Promise.resolve());
@@ -266,8 +267,8 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
           heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, wait + 20);
           break;
         }
-        try {
-          const acknowledgement=await api<import('./types').SyncAcknowledgement>('/sync',wireMutation(op));
+        try { setSendingRecordId(op.recordId);
+          const acknowledgement=await api<import('./types').SyncAcknowledgement>('/sync',wireMutation(op)).finally(()=>{if(alive.current)setSendingRecordId(undefined);});
           const {revision}=acknowledgement;
           sent = true;
           const {acknowledgeLocalWrite}=await import('./lib/nutritionAcknowledgement');
@@ -490,7 +491,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local?.state,local?.queue]);
 
   return {
-    state, local, error, busy, sync, isActivityActive, beginActivity, mutate, mutateMany, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, trainingResolved, drain, calendarDate,
+    state, local, error, busy, sendingRecordId, sync, isActivityActive, beginActivity, mutate, mutateMany, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, trainingResolved, drain, calendarDate,
     ...actions,
   };
 }

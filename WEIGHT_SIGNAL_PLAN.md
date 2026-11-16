@@ -7,7 +7,7 @@ Status: implemented 2026-09-29 (Coach 2.2.0, trajectory v6-robust-signal) except
 - Phase 1: `api/Domain/WeightSignal.cs` neighbour-median (Hampel) outlier filter with 1.4826·MAD noise; clean trend recomputed without flagged or marked days and used by coaching, the trajectory, and the Dashboard (`web/src/lib/weightSignal.ts`); weighted Theil–Sen on retained scale weights; endpoint slope over median dates with a noise-based disagreement limit.
 - Phase 2: new context codes and per-code settle days (`tests/fixtures/weight-context.json`, mirrored and parity-tested on both sides); marked days excluded, following days down-weighted, reinstated after three confirming weigh-ins within a week, capped at 30% of window weigh-ins; check-in dialog summarises adjusted weigh-ins.
 - Phase 3: prompt expectation carries a clear 14-day trend forward; direction-aware options; factual recent-intake line (not-logging days skipped, fasting counted as zero).
-- Phase 4: `api/Domain/IntakeStep.cs` detects a sustained intake change (≥15%, ≥250 kcal/day, beyond two standard errors so alternate-day fasting does not trigger it); the estimate then uses only days after a seven-day settle period, or holds with an explicit reason until 14 settled days exist.
+- Phase 4: `api/Domain/IntakeStep.cs` detects a sustained intake change (≥15%, ≥250 kcal/day, beyond two standard errors so alternate-day fasting does not trigger it); the estimate then uses only days after a seven-day settle period, or holds with an explicit reason until 10 settled days exist (it was 14; the shorter window's confidence is scaled by length). A change needs five logged days after it, so a few high days at the end are not one.
 
 ## Remaining
 

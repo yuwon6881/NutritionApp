@@ -44,7 +44,9 @@
 .food-time-card-portion{font-variant-numeric:tabular-nums;color:var(--foreground);font-weight:500;white-space:nowrap}
 .food-time-card-dot{color:var(--border)}
 .food-time-card .food-macro-summary{margin:0;gap:4px 8px;font-size:.72rem}
-.food-time-card .sync-label{display:block;margin-top:2px;font-size:.68rem;overflow-wrap:anywhere}
+.food-time-card .sync-label{display:flex;align-items:center;margin-top:2px;font-size:.68rem;color:var(--muted-foreground)}
+.sync-label-spinner{animation:syncStatusSpin 900ms linear infinite}
+@media(prefers-reduced-motion:reduce){.sync-label-spinner{animation:none}}
 .food-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}.food-card-footer>.source{overflow-wrap:anywhere}
 .food-time-card[data-draggable]{cursor:grab}
 /* While a card is dragged its place stays as a quiet outline; the floating copy follows the pointer. */

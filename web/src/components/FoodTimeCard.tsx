@@ -1,5 +1,5 @@
 import {memo} from 'react';
-import {Check,Flame} from 'lucide-react';
+import {Check,Clock,Flame,LoaderCircle} from 'lucide-react';
 import type {Entry} from '../types';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {displayEnergy,energyLabel,type EnergyUnit} from '../lib/units';
@@ -17,6 +17,8 @@ export interface FoodTimeCardProps {
   isMoved:boolean;
   isAdded?:boolean;
   isPendingSync:boolean;
+  /** The queue is being sent right now (online and draining); queued-but-waiting stays static. */
+  isSending?:boolean;
   onEdit?:(entry:Entry)=>void;
   onToggleSelect:(id:string)=>void;
   dragProps:Record<string,unknown>;
@@ -32,6 +34,7 @@ export const FoodTimeCard=memo(function FoodTimeCard({
   isMoved,
   isAdded=false,
   isPendingSync,
+  isSending=false,
   onEdit,
   onToggleSelect,
   dragProps,
@@ -86,6 +89,12 @@ export const FoodTimeCard=memo(function FoodTimeCard({
         <span className="food-time-card-portion">{displayPortion(entry)}</span>
         <FoodMacroSummary protein={entry.protein} carbs={entry.carbs} fat={entry.fat}/>
       </div>
-      {isPendingSync&&<small className="sync-label" role="status">Pending sync</small>}
+      {isPendingSync&&<small className="sync-label" role="status" data-sending={isSending||undefined}>
+        {/* Only an active send spins; work waiting offline or between retries shows a still clock. */}
+        {isSending
+          ?<LoaderCircle size={14} className="sync-label-spinner" aria-hidden="true"/>
+          :<Clock size={14} aria-hidden="true"/>}
+        <span className="sr-only">Pending sync</span>
+      </small>}
     </article>;
 });

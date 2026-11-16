@@ -25,7 +25,11 @@ public static class Expenditure
     /// Diary days a caller must load before today: the window plus the history intake-step
     /// detection compares against at the window's leading edge.
     public const int HistoryDays = WindowDays + IntakeStep.LookbackDays;
-    private const int MinimumSettledWindowDays = 14;
+    // Seven days for water and glycogen to settle plus ten clean days is about 2.5 weeks. The shorter window's
+    // lower confidence (scaled by window length) and proportionally scaled minimums keep it from over-reacting.
+    private const int MinimumSettledWindowDays = 10;
+    private const int FullEvidenceSettledDays = 14;
+    private const double ShortWindowCoverage = .85;
 
     public static double DailyGain(double weeklyGain)
         => 1 - Math.Pow(1 - Math.Clamp(weeklyGain, 0, .999999999), 1d / 7);
@@ -137,6 +141,12 @@ public static class Expenditure
         if (logged.Length < minimumLogged || coverage < .60 || window.Count(d => IsLogged(d) && d.Date >= today.AddDays(-7)) < 4)
             return new(false, expenditure, null, 0, evidence,
                 prefix + $" Holding: need at least {minimumLogged} logged days, 60% coverage, and four logged days in the most recent seven.");
+        // A shortened window is too short for the unlogged-day trend check (it needs seven logged days with trend
+        // evidence), so missing intake could bias it unseen; it asks for nearly complete logging instead.
+        // From 14 settled days on, the long-standing checks (60% coverage) apply unchanged.
+        if (windowDays < FullEvidenceSettledDays && coverage < ShortWindowCoverage)
+            return new(false, expenditure, null, 0, evidence,
+                prefix + $" Holding: after an intake change the shorter window needs at least {ShortWindowCoverage:P0} of days logged.");
         if (retained.Count < minimumWeighIns || span < minimumSpan || firstHalf < 3 || secondHalf < 3 ||
             mostRecent is not {} recent || recent < today.AddDays(-4))
             return new(false, expenditure, null, 0, evidence,

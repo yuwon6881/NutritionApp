@@ -10,6 +10,7 @@ import {FoodTimeCard} from './FoodTimeCard';
 import {FoodTimeSummary} from './FoodTimeSummary';
 import {useTimelineDrag} from './useTimelineDrag';
 import {useLingering} from './ui/useLingering';
+import {useOnlineStatus} from './ui/useOnlineStatus';
 
 export interface FoodTimelineProps {
   store:NutritionStore;
@@ -112,6 +113,9 @@ export function FoodTimeline({
   onEditRef.current=onEdit;
   const queue=store.local?.queue;
   const pendingEntryIds=useMemo(()=>new Set((queue??[]).filter(op=>op.kind==='entry').map(op=>op.recordId)),[queue]);
+  const online=useOnlineStatus();
+  // Only the entry whose request is on the wire spins; other queued entries keep the still clock.
+  const sendingId=online?store.sendingRecordId:undefined;
   const stableCardEdit=useCallback((item:Entry)=>onEditRef.current(item),[]);
 
   return <>
@@ -162,6 +166,7 @@ export function FoodTimeline({
               isMoved={movedIds.has(entry.id)}
               isAdded={addedIds.has(entry.id)}
               isPendingSync={pendingEntryIds.has(entry.id)}
+              isSending={sendingId===entry.id}
               onEdit={stableCardEdit}
               onToggleSelect={stableToggleSelect}
               dragProps={dragProps}
