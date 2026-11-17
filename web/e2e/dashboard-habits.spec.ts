@@ -88,6 +88,8 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await expect(food.locator('.habit-cell')).toHaveCount(30);
     await expect(food.locator('.habit-cell').last()).toHaveAttribute('data-today','true');
     await expect(food.locator('.habit-cell[data-status="logged"]')).not.toHaveCount(0);
+    // Days are round dots, not tiles.
+    await expect(food.locator('.habit-cell').first()).toHaveCSS('border-radius','50%');
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
     await page.screenshot({path:`artifacts/ui-uplift/dashboard-habits-${theme}-${width}.png`,fullPage:true,animations:'disabled'});
 
@@ -101,6 +103,10 @@ for(const width of [390,768,1440])for(const theme of ['light','dark']){
     await expect(dialog.locator('.habit-day[data-today]')).toHaveCount(1);
     expect(await countAcrossMonths(dialog,/Food logged/)).toBe(8);
     expect(await countAcrossMonths(dialog,/Fasting day/)).toBe(1);
+    // Adjacent days of one kind in a week row form a streak: every join has a partner on the other side.
+    const joins=dialog.locator('.habit-day[data-join-next]');
+    await expect(dialog.locator('.habit-day[data-join-prev]')).toHaveCount(await joins.count());
+    for(const day of await joins.all())await expect(day).toHaveAttribute('data-status',/^(logged|fasting|not_logged)$/);
     expect(await dialog.locator('.modal-body').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBeTruthy();
     await page.screenshot({path:`artifacts/ui-uplift/dashboard-habits-dialog-${theme}-${width}.png`,animations:'disabled'});
     await page.keyboard.press('Escape');

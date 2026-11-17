@@ -33,7 +33,8 @@ const KIB = 1024;
 // Dashboard preferences persistence across devices adds a small offline allowance.
 // Retaining 409 conflicts for review and calm scan overlay feedback add a small first-load and offline allowance.
 // High-contrast chart styling, guidance line differentiation, and dark-theme grid clarity add a small precache allowance.
-const budgets = { firstLoad: 491 * KIB, precache: 1343 * KIB };
+// Round habit-calendar days with joined streaks add a small precache allowance.
+const budgets = { firstLoad: 491 * KIB, precache: 1344 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

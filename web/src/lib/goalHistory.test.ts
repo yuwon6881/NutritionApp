@@ -60,9 +60,15 @@ describe('goal history',()=>{
 });
 
 describe('currentEndKg',()=>{
-  it('returns endKg for active entry when endKg is present',()=>{
+  it('prefers the latest weight over the last accepted plan for the active entry',()=>{
+    // The last plan's weight is a snapshot from its check-in; the goal in progress reports where the weight is now.
     const entry:GoalHistoryEntry={startDate:'2026-09-08',goal:'lose',startKg:64,endKg:63.2,status:'active'};
-    expect(currentEndKg(entry,62.5)).toBe(63.2);
+    expect(currentEndKg(entry,62.5)).toBe(62.5);
+  });
+
+  it('falls back to the last accepted plan for the active entry when no latest weight is known',()=>{
+    const entry:GoalHistoryEntry={startDate:'2026-09-08',goal:'lose',startKg:64,endKg:63.2,status:'active'};
+    expect(currentEndKg(entry,null)).toBe(63.2);
   });
 
   it('uses latestKg for active entry when endKg is null',()=>{
