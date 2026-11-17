@@ -101,20 +101,28 @@ public sealed class ExpenditureTrajectoryService(AppDb db)
         // window rather than replaying every year since that date.
         var floor = today.AddDays(-(BackfillDays - 1));
         var start = from > today ? today : from < floor ? floor : from;
-        var seed = profileChanged ? null : await db.ExpenditureEstimates.AsNoTracking()
+        var preceding = await db.ExpenditureEstimates.AsNoTracking()
             .Where(item => item.Date < start && item.AlgorithmVersion == ExpenditureTrajectory.AlgorithmVersion)
             .OrderByDescending(item => item.Date)
             .FirstOrDefaultAsync(ct);
+        // A snapshot computed before the current profile carries the pre-correction expenditure; seeding
+        // from it would quietly revert a correction, so such a rebuild starts the way a correction does.
+        var resetSeed = profileChanged || preceding?.SourceRevision < user.ProfileRevision;
+        var seed = resetSeed ? null : preceding;
         var days = await LoadDays(start.AddDays(-Expenditure.HistoryDays), today, today, ct);
         var weights = await db.Weights
             .Where(weight => !weight.Deleted && weight.Date >= start.AddDays(-120) && weight.Date <= today)
             .OrderBy(weight => weight.Date)
             .Select(weight => new WeightPoint(weight.Date, weight.Kg, weight.Context))
             .ToListAsync(ct);
-        var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, weights, ct, profileChanged);
+        var previous = seed?.Expenditure ?? await StartingExpenditure(profile, start, weights, ct, resetSeed);
 
         foreach (var tracked in db.ChangeTracker.Entries<DailyExpenditureEstimate>().ToList())
             tracked.State = EntityState.Detached;
+        // Window days before the rebuild start saw none of the change, so they stay valid; restamp them
+        // so the window reads as complete instead of forcing a full rebuild on the next read.
+        await db.ExpenditureEstimates.Where(item => item.Date >= floor && item.Date < start)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.SourceRevision, sourceRevision), ct);
         await db.ExpenditureEstimates.Where(item => item.Date >= start).ExecuteDeleteAsync(ct);
         for (var date = start; date <= today; date = date.AddDays(1))
         {

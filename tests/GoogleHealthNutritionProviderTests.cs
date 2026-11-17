@@ -55,6 +55,59 @@ public sealed class GoogleHealthNutritionProviderTests
         Assert.Equal(6.5, fiber.GetProperty("quantity").GetProperty("grams").GetDouble());
     }
 
+    [Theory]
+    [InlineData("{\"name\":\"operations/delete\",\"done\":true,\"error\":{\"status\":\"FAILED_PRECONDITION\",\"message\":\"no\"}}", false)]
+    [InlineData("{\"name\":\"operations/delete\",\"done\":true,\"error\":{\"status\":\"UNAVAILABLE\",\"message\":\"later\"}}", true)]
+    [InlineData("{\"name\":\"operations/delete\",\"done\":false}", true)]
+    public async Task UpdateDoesNotCreateTheReplacementUntilTheDeleteHasSucceeded(string deleteResponse, bool transient)
+    {
+        var handler = new ScriptedHandler(deleteResponse);
+        using var http = new HttpClient(handler);
+
+        var result = await GoogleHealthNutritionProvider.UpdateAsync(http, "access-token",
+            "users/me/dataTypes/nutrition-log/dataPoints/old", SampleDataPoint(), default);
+
+        Assert.Single(handler.Requests);
+        Assert.EndsWith(":batchDelete", handler.Requests[0]);
+        Assert.True(result.Done);
+        Assert.False(result.Success);
+        Assert.Equal(transient, result.Transient);
+    }
+
+    [Fact]
+    public async Task UpdateCreatesTheReplacementAfterASuccessfulDelete()
+    {
+        var handler = new ScriptedHandler(
+            "{\"name\":\"operations/delete\",\"done\":true,\"response\":{}}",
+            "{\"name\":\"operations/create\",\"done\":true,\"response\":{\"name\":\"users/me/dataTypes/nutrition-log/dataPoints/new\"}}");
+        using var http = new HttpClient(handler);
+
+        var result = await GoogleHealthNutritionProvider.UpdateAsync(http, "access-token",
+            "users/me/dataTypes/nutrition-log/dataPoints/old", SampleDataPoint(), default);
+
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.True(result.Success);
+        Assert.Equal("users/me/dataTypes/nutrition-log/dataPoints/new", result.ResourceName);
+    }
+
+    private static GoogleHealthNutritionDataPoint SampleDataPoint() => new(
+        "2026-09-18T00:30:00Z", "28800s", "2026-09-18T00:45:00Z", "28800s",
+        "Oatmeal", "BREAKFAST", 300, 10, 5, 50, 4);
+
+    private sealed class ScriptedHandler(params string[] responses) : HttpMessageHandler
+    {
+        public List<string> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request.RequestUri!.ToString());
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responses[Math.Min(Requests.Count - 1, responses.Length - 1)])
+            });
+        }
+    }
+
     /// <summary>Nutrient values accepted by Google Health API v4 (google.devicesandservices.health.v4.Nutrient).</summary>
     private static readonly string[] GoogleNutrientEnum =
     [

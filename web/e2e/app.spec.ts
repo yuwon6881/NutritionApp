@@ -526,6 +526,14 @@ test('mobile scan shortcut supports food photos and label autofill before review
       await page.getByRole('button',{name:'Save changes',exact:true}).click();
       await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
       await expect(row).not.toHaveClass(/actions-open/);
+      // The swipe-only actions also open from the keyboard below the expanded tier.
+      await surface.focus();
+      await page.keyboard.press('Enter');
+      await expect(row).toHaveClass(/actions-open/);
+      await expect(surface).toHaveAttribute('aria-expanded','true');
+      await page.keyboard.press('Escape');
+      await expect(row).not.toHaveClass(/actions-open/);
+      await expect(page.getByRole('heading',{name:'Batch (1 food)'})).toBeVisible();
       const boxAfter=(await surface.boundingBox())!;
       await page.mouse.move(boxAfter.x+boxAfter.width*.8,boxAfter.y+boxAfter.height/2);
       await page.mouse.down();

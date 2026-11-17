@@ -8,8 +8,10 @@ function knownRecordRevision(current:LocalData,kind:Mutation['kind'],recordId:st
 }
 export function enqueueMutation(current:LocalData,op:Mutation):LocalData{
   if(op.kind==='settings'){
-    const queued=current.queue.find(item=>item.kind==='settings');
-    if(queued)return {...current,queue:current.queue.map(item=>item.id===queued.id?{...item,data:{...(item.data as object),...(op.data as object)}}:item)};
+    // A settings operation that already failed after dispatch (retryAt) may have reached the server
+    // under its idempotency key; merging new data into it would replay that key with a different body.
+    const queued=[...current.queue].reverse().find(item=>item.kind==='settings');
+    if(queued&&queued.retryAt===undefined)return {...current,queue:current.queue.map(item=>item.id===queued.id?{...item,data:{...(item.data as object),...(op.data as object)}}:item)};
     // A control can change again before React receives the preceding acknowledgement.
     const expectedRevision=current.state.settings?.revision??op.expectedRevision;
     return {...current,queue:[...current.queue,{...op,expectedRevision}]};
@@ -69,6 +71,14 @@ export function project(state:AppState,queue:Mutation[]):AppState{
 }
 // Queues saved before rejected edits were dropped may still carry a legacy review marker.
 export function wireMutation(op:Mutation){const {error:_legacy,holdUntil:_hold,retryAt:_retry,...wire}=op as Mutation&{error?:string};return wire;}
+/** Marks a sent operation for retry. Data coalesced into it while in flight becomes its own operation, so a retry replays exactly what was sent. */
+export function markForRetry(queue:Mutation[],sent:Mutation,retryAt:number,newId:()=>string=()=>crypto.randomUUID()):Mutation[]{
+  return queue.flatMap(item=>{
+    if(item.id!==sent.id)return [item];
+    if(JSON.stringify(wireMutation(item))===JSON.stringify(wireMutation(sent)))return [{...item,retryAt}];
+    return [{...sent,retryAt},{...item,id:newId(),retryAt:undefined}];
+  });
+}
 export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision:number,newId=()=>crypto.randomUUID()):Mutation[]{
   // A settings edit can be coalesced while its request is in flight. The
   // queued object then has the same id but newer data; keep it as a fresh

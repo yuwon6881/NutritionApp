@@ -46,4 +46,72 @@ public sealed class ProfileExpenditurePersistenceTests
         Assert.Equal(2225, corrected.Result.Calories);
         Assert.Equal(acceptedJson, (await db.Plans.SingleAsync()).ResultJson);
     }
+
+    [Fact]
+    public async Task A_later_window_rebuild_does_not_reseed_a_corrected_profile_from_the_pre_correction_snapshot()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = await TestUsers.CreateAsync(db, "profile-correction-seed");
+        db.CurrentUser = user.Id;
+        var trajectory = new ExpenditureTrajectoryService(db);
+        var sync = new SyncService(db, trajectory: trajectory);
+        var before = new Profile
+        {
+            Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
+            Goal = "maintain", Maintenance = 3500, TimeZone = "UTC"
+        };
+        await sync.Apply(new(Guid.NewGuid(), "profile", user.Id, 0,
+            JsonSerializer.SerializeToElement(before, Json.Options)), default);
+        var today = ProfileClock.Today(user.ProfileJson);
+        var start = today.AddDays(-(ExpenditureTrajectoryService.BackfillDays - 1));
+        // Yesterday's window left a snapshot just before today's, computed from the old profile.
+        db.ExpenditureEstimates.Add(new DailyExpenditureEstimate
+        {
+            UserId = user.Id, Date = start.AddDays(-1), Expenditure = 3500,
+            SourceRevision = user.TrajectoryRevision, AlgorithmVersion = ExpenditureTrajectory.AlgorithmVersion
+        });
+        await db.SaveChangesAsync();
+
+        await sync.Apply(new(Guid.NewGuid(), "profile", user.Id, user.ProfileRevision,
+            JsonSerializer.SerializeToElement(before with { Maintenance = 2500 }, Json.Options)), default);
+        var corrected = await TodayExpenditure(db, today);
+        Assert.Equal(2500, corrected);
+
+        await trajectory.RebuildFrom(start, user.TrajectoryRevision, default);
+        Assert.Equal(corrected, await TodayExpenditure(db, today));
+    }
+
+    [Fact]
+    public async Task A_partial_rebuild_leaves_the_whole_window_on_the_current_revision()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = await TestUsers.CreateAsync(db, "partial-rebuild-revision");
+        db.CurrentUser = user.Id;
+        var trajectory = new ExpenditureTrajectoryService(db);
+        var sync = new SyncService(db, trajectory: trajectory);
+        var profile = new Profile
+        {
+            Age = 30, HeightCm = 175, WeightKg = 80, Sex = "male", Activity = 1.4,
+            Goal = "maintain", Maintenance = 2500, TimeZone = "UTC"
+        };
+        await sync.Apply(new(Guid.NewGuid(), "profile", user.Id, 0,
+            JsonSerializer.SerializeToElement(profile, Json.Options)), default);
+        var today = ProfileClock.Today(user.ProfileJson);
+        var revision = await sync.Apply(new(Guid.NewGuid(), "entry", Guid.NewGuid(), 0,
+            JsonSerializer.SerializeToElement(new { date = today.AddDays(-1), name = "Rice", calories = 500, quantity = 1, unit = "serving" }, Json.Options)), default);
+
+        // Read straight from the table: EnsureThroughToday would hide a stale window by rebuilding it.
+        var rows = await db.ExpenditureEstimates.AsNoTracking().ToListAsync();
+        Assert.Equal(ExpenditureTrajectoryService.BackfillDays, rows.Count);
+        Assert.All(rows, row => Assert.Equal(revision, row.SourceRevision));
+    }
+
+    private static async Task<double?> TodayExpenditure(AppDb db, DateOnly today)
+        => (await db.ExpenditureEstimates.AsNoTracking().SingleAsync(item => item.Date == today)).Expenditure;
 }

@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {rescaleNutrients} from './nutrients';
+import {describeServing,rescaleNutrients} from './nutrients';
 
 const base = {
   name: 'Rice',
@@ -108,3 +108,13 @@ it('calculates recipe batch nutrients, per-serving targets, and cooked yield den
   expect(per100Calories).toBe(155);
 });
 
+
+it('describing the current serving never rescales its nutrients while the weight is typed', () => {
+  const serving = {...base, calories: 200, quantity: 1, unit: 'serving' as const, portionLabel: 'bowl', portionGrams: null};
+  const afterFive = describeServing(serving, {portionLabel: 'bowl', portionGrams: 5});
+  const afterFifty = describeServing(afterFive, {portionLabel: 'bowl', portionGrams: 50});
+  expect(afterFifty.calories).toBe(200);
+  expect(afterFifty.protein).toBe(2.7);
+  expect(afterFifty.portionGrams).toBe(50);
+  expect(afterFifty.quantity).toBe(1);
+});

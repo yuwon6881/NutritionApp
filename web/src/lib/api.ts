@@ -28,14 +28,21 @@ function checkCooldown(path:string){
   cooldowns.delete(key);
 }
 
+function retryAfterHeader(raw:string|null):number|null{
+  if(raw===null)return null;
+  if(/^\d+$/.test(raw))return Number(raw)*1000;
+  const parsedDate=Date.parse(raw);
+  return Number.isFinite(parsedDate)?Math.max(0,parsedDate-Date.now()):null;
+}
+
 async function responseError(path:string,response:Response):Promise<never>{
   let message=[429,502,503,504].includes(response.status)?'The service is temporarily unavailable. Try again shortly.':'The service could not complete this request.';
   try{message=(await response.json()).message??message;}catch{/* non-JSON gateway response */}
-  if(response.status!==429)throw new ApiError(message,response.status);
-  const raw=response.headers.get('Retry-After');
-  const seconds=raw!==null&&/^\d+$/.test(raw)?Number(raw):null;
-  const parsedDate=raw!==null?Date.parse(raw):NaN;
-  const retryAfterMs=seconds!==null?seconds*1000:Number.isFinite(parsedDate)?Math.max(0,parsedDate-Date.now()):recoverablePath(path)?5000:60000;
+  const stated=retryAfterHeader(response.headers.get('Retry-After'));
+  // A 503 may state when the service expects to be back; callers pace their retry on it, but only
+  // a 429 sets a client cooldown.
+  if(response.status!==429)throw new ApiError(message,response.status,stated,stated===null?null:Date.now()+stated);
+  const retryAfterMs=stated??(recoverablePath(path)?5000:60000);
   const retryAt=Date.now()+retryAfterMs;
   cooldowns.set(rateLimitKey(path),{retryAt,message});
   throw new ApiError(message,429,retryAfterMs,retryAt);
@@ -90,7 +97,7 @@ export async function apiWithMeta<T>(path:string,options?:ApiFetchOptions & { bo
     signal,
     headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(options?.body===undefined?{}:{body:JSON.stringify(options.body)})
-  },retryablePath(path),requestTimeoutMs(path));
+  },!options?.skipAvailabilityRetry&&retryablePath(path),requestTimeoutMs(path));
   const etag=response.headers.get('ETag');
   if(response.status===304)return { data: null, notModified: true, etag };
   if(!response.ok){

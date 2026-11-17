@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {enqueueMutation,project,rebaseAfterOwnWrite,wireMutation} from './projection';
+import {enqueueMutation,markForRetry,project,rebaseAfterOwnWrite,wireMutation} from './projection';
 import {trend} from './format';
 import type {AppState,Mutation} from '../types';
 const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-03-01',entries:[],foods:[],weights:[],days:[{id:'d',revision:1,deleted:false,date:'2026-02-01',status:'complete'}],plans:[]};
@@ -43,6 +43,20 @@ it('uses the latest acknowledged revision when a record edit is queued after a r
   const current={state:{...state,entries:[{...state.entries[0],id:'e1',revision:5}]},queue:[]};
   const op:Mutation={id:'m',kind:'entry',recordId:'e1',expectedRevision:4,delete:false,data:{name:'Oats'}};
   expect(enqueueMutation(current,op).queue[0].expectedRevision).toBe(5);
+});
+it('never merges a new settings edit into an operation that may already have reached the server',()=>{
+  const sent:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'kg'},retryAt:5};
+  const current={state:{...state,settings:{checkInWeekday:1,revision:26}},queue:[sent]};
+  const next=enqueueMutation(current,{id:'later',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{energyUnit:'kj'}});
+  expect(next.queue).toEqual([sent,expect.objectContaining({id:'later',data:{energyUnit:'kj'}})]);
+  const again=enqueueMutation(next,{id:'third',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'lb'}});
+  expect(again.queue).toHaveLength(2);expect(again.queue[1]).toMatchObject({id:'later',data:{energyUnit:'kj',weightUnit:'lb'}});
+});
+it('splits data coalesced in flight from a lost request so the retry replays exactly what was sent',()=>{
+  const sent:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'kg'}};
+  const merged={...sent,data:{weightUnit:'kg',energyUnit:'kj'}};
+  expect(markForRetry([merged],sent,9,()=>'split')).toEqual([{...sent,retryAt:9},{...merged,id:'split',retryAt:undefined}]);
+  expect(markForRetry([sent],sent,9)).toEqual([{...sent,retryAt:9}]);
 });
 it('coalesces settings data without changing the in-flight revision',()=>{
   const queued:Mutation={id:'settings',kind:'settings',recordId:'a',expectedRevision:26,delete:false,data:{weightUnit:'kg'}};

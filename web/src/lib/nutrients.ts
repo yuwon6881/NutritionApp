@@ -52,3 +52,8 @@ export function nutrientRescaleWarning<T extends BasisCarrier>(current:T,next:Ba
     ?'Nutrients were not rescaled — the previous portion has no gram weight. Check these values.'
     :undefined;
 }
+
+/** Names or weighs the current serving without rescaling: the nutrients already describe that serving. */
+export function describeServing<T extends BasisCarrier>(current:T,portion:{portionLabel:string|null;portionGrams:number|null}):T{
+  return {...current,unit:'serving',portionLabel:portion.portionLabel,portionGrams:portion.portionGrams} as T;
+}

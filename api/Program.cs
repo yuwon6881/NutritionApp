@@ -22,7 +22,7 @@ if(int.TryParse(Environment.GetEnvironmentVariable("PORT"),out var cloudRunPort)
 builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadOnChange:false);
 if(!builder.Environment.IsDevelopment()&&(!Uri.TryCreate(builder.Configuration["PublicOrigin"],UriKind.Absolute,out var publicOrigin)||publicOrigin.Scheme!="https"))
     throw new InvalidOperationException("PublicOrigin must be the exact public HTTPS origin in production.");
-builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=2_200_000);
+builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=PhotoService.MaxRequestBodyBytes);
 builder.Services.Configure<ForwardedHeadersOptions>(o=> { o.ForwardedHeaders=ForwardedHeaders.XForwardedProto; });
 builder.Services.AddResponseCompression(o=>
 {

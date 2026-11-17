@@ -59,3 +59,8 @@ export function checkInDue(state:Pick<AppState,'plans'|'profileRevision'|'checkI
 }
 
 export {weekStart as mondayWeekStart};
+
+/** A due check-in may change today's and later targets, so those dates show none until it is answered. */
+export function targetAwaitsCheckIn(state:Pick<AppState,'plans'|'profileRevision'|'checkIns'|'settings'>,date:string,current:string){
+  return date>=current&&checkInDue(state,current);
+}

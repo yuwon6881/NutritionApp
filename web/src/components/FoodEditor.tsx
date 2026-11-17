@@ -6,7 +6,7 @@ import {blankNutrients} from '../types';
 import {Button} from './ui/Button';
 import {Field,SelectField,TimePicker} from './ui/Field';
 
-import {nutrientRescaleWarning,rescaleNutrients} from '../lib/nutrients';
+import {describeServing,nutrientRescaleWarning,rescaleNutrients} from '../lib/nutrients';
 import {measureOf,parsePortions,serializePortions,validatePortions} from '../lib/portions';
 import {energyLabel,inputAmount,inputEnergy,parseEnergy} from '../lib/units';
 import {number} from '../lib/format';
@@ -230,8 +230,8 @@ export function FoodEditor({
       )}
       {labelNote&&<p className="notice" role="status">{labelNote}</p>}
       {!isProviderFood && draft.unit==='serving'&&<div className="form-grid">
-        <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>setBasis({unit:'serving',portionLabel:event.target.value||null,portionGrams:draft.portionGrams})}/>
-        <Field id="food-portion-grams" name="portionGrams" label={`Portion ${amountNoun} (${measure})`} type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>setBasis({unit:'serving',portionLabel:draft.portionLabel,portionGrams:event.target.value===''?null:Number(event.target.value)})} hint="Used to rescale nutrients when the serving basis changes."/>
+        <Field id="food-portion-label" name="portionLabel" label="Portion label (optional)" maxLength={24} validate={()=>draft.portionGrams!=null&&!draft.portionLabel?'Add a portion label or clear its weight.':undefined} value={draft.portionLabel??''} onChange={event=>{const portionLabel=event.target.value||null;setDraft(current=>describeServing(current,{portionLabel,portionGrams:current.portionGrams??null}));}}/>
+        <Field id="food-portion-grams" name="portionGrams" label={`Portion ${amountNoun} (${measure})`} type="number" min="0.1" max="10000" step="any" validate={()=>draft.portionLabel&&draft.portionGrams==null?'Add a portion weight or clear its label.':undefined} value={draft.portionGrams??''} onChange={event=>{const portionGrams=event.target.value===''?null:Number(event.target.value);setDraft(current=>describeServing(current,{portionLabel:current.portionLabel??null,portionGrams}));}} hint="The nutrients above are for this portion; its weight lets a later unit change rescale them."/>
       </div>}
       {isSaveFood&&<Field
         id="food-barcode"

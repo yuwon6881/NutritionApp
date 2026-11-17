@@ -39,7 +39,7 @@ export async function uploadPendingDrafts(options: UploadPendingDraftsOptions): 
         const failure=classifySyncFailure(ex);
         if(failure==='session-expired'){expireSession();return;}
         await commit(c=>({...c,photoDrafts:(c.photoDrafts??[]).map(item=>(item.versionId??item.id)===(draft.versionId??draft.id)
-          ?{...item,...(failure==='rejected'?{error:(ex as Error).message}:{retryAt:Date.now()+(ex instanceof ApiError?ex.retryAfterMs??5000:5000)})}:item)}));
+          ?{...item,...(failure==='rejected'||failure==='conflict'?{error:(ex as Error).message}:{retryAt:Date.now()+(ex instanceof ApiError?ex.retryAfterMs??5000:5000)})}:item)}));
         if(failure==='retry')setError('Photo is retained and will retry when connected.');
       }
     }
@@ -57,7 +57,8 @@ export async function uploadPendingDrafts(options: UploadPendingDraftsOptions): 
         blocked.add(draft.id);
         const failure=classifySyncFailure(ex);
         if(failure==='session-expired'){expireSession();return;}
-        const review=failure==='rejected'||!(ex instanceof ApiError)&&ex instanceof Error&&ex.message.startsWith('This older partial');
+        // A revision conflict will fail the same way on every retry; it waits for review like a rejection.
+        const review=failure==='rejected'||failure==='conflict'||!(ex instanceof ApiError)&&ex instanceof Error&&ex.message.startsWith('This older partial');
         await commit(c=>({...c,bodyDrafts:(c.bodyDrafts??[]).map(item=>item.mutationId===draft.mutationId
           ?{...item,...(review?{error:(ex as Error).message}:{retryAt:Date.now()+(ex instanceof ApiError?ex.retryAfterMs??5000:5000)})}:item)}));
         if(!review)setError('Body record is retained and will retry when connected.');

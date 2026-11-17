@@ -79,11 +79,15 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
                     : null,
                 today, trajectoryPoint.Expenditure, false, phaseDecision, user.WeightGoalMetric ?? "scale",
                 trajectoryPoint.SuggestedCalories != null);
-            result = provisional with
-            {
-                Adaptive = trajectoryPoint.SuggestedCalories != null,
-                Explanation = trajectoryPoint.HoldReason ?? provisional.Explanation
-            };
+            // An ineligible result keeps its own reason: the trajectory's adaptation state and hold
+            // reason describe a target this profile cannot be given.
+            result = provisional.Eligible
+                ? provisional with
+                {
+                    Adaptive = trajectoryPoint.SuggestedCalories != null,
+                    Explanation = trajectoryPoint.HoldReason ?? provisional.Explanation
+                }
+                : provisional;
         }
         // A completed phase gets one immediate maintenance proposal. The decision is explicit,
         // so this is separate from the normal Monday cadence and cannot be triggered by scale data.

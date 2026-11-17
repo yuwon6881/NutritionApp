@@ -9,7 +9,7 @@ import {reloadRetainedWork} from './lib/retainedReload';
 import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import {useSavedFoods} from './useSavedFoods';
 import { today } from './lib/format';
-import { enqueueMutation, project, wireMutation } from './lib/projection';
+import { enqueueMutation, markForRetry, project, wireMutation } from './lib/projection';
 import { dispatchWait, nextDispatchableMutation, undoHeldMutations } from './lib/heldMutations';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
@@ -294,8 +294,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void) {
             const retryDelay = ex instanceof ApiError ? ex.retryAfterMs ?? 5000 : 5000;
             clearTimeout(heldDrainTimer.current);
             heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, retryDelay + 20);
-            await commit(current => ({ ...current, queue: current.queue.map(item => item.id === op.id
-              ? { ...item, retryAt: Date.now() + retryDelay } : item) }));
+            await commit(current => ({ ...current, queue: markForRetry(current.queue, op, Date.now() + retryDelay) }));
           }
           throw ex;
         }

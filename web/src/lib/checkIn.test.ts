@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {checkInDue,checkInSchedule,nextOccurrenceAfter,periodStart,weekStart} from './checkIn';
+import {checkInDue,checkInSchedule,nextOccurrenceAfter,periodStart,targetAwaitsCheckIn,weekStart} from './checkIn';
 import type {AppState} from '../types';
 
 const state=(extra:Partial<AppState>={}):Pick<AppState,'plans'|'profileRevision'|'checkIns'|'settings'>=>({
@@ -67,4 +67,13 @@ describe('selected check-in weekdays',()=>{
 it('ordinary preference revisions do not postpone a due check-in',()=>{
   const saved=state({settings:{checkInWeekday:1,revision:9,changedDate:'2026-09-14'}});
   expect(checkInSchedule(saved,'2026-09-21').due).toBe(true);
+});
+
+describe('targets awaiting a check-in',()=>{
+  it('hides today and later targets while a check-in is due, but never past ones',()=>{
+    expect(targetAwaitsCheckIn(state(),'2026-09-14','2026-09-14')).toBe(true);
+    expect(targetAwaitsCheckIn(state(),'2026-09-15','2026-09-14')).toBe(true);
+    expect(targetAwaitsCheckIn(state(),'2026-09-13','2026-09-14')).toBe(false);
+    expect(targetAwaitsCheckIn(state(),'2026-09-07','2026-09-07')).toBe(false);
+  });
 });

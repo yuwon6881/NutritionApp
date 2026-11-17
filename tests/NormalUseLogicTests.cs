@@ -46,6 +46,12 @@ public sealed class NormalUseLogicTests
         await sync.Apply(Op("settings",user.Id,revision,new{checkInWeekday=5}),default);
         Assert.Equal(user.Revision,user.CadenceRevision);Assert.Equal(today,user.CadenceChangedDate);
     }
+    [Fact] public async Task Changing_the_weight_goal_basis_leaves_the_check_in_cadence_alone(){
+        await using var db=await Open();var user=await db.Users.SingleAsync();var sync=new SyncService(db);
+        await sync.Apply(Op("settings",user.Id,0,new{weightGoalMetric="trend"}),default);
+        Assert.Equal("trend",user.WeightGoalMetric);
+        Assert.Equal(0,user.CadenceRevision);Assert.Null(user.CadenceChangedDate);
+    }
     [Fact] public void Database_failure_is_retryable_unless_it_is_a_known_constraint(){
         Assert.False(DatabaseWriteErrors.IsConflict(new DbUpdateException("connection reset")));
         Assert.True(DatabaseWriteErrors.IsConflict(new DbUpdateException("constraint",new Microsoft.Data.Sqlite.SqliteException("unique",19))));

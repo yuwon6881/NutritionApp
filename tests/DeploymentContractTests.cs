@@ -96,6 +96,25 @@ public sealed class DeploymentContractTests
         Assert.Contains("PublishReadyToRun=true", File.ReadAllText(Path.Combine(RepositoryRoot(), "Dockerfile")));
     }
 
+    [Fact]
+    public void Request_body_limit_fits_a_full_set_of_maximum_size_photos()
+    {
+        var jpeg = new byte[Nutrition.Api.Services.PhotoService.MaxPhotoBytes];
+        jpeg[0] = 0xff; jpeg[1] = 0xd8; jpeg[^2] = 0xff; jpeg[^1] = 0xd9;
+        var image = Convert.ToBase64String(jpeg);
+        Assert.Equal(jpeg.Length, Nutrition.Api.Services.PhotoService.DecodeJpeg(image).Length);
+        var angles = new[] { "front", "side", "back" };
+        Assert.Equal(angles.Length, Nutrition.Api.Services.PhotoService.MaxPhotosPerSet);
+        var set = new Nutrition.Api.Services.PhotoSetInput(Guid.NewGuid(), new DateOnly(2026, 11, 18),
+            angles.Select(angle => new Nutrition.Api.Services.PhotoPart(Guid.NewGuid(), angle, image)).ToList(), Guid.NewGuid(), long.MaxValue);
+        var estimate = new Nutrition.Api.Services.BodyFatEstimateInput(new DateOnly(2026, 11, 18),
+            angles.Select(angle => new Nutrition.Api.Services.BodyFatEstimatePhoto(angle, null, image)).ToList(),
+            new Dictionary<string, double?> { ["waist"] = 80.5, ["hips"] = 95.25, ["chest"] = 101, ["neck"] = 38 });
+        foreach (var request in new object[] { set, estimate })
+            Assert.True(System.Text.Encoding.UTF8.GetByteCount(Nutrition.Api.Services.Json.Write(request)) <= Nutrition.Api.Services.PhotoService.MaxRequestBodyBytes);
+        Assert.Contains("MaxRequestBodySize=PhotoService.MaxRequestBodyBytes", File.ReadAllText(Path.Combine(RepositoryRoot(), "api", "Program.cs")));
+    }
+
     private static string RepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)

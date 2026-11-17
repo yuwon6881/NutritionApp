@@ -3,20 +3,25 @@ import {database} from './local';
 type Lease={owner:string;until:number};
 // The lease excludes other tabs, not this page: a wake runs the outbox drain and draft uploads
 // together, and a per-call owner let whichever started second lock itself out.
-let pageOwner:string|undefined;
-function getPageOwner():string{
-  if(pageOwner)return pageOwner;
+// A reload keeps the tab's stored owner so it can reclaim the lease its previous load still held.
+// Any other start mints a new one: a duplicated tab arrives with a copy of the original's
+// sessionStorage (and a non-reload navigation type), and must not share its lease.
+function navigationIsReload():boolean{
+  try{return (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming|undefined)?.type==='reload';}catch{return false;}
+}
+function createPageOwner():string{
   try{
-    const stored=typeof sessionStorage!=='undefined'?sessionStorage.getItem('dispatch_page_owner'):null;
-    if(stored)return (pageOwner=stored);
+    const stored=navigationIsReload()?sessionStorage.getItem('dispatch_page_owner'):null;
+    if(stored)return stored;
     const generated=crypto.randomUUID();
-    try{sessionStorage?.setItem('dispatch_page_owner',generated);}catch{}
-    return (pageOwner=generated);
+    try{sessionStorage.setItem('dispatch_page_owner',generated);}catch{}
+    return generated;
   }catch{
-    return (pageOwner=crypto.randomUUID());
+    return crypto.randomUUID();
   }
 }
-const owner=()=>getPageOwner();
+let pageOwner:string|undefined;
+const owner=()=>pageOwner??=createPageOwner();
 const holders=new Map<string,number>();
 const renewals=new Map<string,ReturnType<typeof setInterval>>();
 

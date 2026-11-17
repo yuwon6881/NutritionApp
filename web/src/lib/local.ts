@@ -104,6 +104,8 @@ export function database(): Promise<IDBDatabase> {
     };
   });
   connection = opening;
+  // A failed open must not stay cached: the next call (a retry, a wake, a new action) opens afresh.
+  opening.catch(() => { if (connection === opening) connection = undefined; });
   return opening;
 }
 

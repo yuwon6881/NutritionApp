@@ -130,9 +130,15 @@ export async function requestFoodScanEstimate({
   }
   const estimate=parseAiEstimate(job.resultJson);
   const barcodeContext=pendingBarcode;
-  if(!Array.isArray(estimate.foods)||estimate.foods.length===0){
-    if(barcodeContext&&mode==='label')throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
-    throw new Error(estimate.explanation||'AI could not identify a food. Add more detail and try again.');
+  // An unusable result is a confirmed failure: the draft must not stay "submitted" (resuming would
+  // replay the same answer) or reach review, so the next attempt starts a fresh scan.
+  const foods=Array.isArray(estimate.foods)?estimate.foods:[];
+  const unusable=barcodeContext&&mode==='label'
+    ?(foods.length!==1?'The nutrition label must identify exactly one product. Retake the label photo and try again.':null)
+    :(foods.length===0?estimate.explanation||'AI could not identify a food. Add more detail and try again.':null);
+  if(unusable){
+    await persist({...requestDraft,status:'failed',resultJson:null,error:unusable});
+    throw new Error(unusable);
   }
   await persist({...requestDraft,status:'review',imageBase64:null,resultJson:job.resultJson,error:null});
   return {estimate,requestDraft};

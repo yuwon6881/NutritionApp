@@ -43,7 +43,14 @@ internal static class GoogleHealthNutritionProvider
 
     public static async Task<GoogleHealthOperationResult> UpdateAsync(HttpClient http, string token, string resourceName, GoogleHealthNutritionDataPoint data, CancellationToken ct)
     {
-        await DeleteAsync(http, token, resourceName, ct);
+        // Nutrition logs cannot be patched, so an edit is delete-then-create. Creating before the old
+        // copy is confirmed gone would leave both in Google Health.
+        var deleted = await DeleteAsync(http, token, resourceName, ct);
+        if (!deleted.Done)
+            // The retry repeats the delete, which reports an already removed copy as success.
+            return new(true, false, deleted.OperationName, Transient: true, ErrorCategory: "provider_unavailable",
+                ErrorMessage: "Google Health is still removing the previous copy; the update will retry automatically.");
+        if (!deleted.Success) return deleted;
         return await CreateAsync(http, token, data, ct);
     }
 

@@ -20,6 +20,12 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     public const long DefaultMaxBytesPerUser=2147483648L;
     /// A queued photo intent that never produced an upload within this many days is abandoned.
     public const int PendingIntentDays=7;
+    public const int MaxPhotoBytes=750_000;
+    /// One front, side, and back view; a set and a body-fat estimate both carry at most this many inline photos.
+    public const int MaxPhotosPerSet=3;
+    public const int MaxPhotoBase64Length=(MaxPhotoBytes+2)/3*4;
+    /// Kestrel's body cap: a full set of maximum-size photos, Base64-encoded, plus room for the JSON around them.
+    public const long MaxRequestBodyBytes=(long)MaxPhotosPerSet*MaxPhotoBase64Length+256_000;
     public static long MaxBytes(IConfiguration config)=>config.GetValue("Physique:MaxBytesPerUser",DefaultMaxBytesPerUser);
     public bool Configured => store.Configured;
 
@@ -93,7 +99,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         var profileJson=await db.Users.Where(u=>u.Id==db.CurrentUser).Select(u=>u.ProfileJson).SingleOrDefaultAsync(ct);
         Validation.Require(input.Date>=EarliestDate&&input.Date<=ProfileClock.Today(profileJson),"Choose a valid photo date.");
         var parts=input.Photos??Array.Empty<PhotoPart>();
-        Validation.Require(parts.Count<=3,"A physique photo set can contain at most three views.");
+        Validation.Require(parts.Count<=MaxPhotosPerSet,"A physique photo set can contain at most three views.");
         Validation.Require(parts.Select(part=>part.Angle).Distinct(StringComparer.Ordinal).Count()==parts.Count&&parts.All(part=>part.Angle is "front" or "side" or "back"),"Choose one front, side, and back photo at most.");
         Validation.Require(parts.All(part=>part.Id!=Guid.Empty),"Photo identity is required.");
         Validation.Require(parts.Select(part=>part.Id).Distinct().Count()==parts.Count,"Each photo needs its own identity.");
@@ -332,10 +338,10 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     /// The browser prepares, resizes, and strips photos to JPEG; accept nothing else.
     public static byte[] DecodeJpeg(string? imageBase64)
     {
-        Validation.Require(!string.IsNullOrWhiteSpace(imageBase64)&&imageBase64.Length<=1_000_000,"Compress the physique photo below 750 KB.");
+        Validation.Require(!string.IsNullOrWhiteSpace(imageBase64)&&imageBase64.Length<=MaxPhotoBase64Length,"Compress the physique photo below 750 KB.");
         byte[] bytes;
         try{bytes=Convert.FromBase64String(imageBase64!);}catch{throw new DomainException("Invalid photo data.");}
-        Validation.Require(bytes.Length is >4 and <=750000&&bytes[0]==0xff&&bytes[1]==0xd8&&bytes[^2]==0xff&&bytes[^1]==0xd9,"Upload a processed JPEG photo.");
+        Validation.Require(bytes.Length is >4 and <=MaxPhotoBytes&&bytes[0]==0xff&&bytes[1]==0xd8&&bytes[^2]==0xff&&bytes[^1]==0xd9,"Upload a processed JPEG photo.");
         return bytes;
     }
 

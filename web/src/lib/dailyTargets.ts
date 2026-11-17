@@ -64,13 +64,14 @@ export function scaledMacros(result:Pick<CoachResult,'calories'|'protein'|'carbs
 
 /**
  * The accepted plan in force on a date: a historical target interval when one covers it,
- * otherwise the latest accepted plan. A newer profile proposal never counts until accepted.
+ * otherwise the latest accepted plan from its acceptance date on. A date before any plan existed has
+ * no target. A newer profile proposal never counts until accepted.
  */
 export function planForDate(state:Pick<AppState,'plans'|'acceptedTargetIntervals'>,date:string):CoachResult|undefined{
   const accepted=state.plans.find(p=>!p.deleted);
   const latest:CoachResult|undefined=accepted?JSON.parse(accepted.resultJson):undefined;
   const interval=state.acceptedTargetIntervals?.find(i=>i.start<=date&&i.end>=date);
-  if(!interval)return latest;
+  if(!interval)return accepted&&accepted.date<=date?latest:undefined;
   return {version:latest?.version??'2.0.0',eligible:true,adaptive:false,calories:interval.calories,expenditure:null,
     protein:interval.protein!==undefined?interval.protein:latest?.protein??null,
     fat:interval.fat!==undefined?interval.fat:latest?.fat??null,

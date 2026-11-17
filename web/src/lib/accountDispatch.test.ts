@@ -36,6 +36,27 @@ describe('account dispatch lease',()=>{
     expect(rows.has('dispatch:alice')).toBe(false);
   });
 
+  it('gives a duplicated tab its own owner even though it copied sessionStorage',async()=>{
+    const copied=new Map<string,string>();
+    vi.stubGlobal('sessionStorage',{getItem:(key:string)=>copied.get(key)??null,setItem:(key:string,value:string)=>{copied.set(key,value);}});
+    const original=await import('./accountDispatch');
+    expect(await original.acquireAccountDispatch('alice')).toBeDefined();
+    vi.resetModules();
+    const duplicate=await import('./accountDispatch');
+    expect(await duplicate.acquireAccountDispatch('alice')).toBeUndefined();
+    vi.unstubAllGlobals();
+  });
+  it('lets a reloaded page reclaim the lease its previous load still held',async()=>{
+    const stored=new Map<string,string>();
+    vi.stubGlobal('sessionStorage',{getItem:(key:string)=>stored.get(key)??null,setItem:(key:string,value:string)=>{stored.set(key,value);}});
+    const before=await import('./accountDispatch');
+    expect(await before.acquireAccountDispatch('alice')).toBeDefined();
+    vi.resetModules();
+    vi.stubGlobal('performance',{getEntriesByType:()=>[{type:'reload'}]});
+    const reloaded=await import('./accountDispatch');
+    expect(await reloaded.acquireAccountDispatch('alice')).toBeDefined();
+    vi.unstubAllGlobals();
+  });
   it('refuses a live lease held by another page until it expires',async()=>{
     rows.set('dispatch:alice',{owner:'other-tab',until:Date.now()+60000});
     const {acquireAccountDispatch}=await import('./accountDispatch');

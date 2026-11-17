@@ -30,6 +30,21 @@ describe('rate limit recovery',()=>{
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
+  it('honours the retry opt-out on metadata reads too',async()=>{
+    const fetch=vi.fn().mockResolvedValue(new Response('{}',{status:429,headers:{'Retry-After':'1'}}));
+    vi.stubGlobal('fetch',fetch);
+    await expect(apiWithMeta('/bootstrap',{skipAvailabilityRetry:true})).rejects.toMatchObject({status:429});
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a stated Retry-After on an unavailable service without setting a cooldown',async()=>{
+    const fetch=vi.fn().mockResolvedValueOnce(new Response('{}',{status:503,headers:{'Retry-After':'12'}}))
+      .mockResolvedValueOnce(new Response('{}',{status:200}));
+    vi.stubGlobal('fetch',fetch);
+    await expect(api('/sync',{})).rejects.toMatchObject({status:503,retryAfterMs:12000,retryAt:Date.now()+12000});
+    await expect(api('/sync',{})).resolves.toEqual({});
+  });
+
   it('reads HTTP-date Retry-After and clears client cooldowns on account changes',async()=>{
     const fetch=vi.fn().mockResolvedValueOnce(new Response('{}',{status:429,headers:{'Retry-After':new Date(Date.now()+30000).toUTCString()}}))
       .mockResolvedValueOnce(new Response('{}',{status:200}));

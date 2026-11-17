@@ -174,4 +174,27 @@ describe('requestFoodScanEstimate',()=>{
       persist:async()=>undefined,resumeJob
     })).rejects.toThrow('Unclear image');
   });
+it('marks an empty result failed so the next attempt starts a fresh scan',async()=>{
+    const persisted:FoodScanDraft[]=[];
+    const resumeJob=vi.fn(async()=>({id:'scan-empty',status:'complete' as const,resultJson:JSON.stringify({foods:[],explanation:'Unclear image'})}));
+    await expect(requestFoodScanEstimate({
+      ready:true,currentDraft:null,date:'2026-10-17',mode:'description',description:'xyz',photo:null,
+      persist:async d=>{persisted.push(d);},resumeJob
+    })).rejects.toThrow('Unclear image');
+    const last=persisted.at(-1)!;
+    expect(last).toMatchObject({status:'failed',error:'Unclear image'});
+    expect(foodScanDraftForAttempt(last,{date:'2026-10-17',mode:'description',description:'xyz',imageBase64:null},()=>'fresh').id).toBe('fresh');
+  });
+
+  it('never saves a multi-product barcode label result for review',async()=>{
+    const persisted:FoodScanDraft[]=[];
+    const food={name:'A',quantity:1,unit:'serving',calories:1,protein:null,fat:null,carbs:null,fiber:null,notes:''};
+    const resumeJob=vi.fn(async()=>({id:'scan-two',status:'complete' as const,resultJson:JSON.stringify({foods:[food,{...food,name:'B'}],questions:[],explanation:''})}));
+    await expect(requestFoodScanEstimate({
+      ready:true,currentDraft:null,date:'2026-10-17',mode:'label',description:'',photo:'jpeg',pendingBarcode:{code:'12345678',purpose:'log'},
+      persist:async d=>{persisted.push(d);},resumeJob
+    })).rejects.toThrow('exactly one product');
+    expect(persisted.some(d=>d.status==='review')).toBe(false);
+    expect(persisted.at(-1)?.status).toBe('failed');
+  });
 });

@@ -3,6 +3,7 @@ import type {NutritionStore} from '../useNutritionStore';
 import {sharedDiaryCoordinator} from '../lib/diaryCoordinator';
 import {projectedDayCalories} from '../lib/dayIntake';
 import {calendarTarget} from '../lib/calendarProgress';
+import {targetAwaitsCheckIn} from '../lib/checkIn';
 import {dayEnergyPreview} from '../lib/dayEnergyPreview';
 import {today} from '../lib/format';
 import {displayEnergy,energyLabel,unitsFor} from '../lib/units';
@@ -16,8 +17,11 @@ export function DayEnergyPreview({store,date,batchCalories}:{store:NutritionStor
   // The dated cache can finish loading after the review opens; re-read it when it does.
   const [,refresh]=useState(0);
   useEffect(()=>sharedDiaryCoordinator.subscribe(updated=>{if(!updated||updated===date)refresh(value=>value+1);}),[date]);
-  const preview=dayEnergyPreview(projectedDayCalories(store.local,date),batchCalories,calendarTarget(state,date));
-  const heading=date===today(state.profile?.timeZone)?'TODAY AFTER LOGGING':'THIS DAY AFTER LOGGING';
+  const current=today(state.profile?.timeZone);
+  // Same rule as the diary summary: a due check-in may change this target, so none is shown until it is answered.
+  const awaitsCheckIn=!!state.profile&&targetAwaitsCheckIn(state,date,current);
+  const preview=dayEnergyPreview(projectedDayCalories(store.local,date),batchCalories,awaitsCheckIn?null:calendarTarget(state,date));
+  const heading=date===current?'TODAY AFTER LOGGING':'THIS DAY AFTER LOGGING';
   const energy=(value:number)=>`${displayEnergy(value,energyUnit)} ${unit}`;
   // The batch total already heads the review, so this reads only as the day: its new total against
   // the target, and what was there before. The ring carries what is left or over.
@@ -29,7 +33,7 @@ export function DayEnergyPreview({store,date,batchCalories}:{store:NutritionStor
         :<>
           <p className="day-energy-preview-total">
             <strong>{energy(preview.after)}</strong>
-            <span>{preview.target==null?'No target set':`of ${energy(preview.target)} target`}</span>
+            <span>{awaitsCheckIn?'Target appears after your check-in':preview.target==null?'No target set':`of ${energy(preview.target)} target`}</span>
           </p>
           <p className="day-energy-preview-detail"><span className="day-energy-swatch logged" aria-hidden="true"/>{energy(preview.logged)} already logged</p>
         </>}

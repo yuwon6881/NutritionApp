@@ -286,11 +286,15 @@ public class CoachingPersistenceTests
         var date=ProfileClock.Today(user.ProfileJson).AddDays(-40);
         var id=Guid.NewGuid();
         var added=await sync.Apply(new(Guid.NewGuid(),"weight",id,0,JsonSerializer.SerializeToElement(new { date,kg=79.5 })),default);
+        Assert.Equal(79.5,(await db.ExpenditureEstimates.AsNoTracking().SingleAsync(item=>item.Date==date)).TrendWeightKg);
         // A delete carries no date of its own, so the stored date has to drive the rebuild.
         var deleted=await sync.Apply(new(Guid.NewGuid(),"weight",id,added,JsonSerializer.SerializeToElement(new {}),true),default);
 
-        var snapshots=await db.ExpenditureEstimates.AsNoTracking().OrderBy(snapshot=>snapshot.Date).ToListAsync();
-        Assert.Equal(date,snapshots.Where(snapshot=>snapshot.SourceRevision==deleted).Min(snapshot=>snapshot.Date));
+        // Every window row carries the latest revision (untouched days are restamped), so the rebuilt
+        // content proves the start: the deleted weigh-in no longer sets that day's trend weight.
+        var snapshot=await db.ExpenditureEstimates.AsNoTracking().SingleAsync(item=>item.Date==date);
+        Assert.Equal(deleted,snapshot.SourceRevision);
+        Assert.Equal(80,snapshot.TrendWeightKg);
     }
 
     private static AcceptedPlan AcceptedPlan(AppUser user,Profile profile,DateOnly date,double calories,double expenditure)
@@ -350,5 +354,33 @@ public class CoachingPersistenceTests
         var currentPlan = await db.Plans.SingleAsync(p => p.Id == planId);
         Assert.Equal(originalPlanJson, currentPlan.ResultJson);
         Assert.Equal(acceptedPlan.Revision, currentPlan.Revision);
+    }
+
+    [Fact]
+    public async Task Preview_keeps_an_ineligible_result_and_its_explanation_when_a_trajectory_exists()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new AppDb(new DbContextOptionsBuilder<AppDb>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var user = await TestUsers.CreateAsync(db, "trajectory-ineligible");
+        db.CurrentUser = user.Id;
+        var trajectory = new ExpenditureTrajectoryService(db);
+        var sync = new SyncService(db, trajectory: trajectory);
+        var profile = new Profile
+        {
+            Age = 30, HeightCm = 165, WeightKg = 65, Sex = "female", Activity = 1.4,
+            Goal = "maintain", Maintenance = 2100, TimeZone = "UTC", PregnancyOrBreastfeeding = true
+        };
+        await sync.Apply(new(Guid.NewGuid(), "profile", user.Id, 0,
+            JsonSerializer.SerializeToElement(profile, Json.Options)), default);
+        Assert.NotNull((await db.ExpenditureEstimates.AsNoTracking().OrderByDescending(item => item.Date).FirstAsync()).HoldReason);
+
+        var preview = await new CoachingService(db, trajectory).Preview(default);
+
+        Assert.False(preview.Result.Eligible);
+        Assert.False(preview.Result.Adaptive);
+        Assert.False(preview.CanAccept);
+        Assert.StartsWith("Automated targets are unavailable for this profile.", preview.Result.Explanation);
     }
 }

@@ -71,6 +71,13 @@ afterEach(()=>{
 });
 
 describe('durable local recovery',()=>{
+  it('opens afresh after a failed open instead of returning the cached rejection',async()=>{
+    vi.stubGlobal('indexedDB',{open:()=>{throw new Error('denied');}} as unknown as IDBFactory);
+    await expect(database()).rejects.toThrow('unavailable');
+    const fake=fakeDatabase();
+    openWith(fake);
+    await expect(database()).resolves.toBe(fake.db);
+  });
   it('retires a food-basket draft in the same transaction that writes its outbox snapshot',async()=>{
     const fake=fakeDatabase();
     openWith(fake);

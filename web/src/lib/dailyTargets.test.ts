@@ -1,7 +1,15 @@
 import {describe,expect,it} from 'vitest';
-import {allocateWeeklyCalories,adjustWeeklyCalories,dailyCalories,mondayIndex,normaliseDistribution,scaledMacros,targetsForDate,weeklyCalories,weekendDistribution} from './dailyTargets';
+import {allocateWeeklyCalories,adjustWeeklyCalories,dailyCalories,mondayIndex,normaliseDistribution,planForDate,scaledMacros,targetsForDate,weeklyCalories,weekendDistribution} from './dailyTargets';
 
 describe('daily targets',()=>{
+  it('never applies the latest plan to a date before it was accepted',()=>{
+    const plan={id:'p',revision:1,deleted:false,date:'2026-10-05',inputRevision:1,profileRevision:1,resultJson:JSON.stringify({version:'2.0.0',eligible:true,adaptive:false,calories:2000,expenditure:null,protein:150,fat:60,carbs:200,explanation:''})};
+    const state={plans:[plan],acceptedTargetIntervals:[]};
+    expect(planForDate(state,'2026-10-01')).toBeUndefined();
+    expect(planForDate(state,'2026-10-05')?.calories).toBe(2000);
+    expect(planForDate(state,'2026-11-01')?.calories).toBe(2000);
+  });
+
   it('conserves the weekly budget and allocates remainders by stable index',()=>{
     const targets=allocateWeeklyCalories(14001,[0,0,0,0,0,0,100]);
     expect(targets).toEqual([0,0,0,0,0,0,14001]);

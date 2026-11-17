@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-import type {BodyDraft,LocalData} from '../types';
+import type {BodyDraft,LocalData,PhysiqueDraft} from '../types';
 import {api,ApiError} from './api';
 import {uploadPendingDrafts} from './nutritionDraftUpload';
 vi.mock('./api',()=>({api:vi.fn(),ApiError:class extends Error{constructor(message:string,public status:number,public retryAfterMs:number|null=null){super(message);}}}));
@@ -49,4 +49,20 @@ it('retains legacy ambiguous partial drafts for review without issuing replaceme
   const r=runner([{...draft,serverRevision:5,deletePhotoIds:['a'],deleteMutationIds:{a:'unknown-request'}}]);
   await uploadPendingDrafts(r.options);expect(api).not.toHaveBeenCalled();
   expect(r.get().bodyDrafts?.[0].error).toContain('needs review');expect(r.get().bodyDrafts).toHaveLength(1);
+});
+
+it('records a revision conflict for review instead of retrying it and blocking later drafts',async()=>{
+  const r=runner([draft]);vi.mocked(api).mockRejectedValueOnce(new ApiError('Changed elsewhere',409));
+  await uploadPendingDrafts(r.options);
+  expect(r.get().bodyDrafts?.[0].error).toBe('Changed elsewhere');expect(r.get().bodyDrafts?.[0].retryAt).toBeUndefined();
+  expect(r.options.setError).not.toHaveBeenCalled();
+});
+
+it('records a photo conflict for review instead of retrying it',async()=>{
+  const r=runner([]);
+  r.get().photoDrafts=[{id:'photo',date:'2026-09-10',photos:[]} as unknown as PhysiqueDraft];
+  vi.mocked(api).mockRejectedValueOnce(new ApiError('Changed elsewhere',409));
+  await uploadPendingDrafts(r.options);
+  const saved=(r.get().photoDrafts??[])[0];
+  expect(saved?.error).toBe('Changed elsewhere');expect(saved?.retryAt).toBeUndefined();
 });

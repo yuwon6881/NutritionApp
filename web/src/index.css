@@ -1453,6 +1453,7 @@ input:read-only:not([type=checkbox]),input[readonly]{background:color-mix(in srg
 .batch-food-energy{flex-shrink:0;font-variant-numeric:tabular-nums;display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap;text-align:right}
 .batch-food-energy small{margin:0;font-size:.75rem}
 .batch-food-summary>.batch-food-desktop-actions{display:none}
+.batch-food-summary:focus-visible{outline:2px solid var(--ring);outline-offset:-2px;border-radius:12px}
 @keyframes batchFoodIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.batch-food-summary{transition:none}.batch-food{animation:none}}
 .food-basket details>summary{min-height:44px;display:flex;align-items:center;cursor:pointer}

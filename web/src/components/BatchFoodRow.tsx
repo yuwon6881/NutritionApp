@@ -6,6 +6,7 @@ import {displayEnergy,energyLabel} from '../lib/units';
 import {Button} from './ui/Button';
 import {FoodMacroSummary} from './FoodMacroSummary';
 import {isExpandedWindow} from '../lib/breakpoints';
+import {useWindowTier} from './ui/useWindowTier';
 import {swipeOffset,settlesOpen} from '../lib/swipeReveal';
 
 const REVEAL_WIDTH=156;
@@ -36,6 +37,8 @@ export const BatchFoodRow=memo(function BatchFoodRow({
   const [dragOffset,setDragOffset]=useState<number|null>(null);
 
   const currentOffset=dragOffset??(open?-REVEAL_WIDTH:0);
+  // Below the expanded tier the actions sit behind a swipe; the row itself is the keyboard route to them.
+  const keyboardReveal=useWindowTier()!=='expanded';
 
   return (
     <div
@@ -44,6 +47,15 @@ export const BatchFoodRow=memo(function BatchFoodRow({
     >
       <div
         className="batch-food-summary"
+        role={keyboardReveal?'button':undefined}
+        tabIndex={keyboardReveal?0:undefined}
+        aria-expanded={keyboardReveal?open:undefined}
+        aria-controls={keyboardReveal?`batch-actions-${line.key}`:undefined}
+        onKeyDown={event=>{
+          if(!keyboardReveal||event.target!==event.currentTarget)return;
+          if(event.key==='Enter'||event.key===' '){event.preventDefault();onOpen(!open);}
+          else if(event.key==='Escape'&&open){event.preventDefault();event.stopPropagation();onOpen(false);}
+        }}
         onPointerDown={event=>{
           if(!event.isPrimary||event.button!==0||isExpandedWindow())return;
           suppressClick.current=false;
@@ -129,7 +141,7 @@ export const BatchFoodRow=memo(function BatchFoodRow({
         </div>
       </div>
 
-      <div className="batch-food-actions" inert={!open||undefined} aria-hidden={!open}>
+      <div id={`batch-actions-${line.key}`} className="batch-food-actions" inert={!open||undefined} aria-hidden={!open}>
         <Button size="sm" variant="secondary" onClick={onEdit} tabIndex={open?0:-1}>
           Edit
         </Button>
