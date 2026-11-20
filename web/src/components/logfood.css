@@ -83,7 +83,7 @@
 .ai-description-field{position:relative;margin-bottom:16px}
 .ai-description-field>.field{margin-bottom:0}
 .ai-description-field.is-analyzing textarea,.ai-details-field.is-analyzing textarea{opacity:1;color:var(--foreground);border-color:color-mix(in srgb,var(--primary) 42%,var(--border));background:var(--muted)}
-.ai-description-progress{position:absolute;left:1px;right:1px;bottom:1px;height:2px;border-radius:0 0 13px 13px;overflow:hidden;pointer-events:none;background:color-mix(in srgb,var(--primary) 14%,transparent)}
+.ai-description-progress{position:absolute;left:14px;right:14px;bottom:1px;height:2px;border-radius:999px;overflow:hidden;pointer-events:none;background:color-mix(in srgb,var(--primary) 14%,transparent)}
 .ai-description-progress::after{content:'';position:absolute;inset:0 auto 0 0;width:36%;border-radius:999px;background:var(--primary);animation:aiDescriptionSweep 1.6s var(--motion-ease) infinite}
 @keyframes aiDescriptionSweep{0%{transform:translateX(-110%)}100%{transform:translateX(380%)}}
 @media(prefers-reduced-motion:reduce){
