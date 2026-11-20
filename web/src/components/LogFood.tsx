@@ -84,6 +84,7 @@ export function LogFood({
   const [saveFood,setSaveFood]=useState<Food|true|false>(false);
   const [labelNote,setLabelNote]=useState('');
   const [error,setError]=useState('');
+  const [aiAction,setAiAction]=useState<'prepare'|'analyze'|null>(null);
   const [batchTime,setBatchTime]=useState<string|undefined>(undefined);
   const {busy,run:runAction,pending:busyPending}=useAsyncAction();
   const [camera,setCamera]=useState(false);
@@ -401,13 +402,13 @@ export function LogFood({
     />}
     {tab==='search'&&selectionPurpose==='log'&&!pendingBarcode&&!query.trim()&&!searchRows.length&&<LogFoodRecents sections={recentSections} minutes={nowHours*60+nowMinutes} energyUnit={energyUnit} onPick={reviewRecent}/>}
     {(tab==='ai'||pendingBarcode)&&<LogFoodAiForm
-      date={date} busy={busy} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}
+      date={date} busy={busy&&aiAction==='analyze'} preparingPhoto={busy&&aiAction==='prepare'} pending={busyPending} pendingBarcode={pendingBarcode} mode={mode}
       onModeChange={value=>{setMode(value);setPhoto(null);}}
       description={description} onDescriptionChange={setDescription} photo={photo}
-      onPhotoFile={file=>void run(async()=>{await scan.attachPhoto(await prepareImage(file));})}
+      onPhotoFile={file=>void run(async()=>{setAiAction('prepare');try{await scan.attachPhoto(await prepareImage(file));}finally{setAiAction(null);}})}
       onClearPhoto={()=>setPhoto(null)} hasSavedReview={hasSavedScanReview}
       scanDraft={scanDraft} storageError={scan.storageError}
-      onSubmit={()=>void run(async()=>{await submitAiEstimate();hapticTick('success');})}
+      onSubmit={()=>void run(async()=>{setAiAction('analyze');try{await submitAiEstimate();hapticTick('success');}finally{setAiAction(null);}})}
       autoCapture={autoLabelCamera} onAutoCaptureDone={()=>setAutoLabelCamera(false)}
       onBackToBarcode={()=>{setPendingBarcode(undefined);setTab('barcode');}}
     />}

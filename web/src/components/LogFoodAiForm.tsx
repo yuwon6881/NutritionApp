@@ -7,7 +7,6 @@ import {TextArea} from './ui/Field';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {Form} from './ui/Form';
 import {ScanOverlay} from './ui/ScanOverlay';
-import {AiDescribeProgress} from './AiDescribeProgress';
 import {backCoordinator} from '../lib/appHistory';
 import {isNativeApp} from '../lib/nativeApp';
 import type {AiMode, PendingBarcode} from './useFoodScanDraft';
@@ -39,7 +38,8 @@ const useIsMobile = () => {
 export function LogFoodAiForm({
   date,
   busy,
-  pending=busy,
+  preparingPhoto=false,
+  pending=busy||preparingPhoto,
   pendingBarcode,
   mode,
   onModeChange,
@@ -60,6 +60,7 @@ export function LogFoodAiForm({
   onAutoCaptureDone?:()=>void;
   date:string;
   busy:boolean;
+  preparingPhoto?:boolean;
   pending?:boolean;
   pendingBarcode?:PendingBarcode;
   mode:AiMode;
@@ -173,6 +174,12 @@ export function LogFoodAiForm({
     : scanDraft?.status === 'submitted' ? 'Resume analysis'
     : mode === 'label' ? 'Analyze label' : 'Analyze meal';
 
+  const busyMessage = mode === 'description'
+    ? 'Estimating nutrients from your description. Saved on this device so it can resume if the connection drops.'
+    : mode === 'label'
+      ? 'Reading nutrition facts from your label. Saved on this device so it can resume if the connection drops.'
+      : 'Estimating nutrients from your photo. Saved on this device so it can resume if the connection drops.';
+
   return <Form onSubmit={onSubmit} className="ai-logging-form">
     {pendingBarcode && <>
       <div className="editor-back-nav">
@@ -201,7 +208,7 @@ export function LogFoodAiForm({
     )}
 
     {mode === 'description' && (
-      <div className={busy ? 'ai-description-reading' : undefined}>
+      <div className={busy ? 'ai-description-field is-analyzing' : 'ai-description-field'} aria-busy={busy || undefined}>
         <TextArea
           id="ai-meal-description"
           name="description"
@@ -213,6 +220,7 @@ export function LogFoodAiForm({
           onChange={event => onDescriptionChange(event.target.value)}
           placeholder="150 g coconut rice, one egg, sambal, cucumber, peanuts…"
         />
+        {busy && <span className="ai-description-progress" aria-hidden="true" />}
       </div>
     )}
 
@@ -239,7 +247,7 @@ export function LogFoodAiForm({
           <AiPhotoPicker isMobile={isMobile} pending={pending} onCamera={triggerCamera} onGallery={triggerGallery} onFile={onPhotoFile} />
         ) : (
           <div className="ai-photo-card">
-            <figure className="ai-photo-preview">
+            <figure className={busy ? 'ai-photo-preview is-scanning' : 'ai-photo-preview'}>
               <div className="ai-photo-image-frame">
                 <img
                   src={`data:image/jpeg;base64,${photo}`}
@@ -310,16 +318,18 @@ export function LogFoodAiForm({
         )}
 
         {detailsOpen ? (
-          <TextArea
-            id="ai-photo-details"
-            name="details"
-            disabled={pending}
-            label="Additional details (optional)"
-            rows={2}
-            maxLength={3000}
-            value={description}
-            onChange={event => onDescriptionChange(event.target.value)}
-          />
+          <div className={busy ? 'ai-details-field is-analyzing' : 'ai-details-field'}>
+            <TextArea
+              id="ai-photo-details"
+              name="details"
+              disabled={pending}
+              label="Additional details (optional)"
+              rows={2}
+              maxLength={3000}
+              value={description}
+              onChange={event => onDescriptionChange(event.target.value)}
+            />
+          </div>
         ) : (
           <Button
             type="button"
@@ -338,8 +348,8 @@ export function LogFoodAiForm({
 
     {hasSavedReview && <p className="notice" role="status">This scan is saved on this device and ready for review.</p>}
     {failed && <p className="notice" role="status">{interrupted ? 'The photo is retained on this device. Retry will use the same scan identity.' : 'The previous scan failed. Try again to start a new scan; the failed request will not be duplicated.'}</p>}
-    {busy && mode === 'description' && <AiDescribeProgress/>}
-    {busy && mode !== 'description' && <p className="ai-busy-status" role="status">Analyzing nutrients. This scan is saved on this device, so it can resume if the connection drops.</p>}
+    {preparingPhoto && <p className="ai-busy-status" role="status">Preparing photo…</p>}
+    {busy && <p className="ai-busy-status" role={mode === 'description' ? 'status' : undefined}>{busyMessage}</p>}
     {storageError && <p className="error" role="alert">{storageError}</p>}
     <div className="modal-actions">
       <Button variant="primary" disabled={pending || !!storageError} type="submit">

@@ -80,11 +80,21 @@
 
 /* AI logging. */
 .ai-logging-form>h3{margin-bottom:14px}
-.ai-photo-card{margin:0 0 16px}
-.ai-photo-preview{margin:0;border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.ai-description-field{position:relative;margin-bottom:16px}
+.ai-description-field>.field{margin-bottom:0}
+.ai-description-field.is-analyzing textarea,.ai-details-field.is-analyzing textarea{opacity:1;color:var(--foreground);border-color:color-mix(in srgb,var(--primary) 42%,var(--border));background:var(--muted)}
+.ai-description-progress{position:absolute;left:1px;right:1px;bottom:1px;height:2px;border-radius:0 0 13px 13px;overflow:hidden;pointer-events:none;background:color-mix(in srgb,var(--primary) 14%,transparent)}
+.ai-description-progress::after{content:'';position:absolute;inset:0 auto 0 0;width:36%;border-radius:999px;background:var(--primary);animation:aiDescriptionSweep 1.6s var(--motion-ease) infinite}
+@keyframes aiDescriptionSweep{0%{transform:translateX(-110%)}100%{transform:translateX(380%)}}
+@media(prefers-reduced-motion:reduce){
+  .ai-description-progress::after{animation:none;width:100%;opacity:.45;transform:none}
+}
+.ai-photo-card{margin:0 0 12px}
+.ai-photo-preview{margin:0;border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.04);transition:border-color var(--motion-control) ease}
 :root[data-theme=dark] .ai-photo-preview{background:var(--raised);border-color:var(--border);box-shadow:none}
-.ai-photo-image-frame{position:relative;width:100%;max-height:220px;overflow:hidden;background:var(--muted);display:flex;align-items:center;justify-content:center}
-.ai-photo-preview img{display:block;width:100%;height:200px;object-fit:cover;background:var(--muted);animation:logFoodRise var(--motion-panel) var(--motion-ease) both}
+.ai-photo-preview.is-scanning,:root[data-theme=dark] .ai-photo-preview.is-scanning{border-color:color-mix(in srgb,var(--primary) 42%,var(--border))}
+.ai-photo-image-frame{position:relative;width:100%;max-height:200px;overflow:hidden;background:var(--muted);display:flex;align-items:center;justify-content:center}
+.ai-photo-preview img{display:block;width:100%;height:164px;object-fit:cover;background:var(--muted);animation:logFoodRise var(--motion-panel) var(--motion-ease) both}
 :root .button.ai-photo-overlay-remove{position:absolute!important;top:10px!important;right:10px!important;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;max-width:32px!important;max-height:32px!important;aspect-ratio:1!important;padding:0!important;gap:0!important;line-height:0!important;border-radius:50%!important;background:rgba(15,23,42,.65)!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2)!important;color:#fff!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;z-index:2;cursor:pointer;transition:transform 120ms ease,background-color 120ms ease!important}
 @media (hover:hover) and (pointer:fine){
   :root .button.ai-photo-overlay-remove:hover:not(:disabled){background:rgba(15,23,42,.85)!important;transform:scale(1.08)}
@@ -102,13 +112,13 @@
 @media (hover:hover) and (pointer:fine){
   :root .button.ai-photo-action-btn:hover:not(:disabled){background:var(--primary-tint)!important;border-color:color-mix(in srgb,var(--primary) 35%,var(--border))!important;color:var(--primary-ink)!important}
 }
-.ai-details-toggle{align-self:flex-start}
+.ai-logging-form>.ai-details-toggle{align-self:flex-start;margin:0 0 8px}
 @media (max-width:639px){
   .ai-photo-preview img{height:190px}
   .ai-photo-preview-bar{padding:8px 10px}
   :root .button.ai-photo-action-btn{min-height:36px!important;padding:4px 10px!important}
 }
-.ai-busy-status{margin:0 0 12px;font-size:.875rem}
+.ai-busy-status{margin:0 0 12px;font-size:.8125rem;line-height:1.45;color:var(--muted-foreground)}
 .file-input-library{margin-top:8px;align-self:flex-start}
 @media (max-width:1023px){.file-input-library{min-height:44px}}
 .spin-icon{animation:spin 900ms linear infinite}
