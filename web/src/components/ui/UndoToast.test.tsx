@@ -43,7 +43,7 @@ describe('UndoToastHost', () => {
   });
 
   it('caps messages that exceed MAX_TOAST_MESSAGE_LENGTH with ellipsis and full title', () => {
-    const longMessage = 'Deleted '.padEnd(120, 'Delicious Protein Shake with Extra Oats and Bananas ');
+    const longMessage = 'Deleted '.padEnd(180, 'Delicious Protein Shake with Extra Oats and Bananas ');
     showNotice(longMessage);
     const html = renderToStaticMarkup(createElement(UndoToastHost));
 

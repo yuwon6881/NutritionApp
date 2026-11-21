@@ -2,7 +2,7 @@
  * Ergonomics and calculations for toast dismiss gestures and message limits.
  */
 
-export const MAX_TOAST_MESSAGE_LENGTH = 80;
+export const MAX_TOAST_MESSAGE_LENGTH = 140;
 export const TOAST_SWIPE_THRESHOLD_PX = 60;
 export const TOAST_FLICK_THRESHOLD_PX = 30;
 export const TOAST_FLICK_MAX_TIME_MS = 280;

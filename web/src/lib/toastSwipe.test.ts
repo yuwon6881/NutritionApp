@@ -22,7 +22,7 @@ describe('formatToastMessage', () => {
   });
 
   it('caps messages that exceed the limit with an ellipsis', () => {
-    const long = 'Deleted '.padEnd(120, 'Very Delicious Food Item Name ');
+    const long = 'Deleted '.padEnd(180, 'Very Delicious Food Item Name ');
     const capped = formatToastMessage(long);
 
     expect(capped.length).toBeLessThanOrEqual(MAX_TOAST_MESSAGE_LENGTH);
