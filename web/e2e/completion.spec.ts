@@ -61,10 +61,22 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'] as const){
   });
 }
 
+async function queueLength(page:Page){return page.evaluate(async()=>{
+  const db=await new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open('nutrition-local');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+  try{return await new Promise<number>((resolve,reject)=>{const r=db.transaction('mutations').objectStore('mutations').getAll();r.onsuccess=()=>resolve(r.result.reduce((n,row)=>n+(row.queue?.length??0),0));r.onerror=()=>reject(r.error);});}finally{db.close();}
+});}
+
 test('a new terminal rejection permits the next independent write in the same drain',async({page,context})=>{
   await seed(page);
   await page.locator('.weight-history-card').scrollIntoViewIfNeeded();
   await expect(page.getByRole('button',{name:/^More actions for weigh-in from /}).first()).toBeVisible();
+  // The seed's not-logging preference makes the app queue a decision for each of the ~43 unlogged
+  // days since the oldest weigh-in, sent one at a time. Let that backlog sync first, so the drain
+  // below carries only the two weigh-in edits rather than a variable remainder of day decisions.
+  await expect.poll(async()=>{
+    const state=await (await page.request.get('/api/state')).json() as {days?:{date:string}[]};
+    return (state.days??[]).some(day=>day.date===shifted(-2))&&await queueLength(page)===0;
+  },{timeout:30000}).toBe(true);
   await context.setOffline(true);
   for(const index of [0,1]){
     await page.locator('.weigh-in-row').nth(index).getByRole('button',{name:/^More actions for weigh-in from /}).click();await page.getByRole('button',{name:'Edit weigh-in',exact:true}).click();
