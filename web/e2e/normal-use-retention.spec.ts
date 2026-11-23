@@ -11,10 +11,16 @@ async function queueCount(page:Page){return page.evaluate(async()=>{
   const db=await new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open('nutrition-local');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
   try{return await new Promise<number>((resolve,reject)=>{const r=db.transaction('mutations').objectStore('mutations').getAll();r.onsuccess=()=>resolve(r.result.reduce((n,row)=>n+(row.queue?.length??0),0));r.onerror=()=>reject(r.error);});}finally{db.close();}
 });}
+// Offline saves load code chunks the tab may not have fetched yet; only a controlling service worker serves them.
+async function controlled(page:Page){
+  await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
+  await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBeTruthy();
+}
 test('two tabs retain offline edits across reload and drain both edits after reconnect',async({request,context,page})=>{
   const session=await seedMobileUser(request,'two-tab-retained',[]);await context.addCookies(session.cookies);
   await page.goto('/');await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   const second=await context.newPage();await second.goto('/');await expect(second.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+  await controlled(page);await controlled(second);
   await context.setOffline(true);await weight(page,'81');await weight(second,'82');
   await expect.poll(()=>queueCount(page)).toBe(2);
   await page.reload();await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
