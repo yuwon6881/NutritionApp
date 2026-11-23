@@ -14,17 +14,6 @@ for (const theme of ['light', 'dark']) {
     const provider = new Promise<void>(resolve => {releaseProvider = resolve;});
     const uploads = new Promise<void>(resolve => {releaseUploads = resolve;});
     let refreshes = 0;
-    await page.route('**/api/integrations/google-health/sync', async route => {
-      if (route.request().postDataJSON().force) {
-        refreshes++;
-        await provider;
-        await route.fulfill({json: {...saved, freshness: 'fresh', days: [{date, count: 9876}]}});
-      } else await route.fulfill({json: saved});
-    });
-    await page.route('**/api/integrations/google-health/sync-data', async route => {
-      await uploads;
-      await route.fulfill({json: {...saved, weightSync: {...pending, state: 'idle', pendingCount: 0}}});
-    });
     try {
       await signIn(page, 'test-alice');
       const state = await (await page.request.get('/api/state')).json();
@@ -38,6 +27,20 @@ for (const theme of ['light', 'dark']) {
         expect(response.ok(), await response.text()).toBeTruthy();
       }
       await ensureAcceptedPlan(page.request);
+      // signIn leaves the app running, and once a profile exists its Dashboard starts its own launch
+      // refresh. Leave that page before counting, so only the load under test reaches these routes.
+      await page.goto('about:blank');
+      await page.route('**/api/integrations/google-health/sync', async route => {
+        if (route.request().postDataJSON().force) {
+          refreshes++;
+          await provider;
+          await route.fulfill({json: {...saved, freshness: 'fresh', days: [{date, count: 9876}]}});
+        } else await route.fulfill({json: saved});
+      });
+      await page.route('**/api/integrations/google-health/sync-data', async route => {
+        await uploads;
+        await route.fulfill({json: {...saved, weightSync: {...pending, state: 'idle', pendingCount: 0}}});
+      });
       await page.goto('/');
       await page.getByRole('button', {name: 'Dashboard', exact: true}).click();
       const card = page.locator('.steps-chip');

@@ -68,3 +68,10 @@ jobs:
         working-directory: web
       - run: npm run test:visual
         working-directory: web
+      # Intermittent failures are diagnosed from their traces and page snapshots; keep them.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: nutrition-browser-test-results
+          path: web/test-results/
+          retention-days: 14
