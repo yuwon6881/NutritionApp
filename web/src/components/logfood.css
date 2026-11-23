@@ -83,11 +83,15 @@
 .ai-description-field{position:relative;margin-bottom:16px}
 .ai-description-field>.field{margin-bottom:0}
 .ai-description-field.is-analyzing textarea,.ai-details-field.is-analyzing textarea{opacity:1;color:var(--foreground);border-color:color-mix(in srgb,var(--primary) 42%,var(--border));background:var(--muted)}
-.ai-description-progress{position:absolute;left:14px;right:14px;bottom:1px;height:2px;border-radius:999px;overflow:hidden;pointer-events:none;background:color-mix(in srgb,var(--primary) 14%,transparent)}
-.ai-description-progress::after{content:'';position:absolute;inset:0 auto 0 0;width:36%;border-radius:999px;background:var(--primary);animation:aiDescriptionSweep 1.6s var(--motion-ease) infinite}
-@keyframes aiDescriptionSweep{0%{transform:translateX(-110%)}100%{transform:translateX(380%)}}
+/* One light rides the textarea's own bottom border (no second track line); the mask fades it out before the rounded corners. */
+.ai-description-progress{position:absolute;left:14px;right:14px;bottom:-6px;height:13px;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
+.ai-description-progress::before,.ai-description-progress::after{content:'';position:absolute;left:0;width:42%;transform:translateX(-100%);animation:aiDescriptionSweep 2.8s cubic-bezier(.45,0,.25,1) infinite}
+.ai-description-progress::before{top:0;bottom:0;background:radial-gradient(50% 50% at 50% 50%,color-mix(in srgb,var(--primary) 30%,transparent),transparent);filter:blur(2px)}
+.ai-description-progress::after{top:6px;height:1px;background:linear-gradient(90deg,transparent,var(--primary) 50%,transparent)}
+@keyframes aiDescriptionSweep{0%{transform:translateX(-100%)}72%,100%{transform:translateX(238%)}}
 @media(prefers-reduced-motion:reduce){
-  .ai-description-progress::after{animation:none;width:100%;opacity:.45;transform:none}
+  .ai-description-progress::before,.ai-description-progress::after{animation:none;transform:translateX(69%)}
+  .ai-description-progress::before{opacity:.6}
 }
 .ai-photo-card{margin:0 0 12px}
 .ai-photo-preview{margin:0;border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.04);transition:border-color var(--motion-control) ease}

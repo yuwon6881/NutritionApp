@@ -95,14 +95,14 @@ test('Describe, Photo, and Label loading states stay calm and aligned across wid
   await expect(page.locator('.ai-describe-progress')).toHaveCount(0);
   await expect(page.getByText('Estimating nutrients from your description.', { exact: false })).toBeVisible();
 
-  // Verify the bottom progress bar sits flush with the textarea's bottom edge and stays inside its rounded corners.
+  // Verify the progress light rides the textarea's own bottom border (centred on it, not a second line above it) and stays inside its rounded corners.
   const alignment = await page.evaluate(() => {
     const textareaEl = document.querySelector('#ai-meal-description')!;
     const textarea = textareaEl.getBoundingClientRect();
     const radius = parseFloat(getComputedStyle(textareaEl).borderBottomLeftRadius) || 0;
     const bar = document.querySelector('.ai-description-progress')!.getBoundingClientRect();
     return {
-      bottomDelta: Math.abs(bar.bottom - (textarea.bottom - 1)),
+      bottomDelta: Math.abs((bar.top + bar.bottom) / 2 - (textarea.bottom - 0.5)),
       leftInset: bar.left - textarea.left,
       rightInset: textarea.right - bar.right,
       radius,
