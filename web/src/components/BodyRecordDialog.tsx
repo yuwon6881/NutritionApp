@@ -216,7 +216,10 @@ export function BodyRecordDialog({open,record,photoSet=false,store,restoreFocus,
       </section>)}
 
       <section className="body-form-section body-photo-section">
-        <div className="body-form-section-header"><h3>Photos</h3><p className="source">Optional. Replace or remove one view without changing the other angles.</p></div>
+        <div className="body-form-section-header"><h3>Photos</h3>
+          {!photoSet&&<p className="source">Optional. Add, replace, or remove each view individually.</p>}
+          {photoSet&&!record&&<p className="source">Choose at least one view.</p>}
+        </div>
         <div className="physique-upload-grid">
           {slots.map(slot=>{
             const preview=slot.imageBase64?'data:image/jpeg;base64,'+slot.imageBase64:slot.existing?.status==='complete'&&!slot.deleted?photoContentUrl(slot.existing):undefined;
