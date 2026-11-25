@@ -6,7 +6,7 @@ namespace Nutrition.Api.Services;
 
 public record PhotoPart(Guid Id,string Angle,string? ImageBase64);
 public record PhotoSetInput(Guid Id,DateOnly Date,IReadOnlyList<PhotoPart> Photos,Guid? MutationId=null,long? ExpectedRevision=null);
-public record PhotoView(Guid Id,Guid SetId,DateOnly Date,string Angle,int Bytes,string Status);
+public record PhotoView(Guid Id,Guid SetId,DateOnly Date,string Angle,int Bytes,string Status,string? Generation=null);
 public record PhotoSetView(Guid Id,DateOnly Date,IReadOnlyList<PhotoView> Photos);
 public record PhotoPage(bool Configured,long UsedBytes,long MaxBytes,IReadOnlyList<PhotoSetView> Sets,string? NextCursor,bool HasMore);
 public record PhotoLegacyPage(bool Configured,long UsedBytes,long MaxBytes,IReadOnlyList<PhotoView> Photos);
@@ -249,14 +249,14 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     public async Task<(byte[] Bytes,string? Generation)> ContentWithMetadata(Guid id,CancellationToken ct)
     {
         var photo=await Visible(id,ct);
-        return (await store.Get(photo.ObjectPath,ct),photo.ObjectGeneration);
+        return (await store.Get(photo.ObjectPath,ct,photo.ObjectGeneration),photo.ObjectGeneration);
     }
 
     /// The stored generation alone identifies the bytes, so a conditional request is answered from the database without reading the object.
     public async Task<string?> Generation(Guid id,CancellationToken ct)=>(await Visible(id,ct)).ObjectGeneration;
 
     private async Task<PhysiquePhoto> Visible(Guid id,CancellationToken ct)
-        =>await db.Photos.AsNoTracking().SingleOrDefaultAsync(p=>p.Id==id&&!p.Deleted&&p.Status=="complete",ct)??throw new DomainException("Photo not found.",404);
+        =>await db.Photos.AsNoTracking().SingleOrDefaultAsync(p=>p.Id==id&&!p.Deleted&&(p.Status=="complete"||p.ObjectGeneration!=null),ct)??throw new DomainException("Photo not found.",404);
 
     public async Task Delete(Guid id,CancellationToken ct)
     {
@@ -345,7 +345,8 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         return bytes;
     }
 
-    public static PhotoView View(PhysiquePhoto photo)=>new(photo.Id,photo.SetId,photo.Date,photo.Angle,photo.Bytes,photo.Status);
+    public static PhotoView View(PhysiquePhoto photo)=>new(photo.Id,photo.SetId,photo.Date,photo.Angle,photo.Bytes,
+        photo.Status=="uploading"?photo.ObjectGeneration is null?"pending":"complete":photo.Status,photo.ObjectGeneration);
 
     private sealed record PreparedPhoto(PhotoPart Part,byte[] Bytes,string Hash);
     private sealed record PendingUpload(PhysiquePhoto Photo,byte[] Bytes,string Hash,bool Replace,string? ExpectedGeneration);

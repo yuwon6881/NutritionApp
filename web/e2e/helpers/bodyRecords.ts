@@ -28,12 +28,9 @@ export const bodyFatEstimate={
   inputsUsed:{photos:3,heightCm:170,sex:'female',age:30,scaleKg:78.4,trendKg:null,measurementKeys:['neckCm','waistCm']}
 };
 
-// A tiny JPEG-shaped payload; the frame only needs a decodable image response.
-const jpeg=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==','base64');
-
 export async function mockBodyRecords(page:Page,estimate:object|null=bodyFatEstimate){
   const pageBody=JSON.stringify({accountId:'account',revision:1,configured:true,usedBytes:1,maxBytes:2,records:bodyRecords,nextCursor:null,hasMore:false});
   await page.route(/\/api\/body-records(\?.*)?$/,route=>route.request().method()==='GET'?route.fulfill({contentType:'application/json',body:pageBody}):route.continue());
-  await page.route(/\/api\/photos\/[^/]+\/content/,route=>route.fulfill({contentType:'image/jpeg',body:jpeg}));
+  await page.route(/\/api\/photos\/[^/]+\/content/,route=>route.fulfill({path:'public/icon-512.png',contentType:'image/png'}));
   if(estimate)await page.route('**/api/body-records/body-fat-estimate',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(estimate)}));
 }

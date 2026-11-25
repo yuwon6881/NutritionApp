@@ -1,4 +1,9 @@
-import type {BodyMeasurementKey,PhysiqueAngle} from '../types';
+import type {BodyMeasurementKey,PhysiqueAngle,PhysiquePhoto} from '../types';
+
+export function photoContentUrl(photo:PhysiquePhoto){
+  const path=`/api/photos/${photo.id}/content`;
+  return photo.generation?`${path}?v=${encodeURIComponent(photo.generation)}`:path;
+}
 
 /** One vocabulary for Body records: angles, measurement groups, and labels. */
 export const angles:PhysiqueAngle[]=['front','side','back'];

@@ -2,7 +2,7 @@ import {useEffect,useRef,useState,type ChangeEvent,type FormEvent} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {BodyDraft,BodyMeasurementKey,BodyRecord,BodyWeightContext,PhysiqueAngle,PhysiquePhoto} from '../types';
 import {api} from '../lib/api';
-import {today} from '../lib/format';
+import {readableDate,today} from '../lib/format';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
 import {Modal} from './ui/Modal';
@@ -14,7 +14,7 @@ import {Field} from './ui/Field';
 import {FileInput} from './ui/FileInput';
 import {prepareImage} from '../lib/image';
 import {unitsFor} from '../lib/units';
-import {allMeasurementKeys,angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementGroups,measurementLabel,toCentimetres} from '../lib/bodyMeasurements';
+import {allMeasurementKeys,angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementGroups,measurementLabel,photoContentUrl,toCentimetres} from '../lib/bodyMeasurements';
 import {buildEstimateRequest} from '../lib/bodyFatEstimate';
 import {BodyFatEstimate} from './body/BodyFatEstimate';
 import {useOnlineStatus} from './ui/useOnlineStatus';
@@ -31,24 +31,25 @@ async function captureBodyContext(store:NutritionStore,date:string):Promise<Body
   return {scaleKg:scale?.kg??null,scaleDate:scale?.date??null,trendKg:trend?.trendKg??null,trendDate:trend?.date??null,capturedAt:new Date().toISOString(),calculationVersion:'coach-trend-half-life-7d-v1',provenance:'cached'};
 }
 
-type BodySlot={angle:PhysiqueAngle;id:string;existing?:PhysiquePhoto;imageBase64?:string;changed:boolean;deleted:boolean;fileKey:number};
+type BodySlot={angle:PhysiqueAngle;id:string;existing?:PhysiquePhoto;imageBase64?:string;changed:boolean;deleted:boolean};
 
 function makeBodySlots(record?:BodyRecord):BodySlot[]{
   return angles.map(angle=>{
     const existing=record?.photos.find(photo=>photo.angle===angle&&photo.status!=='deleted');
-    return {angle,id:existing?.id??crypto.randomUUID(),existing,changed:false,deleted:false,fileKey:0};
+    return {angle,id:existing?.id??crypto.randomUUID(),existing,changed:false,deleted:false};
   });
 }
 
 export interface BodyRecordDialogProps{
   open:boolean;
   record?:BodyRecord;
+  photoSet?:boolean;
   store:NutritionStore;
   restoreFocus?:HTMLElement|null;
   onClose:()=>void;
 }
 
-export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRecordDialogProps){
+export function BodyRecordDialog({open,record,photoSet=false,store,restoreFocus,onClose}:BodyRecordDialogProps){
   const current=today(store.state!.profile?.timeZone);
   const defaultUnit=circumferenceUnitFor(unitsFor(store.state!.settings).weight);
   const [date,setDate]=useState(current);
@@ -61,7 +62,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
   const [error,setError]=useState('');
   const {busy,run,reset,pending:busyPending}=useAsyncAction();
   const online=useOnlineStatus();
-  const initialRef=useRef({date,values,slots});
+  const initialRef=useRef({date,values});
   // Exact centimetres behind each field, and which fields the person typed in. Toggling units re-displays from
   // the exact value, and saving sends only typed fields, so a tab flip never rounds a measurement they left alone.
   const exactCm=useRef<Partial<Record<BodyMeasurementKey,number>>>({});
@@ -88,7 +89,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
     setConfirmDelete(false);
     setError('');
     reset();
-    initialRef.current={date:record?.date??current,values:nextValues,slots:nextSlots};
+    initialRef.current={date:record?.date??current,values:nextValues};
   },[open,record?.id,current,defaultUnit,reset]);
 
   const handleUnitToggle=(nextUnit:'cm'|'in')=>{
@@ -110,7 +111,11 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
   const selectPhoto=async(photoAngle:PhysiqueAngle,event:ChangeEvent<HTMLInputElement>)=>{
     const file=event.currentTarget.files?.[0];
     event.currentTarget.value='';
-    if(!file)return;
+    if(!file){
+      setSlots(curr=>curr.map(slot=>slot.angle===photoAngle?{...slot,imageBase64:undefined,changed:false}:slot));
+      setError('');
+      return;
+    }
     setError('');
     try{
       const imageBase64=await run(()=>prepareImage(file,750000));
@@ -128,7 +133,7 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
       const raw=values[key].trim();
       if(!record&&raw==='')continue;
       // Untouched fields keep their stored value exactly; only typed ones are converted and sent.
-      if(record&&key!=='bodyFatPercent'&&!editedKeys.current.has(key))continue;
+      if(photoSet||record&&(key==='bodyFatPercent'?raw===initialRef.current.values[key]:!editedKeys.current.has(key)))continue;
       if(raw===''){
         measurements[key]=null;
       }else{
@@ -136,39 +141,46 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
         if(!Number.isFinite(num)){
           measurements[key]=null;
         }else{
-          measurements[key]=key==='bodyFatPercent'?Math.round(num*10)/10:toCentimetres(num,unit);
+          measurements[key]=key==='bodyFatPercent'?Math.round(num*10)/10:toCentimetres(exactCm.current[key]??num,'cm');
         }
       }
     }
 
     const photos=slots.filter(s=>s.changed&&s.imageBase64).map(s=>({id:s.id,angle:s.angle,imageBase64:s.imageBase64!}));
-    const deletePhotoIds=slots.filter(s=>s.deleted&&s.existing).map(s=>s.existing!.id);
-
-    if(!record&&Object.keys(measurements).length===0&&photos.length===0){
-      setError('Add at least one measurement or photo before saving.');
+    const removePhotoIds=slots.filter(s=>s.deleted&&s.existing).map(s=>s.existing!.id);
+    const keepsPhoto=slots.some(slot=>slot.imageBase64||slot.existing&&!slot.deleted);
+    const keepsMeasurement=allMeasurementKeys.some(key=>(key in measurements?measurements[key]:record?.measurements[key])!=null);
+    if(photoSet&&!keepsPhoto||!photoSet&&!keepsPhoto&&!keepsMeasurement){
+      setError(photoSet?(record?'Use Delete photo set to remove its last view.':'Choose at least one photo before saving.'):
+        record?'Keep at least one measurement or photo, or delete the record.':'Add at least one measurement or photo before saving.');
       return;
     }
     setError('');
     try{
-      const weightContext=record?undefined:await captureBodyContext(store,date);
-      const draft:BodyDraft={
-        id:record?.id??crypto.randomUUID(),date,measurements,photos,deletePhotoIds,
-        mutationId:crypto.randomUUID(),photoMutationId:photos.length?crypto.randomUUID():undefined,
-        deleteMutationIds:Object.fromEntries(deletePhotoIds.map(id=>[id,crypto.randomUUID()])),
-        weightContext,omitScale,omitTrend,expectedRevision:record?.revision??0
-      };
-      await run(()=>store.saveBodyDraft(draft));
+      await run(async()=>{
+        const weightContext=record||photoSet?undefined:await captureBodyContext(store,date);
+        await store.saveBodyDraft({
+          id:record?.id??crypto.randomUUID(),date,measurements,photos,photoSet,removePhotoIds:removePhotoIds.length?removePhotoIds:undefined,
+          mutationId:crypto.randomUUID(),photoMutationId:photos.length?crypto.randomUUID():undefined,
+          weightContext,omitScale,omitTrend,expectedRevision:record?.revision??0
+        });
+      });
       onClose();
     }catch(ex){
       setError((ex as Error).message);
     }
   };
 
+  const keepsMeasurements=record&&allMeasurementKeys.some(key=>record.measurements[key]!=null);
+  const deleteLabel=photoSet?'Delete photo set':'Delete record';
   const deleteRecord=async()=>{
-    if(!record)return;
+    if(!record||busyPending)return;
     setError('');
     try{
-      const draft:BodyDraft={id:record.id,date:record.date,measurements:{},photos:[],action:'delete',mutationId:crypto.randomUUID(),expectedRevision:record.revision};
+      const removeViews=photoSet&&keepsMeasurements;
+      const draft:BodyDraft={id:record.id,date:record.date,measurements:{},photos:[],photoSet,
+        action:removeViews?'save':'delete',removePhotoIds:removeViews?record.photos.map(photo=>photo.id):undefined,
+        mutationId:crypto.randomUUID(),expectedRevision:record.revision};
       await run(()=>store.saveBodyDraft(draft));
       setConfirmDelete(false);
       onClose();
@@ -177,28 +189,29 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
     }
   };
 
-  return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} title={record?'Edit body record':'Add body record'} description="Measurements are stored in centimetres." dirty={dirty} width="xl">
+  const title=photoSet?(record?'Edit physique photo set':'Upload physique photo set'):(record?'Edit body record':'Add body record');
+  return <Modal open={open} onClose={onClose} restoreFocus={restoreFocus} title={title} description={photoSet&&keepsMeasurements?'This photo set shares its date with a measurement record.':undefined} dirty={dirty} preventDismiss={busyPending} width={photoSet?'lg':'xl'} className={photoSet?'photo-upload-dialog':undefined}>
     <Form onSubmit={save} className="dialog-form body-record-form">
       <div className="body-record-form-top">
-        <DatePicker id="body-date" name="date" min="2000-01-01" max={current} required label="Record date" value={date} onChange={setDate}/>
-        <div className="field body-unit-toggle-field">
+        <DatePicker id="body-date" name="date" min="2000-01-01" max={current} required label={photoSet?'Photo date':'Record date'} value={date} onChange={setDate}/>
+        {!photoSet&&<div className="field body-unit-toggle-field">
           <span>Circumference unit</span>
           <SegmentedControl<'cm'|'in'> id="body-circumference-unit" label="Circumference unit" value={unit} onChange={handleUnitToggle} options={[{value:'cm',label:'cm'},{value:'in',label:'in'}]}/>
-        </div>
+        </div>}
       </div>
 
-      <section className="body-form-section body-composition-section">
+      {!photoSet&&<section className="body-form-section body-composition-section">
         <div className="body-form-section-header"><h3>Body fat</h3><span className="unit-indicator">%</span></div>
         <div className="body-field-grid body-composition-grid">
-          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>setValues(cv=>({...cv,bodyFatPercent:e.currentTarget.value}))}/>
+          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>{const value=e.currentTarget.value;setValues(cv=>({...cv,bodyFatPercent:value}));}}/>
           <BodyFatEstimate slots={slots} online={online} disabled={busyPending} request={buildEstimateRequest(date,slots,values,unit)} onUse={percent=>setValues(cv=>({...cv,bodyFatPercent:String(percent)}))}/>
         </div>
-      </section>
+      </section>}
 
-      {measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
+      {!photoSet&&measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
         <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
         <div className="body-field-grid">
-          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max="400" step="0.1" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;editedKeys.current.add(key);const num=Number(val);if(val.trim()!==''&&Number.isFinite(num))exactCm.current[key]=unit==='in'?num*2.54:num;else delete exactCm.current[key];setValues(cv=>({...cv,[key]:val}));}}/>)}
+          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max={fromCentimetres(250,unit)} step="any" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;editedKeys.current.add(key);const num=Number(val);if(val.trim()!==''&&Number.isFinite(num))exactCm.current[key]=unit==='in'?num*2.54:num;else delete exactCm.current[key];setValues(cv=>({...cv,[key]:val}));}}/>)}
         </div>
       </section>)}
 
@@ -206,37 +219,39 @@ export function BodyRecordDialog({open,record,store,restoreFocus,onClose}:BodyRe
         <div className="body-form-section-header"><h3>Photos</h3><p className="source">Optional. Replace or remove one view without changing the other angles.</p></div>
         <div className="physique-upload-grid">
           {slots.map(slot=>{
-            const preview=slot.imageBase64?'data:image/jpeg;base64,'+slot.imageBase64:slot.existing&&!slot.deleted?'/api/photos/'+slot.existing.id+'/content':undefined;
+            const preview=slot.imageBase64?'data:image/jpeg;base64,'+slot.imageBase64:slot.existing?.status==='complete'&&!slot.deleted?photoContentUrl(slot.existing):undefined;
             return <section className="physique-upload-slot" key={slot.angle}>
               <div className="physique-upload-slot-heading">
-                <h4>{angleLabel(slot.angle)}</h4>
-                {slot.existing&&!slot.deleted&&!slot.changed&&<Button type="button" variant="destructive" size="sm" disabled={busyPending} onClick={()=>setSlots(curr=>curr.map(item=>item.angle===slot.angle?{...item,deleted:true}:item))}>Delete</Button>}
+                {photoSet?<h3>{angleLabel(slot.angle)}</h3>:<h4>{angleLabel(slot.angle)}</h4>}
+                {slot.existing&&!slot.changed&&<Button type="button" variant={slot.deleted?'tertiary':'destructive'} size="sm" disabled={busyPending} onClick={()=>setSlots(curr=>curr.map(item=>item.angle===slot.angle?{...item,deleted:!item.deleted}:item))}>{slot.deleted?'Undo removal':'Remove view'}</Button>}
               </div>
               {preview&&<img className="photo-preview" src={preview} alt={`${slot.changed?'Selected':'Current'} ${slot.angle} physique photo`}/>}
-              <FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} key={slot.fileKey} disabled={busyPending} label={angleLabel(slot.angle)+' photo'} accept="image/*" onChange={e=>void selectPhoto(slot.angle,e)}/>
+              {slot.deleted?<p className="source">Will be removed on save.</p>:!preview&&slot.existing?<p className="source">Upload pending</p>:null}
+              <FileInput id={'body-photo-'+slot.angle} name={'body-photo-'+slot.angle} disabled={busyPending} label={angleLabel(slot.angle)+' photo'} accept="image/*" onChange={e=>void selectPhoto(slot.angle,e)}/>
             </section>;
           })}
         </div>
       </section>
 
-      <section className="body-form-section body-context-section">
+      {!photoSet&&<section className="body-form-section body-context-section">
         <div className="body-form-section-header"><h3>Weight context</h3><p className="source">Captured when this record is saved. Missing values stay unavailable.</p></div>
         <div className="body-context-switches">
           <Checkbox id="body-omit-scale" role="switch" checked={omitScale} onChange={setOmitScale}>Omit scale snapshot</Checkbox>
           <Checkbox id="body-omit-trend" role="switch" checked={omitTrend} onChange={setOmitTrend}>Omit trend snapshot</Checkbox>
         </div>
-      </section>
+      </section>}
 
       {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions">
-        {record&&<Button type="button" variant="destructive" disabled={busyPending} onClick={()=>setConfirmDelete(true)}>Delete record</Button>}
-        <Button type="submit" variant="primary" disabled={busyPending}>{busy?'Preparing…':'Save Body record'}</Button>
+        {record&&<Button type="button" variant="destructive" disabled={busyPending} onClick={()=>{setError('');setConfirmDelete(true);}}>{deleteLabel}</Button>}
+        <Button type="submit" variant="primary" disabled={busyPending||Boolean(record&&!dirty)}>{busy?'Saving…':photoSet?'Save photo set':'Save Body record'}</Button>
       </div>
     </Form>
-    <Modal open={confirmDelete} onClose={()=>setConfirmDelete(false)} title="Delete Body record?" description="The record and its private photo views will be marked for deletion. You can retry cleanup if storage is unavailable." width="sm">
+    <Modal open={confirmDelete} onClose={()=>setConfirmDelete(false)} preventDismiss={busyPending} title={photoSet?'Delete photo set?':'Delete Body record?'} description={record?`${readableDate(record.date)} · ${photoSet&&keepsMeasurements?'Remove all photo views and keep the measurements.':'Remove the record and its private photo views.'}`:undefined} width="sm">
+      {error&&<p role="alert" className="error">{error}</p>}
       <div className="modal-actions">
-        <Button variant="secondary" onClick={()=>setConfirmDelete(false)}>Keep record</Button>
-        <Button variant="destructive" disabled={busyPending} onClick={()=>void deleteRecord()}>Delete record</Button>
+        <Button variant="secondary" disabled={busyPending} onClick={()=>setConfirmDelete(false)}>{photoSet?'Keep photo set':'Keep record'}</Button>
+        <Button variant="destructive" disabled={busyPending} onClick={()=>void deleteRecord()}>{deleteLabel}</Button>
       </div>
     </Modal>
   </Modal>;

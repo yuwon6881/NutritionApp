@@ -11,7 +11,9 @@ public sealed record BodyPhotoIntent(Guid Id, string Angle);
 // A missing measurement key retains its value; an explicit null clears it.
 public sealed record BodyPatch(DateOnly? Date = null, Dictionary<string,double?>? Measurements = null,
     IReadOnlyList<BodyPhotoIntent>? Photos = null, BodyWeightContext? WeightContext = null,
-    bool OmitScale = false, bool OmitTrend = false);
+    bool OmitScale = false, bool OmitTrend = false,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<Guid>? RemovePhotoIds = null);
 public sealed record BodyMutation(Guid Id, long ExpectedRevision, BodyPatch? Data = null, string Action = "save", Guid? PhotoId = null);
 public sealed record BodyRecordView(Guid Id, DateOnly Date, long CreationOrder, long Revision, bool Deleted,
     DateTime Created, DateTime Updated, BodyMeasurements Measurements, BodyWeightContext WeightContext,
@@ -34,7 +36,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
         // Legacy sets only need backfilling once; later pages of a walk never re-scan every photo.
         if(string.IsNullOrEmpty(cursor))await MigrateLegacyPhotoSets(ct);
         var query=db.BodyRecords.AsNoTracking().Where(b=>!b.Deleted);
-        if(photosOnly)query=query.Where(b=>db.Photos.Any(p=>p.SetId==b.Id&&!p.Deleted&&p.Status=="complete"));
+        if(photosOnly)query=query.Where(b=>db.Photos.Any(p=>p.SetId==b.Id&&!p.Deleted&&(p.Status=="complete"||p.ObjectGeneration!=null)));
         if(!string.IsNullOrEmpty(cursor))
         {
             var after=DecodeCursor(cursor);
@@ -122,20 +124,24 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
                 if(patch.Date is {} date)body.Date=date;
                 ValidateDate(body.Date,user.ProfileJson);
                 ApplyMeasurements(body.Measurements,patch.Measurements);
+                var removeIds=patch.RemovePhotoIds?.ToHashSet()??[];
+                var existing=await db.Photos.Where(p=>p.SetId==recordId&&!p.Deleted).ToListAsync(ct);
+                var pending=Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson);
+                Validation.Require(removeIds.Count<=PhotoService.MaxPhotosPerSet&&removeIds.All(id=>existing.Any(p=>p.Id==id)||pending.Any(p=>p.Id==id)),"A photo to remove was not found.",404);
+                pending.RemoveAll(p=>removeIds.Contains(p.Id));
                 if(patch.Photos!=null)
                 {
                     ValidateIntents(patch.Photos);
-                    var pending=Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson);
-                    var existing=await db.Photos.Where(p=>p.SetId==recordId&&!p.Deleted).ToListAsync(ct);
                     foreach(var intent in patch.Photos)
                     {
+                        Validation.Require(!existing.Any(p=>p.Angle==intent.Angle&&removeIds.Contains(p.Id))&&!removeIds.Contains(intent.Id),"Choose whether to replace or remove each photo.");
                         var previous=existing.FirstOrDefault(p=>p.Angle==intent.Angle);
                         Validation.Require(previous==null||previous.Id==intent.Id,"Keep the existing photo identity when replacing a view.",409);
                         Validation.Require(!existing.Any(p=>p.Id==intent.Id&&p.Angle!=intent.Angle),"Photo identity belongs to another angle.",409);
                         pending.RemoveAll(p=>p.Angle==intent.Angle);pending.Add(intent);
                     }
-                    body.PendingPhotosJson=Json.Write(pending);
                 }
+                body.PendingPhotosJson=Json.Write(pending);
                 if(isNew)
                 {
                     Validation.Require(MeasurementFields.Values.Any(p=>p.GetValue(body.Measurements)!=null)||patch.Photos is {Count:>0},
@@ -149,14 +155,18 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
                 else
                 {
                     // An edit may clear fields but never leave an empty shell: a record keeps a measurement or a photo.
-                    var keepsPhoto=Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson).Count>0||await db.Photos.AnyAsync(p=>p.SetId==recordId&&!p.Deleted,ct);
+                    var keepsPhoto=pending.Count>0||existing.Any(p=>!removeIds.Contains(p.Id));
                     Validation.Require(MeasurementFields.Values.Any(p=>p.GetValue(body.Measurements)!=null)||keepsPhoto,
                         "A Body record needs at least one measurement or photo. Delete the record instead.");
                     // A date correction, measurement edit or photo replacement never captures again.
                     Validation.Require(patch.WeightContext==null,"Saved weight attachments are frozen; they can only be omitted.");
                     body.WeightContextJson=Json.Write(Omit(Json.Read<BodyWeightContext>(body.WeightContextJson),patch));
                 }
-                foreach(var photo in await db.Photos.Where(p=>p.SetId==recordId&&!p.Deleted).ToListAsync(ct))photo.Date=body.Date;
+                foreach(var photo in existing)
+                {
+                    if(removeIds.Contains(photo.Id)){photo.Deleted=true;photo.Status="deleting";photo.DeletedAt=DateTime.UtcNow;}
+                    else photo.Date=body.Date;
+                }
             }
             body.Revision=++user.Revision;user.BodyRevision=user.Revision;body.Updated=DateTime.UtcNow;
             if (bodyFatSync != null)
@@ -167,7 +177,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
             await db.SaveChangesAsync(ct);await gate.Commit(ct);
         }
         // Deletion markers survive unavailable object storage. Scheduled cleanup retries them.
-        if(op.Action is "delete" or "photo-delete")await CleanupRecordPhotos(recordId,ct);
+        if(op.Action is "delete" or "photo-delete"||op.Data?.RemovePhotoIds is {Count:>0})await CleanupRecordPhotos(recordId,ct);
         return result;
     }
 

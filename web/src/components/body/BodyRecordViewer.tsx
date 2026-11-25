@@ -1,14 +1,14 @@
 import type {BodyMeasurementKey,BodyRecord,PhysiqueAngle} from '../../types';
 import {number,readableDate} from '../../lib/format';
 import {displayWeight,weightLabel} from '../../lib/units';
-import {angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementGroups,measurementLabel,type CircumferenceUnit} from '../../lib/bodyMeasurements';
+import {angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementGroups,measurementLabel,photoContentUrl,type CircumferenceUnit} from '../../lib/bodyMeasurements';
 import {SegmentedControl} from '../ui/SegmentedControl';
 import {PhotoFrame} from './PhotoFrame';
 import {RecordNavigator} from './RecordNavigator';
 
 const photoSrc=(record:BodyRecord|undefined,angle:PhysiqueAngle)=>{
   const photo=record?.photos.find(item=>item.angle===angle&&item.status==='complete');
-  return photo?'/api/photos/'+photo.id+'/content':undefined;
+  return photo?photoContentUrl(photo):undefined;
 };
 
 export interface BodyRecordViewerProps{
@@ -17,17 +17,20 @@ export interface BodyRecordViewerProps{
   angle:PhysiqueAngle;
   weightUnit:'kg'|'lb';
   onAngle:(angle:PhysiqueAngle)=>void;
-  onIndex:(index:number)=>void;
+  onOlder:()=>void;
+  onNewer:()=>void;
+  hasMore:boolean;
+  busy:boolean;
 }
 
 /** One Body record with its photo, measurements (compared with the next older record), and weight context. */
-export function BodyRecordViewer({records,index,angle,weightUnit,onAngle,onIndex}:BodyRecordViewerProps){
+export function BodyRecordViewer({records,index,angle,weightUnit,onAngle,onOlder,onNewer,hasMore,busy}:BodyRecordViewerProps){
   const record=records[index];
   const unit=circumferenceUnitFor(weightUnit);
   const previous=records[index+1];
   if(!record)return null;
-  const onOlder=index+1<records.length?()=>onIndex(index+1):undefined;
-  const onNewer=index>0?()=>onIndex(index-1):undefined;
+  const older=index+1<records.length||hasMore?onOlder:undefined;
+  const newer=index>0?onNewer:undefined;
   const pending=record.photos.find(item=>item.angle===angle)?.status==='pending';
   const difference=(key:BodyMeasurementKey)=>{
     const current=record.measurements[key];const older=previous?.measurements[key];
@@ -40,8 +43,8 @@ export function BodyRecordViewer({records,index,angle,weightUnit,onAngle,onIndex
         <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={angle} onChange={onAngle} options={angles.map(value=>({value,label:angleLabel(value)}))}/>
         <PhotoFrame src={photoSrc(record,angle)} alt={angleLabel(angle)+' physique photo from '+readableDate(record.date)}
           emptyTitle={angleLabel(angle)} emptyText={pending?'Upload pending':'Not uploaded'}
-          preloadSrc={photoSrc(records[index+1],angle)??photoSrc(records[index-1],angle)} onOlder={onOlder} onNewer={onNewer}/>
-        <RecordNavigator noun="Record" index={index} total={records.length} date={readableDate(record.date)} onOlder={onOlder} onNewer={onNewer}/>
+          preloadSrc={photoSrc(records[index+1],angle)??photoSrc(records[index-1],angle)} onOlder={busy?undefined:older} onNewer={busy?undefined:newer}/>
+        <RecordNavigator noun="Record" index={index} total={records.length} moreOlder={hasMore} date={readableDate(record.date)} busy={busy} onOlder={older} onNewer={newer}/>
       </div>
       <div className="body-measurement-summary">
         <div className="body-summary-heading"><h3>Measurements</h3><span>{unit}</span></div>

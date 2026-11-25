@@ -15,7 +15,9 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         Validation.Require(Configured,"Physique photo storage is not configured yet.",503);
         var bucket=Uri.EscapeDataString(bucketName!);var name=Uri.EscapeDataString(path);
         var uploadCondition=generation is not null?"&ifGenerationMatch="+Uri.EscapeDataString(generation):(replace?string.Empty:"&ifGenerationMatch=0");
-        var url=method==HttpMethod.Post?$"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name={name}&fields=generation{uploadCondition}":$"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}"+(method==HttpMethod.Get?(metadata?"?fields=generation":"?alt=media"):generation==null?"":"?generation="+Uri.EscapeDataString(generation));
+        var query=method==HttpMethod.Get?(metadata?"?fields=generation":"?alt=media"):string.Empty;
+        if(generation is not null)query+=(query.Length==0?"?":"&")+"generation="+Uri.EscapeDataString(generation);
+        var url=method==HttpMethod.Post?$"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name={name}&fields=generation{uploadCondition}":$"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}{query}";
         using var request=new HttpRequestMessage(method,url);
         await Authorize(request,ct);
         if(bytes!=null){request.Content=new ByteArrayContent(bytes);request.Content.Headers.ContentType=new("image/jpeg");}
@@ -75,9 +77,9 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         }
         catch(System.Text.Json.JsonException) { return null; }
     }
-    public async Task<byte[]> Get(string path,CancellationToken ct)
+    public async Task<byte[]> Get(string path,CancellationToken ct,string? generation=null)
     {
-        using var response=await Send(HttpMethod.Get,path,null,ct);
+        using var response=await Send(HttpMethod.Get,path,null,ct,generation:generation);
         Validation.Require(response.IsSuccessStatusCode,"Photo is unavailable.",response.StatusCode==HttpStatusCode.NotFound?404:503);
         return await response.Content.ReadAsByteArrayAsync(ct);
     }

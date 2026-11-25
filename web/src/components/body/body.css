@@ -5,6 +5,9 @@
 .body-photo-frame{position:relative;display:grid;place-items:center;width:min(100%,calc(min(70vh,720px)*3/4));aspect-ratio:3/4;margin-inline:auto;border-radius:18px;background:var(--muted);overflow:hidden;touch-action:pan-y}
 .body-photo-frame[data-navigable]:focus-visible{outline:2px solid var(--ring);outline-offset:3px}
 .body-photo-frame .photo-slot-empty{width:100%;height:100%}
+.physique-upload-slot-heading{flex-wrap:wrap}
+.photo-upload-dialog .body-record-form-top{grid-template-columns:minmax(0,1fr);max-width:22rem}
+.photo-gallery-row-heading .physique-hub-actions{width:auto}
 .body-photo-frame-image{display:block;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;animation:body-photo-in var(--motion-exit) var(--motion-ease) backwards}
 .compare-photo-frame .body-photo-frame-image{object-fit:contain}
 @keyframes body-photo-in{from{opacity:0}}

@@ -243,7 +243,7 @@ test('physique photo draft survives offline reopening without cloud credentials'
   await expect(page.getByAltText('Selected front physique photo')).toBeVisible();
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   await context.setOffline(true);
-  await page.getByRole('button',{name:'Save photo set and upload',exact:true}).click();
+  await page.getByRole('button',{name:'Save photo set',exact:true}).click();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toBeVisible();
@@ -251,20 +251,39 @@ test('physique photo draft survives offline reopening without cloud credentials'
   await expect(page.getByRole('button',{name:'Discard local photo set',exact:true})).toHaveCount(0);
 });
 
-test('photo gallery paginates complete sets and keeps missing angles explicit',async({page,context})=>{
+test('photo gallery paginates sets and saves revisioned photo edits and removal',async({page,context})=>{
   await signIn(context.request);
   const newestSet=randomUUID(),oldestSet=randomUUID();
   const newestFront=randomUUID(),newestBack=randomUUID(),oldestFront=randomUUID(),oldestSide=randomUUID();
   const photo=(id:string,setId:string,date:string,angle:'front'|'side'|'back')=>({id,setId,date,angle,bytes:128,status:'complete'});
-  const first={configured:true,usedBytes:512,maxBytes:268435456,sets:[{id:newestSet,date:'2026-09-12',photos:[photo(newestFront,newestSet,'2026-09-12','front'),photo(newestBack,newestSet,'2026-09-12','back')]}],nextCursor:'older-cursor',hasMore:true};
-  const second={configured:true,usedBytes:512,maxBytes:268435456,sets:[{id:oldestSet,date:'2026-09-01',photos:[photo(oldestFront,oldestSet,'2026-09-01','front'),photo(oldestSide,oldestSet,'2026-09-01','side')]}],nextCursor:null,hasMore:false};
-  await page.route('**/api/photos**',async route=>{
+  const first={records:[{id:newestSet,date:'2026-09-12',revision:3,measurements:{waistCm:80},photos:[photo(newestFront,newestSet,'2026-09-12','front'),photo(newestBack,newestSet,'2026-09-12','back')]}],nextCursor:'older-cursor',hasMore:true};
+  const second={records:[{id:oldestSet,date:'2026-09-01',revision:2,measurements:{},photos:[photo(oldestFront,oldestSet,'2026-09-01','front'),photo(oldestSide,oldestSet,'2026-09-01','side')]}],nextCursor:null,hasMore:false};
+  await page.route('**/api/body-records**',async route=>{
     const url=new URL(route.request().url());
-    if(url.pathname==='/api/photos'&&route.request().method()==='GET')return route.fulfill({contentType:'application/json',body:JSON.stringify(url.searchParams.has('cursor')?second:first)});
-    if(url.pathname.endsWith('/delete')&&route.request().method()==='POST')return route.fulfill({status:204});
-    if(url.pathname.endsWith('/content')&&route.request().method()==='GET')return route.fulfill({contentType:'image/jpeg',body:Buffer.from([0xff,0xd8,0xff,0xd9])});
+    if(url.pathname==='/api/body-records'&&url.searchParams.get('photosOnly')==='true'){
+      if(!first.records[0].photos.length)return route.fulfill({json:second});
+      return route.fulfill({json:url.searchParams.has('cursor')?second:first});
+    }
+    if(url.pathname===`/api/body-records/${newestSet}`){
+      const record=first.records[0];
+      const {data,expectedRevision,action}=route.request().postDataJSON();
+      expect(expectedRevision).toBe(record.revision);
+      expect(action).toBe('save');
+      expect(data.measurements).toEqual({});
+      record.date=data.date;
+      record.photos=record.photos.filter(view=>!data.removePhotoIds?.includes(view.id)).map(view=>({...view,date:record.date}));
+      return route.fulfill({json:{revision:++record.revision}});
+    }
+    if(url.pathname===`/api/body-records/${newestSet}/photos`){
+      const record=first.records[0];
+      const {photos,expectedRevision}=route.request().postDataJSON();
+      expect(expectedRevision).toBe(record.revision);
+      expect(photos.map((view:{id:string})=>view.id)).toEqual([newestBack]);
+      return route.fulfill({json:{revision:++record.revision}});
+    }
     return route.continue();
   });
+  await page.route(/\/api\/photos\/[^/]+\/content/,route=>route.fulfill({path:'public/icon-512.png',contentType:'image/png'}));
   await page.goto('/');
   await page.getByRole('button',{name:'Open gallery',exact:true}).click();await expect(page.getByRole('heading',{name:'Gallery',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Sep 12, 2026',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Load more',exact:true})).toBeVisible();
@@ -275,9 +294,30 @@ test('photo gallery paginates complete sets and keeps missing angles explicit',a
   await expect(setNavigation).toContainText('Sep 1, 2026');await expect(page.getByRole('img',{name:'Side physique photo from Sep 1, 2026'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Older set',exact:true})).toBeDisabled();await page.getByRole('button',{name:'Newer set',exact:true}).click();await expect(setNavigation).toContainText('Sep 12, 2026');
   await page.getByRole('button',{name:'Back to Gallery',exact:true}).click();
-  await page.getByRole('button',{name:'Edit',exact:true}).first().click();await expect(page.getByRole('dialog',{name:'Edit physique photo set'})).toBeVisible();await page.getByRole('button',{name:'Delete',exact:true}).first().click();
-  const deleteDialog=page.getByRole('dialog',{name:'Delete front photo?'});await expect(deleteDialog).toBeVisible();await deleteDialog.getByRole('button',{name:'Keep view',exact:true}).click();await expect(deleteDialog).not.toBeVisible();
-  await page.getByRole('button',{name:'Delete',exact:true}).first().click();await page.getByRole('dialog',{name:'Delete front photo?'}).getByRole('button',{name:'Delete view',exact:true}).click();await expect(page.getByRole('dialog',{name:/Delete .*photo\?/})).not.toBeVisible();await page.getByRole('dialog',{name:'Edit physique photo set'}).getByRole('button',{name:'Close dialog',exact:true}).click();
+  await page.getByRole('button',{name:'View photo set from Sep 1, 2026'}).click();
+  await expect(setNavigation).toContainText('Sep 1, 2026');
+  await page.getByRole('button',{name:'Back to Gallery',exact:true}).click();
+  await page.getByRole('button',{name:'Edit',exact:true}).first().click();
+  const editor=page.getByRole('dialog',{name:'Edit physique photo set'});
+  await editor.getByRole('button',{name:'Remove view',exact:true}).first().click();
+  await expect(editor.getByText('Will be removed on save.')).toBeVisible();
+  await editor.getByRole('button',{name:'Undo removal'}).click();
+  await expect(editor.getByRole('button',{name:'Save photo set'})).toBeDisabled();
+  await editor.getByRole('button',{name:'Remove view',exact:true}).first().click();
+  await editor.getByLabel('Photo date',{exact:true}).fill('2026-09-11');
+  await editor.getByLabel('Back photo',{exact:true}).setInputFiles('public/icon-512.png');
+  await expect(editor.getByAltText('Selected back physique photo')).toBeVisible();
+  await editor.getByRole('button',{name:'Save photo set'}).click();
+  await expect(page.locator('.photo-gallery-row').first().getByText('Not uploaded',{exact:true})).toHaveCount(2);
+  await expect(page.getByRole('heading',{name:'Sep 11, 2026',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Sep 1, 2026',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Edit',exact:true}).first().click();
+  await editor.getByRole('button',{name:'Delete photo set'}).click();
+  const deleteDialog=page.getByRole('dialog',{name:'Delete photo set?'});
+  await expect(deleteDialog.getByText(/keep the measurements/)).toBeVisible();
+  await deleteDialog.getByRole('button',{name:'Delete photo set'}).click();
+  await expect(page.getByRole('heading',{name:'Sep 11, 2026',exact:true})).toBeHidden();
+  await expect(page.getByRole('heading',{name:'Sep 1, 2026',exact:true})).toBeVisible();
 });
 
 test('weekly check-in is a reduced-motion-safe bottom sheet with focus restoration',async({page,context})=>{

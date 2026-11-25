@@ -1,17 +1,17 @@
-import type {PhysiqueAngle,PhysiquePhotoSet} from '../../types';
+import type {BodyRecord,PhysiqueAngle} from '../../types';
 import {readableDate} from '../../lib/format';
-import {angleLabel,angles} from '../../lib/bodyMeasurements';
+import {angleLabel,angles,photoContentUrl} from '../../lib/bodyMeasurements';
 import {SegmentedControl} from '../ui/SegmentedControl';
 import {PhotoFrame} from './PhotoFrame';
 import {RecordNavigator} from './RecordNavigator';
 
-const photoSrc=(set:PhysiquePhotoSet|undefined,angle:PhysiqueAngle)=>{
-  const photo=set?.photos.find(item=>item.angle===angle);
-  return photo?`/api/photos/${photo.id}/content`:undefined;
+const photoSrc=(set:BodyRecord|undefined,angle:PhysiqueAngle)=>{
+  const photo=set?.photos.find(item=>item.angle===angle&&item.status==='complete');
+  return photo?photoContentUrl(photo):undefined;
 };
 
 export interface PhotoSetViewerProps{
-  sets:PhysiquePhotoSet[];
+  sets:BodyRecord[];
   index:number;
   angle:PhysiqueAngle;
   hasMore:boolean;
@@ -30,8 +30,8 @@ export function PhotoSetViewer({sets,index,angle,hasMore,busy,onAngle,onOlder,on
   return <section className="panel photo-viewer-panel">
     <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={angle} onChange={onAngle} options={angles.map(value=>({value,label:angleLabel(value)}))}/>
     <PhotoFrame src={photoSrc(current,angle)} alt={`${angleLabel(angle)} physique photo from ${readableDate(current.date)}`}
-      emptyTitle={angleLabel(angle)} emptyText="Not uploaded"
-      preloadSrc={photoSrc(sets[index+1],angle)??photoSrc(sets[index-1],angle)} onOlder={older} onNewer={newer}/>
+      emptyTitle={angleLabel(angle)} emptyText={current.photos.some(photo=>photo.angle===angle&&photo.status==='pending')?'Upload pending':'Not uploaded'}
+      preloadSrc={photoSrc(sets[index+1],angle)??photoSrc(sets[index-1],angle)} onOlder={busy?undefined:older} onNewer={busy?undefined:newer}/>
     <RecordNavigator noun="Set" index={index} total={sets.length} moreOlder={hasMore} date={readableDate(current.date)} busy={busy} onOlder={older} onNewer={newer}/>
   </section>;
 }

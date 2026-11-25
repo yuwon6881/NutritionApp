@@ -2,6 +2,7 @@ import {ensureAcceptedPlan} from './helpers/acceptedPlan';
 import {test,expect,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {signInApi} from './signIn';
+import {todayInTestZone} from './helpers/seed';
 
 const origin=process.env.NUTRITION_TEST_URL??'http://127.0.0.1:5088';
 const headers={Origin:origin,'X-Nutrition-Request':'1'};
@@ -36,6 +37,14 @@ test.beforeAll(async({request})=>{
   expect(food2.ok(),await food2.text()).toBeTruthy();
 
   await ensureAcceptedPlan(request);
+  // Keep the missed-day prompt out of this batch-flow fixture even if it runs across local midnight.
+  const today=todayInTestZone();
+  const yesterday=new Date(Date.parse(today)-86_400_000).toISOString().slice(0,10);
+  for(const date of [yesterday,today]){
+    const logged=await request.post('/api/sync',{headers,data:{id:randomUUID(),recordId:randomUUID(),kind:'entry',expectedRevision:0,delete:false,
+      data:{date,name:'Fixture breakfast',calories:350,protein:12,carbs:55,fat:8,quantity:1,unit:'serving',time:'07:00'}}});
+    expect(logged.ok(),await logged.text()).toBeTruthy();
+  }
   session=await request.storageState();
 });
 

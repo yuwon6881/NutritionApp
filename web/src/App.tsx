@@ -227,7 +227,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     {id:'food',label:'Log food',description:'Choose a saved food or enter a meal.',icon:<Utensils size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus)},
     {id:'weight',label:'Log weight',description:'Record your scale weight.',icon:<Scale size={20}/>,onClick:()=>openWeight(selectedEntryDate,undefined,addReturnFocus)},
     {id:'scan',label:'Scan food or label',description:'Scan a packaged food barcode or nutrition label.',icon:<Camera size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'barcode',addReturnFocus)},
-    {id:'quick',label:'Quick add',description:'Enter calories and macros without searching.',icon:<Zap size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus,undefined,undefined,'quick')},
+    {id:'quick',label:'Quick add',description:'Log calories without searching.',icon:<Zap size={20}/>,onClick:()=>openFood(selectedEntryDate,undefined,'search',addReturnFocus,undefined,undefined,'quick')},
   ];
   const openBody=(root:BodyRoot)=>{setBodyRoot(root);requestPage('body');};
   // Back to the Dashboard by unwinding the entry the page pushed, so the Dashboard keeps its scroll.

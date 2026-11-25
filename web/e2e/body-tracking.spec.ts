@@ -102,3 +102,34 @@ test('changing only a weight-snapshot omission requires dirty dismissal confirma
   await expect(page.getByRole('heading',{name:'Discard changes?',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(dialog).toBeVisible();
 });
+
+test('creates, edits, and deletes a measurement record through the real API',async({page})=>{
+  await page.unroute(/\/api\/body-records(\?.*)?$/);
+  await page.goto('/');
+  await page.getByRole('button',{name:'Open history',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Body history',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Add body record',exact:true}).first().click();
+  const add=page.getByRole('dialog',{name:'Add body record'});
+  await add.getByLabel('Waist (cm)',{exact:true}).fill('81.2');
+  await add.getByRole('button',{name:'Save Body record'}).click();
+  const record=page.getByRole('button',{name:/Waist 81.2 cm/});
+  await record.click();
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();
+  const editor=page.getByRole('dialog',{name:'Edit body record'});
+  await editor.getByRole('button',{name:'in',exact:true}).click();
+  await expect(editor.getByLabel('Waist (in)',{exact:true})).toHaveValue('32');
+  await editor.getByLabel('Body fat (%)',{exact:true}).fill('18.5');
+  await editor.getByRole('button',{name:'Save Body record'}).click();
+  await expect(page.locator('.body-measurement-summary')).toContainText('81.2');
+  await expect(page.locator('.body-measurement-summary')).toContainText('18.5%');
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();
+  await editor.getByRole('button',{name:'Delete record',exact:true}).click();
+  const confirm=page.getByRole('dialog',{name:'Delete Body record?'});
+  await confirm.getByRole('button',{name:'Keep record'}).click();
+  await expect(editor).toBeVisible();
+  await editor.getByRole('button',{name:'Delete record',exact:true}).click();
+  await confirm.getByRole('button',{name:'Delete record',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'No Body records yet'})).toBeVisible();
+  await page.getByRole('button',{name:'Back to Body history',exact:true}).click();
+  await expect(record).toHaveCount(0);
+});

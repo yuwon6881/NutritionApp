@@ -1,5 +1,7 @@
 import {resolveGrams,type PortionBasis} from './portions';
 
+export const QUICK_ADD_SOURCE='Quick add';
+
 type BasisCarrier={quantity:number;unit:'g'|'serving';portionLabel?:string|null;portionGrams?:number|null};
 type NutrientValues={calories:number;protein:number|null;fat:number|null;carbs:number|null;fiber:number|null};
 type BasisChange=Partial<PortionBasis>;

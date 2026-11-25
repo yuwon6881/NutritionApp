@@ -1,6 +1,6 @@
 import {validateFoodDestination} from './lib/foodDestination';
 import {useMemo} from 'react';
-import type {LocalData, PhysiqueDraft, BodyDraft} from './types';
+import type {LocalData, BodyDraft} from './types';
 import {saveLocalAndRetireFoodBasketDraft} from './lib/local';
 import {queueEntries, type SyncKind} from './lib/nutritionDrafts';
 import {resolveMutationConflicts} from './lib/mutationConflicts';
@@ -33,14 +33,6 @@ export function useNutritionStoreActions(
       markSyncQueued('entry');
       void drain();
       return ids;
-    },
-    addPhoto: async (draft: PhysiqueDraft) => {
-      await commit(current => ({
-        ...current,
-        photoDrafts: [...(current.photoDrafts ?? []), {...draft,versionId:crypto.randomUUID()}]
-      }));
-      markSyncQueued('photo');
-      void runPendingDrafts();
     },
     retryPhoto: async (id: string) => {
       await commit(current => ({

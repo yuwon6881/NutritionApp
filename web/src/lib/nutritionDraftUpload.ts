@@ -61,6 +61,10 @@ export async function uploadPendingDrafts(options: UploadPendingDraftsOptions): 
         const review=failure==='rejected'||failure==='conflict'||!(ex instanceof ApiError)&&ex instanceof Error&&ex.message.startsWith('This older partial');
         await commit(c=>({...c,bodyDrafts:(c.bodyDrafts??[]).map(item=>item.mutationId===draft.mutationId
           ?{...item,...(review?{error:(ex as Error).message}:{retryAt:Date.now()+(ex instanceof ApiError?ex.retryAfterMs??5000:5000)})}:item)}));
+        const saved=getDrafts()?.bodyDrafts?.find(item=>item.mutationId===draft.mutationId);
+        if(saved?.serverRevision!=null&&saved.serverRevision!==draft.serverRevision&&typeof window!=='undefined'){
+          window.dispatchEvent(new CustomEvent('nutrition:body-saved',{detail:{id:draft.id,revision:saved.serverRevision}}));
+        }
         if(!review)setError('Body record is retained and will retry when connected.');
       }
     }

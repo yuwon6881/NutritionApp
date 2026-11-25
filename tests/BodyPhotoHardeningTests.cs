@@ -14,11 +14,15 @@ public sealed class BodyPhotoHardeningTests
     private sealed class Handler:HttpMessageHandler
     {
         public int Reads;
+        public bool FailUpload;
+        public string Generation="7";
+        public string? ReadQuery;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
             var metadata=request.RequestUri!.Query.Contains("fields=generation");
-            if(request.Method==HttpMethod.Get&&!metadata)Reads++;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=metadata?new StringContent("{\"generation\":\"7\"}"):new ByteArrayContent([255,216,1,2,255,217])});
+            if(request.Method==HttpMethod.Post&&FailUpload)return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+            if(request.Method==HttpMethod.Get&&!metadata){Reads++;ReadQuery=request.RequestUri.Query;}
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=metadata?new StringContent($$"""{"generation":"{{Generation}}"}"""):new ByteArrayContent([255,216,1,2,255,217])});
         }
     }
 
@@ -73,6 +77,29 @@ public sealed class BodyPhotoHardeningTests
             Assert.Equal(0,handler.Reads);
             await photos.ContentWithMetadata(uploaded.Id,default);
             Assert.Equal(1,handler.Reads);
+            Assert.Contains("generation=7",handler.ReadQuery);
+        }
+    }
+
+    [Fact]
+    public async Task A_failed_replacement_keeps_the_committed_view_readable_until_retry_succeeds()
+    {
+        var (db,photos,body,_,handler)=await CreateAsync();
+        await using(db)
+        {
+            var input=Photo(new DateOnly(2026,1,1));
+            var original=(await photos.Upload(input,default)).Single();
+            var record=await body.Detail(input.Id,default);
+            var replacement=input with { Photos=[input.Photos[0] with { ImageBase64=Convert.ToBase64String([255,216,3,4,255,217]) }],
+                MutationId=Guid.NewGuid(),ExpectedRevision=record.Revision };
+            handler.FailUpload=true;
+            await Assert.ThrowsAsync<DomainException>(()=>photos.Upload(replacement,default));
+            var visible=Assert.Single(Assert.Single((await body.Page(null,true,default)).Records).Photos);
+            Assert.Equal("complete",visible.Status);
+            Assert.Equal(original.Generation,visible.Generation);
+            Assert.Equal("7",(await photos.ContentWithMetadata(original.Id,default)).Generation);
+            handler.FailUpload=false;handler.Generation="8";
+            Assert.Equal("8",Assert.Single(await photos.Upload(replacement,default)).Generation);
         }
     }
 
@@ -135,6 +162,28 @@ public sealed class BodyPhotoHardeningTests
             Assert.Equal(45,all.Records.Count);Assert.False(all.HasMore);
             var small=await body.Page(null,false,default,20);
             Assert.Equal(20,small.Records.Count);Assert.True(small.HasMore);
+        }
+    }
+
+    [Fact]
+    public async Task Removing_photo_views_is_revisioned_and_preserves_measurements()
+    {
+        var (db,photos,body,_,_)=await CreateAsync();
+        await using(db)
+        {
+            var input=Photo(new DateOnly(2026,1,1));
+            var view=(await photos.Upload(input,default)).Single();
+            var record=await body.Detail(input.Id,default);
+            await Assert.ThrowsAsync<DomainException>(()=>body.Apply(input.Id,
+                Save(record.Revision,new BodyPatch(RemovePhotoIds:[view.Id])),default));
+            db.ChangeTracker.Clear();
+            var edit=Save(record.Revision,new BodyPatch(Measurements:new(){{"waistCm",80}},RemovePhotoIds:[view.Id]));
+            var updated=await body.Apply(input.Id,edit,default);
+            Assert.Empty(updated.Photos);
+            Assert.Equal(80,updated.Measurements.WaistCm);
+            Assert.Empty((await body.Page(null,true,default)).Records);
+            Assert.Single((await body.Page(null,false,default)).Records);
+            Assert.Equal(updated.Revision,(await body.Apply(input.Id,edit,default)).Revision);
         }
     }
 }

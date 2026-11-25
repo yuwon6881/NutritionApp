@@ -2,6 +2,7 @@ import type {AppState,Day,Entry} from '../types';
 import {calendarTarget} from './calendarProgress';
 import {planForDate,targetsForDate} from './dailyTargets';
 import {shiftIsoDate,weekdayIndex} from './loggingCalendar';
+import {QUICK_ADD_SOURCE} from './nutrients';
 
 export type WeekNutrient='calories'|'protein'|'carbs'|'fat';
 export const WEEK_NUTRIENTS:readonly WeekNutrient[]=['calories','protein','carbs','fat'];
@@ -49,7 +50,7 @@ export function dayIntake(entries:Entry[],day:Day|undefined){
   for(const key of ['protein','carbs','fat'] as const){
     const known=entries.filter(entry=>entry[key]!=null);
     intake[key]=known.length?known.reduce((sum,entry)=>sum+entry[key]!,0):null;
-    partial[key]=known.length>0&&known.length<entries.length;
+    partial[key]=known.length>0&&entries.some(entry=>entry[key]==null&&entry.source!==QUICK_ADD_SOURCE);
   }
   return {intake,partial,evidence:true};
 }

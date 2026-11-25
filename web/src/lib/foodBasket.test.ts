@@ -86,6 +86,12 @@ it('basketEntries stamps date and time onto each line while omitting key', () =>
   expect((entries[0] as any).key).toBeUndefined();
 });
 
+it('a repeated Quick Add contributes calories without flagging partial batch macros',()=>{
+  const oats=lineFromPer100({name:'Oats',calories:389,protein:17,carbs:66,fat:7,fiber:11,source:'manual'});
+  const quick={...oats,source:'Quick add',calories:200,protein:null,carbs:null,fat:null,fiber:null};
+  expect(basketTotals([oats,quick])).toMatchObject({calories:589,count:2,protein:{value:17,partial:false,known:1,total:1}});
+});
+
 
 it('starts a declared serving with scaled nutrients and preserves unknowns',()=>{
   const line=lineFromPer100({name:'Powder',source:'OFF',calories:400,protein:80,carbs:null,fat:4,fiber:null,portions:[{label:'scoop',grams:30}]});

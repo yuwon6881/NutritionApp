@@ -50,6 +50,16 @@ describe('week nutrition',()=>{
     expect(week[1]).toMatchObject({status:'known',intake:{calories:1500,protein:90,carbs:null,fat:40}});
   });
 
+  it('includes Quick Add calories without flagging its missing macros as partial',()=>{
+    const date='2026-09-07';
+    const quick={...entry(date,200,{protein:null,carbs:null,fat:null}),source:'Quick add'};
+    const [mixed]=weekNutrition(state({entries:[quick,entry(date,300)]}),current);
+    expect(mixed.intake).toEqual({calories:500,protein:10,carbs:50,fat:5});
+    expect(Object.values(mixed.partial)).toEqual([false,false,false,false]);
+    const [only]=weekNutrition(state({entries:[quick]}),current);
+    expect(only.intake).toEqual({calories:200,protein:null,carbs:null,fat:null});
+  });
+
   it('has no targets before the first accepted plan',()=>{
     const [monday,tuesday]=weekNutrition(state({plans:[plan('2026-09-08')],entries:[entry('2026-09-07',900)]}),current);
     expect(monday.target).toEqual({calories:null,protein:null,carbs:null,fat:null});

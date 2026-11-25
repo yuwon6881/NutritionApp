@@ -1,4 +1,5 @@
-import type {KeyboardEvent} from 'react';
+import {useState,type KeyboardEvent} from 'react';
+import {Button} from '../ui/Button';
 import {useRecordSwipe} from './useRecordSwipe';
 
 export interface PhotoFrameProps{
@@ -28,8 +29,15 @@ export function PhotoFrame({src,alt,emptyTitle,emptyText,preloadSrc,onOlder,onNe
     aria-label={navigable?`${alt}. Left and right arrow keys show older and newer records.`:undefined}
     onKeyDown={navigable?onKeyDown:undefined} {...(navigable?swipe:{})}>
     {src
-      ?<img key={src} className="body-photo-frame-image" src={src} alt={alt} decoding="async" draggable={false}/>
+      ?<FrameImage key={src} src={src} alt={alt}/>
       :<div className="photo-slot-empty"><strong>{emptyTitle}</strong><span>{emptyText}</span></div>}
     {preloadSrc&&<img className="photo-adjacent-preload" src={preloadSrc} alt="" aria-hidden="true"/>}
   </div>;
+}
+
+function FrameImage({src,alt}:{src:string;alt:string}){
+  const [failed,setFailed]=useState(false);
+  return failed?<div className="photo-slot-empty"><strong>Photo unavailable</strong>
+    <Button variant="secondary" size="sm" onClick={()=>setFailed(false)}>Retry photo</Button>
+  </div>:<img className="body-photo-frame-image" src={src} alt={alt} decoding="async" draggable={false} onError={()=>setFailed(true)}/>;
 }

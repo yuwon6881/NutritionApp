@@ -1,8 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 import type {NutritionStore} from '../../useNutritionStore';
-import type {BodyDraft,BodyRecord,PhysiqueDraft,PhysiquePhoto,PhysiquePhotoSet} from '../../types';
+import type {BodyDraft,BodyRecord,PhysiqueDraft,PhysiquePhoto} from '../../types';
 import {number,readableDate} from '../../lib/format';
-import {allMeasurementKeys,angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementLabel} from '../../lib/bodyMeasurements';
+import {allMeasurementKeys,angleLabel,angles,circumferenceUnitFor,fromCentimetres,measurementLabel,photoContentUrl} from '../../lib/bodyMeasurements';
 import {Button} from '../ui/Button';
 import {SkeletonBlock} from '../ui/Skeleton';
 
@@ -20,25 +20,26 @@ export function BodyHistoryRow({record,weightUnit,onOpen,onEdit}:{record:BodyRec
       {summary&&<span className="body-history-meta">{summary}</span>}
       {record.weightContext.provenance!=='legacy-unavailable'&&<span className="body-history-meta">Weight snapshot {record.weightContext.scaleKg==null&&record.weightContext.trendKg==null?'unavailable':'attached'}</span>}
     </Button>
-    {preview?<img className="body-history-thumb" loading="lazy" decoding="async" src={'/api/photos/'+preview.id+'/content'} alt={'Body record '+readableDate(record.date)}/>:<div className="body-history-thumb body-history-thumb-empty" aria-hidden="true">No photo</div>}
+    {preview?<img className="body-history-thumb" loading="lazy" decoding="async" src={photoContentUrl(preview)} alt={'Body record '+readableDate(record.date)}/>:<div className="body-history-thumb body-history-thumb-empty" aria-hidden="true">{record.photos.length?'Upload pending':'No photo'}</div>}
     <Button variant="tertiary" size="md" onClick={event=>onEdit(event.currentTarget)}>Edit</Button>
   </article>;
 }
 
 export function BodyDraftNotice({draft,store}:{draft:BodyDraft;store:NutritionStore}){
   const count=Object.values(draft.measurements).filter(value=>value!=null).length;
-  const detail=draft.action==='delete'?'Delete pending':count+' measurement'+(count===1?'':'s')+(draft.photos.length?' · '+draft.photos.length+' photo'+(draft.photos.length===1?'':'s'):'');
-  return <div className="notice body-draft-notice"><p>{readableDate(draft.date)} · {detail} · {draft.error??'Saved locally; syncing when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryBody(draft.mutationId)}>Retry Body record</Button>}<Button variant="tertiary" onClick={()=>void store.removeBodyDraft(draft.mutationId)}>Discard local Body record</Button></div></div>;
+  const kind=draft.photoSet?'photo set':'Body record';
+  const detail=draft.action==='delete'?'Delete pending':draft.photoSet?draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'Photo set changes':count+' measurement'+(count===1?'':'s')+(draft.photos.length?' · '+draft.photos.length+' photo'+(draft.photos.length===1?'':'s'):'');
+  return <div className="notice body-draft-notice"><p>{readableDate(draft.date)} · {detail} · {draft.error??'Saved locally; syncing when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryBody(draft.mutationId)}>Retry {kind}</Button>}<Button variant="tertiary" onClick={()=>void store.removeBodyDraft(draft.mutationId)}>Discard local {kind}</Button></div></div>;
 }
 
 export function PhotoDraftNotice({draft,store}:{draft:PhysiqueDraft;store:NutritionStore}){
   return <div className="notice"><p>{readableDate(draft.date)} · {draft.photos.map(photo=>angleLabel(photo.angle)).join(', ')||'No views'} · {draft.error??'Uploading when connected.'}</p><div className="actions">{draft.error&&<Button onClick={()=>void store.retryPhoto(draft.versionId??draft.id)}>Retry photo set</Button>}<Button variant="tertiary" onClick={()=>void store.removePhotoDraft(draft.versionId??draft.id)}>Discard local photo set</Button></div></div>;
 }
 
-export function PhotoSetRow({set,onEdit}:{set:PhysiquePhotoSet;onEdit:(set:PhysiquePhotoSet,trigger:HTMLElement)=>void}){
-  return <article className="photo-gallery-row"><div className="photo-gallery-row-heading"><h3>{readableDate(set.date)}</h3><Button variant="tertiary" onClick={event=>onEdit(set,event.currentTarget)}>Edit</Button></div><div className="photo-gallery-previews">{angles.map(angle=>{
+export function PhotoSetRow({set,onEdit,onOpen}:{set:BodyRecord;onEdit:(set:BodyRecord,trigger:HTMLElement)=>void;onOpen:()=>void}){
+  return <article className="photo-gallery-row"><div className="photo-gallery-row-heading"><h3>{readableDate(set.date)}</h3><div className="physique-hub-actions"><Button variant="tertiary" aria-label={`View photo set from ${readableDate(set.date)}`} onClick={onOpen}>View</Button><Button variant="tertiary" onClick={event=>onEdit(set,event.currentTarget)}>Edit</Button></div></div><div className="photo-gallery-previews">{angles.map(angle=>{
     const photo=set.photos.find(item=>item.angle===angle);
-    return <figure key={angle}>{photo?<LazyPhoto photo={photo} label={angleLabel(angle)+' view from '+readableDate(set.date)}/>:<div className="photo-slot-empty"><strong>{angleLabel(angle)}</strong><span>Not uploaded</span></div>}{photo&&<figcaption>{angleLabel(angle)}</figcaption>}</figure>;
+    return <figure key={angle}>{photo?.status==='complete'?<><LazyPhoto photo={photo} label={angleLabel(angle)+' view from '+readableDate(set.date)}/><figcaption>{angleLabel(angle)}</figcaption></>:<div className="photo-slot-empty"><strong>{angleLabel(angle)}</strong><span>{photo?'Upload pending':'Not uploaded'}</span></div>}</figure>;
   })}</div></article>;
 }
 
@@ -50,7 +51,7 @@ function LazyPhoto({photo,label}:{photo:PhysiquePhoto;label:string}){
     const observer=new IntersectionObserver(entries=>{const latest=entries.at(-1);if(latest)setNear(latest.isIntersecting);},{rootMargin:'480px'});
     observer.observe(ref.current);return()=>observer.disconnect();
   },[]);
-  return <div ref={ref} className="photo-lazy-frame">{near?<img loading="lazy" decoding="async" src={`/api/photos/${photo.id}/content`} alt={label}/>:<div className="photo-lazy-placeholder" aria-label={`Loading ${label}`}/>}</div>;
+  return <div ref={ref} className="photo-lazy-frame">{near?<img loading="lazy" decoding="async" src={photoContentUrl(photo)} alt={label}/>:<div className="photo-lazy-placeholder"/>}</div>;
 }
 
 /** Placeholder rows shaped like history rows or gallery sets so loading does not jump. */

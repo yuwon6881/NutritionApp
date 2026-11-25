@@ -6,7 +6,7 @@ import {EmptyState} from './ui/EmptyState';
 import {SegmentedControl} from './ui/SegmentedControl';
 import {displayWeight,weightLabel} from '../lib/units';
 import {number,readableDate} from '../lib/format';
-import {angleLabel,angles,circumferenceUnitFor,measurementGroups,measurementLabel} from '../lib/bodyMeasurements';
+import {angleLabel,angles,circumferenceUnitFor,measurementGroups,measurementLabel,photoContentUrl} from '../lib/bodyMeasurements';
 import {CompareOverlay} from './CompareOverlay';
 import {CompareRecordPicker} from './body/CompareRecordPicker';
 import {windowTier} from '../lib/breakpoints';
@@ -26,7 +26,7 @@ const signed=(value:number,digits:number)=>(value>0?'+':'')+number(value,digits)
 
 export function BodyCompare({records,initialPastIndex,initialPresentIndex,weightUnit,onBack,onEditRecord}:BodyCompareProps){
   // Sorted descending (newest first).
-  const sorted=[...records].sort((a,b)=>b.date.localeCompare(a.date));
+  const sorted=records;
   const defaultPresentId=sorted[initialPresentIndex??0]?.id??sorted[0]?.id??'';
   const defaultPastId=sorted[initialPastIndex??(sorted.length>1?sorted.length-1:0)]?.id??sorted[1]?.id??sorted[0]?.id??'';
 
@@ -74,7 +74,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
       <Button variant="tertiary" size="sm" onClick={()=>onEditRecord(record)} aria-label={`Edit ${side.toLowerCase()} record from ${readableDate(record.date)}`}>Edit</Button>
     </div>
     <div className="compare-photo-frame">
-      {photo?<img key={photo.id} className="body-photo-frame-image" src={`/api/photos/${photo.id}/content`} alt={`${side} ${angleLabel(angle)} physique from ${record.date}`}/>:<div className="photo-slot-empty"><strong>{angleLabel(angle)}</strong><span>Not uploaded</span></div>}
+      {photo?<img key={photoContentUrl(photo)} className="body-photo-frame-image" src={photoContentUrl(photo)} alt={`${side} ${angleLabel(angle)} physique from ${record.date}`}/>:<div className="photo-slot-empty"><strong>{angleLabel(angle)}</strong><span>Not uploaded</span></div>}
     </div>
     <footer className="compare-photo-card-foot">
       <span>Scale: {weight(record.weightContext.scaleKg)}</span>
@@ -125,7 +125,7 @@ export function BodyCompare({records,initialPastIndex,initialPresentIndex,weight
         <SegmentedControl<PhysiqueAngle> className="photo-angle-selector" label="Photo angle" value={angle} onChange={setAngle} options={angles.map(a=>({value:a,label:angleLabel(a)}))}/>
       </div>
       {bothPhotos&&<SegmentedControl<'overlay'|'side'> className="section-segments compare-layout-segments" label="Photo layout" value={photoLayout} onChange={setPhotoLayout} options={[{value:'overlay',label:'Overlay'},{value:'side',label:'Side by side'}]}/>}
-      {bothPhotos&&photoLayout==='overlay'&&<CompareOverlay pastSrc={`/api/photos/${pastPhoto!.id}/content`} presentSrc={`/api/photos/${presentPhoto!.id}/content`} pastLabel={`Past ${angleLabel(angle)} physique from ${readableDate(pastRecord.date)}`} presentLabel={`Present ${angleLabel(angle)} physique from ${readableDate(presentRecord.date)}`}/>}
+      {pastPhoto&&presentPhoto&&photoLayout==='overlay'&&<CompareOverlay pastSrc={photoContentUrl(pastPhoto)} presentSrc={photoContentUrl(presentPhoto)} pastLabel={`Past ${angleLabel(angle)} physique from ${readableDate(pastRecord.date)}`} presentLabel={`Present ${angleLabel(angle)} physique from ${readableDate(presentRecord.date)}`}/>}
       <div className="compare-photos-grid" hidden={bothPhotos&&photoLayout==='overlay'}>
         {photoCard('Past',pastRecord,pastPhoto)}
         {photoCard('Present',presentRecord,presentPhoto)}

@@ -7,7 +7,7 @@ function nextStep(draft:BodyDraft,index:number,revision:number):BodyDraftStep|un
     id:draft.mutationId,expectedRevision:draft.expectedRevision,action:draft.action??'save',
     ...((draft.action??'save')==='save'?{data:{date:draft.date,measurements:draft.measurements,
       photos:draft.photos.map(photo=>({id:photo.id,angle:photo.angle})),weightContext:draft.weightContext,
-      omitScale:draft.omitScale??false,omitTrend:draft.omitTrend??false}}:{})
+      omitScale:draft.omitScale??false,omitTrend:draft.omitTrend??false,removePhotoIds:draft.removePhotoIds}}:{})
   }};
   if(draft.photos.length&&index===1)return {path:`/body-records/${draft.id}/photos`,input:{
     id:draft.id,date:draft.date,photos:draft.photos,mutationId:draft.photoMutationId??crypto.randomUUID(),expectedRevision:revision

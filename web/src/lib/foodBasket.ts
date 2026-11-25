@@ -1,5 +1,5 @@
 import type {AiFood,Entry,Measure,Nutrients,Portion} from '../types';
-import {rescaleNutrients} from './nutrients';
+import {QUICK_ADD_SOURCE,rescaleNutrients} from './nutrients';
 import {parsePortions} from './portions';
 
 export interface BasketLine extends Nutrients {
@@ -85,8 +85,8 @@ export function basketTotals(lines:BasketLine[]):BasketTotals{
     const knownLines=lines.filter(l=>l[key]!=null);
     const known=knownLines.length;
     const value=known>0?knownLines.reduce((sum,l)=>sum+l[key]!,0):null;
-    const partial=known>0&&known<count;
-    return {value,partial,known,total:count};
+    const unknown=lines.filter(line=>line[key]==null&&line.source!==QUICK_ADD_SOURCE).length;
+    return {value,partial:known>0&&unknown>0,known,total:known+unknown};
   };
 
   return {

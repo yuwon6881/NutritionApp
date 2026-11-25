@@ -7,6 +7,7 @@ import {Button} from './ui/Button';
 import {Field,TimePicker} from './ui/Field';
 import {energyLabel,parseEnergy,unitsFor} from '../lib/units';
 import {useAsyncAction} from './ui/useAsyncAction';
+import {QUICK_ADD_SOURCE} from '../lib/nutrients';
 
 export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:NutritionStore;date:string;onDone:()=>void;onBack?:()=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const [calories,setCalories]=useState('');
@@ -23,7 +24,7 @@ export function QuickAdd({store,date,onDone,onBack,onDirtyChange}:{store:Nutriti
     try{
       const parsed=parseEnergy(calories,energyUnit);
       if(!Number.isFinite(parsed))throw new Error(`Enter calories in ${energyLabel(energyUnit)}.`);
-      await run(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{date,time,name:'Quick add',calories:parsed,quantity:1,unit:'serving',portionLabel:null,portionGrams:null,protein:null,fat:null,carbs:null,fiber:null,source:'Quick add'}}));
+      await run(()=>store.mutate({kind:'entry',recordId:crypto.randomUUID(),expectedRevision:0,delete:false,data:{date,time,name:'Quick add',calories:parsed,quantity:1,unit:'serving',portionLabel:null,portionGrams:null,protein:null,fat:null,carbs:null,fiber:null,source:QUICK_ADD_SOURCE}}));
       onDone();
     }catch(ex){setError((ex as Error).message);}
   };
