@@ -126,6 +126,7 @@ test('creates, edits, and deletes a measurement record through the real API',asy
   await editor.getByRole('button',{name:'Delete record',exact:true}).click();
   const confirm=page.getByRole('dialog',{name:'Delete Body record?'});
   await confirm.getByRole('button',{name:'Keep record'}).click();
+  await expect(confirm).toBeHidden();
   await expect(editor).toBeVisible();
   await editor.getByRole('button',{name:'Delete record',exact:true}).click();
   await confirm.getByRole('button',{name:'Delete record',exact:true}).click();
