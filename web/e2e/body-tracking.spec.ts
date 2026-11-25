@@ -130,7 +130,7 @@ test('creates, edits, and deletes a measurement record through the real API',asy
   await expect(editor).toBeVisible();
   await editor.getByRole('button',{name:'Delete record',exact:true}).click();
   await confirm.getByRole('button',{name:'Delete record',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'No Body records yet'})).toBeVisible();
+  await expect(page.getByRole('status').getByText('No Body records yet',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Back to Body history',exact:true}).click();
   await expect(record).toHaveCount(0);
 });
