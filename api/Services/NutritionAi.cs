@@ -20,8 +20,8 @@ public sealed class NutritionAi(HttpClient http,IConfiguration config)
         Validation.Require(!string.IsNullOrWhiteSpace(key),"AI is not configured. Manual logging remains available.",503);
         Validation.Require(!key!.Any(char.IsWhiteSpace),"AI is not configured correctly. Manual logging remains available.",503);
         var model=(config["OpenAi:Model"]??string.Empty).Trim();
-        if(string.IsNullOrWhiteSpace(model))model=(config["OpenAiModel"]??"gpt-5.4-mini").Trim();
-        if(string.IsNullOrWhiteSpace(model))model="gpt-5.4-mini";
+        if(string.IsNullOrWhiteSpace(model))model=(config["OpenAiModel"]??"gpt-5.4").Trim();
+        if(string.IsNullOrWhiteSpace(model))model="gpt-5.4";
         var content=new List<object> { new { type="input_text",text=NutritionAiPrompt.RequestText(mode,description) } };
         if(image!=null) content.Add(new { type="input_image",image_url="data:image/jpeg;base64,"+Convert.ToBase64String(image),detail="high" });
         var body=new Dictionary<string,object?>

@@ -21,8 +21,8 @@ public static class OpenAiResponses
         Validation.Require(!string.IsNullOrWhiteSpace(key),unavailable,503);
         Validation.Require(!key.Any(char.IsWhiteSpace),unavailable,503);
         var model=(config["OpenAi:Model"]??string.Empty).Trim();
-        if(string.IsNullOrWhiteSpace(model))model=(config["OpenAiModel"]??"gpt-5.4-mini").Trim();
-        if(string.IsNullOrWhiteSpace(model))model="gpt-5.4-mini";
+        if(string.IsNullOrWhiteSpace(model))model=(config["OpenAiModel"]??"gpt-5.4").Trim();
+        if(string.IsNullOrWhiteSpace(model))model="gpt-5.4";
         var body=new Dictionary<string,object?>
         {
             ["model"]=model,["store"]=false,["prompt_cache_key"]=cacheKey,
