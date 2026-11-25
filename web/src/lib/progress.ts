@@ -51,7 +51,8 @@ export function projectProgressWeightSummary(
   range: { start: string; end: string },
   base: ProgressWeightSummary | undefined,
   queue: readonly Mutation[],
-  retainedWeights?: readonly Weight[]
+  retainedWeights?: readonly Weight[],
+  summaryRevision?: number
 ): ProgressWeightSummary | undefined {
   const weightMutations:Mutation[]=queue.flatMap(op=>{
     if(op.kind==='weight')return [op];
@@ -121,8 +122,13 @@ export function projectProgressWeightSummary(
       const existing = editableMap.get(rw.id);
       // An acknowledgement can retire the queue before the ranged summary refresh completes.
       // Keep that newer recorded value visible without overwriting a newer server summary.
+      if (!existing&&rw.deleted&&seriesMap.has(rw.date)&&rw.revision>(summaryRevision??Number.POSITIVE_INFINITY)) {
+        seriesMap.delete(rw.date);
+        invalidateFrom(rw.date);
+        hasRetainedAdditions=true;
+      }
       if (existing && rw.revision >= existing.revision &&
-          (rw.deleted || existing.date !== rw.date || existing.kg !== rw.kg)) {
+          (rw.deleted || existing.date !== rw.date || existing.kg !== rw.kg || (existing.context??null)!==(rw.context??null))) {
         invalidateFrom(existing.date);
         if (rw.deleted || existing.date !== rw.date) seriesMap.delete(existing.date);
         if (rw.deleted) editableMap.delete(rw.id);
@@ -156,7 +162,7 @@ export function projectProgressWeightSummary(
   }
 
   for (const op of weightMutations) {
-    const data = op.data as Partial<Weight>;
+    const data = op.data as Partial<Weight>&{sourceDate?:string};
     if (op.delete) {
       const existing = editableMap.get(op.recordId);
       const targetDate = data.date ?? existing?.date;
@@ -165,9 +171,10 @@ export function projectProgressWeightSummary(
       editableMap.delete(op.recordId);
     } else {
       const existing = editableMap.get(op.recordId);
-      if (existing && data.date && existing.date !== data.date) {
-        invalidateFrom(existing.date);
-        seriesMap.delete(existing.date);
+      const previousDate=existing?.date??data.sourceDate;
+      if (previousDate && data.date && previousDate !== data.date) {
+        invalidateFrom(previousDate);
+        seriesMap.delete(previousDate);
       }
       const targetDate = data.date ?? existing?.date;
       const targetKg = data.kg ?? existing?.kg;
@@ -182,7 +189,7 @@ export function projectProgressWeightSummary(
           id: op.recordId,
           date: targetDate,
           kg: targetKg,
-          context: data.context ?? existing?.context ?? null,
+          context: 'context' in data ? data.context ?? null : existing?.context ?? null,
           revision: op.expectedRevision,
           deleted: false
         });

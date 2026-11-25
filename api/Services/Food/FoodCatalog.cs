@@ -25,6 +25,7 @@ public sealed class FoodCatalog
     private readonly IMemoryCache cache;
     private readonly FoodProviderHealth health;
     private readonly string searchKey;
+    private readonly string barcodeKey;
 
     public FoodCatalog(IEnumerable<IFoodProvider> providers,IMemoryCache cache,FoodProviderOrder? order=null,FoodProviderHealth? health=null)
     {
@@ -35,6 +36,7 @@ public sealed class FoodCatalog
         this.cache=cache;
         this.health=health??new FoodProviderHealth();
         searchKey=SearchCacheVersion+string.Join(',',searchProviders.Select(provider=>provider.Id))+":";
+        barcodeKey="barcode:"+string.Join(',',barcodeProviders.Select(provider=>provider.Id))+":";
     }
 
     /// <summary>
@@ -79,21 +81,21 @@ public sealed class FoodCatalog
     /// </summary>
     private async Task<IReadOnlyList<FoodResult>> AddLoggedByName(IReadOnlyList<FoodResult> results,IReadOnlyList<LoggedFoods.LoggedName> names,CancellationToken ct)
     {
-        var merged=results.ToList();
-        foreach(var food in names.Take(LoggedFoods.MaxRows))
+        var seen=results.Select(FoodRanking.UsageKey).ToHashSet(StringComparer.Ordinal);
+        var queries=names.Take(LoggedFoods.MaxRows).Select(async food=>
         {
             var key=FoodRanking.UsageKey(new FoodResult(food.Name,0,null,null,null,null,food.Source));
-            if(merged.Any(result=>FoodRanking.UsageKey(result)==key))continue;
             var name=food.Name.Trim();
-            if(name.Length is <2 or >100)continue;
+            if(seen.Contains(key)||name.Length is <2 or >100)return null;
             try
             {
                 var own=await SearchShared(name,null,ct);
-                if(own.FirstOrDefault(result=>FoodRanking.UsageKey(result)==key) is { } row)merged.Add(row);
+                return own.FirstOrDefault(result=>FoodRanking.UsageKey(result)==key);
             }
-            catch(DomainException) { /* a provider outage must not hide the rest of the answer */ }
-        }
-        return merged;
+            catch(DomainException) { return null; }
+        }).ToArray();
+        var found=await Task.WhenAll(queries);
+        return results.Concat(found.OfType<FoodResult>().DistinctBy(FoodRanking.UsageKey)).ToList();
     }
 
     private async Task<IReadOnlyList<FoodResult>> SearchShared(string query,AppDb? db,CancellationToken ct)
@@ -145,7 +147,7 @@ public sealed class FoodCatalog
     private async Task<SearchOutcome> SearchOne(IFoodProvider provider,string query,PublicFoodCache? durable,CancellationToken ct,CancellationToken grace)
     {
         var breaker=health.Breaker(provider.Id);
-        if(breaker.IsOpen)return new SearchOutcome(provider,[],FoodProviderFailure.Unavailable);
+        if(!breaker.TryEnter(out var isProbe))return new SearchOutcome(provider,[],FoodProviderFailure.Unavailable);
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(grace);
         deadline.CancelAfter(provider.SearchTimeout);
         try
@@ -173,19 +175,21 @@ public sealed class FoodCatalog
             breaker.Failed();
             return new SearchOutcome(provider,[],FoodProviderFailure.Unavailable);
         }
+        finally { if(isProbe)breaker.ReleaseProbe(); }
     }
 
     public async Task<FoodResult> Barcode(string code,AppDb db,CancellationToken ct)
     {
         Validation.Require(code.Length is >=8 and <=14&&code.All(char.IsAsciiDigit),"Enter an 8–14 digit barcode.");
         // The account's own mapping wins over every public source.
-        var local=await db.Foods.AsNoTracking().SingleOrDefaultAsync(food=>!food.Deleted&&food.Barcode==code,ct);
+        var local=await db.Foods.AsNoTracking().Where(food=>!food.Deleted&&food.Barcode==code)
+            .OrderByDescending(food=>food.Revision).ThenBy(food=>food.Id).FirstOrDefaultAsync(ct);
         if(local is not null)
         {
             var portions=FoodResults.ParseStoredPortions(local.PortionsJson);
             return new FoodResult(local.Name,local.Calories,local.Protein,local.Fat,local.Carbs,local.Fiber,local.Source,local.ServingGrams,portions,code,FoodResults.ServingCalories(local.Calories,portions),"per100g",local.Measure);
         }
-        var key="barcode:"+code;
+        var key=barcodeKey+code;
         if(cache.TryGetValue<FoodResult>(key,out var saved))return saved!;
         using var gate=await ReadGate.Enter(key,ct);
         if(cache.TryGetValue(key,out saved))return saved!;
@@ -193,14 +197,14 @@ public sealed class FoodCatalog
         var durable=new PublicFoodCache(db);
         if(await durable.ReadBarcode(barcodeProviders.Select(provider=>provider.Id).ToArray(),code,ct) is { } stored)
         {
-            cache.Set(key,stored,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=BarcodeLifetime });
-            return stored;
+            cache.Set(key,stored.Result,new MemoryCacheEntryOptions { Size=1,AbsoluteExpiration=DateTime.SpecifyKind(stored.ExpiresAt,DateTimeKind.Utc) });
+            return stored.Result;
         }
         var failures=new List<(IFoodProvider Provider,FoodProviderFailure Failure,TimeSpan? RetryAfter)>();
         foreach(var provider in barcodeProviders)
         {
             var breaker=health.Breaker(provider.Id);
-            if(breaker.IsOpen) { failures.Add((provider,FoodProviderFailure.Unavailable,null)); continue; }
+            if(!breaker.TryEnter(out var isProbe)) { failures.Add((provider,FoodProviderFailure.Unavailable,null)); continue; }
             FoodResult? found;
             try
             {
@@ -213,6 +217,7 @@ public sealed class FoodCatalog
                 failures.Add((provider,failure.Failure,failure.RetryAfter));
                 continue;
             }
+            finally { if(isProbe)breaker.ReleaseProbe(); }
             if(found is null)continue;
             cache.Set(key,found,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=BarcodeLifetime });
             if(provider.DurableLifetime is { } lifetime)

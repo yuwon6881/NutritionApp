@@ -41,7 +41,9 @@ export function parseAiEstimate(resultJson:string):AiEstimate{
   let estimate:AiEstimate;
   try{estimate=JSON.parse(resultJson) as AiEstimate;}catch{throw new Error('AI returned an invalid estimate. Try again.');}
   if(!Array.isArray(estimate.foods))throw new Error('AI returned an invalid estimate. Try again.');
-  return estimate;
+  return {...estimate,foods:estimate.foods.map(food=>food.portionLabel&&food.portionLabel.trim().length>24
+    ? {...food,portionLabel:'serving',notes:[food.notes,food.portionLabel].filter(Boolean).join(' ').slice(0,1000)}
+    : food)};
 }
 
 /**

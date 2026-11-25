@@ -14,7 +14,8 @@ async function prepare(file:File,maxBytes:number):Promise<string> {
   if(file.size>20_000_000)throw new Error('Choose a photo smaller than 20 MB.');
   const finish=measurePerformance('photo.prepare');
   try {
-    const blob=await encodeInWorker(file,maxBytes).catch(()=>encodeOnPage(file,maxBytes));
+    const workerSupported=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'&&typeof createImageBitmap!=='undefined';
+    const blob=await (workerSupported?encodeInWorker(file,maxBytes):encodeOnPage(file,maxBytes));
     return await new Promise<string>((resolve,reject)=>{
       const reader=new FileReader();
       reader.onload=()=>resolve(String(reader.result).split(',')[1]);
@@ -22,14 +23,12 @@ async function prepare(file:File,maxBytes:number):Promise<string> {
       reader.readAsDataURL(blob);
     });
   } catch(error) {
-    if(error instanceof Error&&error.message.includes('fit'))throw error;
+    if(error instanceof Error&&/fit|timed out/.test(error.message))throw error;
     throw new Error('This photo format cannot be decoded here. Choose JPEG/PNG or take a new photo.');
   } finally { finish(); }
 }
 
 function encodeInWorker(file:File,maxBytes:number):Promise<Blob> {
-  if(typeof Worker==='undefined'||typeof OffscreenCanvas==='undefined'||typeof createImageBitmap==='undefined')
-    return Promise.reject(new Error('Worker image encoding is unavailable.'));
   return new Promise((resolve,reject)=>{
     const worker=new Worker(new URL('./image.worker.ts',import.meta.url),{type:'module'});
     const settle=(blob?:Blob,error?:string)=>{

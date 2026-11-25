@@ -96,7 +96,7 @@ public sealed class AiAssistantService
 
         if (outcome.IsProviderError)
         {
-            await _conversationMemory.FailAsync(prepared, cancellationToken);
+            await _conversationMemory.FailAsync(prepared, CancellationToken.None);
             return outcome with
             {
                 Response = outcome.Response with
@@ -116,7 +116,7 @@ public sealed class AiAssistantService
 
         if (completed == null)
         {
-            await _conversationMemory.FailAsync(prepared, cancellationToken);
+            await _conversationMemory.FailAsync(prepared, CancellationToken.None);
             return new AiChatOutcome(
                 new AiChatResponse(
                     "This conversation changed on another device. Reload it and retry your message.",

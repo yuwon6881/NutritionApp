@@ -283,7 +283,10 @@ public sealed class IntegrationTokenService(
         current.EncryptedRefreshToken = "";
         current.Revision++;
         try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException) { db.ChangeTracker.Clear(); }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            foreach (var entry in ex.Entries) entry.State = EntityState.Detached;
+        }
     }
 
     private static HttpRequestMessage BasicRequest(HttpMethod method, string uri, CentralClientSettings settings)

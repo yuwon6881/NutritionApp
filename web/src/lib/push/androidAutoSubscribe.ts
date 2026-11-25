@@ -12,6 +12,7 @@ export async function subscribeAllowedAndroidDevice(userId:string,deviceId:strin
   if(hasDevicePushOptOut(userId,deviceId))return;
   if(await checkNativeNotificationPermission()!=='granted')return;
   const token=await registerNativePushAndGetToken();
+  if(hasDevicePushOptOut(userId,deviceId))return;
   await savePushDeviceCredential(userId,deviceId,token);
   await registerNotificationDevice(deviceId,token,'android');
   window.dispatchEvent(new Event('nutrition-push-enabled'));

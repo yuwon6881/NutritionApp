@@ -93,6 +93,7 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
     observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['open','data-pwa-dirty']});
 
     const onControllerChange=()=>{
+      setWaitingWorker(null);
       if(initialController.current)setReloadPending(true);
       else initialController.current=true;
     };
@@ -102,7 +103,6 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
       const activate=(worker:ServiceWorker|null|undefined)=>{
         if(!worker)return;
         setWaitingWorker(worker);
-        worker.postMessage({type:'SKIP_WAITING'});
       };
       const inspect=()=>{
         if(registration.waiting)activate(registration.waiting);
@@ -180,7 +180,11 @@ export function MobilePwaProvider({children}:{children:ReactNode}){
     // than silently ignoring an enabled reload action before the observer has run.
     setEditorOpen(blocked);
     if(blocked)return;
-    window.location.reload();
+    if(waitingWorker){
+      const onActivated=()=>window.location.reload();
+      navigator.serviceWorker.addEventListener('controllerchange',onActivated,{once:true});
+      applyUpdate();
+    }else window.location.reload();
   };
   const value:MobilePwaContextValue={
     installed,online,waiting:!!waitingWorker,editorOpen,reloadPending,applyUpdate,reloadApp,
@@ -198,7 +202,7 @@ export function useMobilePwa(){
 
 export function PwaUpdateNotice(){
   const pwa=useMobilePwa();
-  const state=getPwaUpdateNoticeState(pwa.reloadPending,pwa.editorOpen);
+  const state=getPwaUpdateNoticeState(pwa.reloadPending||pwa.waiting,pwa.editorOpen);
   if(state.kind==='none')return null;
   return <div className="notice pwa-update-notice" role="status" aria-live="polite">
     <span><strong>App update ready to use.</strong> Reload when your current work is saved.</span>
@@ -230,7 +234,13 @@ export function ForegroundNotificationHandler({userId,authReady}:{userId:string|
     let disposed=false;
     let stopListening:(()=>void)|undefined;
     const foregroundReminder=(event:MessageEvent)=>{
-      if(event.data?.type!=='NUTRITION_FOREGROUND_REMINDER'||disposed)return;
+      if(disposed)return;
+      if(event.data?.type==='NUTRITION_REMINDER_OPEN'&&['/','/coach'].includes(event.data.route)){
+        pendingRoute.current=event.data.route;
+        openPendingRoute(true);
+        return;
+      }
+      if(event.data?.type!=='NUTRITION_FOREGROUND_REMINDER')return;
       const reminder=parseNutritionReminderPayload(event.data.payload,window.location.origin);
       if(!reminder)return;
       void waitForAppServiceWorker().then(registration=>registration.showNotification('Nutrition check-in',{

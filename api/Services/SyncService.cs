@@ -47,6 +47,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Ex
             var tombstone=await db.Weights.SingleOrDefaultAsync(w=>w.Date==mutatedDate&&w.Deleted,ct);
             if(tombstone!=null){op=op with{RecordId=tombstone.Id,ExpectedRevision=tombstone.Revision};previousWeight=tombstone;}
         }
+        var previousWeightForSync=previousWeight is null?null:Snapshot(previousWeight);
         var keptSavedDay = false;
         var replacedImport = false;
         DateOnly? trajectoryFrom = null;
@@ -89,6 +90,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Ex
                 user.EnergyUnit = energyUnit;
                 user.HeightUnit = heightUnit;
                 user.MissingDayAction = missingDayAction;
+                if(user.WeightGoalMetric!=weightGoalMetric)user.WeightGoalMetricRevision=revision;
                 user.WeightGoalMetric = weightGoalMetric;
                 user.ProgressTab = progressTab;
                 user.WeightChartView = weightChartView;
@@ -114,7 +116,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Ex
                     Validation.Nutrients(f); Validation.Number(f.ServingGrams, .1, 100000, "Serving weight");
                     Validation.Require(Measures.IsValid(f.Measure), "Invalid measure.");
                     Validation.Barcode(f.Barcode);
-                    Validation.Require(f.IngredientsJson.Length <= 12000, "Recipe is too large.");
+                    Validation.Require(f.IngredientsJson is { Length: <= 12000 }, "Recipe is too large.");
                     Validation.Portions(f.PortionsJson);
                     if (f.CookedYieldGrams is {} yield) Validation.Number(yield, 1, 100000, "Cooked yield");
                     using var recipe = JsonDocument.Parse(f.IngredientsJson);
@@ -179,7 +181,7 @@ public sealed partial class SyncService(AppDb db,StorageService? storage=null,Ex
         if (op.Kind is "entry" or "day") user.DiaryRevision = revision;
         // A weigh-in that replaced an imported one is not uploaded: Google already holds a reading for that day.
         if(op.Kind=="weight"&&weightSync!=null&&!replacedImport)
-            await weightSync.QueueMutationAsync(previousWeight,op,revision,ct);
+            await weightSync.QueueMutationAsync(previousWeightForSync,op,revision,ct);
         if(op.Kind=="entry"&&nutritionSync!=null)
             await nutritionSync.QueueMutationAsync(previousEntry,op,revision,ct);
         if (op.Kind is "profile" or "entry" or "weight" or "day")

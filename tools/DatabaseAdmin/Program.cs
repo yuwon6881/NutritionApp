@@ -30,9 +30,10 @@ try
     Console.WriteLine(JsonSerializer.Serialize(new {host=connection.Host,database=connection.Database,publicTables=tables}));
     if(args[0]=="migrate")
     {
-        var allowed=new HashSet<string>(["__EFMigrationsHistory","Users","Sessions","Entries","Foods","Weights","Days","Plans","Receipts","Scans","Usage","Photos","CheckIns","PhaseDecisions","DailyExpenditureEstimates"]);
-        if(tables.Any(t=>!allowed.Contains(t)))throw new InvalidOperationException("Unexpected tables found; no migration applied.");
         await using var db=new AppDb(new DbContextOptionsBuilder<AppDb>().UseNpgsql(connectionString).Options);
+        var allowed=db.Model.GetEntityTypes().Select(entity=>entity.GetTableName()).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        allowed.UnionWith(["__EFMigrationsHistory","DataProtectionKeys"]);
+        if(tables.Any(t=>!allowed.Contains(t)))throw new InvalidOperationException("Unexpected tables found; no migration applied.");
         await db.Database.MigrateAsync();Console.WriteLine("Nutrition migrations applied.");
     }
     await using var size=new NpgsqlCommand("SELECT pg_database_size(current_database())",connection);

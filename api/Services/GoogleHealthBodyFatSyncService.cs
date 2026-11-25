@@ -164,9 +164,10 @@ public sealed class GoogleHealthBodyFatSyncService(
 
         var query = db.GoogleHealthBodyFatSyncWork.Where(x => new[] { "unknown", "failed" }.Contains(x.ProcessingState));
         if (bodyRecordId is not null) query = query.Where(x => x.BodyRecordId == bodyRecordId.Value);
-        var works = await query.ToListAsync(ct);
-        Validation.Require(!await db.GoogleHealthBodyFatSyncWork.AnyAsync(x=>!db.BodyRecords.Any(b=>b.Id==x.BodyRecordId),ct),
-            "An older body-fat upload needs mapping review. Existing Google copies have been preserved.",409);
+        var works = await query.Where(x=>db.BodyRecords.Any(b=>b.Id==x.BodyRecordId)).ToListAsync(ct);
+        if(bodyRecordId is not null&&works.Count==0)
+            Validation.Require(!await query.AnyAsync(ct),
+                "An older body-fat upload needs mapping review. Existing Google copies have been preserved.",409);
         foreach (var work in works)
         {
             work.ProcessingState = "pending";
@@ -191,10 +192,11 @@ public sealed class GoogleHealthBodyFatSyncService(
         if (connection is null)
             return new(false, false, "disabled", 0, null, 0);
 
-        if(await db.GoogleHealthBodyFatSyncWork.AnyAsync(item=>!db.BodyRecords.Any(b=>b.Id==item.BodyRecordId),ct))
-            return new(connection.BodyFatSyncEnabled,HasBodyFatScope(connection),"failed",0,connection.BodyFatLastSuccessfulSyncAt,
+        var mapped = db.GoogleHealthBodyFatSyncWork.Where(item=>db.BodyRecords.Any(b=>b.Id==item.BodyRecordId));
+        var work = await GoogleHealthSyncStatus.SummarizeAsync(mapped, ct);
+        if(work.ProblemCategory is null&&await db.GoogleHealthBodyFatSyncWork.AnyAsync(item=>!db.BodyRecords.Any(b=>b.Id==item.BodyRecordId),ct))
+            return new(connection.BodyFatSyncEnabled,HasBodyFatScope(connection),"failed",work.Pending,connection.BodyFatLastSuccessfulSyncAt,
                 connection.BodyFatSyncRevision,"legacy_mapping","An older body-fat upload needs mapping review. Existing Google copies have been preserved.");
-        var work = await GoogleHealthSyncStatus.SummarizeAsync(db.GoogleHealthBodyFatSyncWork, ct);
         return new(
             connection.BodyFatSyncEnabled,
             HasBodyFatScope(connection),
@@ -419,6 +421,9 @@ public sealed class GoogleHealthBodyFatSyncService(
 
     private async Task FinalizeAsync(BodyFatWorkLease lease, Action<GoogleHealthBodyFatSyncWork, GoogleHealthBodyFatSyncWork?> update, CancellationToken ct)
     {
+        // Commit the provider outcome even if the active-user pass ended after dispatch.
+        using var saveDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        ct = saveDeadline.Token;
         db.ChangeTracker.Clear();
         db.CurrentUser = lease.UserId;
         await using var gate = await MutationLock.Acquire(db, lease.UserId, ct);

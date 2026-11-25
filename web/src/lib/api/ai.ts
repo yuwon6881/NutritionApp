@@ -1,6 +1,6 @@
-import { ApiError } from '../api';
+import { ApiError, accountHeaders } from '../api';
 
-export const AI_CHAT_TIMEOUT_MS = 60_000;
+export const AI_CHAT_TIMEOUT_MS = 160_000;
 
 export interface AiChatMessage {
   role: 'user' | 'assistant';
@@ -143,7 +143,7 @@ export async function chatWithAi(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Nutrition-Request': '1',
+        'X-Nutrition-Request': '1', ...accountHeaders('/ai'),
       },
       credentials: 'same-origin',
       body: JSON.stringify(buildAiChatBody(turn)),
@@ -168,7 +168,7 @@ export async function chatWithAi(
 export async function fetchAiConversation(signal?: AbortSignal): Promise<AiConversationSnapshot> {
   const res = await fetch('/api/ai/conversation', {
     method: 'GET',
-    headers: { 'X-Nutrition-Request': '1' },
+    headers: { 'X-Nutrition-Request': '1', ...accountHeaders('/ai') },
     credentials: 'same-origin',
     signal,
   });
@@ -206,7 +206,7 @@ export async function resolveAiActionBatch(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Nutrition-Request': '1',
+      'X-Nutrition-Request': '1', ...accountHeaders('/ai'),
     },
     credentials: 'same-origin',
     body: JSON.stringify({ resolution }),
@@ -227,7 +227,7 @@ export async function deleteAiConversation(
     : '';
   const res = await fetch(`/api/ai/conversation${query}`, {
     method: 'DELETE',
-    headers: { 'X-Nutrition-Request': '1' },
+    headers: { 'X-Nutrition-Request': '1', ...accountHeaders('/ai') },
     credentials: 'same-origin',
     signal,
   });

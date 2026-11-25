@@ -13,7 +13,9 @@ public static class Csv
     public static string Field(string? value)
     {
         if (value is null) return "";
-        if (value.Length > 0 && "=+-@\t\r".Contains(value[0])) value = "'" + value;
+        var trimmed = value.AsSpan().TrimStart();
+        if ((value.Length > 0 && "\t\r\n".Contains(value[0])) ||
+            (trimmed.Length > 0 && "=+-@".Contains(trimmed[0]))) value = "'" + value;
         return Quote(value);
     }
 

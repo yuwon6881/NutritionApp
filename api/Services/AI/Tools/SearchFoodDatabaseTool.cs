@@ -78,10 +78,10 @@ public sealed class SearchFoodDatabaseTool : IAiTool
             measure = f.Measure,
             caloriesPer100g = f.Basis == "per100g" ? AiNutritionValues.Energy(f.Calories, context) : null,
             servingCalories = AiNutritionValues.Energy(f.ServingCalories, context),
-            proteinPer100g = f.Protein.HasValue ? (double?)Math.Round(f.Protein.Value, 1) : null,
-            fatPer100g = f.Fat.HasValue ? (double?)Math.Round(f.Fat.Value, 1) : null,
-            carbsPer100g = f.Carbs.HasValue ? (double?)Math.Round(f.Carbs.Value, 1) : null,
-            fiberPer100g = f.Fiber.HasValue ? (double?)Math.Round(f.Fiber.Value, 1) : null,
+            proteinPer100g = f.Basis == "per100g" && f.Protein.HasValue ? (double?)Math.Round(f.Protein.Value, 1) : null,
+            fatPer100g = f.Basis == "per100g" && f.Fat.HasValue ? (double?)Math.Round(f.Fat.Value, 1) : null,
+            carbsPer100g = f.Basis == "per100g" && f.Carbs.HasValue ? (double?)Math.Round(f.Carbs.Value, 1) : null,
+            fiberPer100g = f.Basis == "per100g" && f.Fiber.HasValue ? (double?)Math.Round(f.Fiber.Value, 1) : null,
             portions = f.Portions?.Select(p => new { label = p.Label, grams = p.Grams }).ToList()
         }).ToList();
 

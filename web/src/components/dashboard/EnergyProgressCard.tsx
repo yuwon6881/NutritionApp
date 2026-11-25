@@ -65,7 +65,7 @@ export function EnergyProgressCard({store,view:controlledView,onView:onControlle
   const viewport=useBarViewport(rows.length);
   const [scrubIndex,setScrubIndex]=useState<number>();
 
-  const balance=(view:'intake'|'balance')=><EnergyBalance store={store} view={view} period={energy.displayedPeriod} summary={energy.summary} error={energy.error} viewport={viewport} selectedIndex={scrubIndex} onSelectIndex={setScrubIndex}/>;
+  const balance=(view:'intake'|'balance')=><EnergyBalance store={store} view={view} period={energy.displayedPeriod} summary={energy.summary} error={energy.error} retry={energy.retry} viewport={viewport} selectedIndex={scrubIndex} onSelectIndex={setScrubIndex}/>;
   const slides:CarouselSlide[]=[
     {id:'intake',ariaLabel:'Intake',content:balance('intake')},
     {id:'balance',ariaLabel:'Surplus or deficit',content:balance('balance')},

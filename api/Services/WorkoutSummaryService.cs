@@ -356,6 +356,11 @@ public sealed partial class WorkoutSummaryService(AppDb db, IHttpClientFactory c
                 row.Revision++; await db.SaveChangesAsync(ct);
             }
         }
-        catch (DbUpdateException) { /* Cached training is informational and never blocks Nutrition. */ }
+        catch (DbUpdateException ex)
+        {
+            // The informational cache can be retried on the next read.
+            foreach (var entry in ex.Entries.Where(entry => entry.Entity is WorkoutSummaryCache))
+                entry.State = EntityState.Detached;
+        }
     }
 }

@@ -58,7 +58,7 @@ export function useCoachProposal({store,draft,changed=false,onAccepted}:{
 
   const invalidate=useCallback(()=>{
     ++request.current;calculating.current=false;setProposal(undefined);setWantsProposal(false);
-    if(!locked.current)setOperation('idle');
+    if(!locked.current){acceptance.current=undefined;setOperation('idle');}
   },[setProposal]);
 
   const loadProposal=useCallback(async()=>{

@@ -65,6 +65,17 @@ describe('service worker reminder lifecycle',()=>{
     await instance.dispatch('notificationclick',{notification:{close,data:{route:'https://other.test'}}});
     expect(instance.openWindow).toHaveBeenLastCalledWith('https://nutrition.test/');
   });
+  it('opens reminders in an existing window without navigating away from its work',async()=>{
+    const instance=worker();
+    const focus=vi.fn();
+    const postMessage=vi.fn();
+    const navigate=vi.fn();
+    instance.matchAll.mockResolvedValueOnce([{url:'https://nutrition.test/',focus,postMessage,navigate}]);
+    await instance.dispatch('notificationclick',{notification:{close:vi.fn(),data:{route:'/coach'}}});
+    expect(postMessage).toHaveBeenCalledWith({type:'NUTRITION_REMINDER_OPEN',route:'/coach'});
+    expect(focus).toHaveBeenCalledOnce();
+    expect(navigate).not.toHaveBeenCalled();
+  });
   it('leaves server routes, App Link redirects and asset links to the network while intercepting assets',async()=>{
     const instance=worker();
     const fetchHandler=instance.handlers.get('fetch');

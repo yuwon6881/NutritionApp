@@ -96,6 +96,11 @@ public sealed class NutritionAi(HttpClient http,IConfiguration config)
                 var note=string.IsNullOrWhiteSpace(food.Notes)?detail:$"{food.Notes.Trim()} {detail}";
                 return food with {PortionLabel=null,PortionGrams=null,Notes=note[..Math.Min(1000,note.Length)]};
             }
+            if(label is {Length:>24})
+            {
+                var notes=string.IsNullOrWhiteSpace(food.Notes)?label:$"{food.Notes.Trim()} Portion: {label}";
+                return food with {PortionLabel="serving",Notes=notes[..Math.Min(1000,notes.Length)]};
+            }
             return food with {PortionLabel=label};
         }).ToList();
         return estimate with {Foods=foods};

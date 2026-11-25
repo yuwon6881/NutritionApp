@@ -13,7 +13,8 @@ public static class IntegrationEndpoints
 
     public static void MapIntegrations(this WebApplication app)
     {
-        app.MapGet("/api/integrations/v1/training-context", async (HttpContext httpContext, OpenIddictAccessTokenService tokens,
+        var peer = app.MapGroup("/api/integrations/v1").RequireRateLimiting("peer-integration");
+        peer.MapGet("/training-context", async (HttpContext httpContext, OpenIddictAccessTokenService tokens,
             IntegrationTokenService connections, TrainingContextService training, AppDb db, CancellationToken ct) =>
         {
             var token = await tokens.Require(httpContext, TrainingScope, ct);
@@ -24,7 +25,7 @@ public static class IntegrationEndpoints
             return Results.Ok(await training.Get(token.Subject, ct));
         });
 
-        app.MapGet("/api/integrations/v1/nutrition-summary", async (HttpContext httpContext, OpenIddictAccessTokenService tokens,
+        peer.MapGet("/nutrition-summary", async (HttpContext httpContext, OpenIddictAccessTokenService tokens,
             IntegrationTokenService connections, NutritionPeerSummaryService summary, AppDb db,
             DateOnly? from, DateOnly? to, int? days, CancellationToken ct) =>
         {

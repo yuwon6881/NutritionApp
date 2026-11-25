@@ -6,7 +6,7 @@ using Nutrition.Api.Domain;
 namespace Nutrition.Api.Services;
 
 public sealed record ProgressGrouping(string Weight, string Energy);
-public sealed record ProgressWeightPoint(DateOnly Date, double ScaleKg, double TrendKg);
+public sealed record ProgressWeightPoint(DateOnly Date, double ScaleKg, double? TrendKg);
 public sealed record ProgressWeightStatistics(int Count, double? AverageKg, double? MinimumKg, double? MaximumKg, double? FirstKg, double? LatestKg, double? LatestTrendKg, double? TrendChangeKg);
 public sealed record ProgressWeightSummary(ProgressWeightStatistics Statistics, IReadOnlyList<ProgressWeightPoint> Series, IReadOnlyList<Weight> EditableWeighIns);
 public sealed record ProgressEnergyBucket(DateOnly Date, DateOnly End, double? Intake, double? Maintenance, double? Balance, bool Complete, int Days, int LoggedDays);
@@ -185,6 +185,7 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
         }
 
         var knownIntake = daily.Where(item => item.Intake is not null).Select(item => item.Intake!.Value).ToArray();
+        var completeIntake = daily.Where(item => item.Complete && item.Intake is not null).Select(item => item.Intake!.Value).ToArray();
         var knownMaintenance = daily.Where(item => item.Maintenance is not null).Select(item => item.Maintenance!.Value).ToArray();
         var balances = daily.Where(item => item.Balance is not null).Select(item => item.Balance!.Value).ToArray();
         var stats = new ProgressEnergyStatistics(
@@ -192,7 +193,7 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
             daily.Sum(item => item.LoggedDays),
             daily.Count(item => item.Complete),
             knownIntake.Length == 0 ? null : knownIntake.Sum(),
-            knownIntake.Length == 0 ? null : knownIntake.Average(),
+            completeIntake.Length == 0 ? null : completeIntake.Average(),
             knownMaintenance.Length == 0 ? null : knownMaintenance.Average(),
             balances.Length == 0 ? null : balances.Sum(),
             balances.Count(value => value > 0),
@@ -206,10 +207,12 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
         const int max = 400;
         if (points.Count <= max) return points;
         var keep = new HashSet<int> { 0, points.Count - 1 };
-        foreach (var selector in new Func<ProgressWeightPoint, double>[] { item => item.ScaleKg, item => item.TrendKg })
+        foreach (var selector in new Func<ProgressWeightPoint, double?>[] { item => item.ScaleKg, item => item.TrendKg })
         {
-            keep.Add(Enumerable.Range(0, points.Count).MinBy(index => selector(points[index])));
-            keep.Add(Enumerable.Range(0, points.Count).MaxBy(index => selector(points[index])));
+            var indices = Enumerable.Range(0, points.Count).Where(index => selector(points[index]).HasValue).ToArray();
+            if (indices.Length == 0) continue;
+            keep.Add(indices.MinBy(index => selector(points[index])));
+            keep.Add(indices.MaxBy(index => selector(points[index])));
         }
         var remaining = max - keep.Count;
         for (var i = 1; i <= remaining; i++)
@@ -256,14 +259,14 @@ public sealed class ProgressSummaryService(AppDb db, ExpenditureTrajectoryServic
 
     private static DateOnly Monday(DateOnly date) => date.AddDays(-(((int)date.DayOfWeek + 6) % 7));
 
-    /// Raw-trend points for the period's weigh-ins, smoothed from the weigh-ins before it.
+    /// Show every scale reading. A reading excluded from coaching leaves a gap in its trend.
     internal static List<ProgressWeightPoint> WeightPoints(IReadOnlyList<WeightPoint> history, DateOnly start)
     {
-        IReadOnlyList<WeightPoint> smoothed;
-        using (PerformanceMetrics.Measure("progress.trend"))
-            smoothed = Coach.Trend(history.Select(item => item with { Context = null }).ToList());
-        return smoothed.Zip(history).Where(pair => pair.Second.Date >= start)
-            .Select(pair => new ProgressWeightPoint(pair.Second.Date, pair.Second.Kg, pair.First.Kg)).ToList();
+        if (history.Count == 0) return [];
+        using var timing = PerformanceMetrics.Measure("progress.trend");
+        var trend = WeightSignal.CleanTrend(history, history[^1].Date).ToDictionary(point => point.Date, point => point.Kg);
+        return history.Where(point => point.Date >= start).Select(point => new ProgressWeightPoint(
+            point.Date, point.Kg, trend.TryGetValue(point.Date, out var kilograms) ? kilograms : null)).ToList();
     }
     private sealed record EntryTotal(DateOnly Date, double Calories, int Count);
     private sealed record PlanPoint(DateOnly Date, long Revision, string ResultJson);

@@ -3,6 +3,8 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +17,6 @@ using Nutrition.Api.Services.AI;
 using Nutrition.Api.Services.AI.Agent;
 using Nutrition.Api.Services.AI.Tools;
 using Nutrition.Api.Services.FoodLookup;
-using OpenIddict.Validation.AspNetCore;
 
 var builder=WebApplication.CreateBuilder(args);
 if(int.TryParse(Environment.GetEnvironmentVariable("PORT"),out var cloudRunPort))builder.WebHost.UseUrls($"http://0.0.0.0:{cloudRunPort}");
@@ -23,7 +24,12 @@ builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadO
 if(!builder.Environment.IsDevelopment()&&(!Uri.TryCreate(builder.Configuration["PublicOrigin"],UriKind.Absolute,out var publicOrigin)||publicOrigin.Scheme!="https"))
     throw new InvalidOperationException("PublicOrigin must be the exact public HTTPS origin in production.");
 builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=PhotoService.MaxRequestBodyBytes);
-builder.Services.Configure<ForwardedHeadersOptions>(o=> { o.ForwardedHeaders=ForwardedHeaders.XForwardedProto; });
+builder.Services.Configure<ForwardedHeadersOptions>(o=>
+{
+    o.ForwardedHeaders=ForwardedHeaders.XForwardedProto|ForwardedHeaders.XForwardedFor;
+    foreach(var entry in builder.Configuration.GetSection("Proxy:KnownAddresses").GetChildren())
+        if(System.Net.IPAddress.TryParse(entry.Value,out var address))o.KnownProxies.Add(address);
+});
 builder.Services.AddResponseCompression(o=>
 {
     o.EnableForHttps=true;
@@ -43,6 +49,12 @@ builder.Services.AddDbContext<AppDb>((services,o)=>
     else if(builder.Environment.IsDevelopment()) o.UseSqlite("Data Source="+(builder.Configuration["Database:SqlitePath"]??"nutrition.db"));
     else throw new InvalidOperationException("ConnectionStrings:Database must be configured in production.");
 });
+builder.Services.AddDataProtection().SetApplicationName("NutritionApp");
+if(builder.Configuration.GetConnectionString("Database") is { Length: > 0 } keyDatabase)
+{
+    var keyStore = new PostgresDataProtectionKeys(ConnectionSettings.Normalize(keyDatabase));
+    builder.Services.Configure<KeyManagementOptions>(options => options.XmlRepository = keyStore);
+}
 builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<ExpenditureTrajectoryService>();builder.Services.AddScoped<SyncService>();builder.Services.AddScoped<CoachingService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DatabaseWarmup>();
@@ -59,11 +71,6 @@ builder.Services.AddScoped<BodyRecordService>();builder.Services.AddScoped<BodyF
 builder.Services.AddSingleton<SharedAccessTokenService>();builder.Services.AddScoped<OpenIddictAccessTokenService>();builder.Services.AddScoped<ISharedAccessTokenValidator>(sp=>sp.GetRequiredService<OpenIddictAccessTokenService>());builder.Services.AddScoped<IntegrationTokenService>();builder.Services.AddScoped<TrainingContextService>();
 builder.Services.AddSingleton<IAccountDeletionNoticeValidator>(sp=>sp.GetRequiredService<SharedAccessTokenService>());builder.Services.AddScoped<AccountErasureService>();
 builder.Services.AddScoped<WorkoutSummaryService>();
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
-});
 builder.Services.AddOpenIddict().AddValidation(options =>
 {
     options.SetIssuer(new Uri(builder.Configuration["Identity:Issuer"] ?? "http://fitness-account"));
@@ -71,7 +78,6 @@ builder.Services.AddOpenIddict().AddValidation(options =>
         builder.Configuration["Identity:NutritionAudience"] ?? "nutrition-api",
         builder.Configuration["Identity:WorkoutAudience"] ?? "workout-api");
     options.UseSystemNetHttp();
-    options.UseAspNetCore();
 });
 builder.Services.AddHttpClient<GcsPhotoStore>(c=>c.Timeout=TimeSpan.FromSeconds(45)).AddHttpMessageHandler<ExternalCallMetricsHandler>();
 builder.Services.AddMemoryCache(o=>o.SizeLimit=256);
@@ -161,6 +167,9 @@ builder.Services.AddRateLimiter(o=>
     o.AddPolicy("device-revocation",http=>RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unauthenticated",
         _=>new FixedWindowRateLimiterOptions { PermitLimit=deviceRevocationLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
+    o.AddPolicy("peer-integration",http=>RateLimitPartition.GetFixedWindowLimiter(
+        AccountOrIpKey(http),
+        _=>new FixedWindowRateLimiterOptions { PermitLimit=progressLimit(),Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
     o.AddPolicy("ai-chat",http=>RateLimitPartition.GetFixedWindowLimiter(
         AccountOrIpKey(http),
         _=>new FixedWindowRateLimiterOptions { PermitLimit=20,Window=TimeSpan.FromMinutes(1),QueueLimit=0 }));
@@ -173,7 +182,6 @@ var requestDuration=requestMeter.CreateHistogram<double>("http.server.request.du
 var responseBytes=requestMeter.CreateHistogram<long>("http.server.response.bytes", "bytes");
 app.UseForwardedHeaders();
 app.UseResponseCompression();
-app.UseAuthentication();
 app.Use(async(http,next)=>
 {
     var started=Stopwatch.GetTimestamp();
@@ -192,11 +200,12 @@ app.Use(async(http,next)=>
     if(!app.Environment.IsDevelopment()) http.Response.Headers.StrictTransportSecurity="max-age=31536000";
     http.Response.Headers["Referrer-Policy"]="same-origin";
     http.Response.Headers.ContentSecurityPolicy="default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; connect-src 'self' https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+    var path=http.Request.Path.Value?.TrimEnd('/').ToLowerInvariant();
     if(http.Request.Path.StartsWithSegments("/api")) http.Response.Headers.CacheControl="no-store";
     try
     {
         // The account-deletion receiver is server-to-server and authenticated by its signed notice.
-        if((HttpMethods.IsPost(http.Request.Method)||HttpMethods.IsDelete(http.Request.Method))&&!http.Request.Path.StartsWithSegments("/internal")&&http.Request.Path.Value!=AccountDeletionEndpoints.Path)
+        if((HttpMethods.IsPost(http.Request.Method)||HttpMethods.IsDelete(http.Request.Method))&&!http.Request.Path.StartsWithSegments("/internal")&&path!=AccountDeletionEndpoints.Path)
         {
             var origin=http.Request.Headers.Origin.ToString();
             var allowed=builder.Configuration["PublicOrigin"]??$"{http.Request.Scheme}://{http.Request.Host}";
@@ -207,7 +216,7 @@ app.Use(async(http,next)=>
             var gate=http.RequestServices.GetRequiredService<InternalCallGate>();
             Validation.Require(await gate.Allow(http.Request,http.RequestAborted),"Scheduler authentication required.",401);
         }
-        else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && http.Request.Path.Value is not ("/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback" or "/api/notifications/subscriptions/revoke" or AccountDeletionEndpoints.Path))
+        else if(http.Request.Path.StartsWithSegments("/api") && !http.Request.Path.StartsWithSegments("/api/integrations/v1") && path is not ("/api/auth/dev-reset" or "/api/auth/central/start" or "/api/auth/central/callback" or "/api/integrations/google-health/callback" or "/api/notifications/subscriptions/revoke" or AccountDeletionEndpoints.Path))
         {
             var db=http.RequestServices.GetRequiredService<AppDb>();
             var token=http.Request.Cookies[AuthService.Cookie];
@@ -227,7 +236,12 @@ app.Use(async(http,next)=>
                 cache.Set(cacheKey,session,new MemoryCacheEntryOptions { Size=1,AbsoluteExpirationRelativeToNow=ttl });
             }
             Validation.Require(session.Expires>DateTime.UtcNow,"Your session expired. Local work is retained; sign in again.",401);
+            if(http.Request.Headers.TryGetValue("X-Nutrition-Account",out var expectedAccount))
+                Validation.Require(Guid.TryParse(expectedAccount,out var expectedUser)&&expectedUser==session.UserId,
+                    "The signed-in account changed. Sign in again before syncing local work.",401);
             db.CurrentUser=session.UserId;
+            if(path=="/api/auth/me"&&http.Request.Cookies[AuthService.AccountHintCookie]!=session.UserId.ToString("D"))
+                AuthService.SetAccountHint(http,session.UserId,session.Expires-DateTime.UtcNow);
         }
         await next();
     }

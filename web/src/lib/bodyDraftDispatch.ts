@@ -1,5 +1,6 @@
 import type {BodyDraft,BodyDraftStep,LocalData} from '../types';
 import {api} from './api';
+import {renewAccountDispatch} from './accountWork';
 
 type Commit=(change:(data:LocalData)=>LocalData)=>Promise<void>;
 function nextStep(draft:BodyDraft,index:number,revision:number):BodyDraftStep|undefined{
@@ -19,7 +20,7 @@ function nextStep(draft:BodyDraft,index:number,revision:number):BodyDraftStep|un
 }
 
 /** Each exact request is durable before dispatch; completed phases are never sent again. */
-export async function dispatchBodyDraft(draft:BodyDraft,commit:Commit,isAlive:()=>boolean):Promise<void>{
+export async function dispatchBodyDraft(draft:BodyDraft,commit:Commit,isAlive:()=>boolean,accountId?:string):Promise<void>{
   const update=(change:(item:BodyDraft)=>BodyDraft)=>commit(current=>({...current,
     bodyDrafts:(current.bodyDrafts??[]).map(item=>item.mutationId===draft.mutationId?change(item):item)
   }));
@@ -42,7 +43,8 @@ export async function dispatchBodyDraft(draft:BodyDraft,commit:Commit,isAlive:()
       await update(item=>({...item,steps:[...steps]}));
     }
     if(step.revision==null){
-      const result=await api<{revision:number}>(step.path,step.input);
+      if(accountId&&!await renewAccountDispatch(accountId))return;
+      const result=await api<{revision:number}>(step.path,step.input,undefined,accountId?{headers:{'X-Nutrition-Account':accountId}}:undefined);
       step={...step,revision:result.revision};steps[index]=step;
       await update(item=>({...item,steps:[...steps],serverRevision:result.revision,retryAt:undefined}));
     }

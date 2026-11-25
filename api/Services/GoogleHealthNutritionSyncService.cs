@@ -476,6 +476,9 @@ public sealed class GoogleHealthNutritionSyncService(
 
     private async Task FinalizeAsync(NutritionWorkLease lease, Action<GoogleHealthNutritionSyncWork, GoogleHealthNutritionSyncWork?> update, CancellationToken ct)
     {
+        // Commit the provider outcome even if the active-user pass ended after dispatch.
+        using var saveDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        ct = saveDeadline.Token;
         db.ChangeTracker.Clear();
         db.CurrentUser = lease.UserId;
         await using var gate = await MutationLock.Acquire(db, lease.UserId, ct);

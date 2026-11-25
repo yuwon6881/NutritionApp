@@ -12,6 +12,11 @@ export class ApiError extends Error {
 
 const cooldowns=new Map<string,{retryAt:number;message:string}>();
 export function clearApiCooldowns(){cooldowns.clear();}
+let accountScope:string|undefined;
+export function setApiAccount(account:string|null|undefined){accountScope=account??undefined;}
+export function accountHeaders(path:string):Record<string,string>{
+  return accountScope&&path!=='/auth/me'?{'X-Nutrition-Account':accountScope}:{};
+}
 
 function rateLimitKey(path:string){
   if(path.startsWith('/foods/search')||path.startsWith('/foods/barcode/'))return 'food-lookup';
@@ -71,7 +76,7 @@ export async function api<T>(path:string,body?:unknown,method?:'GET'|'POST'|'DEL
     credentials:'same-origin',
     cache:'no-store',
     signal,
-    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
+    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...accountHeaders(path),...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(body===undefined?{}:{body:JSON.stringify(body)})
   },!options?.skipAvailabilityRetry&&retryablePath(path),requestTimeoutMs(path));
   if(response.status===304)return null as T;
@@ -95,7 +100,7 @@ export async function apiWithMeta<T>(path:string,options?:ApiFetchOptions & { bo
     credentials:'same-origin',
     cache:'no-store',
     signal,
-    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
+    headers:{'Content-Type':'application/json','X-Nutrition-Request':'1',...accountHeaders(path),...(selectedMethod==='GET'?{}:{'X-Fitness-Integration-Dispatch':'deferred'}),...customHeaders},
     ...(options?.body===undefined?{}:{body:JSON.stringify(options.body)})
   },!options?.skipAvailabilityRetry&&retryablePath(path),requestTimeoutMs(path));
   const etag=response.headers.get('ETag');

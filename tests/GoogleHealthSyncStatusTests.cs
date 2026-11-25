@@ -65,7 +65,7 @@ public sealed class GoogleHealthSyncStatusTests
         db.GoogleHealthBodyFatSyncWork.Add(new GoogleHealthBodyFatSyncWork { Id = Guid.NewGuid(), UserId = user, BodyRecordId = Guid.NewGuid(), ProcessingState = "succeeded" });
         await db.SaveChangesAsync();
         var legacy = await sync.GetStatusAsync(default);
-        Assert.Equal(("failed", 0, "legacy_mapping"), (legacy.State, legacy.PendingCount, legacy.FailureCode));
+        Assert.Equal(("failed", 1, "legacy_mapping"), (legacy.State, legacy.PendingCount, legacy.FailureCode));
     }
 
     private static void AddNutritionWork(AppDb db, Guid owner, params (string State, int Minutes)[] rows)

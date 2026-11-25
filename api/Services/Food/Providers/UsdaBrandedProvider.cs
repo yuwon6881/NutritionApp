@@ -56,9 +56,11 @@ public sealed class UsdaBrandedProvider(HttpClient http,UsdaBrandedOptions optio
             JsonDocument json;
             try { json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct)); }
             catch(JsonException) { throw new FoodProviderException(ProviderId,FoodProviderFailure.InvalidData); }
+            catch(HttpRequestException) { throw new FoodProviderException(ProviderId,FoodProviderFailure.Unreachable); }
+            catch(OperationCanceledException) when(!ct.IsCancellationRequested) { throw new FoodProviderException(ProviderId,FoodProviderFailure.TimedOut); }
             using(json)
             {
-                if(!json.RootElement.TryGetProperty("foods",out var foods)||foods.ValueKind!=JsonValueKind.Array)return null;
+                if(json.RootElement.ValueKind!=JsonValueKind.Object||!json.RootElement.TryGetProperty("foods",out var foods)||foods.ValueKind!=JsonValueKind.Array)return null;
                 foreach(var food in foods.EnumerateArray())
                     if(FoodResultMerger.NormalizeGtin(FoodResults.Text(food,"gtinUpc"))==wanted)
                         return Read(food,code)??throw new FoodProviderException(ProviderId,FoodProviderFailure.Incomplete);

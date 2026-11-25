@@ -20,7 +20,7 @@ const groupingNoun={daily:'days',weekly:'weeks',monthly:'months'} as const;
 const groupingSingular={daily:'day',weekly:'week',monthly:'month'} as const;
 
 /** With `view` the caller chooses the chart and the card's own title and chart switch are left out. */
-export function EnergyBalance({store,period,summary,error,view:fixedView,viewport:externalViewport,selectedIndex,onSelectIndex}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string;view?:EnergyView;viewport?:BarViewport;selectedIndex?:number;onSelectIndex?:(index:number)=>void}){
+export function EnergyBalance({store,period,summary,error,retry,view:fixedView,viewport:externalViewport,selectedIndex,onSelectIndex}:{store:NutritionStore;period:ProgressPeriod;summary?:ProgressSummary;error?:string;retry:()=>Promise<void>;view?:EnergyView;viewport?:BarViewport;selectedIndex?:number;onSelectIndex?:(index:number)=>void}){
   const state=store.state!;
   const units=unitsFor(state.settings);
   const rows=summary?.energy.series??[];
@@ -41,15 +41,15 @@ export function EnergyBalance({store,period,summary,error,view:fixedView,viewpor
     {summary&&error&&<HistoryNotice
       error={error}
       hasState={true}
-      onRetry={()=>void store.refreshProgress(period)}
+      onRetry={()=>void retry()}
       retryLabel="Retry"
       contextKey={period}
       store={store}
     />}
     {!summary&&error&&<CardFeedback
       title="Energy summary unavailable"
-      message={`Not available offline. ${error}`}
-      action={{label:'Retry',onClick:()=>void store.refreshProgress(period)}}
+      message={error}
+      action={{label:'Retry',onClick:()=>void retry()}}
     />}
     {!summary&&!error&&<SkeletonRegion label="Loading energy balance…">
       <SkeletonStats count={3}/>

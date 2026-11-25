@@ -36,7 +36,7 @@ public sealed class FoodBarcodeTests : IAsyncLifetime
         var stored=new FoodResult("HL Milk",50,3,1,6,null,"Open Food Facts / ODbL / 8888026520014",Code:"8888026520014",Measure:"ml");
         await cache.Store(OpenFoodFactsProvider.ProviderId,[stored],DateTime.UtcNow.AddDays(1),default);
 
-        Assert.Equal("ml",(await cache.ReadBarcode([OpenFoodFactsProvider.ProviderId],"8888026520014",default))!.Measure);
+        Assert.Equal("ml",(await cache.ReadBarcode([OpenFoodFactsProvider.ProviderId],"8888026520014",default))!.Value.Result.Measure);
 
         var row=await db.PublicFoodProducts.SingleAsync();
         row.ResultJson=row.ResultJson.Replace(",\"measure\":\"ml\"","",StringComparison.Ordinal);

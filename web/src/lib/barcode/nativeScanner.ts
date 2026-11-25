@@ -91,7 +91,10 @@ export async function startNativeScan({onCode,onError,getFrame,onSuspend}:{
     document.documentElement.classList.add(NATIVE_SCAN_CLASS);
     await BarcodeScanner.startScan(scanOptions);
     const {App}=await import('@capacitor/app');
-    listeners.push(await App.addListener('appStateChange',({isActive})=>changeActive(isActive)));
+    if(stopped)return {kind:'unavailable'};
+    const appListener=await App.addListener('appStateChange',({isActive})=>changeActive(isActive));
+    if(stopped){await appListener.remove();return {kind:'unavailable'};}
+    listeners.push(appListener);
     document.addEventListener('visibilitychange',visibilityChanged);
     if(document.visibilityState!=='visible')changeActive(false);
     const torchAvailable=await BarcodeScanner.isTorchAvailable().then(result=>result.available,()=>false);

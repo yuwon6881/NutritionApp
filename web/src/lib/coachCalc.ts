@@ -1,5 +1,6 @@
 import type {ProfileDraft} from '../types';
 import {ageOn} from './age';
+import {activityFields} from './activityLevels';
 import {macroKeys,normalise,splitFromGrams,type MacroSplit} from './macros';
 import {allocateWeeklyCalories} from './dailyTargets';
 
@@ -17,7 +18,7 @@ export function estimateExpenditure(p:ProfileDraft,acceptedExpenditure?:number|n
   if(acceptedExpenditure!=null&&acceptedExpenditure>0)return acceptedExpenditure;
   if(p.maintenance!=null&&p.maintenance>0)return p.maintenance;
   const resting=calculateResting(p);
-  const activity=p.activity>0?p.activity:1.2;
+  const activity=p.activityLevel?activityFields(p.activityLevel).activity:p.activity>0?p.activity:1.2;
   return resting>0?resting*activity:0;
 }
 

@@ -62,7 +62,6 @@ public static class CentralAuthEndpoints
         {
             var (state, connect) = ReadState(request, protection);
             response.Cookies.Delete(connect ? ConnectStateCookie : StateCookie, CookieOptions(environment, TimeSpan.Zero));
-            Validation.Require(FixedEquals(state.State, request.Query["state"]), "The central sign-in state did not match.", 400);
             // A consent denial may be retried by the browser or an upstream proxy and
             // arrive with repeated error values. Normalize it before returning to the
             // consumer so it receives one stable central_error value.
@@ -112,6 +111,7 @@ public static class CentralAuthEndpoints
 
             var session = await auth.CreateSession(user.Id, ct);
             response.Cookies.Append(AuthService.Cookie, session, new CookieOptions { HttpOnly = true, Secure = !environment.IsDevelopment(), SameSite = SameSiteMode.Lax, Path = "/", MaxAge = TimeSpan.FromDays(30), IsEssential = true });
+            AuthService.SetAccountHint(request.HttpContext, user.Id, TimeSpan.FromDays(30));
             return Results.Redirect(AppendQuery(state.ReturnUrl, "auth=1"));
         });
     }
@@ -186,28 +186,36 @@ public static class CentralAuthEndpoints
             ["grant_type"] = "authorization_code", ["code"] = code, ["redirect_uri"] = settings.RedirectUri,
             ["code_verifier"] = state.Verifier
         });
-        var response = await clients.CreateClient("fitness-account").SendAsync(request, ct);
+        using var response = await clients.CreateClient("fitness-account").SendAsync(request, ct);
         Validation.Require(response.IsSuccessStatusCode, "The central sign-in could not be completed.", 401);
         return await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
     }
 
     private static (LoginState State, bool Connect) ReadState(HttpRequest request, IDataProtectionProvider protection)
     {
-        var connectCookie = request.Cookies[ConnectStateCookie];
-        var loginCookie = request.Cookies[StateCookie];
-        try
+        var returnedState = request.Query["state"].ToString();
+        if (!string.IsNullOrEmpty(returnedState))
         {
-            if (!string.IsNullOrWhiteSpace(connectCookie))
+            foreach (var (cookieName, purpose, connect) in new[]
             {
-                var protector = protection.CreateProtector("nutrition-fitness-account-oidc-connect-v1");
-                return (JsonSerializer.Deserialize<LoginState>(protector.Unprotect(connectCookie)) ?? throw new InvalidOperationException(), true);
+                (ConnectStateCookie, "nutrition-fitness-account-oidc-connect-v1", true),
+                (StateCookie, "nutrition-fitness-account-oidc-state-v1", false)
+            })
+            {
+                var cookie = request.Cookies[cookieName];
+                if (string.IsNullOrWhiteSpace(cookie)) continue;
+                try
+                {
+                    var state = JsonSerializer.Deserialize<LoginState>(protection.CreateProtector(purpose).Unprotect(cookie));
+                    if (state is not null && FixedEquals(state.State, returnedState)) return (state, connect);
+                }
+                catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidOperationException or FormatException)
+                {
+                    // An obsolete cookie for the other flow can accompany the current one.
+                }
             }
-            Validation.Require(!string.IsNullOrWhiteSpace(loginCookie), "The central sign-in state is invalid or expired.", 400);
-            var loginProtector = protection.CreateProtector("nutrition-fitness-account-oidc-state-v1");
-            return (JsonSerializer.Deserialize<LoginState>(loginProtector.Unprotect(loginCookie!)) ?? throw new InvalidOperationException(), false);
         }
-        catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidOperationException or FormatException)
-        { throw new DomainException("The central sign-in state is invalid or expired.", 400); }
+        throw new DomainException("The central sign-in state is invalid or expired.", 400);
     }
 
     private static async Task<AppUser?> LocalUser(HttpRequest request, AppDb db, Guid? expected, CancellationToken ct)

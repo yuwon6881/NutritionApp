@@ -27,6 +27,7 @@ public sealed class BootstrapReadService(AppDb db, ExpenditureTrajectoryService 
         }
         var snapshots = await trajectory.EnsureThroughToday(ct);
         var start = today.AddDays(-89);
+        var diaryEnd = today.AddDays(1);
         var energySnapshots = snapshots.Where(s => s.Date >= start && s.Date <= today).ToList();
         var preceding = snapshots.Where(s => s.Date < start).OrderByDescending(s => s.Date).FirstOrDefault();
         if (preceding != null) energySnapshots.Insert(0, preceding);
@@ -43,14 +44,14 @@ public sealed class BootstrapReadService(AppDb db, ExpenditureTrajectoryService 
                     weightUnit=user.WeightUnit,energyUnit=user.EnergyUnit,heightUnit=user.HeightUnit,missingDayAction=user.MissingDayAction ?? "ask",weightGoalMetric=user.WeightGoalMetric ?? "scale",
                     progressTab=user.ProgressTab,weightChartView=user.WeightChartView,energyChartView=user.EnergyChartView,weightPeriod=user.WeightPeriod,energyPeriod=user.EnergyPeriod},
                 profile = user.ProfileJson.Length == 0 ? null : Json.Read<Profile>(user.ProfileJson),
-                start, end = today,
+                start, end = diaryEnd,
                 energyEstimates = energySnapshots.Select(s => new {date=s.Date,revision=s.SourceRevision,expenditure=s.Expenditure,suggestedCalories=s.SuggestedCalories,
                     confidence=s.Confidence,holdReason=s.HoldReason,algorithmVersion=s.AlgorithmVersion,trendWeightKg=s.TrendWeightKg}),
                 acceptedTargetIntervals = RecordEndpoints.BuildAcceptedTargetIntervals(orderedPlans,today),
-                entries = await db.Entries.AsNoTracking().Where(e => e.Date >= start && e.Date <= today).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct),
+                entries = await db.Entries.AsNoTracking().Where(e => e.Date >= start && e.Date <= diaryEnd).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct),
                 weights = await db.Weights.AsNoTracking().Where(w => w.Date >= start && w.Date <= today).OrderBy(w => w.Date).ToListAsync(ct),
                 weightTrendSeed = await db.Weights.AsNoTracking().Where(w => w.Date >= start.AddDays(-56) && w.Date < start && !w.Deleted).OrderBy(w => w.Date).ToListAsync(ct),
-                days = await db.Days.AsNoTracking().Where(d => d.Date >= start && d.Date <= today).ToListAsync(ct),
+                days = await db.Days.AsNoTracking().Where(d => d.Date >= start && d.Date <= diaryEnd).ToListAsync(ct),
                 plans = await db.Plans.AsNoTracking().OrderByDescending(p => p.Revision).Take(12).ToListAsync(ct),
                 checkIns = await db.CheckIns.AsNoTracking().OrderByDescending(c => c.Revision).Take(12).ToListAsync(ct),
                 phaseDecisions = await db.PhaseDecisions.AsNoTracking().OrderByDescending(d => d.Revision).Take(12).ToListAsync(ct),

@@ -71,7 +71,7 @@ public sealed class GoogleHealthWeightSyncService(
 
         var work = await db.GoogleHealthWeightSyncWork.SingleOrDefaultAsync(x => x.WeightId == operation.RecordId, ct);
         var mapped = work is not null && !string.IsNullOrWhiteSpace(work.GoogleResourceName);
-        var qualifiesAsNew = previous is null && !operation.Delete;
+        var qualifiesAsNew = !operation.Delete && (previous is null || previous.Deleted && previous.ExternalId is null);
         if (work is null && (!qualifiesAsNew || !CanDispatch(connection))) return;
 
         if (work is null)
@@ -117,7 +117,9 @@ public sealed class GoogleHealthWeightSyncService(
 
         // A lost create response is never retried implicitly: the user must acknowledge
         // the duplicate risk before asking for another create attempt.
-        if (work.ProcessingState == "unknown") return;
+        if (work.ProcessingState == "unknown" ||
+            work.ProcessingState == "processing" && work.LeaseUntil > DateTime.UtcNow ||
+            work.ProcessingState == "awaiting_operation" && !string.IsNullOrWhiteSpace(work.GoogleOperationName)) return;
         if (mapped || qualifiesAsNew)
         {
             work.ProcessingState = "pending";
@@ -359,6 +361,7 @@ public sealed class GoogleHealthWeightSyncService(
             await FinalizeAsync(lease, (work, latest) =>
             {
                 if (!string.IsNullOrWhiteSpace(result.ResourceName)) work.GoogleResourceName = result.ResourceName;
+                else if (lease.Deleted) work.GoogleResourceName = "";
                 work.GoogleOperationName = "";
                 work.LastSuccessfulSyncAt = DateTime.UtcNow;
                 work.LastErrorCategory = "";
@@ -409,6 +412,9 @@ public sealed class GoogleHealthWeightSyncService(
 
     private async Task FinalizeAsync(WorkLease lease, Action<GoogleHealthWeightSyncWork, GoogleHealthWeightSyncWork?> update, CancellationToken ct)
     {
+        // Commit the provider outcome even if the active-user pass ended after dispatch.
+        using var saveDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        ct = saveDeadline.Token;
         db.ChangeTracker.Clear();
         db.CurrentUser = lease.UserId;
         await using var gate = await MutationLock.Acquire(db, lease.UserId, ct);

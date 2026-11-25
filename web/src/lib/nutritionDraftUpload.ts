@@ -1,9 +1,11 @@
 import type {LocalData,PhysiqueDraft,BodyDraft} from '../types';
 import {api,ApiError} from './api';
+import {renewAccountDispatch} from './accountWork';
 import {classifySyncFailure} from './syncFailure';
 import {normalizePhotoDraft,type SyncKind} from './nutritionDrafts';
 
 export interface UploadPendingDraftsOptions {
+  accountId?: string;
   isAlive: () => boolean;
   getDrafts: () => { photoDrafts?: PhysiqueDraft[]; bodyDrafts?: BodyDraft[] } | undefined;
   commit: (change: (data: LocalData) => LocalData) => Promise<void>;
@@ -14,7 +16,7 @@ export interface UploadPendingDraftsOptions {
 }
 
 export async function uploadPendingDrafts(options: UploadPendingDraftsOptions): Promise<void> {
-  const { isAlive, getDrafts, commit, beginSync, finishSync, setError,expireSession } = options;
+  const { accountId,isAlive, getDrafts, commit, beginSync, finishSync, setError,expireSession } = options;
   const current = getDrafts();
   if (!current) return;
   const hasPhotoWork = (current.photoDrafts ?? []).some(draft => !draft.error);
@@ -31,7 +33,8 @@ export async function uploadPendingDrafts(options: UploadPendingDraftsOptions): 
       try {
         const normalized = normalizePhotoDraft(draft);
         const { error: _,retryAt:_retry,versionId:_version, ...input } = normalized;
-        await api('/photos', input);
+        if(accountId&&!await renewAccountDispatch(accountId))return;
+        await api('/photos',input,undefined,accountId?{headers:{'X-Nutrition-Account':accountId}}:undefined);
         await commit(c => ({ ...c, photoDrafts: (c.photoDrafts ?? []).filter(p => (p.versionId??p.id) !== (draft.versionId??draft.id)) }));
         if(typeof window!=='undefined')window.dispatchEvent(new Event('nutrition:body-saved'));
       } catch (ex) {
@@ -52,7 +55,7 @@ export async function uploadPendingDrafts(options: UploadPendingDraftsOptions): 
       if(draft.error || (draft.retryAt??0)>Date.now()){blocked.add(draft.id);continue;}
       try {
         const {dispatchBodyDraft}=await import('./bodyDraftDispatch');
-        await dispatchBodyDraft(draft,commit,isAlive);
+        await dispatchBodyDraft(draft,commit,isAlive,accountId);
       } catch (ex) {
         blocked.add(draft.id);
         const failure=classifySyncFailure(ex);

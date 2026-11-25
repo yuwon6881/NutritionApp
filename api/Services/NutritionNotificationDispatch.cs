@@ -115,7 +115,7 @@ public sealed partial class NutritionNotificationService
                     result = new(NutritionPushSendStatus.TransientFailure);
                 }
 
-                var outcome = await FinalizeDeliveryAsync(lease, subscription.Id, result.Status, now.UtcDateTime, ct);
+                var outcome = await FinalizeDeliveryAsync(lease, subscription.Id, subscription.FcmToken, result.Status, now.UtcDateTime, ct);
                 switch (outcome)
                 {
                     case "sent": sent++; break;
@@ -199,6 +199,7 @@ public sealed partial class NutritionNotificationService
     private async Task<string> FinalizeDeliveryAsync(
         DeliveryLease lease,
         Guid subscriptionId,
+        string sentToken,
         NutritionPushSendStatus status,
         DateTime now,
         CancellationToken ct)
@@ -220,13 +221,17 @@ public sealed partial class NutritionNotificationService
 
         if (status == NutritionPushSendStatus.InvalidOrUnregistered)
         {
-            var subscription = await db.NutritionPushSubscriptions.SingleOrDefaultAsync(item => item.Id == subscriptionId, ct);
-            if (subscription is not null) db.NutritionPushSubscriptions.Remove(subscription);
-            delivery.Status = "disabled";
-            delivery.LeaseUntil = null;
-            delivery.UpdatedAt = now;
-            await db.SaveChangesAsync(ct);
-            return "disabled";
+            var removed = await db.NutritionPushSubscriptions
+                .Where(item => item.Id == subscriptionId && item.FcmToken == sentToken).ExecuteDeleteAsync(ct);
+            if (removed > 0 || !await db.NutritionPushSubscriptions.AnyAsync(item => item.Id == subscriptionId, ct))
+            {
+                delivery.Status = "disabled";
+                delivery.LeaseUntil = null;
+                delivery.UpdatedAt = now;
+                await db.SaveChangesAsync(ct);
+                return "disabled";
+            }
+            // The same device registered a new token while the old send was in flight.
         }
 
         delivery.Status = delivery.Attempts >= MaximumAttempts ? "failed" : "retry";
@@ -255,7 +260,8 @@ public sealed partial class NutritionNotificationService
 
         var localNow = TimeZoneInfo.ConvertTime(utcNow, zone);
         reminderDate = DateOnly.FromDateTime(localNow.DateTime);
-        if ((int)localNow.DayOfWeek != weekday) return false;
+        if ((int)reminderDate.DayOfWeek != weekday) reminderDate = reminderDate.AddDays(-1);
+        if ((int)reminderDate.DayOfWeek != weekday) return false;
 
         if (NutritionReminderSchedule.ScheduledUtc(zone, reminderDate, localTime) is not { } scheduledUtc) return false;
         var lateness = utcNow - scheduledUtc;

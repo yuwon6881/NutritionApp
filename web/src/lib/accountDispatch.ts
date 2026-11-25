@@ -48,6 +48,11 @@ function changeHolders(account:string,delta:number){
   clearInterval(renewals.get(account));renewals.delete(account);
   return 0;
 }
+/** Refresh ownership immediately before dispatch in case a suspended page missed renewal. */
+export async function renewAccountDispatch(account:string):Promise<boolean>{
+  return Boolean(holders.get(account))&&await updateLease(account);
+}
+
 /** One account dispatcher across tabs, shared by this page's work; the lease expires after a crashed tab. */
 export async function acquireAccountDispatch(account:string):Promise<(()=>Promise<void>)|undefined>{
   changeHolders(account,1);

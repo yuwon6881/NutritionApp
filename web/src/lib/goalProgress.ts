@@ -1,5 +1,5 @@
 import type {GoalProgress,PhaseDecision,Profile,WeightGoalMetric} from '../types';
-import {trend} from './format';
+import {cleanTrend,countedWeighIns,type SignalPoint} from './weightSignal';
 
 const days=(from:string,to:string)=>Math.round((Date.parse(to)-Date.parse(from))/86400000);
 const shift=(date:string,by:number)=>new Date(Date.parse(date)+by*86400000).toISOString().slice(0,10);
@@ -25,15 +25,15 @@ function robustSlope(points:{date:string;kg:number}[]):number{
  */
 export function liveGoalProgress(
   profile:Profile|null,
-  weights:{date:string;kg:number}[],
+  weights:SignalPoint[],
   current:string,
   decision?:PhaseDecision,
   weightGoalMetric:WeightGoalMetric='scale'
 ):GoalProgress|null{
   if(!profile)return null;
   const mode=profile.phaseMode??'open';
-  const raw=weights.filter(w=>w.date<=current).sort((a,b)=>a.date.localeCompare(b.date));
-  const points=trend(raw);
+  const raw=countedWeighIns(weights).filter(w=>w.date<=current);
+  const points=cleanTrend(raw.map(point=>({...point,context:null})),current);
   const trendWeight=points.at(-1)?.kg??null;
   const scaleWeight=raw.at(-1)?.kg??null;
   const startWeight=profile.phaseStartWeightKg??profile.weightKg??null;
@@ -71,7 +71,7 @@ export function liveGoalProgress(
   const trendReached=fresh
     &&days(last[0].date,last[2].date)>=2
     &&last.every(w=>profile.goal==='lose'?w.kg<=target:w.kg>=target);
-  const scaleReached=fresh&&(profile.goal==='lose'?raw.at(-1)!.kg<=target:raw.at(-1)!.kg>=target);
+  const scaleReached=raw.length>=3&&raw.at(-1)!.date>=shift(current,-3)&&(profile.goal==='lose'?raw.at(-1)!.kg<=target:raw.at(-1)!.kg>=target);
 
   const goalReached=weightGoalMetric==='trend'?trendReached:(scaleReached||trendReached);
   const complete=decision?.decision==='completed';
@@ -104,7 +104,7 @@ export function liveGoalProgress(
   }
 
   const reachedBy=trendReached?'trend':scaleReached?'scale':null;
-  const reachedOn=trendReached?raw.at(-1)?.date??null:scaleReached?raw.at(-1)?.date??null:null;
+  const reachedOn=trendReached?points.at(-1)?.date??null:scaleReached?raw.at(-1)?.date??null:null;
 
   return base(
     profile,'weight',goalReached?100:percent,trendWeight,startWeight,target,remaining,null,
@@ -178,7 +178,7 @@ export function mergeGoalProgress(accepted:GoalProgress|undefined,live:GoalProgr
     phaseEnd:live.phaseEnd??accepted.phaseEnd,
     percent:newlyReached||complete?100:(live.percent??accepted.percent),
     remaining:newlyReached||complete?0:(live.remaining??accepted.remaining),
-    estimatedFinish:newlyReached&&!complete?null:(live.estimatedFinish??accepted.estimatedFinish),
+    estimatedFinish:newlyReached&&!complete?null:accepted.estimatedFinish,
     optimisticFinish:newlyReached&&!complete?null:(live.optimisticFinish??accepted.optimisticFinish??live.estimatedFinish),
     weeklyChange:live.weeklyChange??accepted.weeklyChange,
     explanation:newlyReached&&!complete?'':(live.explanation||accepted.explanation)

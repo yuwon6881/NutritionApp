@@ -4,6 +4,7 @@ namespace Nutrition.Api.Data;
 
 public class AppUser
 {
+    public long WeightGoalMetricRevision { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public string DisplayName { get; set; } = "";
     public long Revision { get; set; }

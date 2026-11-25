@@ -1,6 +1,7 @@
 import type {LocalData,Mutation,SyncAcknowledgement,AppState} from '../types';
 import {acknowledgeState} from './acknowledgeState';
 import {rebaseAfterOwnWrite} from './projection';
+import {projectProgressWeightSummary} from './progress';
 
 function canonicalState(state:AppState,canonical:SyncAcknowledgement|undefined,previous:AppState):AppState{
   // Compare with confirmed state before the optimistic acknowledgement stamps its revision.
@@ -38,5 +39,12 @@ export function acknowledgeLocalWrite(current:LocalData,op:Mutation,revision:num
     return saved?{...item,recordId:saved.id,expectedRevision:saved.revision}:item;
   });
   const history=Object.fromEntries(Object.entries(current.history??{}).map(([key,saved])=>[key,canonicalState(acknowledgeState(saved,op,revision),canonical,saved)]));
-  return {...current,state,queue,history,foodsLoaded:op.kind==='food'?true:current.foodsLoaded};
+  const progress=op.kind==='weight_move'&&current.progress
+    ? Object.fromEntries(Object.entries(current.progress).map(([period,summary])=>{
+      if(summary.revision>=revision)return [period,summary];
+      const weight=projectProgressWeightSummary(summary,summary.weight,[op],current.state.weights);
+      return [period,{...summary,weight:weight??summary.weight,awaitingSynchronization:true}];
+    }))
+    : current.progress;
+  return {...current,state,queue,history,progress,foodsLoaded:op.kind==='food'?true:current.foodsLoaded};
 }

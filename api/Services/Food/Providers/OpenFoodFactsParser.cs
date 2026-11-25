@@ -89,8 +89,8 @@ public static partial class OpenFoodFactsParser
     private static partial Regex MetricOnlyLabel();
 
     private static double? Nutrient(JsonElement product,string key)=>
-        product.TryGetProperty("nutriments",out var nutrients)&&nutrients.ValueKind==JsonValueKind.Object
-        &&nutrients.TryGetProperty(key+"_100g",out var value)&&FoodResults.TryNumber(value,out var number)?number:null;
+        product.ValueKind==JsonValueKind.Object&&product.TryGetProperty("nutriments",out var nutrients)&&nutrients.ValueKind==JsonValueKind.Object
+        &&nutrients.TryGetProperty(key+"_100g",out var value)&&FoodResults.TryNumber(value,out var number)&&number>=0?number:null;
 
     [GeneratedRegex(@"(?<amount>\d+(?:[.,]\d+)?)\s*(?<unit>g|ml)\b",RegexOptions.IgnoreCase)]
     private static partial Regex MetricAmount();

@@ -229,6 +229,7 @@ export function LogFood({
       return;
     }
     if(mode==='label'){
+      if(estimate.foods.length!==1)throw new Error('The nutrition label must identify exactly one product. Retake the label photo and try again.');
       const food=estimate.foods[0];
       setLabelNote(food.notes||'');
       setSaveFood(false);

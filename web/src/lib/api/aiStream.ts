@@ -1,4 +1,4 @@
-import { ApiError } from '../api';
+import { ApiError, accountHeaders } from '../api';
 import {
   AI_CHAT_TIMEOUT_MS,
   buildAiChatBody,
@@ -21,9 +21,13 @@ export interface SseEvent {
 
 export class SseParser {
   private buffer = '';
+  private previousChunkEndedWithCr = false;
 
   push(chunk: string): SseEvent[] {
-    this.buffer += chunk.replace(/\r\n?/g, '\n');
+    if (chunk.length === 0) return [];
+    const start = this.previousChunkEndedWithCr && chunk.startsWith('\n') ? 1 : 0;
+    this.previousChunkEndedWithCr = chunk.endsWith('\r');
+    this.buffer += chunk.slice(start).replace(/\r\n?/g, '\n');
     const events: SseEvent[] = [];
     let boundary = this.buffer.indexOf('\n\n');
     while (boundary !== -1) {
@@ -39,6 +43,7 @@ export class SseParser {
   flush(): SseEvent[] {
     const rest = this.buffer;
     this.buffer = '';
+    this.previousChunkEndedWithCr = false;
     const event = parseBlock(rest);
     return event ? [event] : [];
   }
@@ -82,7 +87,7 @@ export async function streamChatWithAi(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Nutrition-Request': '1',
+        'X-Nutrition-Request': '1', ...accountHeaders('/ai'),
       },
       credentials: 'same-origin',
       body: JSON.stringify(buildAiChatBody(turn)),

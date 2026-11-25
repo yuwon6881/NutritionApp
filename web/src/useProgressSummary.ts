@@ -17,20 +17,23 @@ export function useProgressSummary(store:NutritionStore,period:ProgressPeriod,en
   const cachedRef=useRef(cached);
   cachedRef.current=cached;
   const refreshProgress=store.refreshProgress;
+  const request=useRef(0);
   const load=useCallback(async()=>{
     if(!enabled)return;
+    const sequence=++request.current;
     if(!cachedRef.current)setLoading(true);
     setError('');
-    try{await refreshProgress(period);}catch(ex){setError((ex as Error).message);}
-    finally{setLoading(false);}
+    try{await refreshProgress(period);}
+    catch(ex){if(sequence===request.current)setError((ex as Error).message);}
+    finally{if(sequence===request.current)setLoading(false);}
   },[enabled,period,refreshProgress]);
   const revision=progressDataKey(store.local?.state);
-  useEffect(()=>{void load();},[load,revision,store.calendarDate]);
+  useEffect(()=>{void load();return()=>{++request.current;};},[load,revision,store.calendarDate]);
   return {
     summary:activeSummary,
     displayedPeriod:cached?period:(retained?.period??period),
     error,
-    loading:loading||isFetching,
+    loading:enabled&&(loading||(!cached&&!error)),
     retry:load
   };
 }

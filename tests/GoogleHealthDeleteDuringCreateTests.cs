@@ -40,7 +40,7 @@ public sealed class GoogleHealthDeleteDuringCreateTests : IAsyncDisposable
 
         Assert.Contains(requests, request => request.Contains(":batchDelete") && request.Contains(Resource));
         var work = await Work();
-        Assert.Equal(Resource, work.GoogleResourceName);
+        Assert.Empty(work.GoogleResourceName);
         Assert.Equal("succeeded", work.ProcessingState);
     }
 

@@ -3,7 +3,7 @@ import {hasConnectIntent} from './lib/googleHealthConnectIntent';
 import {lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Utensils,LayoutDashboard,BookOpen,Plus,Scale,Camera,Zap,Compass,Settings as SettingsIcon,LoaderCircle,Sparkles,LogOut} from 'lucide-react';
 import type {AiUiAction} from './lib/api/ai';
-import {api,ApiError,clearApiCooldowns} from './lib/api';
+import {api,ApiError,clearApiCooldowns,setApiAccount} from './lib/api';
 import {getLocalDatabaseFailure} from './lib/local';
 import {hydrateAccount,clearAccountHydration} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
@@ -24,7 +24,6 @@ import {useOnlineStatus} from './components/ui/useOnlineStatus';
 import type {BodyRoot} from './components/PhysiquePhotos';
 import {FoodDiary} from './components/FoodDiary';
 import {WeightEntryDialog} from './components/WeightEntryDialog';
-import {CopyDayDialog} from './components/CopyDayDialog';
 import {MissedDays} from './components/MissedDays';
 import {MotionScene,SelectionIndicator} from './components/ui/Motion';
 import {SyncStatus} from './components/ui/SyncStatus';
@@ -42,6 +41,7 @@ import {captureNutritionShortcut,clearPendingNutritionShortcut} from './lib/nutr
 import {useReadyNutritionShortcut} from './components/useReadyNutritionShortcut';
 
 // Dashboard and Food Log stay in the first bundle; the other views load on first visit and are precached for offline use.
+const CopyDayDialog=lazy(()=>import('./components/CopyDayDialog').then(module=>({default:module.CopyDayDialog})));
 const IncomingPhoto=lazy(()=>import('./components/IncomingPhoto').then(module=>({default:module.IncomingPhoto})));
 const Coach=lazy(()=>import('./components/Coach').then(module=>({default:module.Coach})));
 const BodyPhotos=lazy(()=>import('./components/PhysiquePhotos').then(module=>({default:module.PhysiquePhotos})));
@@ -59,7 +59,7 @@ const asPage=(value:unknown):Page|undefined=>PAGES.find(page=>page===value);
 function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:string;authReady:boolean;onLogout:()=>Promise<void>;onUsable?:()=>void;onSessionExpired?:()=>void}){
   const firstUsable=useRef<(()=>void)|undefined>(undefined);
   if(!firstUsable.current)firstUsable.current=measurePerformance('dashboard.usable');
-  const store=useNutritionStore(user,onSessionExpired);
+  const store=useNutritionStore(user,onSessionExpired,authReady);
   const dashboardMarked=useRef(false);
   useEffect(()=>{
     if(!store.state||dashboardMarked.current)return;
@@ -95,6 +95,8 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const [weightEditing,setWeightEditing]=useState<Weight>();
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
   const [copyOpen,setCopyOpen]=useState(false);
+  const copyMounted=useRef(false);
+  if(copyOpen)copyMounted.current=true;
   const [copyDate,setCopyDate]=useState(today());
   const [copyEntries,setCopyEntries]=useState<Entry[]>([]);
   const [copyReturnFocus,setCopyReturnFocus]=useState<HTMLElement|null>(null);
@@ -309,7 +311,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
         {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialStep}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialStep={foodInitialStep} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
         {isNativeApp()&&authReady&&!needsProfile&&store.state&&<Suspense fallback={null}><IncomingPhoto key={user} accountId={user} displayName={store.state.displayName} initialDate={activeDate} blocked={foodOpen||weightOpen} onAttached={day=>openFood(day,undefined,'ai',null)}/></Suspense>}
         <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
-        <CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/>
+        {copyMounted.current&&<Suspense fallback={null}><CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/></Suspense>}
       </>}
       <AiAssistantLauncher isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page}/>
     </main>
@@ -318,11 +320,12 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
 }
 
 export default function App({onUsable}:{onUsable?:()=>void}={}){
-  const [user,setUser]=useState<string|null>();
+  const [user,updateUser]=useState<string|null>();
+  const setUser=useCallback((id:string|null)=>{setApiAccount(id);updateUser(id);},[]);
   const [sessionExpired,setSessionExpired]=useState(false);
   // Same as an expired session found at startup: return to sign-in without the signed-out marker
   // or clearing the account, so its saved local work syncs after the user signs in again.
-  const expireSession=useCallback(()=>{resetGoogleHealthState();setSessionExpired(true);setUser(null);},[]);
+  const expireSession=useCallback(()=>{resetGoogleHealthState();setSessionExpired(true);setUser(null);},[setUser]);
   useEffect(()=>{clearApiCooldowns();},[user]);
   const [authReady,setAuthReady]=useState(false);
   const [localDatabaseError,setLocalDatabaseError]=useState(getLocalDatabaseFailure);
@@ -363,14 +366,16 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
       void validation.catch(()=>{});
       try{cached=!!previous&&!!await hydrateAccount(previous);}catch{/* Try the server if local storage is unavailable. */}
       finally{finishHydration();}
-      if(active&&cached)setUser(previous);
+      const sameSessionAccount=previous!=null&&document.cookie.split(';').some(cookie=>cookie.trim()===`nutrition-account-hint=${previous}`);
+      const canOpenCache=cached&&(sameSessionAccount||!navigator.onLine);
+      if(active&&canOpenCache)setUser(previous);
       try{
         const account=await validation;
         if(active&&localStorage.getItem('nutrition-signed-out')!=='1'){
           if(previous!==account.id)resetGoogleHealthState();
           localStorage.setItem('nutrition-account',account.id);setUser(account.id);setAuthReady(true);
         }
-      }catch(ex){if(active){if(!cached||(ex instanceof ApiError&&ex.status===401)){resetGoogleHealthState();setUser(null);}setAuthReady(true);}}
+      }catch(ex){if(active){if(!canOpenCache||(ex instanceof ApiError&&[401,403].includes(ex.status))){resetGoogleHealthState();setUser(null);}else setUser(previous);setAuthReady(true);}}
     })();
     return()=>{active=false;};
   },[]);
@@ -397,7 +402,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
     localStorage.setItem('nutrition-signed-out','1');
     localStorage.removeItem('nutrition-account');
     setUser(null);
-    try{await api('/auth/logout',{});}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}
+    try{await api('/auth/logout',{},undefined,user?{headers:{'X-Nutrition-Account':user}}:undefined);}catch{/* Explicit signed-out marker prevents an offline logout from reopening via an old cookie. */}
   };
   if(user===undefined)return <StartupScreen/>;
   return <>

@@ -15,6 +15,10 @@ function schedule() {
   if (!pendingReads.length) return;
   // Give the cache reader one event-loop turn to enqueue its provider refresh first.
   const delay = pendingReads.some(read => read.priority === 0) ? 0 : 200;
+  if (delay === 0 && dispatchTimer !== undefined) {
+    clearTimeout(dispatchTimer);
+    dispatchTimer = undefined;
+  }
   dispatchTimer ??= setTimeout(dispatch, delay);
 }
 /** Immediately start reads matching prefix and bypass the optional launch queue until released. */

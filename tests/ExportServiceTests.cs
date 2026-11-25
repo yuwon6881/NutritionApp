@@ -15,6 +15,15 @@ public sealed class ExportServiceTests : IAsyncLifetime
     private AppDb Open(Guid? user = null) => new(new DbContextOptionsBuilder<AppDb>().UseSqlite($"Data Source={path}").Options) { CurrentUser = user };
 
     public async Task InitializeAsync() { await using var db = Open(); await db.Database.EnsureCreatedAsync(); }
+    [Theory]
+    [InlineData("  =1+1")]
+    [InlineData("\n@SUM(A1)")]
+    [InlineData(" \t+1")]
+    public void Formula_like_text_with_leading_whitespace_is_escaped(string value)
+    {
+        Assert.Contains("'" + value, Csv.Field(value));
+    }
+
     public Task DisposeAsync() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(path); return Task.CompletedTask; }
 
     [Fact]

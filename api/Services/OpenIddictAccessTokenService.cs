@@ -19,22 +19,27 @@ public interface ISharedAccessTokenValidator
 
 /// Uses OpenIddict's discovery/JWKS validation handler for resource requests. No application
 /// code parses JWTs or loads a long-lived signing key.
-public sealed class OpenIddictAccessTokenService(OpenIddictValidationService validation) : ISharedAccessTokenValidator
+public sealed class OpenIddictAccessTokenService(OpenIddictValidationService validation, IConfiguration config) : ISharedAccessTokenValidator
 {
     public async Task<ValidatedAccessToken> Require(HttpContext context, string requiredScope, CancellationToken ct)
     {
         var authorization = context.Request.Headers.Authorization.ToString();
         Validation.Require(authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase), "A shared access token is required.", 401);
-        return await RequireAccessToken(authorization[7..].Trim(), requiredScope, ct);
+        return await Validate(authorization[7..].Trim(), requiredScope, config["Identity:NutritionAudience"] ?? "nutrition-api", ct);
     }
 
-    public async Task<ValidatedAccessToken> RequireAccessToken(string accessToken, string requiredScope, CancellationToken ct)
+    public Task<ValidatedAccessToken> RequireAccessToken(string accessToken, string requiredScope, CancellationToken ct)
+        => Validate(accessToken, requiredScope, config["Identity:WorkoutAudience"] ?? "workout-api", ct);
+
+    private async Task<ValidatedAccessToken> Validate(string accessToken, string requiredScope, string audience, CancellationToken ct)
     {
         Validation.Require(!string.IsNullOrWhiteSpace(accessToken), "A shared access token is required.", 401);
         System.Security.Claims.ClaimsPrincipal? principal;
         try { principal = await validation.ValidateAccessTokenAsync(accessToken, ct); }
         catch (OpenIddictExceptions.ProtocolException) { throw new DomainException("The shared access token could not be validated.", 401); }
         Validation.Require(principal is not null, "The shared access token could not be validated.", 401);
+        Validation.Require(principal!.GetAudiences().Contains(audience, StringComparer.Ordinal),
+            "The shared access token is for a different resource.", 403);
         var subject = principal!.FindFirst(OpenIddictConstants.Claims.Subject)?.Value;
         Validation.Require(!string.IsNullOrWhiteSpace(subject), "The shared access token has no subject.", 403);
         var scopes = principal.GetScopes().ToHashSet(StringComparer.Ordinal);

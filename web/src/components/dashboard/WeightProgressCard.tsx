@@ -91,7 +91,7 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
     </div>
     {summary&&error&&<HistoryNotice error={error} hasState={true} onRetry={()=>void retry()} retryLabel="Retry" contextKey={period} store={store}/>}
     {summary?.weight.historyUnavailable&&!error&&<HistoryNotice customMessage="Showing weigh-ins saved on this device. History unavailable offline." contextKey={period} store={store}/>}
-    {!summary&&error&&<CardFeedback title="Weight summary unavailable" message={`Not available offline. ${error}`} action={{label:'Retry',onClick:()=>void retry(),disabled:loading}}/>}
+    {!summary&&error&&<CardFeedback title="Weight summary unavailable" message={error} action={{label:'Retry',onClick:()=>void retry(),disabled:loading}}/>}
     <SwipeCarousel label="Weight view" slides={slides} activeId={activeView} onChange={handleViewChange} toolbar={<SelectField className="select-compact" label="Weight history period" value={period} onChange={value=>onPeriod(value as ProgressPeriod)}>
       {progressPeriodOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
     </SelectField>}/>

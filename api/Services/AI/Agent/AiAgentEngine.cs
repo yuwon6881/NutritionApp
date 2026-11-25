@@ -68,7 +68,7 @@ public sealed class AiAgentEngine
             if (atLimit) input.Add(AiInputItems.Message("developer", AiAgentPrompt.ToolLimitNote));
             var toolChoice = atLimit ? "none" : round == 1 && request.ForcedFirstTool != null ? request.ForcedFirstTool : "auto";
 
-            var result = await _client.CreateResponseAsync(
+            var result = await RunMeteredRound(
                 new AiResponseRequest(
                     "chat-agent",
                     input,
@@ -81,9 +81,6 @@ public sealed class AiAgentEngine
                     PromptCacheKey: PromptCacheKey),
                 streamSink,
                 cancellationToken);
-            // Account for each successful provider response, including rounds before a later failure.
-            using (var accountingDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
-                await _usage.RecordAsync(result.Usage, 1, accountingDeadline.Token);
             usage = Add(usage, result.Usage);
             input.AddRange(result.OutputItems);
 
@@ -120,6 +117,31 @@ public sealed class AiAgentEngine
                 }
                 trace.Add(new AiToolTrace(call.Name, call.ArgumentsJson, succeeded));
                 input.Add(AiInputItems.FunctionCallOutput(call.CallId, output));
+            }
+        }
+    }
+
+    private async Task<AiResponseResult> RunMeteredRound(
+        AiResponseRequest request, IAiStreamSink? sink, CancellationToken cancellationToken)
+    {
+        AiTokenUsage? measured = null;
+        try
+        {
+            var result = await _client.CreateResponseAsync(request, sink, cancellationToken);
+            measured = result.Usage;
+            return result;
+        }
+        catch (AiChatClientException ex)
+        {
+            measured = ex.Usage;
+            throw;
+        }
+        finally
+        {
+            if (measured is not null)
+            {
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await _usage.RecordAsync(measured, 1, deadline.Token);
             }
         }
     }

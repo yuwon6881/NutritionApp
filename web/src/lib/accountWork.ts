@@ -15,3 +15,7 @@ export function subscribeAccountWork(account:string,refresh:()=>void){
 export async function acquireAccountDispatch(account:string){
   const dispatcher=await import('./accountDispatch');return dispatcher.acquireAccountDispatch(account);
 }
+
+export async function renewAccountDispatch(account:string){
+  const dispatcher=await import('./accountDispatch');return dispatcher.renewAccountDispatch(account);
+}

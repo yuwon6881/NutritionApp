@@ -46,17 +46,18 @@ internal static class AiResponseStreamReader
         catch (JsonException ex) { throw new AiStreamProtocolException($"malformed event data: {ex.Message}"); }
         using var _ = document;
         var root = document.RootElement;
-        var type = root.TryGetProperty("type", out var t) ? t.GetString() : eventName;
+        if (root.ValueKind != JsonValueKind.Object) return null;
+        var type = root.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : eventName;
         switch (type)
         {
             case "response.output_text.delta":
-                if (root.TryGetProperty("delta", out var delta) && delta.GetString() is { Length: > 0 } text)
+                if (root.TryGetProperty("delta", out var delta) && delta.ValueKind == JsonValueKind.String && delta.GetString() is { Length: > 0 } text)
                     await sink.OnTextDeltaAsync(text, cancellationToken);
                 return null;
             case "response.output_item.added":
                 if (root.TryGetProperty("item", out var item) &&
-                    item.TryGetProperty("type", out var itemType) && itemType.GetString() == "function_call" &&
-                    item.TryGetProperty("name", out var name) && name.GetString() is { Length: > 0 } toolName)
+                    item.ValueKind == JsonValueKind.Object && item.TryGetProperty("type", out var itemType) && itemType.ValueKind == JsonValueKind.String && itemType.GetString() == "function_call" &&
+                    item.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String && name.GetString() is { Length: > 0 } toolName)
                     await sink.OnToolCallStartedAsync(toolName, cancellationToken);
                 return null;
             case "response.completed":
@@ -66,7 +67,7 @@ internal static class AiResponseStreamReader
                     ? response.Clone()
                     : throw new AiStreamProtocolException($"{type} event carried no response");
             case "error":
-                var message = root.TryGetProperty("message", out var m) ? m.GetString() : null;
+                var message = root.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
                 throw new AiStreamProtocolException(message ?? "provider stream error");
             default:
                 return null;

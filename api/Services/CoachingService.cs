@@ -123,6 +123,7 @@ public sealed class CoachingService(AppDb db, ExpenditureTrajectoryService? traj
 
     private static bool CoachingDataUnchanged(AppUser user, PhaseDecision? phaseDecision, AcceptedPlan? last, long inputRevision)
         => user.ProfileRevision <= inputRevision
+        && user.WeightGoalMetricRevision <= inputRevision
         && user.CadenceRevision <= inputRevision
         && user.TrajectoryRevision <= inputRevision
         && user.DiaryRevision <= inputRevision

@@ -77,6 +77,7 @@ internal static class GoogleHealthWeightProvider
             Content = new StringContent(JsonSerializer.Serialize(body, Json.Options), Encoding.UTF8, "application/json")
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        ct.ThrowIfCancellationRequested();
         try
         {
             using var response = await SendAsync(http, request, create, ct, deleteRequest);
@@ -98,7 +99,7 @@ internal static class GoogleHealthWeightProvider
         {
             throw new GoogleHealthWeightProviderException("upload_status_unknown", "The create response was unreadable; check Google Health before retrying.", unknownCreate: true);
         }
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested && create)
+        catch (OperationCanceledException) when (create)
         {
             throw new GoogleHealthWeightProviderException("upload_status_unknown", "The create response was lost; check Google Health before retrying.", unknownCreate: true);
         }
@@ -115,7 +116,7 @@ internal static class GoogleHealthWeightProvider
         {
             throw;
         }
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested && create)
+        catch (OperationCanceledException) when (create)
         {
             throw;
         }

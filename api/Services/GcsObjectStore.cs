@@ -77,6 +77,17 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         }
         catch(System.Text.Json.JsonException) { return null; }
     }
+    public async Task<string?> CurrentGeneration(string path,CancellationToken ct)
+    {
+        using var metadata=await Send(HttpMethod.Get,path,null,ct,metadata:true);
+        if(metadata.StatusCode==HttpStatusCode.NotFound)return null;
+        Validation.Require(metadata.IsSuccessStatusCode,"Could not inspect the stored image generation.",503);
+        using var document=System.Text.Json.JsonDocument.Parse(await metadata.Content.ReadAsStringAsync(ct));
+        var generation=document.RootElement.GetProperty("generation").GetString();
+        Validation.Require(!string.IsNullOrEmpty(generation)&&generation.All(char.IsAsciiDigit),"Invalid image generation.",503);
+        return generation;
+    }
+
     public async Task<byte[]> Get(string path,CancellationToken ct,string? generation=null)
     {
         using var response=await Send(HttpMethod.Get,path,null,ct,generation:generation);
@@ -89,12 +100,8 @@ public class GcsObjectStore(HttpClient http,string? bucketName,Func<Cancellation
         // leave a billable noncurrent object forever; exact-generation delete enters soft delete.
         if (generation is null)
         {
-            using var metadata=await Send(HttpMethod.Get,path,null,ct,metadata:true);
-            if(metadata.StatusCode==HttpStatusCode.NotFound)return;
-            Validation.Require(metadata.IsSuccessStatusCode,"Could not inspect the photo generation for deletion.",503);
-            using var document=System.Text.Json.JsonDocument.Parse(await metadata.Content.ReadAsStringAsync(ct));
-            generation=document.RootElement.GetProperty("generation").GetString();
-            Validation.Require(!string.IsNullOrEmpty(generation)&&generation.All(char.IsAsciiDigit),"Invalid photo generation.",503);
+            generation=await CurrentGeneration(path,ct);
+            if(generation is null)return;
         }
         using var response=await Send(HttpMethod.Delete,path,null,ct,generation:generation);
         Validation.Require(response.IsSuccessStatusCode||response.StatusCode==HttpStatusCode.NotFound,"Photo deletion needs a retry.",503);

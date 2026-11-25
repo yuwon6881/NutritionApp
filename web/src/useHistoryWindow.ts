@@ -48,7 +48,7 @@ export function useHistoryWindow(store: NutritionStore, key: string, enabled = t
           }
         } catch (ex) {
           if (active) {
-            setFailure({ key, message: (ex as Error).message });
+            setFailure({ key, message: (ex as Error).name==='AbortError'?'The diary load was interrupted.':(ex as Error).message });
             setLoading(false);
           }
         }
@@ -60,7 +60,7 @@ export function useHistoryWindow(store: NutritionStore, key: string, enabled = t
     const wake = () => {
       if (document.visibilityState === 'visible' && !sharedDiaryCoordinator.isFresh(key, todayDate)) {
         void store.refreshHistory(key).catch(ex => {
-          if (active) setFailure({ key, message: (ex as Error).message });
+          if (active) setFailure({ key, message: (ex as Error).name==='AbortError'?'The diary load was interrupted.':(ex as Error).message });
         });
       }
     };

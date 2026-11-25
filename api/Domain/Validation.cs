@@ -25,7 +25,7 @@ public static class Validation
         Require(!string.IsNullOrWhiteSpace(n.Name) && n.Name.Length <= 160, "Food name is required (maximum 160 characters).");
         Number(n.Calories, 0, 20000, "Calories");
         foreach (var value in new[] { n.Protein, n.Fat, n.Carbs, n.Fiber }) if (value is {} v) Number(v, 0, 3000, "Nutrients");
-        Require(n.Source.Length <= 240, "Source is too long.");
+        Require(n.Source is { Length: <= 240 }, "Source is too long.");
     }
 
     public static void Barcode(string? barcode)
@@ -49,7 +49,7 @@ public static class Validation
 
     public static void Portions(string json)
     {
-        Require(json.Length <= 1200, "Portions are too large.");
+        Require(json is { Length: <= 1200 }, "Portions are too large.");
         JsonDocument document;
         try { document = JsonDocument.Parse(json); }
         catch (JsonException) { throw new DomainException("Portions must be valid JSON."); }

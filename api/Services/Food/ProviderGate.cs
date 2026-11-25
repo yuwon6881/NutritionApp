@@ -52,6 +52,21 @@ public sealed class ProviderBreaker(int threshold=3,double openSeconds=60)
     private readonly object sync=new();
     private int failures;
     private DateTime openUntil=DateTime.MinValue;
+    private bool probing;
+
+    public bool TryEnter(out bool isProbe)
+    {
+        lock(sync)
+        {
+            isProbe=false;
+            if(DateTime.UtcNow<openUntil||probing)return false;
+            if(openUntil==DateTime.MinValue)return true;
+            probing=isProbe=true;
+            return true;
+        }
+    }
+
+    public void ReleaseProbe() { lock(sync) probing=false; }
 
     public bool IsOpen { get { lock(sync) return DateTime.UtcNow<openUntil; } }
 
@@ -64,7 +79,7 @@ public sealed class ProviderBreaker(int threshold=3,double openSeconds=60)
             failures++;
             var now=DateTime.UtcNow;
             if(retryAfter is { } wait&&now.Add(wait)>openUntil)openUntil=now.Add(wait);
-            if(failures>=threshold)openUntil=now.AddSeconds(openSeconds);
+            if(failures>=threshold&&now.AddSeconds(openSeconds)>openUntil)openUntil=now.AddSeconds(openSeconds);
         }
     }
 }

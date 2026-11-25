@@ -130,16 +130,16 @@ public static class FoodResults
 
     public static bool TryNumber(JsonElement value,out double number)
     {
-        if(value.ValueKind==JsonValueKind.Number&&value.TryGetDouble(out number))return true;
-        if(value.ValueKind==JsonValueKind.String&&double.TryParse(value.GetString(),NumberStyles.Float,CultureInfo.InvariantCulture,out number))return true;
+        if(value.ValueKind==JsonValueKind.Number&&value.TryGetDouble(out number))return double.IsFinite(number);
+        if(value.ValueKind==JsonValueKind.String&&double.TryParse(value.GetString(),NumberStyles.Float,CultureInfo.InvariantCulture,out number))return double.IsFinite(number);
         number=0;
         return false;
     }
 
     public static string? Text(JsonElement element,string name)=>
-        element.TryGetProperty(name,out var value)&&value.ValueKind==JsonValueKind.String
+        element.ValueKind==JsonValueKind.Object&&element.TryGetProperty(name,out var value)&&value.ValueKind==JsonValueKind.String
         &&value.GetString()?.Trim() is {Length:>0} text?text:null;
 
     public static double? Number(JsonElement element,string name)=>
-        element.TryGetProperty(name,out var value)&&TryNumber(value,out var number)?number:null;
+        element.ValueKind==JsonValueKind.Object&&element.TryGetProperty(name,out var value)&&TryNumber(value,out var number)?number:null;
 }

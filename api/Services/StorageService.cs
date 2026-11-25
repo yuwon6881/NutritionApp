@@ -98,7 +98,9 @@ public sealed class StorageService(AppDb db,IMemoryCache cache,TemporaryImageSto
             ((p.DeletedAt!=null&&p.DeletedAt<tombstoneCutoff)||(p.DeletedAt==null&&p.Created<tombstoneCutoff)))
             .ExecuteDeleteAsync(ct);
         await db.BodyRecords.IgnoreQueryFilters().Where(b=>b.Deleted&&
-            ((b.DeletedAt!=null&&b.DeletedAt<tombstoneCutoff)||(b.DeletedAt==null&&b.Created<tombstoneCutoff)))
+            ((b.DeletedAt!=null&&b.DeletedAt<tombstoneCutoff)||(b.DeletedAt==null&&b.Created<tombstoneCutoff))&&
+              !db.GoogleHealthBodyFatSyncWork.IgnoreQueryFilters().Any(w=>w.UserId==b.UserId&&w.BodyRecordId==b.Id&&
+                  w.ProcessingState!="succeeded"&&w.ProcessingState!="cancelled"))
             .ExecuteDeleteAsync(ct);
         await db.GoogleHealthBodyFatSyncWork.IgnoreQueryFilters()
             .Where(w => (w.ProcessingState == "succeeded" || w.ProcessingState == "cancelled")

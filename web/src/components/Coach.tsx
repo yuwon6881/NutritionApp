@@ -217,7 +217,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
     :selectedPresetId==='custom'
       ?customSplit
       :(selectedPreset?.split??coachDefaultSplit);
-  const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=13&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
+  const canAdvanceBody=Boolean(derivedAge!=null&&derivedAge>=18&&derivedAge<=120&&profile.heightCm>=80&&profile.heightCm<=250&&profile.weightKg>=20&&profile.weightKg<=400&&profile.sex);
   const canAdvanceActivity=Boolean(profile.activity>=1.2&&profile.activity<=2.5);
   const phaseInitial=currentGoalWeight;
   const target=profile.targetWeightKg??phaseInitial;
@@ -354,7 +354,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
       </div>
       {step==='body'&&<div className="step-content">
         <div className="form-grid">
-          <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<13||derivedAge>120)?'Enter a date of birth for an age from 13 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`${derivedAge} years old`:undefined} hintPlacement="label"/>
+          <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<18||derivedAge>120)?'Coaching is available to adults aged 18 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`${derivedAge} years old`:undefined} hintPlacement="label"/>
           {units.height==='cm'?(
             <Field id="coach-height" name="heightCm" label="Height (cm)" type="number" required min="80" max="250" step="0.1" value={profile.heightCm||''} onChange={e=>set('heightCm',Number(e.target.value)||0)} labelAction={<MiniUnitToggle<'cm'|'ft-in'> label="Height unit" value={units.height} onChange={v=>updateUnits({height:v})} options={[{value:'cm',label:'cm'},{value:'ft-in',label:'ft'}]}/>}/>
           ):(
@@ -392,7 +392,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
                     name="heightInches"
                     aria-label="Height (inches)"
                     type="number"
-                    inputMode="numeric"
+                    inputMode="decimal"
                     autoComplete="off"
                     required
                     min="0"

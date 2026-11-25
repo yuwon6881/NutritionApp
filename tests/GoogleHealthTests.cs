@@ -81,9 +81,13 @@ public sealed class GoogleHealthTests : IAsyncLifetime
         var wrongSessionResult = await service.HandleCallbackAsync("code123", stateQuery, null, userId, "wrong-session", "https://nutrition.example.com", default);
         Assert.Contains("code=session_mismatch", wrongSessionResult);
 
-        // 3. Re-generate state for valid test
-        connectResult = await service.GenerateConnectUrlAsync(userId, sessionHash, "https://nutrition.example.com", default);
-        var validState = System.Web.HttpUtility.ParseQueryString(new Uri(connectResult.AuthUrl).Query)["state"];
+        // A different account must neither consume the nonce nor reach the provider.
+        var otherUser = Guid.NewGuid();
+        dbUser.CurrentUser = otherUser;
+        var crossAccount = await service.HandleCallbackAsync("code123", stateQuery, null, otherUser, sessionHash, "https://nutrition.example.com", default);
+        Assert.Contains("code=invalid_state", crossAccount);
+        dbUser.CurrentUser = userId;
+        var validState = stateQuery;
 
         mockHttp.TokenResponse = new { access_token = "at-1", refresh_token = "rt-1", expires_in = 3600 };
         mockHttp.TokenInfoResponse = new { sub = "google-user-12345" };

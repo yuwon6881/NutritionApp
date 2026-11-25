@@ -129,6 +129,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             ["response_type"] = "code",
             ["scope"] = scopeString,
             ["access_type"] = "offline",
+            ["include_granted_scopes"] = "true",
             ["prompt"] = "consent",
             ["state"] = stateNonce
         };
@@ -160,27 +161,16 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             return Failure("missing_parameters", "callback_parameters");
 
         // Validate state nonce
-        var oauthState = await db.GoogleHealthOAuthStates.IgnoreQueryFilters().SingleOrDefaultAsync(s => s.State == state, ct);
-        if (oauthState == null || oauthState.ExpiresAt < DateTime.UtcNow)
-        {
-            if (oauthState != null)
-            {
-                db.GoogleHealthOAuthStates.Remove(oauthState);
-                await db.SaveChangesAsync(ct);
-            }
+        var states = db.GoogleHealthOAuthStates.Where(s => s.UserId == userId && s.State == state);
+        var oauthState = await states.AsNoTracking().SingleOrDefaultAsync(ct);
+        if (oauthState is null || oauthState.ExpiresAt < DateTime.UtcNow)
             return Failure("invalid_state", "state_lookup");
-        }
-
-        if (oauthState.UserId != userId || oauthState.SessionHash != sessionHash)
-        {
-            db.GoogleHealthOAuthStates.Remove(oauthState);
-            await db.SaveChangesAsync(ct);
+        if (oauthState.SessionHash != sessionHash)
             return Failure("session_mismatch", "state_binding");
-        }
 
-        // Single-use: remove state immediately
-        db.GoogleHealthOAuthStates.Remove(oauthState);
-        await db.SaveChangesAsync(ct);
+        // Only the matching account and session can consume the nonce, once.
+        if (await states.Where(s => s.SessionHash == sessionHash && s.ExpiresAt >= DateTime.UtcNow).ExecuteDeleteAsync(ct) != 1)
+            return Failure("invalid_state", "state_lookup");
 
         // Exchange code for tokens
         var callbackUrl = GetCallbackUrl(requestOrigin);
@@ -207,10 +197,11 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         {
             return Failure("token_exchange_failed", "token_exchange");
         }
-        if (!tokenRes.IsSuccessStatusCode)
+        using var tokenResponse = tokenRes;
+        if (!tokenResponse.IsSuccessStatusCode)
             return Failure("token_exchange_failed", "token_exchange");
 
-        var tokenJson = await tokenRes.Content.ReadAsStringAsync(ct);
+        var tokenJson = await tokenResponse.Content.ReadAsStringAsync(ct);
         JsonDocument tokenDoc;
         try
         {
@@ -274,24 +265,22 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             catch (JsonException) { storedScopes = null; }
         }
         var grantedScopes = returnedScopes
-            ?? (requestedScopes is { Length: > 0 }
-                ? requestedScopes
-                : storedScopes is { Length: > 0 } ? storedScopes : new[] { Scope });
+            ?? (requestedScopes ?? [Scope]).Concat(storedScopes ?? []).Distinct(StringComparer.Ordinal).ToArray();
         var requestedWeight = oauthState.RequestedOperationsJson.Contains("weight_write", StringComparison.Ordinal);
         var weightGranted = grantedScopes.Contains(GoogleHealthWeightSyncService.WeightScope, StringComparer.Ordinal);
-        var weightEnabled = existingConn?.WeightSyncEnabled == true && !requestedWeight || weightGranted && requestedWeight;
+        var weightEnabled = weightGranted && (requestedWeight || existingConn?.WeightSyncEnabled == true);
 
         var requestedNutrition = oauthState.RequestedOperationsJson.Contains("nutrition_write", StringComparison.Ordinal);
         var nutritionGranted = grantedScopes.Contains(GoogleHealthNutritionSyncService.NutritionScope, StringComparer.Ordinal);
-        var nutritionEnabled = existingConn?.NutritionSyncEnabled == true && !requestedNutrition || nutritionGranted && requestedNutrition;
+        var nutritionEnabled = nutritionGranted && (requestedNutrition || existingConn?.NutritionSyncEnabled == true);
 
         var requestedBodyFat = oauthState.RequestedOperationsJson.Contains("body_fat_write", StringComparison.Ordinal);
         var bodyFatGranted = grantedScopes.Contains(GoogleHealthBodyFatSyncService.BodyFatScope, StringComparer.Ordinal);
-        var bodyFatEnabled = existingConn?.BodyFatSyncEnabled == true && !requestedBodyFat || bodyFatGranted && requestedBodyFat;
+        var bodyFatEnabled = bodyFatGranted && (requestedBodyFat || existingConn?.BodyFatSyncEnabled == true);
 
         var requestedImport = oauthState.RequestedOperationsJson.Contains("weight_read", StringComparison.Ordinal);
         var importGranted = grantedScopes.Contains(GoogleHealthWeightImportService.ReadScope, StringComparer.Ordinal);
-        var importEnabled = existingConn?.WeightImportEnabled == true && !requestedImport || importGranted && requestedImport;
+        var importEnabled = importGranted && (requestedImport || existingConn?.WeightImportEnabled == true);
 
         if (existingConn != null)
         {
@@ -363,11 +352,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 AccessTokens.Set(cacheKey, accessToken, new MemoryCacheEntryOptions { Size = 1, AbsoluteExpirationRelativeToNow = lifetime });
             return accessToken;
         }
-        conn.Status = "reconnect_required";
-        conn.EncryptedRefreshToken = "";
-        conn.Revision++;
-        await db.SaveChangesAsync(ct);
-            SyncCache.Remove(userId);
+        await RevokeIfCurrent(conn, ct);
         return null;
     }
 
@@ -375,13 +360,39 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
     {
         db.CurrentUser = userId;
         var connection = await db.GoogleHealthConnections.SingleOrDefaultAsync(ct);
-        if (connection is null || connection.Status == "reconnect_required") return;
-        connection.Status = "reconnect_required";
-        connection.EncryptedRefreshToken = "";
-        connection.Revision++;
-        await db.SaveChangesAsync(ct);
-            SyncCache.Remove(userId);
+        if (connection is not null && connection.Status != "reconnect_required")
+            await RevokeIfCurrent(connection, ct);
     }
+
+    private async Task<bool> RevokeIfCurrent(GoogleHealthConnection connection, CancellationToken ct)
+    {
+        var encryptedEmpty = "";
+        try { encryptedEmpty = await kms.EncryptAsync("[]", ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The empty sentinel still clears locally cached health data when KMS is unavailable.
+        }
+        var updated = await CurrentCredential(connection).ExecuteUpdateAsync(update => update
+            .SetProperty(row => row.Status, "reconnect_required")
+            .SetProperty(row => row.EncryptedRefreshToken, "")
+            .SetProperty(row => row.EncryptedStepHistoryJson, encryptedEmpty)
+            .SetProperty(row => row.Revision, row => row.Revision + 1), ct);
+        AccessTokens.Remove(AccessTokenCacheKey(connection));
+        await ReloadTrackedConnection(connection.UserId, ct);
+        SyncCache.Remove(connection.UserId);
+        return updated > 0;
+    }
+
+    private async Task ReloadTrackedConnection(Guid userId, CancellationToken ct)
+    {
+        var tracked = db.GoogleHealthConnections.Local.FirstOrDefault(row => row.UserId == userId);
+        if (tracked is not null) await db.Entry(tracked).ReloadAsync(ct);
+    }
+
+    private IQueryable<GoogleHealthConnection> CurrentCredential(GoogleHealthConnection connection)
+        => db.GoogleHealthConnections.Where(row => row.UserId == connection.UserId &&
+            row.ConnectionGeneration == connection.ConnectionGeneration &&
+            row.EncryptedRefreshToken == connection.EncryptedRefreshToken && row.Status != "reconnect_required");
 
     private static bool HasGrantedScope(GoogleHealthConnection connection, string requiredScope)
     {
@@ -411,7 +422,7 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
                 if (!string.IsNullOrEmpty(refreshToken))
                 {
                     using var revokeReq = new HttpRequestMessage(HttpMethod.Post, $"https://oauth2.googleapis.com/revoke?token={Uri.EscapeDataString(refreshToken)}");
-                    await http.SendAsync(revokeReq, ct);
+                    using var revokeResponse = await http.SendAsync(revokeReq, ct);
                 }
             }
         }
@@ -591,14 +602,9 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         var (accessToken, isRevoked, refreshError, _) = await RefreshAccessTokenAsync(refreshToken, ct);
         if (isRevoked)
         {
-            // Confirmed revoked: delete imported step data and require reconnection
-            conn.Status = "reconnect_required";
-            conn.EncryptedRefreshToken = "";
-            conn.EncryptedStepHistoryJson = await kms.EncryptAsync("[]", ct);
-            conn.Revision++;
-            await db.SaveChangesAsync(ct);
-            SyncCache.Remove(userId);
-            return new GoogleHealthSyncResult("reconnect_required", conn.ConnectedAt, conn.LastSyncedAt, "unavailable", [], "credentials_revoked", "Google Health authorization was revoked. Please reconnect.");
+            if (await RevokeIfCurrent(conn, ct))
+                return new GoogleHealthSyncResult("reconnect_required", conn.ConnectedAt, conn.LastSyncedAt, "unavailable", [], "credentials_revoked", "Google Health authorization was revoked. Please reconnect.");
+            return await ReadCurrentStepsAfterRace(userId, ct);
         }
 
         if (string.IsNullOrEmpty(accessToken))
@@ -625,12 +631,17 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
             }
 
             var daysJson = JsonSerializer.Serialize(days);
-            conn.EncryptedStepHistoryJson = await kms.EncryptAsync(daysJson, ct);
-            conn.LastSyncedAt = DateTime.UtcNow;
-            conn.Revision++;
-            await db.SaveChangesAsync(ct);
+            var encryptedDays = await kms.EncryptAsync(daysJson, ct);
+            var syncedAt = DateTime.UtcNow;
+            var updated = await CurrentCredential(conn).Where(row => row.LastSyncedAt == conn.LastSyncedAt)
+                .ExecuteUpdateAsync(update => update
+                    .SetProperty(row => row.EncryptedStepHistoryJson, encryptedDays)
+                    .SetProperty(row => row.LastSyncedAt, syncedAt)
+                    .SetProperty(row => row.Revision, row => row.Revision + 1), ct);
+            await ReloadTrackedConnection(userId, ct);
+            if (updated == 0) return await ReadCurrentStepsAfterRace(userId, ct);
 
-            return new GoogleHealthSyncResult("connected", conn.ConnectedAt, conn.LastSyncedAt, "fresh", days);
+            return new GoogleHealthSyncResult("connected", conn.ConnectedAt, syncedAt, "fresh", days);
         }
         catch (GoogleHealthRequestException ex)
         {
@@ -640,6 +651,15 @@ public class GoogleHealthService(HttpClient http, AppDb db, IGoogleHealthKms kms
         {
             return await ReturnStaleOrUnavailable(conn, "sync_network_error", "Could not refresh steps from Google Health.", ct);
         }
+    }
+
+    private async Task<GoogleHealthSyncResult> ReadCurrentStepsAfterRace(Guid userId, CancellationToken ct)
+    {
+        var current = await db.GoogleHealthConnections.AsNoTracking().SingleOrDefaultAsync(row => row.UserId == userId, ct);
+        if (current is null) return new("disconnected", null, null, "unavailable", []);
+        if (current.Status == "reconnect_required")
+            return new("reconnect_required", current.ConnectedAt, current.LastSyncedAt, "unavailable", [], "credentials_revoked");
+        return await ReturnStaleOrUnavailable(current, "sync_changed", "Google Health changed while syncing. Try again shortly.", ct);
     }
 
     private async Task<GoogleHealthSyncResult> ReturnGoogleHealthFailure(GoogleHealthConnection conn, GoogleHealthRequestException failure, CancellationToken ct)

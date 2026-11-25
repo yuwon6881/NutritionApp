@@ -26,7 +26,7 @@ public static class GoalPolicy
     {
         var points = weights.Where(w => w.Date <= today).OrderBy(w => w.Date).ToArray();
         // A caller sharing this calculation supplies the trend of these same ordered, dated points.
-        var trend = preparedTrend ?? Coach.Trend(points);
+        var trend = preparedTrend ?? WeightSignal.CleanTrend(points.Select(point => point with { Context = null }).ToArray(), today);
         var current = trend.LastOrDefault()?.Kg;
         var scale = points.LastOrDefault()?.Kg;
         var startWeight = p.PhaseStartWeightKg ?? p.WeightKg;
@@ -57,7 +57,7 @@ public static class GoalPolicy
                 ScaleReached = scaleReached,
                 TrendReached = trendReached,
                 ReachedBy = trendReached ? "trend" : reachedBy,
-                ReachedOn = trendReached ? points.LastOrDefault()?.Date : reachedOn,
+                ReachedOn = trendReached ? trend.LastOrDefault()?.Date : reachedOn,
                 AwaitingTrend = awaitingTrend,
                 OptimisticFinish = optimisticFinish
             };
@@ -87,7 +87,8 @@ public static class GoalPolicy
             : 100;
 
         var fresh = points.Length >= 3 && points[^1].Date >= today.AddDays(-3);
-        var trendReached = fresh && points[^1].Date.DayNumber - points[^3].Date.DayNumber >= 2 &&
+        var trendReached = trend.Count >= 3 && trend[^1].Date >= today.AddDays(-3) &&
+            trend[^1].Date.DayNumber - trend[^3].Date.DayNumber >= 2 &&
             trend.TakeLast(3).All(w => p.Goal == "lose" ? w.Kg <= target : w.Kg >= target);
         var scaleReached = fresh && (p.Goal == "lose" ? scale <= target : scale >= target);
         var goalReached = weightGoalMetric == "trend" ? trendReached : (scaleReached || trendReached);

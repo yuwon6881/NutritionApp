@@ -206,10 +206,10 @@ public sealed class AiChatClient
         if (status is "failed" or "incomplete")
         {
             _logger.LogWarning("AI response failed for {Feature}/{Model}.", feature, model);
-            throw new AiChatClientException("AI could not process this request. Please try again.");
+            throw new AiChatClientException("AI could not process this request. Please try again.", usage);
         }
         if (!root.TryGetProperty("output", out var output) || output.ValueKind != JsonValueKind.Array)
-            throw new AiChatClientException("AI returned an empty response. Please try again.");
+            throw new AiChatClientException("AI returned an empty response. Please try again.", usage);
 
         var items = new List<JsonObject>();
         var calls = new List<AiFunctionCall>();
@@ -237,7 +237,7 @@ public sealed class AiChatClient
 
         var joined = string.Concat(textParts).Trim();
         if (calls.Count == 0 && joined.Length == 0)
-            throw new AiChatClientException("AI returned an empty response. Please try again.");
+            throw new AiChatClientException("AI returned an empty response. Please try again.", usage);
 
         return new AiResponseResult(model, joined, calls, items, usage);
     }
@@ -268,4 +268,7 @@ public sealed class AiChatClient
     private sealed class AiProviderUnavailableException : Exception;
 }
 
-public sealed class AiChatClientException(string message) : Exception(message);
+public sealed class AiChatClientException(string message, AiTokenUsage? usage = null) : Exception(message)
+{
+    public AiTokenUsage? Usage { get; } = usage;
+}

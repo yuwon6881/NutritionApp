@@ -19,7 +19,7 @@ export function useWeightProgress(store:NutritionStore,period:ProgressPeriod){
   const displayedPeriod=weight.displayedPeriod;
   const range=useMemo(()=>projectedProgressRange(displayedPeriod,localToday,weight.summary,state.weights,queue),
     [displayedPeriod,localToday,weight.summary,state.weights,queue]);
-  const projected=useMemo(()=>projectProgressWeightSummary(range,weight.summary?.weight,queue,state.weights),
+  const projected=useMemo(()=>projectProgressWeightSummary(range,weight.summary?.weight,queue,state.weights,weight.summary?.revision),
     [range,weight.summary?.weight,queue,state.weights]);
   const summary:ProgressSummary|undefined=useMemo(()=>{
     if(weight.summary&&projected){

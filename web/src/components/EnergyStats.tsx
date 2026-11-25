@@ -20,7 +20,7 @@ export function EnergyStats({stats,energyUnit}:{stats?:ProgressEnergyStatistics;
   const deficit=stats?.deficitDays??0;
   return <dl className="energy-stats">
     <Stat label="Complete days" value={<>{stats?.completeDays??0} <span className="unit">of {days}</span></>} />
-    <Stat label="Average intake" value={<>{displayEnergy(stats?.averageIntake,energyUnit)} {unit}</>}/>
+    <Stat label="Average intake" note="Complete days" value={<>{displayEnergy(stats?.averageIntake,energyUnit)} {unit}</>}/>
     <Stat label="Total balance" tone={tone} value={<>{balance==null?'—':`${balance>0?'+':balance<0?'−':''}${displayEnergy(Math.abs(balance),energyUnit)}`} {unit}</>} note={`${surplus} surplus ${surplus===1?'day':'days'} · ${deficit} deficit ${deficit===1?'day':'days'}`}/>
   </dl>;
 }

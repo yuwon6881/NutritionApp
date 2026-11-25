@@ -18,10 +18,11 @@ public sealed class GoogleHealthUploadRetryTests
     public async Task An_in_progress_create_is_canceled_by_the_pass_budget_and_never_resent()
     {
         await using var fixture = await Fixture.Create();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Process(new StalledHandler(), TimeSpan.FromSeconds(2)));
-        Assert.Equal("processing", await fixture.State());
+        var interrupted = await fixture.Process(new StalledHandler(), TimeSpan.FromSeconds(2));
+        Assert.Equal(1, interrupted.Unknown);
+        Assert.Equal("unknown", await fixture.State());
         var result = await fixture.Process(new Handler(Ok));
-        Assert.Equal(0, result.Processed); // The retained lease protects the ambiguous create.
+        Assert.Equal(0, result.Processed); // An ambiguous create requires explicit recovery.
     }
 
     [Fact]

@@ -40,7 +40,8 @@ public sealed class OpenFoodFactsProvider(HttpClient http,OpenFoodFactsPacing? g
         if(response.StatusCode==HttpStatusCode.TooManyRequests)throw new FoodProviderException(ProviderId,FoodProviderFailure.Busy);
         if(!response.IsSuccessStatusCode)throw new FoodProviderException(ProviderId,FoodProviderFailure.Unavailable);
         using var json=await ReadJson(response,ct);
-        if(!json.RootElement.TryGetProperty("product",out var product))return null;
+        if(json.RootElement.ValueKind!=JsonValueKind.Object||
+            !json.RootElement.TryGetProperty("product",out var product)||product.ValueKind!=JsonValueKind.Object)return null;
         if(OpenFoodFactsParser.Calories(product) is null)throw new FoodProviderException(ProviderId,FoodProviderFailure.Incomplete);
         return OpenFoodFactsParser.ReadProduct(product,code);
     }

@@ -11,7 +11,7 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
     public async Task<ScanJob> Create(ScanInput input,CancellationToken ct)
     {
         Validation.Require(input.Id!=Guid.Empty&&input.Mode is "photo" or "label" or "description","Invalid scan.");
-        Validation.Require(input.Description.Length<=3000,"Description is too long.");
+        Validation.Require(input.Description is { Length: <= 3000 },"Description is too long.");
         Validation.Require(input.Mode!="description"||!string.IsNullOrWhiteSpace(input.Description),"Describe your meal.");
         byte[]? bytes=null;
         if(input.ImageBase64!=null)
@@ -53,6 +53,10 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
         }
         if(bytes!=null&&uploadRequired)
         {
+            await using var uploadGate=await MutationLock.Acquire(db,db.CurrentUser,ct);
+            await db.Entry(scan).ReloadAsync(ct);
+            Validation.Require(db.Entry(scan).State!=EntityState.Detached,"The scan is no longer available.",404);
+            if(scan.Status!="uploading")return scan;
             try { await images.Put(scan.ObjectPath!,bytes,ct); scan.Status="queued"; }
             catch(Exception ex)
             {
@@ -62,6 +66,7 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
                 scan.Status="failed";scan.Error="Upload interrupted. Try again.";
             }
             await db.SaveChangesAsync(CancellationToken.None);
+            await uploadGate.Commit(CancellationToken.None);
         }
         return scan;
     }
@@ -89,13 +94,18 @@ public sealed class ScanService(AppDb db,TemporaryImageStore images,NutritionAi 
             scan.ResultJson=Json.Write(result.Estimate);scan.Status="complete";scan.Error=null;
             await AiAllowance.RecordTokens(db,usageDay,result.InputTokens,result.CachedInputTokens,result.OutputTokens);
         }
-        catch(Exception ex) when(ex is DomainException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or FormatException or InvalidOperationException or KeyNotFoundException)
+        catch(OperationCanceledException) when(ct.IsCancellationRequested)
+        {
+            scan.Status="queued";
+            throw;
+        }
+        catch(Exception ex) when(ex is DomainException or HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or FormatException or InvalidOperationException or KeyNotFoundException)
         { scan.Status="failed";scan.Error=ex is DomainException?ex.Message:"AI processing was interrupted. Try again."; }
         finally
         {
             scan.LeaseUntil=null;
             await db.SaveChangesAsync(CancellationToken.None);
-            if(scan.ObjectPath!=null)
+            if(scan.ObjectPath!=null&&scan.Status is "complete" or "failed")
             {
                 try { await images.Delete(scan.ObjectPath,CancellationToken.None);scan.ObjectPath=null;await db.SaveChangesAsync(CancellationToken.None); }
                 catch(Exception ex) when(ex is DomainException or HttpRequestException or TaskCanceledException) { /* Scheduled cleanup retries the durable object path. */ }

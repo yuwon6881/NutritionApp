@@ -47,7 +47,7 @@ self.addEventListener('notificationclick',event=>{
     for(const client of windows){
       if(new URL(client.url).origin!==self.location.origin)continue;
       const windowClient=client as WindowClient;
-      if(windowClient.navigate)await windowClient.navigate(destination.href);
+      windowClient.postMessage({type:'NUTRITION_REMINDER_OPEN',route:destination.pathname});
       await windowClient.focus();
       return;
     }
@@ -61,8 +61,8 @@ self.addEventListener('pushsubscriptionchange',event=>{
   })());
 });
 self.addEventListener('install',event=>{
-  // A failed precache never activates a partially installed release. Once cached, activate immediately.
-  event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll(precacheUrls)).then(()=>self.skipWaiting()));
+  // An update waits until its page can reload without interrupting open work.
+  event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll(precacheUrls)));
 });
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
@@ -70,7 +70,9 @@ self.addEventListener('activate',event=>{
     // useful response path. Disable it for new workers; fetch handlers below still
     // settle any preload that was started while an older worker was active.
     if(self.registration.navigationPreload)await self.registration.navigationPreload.disable();
-    for(const name of await caches.keys())if(name.startsWith('nutrition-app-assets-')&&name!==cacheName)await caches.delete(name);
+    // Other tabs can still be running the previous release while their editors are open.
+    const previous=(await caches.keys()).filter(name=>name.startsWith('nutrition-app-assets-')&&name!==cacheName);
+    for(const name of previous.slice(0,-1))await caches.delete(name);
     await self.clients.claim();
   })());
 });
@@ -87,5 +89,23 @@ self.addEventListener('fetch',event=>{
     event.respondWith((async()=>{const cache=await caches.open(cacheName);const cached=await cache.match('/index.html')??await cache.match('/');return cached??fetch(request);})());
     return;
   }
-  if(cacheable(request,url))event.respondWith((async()=>{const cache=await caches.open(cacheName);try{const response=await fetch(request);if(response.ok)await cache.put(request,response.clone()).catch(()=>undefined);return response;}catch{return await cache.match(request)??new Response('Offline resource unavailable.',{status:503,statusText:'Offline'});}})());
+  if(cacheable(request,url))event.respondWith((async()=>{
+    const cache=await caches.open(cacheName);
+    if(url.pathname.startsWith('/assets/')){
+      const previous=(await caches.keys()).filter(name=>name.startsWith('nutrition-app-assets-')&&name!==cacheName);
+      for(const name of previous){
+        const saved=await caches.match(request,{cacheName:name});
+        if(saved)return saved;
+      }
+    }
+    try{
+      const response=await fetch(request);
+      const contentType=response.headers.get('Content-Type')??'';
+      if(url.pathname.startsWith('/assets/')&&contentType.includes('text/html'))return new Response(null,{status:404});
+      if(response.status===200&&!response.redirected)await cache.put(request,response.clone()).catch(()=>undefined);
+      return response;
+    }catch{
+      return await cache.match(request)??new Response('Offline resource unavailable.',{status:503,statusText:'Offline'});
+    }
+  })());
 });

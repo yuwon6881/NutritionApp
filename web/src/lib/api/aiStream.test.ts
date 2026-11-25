@@ -18,6 +18,13 @@ describe('SseParser', () => {
     ]);
   });
 
+  it('preserves event names when CRLF is split between chunks', () => {
+    const parser = new SseParser();
+    expect(parser.push('event: delta\r')).toEqual([]);
+    expect(parser.push('\ndata: hello\r\n\r')).toEqual([{event:'delta',data:'hello'}]);
+    expect(parser.push('\n')).toEqual([]);
+  });
+
   it('ignores comments and flushes trailing event', () => {
     const parser = new SseParser();
     parser.push(': heartbeat comment\n');

@@ -33,7 +33,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     {
         limit=Math.Clamp(limit,1,20);
         var (used,max)=await Totals(ct);
-        var grouped=db.Photos.AsNoTracking().Where(photo=>!photo.Deleted&&photo.Status=="complete")
+        var grouped=db.Photos.AsNoTracking().Where(photo=>!photo.Deleted&&(photo.Status=="complete"||photo.ObjectGeneration!=null))
             .GroupBy(photo=>new {photo.SetId,photo.Date})
             .Select(group=>new {group.Key.SetId,group.Key.Date});
         CursorValue? after=null;
@@ -54,7 +54,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         var hasMore=keys.Count>limit;
         var pageKeys=keys.Take(limit).ToList();
         var ids=pageKeys.Select(key=>key.SetId).ToArray();
-        var photos=ids.Length==0?[]:await db.Photos.AsNoTracking().Where(photo=>ids.Contains(photo.SetId)&&!photo.Deleted&&photo.Status=="complete").OrderBy(photo=>photo.Angle).ToListAsync(ct);
+        var photos=ids.Length==0?[]:await db.Photos.AsNoTracking().Where(photo=>ids.Contains(photo.SetId)&&!photo.Deleted&&(photo.Status=="complete"||photo.ObjectGeneration!=null)).OrderBy(photo=>photo.Angle).ToListAsync(ct);
         var sets=pageKeys.Select(key=>new PhotoSetView(key.SetId,key.Date,photos.Where(photo=>photo.SetId==key.SetId).Select(View).ToList())).ToList();
         var next=hasMore&&pageKeys.Count>0?EncodeCursor(pageKeys[^1].Date,pageKeys[^1].SetId):null;
         return new PhotoPage(store.Configured,used,max,sets,next,hasMore);
@@ -63,7 +63,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
     public async Task<PhotoLegacyPage> LegacyPage(int skip,CancellationToken ct)
     {
         var (used,max)=await Totals(ct);
-        var photos=(await db.Photos.AsNoTracking().Where(photo=>!photo.Deleted&&photo.Status=="complete").OrderByDescending(photo=>photo.Date).ThenBy(photo=>photo.Id).Skip(Math.Clamp(skip,0,100000)).Take(24).ToListAsync(ct)).Select(View).ToList();
+        var photos=(await db.Photos.AsNoTracking().Where(photo=>!photo.Deleted&&(photo.Status=="complete"||photo.ObjectGeneration!=null)).OrderByDescending(photo=>photo.Date).ThenBy(photo=>photo.Id).Skip(Math.Clamp(skip,0,100000)).Take(24).ToListAsync(ct)).Select(View).ToList();
         return new PhotoLegacyPage(store.Configured,used,max,photos);
     }
 
@@ -156,7 +156,6 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
 
                 var hashMatches=existing!=null&&!existing.Deleted&&existing.RequestHash==preparedPhoto.Hash;
                 if(hashMatches&&existing!.Status=="complete")continue;
-                var expectedGeneration=existing?.ObjectGeneration;
                 var oldBytes=existing is {Deleted:false}?existing.Bytes:0;
                 total-=oldBytes;
                 total+=preparedPhoto.Bytes.Length;
@@ -175,7 +174,7 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                 {
                     existing.Date=input.Date;existing.Bytes=preparedPhoto.Bytes.Length;existing.RequestHash=preparedPhoto.Hash;existing.Status="uploading";existing.Deleted=false;existing.DeletedAt=null;
                 }
-                uploads.Add(new PendingUpload(existing,preparedPhoto.Bytes,preparedPhoto.Hash,photoById!=null,expectedGeneration));
+                uploads.Add(new PendingUpload(existing,preparedPhoto.Bytes,preparedPhoto.Hash));
             }
 
             foreach(var photo in set.Where(photo=>!photo.Deleted))photo.Date=body.Date;
@@ -191,42 +190,15 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         if(uploads.Count==0)return await SetViews(input.Id,ct);
         foreach(var pending in uploads)
         {
+            // Use the same account lock as erasure through the storage write and its commit.
+            await using var finalize=await MutationLock.Acquire(db,uid,ct);
             await db.Entry(pending.Photo).ReloadAsync(ct);
-            Validation.Require(!pending.Photo.Deleted,"Photo draft expired or was deleted. Create a new draft.",409);
+            Validation.Require(db.Entry(pending.Photo).State!=EntityState.Detached&&!pending.Photo.Deleted,
+                "Photo draft expired or was deleted. Create a new draft.",409);
             Validation.Require(pending.Photo.RequestHash==pending.Hash,"This photo was replaced on another device. Review before retrying.",409);
             if(pending.Photo.Status=="complete"&&pending.Photo.RequestHash==pending.Hash)continue;
-            // GCS I/O is deliberately outside the account lock. The finalize transaction below
-            // only commits the generation pointer and a durable old-generation delete work item.
-            var generation=await store.Put(pending.Photo.ObjectPath,pending.Bytes,ct,pending.Replace,pending.ExpectedGeneration);
-            Validation.Require(!string.IsNullOrWhiteSpace(generation),"Google Cloud did not return a photo generation. Your local draft is retained; retry when storage is available.",503);
-            var uploadedGeneration=generation!;
-            await using (var finalize=await MutationLock.Acquire(db,uid,ct))
-            {
-                await db.Entry(pending.Photo).ReloadAsync(ct);
-                if(pending.Photo.Status=="complete")
-                {
-                    // Another request won the finalize race. The generation returned by this
-                    // request is still a real billable object; queue it unless the winner stored
-                    // this exact generation so a retry cannot leave an orphan behind.
-                    if(!string.Equals(pending.Photo.ObjectGeneration,uploadedGeneration,StringComparison.Ordinal))
-                        db.PhotoObjectDeletions.Add(new PhotoObjectDeletion { UserId=uid, ObjectPath=pending.Photo.ObjectPath, ObjectGeneration=uploadedGeneration });
-                    await db.SaveChangesAsync(CancellationToken.None);await finalize.Commit(CancellationToken.None);continue;
-                }
-                if(pending.Photo.Deleted||pending.Photo.RequestHash!=pending.Hash)
-                {
-                    // The upload completed after a newer edit or delete won. Keep the exact
-                    // generation in the durable deletion queue before reporting the conflict.
-                    db.PhotoObjectDeletions.Add(new PhotoObjectDeletion { UserId=uid, ObjectPath=pending.Photo.ObjectPath, ObjectGeneration=uploadedGeneration });
-                    await db.SaveChangesAsync(CancellationToken.None);await finalize.Commit(CancellationToken.None);
-                    throw new DomainException("This photo was replaced on another device. Review before retrying.",409);
-                }
-                if(pending.ExpectedGeneration is not null && uploadedGeneration!=pending.ExpectedGeneration)
-                    db.PhotoObjectDeletions.Add(new PhotoObjectDeletion { UserId=uid, ObjectPath=pending.Photo.ObjectPath, ObjectGeneration=pending.ExpectedGeneration });
-                pending.Photo.ObjectGeneration=uploadedGeneration;
-                pending.Photo.Status="complete";
-                await db.SaveChangesAsync(ct);
-                await finalize.Commit(ct);
-            }
+            await CompleteUpload(pending,uid,ct);
+            await finalize.Commit(ct);
         }
         await using var uploadGate=await MutationLock.Acquire(db,uid,ct);
         var uploadedBody=await db.BodyRecords.SingleAsync(b=>b.Id==input.Id,ct);
@@ -237,8 +209,36 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         return await SetViews(input.Id,ct);
     }
 
+    private async Task CompleteUpload(PendingUpload pending,Guid userId,CancellationToken ct)
+    {
+        var photo=pending.Photo;
+        var previous=photo.ObjectGeneration;
+        string? superseded=null;
+        string? generation;
+        try { generation=await store.Put(photo.ObjectPath,pending.Bytes,ct,expectedGeneration:previous); }
+        catch(DomainException ex) when(ex.Status==409)
+        {
+            var current=await store.CurrentGeneration(photo.ObjectPath,ct);
+            if(current is not null && (await store.Get(photo.ObjectPath,ct,current)).AsSpan().SequenceEqual(pending.Bytes))
+                generation=current;
+            else
+            {
+                // An interrupted older edit can have left another generation current.
+                // The account lock and request hash establish which draft owns this retry.
+                superseded=current;
+                generation=await store.Put(photo.ObjectPath,pending.Bytes,ct,expectedGeneration:current);
+            }
+        }
+        Validation.Require(!string.IsNullOrWhiteSpace(generation),"Google Cloud did not return a photo generation. Your local draft is retained; retry when storage is available.",503);
+        foreach(var obsolete in new[]{previous,superseded}.OfType<string>().Distinct().Where(value=>value!=generation))
+            db.PhotoObjectDeletions.Add(new PhotoObjectDeletion { UserId=userId,ObjectPath=photo.ObjectPath,ObjectGeneration=obsolete });
+        photo.ObjectGeneration=generation;
+        photo.Status="complete";
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task<IReadOnlyList<PhotoView>> SetViews(Guid setId,CancellationToken ct)
-        =>(await db.Photos.Where(photo=>photo.SetId==setId&&!photo.Deleted&&photo.Status=="complete").OrderBy(photo=>photo.Angle).ToListAsync(ct)).Select(View).ToList();
+        =>(await db.Photos.Where(photo=>photo.SetId==setId&&!photo.Deleted&&(photo.Status=="complete"||photo.ObjectGeneration!=null)).OrderBy(photo=>photo.Angle).ToListAsync(ct)).Select(View).ToList();
 
     public async Task<byte[]> Content(Guid id,CancellationToken ct)
     {
@@ -308,9 +308,10 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
                 item.NextAttemptAt=DateTime.UtcNow.AddMinutes(Math.Min(60,Math.Pow(2,Math.Min(item.Attempts,6))));
             }
         }
+        await db.SaveChangesAsync(ct);
         count+=await SweepAbandonedIntents(now,ct);
         await db.PhotoObjectDeletions.IgnoreQueryFilters().Where(item=>item.Status=="completed"&&item.CompletedAt<DateTime.UtcNow.AddDays(-7)).ExecuteDeleteAsync(ct);
-        await db.SaveChangesAsync(ct);return count;
+        return count;
     }
 
     /// A photo intent whose binary never arrived would show "Upload pending" forever. The device keeps its own
@@ -349,6 +350,6 @@ public sealed class PhotoService(AppDb db,GcsPhotoStore store,IConfiguration con
         photo.Status=="uploading"?photo.ObjectGeneration is null?"pending":"complete":photo.Status,photo.ObjectGeneration);
 
     private sealed record PreparedPhoto(PhotoPart Part,byte[] Bytes,string Hash);
-    private sealed record PendingUpload(PhysiquePhoto Photo,byte[] Bytes,string Hash,bool Replace,string? ExpectedGeneration);
+    private sealed record PendingUpload(PhysiquePhoto Photo,byte[] Bytes,string Hash);
     private sealed record CursorValue(DateOnly Date,Guid SetId);
 }

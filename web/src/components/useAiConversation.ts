@@ -153,8 +153,12 @@ export function useAiConversation({ isOpen, onClose, onActions, defaultContext, 
     } catch (failure) {
       if (!live()) return;
       if (failure instanceof ApiError && failure.status === 409) {
-        await hydrate();
-        if (live()) { setInput(text); setError('The conversation changed. Review the latest messages, then send again.'); }
+        hydrated.current = false;
+        const loaded = await hydrate();
+        if (live()) {
+          setInput(text);
+          if (loaded) setError('The conversation changed. Review the latest messages, then send again.');
+        }
       } else {
         setError(describeError(failure));
         setLastFailedTurn(turn);

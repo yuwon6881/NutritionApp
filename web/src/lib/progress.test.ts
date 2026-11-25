@@ -190,6 +190,17 @@ it('invalidates downstream trends after edits and restores them after Undo',()=>
   expect(offline.series).toEqual([{date:'2026-03-10',scaleKg:81,trendKg:null}]);
 });
 
+it('removes an older scale point when it moves outside the editable window',()=>{
+  const range={start:'2026-01-01',end:'2026-03-31'};
+  const base:ProgressWeightSummary={
+    statistics:{count:1,averageKg:80,minimumKg:80,maximumKg:80,firstKg:80,latestKg:80,latestTrendKg:80,trendChangeKg:null},
+    series:[{date:'2026-01-01',scaleKg:80,trendKg:80}],editableWeighIns:[]
+  };
+  const op:Mutation={id:'move',kind:'weight_move',recordId:'older',expectedRevision:1,delete:false,
+    data:{sourceDate:'2026-01-01',date:'2026-01-02',kg:81}};
+  expect(projectProgressWeightSummary(range,base,[op])?.series).toEqual([{date:'2026-01-02',scaleKg:81,trendKg:null}]);
+});
+
 it('projects an occupied-date atomic move into one retained weigh-in',()=>{
   const weights:Weight[]=[{id:'a',date:'2026-03-01',kg:80,revision:1,deleted:false},{id:'b',date:'2026-03-02',kg:81,revision:2,deleted:false}];
   const op:Mutation={id:'move',kind:'weight_move',recordId:'a',expectedRevision:1,delete:false,data:{date:'2026-03-02',kg:82,destinationId:'b',destinationRevision:2}};

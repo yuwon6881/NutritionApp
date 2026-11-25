@@ -27,13 +27,11 @@ public class NutritionBarcodeScannerPlugin extends BarcodeScannerPlugin {
     }
 
     @Override public void notifyBarcodesScannedListener(Barcode[] barcodes, Point imageSize) {
+        if (getBridge() == null || imageSize == null) return;
         View webview = getBridge().getWebView();
-        ViewGroup parent = (ViewGroup) webview.getParent();
-        PreviewView preview = null;
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            if (parent.getChildAt(i) instanceof PreviewView) preview = (PreviewView) parent.getChildAt(i);
-        }
-        if (preview == null || imageSize == null) return;
+        if (webview == null || !(webview.getParent() instanceof ViewGroup)) return;
+        PreviewView preview = findPreview((ViewGroup) webview.getParent());
+        if (preview == null) return;
         JSArray detections = new JSArray();
         for (Barcode barcode : barcodes)
             detections.put(BarcodeScannerHelper.createBarcodeResultForBarcode(barcode, imageSize, null));
@@ -46,6 +44,18 @@ public class NutritionBarcodeScannerPlugin extends BarcodeScannerPlugin {
         result.put("barcodes", detections);
         result.put("geometry", geometry);
         notifyListeners(BARCODES_SCANNED_EVENT, result);
+    }
+
+    private static PreviewView findPreview(ViewGroup parent) {
+        for (int i = parent.getChildCount() - 1; i >= 0; i--) {
+            View child = parent.getChildAt(i);
+            if (child instanceof PreviewView) return (PreviewView) child;
+            if (child instanceof ViewGroup) {
+                PreviewView nested = findPreview((ViewGroup) child);
+                if (nested != null) return nested;
+            }
+        }
+        return null;
     }
 
     private static JSObject bounds(View view) {

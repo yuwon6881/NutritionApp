@@ -102,7 +102,12 @@ public sealed class SharedAccessTokenService(IConfiguration config) : IAccountDe
         var jwt = (JwtSecurityToken)validated;
         if (jwt.Payload.ContainsKey("nonce"))
             throw new SecurityTokenValidationException("An account deletion notice must not carry a nonce.");
-        if (!jwt.Payload.TryGetValue("events", out var events) || !System.Text.Json.JsonSerializer.Serialize(events).Contains($"\"{AccountDeletionEvent}\"", StringComparison.Ordinal))
+        if (!jwt.Payload.TryGetValue("events", out var events))
+            throw new SecurityTokenValidationException("The token is not an account deletion notice.");
+        var eventObject = System.Text.Json.JsonSerializer.SerializeToElement(events);
+        if (eventObject.ValueKind != System.Text.Json.JsonValueKind.Object ||
+            !eventObject.TryGetProperty(AccountDeletionEvent, out var deletion) ||
+            deletion.ValueKind != System.Text.Json.JsonValueKind.Object)
             throw new SecurityTokenValidationException("The token is not an account deletion notice.");
         var subject = principal.FindFirst("sub")?.Value;
         if (string.IsNullOrWhiteSpace(subject))

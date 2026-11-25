@@ -87,6 +87,16 @@ public sealed partial class NutritionPushTests : IAsyncLifetime
     }
 
     [Fact]
+    public void Late_evening_reminders_are_still_due_after_midnight()
+    {
+        var afterMidnight = new DateTimeOffset(2026, 11, 24, 0, 5, 0, TimeSpan.Zero);
+        Assert.True(NutritionNotificationService.TryGetDueDate(
+            (int)DayOfWeek.Monday, new TimeOnly(23, 50), "UTC", afterMidnight, out var date, out var ttl));
+        Assert.Equal(new DateOnly(2026, 11, 23), date);
+        Assert.Equal(TimeSpan.FromMinutes(15), ttl);
+    }
+
+    [Fact]
     public async Task Dispatch_preserves_the_native_platform_for_android_delivery()
     {
         var sender = new FakeSender();

@@ -13,6 +13,7 @@ import {
   registerNativePushAndGetToken,
   unregisterNativePush
 } from './nativeNotifications';
+import {hasDevicePushOptOut} from './deviceOptOut';
 import {retryPendingPushRevocations} from './revocations';
 import {waitForAppServiceWorker} from '../registerAppServiceWorker';
 
@@ -60,7 +61,7 @@ async function reconcileDevice(userId:string,deviceId:string):Promise<void>{
     const registration=await waitForAppServiceWorker();
     token=await getFcmToken(registration);
   }
-  if(!token)return;
+  if(!token||hasDevicePushOptOut(userId,deviceId))return;
 
   await savePushDeviceCredential(userId,deviceId,token);
   await registerNotificationDevice(deviceId,token,platform);

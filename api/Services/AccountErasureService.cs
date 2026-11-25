@@ -23,8 +23,7 @@ public sealed class AccountErasureService(
     AuthService auth,
     GcsPhotoStore photos,
     TemporaryImageStore scans,
-    GoogleHealthService googleHealth,
-    ILogger<AccountErasureService> logger)
+    GoogleHealthService googleHealth)
 {
     /// Returns false when no account exists for the subject, which is already the erased state.
     public async Task<bool> EraseAsync(string identitySubject, CancellationToken ct)
@@ -33,22 +32,18 @@ public sealed class AccountErasureService(
         if (user is null) return false;
         db.CurrentUser = user.Id;
         db.MaintenanceAccess = true;
-
-        // Sign every device out first so nothing new is written while erasure runs.
+        // Keep sessions revoked even if an external storage service asks us to retry erasure.
         var sessionHashes = await db.Sessions.Where(session => session.UserId == user.Id).Select(session => session.Hash).ToListAsync(ct);
         await db.Sessions.Where(session => session.UserId == user.Id).ExecuteDeleteAsync(ct);
         auth.InvalidateSessionHashes(sessionHashes);
+
+        await using var gate = await MutationLock.Acquire(db, user.Id, ct);
+        if (!await db.Users.AnyAsync(u => u.Id == user.Id, ct)) return false;
         await googleHealth.DisconnectAsync(user.Id, ct);
         await PurgeStoredImages(user.Id, ct);
         await db.Users.Where(u => u.Id == user.Id).ExecuteDeleteAsync(ct);
 
-        // An upload that was already in flight can land between the purge and the delete above.
-        try { await PurgeStoredImages(user.Id, ct); }
-        catch (Exception ex) when (ex is Domain.DomainException or HttpRequestException)
-        {
-            logger.LogError(ex, "Second storage sweep for an erased account failed; prefixes {Physique} and {Scans} need a manual check.",
-                PhotoService.ObjectPrefix(user.Id), ScanService.ObjectPrefix(user.Id));
-        }
+        await gate.Commit(ct);
         return true;
     }
 

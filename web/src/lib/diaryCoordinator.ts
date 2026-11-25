@@ -81,7 +81,7 @@ export class DiaryCoordinator {
     for(const date of dates){
       if((this.cachedDays.get(date)?.revision??0)>revision)continue;
       // A date never loaded here holds only what this edit put on it; it must stay stale so the server's other entries still load.
-      const loaded=this.cachedDays.has(date);
+      const loaded=this.cachedDays.get(date);
       if(!loaded)this.cachedDays.set(date,{date,entries:[],revision:0,fetchedAt:0});
       const projected=this.projectDate(date,[op]);
       if(!projected)continue;
@@ -90,7 +90,7 @@ export class DiaryCoordinator {
       if(projected.day)projected.day.revision=revision;
       const saved=canonical?.find(day=>day.date===date);
       if(saved)projected.day=saved;
-      this.cachedDays.set(date,{...projected,revision,fetchedAt:loaded?Date.now():0});
+      this.cachedDays.set(date,{...projected,revision,fetchedAt:loaded?.fetchedAt??0});
     }
     this.notify();
   }
@@ -178,7 +178,7 @@ export class DiaryCoordinator {
       entries,
       day,
       revision: base?.revision ?? 0,
-      fetchedAt: base?.fetchedAt ?? Date.now()
+      fetchedAt: base?.fetchedAt ?? 0
     };
   }
 
@@ -225,7 +225,8 @@ export class DiaryCoordinator {
           { headers, signal }
         );
 
-        if (signal?.aborted||generation!==this.generation) return;
+        signal?.throwIfAborted();
+        if (generation!==this.generation) return;
 
         if (res.notModified) {
           // 304: update fetchedAt timestamp
@@ -287,7 +288,6 @@ export class DiaryCoordinator {
           if(generation===this.generation)this.notify();
         }
       } catch (ex: any) {
-        if (ex?.name === 'AbortError') return;
         throw ex;
       } finally {
         if(generation===this.generation && this.rangeSignals.get(rangeKey)===signal){

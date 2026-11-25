@@ -41,10 +41,11 @@ export function project(state:AppState,queue:Mutation[]):AppState{
       copy('weights');
       const data=op.data as {date:string;kg:number;context?:import('../types').WeightContextCode|null;destinationId?:string|null};
       const source=result.weights.find(w=>w.id===op.recordId);
-      const target=result.weights.find(w=>w.date===data.date&&w.id!==op.recordId)??source;
-      if(!source||!target)continue;
-      result.weights=result.weights.map(w=>w.id===target.id?{...w,...data,deleted:false,source:'manual'}:
-        w.id===source.id?{...w,deleted:true}:w);
+      const target=result.weights.find(w=>w.date===data.date&&w.id!==op.recordId);
+      const moved={...(target??source),...data,id:target?.id??data.destinationId??op.recordId,
+        revision:target?.revision??source?.revision??op.expectedRevision,deleted:false,source:'manual' as const};
+      result.weights=result.weights.map(w=>w.id===moved.id?moved:w.id===op.recordId?{...w,deleted:true}:w);
+      if(!result.weights.some(w=>w.id===moved.id))result.weights.push(moved);
       continue;
     }
     const key=collection[op.kind];
@@ -71,6 +72,17 @@ export function project(state:AppState,queue:Mutation[]):AppState{
 }
 // Queues saved before rejected edits were dropped may still carry a legacy review marker.
 export function wireMutation(op:Mutation){const {error:_legacy,holdUntil:_hold,retryAt:_retry,...wire}=op as Mutation&{error?:string};return wire;}
+/** Preserve settings changed during a request while retiring the rejected payload. */
+export function retireRejectedMutation(queue:Mutation[],sent:Mutation):Mutation[]{
+  return queue.flatMap(item=>{
+    if(item.id!==sent.id)return [item];
+    if(item.kind!=='settings')return [];
+    const sentSettings=sent.data as Record<string,unknown>;
+    const changes=Object.fromEntries(Object.entries(item.data as object).filter(([key,value])=>!Object.is(sentSettings[key],value)));
+    return Object.keys(changes).length?[{...item,id:crypto.randomUUID(),data:changes}]:[];
+  });
+}
+
 /** Marks a sent operation for retry. Data coalesced into it while in flight becomes its own operation, so a retry replays exactly what was sent. */
 export function markForRetry(queue:Mutation[],sent:Mutation,retryAt:number,newId:()=>string=()=>crypto.randomUUID()):Mutation[]{
   return queue.flatMap(item=>{
@@ -87,5 +99,15 @@ export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision
     if(q.id!==completed.id)return [q];
     return JSON.stringify(q)===JSON.stringify(completed)?[]:[{...q,id:newId(),expectedRevision:revision}];
   });
-  return remaining.map(q=>q.kind===completed.kind&&q.recordId===completed.recordId?{...q,expectedRevision:revision}:q);
+  const weightWrite=completed.kind==='weight'||completed.kind==='weight_move';
+  const completedDestination=completed.kind==='weight_move'?(completed.data as {destinationId?:string}).destinationId:undefined;
+  return remaining.map(q=>{
+    if(!weightWrite||(q.kind!=='weight'&&q.kind!=='weight_move'))
+      return q.kind===completed.kind&&q.recordId===completed.recordId?{...q,expectedRevision:revision}:q;
+    const changed=(id:string|undefined)=>id!=null&&(id===completed.recordId||id===completedDestination);
+    const next=changed(q.recordId)?{...q,expectedRevision:revision}:q;
+    if(q.kind!=='weight_move')return next;
+    const move=q.data as {destinationId?:string};
+    return changed(move.destinationId)?{...next,data:{...move,destinationRevision:revision}}:next;
+  });
 }

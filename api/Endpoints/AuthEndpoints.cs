@@ -54,6 +54,7 @@ public static class AuthEndpoints
         {
             await auth.RevokeSession(http.Request.Cookies[AuthService.Cookie] ?? "", ct);
             http.Response.Cookies.Delete(AuthService.Cookie, new CookieOptions { Path = "/" });
+            http.Response.Cookies.Delete(AuthService.AccountHintCookie, new CookieOptions { Path = "/" });
             return Results.NoContent();
         });
     }

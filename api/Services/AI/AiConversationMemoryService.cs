@@ -118,7 +118,8 @@ public sealed partial class AiConversationMemoryService
             catch (DbUpdateException)
             {
                 _db.ChangeTracker.Clear();
-                conversation = await _db.AiConversations.SingleAsync(cancellationToken);
+                conversation = await _db.AiConversations.SingleOrDefaultAsync(cancellationToken);
+                if (conversation is null) return new PreparedConversation(null, clientTurnId, [], null, Conflict: true);
             }
         }
 
@@ -130,11 +131,11 @@ public sealed partial class AiConversationMemoryService
 
         if (duplicate != null && IsAbandonedPending(duplicate))
         {
-            var abandoned = await _db.AiConversationTurns.FindAsync([duplicate.Id], cancellationToken);
-            if (abandoned != null) _db.AiConversationTurns.Remove(abandoned);
-            await _db.SaveChangesAsync(cancellationToken);
-            _db.ChangeTracker.Clear();
-            conversation = await _db.AiConversations.SingleAsync(cancellationToken);
+            var abandonedId = duplicate.Id;
+            var removed = await _db.AiConversationTurns.Where(turn => turn.Id == abandonedId && turn.Status == "Pending")
+                .ExecuteDeleteAsync(cancellationToken);
+            if (removed == 0)
+                return new PreparedConversation(conversation, clientTurnId, [], null, Conflict: true);
             duplicate = null;
         }
 
@@ -195,10 +196,11 @@ public sealed partial class AiConversationMemoryService
         catch (DbUpdateException)
         {
             _db.ChangeTracker.Clear();
-            conversation = await _db.AiConversations.SingleAsync(cancellationToken);
+            conversation = await _db.AiConversations.SingleOrDefaultAsync(cancellationToken);
+            if (conversation is null) return new PreparedConversation(null, clientTurnId, [], null, Conflict: true);
             var winner = await _db.AiConversationTurns
                 .AsNoTracking()
-                .SingleAsync(
+                .SingleOrDefaultAsync(
                     turn => turn.ConversationId == conversation.Id && turn.ClientTurnId == clientTurnId,
                     cancellationToken);
             return new PreparedConversation(
@@ -206,8 +208,8 @@ public sealed partial class AiConversationMemoryService
                 clientTurnId,
                 [],
                 DeserializeState(conversation.StateJson),
-                Conflict: winner.Status != "Completed",
-                Replay: winner.Status == "Completed" ? ToReplay(conversation, winner) : null);
+                Conflict: winner?.Status != "Completed",
+                Replay: winner?.Status == "Completed" ? ToReplay(conversation, winner) : null);
         }
 
         return new PreparedConversation(
@@ -280,11 +282,8 @@ public sealed partial class AiConversationMemoryService
     {
         if (prepared.PendingTurn == null) return;
         _db.ChangeTracker.Clear();
-        var pending = await _db.AiConversationTurns
-            .SingleOrDefaultAsync(turn => turn.Id == prepared.PendingTurn.Id && turn.Status == "Pending", cancellationToken);
-        if (pending == null) return;
-        _db.AiConversationTurns.Remove(pending);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _db.AiConversationTurns.Where(turn => turn.Id == prepared.PendingTurn.Id && turn.Status == "Pending")
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task<bool> ResolveActionBatchAsync(

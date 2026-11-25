@@ -84,13 +84,20 @@ public sealed class AiServerSentEvents : IAiAgentProgressSink, IAsyncDisposable
                 await WriteRawAsync(": keep-alive\n\n", cancellationToken);
         }
         catch (OperationCanceledException) { }
+        catch (IOException) { /* The client disconnected while the response was idle. */ }
     }
 
     public async ValueTask DisposeAsync()
     {
-        await _heartbeatStop.CancelAsync();
-        await _heartbeat;
-        _heartbeatStop.Dispose();
-        _writeLock.Dispose();
+        try
+        {
+            await _heartbeatStop.CancelAsync();
+            await _heartbeat;
+        }
+        finally
+        {
+            _heartbeatStop.Dispose();
+            _writeLock.Dispose();
+        }
     }
 }

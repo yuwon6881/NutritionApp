@@ -75,10 +75,9 @@ export function useFoodScanDraft({open,accountId,date,pendingBarcode,onRestore}:
     if(!open||loadedKey!==foodBasketDraftKey(accountId,date))return;
     const current=scanDraftRef.current;
     const hasContent=!!photo||!!description.trim()||!!pendingBarcode;
-    const matchesSavedReview=current?.status==='review'&&current.date===date&&current.mode===mode&&
-      current.description===description&&current.imageBase64===(mode==='description'?null:photo)&&
-      JSON.stringify(current.pendingBarcode??null)===JSON.stringify(pendingBarcode??null);
-    if(matchesSavedReview)return;
+    // Opening a saved label review changes the visible editor before its input state settles.
+    // Replacing the review requires an explicit capture or analyze action.
+    if(current?.status==='review')return;
     if(!hasContent){
       if(current?.status==='captured'){
         const timer=window.setTimeout(()=>{void remove(date).catch(()=>setStorageError('The saved scan could not be cleared from this device.'));},250);

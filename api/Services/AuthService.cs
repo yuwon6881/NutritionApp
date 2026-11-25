@@ -9,6 +9,15 @@ namespace Nutrition.Api.Services;
 public sealed class AuthService(AppDb db, IMemoryCache cache)
 {
     public const string Cookie = "nutrition-session";
+    public const string AccountHintCookie = "nutrition-account-hint";
+
+    // This only selects a cached workspace. API access still requires the HttpOnly session.
+    public static void SetAccountHint(HttpContext http, Guid account, TimeSpan lifetime)
+        => http.Response.Cookies.Append(AccountHintCookie, account.ToString("D"), new CookieOptions
+        {
+            Secure = !http.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment(),
+            SameSite = SameSiteMode.Lax, Path = "/", MaxAge = lifetime, IsEssential = true
+        });
 
     public static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     public static string SessionCacheKey(string hash) => $"nutrition-session:{hash}";

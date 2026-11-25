@@ -110,6 +110,9 @@ final class IncomingImageStore {
     }
 
     synchronized void discard(String id) throws IOException {
+        final File file;
+        try { file = image(id); }
+        catch (IllegalArgumentException invalid) { throw new IOException("Invalid shared image id.", invalid); }
         // Read metadata directly to allow expiry to clear it without recursing through peek().
         try {
             if (metadata.getBaseFile().exists()) {
@@ -117,7 +120,7 @@ final class IncomingImageStore {
                 if (record.optString("id").equals(id)) metadata.delete();
             }
         } catch (JSONException invalid) { metadata.delete(); }
-        image(id).delete();
+        file.delete();
     }
 
     synchronized void discardCandidate(String id) { image(id).delete(); }

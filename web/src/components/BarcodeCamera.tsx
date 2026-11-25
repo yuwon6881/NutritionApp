@@ -30,7 +30,7 @@ export function BarcodeCamera({onDetected,onError}:{onDetected:(code:string)=>vo
     let timer:ReturnType<typeof setTimeout>|undefined;
     const preview=video.current!;
     const stop=()=>{cancelled=true;clearTimeout(timer);stream?.getTracks().forEach(item=>item.stop());track.current=null;preview.srcObject=null;};
-    const fail=(message:string)=>{stop();callbacks.current.onError(message);};
+    const fail=(message:string)=>{if(cancelled)return;stop();callbacks.current.onError(message);};
     const start=async()=>{
       try{
         const decode=await createFrameDecoder();

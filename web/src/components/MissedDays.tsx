@@ -20,7 +20,7 @@ function dayDecisions(state:AppState,dates:readonly string[],status:Day['status'
 
 export function MissedDays({store}:{store:NutritionStore}){
   const [remember,setRemember]=useState(false);
-  const {busy,run,pending:busyPending}=useAsyncAction();
+  const {run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
   const state=store.state!;
   const current=today(state.profile?.timeZone);
@@ -34,7 +34,7 @@ export function MissedDays({store}:{store:NutritionStore}){
   useEffect(()=>{
     if(missingDayAction==='ask'||automaticDates.length===0||busyPending)return;
     void run(async()=>{await store.mutateMany(dayDecisions(store.state!,automaticDates,missingDayAction));});
-  },[missingDayAction,automaticDates,busy,run,store]);
+  },[missingDayAction,automaticDates,busyPending,run,store]);
 
   // Reset toggle when date changes
   useEffect(()=>{

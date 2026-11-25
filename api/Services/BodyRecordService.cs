@@ -112,7 +112,7 @@ public sealed class BodyRecordService(AppDb db, GcsPhotoStore store, IConfigurat
             else if(op.Action=="photo-delete")
             {
                 Validation.Require(op.PhotoId!=null,"Choose a photo to delete.");
-                var photo=await db.Photos.SingleOrDefaultAsync(p=>p.SetId==recordId&&p.Id==op.PhotoId,ct);
+                var photo=await db.Photos.SingleOrDefaultAsync(p=>p.SetId==recordId&&p.Id==op.PhotoId&&!p.Deleted,ct);
                 var pending=Json.Read<List<BodyPhotoIntent>>(body.PendingPhotosJson);
                 Validation.Require(photo!=null||pending.Any(p=>p.Id==op.PhotoId),"Photo not found.",404);
                 if(photo!=null){photo.Deleted=true;photo.Status="deleting";photo.DeletedAt=DateTime.UtcNow;}
