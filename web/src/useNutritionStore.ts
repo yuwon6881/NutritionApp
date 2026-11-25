@@ -27,6 +27,30 @@ import {showNotice} from './components/ui/UndoToast';
 import {classifySyncFailure} from './lib/syncFailure';
 import {retainMutationConflict} from './lib/mutationConflicts';
 export type { SyncKind, SyncPhase, SyncState };
+
+function primeDiaryDays(entries: readonly Entry[] | undefined, days: readonly Day[] | undefined, revision: number) {
+  const byDate = new Map<string, { entries: Entry[]; day?: Day }>();
+  for (const entry of entries ?? []) {
+    let bucket = byDate.get(entry.date);
+    if (!bucket) { bucket = { entries: [] }; byDate.set(entry.date, bucket); }
+    bucket.entries.push(entry);
+  }
+  for (const day of days ?? []) {
+    let bucket = byDate.get(day.date);
+    if (!bucket) { bucket = { entries: [] }; byDate.set(day.date, bucket); }
+    bucket.day = day;
+  }
+  const fetchedAt = Date.now();
+  const datedDays: DatedDiaryDay[] = [...byDate.entries()].map(([date, bucket]) => ({
+    date,
+    entries: bucket.entries.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.id.localeCompare(b.id)),
+    day: bucket.day,
+    revision,
+    fetchedAt
+  }));
+  sharedDiaryCoordinator.primeDays(datedDays);
+}
+
 export function useNutritionStore(user: string, onSessionExpired?: () => void, authReady=true) {
   const dispatchAllowed=useRef(authReady);
   dispatchAllowed.current=authReady;
@@ -175,26 +199,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
             const b = bRes.data;
             if (b.id !== user) throw new Error('The signed-in account changed. Sign in again.');
             lastPeerRefresh.current = Date.now();
-            const byDate = new Map<string, { entries: Entry[]; day?: Day }>();
-            for (const e of b.entries ?? []) {
-              let bucket = byDate.get(e.date);
-              if (!bucket) { bucket = { entries: [] }; byDate.set(e.date, bucket); }
-              bucket.entries.push(e);
-            }
-            for (const d of b.days ?? []) {
-              let bucket = byDate.get(d.date);
-              if (!bucket) { bucket = { entries: [] }; byDate.set(d.date, bucket); }
-              bucket.day = d;
-            }
-            const now = Date.now();
-            const datedDays: DatedDiaryDay[] = [...byDate.entries()].map(([dStr, bucket]) => ({
-              date: dStr,
-              entries: bucket.entries.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.id.localeCompare(b.id)),
-              day: bucket.day,
-              revision: b.revision,
-              fetchedAt: now
-            }));
-            sharedDiaryCoordinator.primeDays(datedDays);
+            primeDiaryDays(b.entries, b.days, b.revision);
             const current=ref.current;
             const reuseFoods=current?.foodsLoaded===true&&current.state.foodRevision===b.foodRevision;
             const cachedFoods = reuseFoods || current?.foodsLoaded !== true ? undefined : await readSavedFoods(user);
@@ -228,6 +233,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
         });
       }
       if(receivedEtag&&ref.current?.state.revision===state.revision)bootstrapEtag.current=receivedEtag;
+      if(alive.current&&!ref.current?.queue.some(op=>op.retryAt)&&!ref.current?.photoDrafts?.length&&!ref.current?.bodyDrafts?.length)setError('');
     } catch (ex) {
       if (classifySyncFailure(ex) === 'session-expired') expireSession();
       throw ex;
@@ -304,7 +310,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
         }
       }
       if (alive.current && hadQueue && sent) await refresh();
-      setError('');
+      if (alive.current && sent) setError('');
     } catch (ex) {
       if (alive.current) setError(ex instanceof Error ? ex.message : 'Sync is waiting for a connection.');
     } finally {
@@ -417,22 +423,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
           if (normalized !== cached) await saveLocal(user, normalized);
           ref.current = normalized;
           setLocal(normalized);
-
-          const byDate = new Map<string, { entries: Entry[]; day?: Day }>();
-          for (const e of normalized.state.entries ?? []) {
-            let b = byDate.get(e.date);
-            if (!b) { b = { entries: [] }; byDate.set(e.date, b); }
-            b.entries.push(e);
-          }
-          for (const d of normalized.state.days ?? []) {
-            let b = byDate.get(d.date);
-            if (!b) { b = { entries: [] }; byDate.set(d.date, b); }
-            b.day = d;
-          }
-          const datedDays: DatedDiaryDay[] = [...byDate.entries()].map(([dStr, b]) => ({
-            date: dStr, entries: b.entries, day: b.day, revision: normalized.state.revision, fetchedAt: Date.now()
-          }));
-          sharedDiaryCoordinator.primeDays(datedDays);
+          primeDiaryDays(normalized.state.entries, normalized.state.days, normalized.state.revision);
         }
         await refresh();
         if (ref.current?.queue.length) await drain();
