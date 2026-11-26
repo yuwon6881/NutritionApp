@@ -1,9 +1,10 @@
 import { App } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import type { Mutation, SyncAcknowledgement } from '../types';
+import type { LocalData, Mutation, SyncAcknowledgement } from '../types';
 
 export interface NativeSyncOutcome {
   id: string;
+  mutation?: Mutation;
   outcome: 'acked' | 'conflict' | 'rejected';
   revision?: number;
   message?: string;
@@ -17,7 +18,8 @@ const native = registerPlugin<{
     queue: Mutation[];
     immediate: boolean;
   }): Promise<void>;
-  consumeSyncedMutations(options: { accountId: string }): Promise<{ outcomes: NativeSyncOutcome[] }>;
+  readSyncedMutations(options: { accountId: string }): Promise<{ outcomes: NativeSyncOutcome[] }>;
+  retireSyncedMutations(options: { accountId: string; ids: string[] }): Promise<void>;
   clearPendingMutations(options: { accountId: string }): Promise<void>;
 }>('NutritionDevice');
 
@@ -39,14 +41,27 @@ export async function syncNativeOutbox(
   }).catch(() => undefined);
 }
 
-export async function consumeNativeOutboxOutcomes(accountId: string): Promise<NativeSyncOutcome[]> {
+async function readNativeOutboxOutcomes(accountId: string): Promise<NativeSyncOutcome[]> {
   if (!available()) return [];
   try {
-    const result = await native.consumeSyncedMutations({ accountId });
+    const result = await native.readSyncedMutations({ accountId });
     return Array.isArray(result?.outcomes) ? result.outcomes : [];
   } catch {
     return [];
   }
+}
+
+export async function reconcileNativeOutcomes(
+  accountId: string,
+  isAlive: () => boolean,
+  commit: (change: (data: LocalData) => LocalData) => Promise<void>
+): Promise<boolean> {
+  const outcomes = await readNativeOutboxOutcomes(accountId);
+  if (!outcomes.length || !isAlive()) return false;
+  const resolver = await import('./outboxBackgroundResolve');
+  const acknowledged = await resolver.acknowledgeNativeOutcomes(outcomes, isAlive, commit);
+  if (isAlive()) await native.retireSyncedMutations({ accountId, ids: outcomes.map(outcome => outcome.id) });
+  return acknowledged;
 }
 
 export async function clearNativeOutbox(accountId: string): Promise<void> {

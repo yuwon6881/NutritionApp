@@ -1,8 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import type { LocalData, Mutation } from '../types';
+import { integrationGeneration, signalIntegrationPending } from './integrationDispatch';
 import { releaseHeldMutations, selectKeepaliveBatch } from './heldMutations';
 import { wireMutation } from './projection';
-import type { NativeSyncOutcome } from './nativeOutbox';
 
 type Commit = (change: (data: LocalData) => LocalData) => Promise<void>;
 
@@ -17,15 +17,9 @@ export function registerOutboxBackgroundSync(): void {
     .catch(() => undefined);
 }
 
-export function syncNativeBackgroundOutbox(accountId: string, queue: readonly Mutation[], immediate: boolean): void {
+export function syncNativeBackgroundOutbox(accountId: string, queue: readonly Mutation[], immediate: boolean): void | Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
-  void import('./nativeOutbox').then(module => module.syncNativeOutbox(accountId, queue, immediate)).catch(() => undefined);
-}
-
-export async function consumeNativeBackgroundResults(accountId: string): Promise<NativeSyncOutcome[]> {
-  if (!Capacitor.isNativePlatform()) return [];
-  const module = await import('./nativeOutbox');
-  return module.consumeNativeOutboxOutcomes(accountId);
+  return import('./nativeOutbox').then(module => module.syncNativeOutbox(accountId, queue, immediate)).catch(() => undefined);
 }
 
 export async function clearNativeBackgroundOutbox(accountId: string): Promise<void> {
@@ -34,17 +28,34 @@ export async function clearNativeBackgroundOutbox(accountId: string): Promise<vo
   await module?.clearNativeOutbox(accountId);
 }
 
-export async function subscribeNativeBackgroundLifecycle(
+export function subscribeOutboxLifecycle(
   onForeground: () => void,
   onBackground: () => void
-): Promise<() => void> {
-  if (!Capacitor.isNativePlatform()) return () => undefined;
-  try {
-    const module = await import('./nativeOutbox');
-    return await module.subscribeNativeAppLifecycle(onForeground, onBackground);
-  } catch {
-    return () => undefined;
+): () => void {
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') onBackground();
+    else onForeground();
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pagehide', onBackground);
+  window.addEventListener('pageshow', onForeground);
+
+  let disposed = false;
+  let stopNative: (() => void) | undefined;
+  if (Capacitor.isNativePlatform()) {
+    void import('./nativeOutbox').then(module => module.subscribeNativeAppLifecycle(onForeground, onBackground))
+      .then(stop => {
+        if (disposed) stop();
+        else stopNative = stop;
+      }).catch(() => undefined);
   }
+  return () => {
+    disposed = true;
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('pagehide', onBackground);
+    window.removeEventListener('pageshow', onForeground);
+    stopNative?.();
+  };
 }
 
 export async function reconcileNativeOutbox(
@@ -52,17 +63,16 @@ export async function reconcileNativeOutbox(
   isAlive: () => boolean,
   commit: Commit
 ): Promise<boolean> {
-  const outcomes = await consumeNativeBackgroundResults(user);
-  if (!outcomes.length || !isAlive()) return false;
-  const resolver = await import('./outboxBackgroundResolve');
-  return resolver.acknowledgeNativeOutcomes(outcomes, isAlive, commit);
+  if (!Capacitor.isNativePlatform()) return false;
+  const module = await import('./nativeOutbox');
+  return module.reconcileNativeOutcomes(user, isAlive, commit);
 }
 
 export interface KeepaliveFlushContext {
   user: string;
   queue: readonly Mutation[];
   inFlight: Map<string, Promise<void>>;
-  inFlightDrainIds?: ReadonlySet<string>;
+  inFlightDrain?: ReadonlyMap<string, Mutation>;
   isAlive: () => boolean;
   commit: Commit;
   onErrorClear: () => void;
@@ -76,12 +86,12 @@ export interface KeepaliveFlushContext {
  * so queued edits still reach the server even when the mobile browser or WebView freezes immediately.
  */
 export function dispatchKeepaliveBatch(context: KeepaliveFlushContext): void {
-  const { user, queue, inFlight, inFlightDrainIds, isAlive, commit, onErrorClear, onRejectedNotice, onSessionExpired, onSettled } = context;
-  const skipIds = new Set(inFlight.keys());
-  if (inFlightDrainIds) {
-    for (const id of inFlightDrainIds) skipIds.add(id);
-  }
-  const batch = selectKeepaliveBatch(queue, Date.now(), skipIds);
+  const { user, queue, inFlight, inFlightDrain, isAlive, commit, onErrorClear, onRejectedNotice, onSessionExpired, onSettled } = context;
+  // Closing can cancel the foreground fetch. Replay its exact request under the same
+  // receipt ID and leave later edits behind it until either delivery is acknowledged.
+  const sending = inFlightDrain?.get(queue[0]?.id);
+  const batch = selectKeepaliveBatch(sending ? [sending] : queue, Date.now(), new Set(inFlight.keys()));
+  const integrationEpoch = integrationGeneration();
   for (const op of batch) {
     const promise = (async () => {
       try {
@@ -90,6 +100,7 @@ export function dispatchKeepaliveBatch(context: KeepaliveFlushContext): void {
           credentials: 'same-origin',
           cache: 'no-store',
           keepalive: true,
+          signal: AbortSignal.timeout(20_000),
           headers: {
             'Content-Type': 'application/json',
             'X-Nutrition-Request': '1',
@@ -98,13 +109,16 @@ export function dispatchKeepaliveBatch(context: KeepaliveFlushContext): void {
           },
           body: JSON.stringify(wireMutation(op))
         });
-        if (!isAlive()) return;
+        if (!isAlive() || inFlightDrain?.has(op.id)) return;
+        if (response.ok && response.headers.get('X-Fitness-Integration-Pending') === '1') {
+          signalIntegrationPending(integrationEpoch);
+        }
         const resolver = await import('./outboxBackgroundResolve');
         await resolver.resolveKeepaliveResponse({
           op, response, isAlive, commit, onErrorClear, onRejectedNotice, onSessionExpired
         });
       } catch {
-        if (!isAlive()) return;
+        if (!isAlive() || inFlightDrain?.has(op.id)) return;
         const resolver = await import('./outboxBackgroundResolve');
         await resolver.resolveKeepaliveNetworkFailure(op, isAlive, commit);
       } finally {
@@ -116,46 +130,22 @@ export function dispatchKeepaliveBatch(context: KeepaliveFlushContext): void {
   }
 }
 
-export function flushBackgroundOutbox(options: {
-  user: string;
+export function flushBackgroundOutbox({ canSend, dismissUndo, ...context }: KeepaliveFlushContext & {
   queue: Mutation[];
   canSend: boolean;
-  inFlight: Map<string, Promise<void>>;
-  inFlightDrainIds?: ReadonlySet<string>;
-  isAlive: () => boolean;
-  commit: Commit;
   dismissUndo: () => void;
-  onErrorClear: () => void;
-  onRejectedNotice: (message: string) => void;
-  onSessionExpired: () => void;
-  onSettled: () => void;
 }): void {
-  const {
-    user, queue, canSend, inFlight, inFlightDrainIds, isAlive, commit,
-    dismissUndo, onErrorClear, onRejectedNotice, onSessionExpired, onSettled
-  } = options;
-  const hadHeld = queue.some(op => op.holdUntil !== undefined);
-  const nextQueue = hadHeld ? releaseHeldMutations(queue) : queue;
-  if (hadHeld) {
+  const { user, queue, commit } = context;
+  const nextQueue = releaseHeldMutations(queue);
+  if (nextQueue !== queue) {
+    const heldIds = queue.filter(op => op.holdUntil !== undefined).map(op => op.id);
     dismissUndo();
     void commit(current => {
-      const released = releaseHeldMutations(current.queue);
+      const released = releaseHeldMutations(current.queue, heldIds);
       return released === current.queue ? current : { ...current, queue: released };
-    });
+    }).catch(() => undefined);
   }
   registerOutboxBackgroundSync();
-  syncNativeBackgroundOutbox(user, nextQueue, true);
-  if (!canSend) return;
-  dispatchKeepaliveBatch({
-    user,
-    queue: nextQueue,
-    inFlight,
-    inFlightDrainIds,
-    isAlive,
-    commit,
-    onErrorClear,
-    onRejectedNotice,
-    onSessionExpired,
-    onSettled
-  });
+  void syncNativeBackgroundOutbox(user, nextQueue, true);
+  if (canSend) dispatchKeepaliveBatch({ ...context, queue: nextQueue });
 }

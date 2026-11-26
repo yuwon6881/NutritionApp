@@ -51,7 +51,7 @@ public class PendingOutboxWorkerTest {
             @Override public boolean isForeground() { return true; }
             @Override public boolean isStopped() { return false; }
         };
-        assertEquals(ListenableWorker.Result.success(), PendingOutboxWorker.runSync(store, transport, foregroundClock));
+        assertEquals(ListenableWorker.Result.retry(), PendingOutboxWorker.runSync(store, transport, foregroundClock));
         assertTrue(sentBodies.isEmpty());
         assertTrue(store.hasPendingWork());
 
@@ -70,11 +70,15 @@ public class PendingOutboxWorkerTest {
         store.syncQueue("alice", "https://nutrition-diary-app.vercel.app", queue);
         assertFalse(store.hasPendingWork());
 
-        JSONArray applied = store.consumeApplied("alice");
+        JSONArray applied = store.readApplied("alice");
         assertEquals(1, applied.length());
         assertEquals("op-1", applied.getJSONObject(0).getString("id"));
         assertEquals("acked", applied.getJSONObject(0).getString("outcome"));
         assertEquals(12L, applied.getJSONObject(0).getLong("revision"));
+        assertEquals("rec-1", applied.getJSONObject(0).getJSONObject("mutation").getString("recordId"));
+        assertEquals(1, store.readApplied("alice").length());
+        store.retireApplied("alice", new JSONArray().put("op-1"));
+        assertEquals(0, store.readApplied("alice").length());
     }
 
     @Test public void retriesTransientFailuresAndRetainsWorkOnUnauthorized() throws Exception {

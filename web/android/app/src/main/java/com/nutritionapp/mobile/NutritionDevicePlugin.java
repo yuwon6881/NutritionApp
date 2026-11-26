@@ -2,11 +2,6 @@ package com.nutritionapp.mobile;
 
 import android.content.Intent;
 import android.webkit.CookieManager;
-import androidx.work.BackoffPolicy;
-import androidx.work.Constraints;
-import androidx.work.ExistingWorkPolicy;
-import androidx.work.NetworkType;
-import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.JSArray;
@@ -16,7 +11,6 @@ import org.json.JSONObject;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import java.util.concurrent.TimeUnit;
 
 @CapacitorPlugin(name = "NutritionDevice")
 public class NutritionDevicePlugin extends Plugin {
@@ -88,23 +82,28 @@ public class NutritionDevicePlugin extends Plugin {
                 if (cookies != null) cookies.flush();
             } catch (Throwable ignored) { /* Best-effort cookie flush before potential process exit. */ }
             long delayMs = immediate ? 0L : store.earliestDelayMs(System.currentTimeMillis());
-            OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(PendingOutboxWorker.class)
-                    .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS);
-            if (delayMs > 0) builder.setInitialDelay(delayMs, TimeUnit.MILLISECONDS);
-            work.enqueueUniqueWork(PendingOutboxWorker.UNIQUE_WORK_NAME, ExistingWorkPolicy.REPLACE, builder.build());
+            PendingOutboxWorker.schedule(getContext(), delayMs, immediate);
             call.resolve();
         } catch (Exception failure) { call.reject("Could not schedule background sync.", "outbox_sync_failed"); }
     }
 
-    @PluginMethod public void consumeSyncedMutations(PluginCall call) {
+    @PluginMethod public void readSyncedMutations(PluginCall call) {
         String accountId = call.getString("accountId");
         try {
             JSObject result = new JSObject();
-            JSONArray outcomes = accountId == null ? new JSONArray() : PendingOutboxStore.get(getContext()).consumeApplied(accountId);
+            JSONArray outcomes = accountId == null ? new JSONArray() : PendingOutboxStore.get(getContext()).readApplied(accountId);
             result.put("outcomes", outcomes);
             call.resolve(result);
         } catch (Exception failure) { call.reject("Could not read background sync outcomes.", "outbox_read_failed"); }
+    }
+
+    @PluginMethod public void retireSyncedMutations(PluginCall call) {
+        String accountId = call.getString("accountId");
+        JSArray ids = call.getArray("ids");
+        try {
+            if (accountId != null && ids != null) PendingOutboxStore.get(getContext()).retireApplied(accountId, ids);
+            call.resolve();
+        } catch (Exception failure) { call.reject("Could not clear saved background sync outcomes.", "outbox_retire_failed"); }
     }
 
     @PluginMethod public void clearPendingMutations(PluginCall call) {

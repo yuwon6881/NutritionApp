@@ -14,7 +14,7 @@ export interface DrainLoopOptions {
   isSessionExpired: () => boolean;
   getQueue: () => Mutation[] | undefined;
   inFlightKeepalive: Map<string, Promise<void>>;
-  inFlightDrainIds?: Set<string>;
+  inFlightDrain: Map<string, Mutation>;
   commit: (change: (data: LocalData) => LocalData) => Promise<void>;
   setSendingRecordId: (id: string | undefined) => void;
   scheduleRetry: (delayMs: number) => void;
@@ -24,7 +24,7 @@ export interface DrainLoopOptions {
 
 export async function runOutboxDrainLoop(options: DrainLoopOptions): Promise<boolean> {
   const {
-    user, isAlive, isSessionExpired, getQueue, inFlightKeepalive, inFlightDrainIds, commit,
+    user, isAlive, isSessionExpired, getQueue, inFlightKeepalive, inFlightDrain, commit,
     setSendingRecordId, scheduleRetry, onSessionExpired, onRejectedNotice
   } = options;
   let sent = false;
@@ -44,7 +44,7 @@ export async function runOutboxDrainLoop(options: DrainLoopOptions): Promise<boo
       scheduleRetry(wait + 20);
       break;
     }
-    inFlightDrainIds?.add(op.id);
+    inFlightDrain.set(op.id, op);
     try {
       setSendingRecordId(op.recordId);
       const acknowledgement = await api<SyncAcknowledgement>(
@@ -79,7 +79,7 @@ export async function runOutboxDrainLoop(options: DrainLoopOptions): Promise<boo
       }
       throw ex;
     } finally {
-      inFlightDrainIds?.delete(op.id);
+      inFlightDrain.delete(op.id);
     }
   }
   return sent;

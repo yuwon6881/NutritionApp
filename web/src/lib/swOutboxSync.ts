@@ -2,7 +2,6 @@ import type { AppState, LocalData, Mutation, MutationConflict, SyncAcknowledgeme
 import { retainMutationConflict } from './mutationConflicts';
 import { acknowledgeLocalWrite } from './nutritionAcknowledgement';
 import { markForRetry, retireRejectedMutation, wireMutation } from './projection';
-import { mergeRetained } from './retainedMerge';
 import { classifySyncStatus, parseRetryAfterMs } from './syncFailureStatus';
 
 interface StoredMutations {
@@ -14,11 +13,6 @@ interface StoredAccount {
   state?: AppState;
   progress?: LocalData['progress'];
   foodsLoaded?: boolean;
-}
-
-interface DispatchLease {
-  owner?: string;
-  until?: number;
 }
 
 function openExistingLocalDatabase(): Promise<IDBDatabase | null> {
@@ -59,19 +53,11 @@ function readAllMutationKeys(db: IDBDatabase): Promise<string[]> {
   });
 }
 
-function readSnapshotForAccount(db: IDBDatabase, accountId: string): Promise<{
-  mutations: StoredMutations;
-  lease?: DispatchLease;
-}> {
+function readQueue(db: IDBDatabase, accountId: string): Promise<Mutation[]> {
   return new Promise((resolve, reject) => {
-    const stores = db.objectStoreNames.contains('meta') ? ['mutations', 'meta'] : ['mutations'];
-    const tx = db.transaction(stores, 'readonly');
-    const mutReq = tx.objectStore('mutations').get(accountId);
-    const leaseReq = stores.includes('meta') ? tx.objectStore('meta').get(`dispatch:${accountId}`) : undefined;
-    tx.oncomplete = () => resolve({
-      mutations: (mutReq.result as StoredMutations | undefined) ?? {},
-      lease: leaseReq?.result as DispatchLease | undefined
-    });
+    const tx = db.transaction('mutations', 'readonly');
+    const request = tx.objectStore('mutations').get(accountId);
+    tx.oncomplete = () => resolve((request.result as StoredMutations | undefined)?.queue ?? []);
     tx.onerror = () => reject(tx.error ?? new Error('Could not read queued mutations.'));
     tx.onabort = () => reject(tx.error ?? new Error('Queued mutation read aborted.'));
   });
@@ -80,7 +66,7 @@ function readSnapshotForAccount(db: IDBDatabase, accountId: string): Promise<{
 function commitMutationUpdate(
   db: IDBDatabase,
   accountId: string,
-  expectedQueue: Mutation[],
+  completedId: string,
   update: (current: { queue: Mutation[]; conflicts: MutationConflict[]; account?: StoredAccount }) => {
     queue: Mutation[];
     conflicts: MutationConflict[];
@@ -104,14 +90,15 @@ function commitMutationUpdate(
       pending--;
       if (pending > 0) return;
       const saved = savedMutations ?? {};
+      // Another dispatcher may have already applied this response. Use the live queue
+      // so an Undo release, new edit or local-data wipe cannot resurrect old work.
+      if (!saved.queue?.some(op => op.id === completedId)) return;
       const result = update({
         queue: saved.queue ?? [],
         conflicts: saved.conflicts ?? [],
         account: savedAccount
       });
-      const mergedQueue = mergeRetained(saved.queue ?? [], expectedQueue, result.queue, item => item.id);
-      const mergedConflicts = mergeRetained(saved.conflicts ?? [], saved.conflicts ?? [], result.conflicts, item => item.id);
-      mutStore.put({ queue: mergedQueue, conflicts: mergedConflicts }, accountId);
+      mutStore.put({ queue: result.queue, conflicts: result.conflicts }, accountId);
       if (accStore && result.account?.state) {
         const currentRevision = savedAccount?.state?.revision ?? 0;
         if (result.account.state.revision >= currentRevision) {
@@ -159,8 +146,8 @@ export async function drainOutboxInServiceWorker(
   const db = await openExistingLocalDatabase();
   if (!db) return;
   try {
-    const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const hasVisibleClient = windows.some(client => (client as WindowClient).visibilityState === 'visible');
+    const hasVisibleClient = async () => (await clients.matchAll({ type: 'window', includeUncontrolled: true }))
+      .some(client => (client as WindowClient).visibilityState === 'visible');
     const accounts = await readAllMutationKeys(db);
     for (const accountId of accounts) {
       await drainAccountInServiceWorker(db, accountId, origin, hasVisibleClient);
@@ -174,15 +161,12 @@ async function drainAccountInServiceWorker(
   db: IDBDatabase,
   accountId: string,
   origin: string,
-  hasVisibleClient: boolean
+  hasVisibleClient: () => Promise<boolean>
 ): Promise<void> {
   for (;;) {
-    const { mutations, lease } = await readSnapshotForAccount(db, accountId);
-    if (hasVisibleClient && lease?.until && lease.until > Date.now()) return;
-    const queue = mutations.queue ?? [];
-    const op = queue[0];
-    if (!op) return;
-    if (hasVisibleClient && op.holdUntil !== undefined && op.holdUntil > Date.now()) return;
+    const [op] = await readQueue(db, accountId);
+    // A visible page owns dispatch and user feedback, including during an online transition.
+    if (!op || await hasVisibleClient()) return;
     if ((op.retryAt ?? 0) > Date.now()) throw new Error('Sync retry scheduled.');
 
     let response: Response;
@@ -191,6 +175,7 @@ async function drainAccountInServiceWorker(
         method: 'POST',
         credentials: 'same-origin',
         cache: 'no-store',
+        signal: AbortSignal.timeout(20_000),
         headers: {
           'Content-Type': 'application/json',
           'X-Nutrition-Request': '1',
@@ -200,7 +185,7 @@ async function drainAccountInServiceWorker(
         body: JSON.stringify(wireMutation(op))
       });
     } catch {
-      await commitMutationUpdate(db, accountId, queue, current => ({
+      await commitMutationUpdate(db, accountId, op.id, current => ({
         queue: markForRetry(current.queue, op, Date.now() + 5000),
         conflicts: current.conflicts
       }));
@@ -210,7 +195,8 @@ async function drainAccountInServiceWorker(
 
     if (response.ok) {
       const ack = await response.json() as SyncAcknowledgement;
-      await commitMutationUpdate(db, accountId, queue, current => {
+      if (!Number.isSafeInteger(ack.revision) || ack.revision < 0) throw new Error('Invalid sync acknowledgement.');
+      await commitMutationUpdate(db, accountId, op.id, current => {
         if (!current.account?.state) {
           return {
             queue: retireRejectedMutation(current.queue, op),
@@ -243,7 +229,7 @@ async function drainAccountInServiceWorker(
 
     if (failure === 'conflict') {
       const message = await readErrorMessage(response, 'This change conflicts with saved data.');
-      await commitMutationUpdate(db, accountId, queue, current => {
+      await commitMutationUpdate(db, accountId, op.id, current => {
         const next = retainMutationConflict({
           state: current.account?.state ?? ({} as AppState),
           queue: current.queue,
@@ -256,7 +242,7 @@ async function drainAccountInServiceWorker(
     }
 
     if (failure === 'rejected') {
-      await commitMutationUpdate(db, accountId, queue, current => ({
+      await commitMutationUpdate(db, accountId, op.id, current => ({
         queue: retireRejectedMutation(current.queue, op),
         conflicts: current.conflicts
       }));
@@ -265,7 +251,7 @@ async function drainAccountInServiceWorker(
     }
 
     const retryMs = parseRetryAfterMs(response.headers.get('Retry-After'), 5000);
-    await commitMutationUpdate(db, accountId, queue, current => ({
+    await commitMutationUpdate(db, accountId, op.id, current => ({
       queue: markForRetry(current.queue, op, Date.now() + retryMs),
       conflicts: current.conflicts
     }));

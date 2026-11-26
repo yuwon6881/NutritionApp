@@ -15,7 +15,6 @@ import org.json.JSONObject;
 
 /** Durable atomic store for pending outbox mutations synced by WorkManager in the background. */
 final class PendingOutboxStore {
-    private static final int MAX_APPLIED = 200;
     private final AtomicFile file;
     private static PendingOutboxStore instance;
 
@@ -66,6 +65,14 @@ final class PendingOutboxStore {
             if (op == null) continue;
             String id = op.optString("id");
             if (id.isEmpty() || appliedIds.contains(id)) continue;
+            for (int j = 0; j < applied.length(); j++) {
+                JSONObject outcome = applied.optJSONObject(j);
+                if (outcome == null || !"acked".equals(outcome.optString("outcome"))) continue;
+                JSONObject completed = outcome.optJSONObject("mutation");
+                if (completed != null) {
+                    rebaseItem(op, completed, outcome.optLong("revision"), outcome.optJSONObject("ack"));
+                }
+            }
             filtered.put(op);
         }
 
@@ -145,8 +152,6 @@ final class PendingOutboxStore {
         if (account == null) return;
 
         String opId = completedOp.optString("id");
-        String kind = completedOp.optString("kind");
-        String recordId = completedOp.optString("recordId");
         JSONArray existingQueue = account.optJSONArray("queue");
         JSONArray nextQueue = new JSONArray();
         if (existingQueue != null) {
@@ -154,7 +159,7 @@ final class PendingOutboxStore {
                 JSONObject item = existingQueue.optJSONObject(i);
                 if (item == null || opId.equals(item.optString("id"))) continue;
                 if ("acked".equals(outcome)) {
-                    rebaseItem(item, kind, recordId, revision, ack);
+                    rebaseItem(item, completedOp, revision, ack);
                 }
                 nextQueue.put(item);
             }
@@ -165,6 +170,7 @@ final class PendingOutboxStore {
         try {
             JSONObject entry = new JSONObject();
             entry.put("id", opId);
+            entry.put("mutation", wireMutation(completedOp));
             entry.put("outcome", outcome);
             if ("acked".equals(outcome)) {
                 entry.put("revision", revision);
@@ -173,7 +179,6 @@ final class PendingOutboxStore {
                 entry.put("message", message);
             }
             applied.put(entry);
-            while (applied.length() > MAX_APPLIED) applied.remove(0);
 
             account.put("queue", nextQueue);
             account.put("applied", applied);
@@ -202,28 +207,41 @@ final class PendingOutboxStore {
         writeRoot(root);
     }
 
-    synchronized JSONArray consumeApplied(String accountId) throws IOException {
+    synchronized JSONArray readApplied(String accountId) {
+        JSONObject account = readAllAccounts().optJSONObject(accountId);
+        JSONArray applied = account == null ? null : account.optJSONArray("applied");
+        return applied == null ? new JSONArray() : applied;
+    }
+
+    synchronized void retireApplied(String accountId, JSONArray ids) throws IOException {
         JSONObject root = readRoot();
         JSONObject accounts = root.optJSONObject("accounts");
-        if (accounts == null) return new JSONArray();
+        if (accounts == null) return;
         JSONObject account = accounts.optJSONObject(accountId);
-        if (account == null) return new JSONArray();
+        if (account == null) return;
         JSONArray applied = account.optJSONArray("applied");
-        if (applied == null || applied.length() == 0) return new JSONArray();
+        if (applied == null || applied.length() == 0) return;
+
+        Set<String> retired = new HashSet<>();
+        for (int i = 0; i < ids.length(); i++) retired.add(ids.optString(i));
+        JSONArray remaining = new JSONArray();
+        for (int i = 0; i < applied.length(); i++) {
+            JSONObject outcome = applied.optJSONObject(i);
+            if (outcome != null && !retired.contains(outcome.optString("id"))) remaining.put(outcome);
+        }
 
         JSONArray queue = account.optJSONArray("queue");
         try {
-            if (queue == null || queue.length() == 0) {
+            if (remaining.length() == 0 && (queue == null || queue.length() == 0)) {
                 accounts.remove(accountId);
             } else {
-                account.put("applied", new JSONArray());
+                account.put("applied", remaining);
                 accounts.put(accountId, account);
             }
         } catch (JSONException failure) {
             throw new IOException("Could not clear applied outcomes.", failure);
         }
         writeRoot(root);
-        return applied;
     }
 
     synchronized void clearAccount(String accountId) throws IOException {
@@ -246,17 +264,19 @@ final class PendingOutboxStore {
         return wire;
     }
 
-    private static void rebaseItem(JSONObject item, String completedKind, String completedRecordId, long revision, JSONObject ack) {
+    private static void rebaseItem(JSONObject item, JSONObject completed, long revision, JSONObject ack) {
         try {
+            String completedKind = completed.optString("kind");
+            String completedRecordId = completed.optString("recordId");
             String kind = item.optString("kind");
             String recordId = item.optString("recordId");
             if ("settings".equals(completedKind) && "settings".equals(kind)) {
-                item.put("expectedRevision", revision);
+                advanceRevision(item, "expectedRevision", revision);
                 return;
             }
             boolean weightWrite = "weight".equals(completedKind) || "weight_move".equals(completedKind);
             if (!weightWrite && kind.equals(completedKind) && recordId.equals(completedRecordId)) {
-                item.put("expectedRevision", revision);
+                advanceRevision(item, "expectedRevision", revision);
             }
             if (ack != null && "day".equals(kind)) {
                 JSONArray days = ack.optJSONArray("days");
@@ -267,7 +287,7 @@ final class PendingOutboxStore {
                         JSONObject saved = days.optJSONObject(j);
                         if (saved != null && itemDate.equals(saved.optString("date"))) {
                             item.put("recordId", saved.optString("id", recordId));
-                            item.put("expectedRevision", saved.optLong("revision", revision));
+                            advanceRevision(item, "expectedRevision", saved.optLong("revision", revision));
                             break;
                         }
                     }
@@ -278,18 +298,38 @@ final class PendingOutboxStore {
                 JSONObject data = item.optJSONObject("data");
                 String itemDate = data != null ? data.optString("date", "") : "";
                 if (weights != null) {
+                    JSONObject source = null;
+                    JSONObject destination = null;
+                    // A move's source and destination have independent revision checks.
+                    JSONObject completedData = completed.optJSONObject("data");
                     for (int j = 0; j < weights.length(); j++) {
                         JSONObject saved = weights.optJSONObject(j);
                         if (saved == null) continue;
-                        if (recordId.equals(saved.optString("id")) || (!itemDate.isEmpty() && itemDate.equals(saved.optString("date")))) {
-                            item.put("recordId", saved.optString("id", recordId));
-                            item.put("expectedRevision", saved.optLong("revision", revision));
-                            break;
+                        if (recordId.equals(saved.optString("id")) ||
+                                ("weight_move".equals(kind) && "weight".equals(completedKind) &&
+                                 recordId.equals(completedRecordId) && completedData != null &&
+                                 completedData.optString("date").equals(saved.optString("date")))) {
+                            source = saved;
                         }
+                        if (itemDate.equals(saved.optString("date"))) destination = saved;
+                    }
+                    if (!"weight_move".equals(kind) && source == null) source = destination;
+                    if (source != null) {
+                        item.put("recordId", source.optString("id", recordId));
+                        advanceRevision(item, "expectedRevision", source.optLong("revision", revision));
+                    }
+                    if ("weight_move".equals(kind) && data != null && destination != null &&
+                            !item.optString("recordId").equals(destination.optString("id"))) {
+                        data.put("destinationId", destination.optString("id"));
+                        advanceRevision(data, "destinationRevision", destination.optLong("revision", revision));
                     }
                 }
             }
         } catch (JSONException ignored) { /* Best-effort rebase; server receipt remains authoritative. */ }
+    }
+
+    private static void advanceRevision(JSONObject value, String key, long revision) throws JSONException {
+        if (revision > value.optLong(key, -1)) value.put(key, revision);
     }
 
     private JSONObject readRoot() {

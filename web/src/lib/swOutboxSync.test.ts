@@ -129,7 +129,9 @@ describe('service worker background sync', () => {
     expect((stores.accounts.get('alice') as { state: AppState }).state.revision).toBe(6);
   });
 
-  it('respects holdUntil when a visible tab is active', async () => {
+  it('leaves the queue to a visible tab, including edits ready to send', async () => {
+    const { holdUntil: _hold, ...released } = heldOp();
+    stores.mutations.set('alice', { queue: [released], conflicts: [] });
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     const clients = { matchAll: vi.fn().mockResolvedValue([{ visibilityState: 'visible' }]) };
@@ -138,6 +140,41 @@ describe('service worker background sync', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect((stores.mutations.get('alice') as { queue: Mutation[] }).queue).toHaveLength(1);
+  });
+
+  it('yields remaining edits when a window becomes visible mid-drain', async () => {
+    const first = heldOp();
+    const later = { ...first, id: 'm2', recordId: 'r2' };
+    stores.mutations.set('alice', { queue: [first, later], conflicts: [] });
+    const windows: Pick<WindowClient, 'visibilityState'>[] = [];
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      windows.push({ visibilityState: 'visible' });
+      return new Response(JSON.stringify({ revision: 6 }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await drainOutboxInServiceWorker({ matchAll: vi.fn().mockResolvedValue(windows) }, 'https://nutrition.test');
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect((stores.mutations.get('alice') as { queue: Mutation[] }).queue).toEqual([later]);
+  });
+
+  it('retires an acknowledged edit when the page releases its hold during the request', async () => {
+    const original = heldOp();
+    const { holdUntil: _hold, ...released } = original;
+    const later = { ...released, id: 'm2', recordId: 'r2' };
+    stores.mutations.set('alice', { queue: [original], conflicts: [] });
+    const fetchMock = vi.fn().mockImplementationOnce(async () => {
+      stores.mutations.set('alice', { queue: [released, later], conflicts: [] });
+      return new Response(JSON.stringify({ revision: 6 }), { status: 200 });
+    }).mockResolvedValueOnce(new Response(JSON.stringify({ revision: 7 }), { status: 200 }))
+      .mockImplementation(() => { throw new Error('The background dispatcher tried to send an extra mutation.'); });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await drainOutboxInServiceWorker({ matchAll: vi.fn().mockResolvedValue([]) }, 'https://nutrition.test');
+
+    expect(fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body).id)).toEqual(['m1', 'm2']);
+    expect((stores.mutations.get('alice') as { queue: Mutation[] }).queue).toEqual([]);
   });
 
   it('stops on 401 without dropping queued mutations and throws on 503 for retry', async () => {

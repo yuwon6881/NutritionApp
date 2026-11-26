@@ -27,6 +27,12 @@ public class MainActivity extends BridgeActivity {
     @Override public void onPause() {
         foreground = false;
         super.onPause();
+        // This wake also covers a WebView paused before its JavaScript lifecycle callback runs.
+        if (getBridge() != null) getBridge().execute(() -> {
+            if (PendingOutboxStore.get(getApplicationContext()).hasPendingWork()) {
+                PendingOutboxWorker.schedule(getApplicationContext(), 0, true);
+            }
+        });
     }
 
     @Override protected void onNewIntent(Intent intent) {

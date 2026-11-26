@@ -64,3 +64,30 @@ test('food log entries waive the 5-second undo hold and flush immediately on bac
   await expect(page.getByText('Background Hide Meal', { exact: true })).toBeVisible();
   await expect(page.getByText('Undone Meal', { exact: true })).toHaveCount(0);
 });
+
+test('delivers a food logged just as the page backgrounds', async ({ page, context, request }) => {
+  const session = await seedMobileUser(request, 'background-during-save-user', []);
+  await context.addCookies(session.cookies);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add entry', exact: true }).first().click();
+  await page.getByRole('dialog', { name: 'Add', exact: true }).getByRole('button', { name: 'Log food' }).click();
+  await page.getByRole('button', { name: 'Manual entry', exact: true }).click();
+  await page.getByLabel('Food name', { exact: true }).fill('Saved During Backgrounding');
+  await page.getByLabel('Calories (kcal)', { exact: true }).fill('420');
+  await page.getByRole('button', { name: 'Add to batch', exact: true }).click();
+
+  const log = page.getByRole('button', { name: 'Log 1 food', exact: true });
+  await page.evaluate(() => {
+    document.addEventListener('submit', () => {
+      // The form handler has started, but its IndexedDB writes cannot finish during this event.
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, { once: true });
+  });
+  const sync = page.waitForResponse(response => response.url().endsWith('/api/sync') &&
+    response.request().postDataJSON()?.data?.name === 'Saved During Backgrounding',
+    { timeout: 3500 });
+  await log.click();
+  expect((await sync).ok()).toBe(true);
+  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
+});

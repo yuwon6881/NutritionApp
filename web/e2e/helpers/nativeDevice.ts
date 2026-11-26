@@ -11,7 +11,7 @@ export async function mockNativeDevice(page: Page) {
       listeners: {} as Record<string, (data: unknown) => void>
     };
     const methods: Record<string, string[]> = {
-      NutritionDevice: ['getReminderCapabilities', 'openReminderSettings', 'getPendingShortcut', 'acknowledgeShortcut', 'getIncomingImage', 'readIncomingImage', 'discardIncomingImage', 'syncPendingMutations', 'consumeSyncedMutations', 'clearPendingMutations'],
+      NutritionDevice: ['getReminderCapabilities', 'openReminderSettings', 'getPendingShortcut', 'acknowledgeShortcut', 'getIncomingImage', 'readIncomingImage', 'discardIncomingImage', 'syncPendingMutations', 'readSyncedMutations', 'retireSyncedMutations', 'clearPendingMutations'],
       App: ['getInfo', 'minimizeApp'], StatusBar: ['setStyle', 'setBackgroundColor', 'setOverlaysWebView'],
       Keyboard: [], PushNotifications: ['checkPermissions', 'createChannel', 'register', 'unregister'],
       Haptics: ['impact', 'notification', 'selectionChanged']
@@ -46,7 +46,7 @@ export async function mockNativeDevice(page: Page) {
           if (method === 'getIncomingImage') return { image: state.image };
           if (method === 'readIncomingImage') return { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' };
           if (method === 'discardIncomingImage' && state.image?.id === options?.id) state.image = null;
-          if (method === 'consumeSyncedMutations') return { outcomes: [] };
+          if (method === 'readSyncedMutations') return { outcomes: [] };
           return {};
         }
       }

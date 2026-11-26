@@ -3,7 +3,13 @@ package com.nutritionapp.mobile;
 import android.content.Context;
 import android.webkit.CookieManager;
 import androidx.annotation.NonNull;
+import androidx.work.BackoffPolicy;
+import androidx.work.Constraints;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
 import androidx.work.Worker;
+import androidx.work.WorkManager;
 import androidx.work.WorkerParameters;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -15,12 +21,22 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 /** Drains retained mutations via WorkManager when the Android app is backgrounded or offline. */
 public final class PendingOutboxWorker extends Worker {
     static final String UNIQUE_WORK_NAME = "nutrition-outbox-sync";
+
+    static void schedule(Context context, long delayMs, boolean immediate) {
+        OneTimeWorkRequest.Builder request = new OneTimeWorkRequest.Builder(PendingOutboxWorker.class)
+                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS);
+        if (delayMs > 0) request.setInitialDelay(delayMs, TimeUnit.MILLISECONDS);
+        WorkManager.getInstance(context).enqueueUniqueWork(
+                UNIQUE_WORK_NAME, immediate ? ExistingWorkPolicy.REPLACE : ExistingWorkPolicy.KEEP, request.build());
+    }
 
     interface Transport {
         Response post(String origin, String accountId, String cookie, String body) throws IOException;
@@ -56,6 +72,7 @@ public final class PendingOutboxWorker extends Worker {
         public Response post(String origin, String accountId, String cookie, String body) throws IOException {
             HttpURLConnection connection = (HttpURLConnection) new URL(origin + "/api/sync").openConnection();
             connection.setRequestMethod("POST");
+            connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(20_000);
             connection.setReadTimeout(20_000);
             connection.setDoOutput(true);
@@ -134,7 +151,8 @@ public final class PendingOutboxWorker extends Worker {
                 if (op == null) break;
 
                 long now = clock.nowMs();
-                if (clock.isForeground() && op.optLong("holdUntil", 0) > now) break;
+                // The WebView owns foreground delivery and can still be saving an Undo or editing the queue.
+                if (clock.isForeground()) return Result.retry();
                 if (op.optLong("retryAt", 0) > now) {
                     needsRetry = true;
                     break;
@@ -153,7 +171,8 @@ public final class PendingOutboxWorker extends Worker {
                 if (response.status >= 200 && response.status < 300) {
                     try {
                         JSONObject ack = new JSONObject(response.body);
-                        long revision = ack.optLong("revision", 0);
+                        long revision = ack.getLong("revision");
+                        if (revision < 0) throw new JSONException("Invalid sync revision.");
                         store.recordOutcome(accountId, op, "acked", revision, null, ack);
                     } catch (JSONException | IOException failure) {
                         needsRetry = true;
@@ -169,13 +188,23 @@ public final class PendingOutboxWorker extends Worker {
 
                 if (response.status == 409) {
                     String message = parseErrorMessage(response.body, "This change conflicts with saved data.");
-                    try { store.recordOutcome(accountId, op, "conflict", 0, message, null); } catch (IOException ignored) {}
+                    try {
+                        store.recordOutcome(accountId, op, "conflict", 0, message, null);
+                    } catch (IOException failure) {
+                        needsRetry = true;
+                        break;
+                    }
                     continue;
                 }
 
                 if (response.status == 400 || response.status == 403 || response.status == 404 || response.status == 413 || response.status == 422) {
                     String message = parseErrorMessage(response.body, "The service could not apply this edit.");
-                    try { store.recordOutcome(accountId, op, "rejected", 0, message, null); } catch (IOException ignored) {}
+                    try {
+                        store.recordOutcome(accountId, op, "rejected", 0, message, null);
+                    } catch (IOException failure) {
+                        needsRetry = true;
+                        break;
+                    }
                     continue;
                 }
 
@@ -202,8 +231,11 @@ public final class PendingOutboxWorker extends Worker {
         if (raw == null) return fallbackMs;
         String trimmed = raw.trim();
         if (trimmed.matches("\\d+")) {
-            long seconds = Math.min(300L, Long.parseLong(trimmed));
-            return Math.max(0L, seconds * 1000L);
+            try {
+                return Math.min(300L, Long.parseLong(trimmed)) * 1000L;
+            } catch (NumberFormatException overflow) {
+                return 300_000L;
+            }
         }
         return fallbackMs;
     }

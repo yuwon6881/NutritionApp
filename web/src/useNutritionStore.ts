@@ -22,7 +22,7 @@ import {trainingWarning} from './lib/trainingFreshness';
 import {useNutritionStoreActions} from './useNutritionStoreActions';
 import {useFoodFavourite} from './useFoodFavourite';
 import {useProgressReads} from './useProgressReads';
-import { flushBackgroundOutbox, reconcileNativeOutbox, registerOutboxBackgroundSync, subscribeNativeBackgroundLifecycle, syncNativeBackgroundOutbox } from './lib/outboxBackground';
+import { flushBackgroundOutbox, reconcileNativeOutbox, registerOutboxBackgroundSync, subscribeOutboxLifecycle, syncNativeBackgroundOutbox } from './lib/outboxBackground';
 import { runOutboxDrainLoop } from './lib/outboxDrain';
 import { dismissToast, showNotice } from './components/ui/UndoToast';
 import {classifySyncFailure} from './lib/syncFailure';
@@ -43,7 +43,9 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
   const writes = useRef(Promise.resolve());
   const draining = useRef(false);
   const inFlightKeepalive = useRef(new Map<string, Promise<void>>());
-  const inFlightDrainIds = useRef(new Set<string>());
+  const inFlightDrain = useRef(new Map<string, Mutation>());
+  const backgrounded = useRef(document.visibilityState === 'hidden');
+  const flushBackgroundRef = useRef<() => void>(() => undefined);
   const processingDrafts = useRef(false);
   const alive = useRef(true);
   const drainRequested = useRef(false);
@@ -147,8 +149,11 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
       ref.current = next;
       setLocal(next);
       if (next.queue !== previous.queue) {
-        syncNativeBackgroundOutbox(user, next.queue, false);
-        if (next.queue.length) registerOutboxBackgroundSync();
+        if (backgrounded.current && next.queue.length) flushBackgroundRef.current();
+        else {
+          if (next.queue.length) registerOutboxBackgroundSync();
+          await syncNativeBackgroundOutbox(user, next.queue, false);
+        }
       }
     });
     writes.current = task;
@@ -237,10 +242,6 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
   const drain = useCallback(async () => {
     if (draining.current) { drainRequested.current = true; return; }
     if (!dispatchAllowed.current || sessionExpired.current || !ref.current) return;
-    const nativeAcked = await reconcileNativeOutbox(user, () => alive.current, commit).catch(() => false);
-    if (!navigator.onLine) return;
-    const hadQueue = ref.current.queue.length > 0 || nativeAcked;
-    let sent = nativeAcked;
     draining.current = true;
     const release=await acquireAccountDispatch(user).catch(ex=>{setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');return undefined;});
     if(!release){draining.current=false;return;}
@@ -251,15 +252,24 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
     writes.current=reload;
     try{await reload;}catch(ex){draining.current=false;await release().catch(ex=>{if(alive.current)setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');});setError((ex as Error).message);return;}
     const finishIntegrationBurst = beginIntegrationBurst();
-    if (ref.current.queue.length) { beginSync(ref.current.queue[0]?.kind ?? 'entry'); setBusy(true); }
+    let syncing = false;
     try {
-      sent = await runOutboxDrainLoop({
+      if (!alive.current || sessionExpired.current || !dispatchAllowed.current) return;
+      const nativeAcked = await reconcileNativeOutbox(user, () => alive.current, commit);
+      if (!navigator.onLine || !alive.current) return;
+      const hadQueue = ref.current.queue.length > 0 || nativeAcked;
+      if (ref.current.queue.length) {
+        syncing = true;
+        beginSync(ref.current.queue[0].kind);
+        setBusy(true);
+      }
+      const sent = await runOutboxDrainLoop({
         user,
         isAlive: () => alive.current,
         isSessionExpired: () => sessionExpired.current,
         getQueue: () => ref.current?.queue,
         inFlightKeepalive: inFlightKeepalive.current,
-        inFlightDrainIds: inFlightDrainIds.current,
+        inFlightDrain: inFlightDrain.current,
         commit,
         setSendingRecordId: id => { if (alive.current) setSendingRecordId(id); },
         scheduleRetry: delayMs => {
@@ -274,12 +284,14 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
     } catch (ex) {
       if (alive.current) setError(ex instanceof Error ? ex.message : 'Sync is waiting for a connection.');
     } finally {
-      draining.current = false;
       await release().catch(ex=>{if(alive.current)setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');});
+      draining.current = false;
       finishIntegrationBurst();
       if (alive.current) {
-        setBusy(false);
-        finishSync();
+        if (syncing) {
+          setBusy(false);
+          finishSync();
+        }
         if (drainRequested.current) { drainRequested.current = false; void drain(); }
       }
     }
@@ -332,6 +344,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
     if (ref.current?.queue.length) void drainRef.current();
   }, [commit]);
   const flushForBackground = useCallback(() => {
+    backgrounded.current = true;
     if (!alive.current || !ref.current?.queue.length) return;
     clearTimeout(heldDrainTimer.current);
     if (draining.current) drainRequested.current = true;
@@ -339,7 +352,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
       user, queue: ref.current.queue,
       canSend: dispatchAllowed.current && !sessionExpired.current && navigator.onLine,
       inFlight: inFlightKeepalive.current,
-      inFlightDrainIds: inFlightDrainIds.current,
+      inFlightDrain: inFlightDrain.current,
       isAlive: () => alive.current, commit, dismissUndo: () => dismissToast(false),
       onErrorClear: () => { if (alive.current) setError(''); },
       onRejectedNotice: message => showNotice(message),
@@ -347,6 +360,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
       onSettled: () => { if (alive.current && !draining.current && ref.current?.queue.length) void drainRef.current(); }
     });
   }, [commit, expireSession, user]);
+  flushBackgroundRef.current = flushForBackground;
   const runPendingDrafts = useCallback(async () => {
     if (processingDrafts.current) { draftsRequested.current = true; return; }
     if (!dispatchAllowed.current || sessionExpired.current || !navigator.onLine || !ref.current) return;
@@ -410,8 +424,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
           sharedDiaryCoordinator.primeFromEntries(normalized.state.entries, normalized.state.days, normalized.state.revision);
         }
         await refresh();
-        await reconcileNativeOutbox(user, () => alive.current, commit).catch(() => false);
-        if (ref.current?.queue.length) await drain();
+        await drain();
         await runPendingDrafts();
       } catch (ex) {
         if (alive.current) setError(ex instanceof Error ? ex.message : 'Could not load diary.');
@@ -420,6 +433,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
 
     const wake = (forceVisible = false) => {
       if (forceVisible || document.visibilityState === 'visible') {
+        backgrounded.current = false;
         const now = Date.now();
         if (now - lastWake.current < 2000) return;
         lastWake.current = now;
@@ -434,20 +448,9 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
         void runPendingDrafts();
       }
     };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') flushForBackground();
-      else wake();
-    };
     const onOnline = () => wake();
-
     window.addEventListener('online', onOnline);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('pagehide', flushForBackground);
-    let stopNativeLifecycle: (() => void) | undefined;
-    void subscribeNativeBackgroundLifecycle(() => wake(true), flushForBackground).then(stop => {
-      if (alive.current) stopNativeLifecycle = stop;
-      else stop();
-    });
+    const stopOutboxLifecycle = subscribeOutboxLifecycle(() => wake(true), flushForBackground);
 
     let heartbeat = Date.now();
     const retained = () => Boolean(ref.current && (ref.current.queue.length || ref.current.photoDrafts?.length || ref.current.bodyDrafts?.length));
@@ -467,9 +470,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
       clearSyncTimer();
       if (activityTimer.current !== undefined) clearTimeout(activityTimer.current);
       window.removeEventListener('online', onOnline);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('pagehide', flushForBackground);
-      stopNativeLifecycle?.();
+      stopOutboxLifecycle();
       clearInterval(interval);
     };
   }, [user, refresh, refreshProgress, drain, flushForBackground, commit, runPendingDrafts, pollRevisions]);

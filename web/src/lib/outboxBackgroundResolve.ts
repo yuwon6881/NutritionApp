@@ -20,8 +20,9 @@ export function applyNativeSyncOutcomes(
   const acked: Array<{ op: Mutation; revision: number; ack?: SyncAcknowledgement }> = [];
 
   for (const outcome of outcomes) {
-    const op = next.queue.find(item => item.id === outcome.id);
-    if (!op) continue;
+    const queued = next.queue.find(item => item.id === outcome.id);
+    if (!queued) continue;
+    const op = outcome.mutation ?? queued;
     changed = true;
     if (outcome.outcome === 'acked' && typeof outcome.revision === 'number') {
       next = acknowledgeLocalWrite(next, op, outcome.revision, outcome.ack);
@@ -64,7 +65,10 @@ export async function resolveKeepaliveResponse(options: {
   if (!isAlive()) return;
   if (response.ok) {
     const ack = await response.json() as SyncAcknowledgement;
-    await commit(current => acknowledgeLocalWrite(current, op, ack.revision, ack));
+    if (!Number.isSafeInteger(ack.revision) || ack.revision < 0) throw new Error('Invalid sync acknowledgement.');
+    await commit(current => current.queue.some(item => item.id === op.id)
+      ? acknowledgeLocalWrite(current, op, ack.revision, ack)
+      : current);
     await sharedDiaryCoordinator.acknowledge(op, ack.revision, ack.days ?? undefined);
     onErrorClear();
     return;

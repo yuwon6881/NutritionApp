@@ -99,6 +99,18 @@ describe('background outbox helpers', () => {
     expect(onSettled).toHaveBeenCalledTimes(2);
   });
 
+  it('preserves a settings patch changed after the native worker took its snapshot', () => {
+    const sent: Mutation = { ...op('settings'), kind: 'settings', data: { weightUnit: 'lb' } };
+    const queued: Mutation = { ...sent, data: { weightUnit: 'lb', checkInWeekday: 4 } };
+    const current: LocalData = { state: baseState, queue: [queued] };
+
+    const result = applyNativeSyncOutcomes(current, [{ id: sent.id, mutation: sent, outcome: 'acked', revision: 10 }]);
+
+    expect(result.next.state.settings).toMatchObject({ weightUnit: 'lb', checkInWeekday: 1 });
+    expect(result.next.queue).toEqual([expect.objectContaining({ data: queued.data, expectedRevision: 10 })]);
+    expect(result.next.queue[0].id).not.toBe(sent.id);
+  });
+
   it('handles 401 session expiry without dropping queued mutations', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 401 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -123,20 +135,21 @@ describe('background outbox helpers', () => {
     expect(data.queue).toHaveLength(1);
   });
 
-  it('flushes held operations on hide while foreground drain is idle on the lock, while skipping ops already on the wire', async () => {
+  it('hands off the exact foreground request on hide and flushes held work when the drain is still waiting on the lock', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ revision: 8 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     const onWire = op('m-wire', 'r-wire');
     const held: Mutation = { ...op('m-held', 'r-held'), holdUntil: Date.now() + 5000 };
 
-    // When m-wire is actively on the wire in drain(), stop before it so it is never double-sent.
+    // The active edit can have newer queued data. The handoff reuses the payload already sent.
+    const revised = { ...onWire, data: { ...onWire.data as object, calories: 720 } };
     const inFlight1 = new Map<string, Promise<void>>();
     flushBackgroundOutbox({
       user: 'alice',
-      queue: [onWire, held],
+      queue: [revised, held],
       canSend: true,
       inFlight: inFlight1,
-      inFlightDrainIds: new Set(['m-wire']),
+      inFlightDrain: new Map([[onWire.id, onWire]]),
       isAlive: () => true,
       commit: async () => undefined,
       dismissUndo: vi.fn(),
@@ -145,7 +158,10 @@ describe('background outbox helpers', () => {
       onSessionExpired: vi.fn(),
       onSettled: vi.fn()
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(onWire);
+    await Promise.all([...inFlight1.values()]);
+    fetchMock.mockClear();
 
     // When drain has not started an HTTP request yet, keepalive immediately dispatches the released held mutation.
     const inFlight2 = new Map<string, Promise<void>>();
@@ -156,7 +172,7 @@ describe('background outbox helpers', () => {
       queue: data.queue,
       canSend: true,
       inFlight: inFlight2,
-      inFlightDrainIds: new Set(),
+      inFlightDrain: new Map(),
       isAlive: () => true,
       commit: async change => { data = change(data); },
       dismissUndo,

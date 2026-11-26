@@ -97,7 +97,7 @@ export function rebaseAfterOwnWrite(queue:Mutation[],completed:Mutation,revision
   // idempotent operation rebased on the revision just returned.
   const remaining=queue.flatMap(q=>{
     if(q.id!==completed.id)return [q];
-    return JSON.stringify(q)===JSON.stringify(completed)?[]:[{...q,id:newId(),expectedRevision:revision}];
+    return JSON.stringify(wireMutation(q))===JSON.stringify(wireMutation(completed))?[]:[{...q,id:newId(),expectedRevision:revision}];
   });
   const weightWrite=completed.kind==='weight'||completed.kind==='weight_move';
   const completedDestination=completed.kind==='weight_move'?(completed.data as {destinationId?:string}).destinationId:undefined;

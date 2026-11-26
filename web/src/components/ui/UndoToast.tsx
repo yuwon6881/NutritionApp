@@ -48,6 +48,10 @@ export function showUndo(
   durationMs = UNDO_WINDOW_MS,
   onRelease?: () => void
 ) {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    onRelease?.();
+    return;
+  }
   publish({ id: nextId++, message, expiresAt: Date.now() + durationMs, onUndo, onRelease });
 }
 

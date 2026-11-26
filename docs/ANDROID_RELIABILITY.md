@@ -50,6 +50,6 @@ Record automated, emulator, physical-device and provider results separately. An 
 
 ## Background outbox synchronization
 
-`PendingOutboxStore` mirrors queued outbox mutations into atomic `noBackupFilesDir` storage and `PendingOutboxWorker` drains them via Android `WorkManager` (`NetworkType.CONNECTED`, exponential backoff) using WebView cookies from `CookieManager`. Foreground Undo holds stay honored while `MainActivity` is active and are waived once backgrounded; resolved outcomes (`acked`, `conflict`, `rejected`) reconcile back into the WebView's IndexedDB store on next active check.
+`PendingOutboxStore` mirrors queued outbox mutations into atomic `noBackupFilesDir` storage. The WebView owns foreground delivery. As the activity pauses, Android schedules delivery of mirrored work even if the WebView stops before its lifecycle callback. `PendingOutboxWorker` drains through `WorkManager` (`NetworkType.CONNECTED`, exponential backoff), using WebView cookies from `CookieManager` and releasing Undo holds while backgrounded. The worker retains outcomes and the exact submitted mutations until the WebView reconciles them into IndexedDB.
 
 No Play publishing, auth redesign, widgets, direct Health Connect, or PWA share-target support is added.
