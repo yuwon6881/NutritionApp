@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import type {AppState,Mutation} from '../types';
 import {project,wireMutation} from './projection';
-import {dispatchWait,nextDispatchableMutation,undoHeldMutations} from './heldMutations';
+import {dispatchWait,nextDispatchableMutation,releaseHeldMutations,selectKeepaliveBatch,undoHeldMutations} from './heldMutations';
 
 const state:AppState={id:'a',displayName:'a',revision:1,profileRevision:0,profile:null,start:'2026-01-01',end:'2026-03-01',
   entries:[
@@ -66,5 +66,31 @@ describe('undoable (held) deletions',()=>{
     expect(nextDispatchableMutation([legacy,later])).toBe(legacy);
     expect(nextDispatchableMutation([later])).toBe(later);
     expect(nextDispatchableMutation([])).toBeUndefined();
+  });
+
+  it('releases holds selectively or for the whole queue without mutating unheld items',()=>{
+    const unheld:Mutation={id:'u',kind:'entry',recordId:'r2',expectedRevision:0,delete:false,data:{}};
+    const unheldQueue=[unheld];
+    const queue=[held('h1',5000,'r1'),unheld,held('h2',5000,'r3')];
+    expect(releaseHeldMutations(unheldQueue)).toBe(unheldQueue);
+    const single=releaseHeldMutations(queue,['h1']);
+    expect(single[0].holdUntil).toBeUndefined();
+    expect(single[1]).toBe(unheld);
+    expect(single[2].holdUntil).toBe(5000);
+    const all=releaseHeldMutations(queue);
+    expect(all.every(item=>item.holdUntil===undefined)).toBe(true);
+  });
+
+  it('selects keepalive batches safely while respecting backoff, order, and byte caps',()=>{
+    const create=(id:string,recordId:string,extra?:Partial<Mutation>):Mutation=>({
+      id,kind:'entry',recordId,expectedRevision:0,delete:false,data:{name:'Food'},...extra
+    });
+    const a=create('a','r1',{holdUntil:99999});
+    const b=create('b','r2',{holdUntil:99999});
+    const edit={...create('c','r2'),expectedRevision:2};
+    expect(selectKeepaliveBatch([a,b,edit],1000,new Set())).toEqual([a,b]);
+    expect(selectKeepaliveBatch([a,b],1000,new Set(['a']))).toEqual([]);
+    expect(selectKeepaliveBatch([create('wait','r1',{retryAt:5000}),b],1000,new Set())).toEqual([]);
+    expect(selectKeepaliveBatch([create('big','r1',{data:{text:'x'.repeat(60000)}})],1000,new Set())).toEqual([]);
   });
 });

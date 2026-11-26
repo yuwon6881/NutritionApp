@@ -21,7 +21,7 @@ export function WeightHistoryCard({store,progress}:{store:NutritionStore;progres
   const pendingDeletes=new Set((store.local?.queue??[]).filter(op=>op.kind==='weight'&&op.delete).map(op=>op.recordId));
   const deleteWeight=async(weight:Weight)=>{
     const id=await store.mutate({kind:'weight',recordId:weight.id,expectedRevision:weight.revision,data:weight,delete:true},{holdMs:UNDO_WINDOW_MS});
-    showUndo(`Deleted weigh-in · ${displayWeight(weight.kg,units.weight,1)} ${weightLabel(units.weight)} · ${readoutDate(weight.date)}`,()=>store.undo([id]));
+    showUndo(`Deleted weigh-in · ${displayWeight(weight.kg,units.weight,1)} ${weightLabel(units.weight)} · ${readoutDate(weight.date)}`,()=>store.undo([id]),undefined,()=>void store.releaseHeld([id]));
   };
   if(!summary)return null;
   return <section className="panel dashboard-wide-card weight-history-card">

@@ -75,7 +75,7 @@ export function FoodBasket({
         const entries=basketEntries(basket.lines,{date,time});
         await basket.flush();
         const ids=await store.logEntries(entries,{retireFoodBasketDate:date,holdMs:UNDO_WINDOW_MS});
-        showUndo(`Logged ${entries.length} ${entries.length===1?'food':'foods'}`,()=>store.undo(ids));
+        showUndo(`Logged ${entries.length} ${entries.length===1?'food':'foods'}`,()=>store.undo(ids),undefined,()=>void store.releaseHeld(ids));
         hapticTick('success');
         basket.clearAfterOutboxCommit();
       });

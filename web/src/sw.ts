@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import {parseNutritionReminderPayload} from './lib/push/pushPayload';
+import {drainOutboxInServiceWorker} from './lib/swOutboxSync';
 export {};
 declare const self:ServiceWorkerGlobalScope&{__WB_MANIFEST:{url:string;revision:string|null}[]};
 const manifest=self.__WB_MANIFEST;
@@ -59,6 +60,10 @@ self.addEventListener('pushsubscriptionchange',event=>{
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of windows)client.postMessage({type:'REFRESH_PUSH_SUBSCRIPTION'});
   })());
+});
+self.addEventListener('sync',event=>{
+  const syncEvent=event as ExtendableEvent&{tag?:string};
+  if(syncEvent.tag==='nutrition-outbox')syncEvent.waitUntil(drainOutboxInServiceWorker(self.clients,self.location.origin));
 });
 self.addEventListener('install',event=>{
   // An update waits until its page can reload without interrupting open work.

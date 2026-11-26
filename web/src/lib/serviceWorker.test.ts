@@ -5,11 +5,12 @@ import ts from 'typescript';
 import {describe,expect,it,vi} from 'vitest';
 import {parseNutritionReminderPayload} from './push/pushPayload';
 
-const source=readFileSync(new URL('../sw.ts',import.meta.url),'utf8').replace(/^import .*;$/m,'');
+const source=readFileSync(new URL('../sw.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n?/gm,'');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 
 function worker(){
   const fetchMock=vi.fn<(request:unknown)=>Promise<Response>>();
+  const drainOutboxInServiceWorker=vi.fn().mockResolvedValue(undefined);
   const handlers=new Map<string,(event:unknown)=>void>();
   const showNotification=vi.fn().mockResolvedValue(undefined);
   const matchAll=vi.fn().mockResolvedValue([]);
@@ -17,7 +18,7 @@ function worker(){
   const cache={match:vi.fn().mockResolvedValue(undefined),put:vi.fn().mockResolvedValue(undefined)};
   const caches={open:vi.fn().mockResolvedValue(cache)};
   // The worker scope owns fetch and Response; the vm sandbox does not inherit Node's globals.
-  runInNewContext(compiled,{exports:{},URL,Response,fetch:fetchMock,parseNutritionReminderPayload,caches,self:{
+  runInNewContext(compiled,{exports:{},URL,Response,fetch:fetchMock,parseNutritionReminderPayload,drainOutboxInServiceWorker,caches,self:{
     __WB_MANIFEST:[],location:{origin:'https://nutrition.test'},registration:{showNotification},
     clients:{matchAll,openWindow},addEventListener:(name:string,handler:(event:unknown)=>void)=>handlers.set(name,handler),
     caches
@@ -27,18 +28,26 @@ function worker(){
     handlers.get(name)?.({...properties,waitUntil:(task:Promise<unknown>)=>{pending=task;}});
     await pending;
   };
-  return {handlers,showNotification,matchAll,openWindow,dispatch,fetchMock,cache};
+  return {handlers,showNotification,matchAll,openWindow,dispatch,fetchMock,cache,drainOutboxInServiceWorker};
 }
 
 describe('service worker reminder lifecycle',()=>{
   it('registers all push handlers synchronously and handles a cold data-only push',async()=>{
     const instance=worker();
-    for(const name of ['push','pushsubscriptionchange','notificationclick'])expect(instance.handlers.has(name)).toBe(true);
+    for(const name of ['push','pushsubscriptionchange','notificationclick','sync'])expect(instance.handlers.has(name)).toBe(true);
     await instance.dispatch('push',{data:{json:()=>({data:{kind:'check-in',route:'/coach'}})}});
     expect(instance.showNotification).toHaveBeenCalledOnce();
     expect(instance.showNotification).toHaveBeenCalledWith('Nutrition check-in',expect.objectContaining({body:'Open Nutrition to review your check-in.',tag:'nutrition-check-in',data:{route:'/coach'}}));
     await instance.dispatch('push',{data:{json:()=>({data:{kind:'check-in',route:'https://other.test'}})}});
     expect(instance.showNotification).toHaveBeenCalledOnce();
+  });
+  it('drains the retained outbox on the nutrition-outbox background sync event',async()=>{
+    const instance=worker();
+    await instance.dispatch('sync',{tag:'other-tag'});
+    expect(instance.drainOutboxInServiceWorker).not.toHaveBeenCalled();
+    await instance.dispatch('sync',{tag:'nutrition-outbox'});
+    expect(instance.drainOutboxInServiceWorker).toHaveBeenCalledOnce();
+    expect(instance.drainOutboxInServiceWorker).toHaveBeenCalledWith(expect.anything(),'https://nutrition.test');
   });
   it('routes foreground delivery through one visible client without showing a second notification',async()=>{
     const instance=worker();

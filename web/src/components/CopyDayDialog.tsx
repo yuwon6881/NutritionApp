@@ -42,7 +42,7 @@ export function CopyDayDialog({open,store,sourceDate,entries,onClose,restoreFocu
       await run(async()=>{
         const ids=await store.mutateMany(createPasteMutations(entries,destination),{holdMs:UNDO_WINDOW_MS});
         setCopied(entries.length);
-        showUndo(`Copied ${entries.length} ${entries.length===1?'food':'foods'}`,()=>store.undo(ids));
+        showUndo(`Copied ${entries.length} ${entries.length===1?'food':'foods'}`,()=>store.undo(ids),undefined,()=>void store.releaseHeld(ids));
       });
       onClose();
     }catch(ex){setError((ex as Error).message);}

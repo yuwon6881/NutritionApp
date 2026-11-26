@@ -22,6 +22,8 @@ interface UndoNotice {
   expiresAt: number;
   /** Absent for a plain notice, which offers nothing to undo. */
   onUndo?: () => Promise<boolean> | boolean;
+  /** Called once if this notice is dismissed or replaced without undoing. */
+  onRelease?: () => void;
 }
 
 let current: UndoNotice | null = null;
@@ -30,16 +32,23 @@ const listeners = new Set<(notice: UndoNotice | null) => void>();
 const dismissListeners = new Set<() => void>();
 
 const publish = (notice: UndoNotice | null) => {
+  const previous = current;
   current = notice;
+  if (previous?.onRelease) {
+    const release = previous.onRelease;
+    previous.onRelease = undefined;
+    release();
+  }
   listeners.forEach(listener => listener(notice));
 };
 
 export function showUndo(
   message: string,
   onUndo: () => Promise<boolean> | boolean,
-  durationMs = UNDO_WINDOW_MS
+  durationMs = UNDO_WINDOW_MS,
+  onRelease?: () => void
 ) {
-  publish({ id: nextId++, message, expiresAt: Date.now() + durationMs, onUndo });
+  publish({ id: nextId++, message, expiresAt: Date.now() + durationMs, onUndo, onRelease });
 }
 
 /** A brief non-blocking notice in the same slot, for outcomes that need no action. */
@@ -48,7 +57,8 @@ export function showNotice(message: string, durationMs = 6000) {
 }
 
 /** Dismiss the current toast entirely, removing notice, result, and pending timers. */
-export function dismissToast() {
+export function dismissToast(release = true) {
+  if (!release && current) current.onRelease = undefined;
   publish(null);
   dismissListeners.forEach(listener => listener());
 }
@@ -109,6 +119,7 @@ export function UndoToastHost() {
     const timer = window.setTimeout(() => {
       if (current?.id === notice.id) {
         if (dragRef.current !== null) return;
+        notice.onRelease = undefined;
         publish(null);
       }
     }, Math.max(0, notice.expiresAt - Date.now()));
@@ -146,6 +157,7 @@ export function UndoToastHost() {
 
   const undo = async () => {
     if (!notice?.onUndo) return;
+    notice.onRelease = undefined;
     try {
       const restored = await notice.onUndo();
       if (current?.id !== notice.id) return;
@@ -293,6 +305,7 @@ export function UndoToastHost() {
     const remaining = Math.max(1500, notice.expiresAt - Date.now());
     window.setTimeout(() => {
       if (current?.id === notice.id && dragRef.current === null) {
+        notice.onRelease = undefined;
         publish(null);
       }
     }, remaining);

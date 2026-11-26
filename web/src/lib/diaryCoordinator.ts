@@ -65,6 +65,28 @@ export class DiaryCoordinator {
     }
   }
 
+  public primeFromEntries(entries: readonly Entry[] | undefined, days: readonly Day[] | undefined, revision: number) {
+    const byDate = new Map<string, { entries: Entry[]; day?: Day }>();
+    for (const entry of entries ?? []) {
+      let bucket = byDate.get(entry.date);
+      if (!bucket) { bucket = { entries: [] }; byDate.set(entry.date, bucket); }
+      bucket.entries.push(entry);
+    }
+    for (const day of days ?? []) {
+      let bucket = byDate.get(day.date);
+      if (!bucket) { bucket = { entries: [] }; byDate.set(day.date, bucket); }
+      bucket.day = day;
+    }
+    const fetchedAt = Date.now();
+    this.primeDays([...byDate.entries()].map(([date, bucket]) => ({
+      date,
+      entries: bucket.entries.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.id.localeCompare(b.id)),
+      day: bucket.day,
+      revision,
+      fetchedAt
+    })));
+  }
+
   public getCached(date: string): DatedDiaryDay | undefined {
     return this.cachedDays.get(date);
   }

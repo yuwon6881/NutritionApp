@@ -35,7 +35,8 @@ const KIB = 1024;
 // High-contrast chart styling, guidance line differentiation, and dark-theme grid clarity add a small precache allowance.
 // Round habit-calendar days with joined streaks add a small precache allowance.
 // Swipe to dismiss, dismiss action, and message length capping on the undo notice add a small first-load allowance.
-const budgets = { firstLoad: 496 * KIB, precache: 1344 * KIB };
+// Early undo release, keepalive background flush, and service worker outbox sync add a small first-load and precache allowance.
+const budgets = { firstLoad: 502 * KIB, precache: 1350 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

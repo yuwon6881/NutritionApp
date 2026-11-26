@@ -61,4 +61,21 @@ describe('UndoToastHost', () => {
     dismissToast();
     expect(renderToStaticMarkup(createElement(UndoToastHost))).toBe('');
   });
+
+  it('releases held work when dismissed or replaced, unless suppressed on background flush', () => {
+    const releaseFirst = vi.fn();
+    showUndo('Logged 1 food', vi.fn(), 5000, releaseFirst);
+    showNotice('Replacement notice');
+    expect(releaseFirst).toHaveBeenCalledOnce();
+
+    const releaseSecond = vi.fn();
+    showUndo('Logged 1 food', vi.fn(), 5000, releaseSecond);
+    dismissToast(false);
+    expect(releaseSecond).not.toHaveBeenCalled();
+
+    const releaseThird = vi.fn();
+    showUndo('Logged 1 food', vi.fn(), 5000, releaseThird);
+    dismissToast(true);
+    expect(releaseThird).toHaveBeenCalledOnce();
+  });
 });

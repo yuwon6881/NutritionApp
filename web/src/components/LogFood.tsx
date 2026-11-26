@@ -284,7 +284,7 @@ export function LogFood({
       }else go('selection');
     }else if(editing){
       const id=await store.mutate({kind:'entry',recordId:editing.id,expectedRevision:editing.revision,delete:false,data:{...data,date}},{holdMs:UNDO_WINDOW_MS});
-      showUndo(`Edited ${editing.name}`,()=>store.undo([id]));
+      showUndo(`Edited ${editing.name}`,()=>store.undo([id]),undefined,()=>void store.releaseHeld([id]));
       onSaved();
     }else{
       if(data.time)setBatchTime(data.time);

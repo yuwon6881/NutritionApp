@@ -97,7 +97,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
       }
       if(!operations.length)return;
       const ids=await store.mutateMany(operations,{holdMs:UNDO_WINDOW_MS});
-      showUndo(operations.length===1?`Moved ${moving[0].name}`:`Moved ${operations.length} foods`,()=>store.undo(ids));
+      showUndo(operations.length===1?`Moved ${moving[0].name}`:`Moved ${operations.length} foods`,()=>store.undo(ids),undefined,()=>void store.releaseHeld(ids));
     },true);
   };
 
@@ -110,7 +110,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
         return {kind:'entry' as const,recordId:currentEntry.id,expectedRevision:currentEntry.revision,delete:true,data:currentEntry};
       }),{holdMs:UNDO_WINDOW_MS}));
     },true);
-    showUndo(removing.length===1?`Deleted ${removing[0].name}`:`Deleted ${removing.length} foods`,()=>store.undo(ids));
+    showUndo(removing.length===1?`Deleted ${removing[0].name}`:`Deleted ${removing.length} foods`,()=>store.undo(ids),undefined,()=>void store.releaseHeld(ids));
   };
   const remove=(entry:Entry)=>removeEntries([entry]);
 
@@ -122,7 +122,7 @@ export function FoodDiary({store,date,setDate,onLog,onEdit,onCopyDay,checkInDue}
     await act(async()=>{
       const mutations=createPasteMutations(items,targetDate,targetTime);
       const ids=await store.mutateMany(mutations,{holdMs:UNDO_WINDOW_MS});
-      showUndo(items.length===1?`Pasted ${items[0].name}`:`Pasted ${items.length} foods`,()=>store.undo(ids));
+      showUndo(items.length===1?`Pasted ${items[0].name}`:`Pasted ${items.length} foods`,()=>store.undo(ids),undefined,()=>void store.releaseHeld(ids));
     },true);
     exitSelectionAndCopy();
     if(targetDate!==date){

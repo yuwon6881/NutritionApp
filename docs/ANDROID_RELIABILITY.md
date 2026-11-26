@@ -48,4 +48,8 @@ Record automated, emulator, physical-device and provider results separately. An 
 - Offline edits, airplane-mode cold launch, keyboard/insets, gesture and three-button Back.
 - An in-place APK upgrade preserving pending work and the installed signing identity.
 
-No Play publishing, auth redesign, widgets, direct Health Connect, background synchronization service or PWA share-target support is added.
+## Background outbox synchronization
+
+`PendingOutboxStore` mirrors queued outbox mutations into atomic `noBackupFilesDir` storage and `PendingOutboxWorker` drains them via Android `WorkManager` (`NetworkType.CONNECTED`, exponential backoff) using WebView cookies from `CookieManager`. Foreground Undo holds stay honored while `MainActivity` is active and are waived once backgrounded; resolved outcomes (`acked`, `conflict`, `rejected`) reconcile back into the WebView's IndexedDB store on next active check.
+
+No Play publishing, auth redesign, widgets, direct Health Connect, or PWA share-target support is added.

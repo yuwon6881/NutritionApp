@@ -2,6 +2,7 @@ import type { LocalData, Mutation } from '../types';
 import type { FoodScanDraft } from './foodScans';
 import { database, isBasketLine, isFoodScanDraft, type StoredDrafts } from './local';
 import { idbGet, idbGetAllKeys } from './idb';
+import { clearNativeBackgroundOutbox } from './outboxBackground';
 
 export async function countFoodScanDrafts(user: string): Promise<number> {
   const db = await database();
@@ -91,6 +92,7 @@ export async function clearUserCache(user: string): Promise<void> {
     throw error;
   }
   await completed;
+  await clearNativeBackgroundOutbox(account);
 }
 
 function deleteAccountRecords(transaction: IDBTransaction, storeName: string, account: string) {

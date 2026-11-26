@@ -37,6 +37,7 @@ import {drainPendingPushRevocations} from './lib/push/revocations';
 import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
 import {backCoordinator,isLayerEntry,pageDepth,readState,PAGE_KEY} from './lib/appHistory';
 import {BACK_TO_HOME_EVENT,isNativeApp} from './lib/nativeApp';
+import {clearNativeBackgroundOutbox} from './lib/outboxBackground';
 import {captureNutritionShortcut,clearPendingNutritionShortcut} from './lib/nutritionShortcuts';
 import {useReadyNutritionShortcut} from './components/useReadyNutritionShortcut';
 
@@ -397,6 +398,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
           await drainPendingPushRevocations({signal:AbortSignal.timeout(3000)});
         }
       }catch{/* Keep the exact account/device/token revocation for a later retry. */}
+      await clearNativeBackgroundOutbox(user);
     }
     try{clearPendingNutritionShortcut(window.localStorage);}catch{/* The action cannot be retained when browser storage is blocked. */}
     localStorage.setItem('nutrition-signed-out','1');

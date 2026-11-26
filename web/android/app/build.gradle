@@ -86,6 +86,7 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation "androidx.work:work-runtime:2.10.0"
     // The app adapter extends the existing scanner; runtime libraries remain owned by that plugin.
     compileOnly "androidx.camera:camera-view:$androidxCameraViewVersion"
     compileOnly "com.google.mlkit:barcode-scanning:$mlkitBarcodeScanningVersion"

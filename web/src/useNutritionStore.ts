@@ -1,19 +1,19 @@
 import {validateFoodDestination} from './lib/foodDestination';
 import { beginIntegrationBurst } from './lib/integrationDispatch';
-import {acquireAccountDispatch,renewAccountDispatch,subscribeAccountWork} from './lib/accountWork';
+import {acquireAccountDispatch,subscribeAccountWork} from './lib/accountWork';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AppState, BootstrapResponse, DatedDiaryDay, Day, Entry, LocalData, Mutation, PhysiqueAngle } from './types';
+import type { AppState, BootstrapResponse, LocalData, Mutation } from './types';
 import { api, apiWithMeta, ApiError } from './lib/api';
 import { saveLocal, readLocal, readSavedFoods, stripLegacyScanDrafts } from './lib/local';
 import {reloadRetainedWork} from './lib/retainedReload';
 import {isSavedFoodsCacheUsable} from './lib/savedFoods';
 import {useSavedFoods} from './useSavedFoods';
 import { today } from './lib/format';
-import { enqueueMutation, markForRetry,retireRejectedMutation, project, wireMutation } from './lib/projection';
-import { dispatchWait, nextDispatchableMutation, undoHeldMutations } from './lib/heldMutations';
+import { enqueueMutation, project } from './lib/projection';
+import { releaseHeldMutations, undoHeldMutations } from './lib/heldMutations';
 import { sharedDiaryCoordinator } from './lib/diaryCoordinator';
 import { pollNutritionRevisions } from './lib/revisions';
-import { normalizePhotoDraft, type SyncKind, type SyncPhase, type SyncState } from './lib/nutritionDrafts';
+import { type SyncKind, type SyncPhase, type SyncState } from './lib/nutritionDrafts';
 import {hydrateAccount,clearAccountHydration,getHydratedAccount} from './lib/accountHydration';
 import {measurePerformance} from './lib/performance';
 import {singleFlight} from './lib/singleFlight';
@@ -22,34 +22,11 @@ import {trainingWarning} from './lib/trainingFreshness';
 import {useNutritionStoreActions} from './useNutritionStoreActions';
 import {useFoodFavourite} from './useFoodFavourite';
 import {useProgressReads} from './useProgressReads';
-import {rejectedEditMessage} from './lib/rejectedEdit';
-import {showNotice} from './components/ui/UndoToast';
+import { flushBackgroundOutbox, reconcileNativeOutbox, registerOutboxBackgroundSync, subscribeNativeBackgroundLifecycle, syncNativeBackgroundOutbox } from './lib/outboxBackground';
+import { runOutboxDrainLoop } from './lib/outboxDrain';
+import { dismissToast, showNotice } from './components/ui/UndoToast';
 import {classifySyncFailure} from './lib/syncFailure';
-import {retainMutationConflict} from './lib/mutationConflicts';
 export type { SyncKind, SyncPhase, SyncState };
-
-function primeDiaryDays(entries: readonly Entry[] | undefined, days: readonly Day[] | undefined, revision: number) {
-  const byDate = new Map<string, { entries: Entry[]; day?: Day }>();
-  for (const entry of entries ?? []) {
-    let bucket = byDate.get(entry.date);
-    if (!bucket) { bucket = { entries: [] }; byDate.set(entry.date, bucket); }
-    bucket.entries.push(entry);
-  }
-  for (const day of days ?? []) {
-    let bucket = byDate.get(day.date);
-    if (!bucket) { bucket = { entries: [] }; byDate.set(day.date, bucket); }
-    bucket.day = day;
-  }
-  const fetchedAt = Date.now();
-  const datedDays: DatedDiaryDay[] = [...byDate.entries()].map(([date, bucket]) => ({
-    date,
-    entries: bucket.entries.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.id.localeCompare(b.id)),
-    day: bucket.day,
-    revision,
-    fetchedAt
-  }));
-  sharedDiaryCoordinator.primeDays(datedDays);
-}
 
 export function useNutritionStore(user: string, onSessionExpired?: () => void, authReady=true) {
   const dispatchAllowed=useRef(authReady);
@@ -65,6 +42,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
   const ref = useRef<LocalData | undefined>(initial);
   const writes = useRef(Promise.resolve());
   const draining = useRef(false);
+  const inFlightKeepalive = useRef(new Map<string, Promise<void>>());
   const processingDrafts = useRef(false);
   const alive = useRef(true);
   const drainRequested = useRef(false);
@@ -160,12 +138,17 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
     const finish=measurePerformance('local.save');
     const task = writes.current.catch(() => {}).then(async () => {
       if (!alive.current || !ref.current) return;
-      const next = change(ref.current);
-      if (next === ref.current) return;
-      await (persist ? persist(user, next, ref.current) : saveLocal(user, next, ref.current));
+      const previous = ref.current;
+      const next = change(previous);
+      if (next === previous) return;
+      await (persist ? persist(user, next, previous) : saveLocal(user, next, previous));
       if (!alive.current) return;
       ref.current = next;
       setLocal(next);
+      if (next.queue !== previous.queue) {
+        syncNativeBackgroundOutbox(user, next.queue, false);
+        if (next.queue.length) registerOutboxBackgroundSync();
+      }
     });
     writes.current = task;
     try{await task;}finally{finish();}
@@ -199,7 +182,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
             const b = bRes.data;
             if (b.id !== user) throw new Error('The signed-in account changed. Sign in again.');
             lastPeerRefresh.current = Date.now();
-            primeDiaryDays(b.entries, b.days, b.revision);
+            sharedDiaryCoordinator.primeFromEntries(b.entries, b.days, b.revision);
             const current=ref.current;
             const reuseFoods=current?.foodsLoaded===true&&current.state.foodRevision===b.foodRevision;
             const cachedFoods = reuseFoods || current?.foodsLoaded !== true ? undefined : await readSavedFoods(user);
@@ -252,9 +235,11 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
   const refreshProgress=useProgressReads(ref,alive,readController,commit);
   const drain = useCallback(async () => {
     if (draining.current) { drainRequested.current = true; return; }
-    if (!dispatchAllowed.current || sessionExpired.current || !navigator.onLine || !ref.current) return;
-    const hadQueue = ref.current.queue.length > 0;
-    let sent = false;
+    if (!dispatchAllowed.current || sessionExpired.current || !ref.current) return;
+    const nativeAcked = await reconcileNativeOutbox(user, () => alive.current, commit).catch(() => false);
+    if (!navigator.onLine) return;
+    const hadQueue = ref.current.queue.length > 0 || nativeAcked;
+    let sent = nativeAcked;
     draining.current = true;
     const release=await acquireAccountDispatch(user).catch(ex=>{setError(ex instanceof Error?ex.message:'Local dispatch storage is unavailable.');return undefined;});
     if(!release){draining.current=false;return;}
@@ -267,48 +252,21 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
     const finishIntegrationBurst = beginIntegrationBurst();
     if (ref.current.queue.length) { beginSync(ref.current.queue[0]?.kind ?? 'entry'); setBusy(true); }
     try {
-      while (alive.current && ref.current?.queue.length && await renewAccountDispatch(user)) {
-        const op=nextDispatchableMutation(ref.current.queue);
-        if(!op)break;
-        // An undoable deletion at the head waits out its window; later work stays behind it in order.
-        const wait = dispatchWait([op], Date.now());
-        if (wait > 0) {
+      sent = await runOutboxDrainLoop({
+        user,
+        isAlive: () => alive.current,
+        isSessionExpired: () => sessionExpired.current,
+        getQueue: () => ref.current?.queue,
+        inFlightKeepalive: inFlightKeepalive.current,
+        commit,
+        setSendingRecordId: id => { if (alive.current) setSendingRecordId(id); },
+        scheduleRetry: delayMs => {
           clearTimeout(heldDrainTimer.current);
-          heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, wait + 20);
-          break;
-        }
-        try { setSendingRecordId(op.recordId);
-          const acknowledgement=await api<import('./types').SyncAcknowledgement>('/sync',wireMutation(op),undefined,{headers:{'X-Nutrition-Account':user}}).finally(()=>{if(alive.current)setSendingRecordId(undefined);});
-          const {revision}=acknowledgement;
-          sent = true;
-          const {acknowledgeLocalWrite}=await import('./lib/nutritionAcknowledgement');
-          await commit(current=>acknowledgeLocalWrite(current,op,revision,acknowledgement));
-          await sharedDiaryCoordinator.acknowledge(op,revision,acknowledgement.days??undefined);
-        } catch (ex) {
-          const failure = classifySyncFailure(ex);
-          if (failure === 'session-expired') expireSession();
-          if (failure === 'conflict') {
-            await commit(current=>retainMutationConflict(current,op,ex instanceof ApiError?ex.message:'This change conflicts with saved data.',Date.now()));
-            sent=true;continue;
-          }
-          if (failure === 'rejected') {
-            // A terminal rejection leaves the saved server record in place. Retaining the edit for
-            // review could never change that outcome, so the device drops it, refreshes onto the
-            // saved value, and says so without blocking later work.
-            await commit(current => ({ ...current, queue: retireRejectedMutation(current.queue,op) }));
-            sent = true;
-            showNotice(rejectedEditMessage(op));
-            continue;
-          }
-          if (failure === 'retry') {
-            const retryDelay = ex instanceof ApiError ? ex.retryAfterMs ?? 5000 : 5000;
-            clearTimeout(heldDrainTimer.current);
-            heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, retryDelay + 20);
-            await commit(current => ({ ...current, queue: markForRetry(current.queue, op, Date.now() + retryDelay) }));
-          }
-          throw ex;
-        }
-      }
+          heldDrainTimer.current = setTimeout(() => { void drainRef.current(); }, delayMs);
+        },
+        onSessionExpired: expireSession,
+        onRejectedNotice: message => showNotice(message)
+      }) || nativeAcked;
       if (alive.current && hadQueue && sent) await refresh();
       if (alive.current && sent) setError('');
     } catch (ex) {
@@ -323,7 +281,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
         if (drainRequested.current) { drainRequested.current = false; void drain(); }
       }
     }
-  }, [beginSync, commit, expireSession, finishSync, refresh,user]);
+  }, [beginSync, commit, expireSession, finishSync, refresh, user]);
 
   const drainRef = useRef(drain);
   drainRef.current = drain;
@@ -363,6 +321,28 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
     if (undone.length) void drain();
     return undone.length === ids.length;
   }, [commit, drain]);
+  const releaseHeld = useCallback(async (ids?: readonly string[]) => {
+    clearTimeout(heldDrainTimer.current);
+    await commit(current => {
+      const queue = releaseHeldMutations(current.queue, ids);
+      return queue === current.queue ? current : { ...current, queue };
+    });
+    if (ref.current?.queue.length) void drainRef.current();
+  }, [commit]);
+  const flushForBackground = useCallback(() => {
+    if (!alive.current || !ref.current?.queue.length) return;
+    clearTimeout(heldDrainTimer.current);
+    flushBackgroundOutbox({
+      user, queue: ref.current.queue,
+      canSend: dispatchAllowed.current && !sessionExpired.current && navigator.onLine,
+      draining: draining.current, inFlight: inFlightKeepalive.current,
+      isAlive: () => alive.current, commit, dismissUndo: () => dismissToast(false),
+      onErrorClear: () => { if (alive.current) setError(''); },
+      onRejectedNotice: message => showNotice(message),
+      onSessionExpired: expireSession,
+      onSettled: () => { if (alive.current && !draining.current && ref.current?.queue.length) void drainRef.current(); }
+    });
+  }, [commit, expireSession, user]);
   const runPendingDrafts = useCallback(async () => {
     if (processingDrafts.current) { draftsRequested.current = true; return; }
     if (!dispatchAllowed.current || sessionExpired.current || !navigator.onLine || !ref.current) return;
@@ -423,9 +403,10 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
           if (normalized !== cached) await saveLocal(user, normalized);
           ref.current = normalized;
           setLocal(normalized);
-          primeDiaryDays(normalized.state.entries, normalized.state.days, normalized.state.revision);
+          sharedDiaryCoordinator.primeFromEntries(normalized.state.entries, normalized.state.days, normalized.state.revision);
         }
         await refresh();
+        await reconcileNativeOutbox(user, () => alive.current, commit).catch(() => false);
         if (ref.current?.queue.length) await drain();
         await runPendingDrafts();
       } catch (ex) {
@@ -433,25 +414,36 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
       }
     })();
 
-    const wake = () => {
-      if (document.visibilityState === 'visible') {
+    const wake = (forceVisible = false) => {
+      if (forceVisible || document.visibilityState === 'visible') {
         const now = Date.now();
         if (now - lastWake.current < 2000) return;
         lastWake.current = now;
         setCalendarDate(today(ref.current?.state.profile?.timeZone));
-        const hadQueue = Boolean(ref.current?.queue.length);
         void (async () => {
+          const refreshedBefore = lastPeerRefresh.current;
           await drain();
           // drain refreshes after successful queued writes. A clean wake still
           // needs one conditional foreground refresh.
-          if (!hadQueue && alive.current) await pollRevisions();
+          if (lastPeerRefresh.current === refreshedBefore && alive.current) await pollRevisions();
         })();
         void runPendingDrafts();
       }
     };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushForBackground();
+      else wake();
+    };
+    const onOnline = () => wake();
 
-    window.addEventListener('online', wake);
-    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', flushForBackground);
+    let stopNativeLifecycle: (() => void) | undefined;
+    void subscribeNativeBackgroundLifecycle(() => wake(true), flushForBackground).then(stop => {
+      if (alive.current) stopNativeLifecycle = stop;
+      else stop();
+    });
 
     let heartbeat = Date.now();
     const retained = () => Boolean(ref.current && (ref.current.queue.length || ref.current.photoDrafts?.length || ref.current.bodyDrafts?.length));
@@ -470,11 +462,13 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
       sharedDiaryCoordinator.reset();
       clearSyncTimer();
       if (activityTimer.current !== undefined) clearTimeout(activityTimer.current);
-      window.removeEventListener('online', wake);
-      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', flushForBackground);
+      stopNativeLifecycle?.();
       clearInterval(interval);
     };
-  }, [user, refresh, refreshProgress, drain, runPendingDrafts, pollRevisions]);
+  }, [user, refresh, refreshProgress, drain, flushForBackground, commit, runPendingDrafts, pollRevisions]);
 
   const toggleFoodFavourite=useFoodFavourite(ref,loadSavedFoods,mutate);
 
@@ -482,7 +476,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
   const state = useMemo(() => local ? project(local.state, local.queue) : undefined, [local?.state,local?.queue]);
 
   return {
-    state, local, error, busy, sendingRecordId, sync, isActivityActive, beginActivity, mutate, mutateMany, undo, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, trainingResolved, drain, calendarDate,
+    state, local, error, busy, sendingRecordId, sync, isActivityActive, beginActivity, mutate, mutateMany, undo, releaseHeld, refresh, refreshHistory, refreshProgress, loadSavedFoods, toggleFoodFavourite, loadTrainingSummaries, trainingLoading, trainingError, trainingResolved, drain, calendarDate,
     ...actions,
   };
 }

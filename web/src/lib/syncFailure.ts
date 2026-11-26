@@ -1,4 +1,7 @@
 import {ApiError} from './api';
+import {classifySyncStatus,type SyncFailure} from './syncFailureStatus';
+
+export type {SyncFailure};
 
 /**
  * How the outbox treats a failed diary request. A terminal rejection drops that one edit; an
@@ -6,14 +9,7 @@ import {ApiError} from './api';
  * queued work must be kept for that); anything else is retried on the next wake. A request the server
  * will never accept (forbidden, not found, too large) is terminal too: retrying would block every edit queued behind it.
  */
-export type SyncFailure='conflict'|'rejected'|'session-expired'|'retry';
-
-const terminal=[400,403,404,413,422];
-
 export function classifySyncFailure(ex:unknown):SyncFailure{
   if(!(ex instanceof ApiError))return 'retry';
-  if(ex.status===409)return 'conflict';
-  if(terminal.includes(ex.status))return 'rejected';
-  if(ex.status===401)return 'session-expired';
-  return 'retry';
+  return classifySyncStatus(ex.status);
 }

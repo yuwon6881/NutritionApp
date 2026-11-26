@@ -15,6 +15,19 @@ import com.getcapacitor.BridgeWebViewClient;
 public class MainActivity extends BridgeActivity {
     // Keep this aligned with CapacitorConfig.server.hostname.
     private static final String APP_HOST = "nutrition-diary-app.vercel.app";
+    private static volatile boolean foreground;
+
+    static boolean isForeground() { return foreground; }
+
+    @Override public void onResume() {
+        super.onResume();
+        foreground = true;
+    }
+
+    @Override public void onPause() {
+        foreground = false;
+        super.onPause();
+    }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
