@@ -62,6 +62,7 @@ export interface KeepaliveFlushContext {
   user: string;
   queue: readonly Mutation[];
   inFlight: Map<string, Promise<void>>;
+  inFlightDrainIds?: ReadonlySet<string>;
   isAlive: () => boolean;
   commit: Commit;
   onErrorClear: () => void;
@@ -75,8 +76,12 @@ export interface KeepaliveFlushContext {
  * so queued edits still reach the server even when the mobile browser or WebView freezes immediately.
  */
 export function dispatchKeepaliveBatch(context: KeepaliveFlushContext): void {
-  const { user, queue, inFlight, isAlive, commit, onErrorClear, onRejectedNotice, onSessionExpired, onSettled } = context;
-  const batch = selectKeepaliveBatch(queue, Date.now(), new Set(inFlight.keys()));
+  const { user, queue, inFlight, inFlightDrainIds, isAlive, commit, onErrorClear, onRejectedNotice, onSessionExpired, onSettled } = context;
+  const skipIds = new Set(inFlight.keys());
+  if (inFlightDrainIds) {
+    for (const id of inFlightDrainIds) skipIds.add(id);
+  }
+  const batch = selectKeepaliveBatch(queue, Date.now(), skipIds);
   for (const op of batch) {
     const promise = (async () => {
       try {
@@ -115,8 +120,8 @@ export function flushBackgroundOutbox(options: {
   user: string;
   queue: Mutation[];
   canSend: boolean;
-  draining: boolean;
   inFlight: Map<string, Promise<void>>;
+  inFlightDrainIds?: ReadonlySet<string>;
   isAlive: () => boolean;
   commit: Commit;
   dismissUndo: () => void;
@@ -126,7 +131,7 @@ export function flushBackgroundOutbox(options: {
   onSettled: () => void;
 }): void {
   const {
-    user, queue, canSend, draining, inFlight, isAlive, commit,
+    user, queue, canSend, inFlight, inFlightDrainIds, isAlive, commit,
     dismissUndo, onErrorClear, onRejectedNotice, onSessionExpired, onSettled
   } = options;
   const hadHeld = queue.some(op => op.holdUntil !== undefined);
@@ -140,11 +145,12 @@ export function flushBackgroundOutbox(options: {
   }
   registerOutboxBackgroundSync();
   syncNativeBackgroundOutbox(user, nextQueue, true);
-  if (!canSend || draining) return;
+  if (!canSend) return;
   dispatchKeepaliveBatch({
     user,
     queue: nextQueue,
     inFlight,
+    inFlightDrainIds,
     isAlive,
     commit,
     onErrorClear,

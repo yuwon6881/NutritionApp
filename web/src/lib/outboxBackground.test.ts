@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppState, LocalData, Mutation } from '../types';
-import { dispatchKeepaliveBatch } from './outboxBackground';
+import { dispatchKeepaliveBatch, flushBackgroundOutbox } from './outboxBackground';
 import { applyNativeSyncOutcomes } from './outboxBackgroundResolve';
 
 const baseState: AppState = {
@@ -121,5 +121,54 @@ describe('background outbox helpers', () => {
     await Promise.all([...inFlight.values()]);
     expect(onSessionExpired).toHaveBeenCalledOnce();
     expect(data.queue).toHaveLength(1);
+  });
+
+  it('flushes held operations on hide while foreground drain is idle on the lock, while skipping ops already on the wire', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ revision: 8 }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const onWire = op('m-wire', 'r-wire');
+    const held: Mutation = { ...op('m-held', 'r-held'), holdUntil: Date.now() + 5000 };
+
+    // When m-wire is actively on the wire in drain(), stop before it so it is never double-sent.
+    const inFlight1 = new Map<string, Promise<void>>();
+    flushBackgroundOutbox({
+      user: 'alice',
+      queue: [onWire, held],
+      canSend: true,
+      inFlight: inFlight1,
+      inFlightDrainIds: new Set(['m-wire']),
+      isAlive: () => true,
+      commit: async () => undefined,
+      dismissUndo: vi.fn(),
+      onErrorClear: vi.fn(),
+      onRejectedNotice: vi.fn(),
+      onSessionExpired: vi.fn(),
+      onSettled: vi.fn()
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // When drain has not started an HTTP request yet, keepalive immediately dispatches the released held mutation.
+    const inFlight2 = new Map<string, Promise<void>>();
+    let data: LocalData = { state: baseState, queue: [held] };
+    const dismissUndo = vi.fn();
+    flushBackgroundOutbox({
+      user: 'alice',
+      queue: data.queue,
+      canSend: true,
+      inFlight: inFlight2,
+      inFlightDrainIds: new Set(),
+      isAlive: () => true,
+      commit: async change => { data = change(data); },
+      dismissUndo,
+      onErrorClear: vi.fn(),
+      onRejectedNotice: vi.fn(),
+      onSessionExpired: vi.fn(),
+      onSettled: vi.fn()
+    });
+
+    expect(dismissUndo).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await Promise.all([...inFlight2.values()]);
+    expect(data.queue).toEqual([]);
   });
 });

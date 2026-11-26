@@ -43,6 +43,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
   const writes = useRef(Promise.resolve());
   const draining = useRef(false);
   const inFlightKeepalive = useRef(new Map<string, Promise<void>>());
+  const inFlightDrainIds = useRef(new Set<string>());
   const processingDrafts = useRef(false);
   const alive = useRef(true);
   const drainRequested = useRef(false);
@@ -258,6 +259,7 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
         isSessionExpired: () => sessionExpired.current,
         getQueue: () => ref.current?.queue,
         inFlightKeepalive: inFlightKeepalive.current,
+        inFlightDrainIds: inFlightDrainIds.current,
         commit,
         setSendingRecordId: id => { if (alive.current) setSendingRecordId(id); },
         scheduleRetry: delayMs => {
@@ -332,10 +334,12 @@ export function useNutritionStore(user: string, onSessionExpired?: () => void, a
   const flushForBackground = useCallback(() => {
     if (!alive.current || !ref.current?.queue.length) return;
     clearTimeout(heldDrainTimer.current);
+    if (draining.current) drainRequested.current = true;
     flushBackgroundOutbox({
       user, queue: ref.current.queue,
       canSend: dispatchAllowed.current && !sessionExpired.current && navigator.onLine,
-      draining: draining.current, inFlight: inFlightKeepalive.current,
+      inFlight: inFlightKeepalive.current,
+      inFlightDrainIds: inFlightDrainIds.current,
       isAlive: () => alive.current, commit, dismissUndo: () => dismissToast(false),
       onErrorClear: () => { if (alive.current) setError(''); },
       onRejectedNotice: message => showNotice(message),
