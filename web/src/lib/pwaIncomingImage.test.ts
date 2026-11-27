@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  acceptsShareTargetOrigin,
   detectSharedImageMime,
   discardPwaIncomingImageFromDb,
   MAX_PWA_INCOMING_AGE_MS,
@@ -94,5 +95,22 @@ describe('pwaIncomingImage', () => {
     await savePwaIncomingImage(fake.db, { id: 'expired', bytes: pngHeader, createdAt: 1_000 });
     expect(await peekPwaIncomingImageFromDb(fake.db, 1_000 + MAX_PWA_INCOMING_AGE_MS + 1)).toBeNull();
     expect(fake.getStored()).toBeUndefined();
+  });
+});
+
+describe('acceptsShareTargetOrigin', () => {
+  const own = 'https://nutrition.example';
+  it('accepts an OS share, which has no origin or an opaque one', () => {
+    expect(acceptsShareTargetOrigin(null, own)).toBe(true);
+    expect(acceptsShareTargetOrigin('', own)).toBe(true);
+    expect(acceptsShareTargetOrigin('null', own)).toBe(true);
+  });
+  it('accepts a post from the app itself', () => {
+    expect(acceptsShareTargetOrigin(own, own)).toBe(true);
+  });
+  it('rejects a form on another site, even a look-alike', () => {
+    expect(acceptsShareTargetOrigin('https://evil.example', own)).toBe(false);
+    expect(acceptsShareTargetOrigin('http://nutrition.example', own)).toBe(false);
+    expect(acceptsShareTargetOrigin('https://nutrition.example.evil.example', own)).toBe(false);
   });
 });

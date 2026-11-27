@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import {DATABASE_VERSION,upgradeLocalDatabase} from './lib/localSchema';
-import {savePwaIncomingImage,validateSharedImageBytes} from './lib/pwaIncomingImage';
+import {acceptsShareTargetOrigin,savePwaIncomingImage,validateSharedImageBytes} from './lib/pwaIncomingImage';
 import {parseNutritionReminderPayload} from './lib/push/pushPayload';
 import {drainOutboxInServiceWorker} from './lib/swOutboxSync';
 export {};
@@ -84,6 +84,8 @@ self.addEventListener('activate',event=>{
   })());
 });
 async function handleShareTarget(request:Request):Promise<Response>{
+  // Another site's form must not plant a photo in the pending-share slot; it gets the plain app.
+  if(!acceptsShareTargetOrigin(request.headers.get('origin'),self.location.origin))return Response.redirect('/',303);
   try{
     const formData=await request.formData();
     const raw=formData.get('image');

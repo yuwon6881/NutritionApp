@@ -210,6 +210,68 @@ test.describe('quality of life workflows', () => {
     await expect(page.getByRole('dialog', { name: 'Scan food or label' })).toBeVisible({ timeout: 30000 });
   });
 
+  test('pwa share target stores an own-origin share but turns away another site\'s form', async ({ page, request, context, baseURL }) => {
+    const own = new URL(baseURL ?? 'http://127.0.0.1:5088');
+    const otherHost = own.hostname === '127.0.0.1' ? 'localhost' : own.hostname === 'localhost' ? '127.0.0.1' : null;
+    test.skip(!otherHost, 'needs a second site name for the same test server');
+    const session = await seedMobileUser(request, 'qol-pwa-share-origin', []);
+    await context.addCookies(session.cookies);
+
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 30000 });
+    await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+
+    const postShare = (action: string) => page.evaluate(({ action: target, base64 }) => {
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.enctype = 'multipart/form-data';
+      form.action = target;
+      form.rel = 'noreferrer';
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.name = 'image';
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([Uint8Array.from(atob(base64), ch => ch.charCodeAt(0))], 'meal.png', { type: 'image/png' }));
+      input.files = transfer.files;
+      form.append(input);
+      document.body.append(form);
+      form.submit();
+    }, { action, base64: SAMPLE_PNG_BASE64 });
+    const pendingShare = () => page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('nutrition-local');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      try {
+        if (!db.objectStoreNames.contains('pwa_incoming')) return false;
+        const tx = db.transaction('pwa_incoming', 'readonly');
+        const value = await new Promise<unknown>((resolve, reject) => {
+          const get = tx.objectStore('pwa_incoming').get('pending');
+          get.onsuccess = () => resolve(get.result);
+          get.onerror = () => reject(get.error);
+        });
+        return value !== undefined;
+      } finally { db.close(); }
+    });
+    const shareUrl = new URL('/share-target', own).href;
+
+    // Another site's form, with its referrer stripped, still names its origin and is turned away.
+    const otherSite = new URL(own.href);
+    otherSite.hostname = otherHost as string;
+    await page.goto(otherSite.href);
+    await Promise.all([page.waitForURL(url => url.origin === own.origin), postShare(shareUrl)]);
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('dialog', { name: 'Attach shared photo' })).toHaveCount(0);
+    expect(await pendingShare()).toBe(false);
+
+    // The same photo posted by the app's own origin goes through the worker to the prompt.
+    await postShare(shareUrl);
+    await expect(page.getByRole('dialog', { name: 'Attach shared photo' })).toBeVisible({ timeout: 30000 });
+  });
+
   test('native android bridge receives today widget summary updates', async ({ page, request, context }) => {
     const session = await seedMobileUser(request, 'qol-widget', [
       { name: 'Oats', time: '08:00', calories: 400, protein: 16, carbs: 60, fat: 8 },

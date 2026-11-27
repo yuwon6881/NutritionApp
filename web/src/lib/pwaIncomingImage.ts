@@ -58,6 +58,19 @@ export function validateSharedImageBytes(buffer: ArrayBuffer, rawName = ''): Sha
   return { ok: true, mime, size: buffer.byteLength, name, bytes: buffer };
 }
 
+/**
+ * Whether a POST to the share target may store its photo. The worker never sees Sec-Fetch-Site,
+ * but it does see Origin, which a page cannot strip with a no-referrer policy. An OS share is a
+ * browser-started navigation, so it carries no Origin or an opaque "null" one; a form on another
+ * site names that site. "null" stays accepted because rejecting it could block real shares, so a
+ * sandboxed page can still reach the prompt — the person must still confirm the photo there.
+ */
+export function acceptsShareTargetOrigin(originHeader: string | null, ownOrigin: string): boolean {
+  if (originHeader === null) return true;
+  const origin = originHeader.trim();
+  return origin === '' || origin === 'null' || origin === ownOrigin;
+}
+
 function requestPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
