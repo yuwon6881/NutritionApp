@@ -145,7 +145,7 @@ export function Today({store,onCoach,onSettings,onOpenBody,onFoodLog,onLogFood,o
       <WeekNutritionCard state={state} current={date} energyUnit={energyUnit} checkInDue={checkInReady}/>
       <div className="dashboard-insight-pair">
         {goalProgress&&<section className="panel dashboard-goal-panel" aria-labelledby="dashboard-goal-title">
-          <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
+          <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'} icon/>
         </section>}
       </div>
       <Suspense fallback={<ChartCardSkeleton/>}><WeightProgressCard store={store} period={weightPeriod} onPeriod={handleWeightPeriod} progress={weightProgress} onLogWeight={onLogWeight}/></Suspense>

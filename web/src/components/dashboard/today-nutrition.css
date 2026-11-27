@@ -111,54 +111,7 @@
   line-height: 1.35;
 }
 
-/* Macronutrients grouped inside the Today surface */
-.macros .eyebrow {
-  margin-bottom: 16px !important;
-}
-
-.macro {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px;
-  margin-bottom: 14px;
-  font-size: 0.875rem;
-}
-
-.macro:last-child {
-  margin-bottom: 0;
-}
-
-.macro > span {
-  font-weight: 550;
-  color: var(--foreground);
-  font-size: 0.875rem;
-}
-
-.macro strong {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--ink-strong);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-
-.macro strong small {
-  font-size: 0.8125rem;
-  font-weight: 400;
-  color: var(--muted-foreground);
-  display: inline;
-}
-
-.macro progress {
-  appearance: none;
-  height: 7px;
-  width: 100%;
-  border: none;
-  border-radius: 999px;
-  grid-column: 1 / -1;
-  background: var(--track);
-  overflow: hidden;
-}
+/* Macronutrient rings live in theme/dashboard.css with the rest of the Today card treatment. */
 
 /* The Today heading row reserves a touch target's height, so the steps chip that arrives late never
    changes the row's height or moves anything below it. */
@@ -195,42 +148,10 @@
   }
 
   .dashboard-section-today .daily-grid > .panel.macros {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0 18px;
     border-left: none;
     border-top: 1px solid var(--border);
     padding-left: 24px;
     padding-top: 20px;
-  }
-
-  .dashboard-section-today .macros .eyebrow,
-  .dashboard-section-today .daily-grid > .macros > .eyebrow {
-    grid-column: 1 / -1;
-    margin-bottom: 16px !important;
-  }
-
-  .dashboard-section-today .daily-grid .macro {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-    margin-bottom: 0;
-    min-width: 0;
-  }
-
-  .dashboard-section-today .daily-grid .macro > span {
-    overflow-wrap: anywhere;
-    min-width: 0;
-  }
-
-  .dashboard-section-today .daily-grid .macro strong {
-    font-size: 0.85rem;
-    overflow-wrap: anywhere;
-    min-width: 0;
-  }
-
-  .dashboard-section-today .daily-grid .macro strong small {
-    display: inline;
-    overflow-wrap: anywhere;
   }
 
   .dashboard-skeleton .daily-grid > .skeleton-panel:last-child {

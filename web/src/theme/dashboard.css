@@ -6,16 +6,21 @@
 .dashboard-cards .dashboard-section-title{margin:6px 2px 14px;font-size:1.125rem;font-weight:720;letter-spacing:-.02em;text-transform:none;color:var(--ink-strong)}
 .dashboard-cards .dashboard-section+.dashboard-section .dashboard-section-title{margin-top:28px}
 
-/* Today hero: the ring is the centrepiece, flanked by two large figures. */
+/* Today hero: the ring is the centrepiece, flanked by two large figures. Both panels put their
+   heading row at the top edge, so "Open diary" and "Add food" share one line, and centre their
+   figures in the height that remains. */
 .dashboard-cards .daily-grid{border-radius:var(--radius)}
 .dashboard-cards .daily-grid>.panel{padding:26px 28px}
+.dashboard-cards .daily-grid>.energy-panel-overview{justify-content:flex-start;gap:0}
+.dashboard-cards .daily-grid>.energy-panel-overview>.energy-overview{flex:1}
 .dashboard-cards .energy-overview{gap:20px}
 .dashboard-cards .daily-grid .energy-overview .energy-ring{width:164px;height:164px;max-width:none}
 .dashboard-cards .daily-grid .energy-panel{min-height:0}
-.dashboard-cards .dashboard-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
-.dashboard-cards .dashboard-panel-head .eyebrow{margin:0}
+.dashboard-cards .dashboard-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;margin-bottom:4px}
+.dashboard-cards .dashboard-panel-head .eyebrow{margin:0!important}
 .dashboard-cards .daily-grid>.macros>.macros-head{grid-column:1/-1;margin-bottom:2px}
-.dashboard-cards .dashboard-inline-action{min-height:44px;padding-inline:10px;white-space:nowrap;color:var(--primary-ink);font-weight:600}
+/* The inline actions sit flush with the panel's trailing edge, their label aligned with the content below. */
+.dashboard-cards .dashboard-inline-action{min-height:44px;padding-inline:10px;margin-inline-end:-10px;white-space:nowrap;color:var(--primary-ink);font-weight:600}
 @media(min-width:1024px){.dashboard-cards .dashboard-inline-action{min-height:36px}}
 :root[data-theme=dark] .dashboard-cards .dashboard-inline-action{color:var(--primary)}
 .dashboard-cards .energy-ring .ring-value{font-size:22px}
@@ -24,33 +29,50 @@
 .dashboard-cards .energy-side strong{font-size:clamp(1.6rem,2.6vw,2.1rem);font-weight:760;letter-spacing:-.04em;line-height:1.05}
 .dashboard-cards .energy-side span{font-size:.8125rem;font-weight:550}
 
-/* Macros: three columns, each a soft tile in its colour (protein · carbs · fat). */
-.dashboard-cards .daily-grid>.panel.macros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:center;gap:12px}
+/* Macros: three small rings in their colours (protein · carbs · fat), echoing the energy ring. The
+   centre answers what is left once; the line under the name carries eaten against target. */
+.dashboard-cards .daily-grid>.panel.macros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto 1fr;align-content:stretch;justify-content:stretch;column-gap:12px;row-gap:14px}
 .dashboard-cards .daily-grid>.macros>.eyebrow{grid-column:1/-1;margin-bottom:2px!important}
-.dashboard-cards .daily-grid .macro{--macro:var(--energy);display:flex;flex-direction:column;gap:6px;min-width:0;margin:0;padding:14px 14px 16px;border-radius:18px;background:color-mix(in srgb,var(--macro) 9%,transparent)}
+.dashboard-cards .daily-grid .macro{--macro:var(--energy);display:flex;flex-direction:column;align-items:center;align-self:center;gap:2px;min-width:0;margin:0;padding:0;text-align:center}
 .dashboard-cards .daily-grid .macro.protein{--macro:var(--protein)}
 .dashboard-cards .daily-grid .macro.carbs{--macro:var(--carbs)}
 .dashboard-cards .daily-grid .macro.fat{--macro:var(--fat)}
-.dashboard-cards .daily-grid .macro>span{display:flex;align-items:center;gap:6px;font-size:.8125rem;font-weight:620;color:var(--foreground);white-space:nowrap;overflow-wrap:normal}
-.dashboard-cards .daily-grid .macro>span::before{content:'';width:8px;height:8px;flex:0 0 8px;border-radius:999px;background:var(--macro)}
-.dashboard-cards .daily-grid .macro strong{font-size:clamp(1.15rem,2.2vw,1.5rem);font-weight:760;letter-spacing:-.035em;line-height:1.1;color:var(--ink-strong);overflow-wrap:normal;white-space:nowrap}
-.dashboard-cards .daily-grid .macro strong small{display:block;margin-top:2px;white-space:nowrap;font-size:.75rem;font-weight:550;letter-spacing:0;color:var(--muted-foreground)}
-.dashboard-cards .daily-grid .macro-remaining{display:block;font-size:.72rem;font-weight:600;color:var(--muted-foreground);white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}
-.dashboard-cards .daily-grid .macro-remaining.is-over{color:var(--energy)}
-.dashboard-cards .daily-grid .macro progress{height:8px;margin-top:auto;background:color-mix(in srgb,var(--macro) 16%,var(--track))}
-.dashboard-cards .daily-grid .macro progress::-webkit-progress-bar{background:color-mix(in srgb,var(--macro) 16%,var(--track))}
-.dashboard-cards .daily-grid .macro progress::-webkit-progress-value{background:var(--macro);border-radius:999px}
-.dashboard-cards .daily-grid .macro progress::-moz-progress-bar{background:var(--macro);border-radius:999px}
+.dashboard-cards .macro-ring{position:relative;width:min(118px,100%);aspect-ratio:1;margin-bottom:8px}
+.dashboard-cards .macro-ring svg{display:block;width:100%;height:100%;overflow:visible}
+.dashboard-cards .macro-ring circle{fill:none;stroke-width:8}
+.dashboard-cards .macro-ring-track{stroke:color-mix(in srgb,var(--macro) 16%,var(--track))}
+.dashboard-cards .macro-ring-fill{stroke:var(--macro);stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease)}
+/* Past the target the ring is full; the overflow laps it again in the macro's deeper shade. */
+.dashboard-cards .macro-ring-overflow{stroke:color-mix(in srgb,var(--macro) 55%,var(--ink-strong));stroke-linecap:round;transition:stroke-dasharray var(--motion-layout) var(--motion-ease)}
+.dashboard-cards .macro-ring-centre{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0 14px}
+.dashboard-cards .macro-ring-centre strong{display:flex;align-items:center;font-size:clamp(1.15rem,2vw,1.45rem);font-weight:760;letter-spacing:-.035em;line-height:1.05;color:var(--ink-strong);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dashboard-cards .macro-ring-centre small{font-size:.6875rem;font-weight:600;line-height:1.2;color:var(--muted-foreground);white-space:nowrap}
+.dashboard-cards .macro.is-over .macro-ring-centre small{color:var(--energy)}
+.dashboard-cards .macro.is-on .macro-ring-centre strong{color:var(--macro)}
+.dashboard-cards .macro.is-unknown .macro-ring-centre small{white-space:normal}
+.dashboard-cards .daily-grid .macro-name{display:inline-flex;align-items:center;gap:6px;font-size:.8125rem;font-weight:650;color:var(--foreground);white-space:nowrap}
+.dashboard-cards .daily-grid .macro-name::before{content:'';width:8px;height:8px;flex:0 0 8px;border-radius:999px;background:var(--macro)}
+.dashboard-cards .daily-grid .macro-eaten{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;font-size:.8125rem;font-weight:650;color:var(--ink-strong);font-variant-numeric:tabular-nums;line-height:1.35}
+.dashboard-cards .daily-grid .macro-eaten-target{font-weight:500;color:var(--muted-foreground)}
 
+/* Side by side below 1280 px the energy panel is about 390 px wide: a smaller ring keeps "kcal left" on one line. */
+@media(min-width:900px) and (max-width:1279px){
+  .dashboard-cards .energy-overview{gap:12px}
+  .dashboard-cards .daily-grid .energy-overview .energy-ring{width:128px;height:128px}
+  .dashboard-cards .energy-side span{white-space:nowrap}
+}
 @media(min-width:640px) and (max-width:899px){
-  .dashboard-cards .daily-grid>.panel.macros{gap:12px;padding:22px 24px 24px}
+  .dashboard-cards .daily-grid>.panel.macros{column-gap:16px;padding:22px 24px 24px}
 }
 @media(max-width:639px){
   .dashboard-cards .daily-grid>.panel{padding:22px 18px}
-  .dashboard-cards .daily-grid>.panel.macros{gap:8px;padding:20px 14px 16px;border-top:1px solid var(--border)}
-  .dashboard-cards .daily-grid>.macros>.eyebrow{padding-inline:4px}
-  .dashboard-cards .daily-grid .macro{padding:12px 10px 12px;border-radius:16px}
-  .dashboard-cards .daily-grid .macro strong{font-size:1.3rem}
+  .dashboard-cards .daily-grid>.panel.macros{column-gap:6px;row-gap:10px;padding:18px 14px 20px;border-top:1px solid var(--border)}
+  .dashboard-cards .daily-grid>.macros>.macros-head{padding-inline-start:4px}
+  .dashboard-cards .macro-ring{width:min(100px,100%);margin-bottom:6px}
+  .dashboard-cards .macro-ring circle{stroke-width:7.5}
+  .dashboard-cards .macro-ring-centre{padding:0 10px}
+  .dashboard-cards .macro-ring-centre strong{font-size:1.25rem}
+  .dashboard-cards .macro-ring-centre small{font-size:.65rem}
   .dashboard-cards .energy-overview{gap:8px}
   .dashboard-cards .daily-grid .energy-overview .energy-ring{width:min(146px,40vw);height:auto}
   .dashboard-cards .energy-side strong{font-size:clamp(1.3rem,5.6vw,1.6rem)}
@@ -59,18 +81,23 @@
   .dashboard-cards .daily-grid>.panel{padding-inline:14px}
   .dashboard-cards .daily-grid .energy-overview .energy-ring{width:min(120px,36vw)}
   .dashboard-cards .energy-side strong{font-size:1.2rem}
-  .dashboard-cards .daily-grid>.panel.macros{gap:6px;padding-inline:10px}
-  .dashboard-cards .daily-grid .macro{padding:10px 8px}
-  /* The bar carries the colour, so the dot gives way to keep the name on one line. */
-  .dashboard-cards .daily-grid .macro>span::before{display:none}
-  .dashboard-cards .daily-grid .macro strong{font-size:1.15rem}
+  .dashboard-cards .daily-grid>.panel.macros{column-gap:4px;padding-inline:10px}
+  .dashboard-cards .macro-ring-centre{padding:0 8px}
+  .dashboard-cards .macro-ring-centre strong{font-size:1.1rem}
+  .dashboard-cards .daily-grid .macro-eaten{font-size:.75rem}
+  /* The ring carries the colour, so the dot gives way to keep the name on one line. */
+  .dashboard-cards .daily-grid .macro-name::before{display:none}
 }
 
 /* Habits: a bold title; the cells themselves are round dots (habits.css). */
 .dashboard-cards .habit-calendar-title{font-size:1.45rem;font-weight:760;letter-spacing:-.025em}
 .dashboard-cards .habit-grid-compact{gap:5px}
 @media(max-width:639px){
-  .dashboard-cards .habit-calendar-title{font-size:1.25rem}
+  /* The expand mark moves to the corner so a phone keeps "Food Logging" on one line beside "Weigh-ins". */
+  .dashboard-cards .habit-calendar-trigger{position:relative}
+  .dashboard-cards .habit-calendar-heading{padding-inline-end:12px}
+  .dashboard-cards .habit-calendar-expand{position:absolute;top:14px;inset-inline-end:14px}
+  .dashboard-cards .habit-calendar-title{font-size:clamp(.95rem,4.4vw,1.2rem)}
   .dashboard-cards .habit-grid-compact{gap:4px}
 }
 
@@ -83,3 +110,14 @@
 .dashboard-cards .week-day[data-today]{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--primary) 45%,transparent)}
 .dashboard-cards .week-day-bar{height:7px}
 .dashboard-cards .week-day-name{text-transform:uppercase;letter-spacing:.06em}
+
+/* Goal progress: a mark for the goal's kind leads the title, so the card reads before its words. */
+.dashboard-cards .goal-summary-head{justify-content:flex-start;align-items:center;gap:14px}
+.dashboard-cards .goal-summary-title-group{flex:1;min-width:0}
+.dashboard-cards .goal-summary-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:14px;background:var(--primary-tint);color:var(--primary-ink)}
+:root[data-theme=dark] .dashboard-cards .goal-summary-icon{color:var(--primary)}
+.dashboard-cards .goal-summary.goal-reached .goal-summary-icon{background:color-mix(in srgb,var(--success) 14%,var(--card));color:var(--success)}
+@media(min-width:640px){
+  .dashboard-cards .goal-summary-note{padding-inline-start:56px}
+}
+.dashboard-cards .macro-ring-check{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}

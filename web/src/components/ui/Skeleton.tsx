@@ -11,7 +11,7 @@ export function SkeletonBlock({width='100%',height=14,radius=8,className=''}:{wi
 
 /**
  * Placeholder for the Dashboard while the diary opens from this device or the server. It uses the
- * real section titles and card classes (energy figures either side of the ring, three macro rows,
+ * real section titles and card classes (energy figures either side of the ring, three macro rings,
  * the two habit cards, then an insight card) so each card lands where its outline was.
  */
 export function DashboardSkeleton({label,heading=true}:{label:string;heading?:boolean}){
@@ -23,7 +23,7 @@ export function DashboardSkeleton({label,heading=true}:{label:string;heading?:bo
         <p className="dashboard-section-title">Today</p>
         <div className="daily-grid">
           <div className="panel energy-panel energy-panel-overview">
-            <p className="eyebrow">Energy</p>
+            <div className="dashboard-panel-head"><p className="eyebrow">Energy</p></div>
             <div className="energy-overview">
               <span className="energy-side"><SkeletonBlock width="70%" height={26}/><SkeletonBlock width="50%" height={11}/></span>
               <svg className="energy-ring" viewBox="0 0 120 120"><circle className="ring-track" cx="60" cy="60" r="48"/></svg>
@@ -31,11 +31,11 @@ export function DashboardSkeleton({label,heading=true}:{label:string;heading?:bo
             </div>
           </div>
           <div className="panel macros">
-            <p className="eyebrow">Macronutrients</p>
+            <div className="dashboard-panel-head macros-head"><p className="eyebrow">Macronutrients</p></div>
             {MACRO_TILES.map(macro=><div key={macro} className={`macro ${macro}`}>
-              <span className="dashboard-skeleton-macro-label">{macro}</span>
-              <strong><SkeletonBlock width={56} height={16}/></strong>
-              <progress value={0} max={1} tabIndex={-1}/>
+              <div className="macro-ring"><svg viewBox="0 0 100 100"><circle className="macro-ring-track" cx="50" cy="50" r="42"/></svg></div>
+              <span className="macro-name dashboard-skeleton-macro-label">{macro}</span>
+              <SkeletonBlock width={64} height={13}/>
             </div>)}
           </div>
         </div>

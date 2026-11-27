@@ -1,3 +1,4 @@
+import {Flag} from 'lucide-react';
 import type {GoalProgress,UnitPreferences,WeightGoalMetric} from '../types';
 import {number,readableDate} from '../lib/format';
 import {defaultUnits,displayWeight,weightLabel} from '../lib/units';
@@ -7,7 +8,10 @@ const heading=(progress:GoalProgress)=>progress.complete?'Goal complete'
   :progress.mode==='weight'?'Weight goal'
   :progress.mode==='duration'?'Phase timeline':'Ongoing phase';
 
-export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale',titleId='dashboard-goal-title'}:{progress:GoalProgress;units?:UnitPreferences;weightGoalMetric?:WeightGoalMetric;titleId?:string}){
+/** The goal mark (the flag of the goal-reached banner) leads the Dashboard card's title. */
+const GoalIcon=()=><span className="goal-summary-icon" aria-hidden="true"><Flag size={18}/></span>;
+
+export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale',titleId='dashboard-goal-title',icon=false}:{progress:GoalProgress;units?:UnitPreferences;weightGoalMetric?:WeightGoalMetric;titleId?:string;icon?:boolean}){
   const weight=progress.mode==='weight';
   const unit=weightLabel(units.weight);
   const currentWeight=weightGoalMetric==='trend'
@@ -23,6 +27,7 @@ export function GoalSummary({progress,units=defaultUnits,weightGoalMetric='scale
   const hasFigures=weight||Boolean(progress.phaseEnd)||progress.weeklyChange!=null;
   return <div className={`goal-summary${progress.complete?' goal-reached':''}`}>
     <div className="goal-summary-head">
+      {icon&&<GoalIcon/>}
       <div className="goal-summary-title-group">
         <p className="eyebrow">Goal progress</p>
         <h3 id={titleId}>{heading(progress)}</h3>
