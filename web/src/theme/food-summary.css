@@ -255,16 +255,48 @@
 .food-day-remaining.is-over {
   color: var(--energy);
 }
+/* Fiber and the one Partial explanation share a quiet footer under the macro tiles. */
+.food-day-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
 .food-day-fiber {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 14px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin: 0;
   font-size: 0.84rem;
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
+}
+.food-day-summary .food-day-partial-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  flex: 1 1 240px;
+  justify-content: flex-end;
+  text-align: right;
+}
+.food-day-summary .food-day-partial-note > svg {
+  margin-top: 2px;
+}
+.food-day-summary .food-day-fiber:only-child,
+.food-day-summary .food-day-partial-note:only-child {
+  flex: 0 1 auto;
+}
+@media (max-width: 639px) {
+  .food-day-summary .food-day-partial-note {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
 }
 .food-day-fiber strong {
   color: var(--ink-strong);

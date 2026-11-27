@@ -120,11 +120,13 @@ export function FoodDaySummary({
         {target!=null&&<progress className="food-day-progress-bar" aria-label={`${label} logged against target`} value={value??0} max={Math.max(target,1)}/>}
       </div>;
     })}</dl>
-    {fiber.value!=null&&<p className="food-day-fiber">
-      <span>Fiber</span>
-      <strong>{number(fiber.value)} g</strong>
-      {fiber.partial&&<PartialMark/>}
-    </p>}
-    {hasPartial&&<PartialNote/>}
+    {(fiber.value!=null||hasPartial)&&<div className="food-day-footer">
+      {fiber.value!=null&&<p className="food-day-fiber">
+        <span>Fiber</span>
+        <strong>{number(fiber.value)} g</strong>
+        {fiber.partial&&<PartialMark/>}
+      </p>}
+      {hasPartial&&<PartialNote className="food-day-partial-note"/>}
+    </div>}
   </section>;
 }

@@ -1,11 +1,19 @@
-import {Gauge,PieChart,Ruler,type LucideIcon} from 'lucide-react';
-import type {ReactNode} from 'react';
+import {Gauge,Pencil,PieChart,Ruler,type LucideIcon} from 'lucide-react';
+import {useId,type ReactNode} from 'react';
 import type {ProfileDraft,UnitPreferences} from '../../types';
 import {displayHeight,displayWeight,weightLabel} from '../../lib/units';
 import {paceSentence} from '../../lib/coachTargetSummary';
 import {Button} from '../ui/Button';
 
 export type PlanQuickStep='body'|'goal'|'pace'|'macros'|'distribution';
+
+const QUICK_EDITS:{step:PlanQuickStep;label:string}[]=[
+  {step:'body',label:'Body'},
+  {step:'goal',label:'Goal'},
+  {step:'pace',label:'Pace'},
+  {step:'macros',label:'Macros'},
+  {step:'distribution',label:'Weekly split'},
+];
 
 function DetailRow({icon:Icon,label,children}:{icon:LucideIcon;label:string;children:ReactNode}){
   return <div>
@@ -25,6 +33,7 @@ export function PlanDetails({profile,weightKg,macroLabel,age,units,onEditStep,di
   onEditStep?:(step:PlanQuickStep)=>void;
   disabled?:boolean;
 }){
+  const titleId=useId();
   const paced=profile.goal&&profile.goal!=='maintain';
   const rate=profile.goalRatePercent??(profile.goal==='lose'?-0.5:0.15);
   const body=[
@@ -40,12 +49,18 @@ export function PlanDetails({profile,weightKg,macroLabel,age,units,onEditStep,di
         <span className="strategy-chips">{body.map(value=><span key={value} className="strategy-chip">{value}</span>)}</span>
       </DetailRow>
     </dl>
-    {onEditStep&&<div className="plan-quick-edit" role="group" aria-label="Quick edit plan sections">
-      <Button variant="tertiary" size="sm" disabled={disabled} onClick={()=>onEditStep('body')}>Edit body</Button>
-      <Button variant="tertiary" size="sm" disabled={disabled} onClick={()=>onEditStep('goal')}>Edit goal</Button>
-      {paced&&<Button variant="tertiary" size="sm" disabled={disabled} onClick={()=>onEditStep('pace')}>Edit pace</Button>}
-      <Button variant="tertiary" size="sm" disabled={disabled} onClick={()=>onEditStep('macros')}>Edit macros</Button>
-      <Button variant="tertiary" size="sm" disabled={disabled} onClick={()=>onEditStep('distribution')}>Edit weekly split</Button>
+    {onEditStep&&<div className="plan-quick-edit" role="group" aria-labelledby={titleId}>
+      <p id={titleId} className="plan-quick-edit-title">Edit part of your plan</p>
+      <div className="plan-quick-edit-actions">
+        {QUICK_EDITS.filter(item=>paced||item.step!=='pace').map(item=><Button
+          key={item.step}
+          variant="secondary"
+          size="sm"
+          disabled={disabled}
+          aria-label={`Edit ${item.label.toLowerCase()}`}
+          onClick={()=>onEditStep(item.step)}
+        ><Pencil size={15} aria-hidden="true"/>{item.label}</Button>)}
+      </div>
     </div>}
   </>;
 }

@@ -19,6 +19,7 @@ import {WeeklyScheduleReview} from './coach/WeeklyScheduleReview';
 import {TargetFigures} from './coach/TargetFigures';
 import {CoachGoalCard} from './coach/CoachGoalCard';
 import {PlanDetails} from './coach/PlanDetails';
+import {CoachStepJumps} from './coach/CoachStepJumps';
 import {defaultStartingWeightKg,formatWeeklyPaceEquivalent,calorieChangeLine} from '../lib/coachPlanHelpers';
 import {allocateWeeklyCalories,normaliseDistribution} from '../lib/dailyTargets';
 import {CoachLayout,CoachWait,useCoachSteps} from './ui/CoachMotion';
@@ -282,13 +283,20 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const canNavigateTo=(targetStep:StepKey)=>{
     const targetIndex=steps.findIndex(item=>item.id===targetStep);
     if(targetIndex<0)return false;
-    if(targetIndex<=activeStepIndex)return true;
+    if(targetIndex<=activeStepIndex){setError('');return true;}
     if(!validateFields(stage.current))return false;
-    if(targetIndex>0&&!canAdvanceBody){setError('Review your body measurements and date of birth.');return false;}
-    if(targetIndex>1&&!canAdvanceActivity){setError('Choose your usual activity.');return false;}
-    if(targetIndex>2&&!canAdvanceGoal){setError('Choose a goal.');return false;}
-    if(targetIndex>3&&!canAdvanceGoalDetails){setError('Review your phase details.');return false;}
-    if(targetIndex>4&&!canAdvancePace){setError('Review your pace.');return false;}
+    // Gate by step id, not position: Pace and Adjust come and go with the goal and macro preset.
+    const gates:[StepKey,boolean,string][]=[
+      ['body',canAdvanceBody,'Review your body measurements and date of birth.'],
+      ['activity',canAdvanceActivity,'Choose your usual activity.'],
+      ['goal',canAdvanceGoal,'Choose a goal.'],
+      ['goal-details',canAdvanceGoalDetails,'Review your phase details.'],
+      ['pace',canAdvancePace,'Review your pace.'],
+    ];
+    for(const [gateStep,passes,message] of gates){
+      const gateIndex=steps.findIndex(item=>item.id===gateStep);
+      if(gateIndex>=0&&gateIndex<targetIndex&&!passes){setStep(gateStep);setError(message);return false;}
+    }
     if(live.carbsBlocked&&(targetStep==='distribution'||targetStep==='review')){setError(CARBS_BLOCKED_MESSAGE);return false;}
     if(targetStep==='review'&&!weeklyValid){setError(weeklyError);return false;}
     setError('');
@@ -359,20 +367,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
           <span style={{transform:`scaleX(${(activeStepIndex+1)/steps.length})`}}/>
         </div>
       </div>
-      {!isInitialSetup&&<nav className="coach-step-jumps" aria-label="Jump to plan step">
-        {steps.map(item=>{
-          const target=item.id as StepKey;
-          return <Button
-            key={item.id}
-            type="button"
-            size="sm"
-            variant={item.id===step?'primary':'secondary'}
-            className="coach-step-jump-btn"
-            aria-current={item.id===step?'step':undefined}
-            onClick={()=>{if(target!==step&&canNavigateTo(target))setStep(target);}}
-          >{item.label}</Button>;
-        })}
-      </nav>}
+      {!isInitialSetup&&<CoachStepJumps steps={steps} current={currentStepDef.id} onJump={id=>{const target=id as StepKey;if(canNavigateTo(target))setStep(target);}}/>}
       {step==='body'&&<div className="step-content">
         <div className="form-grid">
           <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<18||derivedAge>120)?'Coaching is available to adults aged 18 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`${derivedAge} years old`:undefined} hintPlacement="label"/>

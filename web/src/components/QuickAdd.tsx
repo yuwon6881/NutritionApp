@@ -60,7 +60,9 @@ export function QuickAdd({
   const [fat,setFat]=useState(()=>macroFieldText(prefill?.fat));
   const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
-  const initial=useRef(JSON.stringify({calories,label,time,protein,carbs,fat}));
+  // An Ask AI draft is unsaved work, so the clean baseline is the empty form: closing a
+  // prefilled Quick Add asks before discarding the draft.
+  const initial=useRef(prefill?'':JSON.stringify({calories,label,time,protein,carbs,fat}));
   const snapshot=JSON.stringify({calories,label,time,protein,carbs,fat});
   useEffect(()=>onDirtyChange?.(snapshot!==initial.current),[snapshot,onDirtyChange]);
 

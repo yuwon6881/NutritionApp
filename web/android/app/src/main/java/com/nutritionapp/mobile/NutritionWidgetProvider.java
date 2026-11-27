@@ -23,7 +23,7 @@ public class NutritionWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-        String todayDate = NutritionWidgetStore.todayIso();
+        String todayDate = NutritionWidgetStore.todayIso(context);
         for (int widgetId : appWidgetIds) {
             RemoteViews views = buildRemoteViews(context, todayDate);
             appWidgetManager.updateAppWidget(widgetId, views);
@@ -37,7 +37,7 @@ public class NutritionWidgetProvider extends AppWidgetProvider {
             ComponentName component = new ComponentName(context, NutritionWidgetProvider.class);
             int[] ids = manager.getAppWidgetIds(component);
             if (ids == null || ids.length == 0) return;
-            String todayDate = NutritionWidgetStore.todayIso();
+            String todayDate = NutritionWidgetStore.todayIso(context);
             RemoteViews views = buildRemoteViews(context, todayDate);
             for (int widgetId : ids) {
                 manager.updateAppWidget(widgetId, views);

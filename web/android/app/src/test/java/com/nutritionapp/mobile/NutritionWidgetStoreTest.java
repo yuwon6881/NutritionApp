@@ -37,7 +37,8 @@ public class NutritionWidgetStoreTest {
             "2026-11-27",
             "1,450 kcal",
             "of 2,100 kcal · 650 kcal left",
-            "P 110/160g · C 140/210g · F 45/70g"
+            "P 110/160g · C 140/210g · F 45/70g",
+            "Asia/Kuala_Lumpur"
         ));
         NutritionWidgetStore.Snapshot snapshot = NutritionWidgetStore.read(context);
         assertNotNull(snapshot);
@@ -46,6 +47,7 @@ public class NutritionWidgetStoreTest {
         assertEquals("1,450 kcal", snapshot.caloriesText);
         assertEquals("of 2,100 kcal · 650 kcal left", snapshot.caloriesSubtext);
         assertEquals("P 110/160g · C 140/210g · F 45/70g", snapshot.macrosText);
+        assertEquals("Asia/Kuala_Lumpur", snapshot.timeZone);
 
         NutritionWidgetStore.clear(context);
         assertNull(NutritionWidgetStore.read(context));
@@ -53,10 +55,22 @@ public class NutritionWidgetStoreTest {
 
     @Test
     public void rejectsInvalidPayloadsWithoutClobbering() {
-        assertFalse(NutritionWidgetStore.save(context, "", "2026-11-27", "1,450 kcal", "", ""));
-        assertFalse(NutritionWidgetStore.save(context, "user-1", "bad-date", "1,450 kcal", "", ""));
-        assertFalse(NutritionWidgetStore.save(context, "user-1", "2026-11-27", "", "", ""));
+        assertFalse(NutritionWidgetStore.save(context, "", "2026-11-27", "1,450 kcal", "", "", ""));
+        assertFalse(NutritionWidgetStore.save(context, "user-1", "bad-date", "1,450 kcal", "", "", ""));
+        assertFalse(NutritionWidgetStore.save(context, "user-1", "2026-11-27", "", "", "", ""));
         assertNull(NutritionWidgetStore.read(context));
+    }
+
+    @Test
+    public void todayFollowsTheProfileTimeZoneAndIgnoresUnknownZones() {
+        String kiritimati = NutritionWidgetStore.todayIso("Pacific/Kiritimati");
+        String niue = NutritionWidgetStore.todayIso("Pacific/Niue");
+        // UTC+14 and UTC-11 are always on different calendar dates.
+        assertNotEquals(kiritimati, niue);
+        assertEquals(NutritionWidgetStore.todayIso((String) null), NutritionWidgetStore.todayIso("Not/AZone"));
+
+        NutritionWidgetStore.save(context, "user-1", kiritimati, "1,000 kcal", "", "", "Pacific/Kiritimati");
+        assertEquals(kiritimati, NutritionWidgetStore.todayIso(context));
     }
 
     @Test
@@ -75,13 +89,13 @@ public class NutritionWidgetStoreTest {
         assertEquals("Nutrition", ((TextView) signedOutView.findViewById(R.id.widget_calories)).getText().toString());
         assertEquals(View.GONE, signedOutView.findViewById(R.id.widget_macros).getVisibility());
 
-        NutritionWidgetStore.save(context, "user-1", "2026-11-26", "1,800 kcal", "of 2,000 kcal", "P 120g");
+        NutritionWidgetStore.save(context, "user-1", "2026-11-26", "1,800 kcal", "of 2,000 kcal", "P 120g", "");
         RemoteViews stale = NutritionWidgetProvider.buildRemoteViews(context, "2026-11-27");
         View staleView = stale.apply(context, parent);
         assertTrue(((TextView) staleView.findViewById(R.id.widget_subtext)).getText().toString().contains("2026-11-26"));
         assertEquals(View.GONE, staleView.findViewById(R.id.widget_macros).getVisibility());
 
-        NutritionWidgetStore.save(context, "user-1", "2026-11-27", "1,250 kcal", "of 2,000 kcal · 750 kcal left", "P 95g · C 120g · F 35g");
+        NutritionWidgetStore.save(context, "user-1", "2026-11-27", "1,250 kcal", "of 2,000 kcal · 750 kcal left", "P 95g · C 120g · F 35g", "");
         RemoteViews current = NutritionWidgetProvider.buildRemoteViews(context, "2026-11-27");
         View currentView = current.apply(context, parent);
         assertEquals("1,250 kcal", ((TextView) currentView.findViewById(R.id.widget_calories)).getText().toString());

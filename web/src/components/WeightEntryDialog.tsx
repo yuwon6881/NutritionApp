@@ -38,14 +38,16 @@ export function WeightEntryDialog({open,store,date,onClose,initial,initialWeight
   // no field never re-rendered to correct it, so an untouched form asked to discard on its first
   // close and only settled once that discard forced a render.
   const [values,setValues]=useState(()=>weightEntryValues(date,current,state.weights,initial,units.weight,initialWeightKg));
-  const [baseline,setBaseline]=useState(values);
+  // The baseline never includes an Ask AI prefill: a suggested weight counts as an unsaved change
+  // against the date's recorded weigh-in (or the empty form), so closing asks before dropping it.
+  const [baseline,setBaseline]=useState(()=>weightEntryValues(date,current,state.weights,initial,units.weight));
   const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
 
   useEffect(()=>{
     if(!open)return;
     const opened=weightEntryValues(date,current,state.weights,initial,units.weight,initialWeightKg);
-    setValues(opened);setBaseline(opened);setError('');
+    setValues(opened);setBaseline(weightEntryValues(date,current,state.weights,initial,units.weight));setError('');
   },[open,initial?.id,date,initialWeightKg]);
 
   const existing=state.weights.find(weight=>weight.date===values.date);

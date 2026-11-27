@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.TimeZone;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -22,14 +24,16 @@ final class NutritionWidgetStore {
         final String caloriesText;
         final String caloriesSubtext;
         final String macrosText;
+        final String timeZone;
         final long updatedAtMs;
 
-        Snapshot(String accountId, String date, String caloriesText, String caloriesSubtext, String macrosText, long updatedAtMs) {
+        Snapshot(String accountId, String date, String caloriesText, String caloriesSubtext, String macrosText, String timeZone, long updatedAtMs) {
             this.accountId = accountId;
             this.date = date;
             this.caloriesText = caloriesText;
             this.caloriesSubtext = caloriesSubtext;
             this.macrosText = macrosText;
+            this.timeZone = timeZone;
             this.updatedAtMs = updatedAtMs;
         }
     }
@@ -40,8 +44,24 @@ final class NutritionWidgetStore {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
-    static String todayIso() {
-        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Calendar.getInstance().getTime());
+    /**
+     * Today in the profile's time zone, which is how the app dates the diary; the device zone is
+     * only a fallback, so a phone set to another zone (or travelling) never marks today as stale.
+     */
+    static String todayIso(String timeZoneId) {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        if (isKnownTimeZone(timeZoneId)) format.setTimeZone(TimeZone.getTimeZone(timeZoneId));
+        return format.format(Calendar.getInstance().getTime());
+    }
+
+    static String todayIso(Context context) {
+        Snapshot snapshot = read(context);
+        return todayIso(snapshot == null ? null : snapshot.timeZone);
+    }
+
+    // TimeZone.getTimeZone silently answers GMT for an unknown id, so check the id first.
+    private static boolean isKnownTimeZone(String timeZoneId) {
+        return timeZoneId != null && !timeZoneId.isEmpty() && Arrays.asList(TimeZone.getAvailableIDs()).contains(timeZoneId);
     }
 
     private static String clamp(String value, int maxLen) {
@@ -56,13 +76,15 @@ final class NutritionWidgetStore {
         String date,
         String caloriesText,
         String caloriesSubtext,
-        String macrosText
+        String macrosText,
+        String timeZone
     ) {
         String cleanAccount = clamp(accountId, 120);
         String cleanDate = clamp(date, 16);
         String cleanCalories = clamp(caloriesText, 64);
         String cleanSubtext = clamp(caloriesSubtext, 120);
         String cleanMacros = clamp(macrosText, 120);
+        String cleanTimeZone = clamp(timeZone, 64);
         if (cleanAccount.isEmpty() || !cleanDate.matches("\\d{4}-\\d{2}-\\d{2}") || cleanCalories.isEmpty()) {
             return false;
         }
@@ -74,6 +96,7 @@ final class NutritionWidgetStore {
             record.put("caloriesText", cleanCalories);
             record.put("caloriesSubtext", cleanSubtext);
             record.put("macrosText", cleanMacros);
+            record.put("timeZone", cleanTimeZone);
             record.put("updatedAtMs", System.currentTimeMillis());
             return preferences(context).edit().putString(KEY_SUMMARY, record.toString()).commit();
         } catch (JSONException failure) {
@@ -97,6 +120,7 @@ final class NutritionWidgetStore {
                 caloriesText,
                 record.optString("caloriesSubtext", ""),
                 record.optString("macrosText", ""),
+                record.optString("timeZone", ""),
                 record.optLong("updatedAtMs", 0L)
             );
         } catch (JSONException failure) {

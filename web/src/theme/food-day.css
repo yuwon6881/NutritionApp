@@ -96,6 +96,25 @@
   min-height: 44px;
   padding-inline: 18px;
 }
+/* Below 1024 px the date control spans the row above the day strip (with Today trailing when
+   another date is open) instead of sitting left with dead space beside it. */
+@media (max-width: 1023px) {
+  .food-diary-toolbar .food-date-navigation {
+    width: 100%;
+  }
+  .food-diary-toolbar .food-date-navigation > .field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .food-diary-toolbar .food-date-navigation .custom-date-trigger {
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .food-diary-toolbar .food-date-navigation > .button {
+    flex: 0 0 auto;
+    border-radius: 999px;
+  }
+}
 
 .food-week-strip {
   display: flex;

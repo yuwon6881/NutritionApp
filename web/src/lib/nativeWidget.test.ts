@@ -51,7 +51,7 @@ function makeState(overrides: Partial<AppState> = {}): AppState {
   } as AppState;
 }
 
-const entry = (calories: number, protein: number, carbs: number, fat: number, deleted = false): Entry => ({
+const entry = (calories: number, protein: number | null, carbs: number | null, fat: number | null, deleted = false): Entry => ({
   id: `${calories}-${deleted}`,
   revision: 1,
   deleted,
@@ -79,6 +79,7 @@ describe('buildWidgetSummaryPayload', () => {
       caloriesText: '650 kcal',
       caloriesSubtext: 'of 2,000 kcal · 1,350 kcal left',
       macrosText: 'P 45/150g · C 70/200g · F 20/65g',
+      timeZone: 'UTC',
     });
   });
 
@@ -96,5 +97,21 @@ describe('buildWidgetSummaryPayload', () => {
     expect(summary.caloriesText).toBe('0 kcal');
     expect(summary.caloriesSubtext).toBe('Nothing logged yet');
     expect(summary.macrosText).toBe('P 0g · C 0g · F 0g');
+  });
+
+  it('keeps unknown macros unknown and marks partial totals instead of counting them as zero', () => {
+    const unknown = buildWidgetSummaryPayload(makeState({ entries: [entry(400, null, 50, 10)] }), '2026-11-27');
+    expect(unknown.macrosText).toBe('P —/150g · C 50/200g · F 10/65g');
+
+    const partial = buildWidgetSummaryPayload(makeState({ entries: [entry(400, 30, 50, 10), { ...entry(200, null, 20, 5), id: 'b' }] }), '2026-11-27');
+    expect(partial.macrosText).toBe('P ≥30/150g · C 70/200g · F 15/65g');
+
+    const quickAdd = buildWidgetSummaryPayload(makeState({ entries: [entry(400, 30, 50, 10), { ...entry(200, null, null, null), id: 'q', source: 'Quick add' }] }), '2026-11-27');
+    expect(quickAdd.macrosText).toBe('P 30/150g · C 50/200g · F 10/65g');
+  });
+
+  it('sends the profile time zone so the widget dates today like the diary', () => {
+    const summary = buildWidgetSummaryPayload(makeState({ profile: { timeZone: 'Asia/Kuala_Lumpur' } as AppState['profile'] }), '2026-11-27');
+    expect(summary.timeZone).toBe('Asia/Kuala_Lumpur');
   });
 });

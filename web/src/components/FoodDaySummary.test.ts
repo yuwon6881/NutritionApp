@@ -124,7 +124,8 @@ describe('FoodDaySummary', () => {
 
     expect(withFiber).toContain('Fiber');
     expect(withFiber).toContain('12 g');
-    expect(withFiber).toContain('Partial: some logged foods have no value for that nutrient, so its total may be higher.');
+    expect(withFiber).toContain('Partial: some foods have no value listed, so the total may be higher.');
+    expect(withFiber).toContain('food-day-footer');
 
     const withoutFiber = renderToStaticMarkup(createElement(FoodDaySummary, {
       title: 'Tuesday, Oct 27',

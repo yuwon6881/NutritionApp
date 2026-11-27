@@ -417,6 +417,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
         window.history.replaceState(null,'',cleaned.pathname+cleaned.search+cleaned.hash);
         if(pwaShare==='1')window.dispatchEvent(new Event(PWA_SHARE_READY));
         else if(pwaShare==='too-large')setPwaShareIssue('The shared photo is larger than the 20 MB limit. Choose a smaller photo.');
+        else if(pwaShare==='error')setPwaShareIssue('The shared photo could not be saved on this device. Try sharing it again.');
         else setPwaShareIssue('The shared file could not be read as a JPEG, PNG, or WebP meal photo.');
       }
       if(params?.has('auth')){
@@ -466,6 +467,8 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
       await clearNativeBackgroundOutbox(user);
     }
     if(isNativeApp())await import('./lib/nativeWidget').then(module=>module.clearNativeWidgetSummary()).catch(()=>{});
+    // A shared photo waiting for review is device-wide; never offer it to the next account.
+    await import('./lib/pwaIncomingClient').then(module=>module.discardPwaIncomingImage()).catch(()=>{});
     try{clearPendingNutritionShortcut(window.localStorage);}catch{/* The action cannot be retained when browser storage is blocked. */}
     localStorage.setItem('nutrition-signed-out','1');
     localStorage.removeItem('nutrition-account');

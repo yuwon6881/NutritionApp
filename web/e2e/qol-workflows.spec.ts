@@ -17,7 +17,7 @@ test.describe('quality of life workflows', () => {
 
     const macrosCard = page.locator('.daily-grid > .macros');
     await expect(macrosCard).toContainText(/\d+\s+g\s+(?:left|over)|On target/);
-    await expect(macrosCard.locator('.macros-fiber-row')).toContainText('8 g');
+    await expect(macrosCard).not.toContainText('Fiber');
 
     await page.getByRole('button', { name: 'Add weigh-in', exact: true }).first().click();
     const weightDialog = page.getByRole('dialog');
@@ -57,7 +57,7 @@ test.describe('quality of life workflows', () => {
     await page.getByRole('button', { name: 'Coach', exact: true }).last().click();
     await expect(page.getByRole('heading', { name: 'Coach', exact: true })).toBeVisible();
 
-    await expect(page.getByRole('group', { name: 'Quick edit plan sections' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Edit part of your plan' })).toBeVisible();
     await page.getByRole('button', { name: 'Edit plan', exact: true }).click();
 
     await expect(page.locator('.coach-step-progress button')).toHaveCount(0);
@@ -142,6 +142,9 @@ test.describe('quality of life workflows', () => {
     await expect(dialog.getByLabel('Label (optional)')).toHaveValue('Protein latte');
     await expect(dialog.getByLabel('Protein (g)')).toHaveValue('20');
     await dialog.getByRole('button', { name: 'Close' }).click();
+    // An Ask AI draft is unsaved work: closing asks before it is dropped.
+    await expect(page.getByText('Discard changes?', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Discard changes' }).click();
     await expect(dialog).toBeHidden();
 
     batchCounter = 2;
@@ -164,7 +167,10 @@ test.describe('quality of life workflows', () => {
     await page.getByRole('button', { name: 'Open', exact: true }).click();
     dialog = page.getByRole('dialog');
     await expect(dialog.getByLabel(/Weight \(kg\)/)).toHaveValue('79.4');
+    // The suggestion differs from today's recorded weigh-in, so it is an unsaved change.
     await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Discard changes?', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Discard changes' }).click();
     await expect(dialog).toBeHidden();
   });
 

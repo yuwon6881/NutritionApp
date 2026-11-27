@@ -37,8 +37,6 @@
 .dashboard-cards .daily-grid .macro strong small{display:block;margin-top:2px;white-space:nowrap;font-size:.75rem;font-weight:550;letter-spacing:0;color:var(--muted-foreground)}
 .dashboard-cards .daily-grid .macro-remaining{display:block;font-size:.72rem;font-weight:600;color:var(--muted-foreground);white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}
 .dashboard-cards .daily-grid .macro-remaining.is-over{color:var(--energy)}
-.dashboard-cards .daily-grid .macros-fiber-row{grid-column:1/-1;display:flex;align-items:center;gap:6px;margin:2px 0 0;padding-top:10px;border-top:1px solid var(--border);font-size:.8125rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
-.dashboard-cards .daily-grid .macros-fiber-row strong{color:var(--ink-strong);font-weight:700}
 .dashboard-cards .daily-grid .macro progress{height:8px;margin-top:auto;background:color-mix(in srgb,var(--macro) 16%,var(--track))}
 .dashboard-cards .daily-grid .macro progress::-webkit-progress-bar{background:color-mix(in srgb,var(--macro) 16%,var(--track))}
 .dashboard-cards .daily-grid .macro progress::-webkit-progress-value{background:var(--macro);border-radius:999px}

@@ -84,11 +84,17 @@ describe('formatWeeklyPaceEquivalent', () => {
 
 describe('calorieChangeLine', () => {
   it('formats change line when both are known and differ', () => {
-    expect(calorieChangeLine(2200, 2050, 'kcal')).toBe('Daily calories: 2,200 -> 2,050 kcal');
+    expect(calorieChangeLine(2200, 2050, 'kcal')).toBe('150 kcal a day less than your current plan (2,200 kcal)');
+    expect(calorieChangeLine(2409, 2434, 'kcal')).toBe('25 kcal a day more than your current plan (2,409 kcal)');
   });
 
-  it('formats unchanged line when both are equal', () => {
-    expect(calorieChangeLine(2200, 2200, 'kcal')).toBe('Daily calories unchanged at 2,200 kcal');
+  it('states the difference in the display unit', () => {
+    expect(calorieChangeLine(2000, 2100, 'kj')).toBe('418 kJ a day more than your current plan (8,368 kJ)');
+  });
+
+  it('formats unchanged line when both round to the same figure', () => {
+    expect(calorieChangeLine(2200, 2200, 'kcal')).toBe('Same daily calories as your current plan (2,200 kcal)');
+    expect(calorieChangeLine(2200.2, 2199.9, 'kcal')).toBe('Same daily calories as your current plan (2,200 kcal)');
   });
 
   it('returns empty string when previous is unknown', () => {
@@ -105,7 +111,7 @@ describe('calorieChangeLine', () => {
 
   it('formats correctly with kJ unit', () => {
     // 2200 kcal is 9205 kJ, 2050 kcal is 8577 kJ
-    expect(calorieChangeLine(2200, 2050, 'kj')).toBe('Daily calories: 9,205 -> 8,577 kJ');
-    expect(calorieChangeLine(2200, 2200, 'kj')).toBe('Daily calories unchanged at 9,205 kJ');
+    expect(calorieChangeLine(2200, 2050, 'kj')).toBe('628 kJ a day less than your current plan (9,205 kJ)');
+    expect(calorieChangeLine(2200, 2200, 'kj')).toBe('Same daily calories as your current plan (9,205 kJ)');
   });
 });

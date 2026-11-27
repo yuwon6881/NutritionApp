@@ -214,30 +214,95 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Step shortcuts when editing an accepted plan: one sideways-scrolling row below 1024 px, so
+   eight steps never stack into a block of pills above the step content. */
 .coach-step-jumps {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: -10px 0 20px;
+  gap: 6px;
+  margin: -16px 0 16px;
+  /* Room inside the scroller for the 2 px focus ring and its 3 px offset, which overflow clips. */
+  padding: 5px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 20px), transparent 100%);
 }
-.coach-step-jump-btn {
-  min-height: 44px;
+.coach-step-jumps::-webkit-scrollbar {
+  display: none;
+}
+.coach-step-jumps > .button.coach-step-jump {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  border-color: var(--border);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.coach-step-jump-index {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--track);
+  color: var(--foreground);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.coach-step-jumps > .button.coach-step-jump[aria-current="step"] {
+  background: var(--primary-tint);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--primary-ink);
+  font-weight: 650;
+}
+.coach-step-jumps > .button.coach-step-jump[aria-current="step"] .coach-step-jump-index {
+  background: var(--primary);
+  color: var(--on-primary);
 }
 @media (min-width: 1024px) {
-  .coach-step-jump-btn {
-    min-height: 36px;
+  .coach-step-jumps {
+    flex-wrap: wrap;
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 }
+
+/* Plan details quick edits: real (secondary) buttons, set apart from the figures above. */
 .plan-quick-edit {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
 }
-@media (max-width: 1023px) {
-  .plan-quick-edit > .button {
-    min-height: 44px;
+.plan-quick-edit-title {
+  margin: 0 0 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.plan-quick-edit-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+.plan-quick-edit-actions > .button {
+  justify-content: flex-start;
+  gap: 8px;
+  border-radius: 999px;
+  color: var(--ink-strong);
+}
+.plan-quick-edit-actions > .button > svg {
+  color: var(--primary-ink);
+}
+@media (min-width: 1024px) {
+  .plan-quick-edit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }

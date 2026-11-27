@@ -1,5 +1,6 @@
 import type {EnergyUnit,WeightUnit} from '../types';
-import {displayEnergy,displayWeight,energyLabel,parseWeight,weightLabel} from './units';
+import {displayEnergy,displayWeight,energyLabel,energyValue,parseWeight,weightLabel} from './units';
+import {number} from './format';
 
 /**
  * The latest weigh-in as a plan's starting weight, in kg, rounded to the one decimal the field
@@ -48,7 +49,11 @@ export function formatWeeklyPaceEquivalent(
   return ` (≈${displayWeight(massKg, unit, 1)} ${weightLabel(unit)}/wk)`;
 }
 
-/** Formats a single line comparing previous plan calories to new proposed calories. */
+/**
+ * One plain sentence comparing the new daily calories with the accepted plan's, e.g.
+ * "25 kcal a day more than your current plan (2,409 kcal)". The difference is taken from the
+ * rounded display values so it always agrees with the figures shown beside it.
+ */
 export function calorieChangeLine(
   previous: number | null | undefined,
   next: number | null | undefined,
@@ -57,11 +62,12 @@ export function calorieChangeLine(
   if (previous == null || next == null || !Number.isFinite(previous) || !Number.isFinite(next)) {
     return '';
   }
-  const prevDisplay = displayEnergy(previous, unit);
-  const nextDisplay = displayEnergy(next, unit);
   const label = energyLabel(unit);
-  if (prevDisplay === nextDisplay) {
-    return `Daily calories unchanged at ${nextDisplay} ${label}`;
+  const prevDisplay = displayEnergy(previous, unit);
+  const difference = Math.round(energyValue(next, unit) ?? 0) - Math.round(energyValue(previous, unit) ?? 0);
+  if (difference === 0) {
+    return `Same daily calories as your current plan (${prevDisplay} ${label})`;
   }
-  return `Daily calories: ${prevDisplay} -> ${nextDisplay} ${label}`;
+  const direction = difference > 0 ? 'more' : 'less';
+  return `${number(Math.abs(difference))} ${label} a day ${direction} than your current plan (${prevDisplay} ${label})`;
 }

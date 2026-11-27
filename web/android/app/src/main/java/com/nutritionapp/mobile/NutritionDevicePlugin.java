@@ -126,7 +126,8 @@ public class NutritionDevicePlugin extends Plugin {
                 call.getString("date"),
                 call.getString("caloriesText"),
                 call.getString("caloriesSubtext", ""),
-                call.getString("macrosText", "")
+                call.getString("macrosText", ""),
+                call.getString("timeZone", "")
             );
             if (!saved) {
                 call.reject("Widget summary payload is invalid.", "widget_invalid");

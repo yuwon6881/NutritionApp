@@ -13,13 +13,12 @@ interface ExportRequest {
 }
 
 /** Self-serve account export row inside Settings. */
-export function DataExport({ detailDays }: { detailDays?: number }) {
+export function DataExport() {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [lastExport, setLastExport] = useState<ExportRequest>();
   const [activeFormat, setActiveFormat] = useState<'json' | 'csv' | null>(null);
   const { busy, run, pending } = useAsyncAction();
-  const retainedDays = detailDays ?? 90;
 
   const startDownload = async (request: ExportRequest) => {
     setLastExport(request);
@@ -41,7 +40,7 @@ export function DataExport({ detailDays }: { detailDays?: number }) {
       id="data-export"
       label="Export your data"
       description={<>
-        <span>Download a copy of the account records kept here. Meal detail covers the latest {retainedDays} days; older daily totals remain in archived days.</span>
+        <span>Download a copy of every record in this account: diary entries, weigh-ins, body records, foods, and plans.</span>
         {status && !error && <span className="setting-row-status is-positive" role="status">{status}</span>}
       </>}
     >
