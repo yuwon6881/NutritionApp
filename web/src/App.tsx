@@ -38,8 +38,13 @@ import {disableLocalPushForPlatform} from './lib/push/deviceLifecycle';
 import {backCoordinator,isLayerEntry,pageDepth,readState,PAGE_KEY} from './lib/appHistory';
 import {BACK_TO_HOME_EVENT,isNativeApp} from './lib/nativeApp';
 import {clearNativeBackgroundOutbox} from './lib/outboxBackground';
+import {useAfterLayersSettle} from './lib/useAfterLayersSettle';
 import {captureNutritionShortcut,clearPendingNutritionShortcut} from './lib/nutritionShortcuts';
 import {useReadyNutritionShortcut} from './components/useReadyNutritionShortcut';
+import type {QuickAddPrefill} from './components/QuickAdd';
+import {unitsFor} from './lib/units';
+
+const PWA_SHARE_READY='nutrition-pwa-share-ready';
 
 // Dashboard and Food Log stay in the first bundle; the other views load on first visit and are precached for offline use.
 const CopyDayDialog=lazy(()=>import('./components/CopyDayDialog').then(module=>({default:module.CopyDayDialog})));
@@ -86,6 +91,8 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const [foodDate,setFoodDate]=useState(today());
   const [foodInitialTime,setFoodInitialTime]=useState<string>();
   const [foodInitialQuery,setFoodInitialQuery]=useState<string>();
+  const [foodInitialQuickAdd,setFoodInitialQuickAdd]=useState<QuickAddPrefill>();
+  const [foodInitialAiDescription,setFoodInitialAiDescription]=useState<string>();
   const [foodEditing,setFoodEditing]=useState<Entry>();
   const [foodInitialTab,setFoodInitialTab]=useState<'search'|'saved'|'barcode'|'ai'>('search');
   const [foodInitialStep,setFoodInitialStep]=useState<'selection'|'quick'>('selection');
@@ -94,7 +101,9 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const [weightOpen,setWeightOpen]=useState(false);
   const [weightDate,setWeightDate]=useState(today());
   const [weightEditing,setWeightEditing]=useState<Weight>();
+  const [weightInitialKg,setWeightInitialKg]=useState<number>();
   const [weightReturnFocus,setWeightReturnFocus]=useState<HTMLElement|null>(null);
+  const [hasPwaIncoming,setHasPwaIncoming]=useState(false);
   const [copyOpen,setCopyOpen]=useState(false);
   const copyMounted=useRef(false);
   if(copyOpen)copyMounted.current=true;
@@ -105,7 +114,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   const [addReturnFocus,setAddReturnFocus]=useState<HTMLElement|null>(null);
   const [aiOpen,setAiOpen]=useState(false);
 
-  const handleAiActions=async(actions:AiUiAction[])=>{
+  const runAiActions=(actions:AiUiAction[])=>{
     for(const action of actions){
       switch(action.type){
         case 'openFoodLog':
@@ -115,9 +124,32 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
         case 'openAddFoodDraft':
           openFood(typeof action.payload.date==='string'?action.payload.date:selectedEntryDate,undefined,'search',null,typeof action.payload.time==='string'?action.payload.time:undefined,typeof action.payload.query==='string'?action.payload.query:undefined);
           break;
-        case 'openWeightEntry':
-          openWeight((action.payload.date as string)||activeDate);
+        case 'openQuickAddDraft':{
+          const quickDate=typeof action.payload.date==='string'?action.payload.date:selectedEntryDate;
+          const quickTime=typeof action.payload.time==='string'?action.payload.time:undefined;
+          const quickPrefill:QuickAddPrefill={
+            calories:typeof action.payload.calories==='number'?action.payload.calories:undefined,
+            label:typeof action.payload.label==='string'?action.payload.label:undefined,
+            protein:typeof action.payload.protein==='number'?action.payload.protein:undefined,
+            carbs:typeof action.payload.carbs==='number'?action.payload.carbs:undefined,
+            fat:typeof action.payload.fat==='number'?action.payload.fat:undefined,
+            time:quickTime,
+          };
+          openFood(quickDate,undefined,'search',null,quickTime,undefined,'quick',quickPrefill);
           break;
+        }
+        case 'openAiFoodDescription':{
+          const aiDate=typeof action.payload.date==='string'?action.payload.date:selectedEntryDate;
+          const aiTime=typeof action.payload.time==='string'?action.payload.time:undefined;
+          const aiDescription=typeof action.payload.description==='string'?action.payload.description:undefined;
+          openFood(aiDate,undefined,'ai',null,aiTime,undefined,'selection',undefined,aiDescription);
+          break;
+        }
+        case 'openWeightEntry':{
+          const weightKg=typeof action.payload.kg==='number'?action.payload.kg:undefined;
+          openWeight((action.payload.date as string)||activeDate,undefined,null,weightKg);
+          break;
+        }
         case 'openCoaching':
           requestPage('coach');
           break;
@@ -130,6 +162,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       }
     }
   };
+  const handleAiActions=useAfterLayersSettle<AiUiAction[]>(runAiActions);
   const needsProfile=!!store.state&&(!store.state.profile||!store.state.plans.some(plan=>!plan.deleted));
 
   const pageRef=useRef(page);
@@ -193,14 +226,14 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   // would change its key and remount it, discarding a photo captured there. Each opener sets its own date.
   useEffect(()=>{if(store.state?.profile){const current=today(store.state.profile.timeZone);if(!foodOpen)setFoodDate(current);if(!weightOpen)setWeightDate(current);if(!copyOpen)setCopyDate(current);}},[store.state?.profile?.timeZone]);
 
-  const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string,initialQuery?:string,initialStep?:'selection'|'quick')=>{
+  const openFood=(selectedDate:string,entry?:Entry,tab:'search'|'saved'|'barcode'|'ai'|boolean='search',restoreFocus?:HTMLElement|null,initialTime?:string,initialQuery?:string,initialStep?:'selection'|'quick',initialQuickAdd?:QuickAddPrefill,initialAiDescription?:string)=>{
     foodOpening.current?.();
     foodOpening.current=measurePerformance('food.open');
     const initialSection=typeof tab==='string'?tab:tab?'barcode':'search';
-    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialStep(initialStep??'selection');setFoodInitialTime(initialTime);setFoodInitialQuery(initialQuery);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
+    setFoodDate(selectedDate);setFoodEditing(entry);setFoodInitialTab(initialSection);setFoodInitialStep(initialStep??'selection');setFoodInitialTime(initialTime);setFoodInitialQuery(initialQuery);setFoodInitialQuickAdd(initialQuickAdd);setFoodInitialAiDescription(initialAiDescription);setFoodReturnFocus(restoreFocus??null);setFoodOriginPage(page);setFoodOpen(true);
   };
-  const openWeight=(selectedDate:string,entry?:Weight,restoreFocus?:HTMLElement|null)=>{
-    setWeightDate(selectedDate);setWeightEditing(entry);setWeightReturnFocus(restoreFocus??null);setWeightOpen(true);
+  const openWeight=(selectedDate:string,entry?:Weight,restoreFocus?:HTMLElement|null,initialWeightKg?:number)=>{
+    setWeightDate(selectedDate);setWeightEditing(entry);setWeightInitialKg(initialWeightKg);setWeightReturnFocus(restoreFocus??null);setWeightOpen(true);
   };
   const openCopy=(sourceDate:string,entries:Entry[],restoreFocus?:HTMLElement|null)=>{
     setCopyDate(sourceDate);setCopyEntries(entries);setCopyReturnFocus(restoreFocus??null);setCopyOpen(true);
@@ -208,12 +241,33 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   // Derived on every render so a long-open app moves to the new day as soon as it next renders after midnight.
   const activeDate=today(store.state?.profile?.timeZone);
   const selectedEntryDate=page==='food'?foodDate:activeDate;
+  useEffect(()=>{
+    if(isNativeApp()||!authReady||needsProfile||!store.state)return;
+    let active=true;
+    const check=()=>{
+      void import('./lib/pwaIncomingClient')
+        .then(module=>module.peekPwaIncomingImage())
+        .then(value=>{if(active&&value)setHasPwaIncoming(true);})
+        .catch(()=>{});
+    };
+    check();
+    window.addEventListener(PWA_SHARE_READY,check);
+    window.addEventListener('focus',check);
+    return()=>{active=false;window.removeEventListener(PWA_SHARE_READY,check);window.removeEventListener('focus',check);};
+  },[authReady,needsProfile,!!store.state,user]);
+  useEffect(()=>{
+    if(!isNativeApp()||!authReady||needsProfile||!store.state)return;
+    void import('./lib/nativeWidget').then(module=>module.syncNativeWidgetSummary(store.state!)).catch(()=>{});
+  },[authReady,needsProfile,store.state]);
   useReadyNutritionShortcut(authReady,!!store.state?.profile&&!needsProfile,action=>{
     setPage('today');
     if(action==='log-food'||action==='scan-barcode'){
       setFoodDate(activeDate);
       setFoodEditing(undefined);
       setFoodInitialTime(undefined);
+      setFoodInitialQuery(undefined);
+      setFoodInitialQuickAdd(undefined);
+      setFoodInitialAiDescription(undefined);
       setFoodInitialTab(action==='scan-barcode'?'barcode':'search');
       setFoodInitialStep('selection');
       setFoodReturnFocus(null);
@@ -222,6 +276,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
     }else{
       setWeightDate(activeDate);
       setWeightEditing(undefined);
+      setWeightInitialKg(undefined);
       setWeightReturnFocus(null);
       setWeightOpen(true);
     }
@@ -257,7 +312,7 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
   ] as const;
 
   // Background sync indicators update independently of the live page's data.
-  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')} onOpenBody={openBody}/>:!needsProfile&&page==='body'?<BodyPhotos store={store} root={bodyRoot} onExit={leaveBody}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,bodyRoot,onLogout]);
+  const pageContent=useMemo(()=>!needsProfile&&page==='today'?<Today store={store} onCoach={()=>navigate('coach')} onSettings={()=>navigate('settings')} onOpenBody={openBody} onFoodLog={()=>navigate('food')} onLogFood={trigger=>openFood(activeDate,undefined,'search',trigger)} onLogWeight={trigger=>openWeight(activeDate,undefined,trigger)}/>:!needsProfile&&page==='body'?<BodyPhotos store={store} root={bodyRoot} onExit={leaveBody}/>:!needsProfile&&page==='food'?<FoodDiary store={store} date={foodDate} setDate={setFoodDate} onLog={time=>openFood(foodDate,undefined,false,null,time)} onEdit={entry=>openFood(entry.date,entry)} onCopyDay={openCopy}/>:needsProfile||page==='coach'?<Coach store={store} onboarding={needsProfile}/>:<Settings store={store} onLogout={onLogout}/>,[needsProfile,page,store.state,store.local,store.error,store.busy,store.trainingLoading,store.trainingResolved,store.trainingError,store.calendarDate,foodDate,activeDate,bodyRoot,onLogout]);
 
   const [accountHead,accountTail]=splitAtSign(store.state?.displayName??'');
 
@@ -309,12 +364,12 @@ function Workspace({user,authReady,onLogout,onUsable,onSessionExpired}:{user:str
       </MotionScene></Suspense>}
       {!needsProfile&&store.state?.profile&&<MissedDays store={store}/>}
       {store.state&&<>
-        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialStep}:${foodInitialTime??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialStep={foodInitialStep} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
-        {isNativeApp()&&authReady&&!needsProfile&&store.state&&<Suspense fallback={null}><IncomingPhoto key={user} accountId={user} displayName={store.state.displayName} initialDate={activeDate} blocked={foodOpen||weightOpen} onAttached={day=>openFood(day,undefined,'ai',null)}/></Suspense>}
-        <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
+        {foodMounted.current&&<Suspense fallback={null}><LogFood key={`${foodDate}:${foodEditing?.id??'new'}:${foodInitialTab}:${foodInitialStep}:${foodInitialTime??''}:${foodInitialQuickAdd?JSON.stringify(foodInitialQuickAdd):''}:${foodInitialAiDescription??''}`} open={foodOpen} store={store} date={foodDate} editing={foodEditing} initialTab={foodInitialTab} initialStep={foodInitialStep} initialAi={foodInitialTab==='ai'} onReady={()=>foodOpening.current?.()} initialTime={foodInitialTime} initialQuery={foodInitialQuery} initialQuickAdd={foodInitialQuickAdd} initialAiDescription={foodInitialAiDescription} restoreFocus={foodReturnFocus} onClose={()=>setFoodOpen(false)} onSaved={()=>{setFoodOpen(false);setFoodDate(foodDate);requestPage(foodSavedPage);}}/></Suspense>}
+        {(isNativeApp()||hasPwaIncoming)&&authReady&&!needsProfile&&store.state&&<Suspense fallback={null}><IncomingPhoto key={user} accountId={user} displayName={store.state.displayName} initialDate={activeDate} blocked={foodOpen||weightOpen} onAttached={day=>openFood(day,undefined,'ai',null)}/></Suspense>}
+        <WeightEntryDialog open={weightOpen} store={store} date={weightDate} initial={weightEditing} initialWeightKg={weightInitialKg} restoreFocus={weightReturnFocus} onClose={()=>setWeightOpen(false)}/>
         {copyMounted.current&&<Suspense fallback={null}><CopyDayDialog open={copyOpen} store={store} sourceDate={copyDate} entries={copyEntries} restoreFocus={copyReturnFocus} onClose={()=>setCopyOpen(false)}/></Suspense>}
       </>}
-      <AiAssistantLauncher isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page}/>
+      <AiAssistantLauncher isOpen={aiOpen} onClose={()=>setAiOpen(false)} onActions={handleAiActions} surface={page} units={store.state?unitsFor(store.state.settings):undefined}/>
     </main>
     <ActionSheet isOpen={showAddSheet} onClose={()=>setShowAddSheet(false)} restoreFocus={addReturnFocus} title="Add" subtitle={`${selectedEntryDate===activeDate?'Today · ':''}${longDate(selectedEntryDate)}`} options={addOptions}/>
   </div></ProfileClockProvider>;
@@ -329,6 +384,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
   const expireSession=useCallback(()=>{resetGoogleHealthState();setSessionExpired(true);setUser(null);},[setUser]);
   useEffect(()=>{clearApiCooldowns();},[user]);
   const [authReady,setAuthReady]=useState(false);
+  const [pwaShareIssue,setPwaShareIssue]=useState('');
   const [localDatabaseError,setLocalDatabaseError]=useState(getLocalDatabaseFailure);
   useEffect(()=>{
     const onDatabaseFailure=(event:Event)=>setLocalDatabaseError((event as CustomEvent<string>).detail||getLocalDatabaseFailure());
@@ -354,6 +410,15 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
         if(shortcut)window.history.replaceState(null,'',shortcut.cleanUrl);
       }catch{/* Keep the original shortcut URL if browser storage is blocked. */}
       const params=typeof window!=='undefined'?new URLSearchParams(window.location.search):null;
+      const pwaShare=params?.get('pwaShare');
+      if(pwaShare){
+        const cleaned=new URL(window.location.href);
+        cleaned.searchParams.delete('pwaShare');
+        window.history.replaceState(null,'',cleaned.pathname+cleaned.search+cleaned.hash);
+        if(pwaShare==='1')window.dispatchEvent(new Event(PWA_SHARE_READY));
+        else if(pwaShare==='too-large')setPwaShareIssue('The shared photo is larger than the 20 MB limit. Choose a smaller photo.');
+        else setPwaShareIssue('The shared file could not be read as a JPEG, PNG, or WebP meal photo.');
+      }
       if(params?.has('auth')){
         try{localStorage.removeItem('nutrition-signed-out');}catch{}
         const cleanUrl=window.location.pathname+(window.location.hash||'');
@@ -400,6 +465,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
       }catch{/* Keep the exact account/device/token revocation for a later retry. */}
       await clearNativeBackgroundOutbox(user);
     }
+    if(isNativeApp())await import('./lib/nativeWidget').then(module=>module.clearNativeWidgetSummary()).catch(()=>{});
     try{clearPendingNutritionShortcut(window.localStorage);}catch{/* The action cannot be retained when browser storage is blocked. */}
     localStorage.setItem('nutrition-signed-out','1');
     localStorage.removeItem('nutrition-account');
@@ -409,6 +475,7 @@ export default function App({onUsable}:{onUsable?:()=>void}={}){
   if(user===undefined)return <StartupScreen/>;
   return <>
     {localDatabaseError&&<div className="notice" role="alert">{localDatabaseError}</div>}
+    {pwaShareIssue&&<div className="notice" role="alert"><span>{pwaShareIssue}</span> <Button variant="secondary" onClick={()=>setPwaShareIssue('')}>Dismiss</Button></div>}
     <ForegroundNotificationHandler userId={user} authReady={authReady}/>
     {user?<Workspace key={user} user={user} authReady={authReady} onLogout={logout} onUsable={onUsable} onSessionExpired={expireSession}/>:<Auth sessionExpired={sessionExpired} onLogin={id=>{localStorage.removeItem('nutrition-signed-out');setUser(id);void drainPendingPushRevocations().catch(()=>{});}}/>}
   </>;

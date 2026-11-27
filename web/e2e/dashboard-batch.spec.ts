@@ -55,8 +55,10 @@ for(const width of [390,768,1440])for(const theme of ['light','dark'])test(theme
   await page.addInitScript(theme=>localStorage.setItem('nutrition-theme',theme),theme);
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
-  // Only a due check-in may sit in the energy panel; no logging actions do.
-  await expect(page.locator('.energy-panel .button:not(.check-in-orb-button)')).toHaveCount(0);
+  // Quick-jump shortcuts link Dashboard cards to Food Log, Quick Add/Log Food, and Weight entry without embedding full logs.
+  await expect(page.locator('.energy-panel .button:not(.check-in-orb-button)')).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'Open Food Log from Energy',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Add weigh-in',exact:true}).first()).toBeVisible();
   await expect(page.getByRole('button',{name:'Log weight',exact:true})).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Food entries',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Choose diary date'})).toHaveCount(0);

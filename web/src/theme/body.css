@@ -115,7 +115,9 @@
 }
 :root[data-theme=dark] .body-form-section { background: var(--raised) !important; border-color: var(--border) !important; }
 @media (max-width: 639px) { .body-form-section { padding: 16px !important; border-radius: 18px !important; } }
-.body-form-section-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 16px; }
+.body-form-section-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; }
+.body-form-section-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 1023px) { .body-form-section-actions > .button { min-height: 44px; } }
 .body-form-section-header h3 { margin: 0; font-size: 1.05rem; font-weight: 750; letter-spacing: -0.02em; color: var(--ink-strong); }
 .body-form-section-header p.source { flex-basis: 100%; margin: 2px 0 0; font-size: 0.8125rem; color: var(--muted-foreground); line-height: 1.4; }
 .unit-indicator { display: inline-flex; align-items: center; padding: 2px 10px; background: var(--primary-tint); color: var(--primary-ink); font-size: 0.78rem; font-weight: 750; line-height: 1.4; }

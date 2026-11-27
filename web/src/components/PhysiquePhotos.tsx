@@ -116,6 +116,9 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
 
   const drafts=store.local?.photoDrafts??[];
   const bodyDrafts=store.local?.bodyDrafts??[];
+  const previousRecord=editor?.photoSet?undefined:editor?.record
+    ?bodyRecords.find(item=>item.id!==editor.record!.id&&item.date<editor.record!.date)??bodyRecords[bodyRecords.findIndex(item=>item.id===editor.record!.id)+1]
+    :bodyRecords[0];
   const weightUnit=unitsFor(store.state!.settings).weight;
   const retained=drafts.length+bodyDrafts.length;
   const back=(label:string,onClick:()=>void)=><Button variant="tertiary" size="sm" className="subpage-back-button" onClick={onClick}><ArrowLeft size={16} aria-hidden="true"/>{label}</Button>;
@@ -211,6 +214,6 @@ export function PhysiquePhotos({store,root,onOpenPage,onExit}:PhysiquePhotosProp
     <MotionPanel motionKey={page} axis="fade">
       {view}
     </MotionPanel>
-    <BodyRecordDialog open={editorOpen} record={editor?.record} photoSet={editor?.photoSet} store={store} restoreFocus={editor?.trigger} onClose={()=>setEditorOpen(false)}/>
+    <BodyRecordDialog open={editorOpen} record={editor?.record} previousRecord={previousRecord} photoSet={editor?.photoSet} store={store} restoreFocus={editor?.trigger} onClose={()=>setEditorOpen(false)}/>
   </>;
 }

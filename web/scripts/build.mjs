@@ -36,7 +36,8 @@ const KIB = 1024;
 // Round habit-calendar days with joined streaks add a small precache allowance.
 // Swipe to dismiss, dismiss action, and message length capping on the undo notice add a small first-load allowance.
 // Early undo release, keepalive background flush, and service worker outbox sync add a small first-load and precache allowance.
-const budgets = { firstLoad: 502 * KIB, precache: 1350 * KIB };
+// Remaining macros, daily fiber, dashboard shortcuts, Quick Add macros/label, plan step jumps, body measurement copy, data export, and offline PWA share target precache add a small first-load and precache allowance.
+const budgets = { firstLoad: 508 * KIB, precache: 1375 * KIB };
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const size = path => statSync(join(dist, path)).size;
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

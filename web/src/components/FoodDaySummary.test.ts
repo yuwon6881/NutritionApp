@@ -12,7 +12,7 @@ describe('FoodDaySummary', () => {
     fat: 65,
   };
 
-  const makeEntry = (date: string, calories: number, protein: number, carbs: number, fat: number): Entry => ({
+  const makeEntry = (date: string, calories: number, protein: number, carbs: number, fat: number, fiber: number | null = null): Entry => ({
     id: '1',
     revision: 1,
     deleted: false,
@@ -21,7 +21,7 @@ describe('FoodDaySummary', () => {
     protein,
     carbs,
     fat,
-    fiber: null,
+    fiber,
     source: 'test',
     date,
     quantity: 1,
@@ -97,7 +97,51 @@ describe('FoodDaySummary', () => {
 
     expect(html).toContain('of 2,000');
     expect(html).toContain('200 left');
+    expect(html).toContain('10 g left');
     expect(html).toContain('aria-label="Calories logged against target"');
     expect(html).not.toContain('Target appears after your check-in');
+  });
+
+  it('shows daily fiber total only when entries carry fiber and marks partial totals', () => {
+    const withFiber = renderToStaticMarkup(createElement(FoodDaySummary, {
+      title: 'Tuesday, Oct 27',
+      statusText: 'Complete',
+      entries: [
+        makeEntry('2026-10-27', 900, 70, 90, 30, 12),
+        { ...makeEntry('2026-10-27', 500, 40, 50, 15, null), id: '2' },
+      ],
+      day: undefined,
+      count: 2,
+      fasting: false,
+      total: 1400,
+      targets: baseTargets,
+      energyUnit: 'kcal',
+      isPastDay: true,
+      checkInDue: false,
+      date: '2026-10-27',
+      currentDate: '2026-10-28',
+    }));
+
+    expect(withFiber).toContain('Fiber');
+    expect(withFiber).toContain('12 g');
+    expect(withFiber).toContain('Partial: some logged foods have no value for that nutrient, so its total may be higher.');
+
+    const withoutFiber = renderToStaticMarkup(createElement(FoodDaySummary, {
+      title: 'Tuesday, Oct 27',
+      statusText: 'Complete',
+      entries: [makeEntry('2026-10-27', 900, 70, 90, 30, null)],
+      day: undefined,
+      count: 1,
+      fasting: false,
+      total: 900,
+      targets: baseTargets,
+      energyUnit: 'kcal',
+      isPastDay: true,
+      checkInDue: false,
+      date: '2026-10-27',
+      currentDate: '2026-10-28',
+    }));
+
+    expect(withoutFiber).not.toContain('Fiber');
   });
 });

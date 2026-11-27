@@ -10,6 +10,8 @@ export interface AiChatMessage {
 export const AI_ACTION_TYPES = [
   'openFoodLog',
   'openAddFoodDraft',
+  'openQuickAddDraft',
+  'openAiFoodDescription',
   'openWeightEntry',
   'openCoaching',
   'openExpenditure',

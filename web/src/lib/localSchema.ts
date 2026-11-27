@@ -1,4 +1,4 @@
-export const DATABASE_VERSION = 6;
+export const DATABASE_VERSION = 7;
 
 type SchemaDatabase = Pick<IDBDatabase, 'objectStoreNames' | 'createObjectStore' | 'deleteObjectStore'>;
 
@@ -13,4 +13,5 @@ export function upgradeLocalDatabase(db: SchemaDatabase, oldVersion: number): vo
   // Version 2 to 5 also cached every fetched diary day here, but nothing ever read it back:
   // the account snapshot and the in-memory coordinator serve dated days.
   if (oldVersion < 6 && db.objectStoreNames.contains('diary_days')) db.deleteObjectStore('diary_days');
+  if (oldVersion < 7) create('pwa_incoming');
 }

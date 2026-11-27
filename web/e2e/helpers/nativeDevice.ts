@@ -11,7 +11,7 @@ export async function mockNativeDevice(page: Page) {
       listeners: {} as Record<string, (data: unknown) => void>
     };
     const methods: Record<string, string[]> = {
-      NutritionDevice: ['getReminderCapabilities', 'openReminderSettings', 'getPendingShortcut', 'acknowledgeShortcut', 'getIncomingImage', 'readIncomingImage', 'discardIncomingImage', 'syncPendingMutations', 'readSyncedMutations', 'retireSyncedMutations', 'clearPendingMutations'],
+      NutritionDevice: ['getReminderCapabilities', 'openReminderSettings', 'getPendingShortcut', 'acknowledgeShortcut', 'getIncomingImage', 'readIncomingImage', 'discardIncomingImage', 'syncPendingMutations', 'readSyncedMutations', 'retireSyncedMutations', 'clearPendingMutations', 'updateWidgetSummary', 'clearWidgetSummary'],
       App: ['getInfo', 'minimizeApp'], StatusBar: ['setStyle', 'setBackgroundColor', 'setOverlaysWebView'],
       Keyboard: [], PushNotifications: ['checkPermissions', 'createChannel', 'register', 'unregister'],
       Haptics: ['impact', 'notification', 'selectionChanged']

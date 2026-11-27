@@ -117,4 +117,35 @@ public class NutritionDevicePlugin extends Plugin {
             call.resolve();
         } catch (Exception failure) { call.reject("Could not clear background sync state.", "outbox_clear_failed"); }
     }
+
+    @PluginMethod public void updateWidgetSummary(PluginCall call) {
+        try {
+            boolean saved = NutritionWidgetStore.save(
+                getContext(),
+                call.getString("accountId"),
+                call.getString("date"),
+                call.getString("caloriesText"),
+                call.getString("caloriesSubtext", ""),
+                call.getString("macrosText", "")
+            );
+            if (!saved) {
+                call.reject("Widget summary payload is invalid.", "widget_invalid");
+                return;
+            }
+            NutritionWidgetProvider.refreshAll(getContext());
+            call.resolve();
+        } catch (RuntimeException failure) {
+            call.reject("Could not update home-screen widget.", "widget_update_failed");
+        }
+    }
+
+    @PluginMethod public void clearWidgetSummary(PluginCall call) {
+        try {
+            NutritionWidgetStore.clear(getContext());
+            NutritionWidgetProvider.refreshAll(getContext());
+            call.resolve();
+        } catch (RuntimeException failure) {
+            call.reject("Could not clear home-screen widget.", "widget_clear_failed");
+        }
+    }
 }

@@ -24,11 +24,12 @@ export interface WeightEntryDialogProps {
   store:NutritionStore;
   date?:string;
   initial?:Weight;
+  initialWeightKg?:number;
   onClose:()=>void;
   restoreFocus?:HTMLElement|null;
 }
 
-export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}:WeightEntryDialogProps){
+export function WeightEntryDialog({open,store,date,onClose,initial,initialWeightKg,restoreFocus}:WeightEntryDialogProps){
   const state=store.state!;
   const current=today(state.profile?.timeZone);
   const units=unitsFor(state.settings);
@@ -36,16 +37,16 @@ export function WeightEntryDialog({open,store,date,onClose,initial,restoreFocus}
   // and filled by the effect was still empty during the first render, and an effect that changed
   // no field never re-rendered to correct it, so an untouched form asked to discard on its first
   // close and only settled once that discard forced a render.
-  const [values,setValues]=useState(()=>weightEntryValues(date,current,state.weights,initial,units.weight));
+  const [values,setValues]=useState(()=>weightEntryValues(date,current,state.weights,initial,units.weight,initialWeightKg));
   const [baseline,setBaseline]=useState(values);
   const {busy,run,pending:busyPending}=useAsyncAction();
   const [error,setError]=useState('');
 
   useEffect(()=>{
     if(!open)return;
-    const opened=weightEntryValues(date,current,state.weights,initial,units.weight);
+    const opened=weightEntryValues(date,current,state.weights,initial,units.weight,initialWeightKg);
     setValues(opened);setBaseline(opened);setError('');
-  },[open,initial?.id,date]);
+  },[open,initial?.id,date,initialWeightKg]);
 
   const existing=state.weights.find(weight=>weight.date===values.date);
   const unusual=unusualWeighIn(values.kg,units.weight,values.date,state.weights,initial?.id);

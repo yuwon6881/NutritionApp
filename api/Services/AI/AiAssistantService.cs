@@ -178,7 +178,7 @@ public sealed class AiAssistantService
             : turn.Reply;
 
         var actions = turn.Actions;
-        var closeChat = actions.Count > 0 && actions.Any(a => a.Type.StartsWith("open", StringComparison.OrdinalIgnoreCase) && a.Type != "openAddFoodDraft");
+        var closeChat = actions.Count > 0 && actions.Any(a => a.Type.StartsWith("open", StringComparison.OrdinalIgnoreCase) && a.Type is not ("openAddFoodDraft" or "openQuickAddDraft" or "openAiFoodDescription"));
 
         var outgoingState = new AiConversationState(
             LastFoodLogDate: request.Context?.Date ?? request.State?.LastFoodLogDate,

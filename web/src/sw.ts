@@ -1,4 +1,6 @@
 /// <reference lib="webworker" />
+import {DATABASE_VERSION,upgradeLocalDatabase} from './lib/localSchema';
+import {savePwaIncomingImage,validateSharedImageBytes} from './lib/pwaIncomingImage';
 import {parseNutritionReminderPayload} from './lib/push/pushPayload';
 import {drainOutboxInServiceWorker} from './lib/swOutboxSync';
 export {};
@@ -81,8 +83,38 @@ self.addEventListener('activate',event=>{
     await self.clients.claim();
   })());
 });
+async function handleShareTarget(request:Request):Promise<Response>{
+  try{
+    const formData=await request.formData();
+    const raw=formData.get('image');
+    const candidate=raw instanceof File?raw:[...formData.values()].find((entry):entry is File=>entry instanceof File);
+    if(!candidate)return Response.redirect('/?pwaShare=invalid',303);
+    const buffer=await candidate.arrayBuffer();
+    const checked=validateSharedImageBytes(buffer,candidate.name);
+    if(!checked.ok)return Response.redirect(checked.reason==='too-large'?'/?pwaShare=too-large':'/?pwaShare=invalid',303);
+    const db=await new Promise<IDBDatabase>((resolve,reject)=>{
+      const openReq=indexedDB.open('nutrition-local',DATABASE_VERSION);
+      openReq.onupgradeneeded=event=>upgradeLocalDatabase(openReq.result,event.oldVersion);
+      openReq.onsuccess=()=>resolve(openReq.result);
+      openReq.onerror=()=>reject(openReq.error??new Error('Failed to open local storage.'));
+    });
+    try{
+      await savePwaIncomingImage(db,{bytes:checked.bytes,name:checked.name});
+    }finally{
+      db.close();
+    }
+    return Response.redirect('/?pwaShare=1',303);
+  }catch{
+    return Response.redirect('/?pwaShare=error',303);
+  }
+}
+
 self.addEventListener('fetch',event=>{
   const request=event.request;const url=new URL(request.url);
+  if(request.method==='POST'&&url.origin===self.location.origin&&url.pathname==='/share-target'){
+    event.respondWith(handleShareTarget(request));
+    return;
+  }
   if(request.method!=='GET'||url.origin!==self.location.origin||serverRoute(url))return;
   if(assets.has(url.pathname)){
     event.respondWith((async()=>{const cache=await caches.open(cacheName);return await cache.match(url.pathname)||fetch(request);})());return;

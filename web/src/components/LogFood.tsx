@@ -63,6 +63,8 @@ export function LogFood({
   initialStep,
   initialTime,
   initialQuery,
+  initialQuickAdd,
+  initialAiDescription,
   restoreFocus,
 }:LogFoodProps){
   const defaultTab=initialTab??(initialAi?'ai':'search');
@@ -120,11 +122,18 @@ export function LogFood({
   },[open,editing?.id,date,defaultTab,basket,initialStep]);
 
   const accountId=store.state!.id;
+  const appliedAiSeed=useRef(false);
   const scan=useFoodScanDraft({open,accountId,date,pendingBarcode,onRestore:saved=>{
     setPendingBarcode(saved?.pendingBarcode);
-    if(saved)setTab('ai');
+    if(saved){setTab('ai');return;}
+    if(initialAiDescription&&!appliedAiSeed.current){
+      appliedAiSeed.current=true;
+      setMode('description');
+      setDescription(initialAiDescription);
+    }
   }});
   const {description,setDescription,mode,setMode,photo,setPhoto,scanDraft,scanDraftRef}=scan;
+  useEffect(()=>{if(!open)appliedAiSeed.current=false;},[open]);
   const persistScanDraft=scan.persist;
   const removeScanDraft=scan.remove;
   const setScanDraftStorageError=scan.setStorageError;
@@ -423,7 +432,7 @@ export function LogFood({
       const food=detailLookup.detail!.food;
       detailLookup.cancel();setSaveFood(false);setDraft({...blankNutrients,name:food.name,quantity:100,unit:'g',time:newTime()});go('editor');
     }:undefined}/>
-    :step==='quick'?<QuickAdd store={store} date={date} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
+    :step==='quick'?<QuickAdd store={store} date={date} initialTime={initialTime} prefill={initialQuickAdd} onDone={onSaved} onBack={()=>go('selection')} onDirtyChange={setStepDirty}/>
     :step==='editor'&&draft?<FoodEditor key={JSON.stringify(draft)} initial={draft} title={saveFood?'Save food · per 100 g or ml':editing?'Edit entry':'Review'} labelNote={labelNote} energyUnit={energyUnit} onSave={log} onClose={()=>{if(editing)onClose();else leaveEditor();}} onDirtyChange={setStepDirty}/>
     :step==='recipe'?<RecipeEditor
       store={store} draft={recipe.draft} onDraftChange={recipe.setDraft} selected={recipe.selected} quantity={recipe.quantity}

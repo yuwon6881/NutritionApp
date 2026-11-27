@@ -5,4 +5,9 @@
     <string name="package_name">com.nutritionapp.mobile</string>
     <string name="custom_url_scheme">com.nutritionapp.mobile</string>
     <string name="nutrition_push_channel_id">nutrition-reminders</string>
+    <string name="widget_name">Today\u2019s nutrition</string>
+    <string name="widget_description">Shows today\u2019s calories and macros with quick shortcuts to log food, scan barcodes, or log weight.</string>
+    <string name="widget_log_food">Log food</string>
+    <string name="widget_scan">Scan</string>
+    <string name="widget_log_weight">Weight</string>
 </resources>

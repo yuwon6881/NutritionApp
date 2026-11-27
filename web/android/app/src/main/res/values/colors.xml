@@ -2,4 +2,12 @@
 <resources>
     <!-- The web view's colour before the page paints: Lavender's canvas, so launch never flashes white. -->
     <color name="nutrition_web_background">#F4F2FA</color>
+    <color name="nutrition_widget_surface">#FFFFFF</color>
+    <color name="nutrition_widget_border">#261E1838</color>
+    <color name="nutrition_widget_ink">#161224</color>
+    <color name="nutrition_widget_muted">#5A5470</color>
+    <color name="nutrition_widget_primary">#6A4DE0</color>
+    <color name="nutrition_widget_primary_ink">#FFFFFF</color>
+    <color name="nutrition_widget_secondary_surface">#EFEAFB</color>
+    <color name="nutrition_widget_secondary_ink">#3B2985</color>
 </resources>

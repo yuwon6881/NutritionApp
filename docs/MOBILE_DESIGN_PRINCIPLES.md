@@ -35,7 +35,8 @@ Phones are the primary surface. This document narrows `UI_UX_DESIGN_PRINCIPLES.m
 | Edge-to-edge, safe areas, themed status bar | **Used.** Sheets and sticky footers add `env(safe-area-inset-bottom)`. The sticky top bar keeps `env(safe-area-inset-top)` inside its own padding, never a negative margin, so it cannot cover the page heading. Native status bar dynamically matches the active theme: `#08080A` (light icons) in dark, `#F4F2FA` (dark icons) in light. | Shell, sheets |
 | Push notifications | **Only for the weekly check-in reminder.** An "estimate ready" notification was rejected: AI scans take seconds, the draft is saved and resumes on return, and a new local-notification permission would cost more trust than it earns. | Settings |
 | Live Updates / Xiaomi HyperOS island (Focus notifications) | **Not used.** They need native ongoing-notification code for long-running tasks (rides, timers). No NutritionApp task runs long enough to justify one. Revisit only for a genuinely long background job. | — |
-| Share target (share a photo into the app) | **Candidate, not built.** Useful for logging a gallery photo from another app; requires manifest `share_target` and an Android intent filter. | — |
+| Share target (share a photo into the app) | **Used.** Android `ACTION_SEND` (`IncomingImageActivity`) and installed PWA `manifest.share_target` (`POST /share-target` -> `pwa_incoming` IDB) route shared meal/label photos to the same account/date confirmation modal before explicit AI analysis. | Incoming photo |
+| Home-screen widget (Android) | **Used.** `NutritionWidgetProvider` / `NutritionWidgetStore` show today's cached calorie/macro summary with one-tap Log food, Scan, and Weight shortcuts through `NativeShortcutStore`, cleared on sign-out. | Android launcher |
 
 Add a platform feature only when it removes a step, prevents an error, or confirms something the person cannot otherwise perceive. Never add one for novelty.
 

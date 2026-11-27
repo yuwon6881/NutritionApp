@@ -5,4 +5,12 @@
     <color name="nutrition_notification_color">#B5F04A</color>
     <!-- Midnight Lime's canvas behind the web view before the page paints. -->
     <color name="nutrition_web_background">#08080A</color>
+    <color name="nutrition_widget_surface">#121216</color>
+    <color name="nutrition_widget_border">#2E2E3A</color>
+    <color name="nutrition_widget_ink">#F5F5F7</color>
+    <color name="nutrition_widget_muted">#A1A1AA</color>
+    <color name="nutrition_widget_primary">#B5F04A</color>
+    <color name="nutrition_widget_primary_ink">#08080A</color>
+    <color name="nutrition_widget_secondary_surface">#1E1E26</color>
+    <color name="nutrition_widget_secondary_ink">#F5F5F7</color>
 </resources>

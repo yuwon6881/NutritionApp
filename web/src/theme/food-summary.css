@@ -244,6 +244,32 @@
   color: var(--muted-foreground);
   letter-spacing: 0;
 }
+.food-day-remaining {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+.food-day-remaining.is-over {
+  color: var(--energy);
+}
+.food-day-fiber {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.84rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.food-day-fiber strong {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
 .food-day-nutrient progress.food-day-progress-bar {
   display: block;
   appearance: none;

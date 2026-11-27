@@ -130,6 +130,11 @@
 /* Quick add: one number, read at a glance. */
 .quick-add-calories input{min-height:54px;font-size:1.6rem;font-weight:700;letter-spacing:-.02em;text-align:center;color:var(--ink-strong)}
 .quick-add-calories input::placeholder{color:var(--border)}
+.quick-add-macros-section{display:grid;gap:10px;margin:2px 0 6px}
+.quick-add-macros-toggle{justify-self:start;min-height:44px;gap:6px;color:var(--primary-ink);font-weight:600}
+@media (min-width:1024px){.quick-add-macros-toggle{min-height:36px}}
+.quick-add-macros-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:639px){.quick-add-macros-grid{grid-template-columns:1fr}}
 .food-modal .quick-add .modal-actions,.quick-add .modal-actions{border-top:0;padding-top:0}
 .food-modal .modal-actions>.button{white-space:nowrap}
 

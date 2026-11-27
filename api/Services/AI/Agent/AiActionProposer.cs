@@ -6,7 +6,17 @@ namespace Nutrition.Api.Services.AI.Agent;
 
 public sealed class AiActionProposer(AiToolContext toolContext) : IAiActionProposer
 {
-    private static readonly string[] AllowedTypes = ["openFoodLog", "openAddFoodDraft", "openWeightEntry", "openCoaching", "openExpenditure", "openBarcodeScanner"];
+    private static readonly string[] AllowedTypes =
+    [
+        "openFoodLog",
+        "openAddFoodDraft",
+        "openQuickAddDraft",
+        "openAiFoodDescription",
+        "openWeightEntry",
+        "openCoaching",
+        "openExpenditure",
+        "openBarcodeScanner"
+    ];
     private readonly AiToolContext _toolContext = toolContext;
     private readonly List<AiUiAction> _accepted = [];
     public IReadOnlyList<AiUiAction> Accepted => _accepted;
@@ -27,7 +37,11 @@ public sealed class AiActionProposer(AiToolContext toolContext) : IAiActionPropo
                     {
                         ["type"] = new JsonObject { ["type"] = "string",
                             ["enum"] = new JsonArray(AllowedTypes.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()) },
-                        ["payload"] = new JsonObject { ["type"] = "object", ["description"] = "date (yyyy-MM-dd), time (HH:mm), optional foodId and query (verified food name) for food search. Other fields are ignored." }
+                        ["payload"] = new JsonObject
+                        {
+                            ["type"] = "object",
+                            ["description"] = "date (yyyy-MM-dd), time (HH:mm). For openAddFoodDraft: optional foodId and verified query. For openQuickAddDraft: required calories (in kcal, 0..20000), optional label, protein, carbs, fat (grams, 0..3000). For openAiFoodDescription: required description (1..500). For openWeightEntry: optional kg (kilograms, 20..400). Other fields are ignored."
+                        }
                     },
                     ["required"] = new JsonArray("type", "payload")
                 }
@@ -82,6 +96,29 @@ public sealed class AiActionProposer(AiToolContext toolContext) : IAiActionPropo
                             throw new AiToolArgumentException("query must be a food name returned by a tool this turn.");
                         payload["query"] = query;
                     }
+                }
+                else if (type == "openQuickAddDraft")
+                {
+                    var calories = args.OptionalDecimal("calories", 0m, 20000m)
+                        ?? throw new AiToolArgumentException("calories is required for openQuickAddDraft.");
+                    payload["calories"] = Math.Round(calories, 1, MidpointRounding.AwayFromZero);
+                    var label = args.OptionalString("label", 160);
+                    if (label != null) payload["label"] = label;
+                    var protein = args.OptionalDecimal("protein", 0m, 3000m);
+                    if (protein.HasValue) payload["protein"] = Math.Round(protein.Value, 1, MidpointRounding.AwayFromZero);
+                    var carbs = args.OptionalDecimal("carbs", 0m, 3000m);
+                    if (carbs.HasValue) payload["carbs"] = Math.Round(carbs.Value, 1, MidpointRounding.AwayFromZero);
+                    var fat = args.OptionalDecimal("fat", 0m, 3000m);
+                    if (fat.HasValue) payload["fat"] = Math.Round(fat.Value, 1, MidpointRounding.AwayFromZero);
+                }
+                else if (type == "openAiFoodDescription")
+                {
+                    payload["description"] = args.RequiredString("description", 500);
+                }
+                else if (type == "openWeightEntry")
+                {
+                    var kg = args.OptionalDecimal("kg", 20m, 400m);
+                    if (kg.HasValue) payload["kg"] = Math.Round(kg.Value, 2, MidpointRounding.AwayFromZero);
                 }
                 _accepted.Add(new AiUiAction(type, payload, Guid.NewGuid()));
                 results.Add(new JsonObject { ["type"] = type, ["accepted"] = true });

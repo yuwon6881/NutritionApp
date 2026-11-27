@@ -50,4 +50,9 @@ describe('weigh-in dialog values',()=>{
     expect(weightEntryDirty({...opened,kg:'80'},opened)).toBe(true);
     expect(weightEntryDirty({...opened,kg:''},opened)).toBe(false);
   });
+
+  it('prefills an optional AI-suggested weight in the active display unit',()=>{
+    expect(weightEntryValues(undefined,'2026-09-11',[],undefined,'kg',74.25).kg).toBe('74.25');
+    expect(weightEntryValues(undefined,'2026-09-11',[],undefined,'lb',80).kg).toBe('176.37');
+  });
 });

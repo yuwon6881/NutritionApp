@@ -12,6 +12,7 @@ import { AiMessageContent } from './ai/AiMessageContent';
 import { AiPendingReply } from './ai/AiPendingReply';
 import { useAiConversation, type AiInvocationRequest } from './useAiConversation';
 import type { AiUiAction } from '../lib/api/ai';
+import type { EnergyUnit, WeightUnit } from '../types';
 import { SkeletonChat, SkeletonRegion } from './ui/Skeleton';
 import './AiAssistantPanel.css';
 
@@ -23,9 +24,10 @@ interface Props {
   invocation?: AiInvocationRequest | null;
   onInvocationConsumed?: () => void;
   surface?: string;
+  units?: { energy: EnergyUnit; weight: WeightUnit };
 }
 
-export function AiAssistantPanel({ headerTarget, isOpen, onClose, onActions, invocation, onInvocationConsumed, surface = 'dashboard' }: Props) {
+export function AiAssistantPanel({ headerTarget, isOpen, onClose, onActions, invocation, onInvocationConsumed, surface = 'dashboard', units }: Props) {
   const defaultContext = useMemo(() => ({ surface }), [surface]);
   const chat = useAiConversation({ isOpen, onClose, onActions, invocation, onInvocationConsumed, defaultContext });
   const disabled = chat.isSending || chat.isHydrating || chat.isResetting || chat.isResolving;
@@ -46,7 +48,7 @@ export function AiAssistantPanel({ headerTarget, isOpen, onClose, onActions, inv
             <div className="ai-chat-bubble"><AiMessageContent content={message.content} role={message.role} /></div>
           </div>)}
           {chat.pendingReply && <AiPendingReply reply={chat.pendingReply} />}
-          {chat.pendingActionBatches.map(batch => <AiActionReview key={batch.batchId} batch={batch} disabled={disabled}
+          {chat.pendingActionBatches.map(batch => <AiActionReview key={batch.batchId} batch={batch} disabled={disabled} units={units}
             onResolve={decision => void chat.resolveBatch(batch.batchId, decision)} />)}
         </AiLog>
         {chat.error && <div className="ai-chat-error"><CardFeedback message={chat.error} action={{

@@ -6,6 +6,8 @@
 .dashboard-wide-card{margin-bottom:24px}
 .dashboard-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .dashboard-card-title{margin:0;font-size:1.25rem}
+.dashboard-card-action{min-height:44px;white-space:nowrap}
+@media(min-width:1024px){.dashboard-card-action{min-height:36px}}
 .dashboard-wide-card .weight-history-panel{padding:0}
 .dashboard-wide-card .swipe-carousel-slide .energy-stats{margin-bottom:16px}
 .activity-connect .chart-description{margin-bottom:16px}

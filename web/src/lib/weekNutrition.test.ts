@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {AppState,Day,Entry,Plan} from '../types';
-import {resolveWeekSelection,targetShare,WEEK_AVERAGE,weekAverage,weekNutrition} from './weekNutrition';
+import {dayFiber,macroRemainingText,resolveWeekSelection,targetShare,WEEK_AVERAGE,weekAverage,weekNutrition} from './weekNutrition';
 
 const entry=(date:string,calories:number,macros:Partial<Pick<Entry,'protein'|'carbs'|'fat'>>={},deleted=false)=>
   ({id:`e-${date}-${calories}`,revision:0,deleted,date,name:'Oats',calories,protein:10,carbs:50,fat:5,quantity:1,unit:'serving',...macros}) as Entry;
@@ -110,5 +110,28 @@ describe('week selection',()=>{
     const selection=resolveWeekSelection('2026-09-13',weekOf(mondayAfter),mondayAfter);
     expect(selection).toBe(mondayAfter);
     expect(weekOf(mondayAfter).some(item=>item.date===selection)).toBe(true);
+  });
+});
+
+describe('fiber and remaining macro helpers',()=>{
+  it('sums daily fiber honestly and marks mixed entries as partial without penalizing quick add',()=>{
+    const quick={...entry('2026-10-01',200,{protein:null,carbs:null,fat:null}),fiber:null,source:'Quick add'};
+    const noFiber={...entry('2026-10-01',300),fiber:null};
+    const withFiber={...entry('2026-10-01',400),fiber:9.6};
+
+    expect(dayFiber([noFiber],undefined)).toEqual({value:null,partial:false});
+    expect(dayFiber([quick,withFiber],undefined)).toEqual({value:9.6,partial:false});
+    expect(dayFiber([noFiber,withFiber],undefined)).toEqual({value:9.6,partial:true});
+    expect(dayFiber([],day('2026-10-01',{status:'fasting'}))).toEqual({value:0,partial:false});
+  });
+
+  it('formats remaining, on-target, over-target, and unknown targets honestly',()=>{
+    expect(macroRemainingText(110,150)).toBe('40 g left');
+    expect(macroRemainingText(150,150)).toBe('On target');
+    expect(macroRemainingText(165.4,150)).toBe('15 g over');
+    expect(macroRemainingText(null,150)).toBeNull();
+    expect(macroRemainingText(50,null)).toBeNull();
+    expect(macroRemainingText(50,undefined)).toBeNull();
+    expect(macroRemainingText(50,0)).toBe('50 g over');
   });
 });

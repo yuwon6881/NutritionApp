@@ -1,6 +1,7 @@
 import type {AppState,Day,Entry} from '../types';
 import {calendarTarget} from './calendarProgress';
 import {planForDate,targetsForDate} from './dailyTargets';
+import {number} from './format';
 import {shiftIsoDate,weekdayIndex} from './loggingCalendar';
 import {QUICK_ADD_SOURCE} from './nutrients';
 
@@ -53,6 +54,25 @@ export function dayIntake(entries:Entry[],day:Day|undefined){
     partial[key]=known.length>0&&entries.some(entry=>entry[key]==null&&entry.source!==QUICK_ADD_SOURCE);
   }
   return {intake,partial,evidence:true};
+}
+
+/** Daily dietary fiber summary, keeping fasting zero and non-Quick-Add omissions honestly partial. */
+export function dayFiber(entries:readonly Entry[],day:Day|undefined):{value:number|null;partial:boolean}{
+  if(!entries.length){
+    return day?.status==='fasting'?{value:0,partial:false}:{value:null,partial:false};
+  }
+  const known=entries.filter(entry=>entry.fiber!=null);
+  const value=known.length?known.reduce((sum,entry)=>sum+entry.fiber!,0):null;
+  const partial=known.length>0&&entries.some(entry=>entry.fiber==null&&entry.source!==QUICK_ADD_SOURCE);
+  return {value,partial};
+}
+
+/** Remaining or over grams for a macro target; null when logged amount or target is unknown. */
+export function macroRemainingText(value:number|null|undefined,target:number|null|undefined):string|null{
+  if(value==null||target==null||!Number.isFinite(value)||!Number.isFinite(target))return null;
+  const difference=target-value;
+  if(Math.abs(difference)<0.5)return 'On target';
+  return `${number(Math.abs(difference))} g ${difference>0?'left':'over'}`;
 }
 
 /** A date's accepted targets, or nothing before the first accepted plan. */

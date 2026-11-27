@@ -10,6 +10,7 @@ import {GoogleHealthSettings} from './GoogleHealthSettings';
 import {ConnectedApps} from './ConnectedApps';
 import {NotificationsSettings} from './NotificationsSettings';
 import {LocalDataSettings} from './LocalDataSettings';
+import {DataExport} from './DataExport';
 import {DiarySettings,GeneralSettings,useSettingsSave} from './SettingsPreferences';
 import {SettingsNav,SettingsSection,type SettingsSectionLink} from './SettingsLayout';
 
@@ -68,6 +69,7 @@ export function Settings({store,onLogout}:{store:NutritionStore;onLogout:()=>Pro
           <ConnectedApps store={store}/>
         </SettingsSection>
         <SettingsSection {...device} title="This device">
+          <DataExport/>
           <LocalDataSettings accountId={state.id} onLogout={onLogout}/>
           <AppVersionInfo/>
         </SettingsSection>

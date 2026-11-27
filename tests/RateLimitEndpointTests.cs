@@ -70,6 +70,56 @@ public sealed class RateLimitEndpointTests
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if(File.Exists(path))File.Delete(path); }
     }
 
+    [Fact]
+    public async Task Export_endpoints_return_json_and_csv_zip_and_enforce_rate_limit()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"nutrition-export-rate-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var factory = new RateFactory(path);
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            await db.Database.EnsureCreatedAsync();
+            var user = await TestUsers.CreateAsync(db, "export-user");
+            var token = "export-session";
+            db.Sessions.Add(new Session { UserId = user.Id, Hash = AuthService.Hash(token), Expires = DateTime.UtcNow.AddDays(1) });
+            await db.SaveChangesAsync();
+
+            using var client = factory.CreateClient();
+            async Task<HttpResponseMessage> Fetch(string url)
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.Add("Cookie", $"{AuthService.Cookie}={token}");
+                return await client.SendAsync(req);
+            }
+
+            using var jsonRes = await Fetch("/api/export");
+            Assert.Equal(HttpStatusCode.OK, jsonRes.StatusCode);
+            Assert.Equal("application/json", jsonRes.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("nutrition-export.json", jsonRes.Content.Headers.ContentDisposition?.FileNameStar ?? jsonRes.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
+            var jsonBody = await jsonRes.Content.ReadAsStringAsync();
+            Assert.Contains("schemaVersion", jsonBody);
+
+            using var zipRes = await Fetch("/api/export/csv");
+            Assert.Equal(HttpStatusCode.OK, zipRes.StatusCode);
+            Assert.Equal("application/zip", zipRes.Content.Headers.ContentType?.MediaType);
+            using var zipStream = await zipRes.Content.ReadAsStreamAsync();
+            using var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Read);
+            Assert.NotNull(archive.GetEntry("README.txt"));
+            Assert.NotNull(archive.GetEntry("entries.csv"));
+
+            // Export policy permits 5 requests per 5 minutes (2 already used above -> 3 more allowed, 6th blocked).
+            for (var i = 0; i < 3; i++)
+            {
+                using var ok = await Fetch("/api/export");
+                Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+            }
+            using var limited = await Fetch("/api/export");
+            Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        }
+        finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if(File.Exists(path))File.Delete(path); }
+    }
+
     private sealed class RateFactory(string path) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)

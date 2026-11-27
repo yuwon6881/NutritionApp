@@ -213,3 +213,31 @@
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
+
+.coach-step-jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -10px 0 20px;
+}
+.coach-step-jump-btn {
+  min-height: 44px;
+}
+@media (min-width: 1024px) {
+  .coach-step-jump-btn {
+    min-height: 36px;
+  }
+}
+.plan-quick-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 1023px) {
+  .plan-quick-edit > .button {
+    min-height: 44px;
+  }
+}

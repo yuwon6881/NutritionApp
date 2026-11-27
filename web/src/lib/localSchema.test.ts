@@ -9,11 +9,18 @@ function schema(names:string[]){
     deleteObjectStore:(name:string)=>{stores.delete(name);}
   }};
 }
-const current=['accounts','saved_foods','mutations','drafts','meta','food_drafts','food_scans','push_revocations','push_devices'];
+const current=['accounts','saved_foods','mutations','drafts','meta','food_drafts','food_scans','push_revocations','push_devices','pwa_incoming'];
 
 it('creates every current store for a new install and never the retired dated-day cache',()=>{
   const {stores,db}=schema([]);
   upgradeLocalDatabase(db,0);
+  expect([...stores].sort()).toEqual([...current].sort());
+});
+
+it('adds pwa_incoming when upgrading from v6',()=>{
+  const v6=current.filter(name=>name!=='pwa_incoming');
+  const {stores,db}=schema(v6);
+  upgradeLocalDatabase(db,6);
   expect([...stores].sort()).toEqual([...current].sort());
 });
 

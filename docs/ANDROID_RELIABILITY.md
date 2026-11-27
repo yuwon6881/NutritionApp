@@ -52,4 +52,8 @@ Record automated, emulator, physical-device and provider results separately. An 
 
 `PendingOutboxStore` mirrors queued outbox mutations into atomic `noBackupFilesDir` storage. The WebView owns foreground delivery. As the activity pauses, Android schedules delivery of mirrored work even if the WebView stops before its lifecycle callback. `PendingOutboxWorker` drains through `WorkManager` (`NetworkType.CONNECTED`, exponential backoff), using WebView cookies from `CookieManager` and releasing Undo holds while backgrounded. The worker retains outcomes and the exact submitted mutations until the WebView reconciles them into IndexedDB.
 
-No Play publishing, auth redesign, widgets, direct Health Connect, or PWA share-target support is added.
+No Play publishing, auth redesign, or direct Health Connect is added.
+
+## Home-screen widget and PWA share target
+
+`NutritionWidgetStore` mirrors today's formatted energy and macro summary into private app preferences and clears it on sign-out, while `NutritionWidgetProvider` renders neutral signed-out or stale-date states instead of misrepresenting old figures and routes quick actions through the verified `NativeShortcutStore` contract (`com.nutritionapp.mobile.SHORTCUT`). Non-native PWA installations accept shared meal/label photos via `manifest.share_target` (`POST /share-target`), handled in the service worker by header-sniffing image bytes before queueing into the IndexedDB `pwa_incoming` store (`DATABASE_VERSION = 7`) and opening the shared account/date confirmation modal without eager analysis.

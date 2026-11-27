@@ -1,7 +1,7 @@
 import type {Day,Entry} from '../types';
 import {number} from '../lib/format';
 import {displayEnergy,energyLabel,type EnergyUnit} from '../lib/units';
-import {dayIntake} from '../lib/weekNutrition';
+import {dayFiber,dayIntake,macroRemainingText} from '../lib/weekNutrition';
 import {SelectField} from './ui/Field';
 import {PartialMark,PartialNote} from './ui/PartialMark';
 
@@ -72,7 +72,10 @@ export function FoodDaySummary({
   const isCurrentOrFuture=date&&currentDate?date>=currentDate:!isPastDay;
   const targetPending=checkInDue&&isCurrentOrFuture;
   const {intake,partial}=dayIntake(entries,day);
-  const macros=MACROS.map(({key,label})=>({key,label,value:intake[key],target:targets[key],partial:partial[key]}));
+  const fiber=dayFiber(entries,day);
+  const empty=!entries.length;
+  const macros=MACROS.map(({key,label})=>({key,label,value:intake[key]??(empty&&fasting?0:null),target:targets[key],partial:partial[key]}));
+  const hasPartial=macros.some(macro=>macro.partial)||fiber.partial;
   return <section className="panel food-day-summary">
     <div className="section-heading">
       <div className="food-day-title-group">
@@ -103,15 +106,25 @@ export function FoodDaySummary({
       </div>
     </div>
     {calorieTarget!=null&&!targetPending&&<progress className="food-day-progress-bar" aria-label="Calories logged against target" value={energyKnown?total:0} max={Math.max(calorieTarget,1)}/>}
-    <dl className="food-day-nutrients">{macros.map(({key,label,value,target,partial})=><div key={key} className={`food-day-nutrient ${key}`}>
-      <dt>{label}</dt>
-      <dd>
-        <span className="food-day-value">{number(value)} g</span>
-        {target!=null&&<small className="food-day-target">/ {number(target)} g</small>}
-        {partial&&<PartialMark/>}
-      </dd>
-      {target!=null&&<progress className="food-day-progress-bar" aria-label={`${label} logged against target`} value={value??0} max={Math.max(target,1)}/>}
-    </div>)}</dl>
-    {macros.some(macro=>macro.partial)&&<PartialNote/>}
+    <dl className="food-day-nutrients">{macros.map(({key,label,value,target,partial})=>{
+      const remaining=macroRemainingText(value,target);
+      const over=value!=null&&target!=null&&value-target>=0.5;
+      return <div key={key} className={`food-day-nutrient ${key}`}>
+        <dt>{label}</dt>
+        <dd>
+          <span className="food-day-value">{number(value)} g</span>
+          {target!=null&&<small className="food-day-target">/ {number(target)} g</small>}
+          {partial&&<PartialMark/>}
+        </dd>
+        {remaining&&<small className={`food-day-remaining${over?' is-over':''}`}>{remaining}</small>}
+        {target!=null&&<progress className="food-day-progress-bar" aria-label={`${label} logged against target`} value={value??0} max={Math.max(target,1)}/>}
+      </div>;
+    })}</dl>
+    {fiber.value!=null&&<p className="food-day-fiber">
+      <span>Fiber</span>
+      <strong>{number(fiber.value)} g</strong>
+      {fiber.partial&&<PartialMark/>}
+    </p>}
+    {hasPartial&&<PartialNote/>}
   </section>;
 }

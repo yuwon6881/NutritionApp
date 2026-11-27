@@ -2,7 +2,7 @@ import {useEffect,useRef,useState,type ChangeEvent,type FormEvent} from 'react';
 import type {NutritionStore} from '../useNutritionStore';
 import type {BodyDraft,BodyMeasurementKey,BodyRecord,BodyWeightContext,PhysiqueAngle,PhysiquePhoto} from '../types';
 import {api} from '../lib/api';
-import {readableDate,today} from '../lib/format';
+import {number,readableDate,today} from '../lib/format';
 import {Button} from './ui/Button';
 import {Checkbox} from './ui/Checkbox';
 import {Modal} from './ui/Modal';
@@ -43,13 +43,14 @@ function makeBodySlots(record?:BodyRecord):BodySlot[]{
 export interface BodyRecordDialogProps{
   open:boolean;
   record?:BodyRecord;
+  previousRecord?:BodyRecord;
   photoSet?:boolean;
   store:NutritionStore;
   restoreFocus?:HTMLElement|null;
   onClose:()=>void;
 }
 
-export function BodyRecordDialog({open,record,photoSet=false,store,restoreFocus,onClose}:BodyRecordDialogProps){
+export function BodyRecordDialog({open,record,previousRecord,photoSet=false,store,restoreFocus,onClose}:BodyRecordDialogProps){
   const current=today(store.state!.profile?.timeZone);
   const defaultUnit=circumferenceUnitFor(unitsFor(store.state!.settings).weight);
   const [date,setDate]=useState(current);
@@ -105,6 +106,33 @@ export function BodyRecordDialog({open,record,photoSet=false,store,restoreFocus,
     });
     setUnit(nextUnit);
   };
+
+  const hasPreviousMeasurements=!record&&Boolean(previousRecord&&allMeasurementKeys.some(key=>previousRecord.measurements[key]!=null));
+  const copyPreviousMeasurements=()=>{
+    if(!previousRecord)return;
+    setValues(prev=>{
+      const next={...prev};
+      for(const key of allMeasurementKeys){
+        const val=previousRecord.measurements[key];
+        if(val==null)continue;
+        if(key==='bodyFatPercent'){
+          next[key]=String(val);
+        }else{
+          exactCm.current[key]=val;
+          editedKeys.current.add(key);
+          next[key]=unit==='in'?String(Math.round(fromCentimetres(val,'in')*10)/10):String(val);
+        }
+      }
+      return next;
+    });
+  };
+  const previousCircumferenceHint=(key:BodyMeasurementKey)=>{
+    const cm=previousRecord?.measurements[key];
+    if(cm==null)return undefined;
+    return `Previous: ${number(fromCentimetres(cm,unit),1)} ${unit}`;
+  };
+  const previousBodyFat=previousRecord?.measurements.bodyFatPercent;
+  const previousBodyFatHint=previousBodyFat!=null?`Previous (${readableDate(previousRecord!.date)}): ${number(previousBodyFat,1)}%`:undefined;
 
   const dirty=omitScale||omitTrend||date!==initialRef.current.date||values.bodyFatPercent!==initialRef.current.values.bodyFatPercent||editedKeys.current.size>0||slots.some(s=>s.changed||s.deleted);
 
@@ -201,9 +229,15 @@ export function BodyRecordDialog({open,record,photoSet=false,store,restoreFocus,
       </div>
 
       {!photoSet&&<section className="body-form-section body-composition-section">
-        <div className="body-form-section-header"><h3>Body fat</h3><span className="unit-indicator">%</span></div>
+        <div className="body-form-section-header">
+          <h3>Body fat</h3>
+          <div className="body-form-section-actions">
+            {hasPreviousMeasurements&&<Button type="button" variant="secondary" size="sm" disabled={busyPending} onClick={copyPreviousMeasurements}>Copy previous measurements</Button>}
+            <span className="unit-indicator">%</span>
+          </div>
+        </div>
         <div className="body-field-grid body-composition-grid">
-          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" value={values.bodyFatPercent} onChange={e=>{const value=e.currentTarget.value;setValues(cv=>({...cv,bodyFatPercent:value}));}}/>
+          <Field id="body-bodyFatPercent" type="number" min="0.1" max="99.9" step="0.1" label="Body fat (%)" hint={previousBodyFatHint} value={values.bodyFatPercent} onChange={e=>{const value=e.currentTarget.value;setValues(cv=>({...cv,bodyFatPercent:value}));}}/>
           <BodyFatEstimate slots={slots} online={online} disabled={busyPending} request={buildEstimateRequest(date,slots,values,unit)} onUse={percent=>setValues(cv=>({...cv,bodyFatPercent:String(percent)}))}/>
         </div>
       </section>}
@@ -211,7 +245,7 @@ export function BodyRecordDialog({open,record,photoSet=false,store,restoreFocus,
       {!photoSet&&measurementGroups.map(([group,keys])=><section className="body-form-section" key={group}>
         <div className="body-form-section-header"><h3>{group}</h3><span className="unit-indicator">{unit}</span></div>
         <div className="body-field-grid">
-          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max={fromCentimetres(250,unit)} step="any" label={`${measurementLabel(key)} (${unit})`} value={values[key]} onChange={e=>{const val=e.currentTarget.value;editedKeys.current.add(key);const num=Number(val);if(val.trim()!==''&&Number.isFinite(num))exactCm.current[key]=unit==='in'?num*2.54:num;else delete exactCm.current[key];setValues(cv=>({...cv,[key]:val}));}}/>)}
+          {keys.map(key=><Field key={key} id={'body-'+key} type="number" min="0.1" max={fromCentimetres(250,unit)} step="any" label={`${measurementLabel(key)} (${unit})`} hint={previousCircumferenceHint(key)} value={values[key]} onChange={e=>{const val=e.currentTarget.value;editedKeys.current.add(key);const num=Number(val);if(val.trim()!==''&&Number.isFinite(num))exactCm.current[key]=unit==='in'?num*2.54:num;else delete exactCm.current[key];setValues(cv=>({...cv,[key]:val}));}}/>)}
         </div>
       </section>)}
 

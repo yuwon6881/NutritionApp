@@ -14,10 +14,12 @@ export function weightEntryValues(
   weights:readonly Weight[],
   initial:Weight|undefined,
   unit:WeightUnit,
+  initialWeightKg?:number,
 ):WeightEntryValues{
   const target=date??current;
   const existing=initial??weights.find(weight=>!weight.deleted&&weight.date===target);
-  return {date:existing?.date??target,kg:existing?inputWeight(existing.kg,unit,2):'',context:existing?.context??''};
+  const prefilledKg=!initial&&initialWeightKg!=null?inputWeight(initialWeightKg,unit,2):undefined;
+  return {date:existing?.date??target,kg:prefilledKg??(existing?inputWeight(existing.kg,unit,2):''),context:existing?.context??''};
 }
 
 export function weightEntryDirty(values:WeightEntryValues,baseline:WeightEntryValues){

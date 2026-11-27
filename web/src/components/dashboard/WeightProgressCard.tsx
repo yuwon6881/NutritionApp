@@ -4,6 +4,7 @@ import type {ProgressPeriod,ProgressSummary} from '../../types';
 import {displayWeight,unitsFor,weightLabel} from '../../lib/units';
 import {progressPeriodOptions} from '../../lib/progress';
 import {CardFeedback} from '../ui/CardFeedback';
+import {Button} from '../ui/Button';
 import {SkeletonBlock,SkeletonRegion,SkeletonStats} from '../ui/Skeleton';
 import {HistoryNotice} from '../ui/HistoryNotice';
 import {SelectField} from '../ui/Field';
@@ -42,7 +43,7 @@ function WeightStats({view,summary,units}:{view:WeightChartView;summary:Progress
  * Weight over a chosen period: swipe between the trend, the scale readings, and both together,
  * then the weigh-ins behind them. Adding, editing, and deleting a weigh-in stay on this card.
  */
-export function WeightProgressCard({store,period,onPeriod,progress,view:controlledView,onView:onControlledView}:{store:NutritionStore;period:ProgressPeriod;onPeriod:(period:ProgressPeriod)=>void;progress:WeightProgress;view?:WeightChartView;onView?:(view:WeightChartView)=>void}){
+export function WeightProgressCard({store,period,onPeriod,progress,view:controlledView,onView:onControlledView,onLogWeight}:{store:NutritionStore;period:ProgressPeriod;onPeriod:(period:ProgressPeriod)=>void;progress:WeightProgress;view?:WeightChartView;onView?:(view:WeightChartView)=>void;onLogWeight?:(trigger?:HTMLElement|null)=>void}){
   const {summary,error,loading,retry}=progress;
   const pending=useDelayedPending(loading&&Boolean(summary));
   const state=store.state!;
@@ -88,6 +89,7 @@ export function WeightProgressCard({store,period,onPeriod,progress,view:controll
   return <section className="panel dashboard-wide-card weight-progress-card" aria-labelledby="dashboard-weight-title" data-pending={pending||undefined}>
     <div className="dashboard-card-head">
       <h3 id="dashboard-weight-title" className="dashboard-card-title">Weight</h3>
+      {onLogWeight&&<Button variant="secondary" size="sm" className="dashboard-card-action" onClick={event=>onLogWeight(event.currentTarget)}>Add weigh-in</Button>}
     </div>
     {summary&&error&&<HistoryNotice error={error} hasState={true} onRetry={()=>void retry()} retryLabel="Retry" contextKey={period} store={store}/>}
     {summary?.weight.historyUnavailable&&!error&&<HistoryNotice customMessage="Showing weigh-ins saved on this device. History unavailable offline." contextKey={period} store={store}/>}

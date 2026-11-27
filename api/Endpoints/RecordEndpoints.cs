@@ -193,6 +193,16 @@ public static class RecordEndpoints
         app.MapPost("/api/coach/accept",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Accept(input.Id,input.Revision,ct));
         app.MapPost("/api/coach/decline",async(AcceptInput input,CoachingService coach,CancellationToken ct)=>await coach.Decline(input.Id,input.Revision,ct));
         app.MapPost("/api/goal/complete",async(GoalDecisionInput input,CoachingService coach,CancellationToken ct)=>await coach.CompleteGoal(input.Id,input.Revision,input.Decision,ct));
+        app.MapGet("/api/export",async(ExportService export,CancellationToken ct)=>{
+            var payload=await export.BuildJsonDocument(ct);
+            var bytes=System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(payload,Json.Options);
+            return Results.File(bytes,"application/json","nutrition-export.json");
+        }).RequireRateLimiting("export");
+        app.MapGet("/api/export/csv",async(ExportService export,CancellationToken ct)=>{
+            using var ms=new MemoryStream();
+            await export.WriteCsvBundle(ms,ct);
+            return Results.File(ms.ToArray(),"application/zip","nutrition-export-csv.zip");
+        }).RequireRateLimiting("export");
     }
 
     private static async Task<IResult> TrainingSummary(HttpContext http, AppDb db, WorkoutSummaryService training,

@@ -11,7 +11,7 @@ import {WeightDeleteDialog} from '../WeightDeleteDialog';
 import type {WeightProgress} from './useWeightProgress';
 
 /** The weigh-ins behind the weight chart, newest first, at the foot of the Dashboard. */
-export function WeightHistoryCard({store,progress}:{store:NutritionStore;progress:WeightProgress}){
+export function WeightHistoryCard({store,progress,onLogWeight}:{store:NutritionStore;progress:WeightProgress;onLogWeight?:(trigger?:HTMLElement|null)=>void}){
   const {summary}=progress;
   const units=unitsFor(store.state!.settings);
   const [edit,setEdit]=useState<Weight>();
@@ -25,7 +25,7 @@ export function WeightHistoryCard({store,progress}:{store:NutritionStore;progres
   };
   if(!summary)return null;
   return <section className="panel dashboard-wide-card weight-history-card">
-    <WeighInHistory summary={summary} units={units} onEdit={(weight,trigger)=>{setEdit(weight);setRestore(trigger);}} onDelete={(weight,trigger)=>setRemove({weight,trigger})} pendingDeletes={pendingDeletes}/>
+    <WeighInHistory summary={summary} units={units} onEdit={(weight,trigger)=>{setEdit(weight);setRestore(trigger);}} onDelete={(weight,trigger)=>setRemove({weight,trigger})} onLogWeight={onLogWeight} pendingDeletes={pendingDeletes}/>
     <WeightEntryDialog open={Boolean(edit)} store={store} date={edit?.date??summary.end} initial={edit} restoreFocus={restore} onClose={()=>setEdit(undefined)}/>
     {remove&&<WeightDeleteDialog weight={remove.weight} unit={units.weight} restoreFocus={remove.trigger} onClose={()=>setRemove(undefined)} onDelete={deleteWeight}/>}
   </section>;

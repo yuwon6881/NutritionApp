@@ -46,5 +46,8 @@ public static class AiAgentPrompt
         Call this tool when the user wants to navigate somewhere, log food, or log weight. The server
         validates every action before accepting it. Only propose actions for records or dates that a tool
         surfaced or the user explicitly requested.
+        - Use openQuickAddDraft when the user specifies calories (convert to kcal if given in kJ) and optional protein, carbs, fat, or label to review without searching.
+        - Use openAiFoodDescription when the user describes an unmeasured meal or combination of foods and wants to review an AI breakdown in the diary dialog before saving.
+        - Use openWeightEntry (optional kg in kilograms, converting from lb when needed) to prefill the weigh-in draft.
         """;
 }

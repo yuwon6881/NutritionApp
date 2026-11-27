@@ -4,6 +4,7 @@ import type {CoachResult} from '../types';
 import {today} from '../lib/format';
 import {liveGoalProgress,mergeGoalProgress} from '../lib/goalProgress';
 import {planForDate,targetsForDate} from '../lib/dailyTargets';
+import {Button} from './ui/Button';
 import {GoalReachedBanner} from './GoalReachedBanner';
 import {goalNeedsDecision} from '../lib/goalDecision';
 import {GoalReachedOrb} from './GoalReachedOrb';
@@ -37,7 +38,7 @@ const PhysiquePhotos=lazy(()=>import('./PhysiquePhotos').then(module=>({default:
 // The landing cascade plays once per launch; returning to the Dashboard uses the page transition only.
 let dashboardIntroPlayed=false;
 
-export function Today({store,onCoach,onSettings,onOpenBody}:{store:NutritionStore;onCoach:()=>void;onSettings?:()=>void;onOpenBody:(root:BodyRoot)=>void}){
+export function Today({store,onCoach,onSettings,onOpenBody,onFoodLog,onLogFood,onLogWeight}:{store:NutritionStore;onCoach:()=>void;onSettings?:()=>void;onOpenBody:(root:BodyRoot)=>void;onFoodLog?:()=>void;onLogFood?:(trigger?:HTMLElement|null)=>void;onLogWeight?:(trigger?:HTMLElement|null)=>void}){
   const state=store.state!;
   const date=today(state.profile?.timeZone);
   const energyUnit=unitsFor(state.settings).energy;
@@ -126,10 +127,13 @@ export function Today({store,onCoach,onSettings,onOpenBody}:{store:NutritionStor
             <div className="energy-check-in"><CheckInButton schedule={checkIn} label="Review this week" onClick={openCheckIn}/><p className="energy-check-in-label">Check-in ready</p></div>
           </article>
           :<article className="panel energy-panel energy-panel-overview">
-            <p className="eyebrow">Energy</p>
+            <div className="dashboard-panel-head">
+              <p className="eyebrow">Energy</p>
+              {onFoodLog&&<Button variant="tertiary" size="sm" className="dashboard-inline-action" aria-label="Open Food Log from Energy" onClick={onFoodLog}>Open diary</Button>}
+            </div>
             <EnergyOverview total={total} target={targets.calories} energyUnit={energyUnit} intro={intro}/>
           </article>}
-        <TodayMacros entries={entries} savedDay={savedDay} targets={targets}/>
+        <TodayMacros entries={entries} savedDay={savedDay} targets={targets} onLogFood={onLogFood}/>
       </div>
       </section>
       <section className="dashboard-section dashboard-section-habits" aria-labelledby="dashboard-habits-title">
@@ -144,7 +148,7 @@ export function Today({store,onCoach,onSettings,onOpenBody}:{store:NutritionStor
           <GoalSummary progress={goalProgress} units={unitsFor(state.settings)} weightGoalMetric={state.settings?.weightGoalMetric??'scale'}/>
         </section>}
       </div>
-      <Suspense fallback={<ChartCardSkeleton/>}><WeightProgressCard store={store} period={weightPeriod} onPeriod={handleWeightPeriod} progress={weightProgress}/></Suspense>
+      <Suspense fallback={<ChartCardSkeleton/>}><WeightProgressCard store={store} period={weightPeriod} onPeriod={handleWeightPeriod} progress={weightProgress} onLogWeight={onLogWeight}/></Suspense>
       <Suspense fallback={<ChartCardSkeleton/>}><EnergyProgressCard store={store}/></Suspense>
       </section>
       <section className="dashboard-section dashboard-section-body" aria-labelledby="dashboard-body-title">
@@ -153,7 +157,7 @@ export function Today({store,onCoach,onSettings,onOpenBody}:{store:NutritionStor
       </section>
       <section className="dashboard-section dashboard-section-activity">
         <Suspense fallback={<ChartCardSkeleton/>}><ActivityCard store={store} onSettings={onSettings}/></Suspense>
-        <Suspense fallback={<ChartCardSkeleton/>}><WeightHistoryCard store={store} progress={weightProgress}/></Suspense>
+        <Suspense fallback={<ChartCardSkeleton/>}><WeightHistoryCard store={store} progress={weightProgress} onLogWeight={onLogWeight}/></Suspense>
       </section>
       </div>
     </>}

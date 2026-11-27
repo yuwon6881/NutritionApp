@@ -103,6 +103,68 @@ public sealed class AskAiTests
     }
 
     [Fact]
+    public async Task ActionProposer_ValidatesQuickAddAiDescriptionAndWeightPrefill()
+    {
+        var context = new AiToolContext("kcal", "kg", new DateOnly(2026, 9, 30));
+
+        // openQuickAddDraft requires calories in bounds; rejects out-of-range macros
+        var quickProposer = new AiActionProposer(context);
+        var badQuick = await quickProposer.ProposeAsync(JsonSerializer.Serialize(new
+        {
+            actions = new[] { new { type = "openQuickAddDraft", payload = new { label = "Snack", protein = 40 } } }
+        }), CancellationToken.None);
+        Assert.False(JsonNode.Parse(badQuick)?["results"]?[0]?["accepted"]?.GetValue<bool>());
+        Assert.Empty(quickProposer.Accepted);
+
+        var okQuick = await quickProposer.ProposeAsync(JsonSerializer.Serialize(new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    type = "openQuickAddDraft",
+                    payload = new { date = "2026-09-30", time = "13:15", label = "Cafe bowl", calories = 540, protein = 38.5m, carbs = 52m, fat = 16m }
+                }
+            }
+        }), CancellationToken.None);
+        Assert.True(JsonNode.Parse(okQuick)?["results"]?[0]?["accepted"]?.GetValue<bool>());
+        Assert.Single(quickProposer.Accepted);
+        Assert.Equal("openQuickAddDraft", quickProposer.Accepted[0].Type);
+        Assert.Equal(540m, Assert.IsType<decimal>(quickProposer.Accepted[0].Payload["calories"]));
+        Assert.Equal("Cafe bowl", quickProposer.Accepted[0].Payload["label"]);
+
+        // openAiFoodDescription requires non-empty description
+        var descProposer = new AiActionProposer(context);
+        var badDesc = await descProposer.ProposeAsync(JsonSerializer.Serialize(new
+        {
+            actions = new[] { new { type = "openAiFoodDescription", payload = new { description = "   " } } }
+        }), CancellationToken.None);
+        Assert.False(JsonNode.Parse(badDesc)?["results"]?[0]?["accepted"]?.GetValue<bool>());
+
+        var okDesc = await descProposer.ProposeAsync(JsonSerializer.Serialize(new
+        {
+            actions = new[] { new { type = "openAiFoodDescription", payload = new { date = "2026-09-30", description = "Two poached eggs on sourdough toast" } } }
+        }), CancellationToken.None);
+        Assert.True(JsonNode.Parse(okDesc)?["results"]?[0]?["accepted"]?.GetValue<bool>());
+        Assert.Equal("Two poached eggs on sourdough toast", descProposer.Accepted[0].Payload["description"]);
+
+        // openWeightEntry validates optional kg bounds
+        var weightProposer = new AiActionProposer(context);
+        var badWeight = await weightProposer.ProposeAsync(JsonSerializer.Serialize(new
+        {
+            actions = new[] { new { type = "openWeightEntry", payload = new { kg = 5 } } }
+        }), CancellationToken.None);
+        Assert.False(JsonNode.Parse(badWeight)?["results"]?[0]?["accepted"]?.GetValue<bool>());
+
+        var okWeight = await weightProposer.ProposeAsync(JsonSerializer.Serialize(new
+        {
+            actions = new[] { new { type = "openWeightEntry", payload = new { date = "2026-09-30", kg = 74.25m } } }
+        }), CancellationToken.None);
+        Assert.True(JsonNode.Parse(okWeight)?["results"]?[0]?["accepted"]?.GetValue<bool>());
+        Assert.Equal(74.25m, Assert.IsType<decimal>(weightProposer.Accepted[0].Payload["kg"]));
+    }
+
+    [Fact]
     public async Task ConversationMemory_CreatesPersistsAndReplaysTurns()
     {
         var (connection, db, user) = await CreateTestDbAsync();

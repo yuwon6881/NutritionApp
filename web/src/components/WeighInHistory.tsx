@@ -18,7 +18,7 @@ type Units=ReturnType<typeof unitsFor>;
 const INITIAL_ROWS=7;
 
 /** The weigh-ins of the selected period, newest first, with edit and delete actions. */
-export function WeighInHistory({summary,units,onEdit,onDelete,pendingDeletes}:{summary:ProgressSummary;units:Units;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void;pendingDeletes:ReadonlySet<string>}){
+export function WeighInHistory({summary,units,onEdit,onDelete,onLogWeight,pendingDeletes}:{summary:ProgressSummary;units:Units;onEdit:(weight:Weight,trigger:HTMLElement)=>void;onDelete:(weight:Weight,trigger:HTMLElement)=>void;onLogWeight?:(trigger?:HTMLElement|null)=>void;pendingDeletes:ReadonlySet<string>}){
   const stats=summary.weight.statistics;
   const unit=weightLabel(units.weight);
   const history=useWeighInHistory(summary.start,summary.end,summary.revision);
@@ -88,7 +88,7 @@ export function WeighInHistory({summary,units,onEdit,onDelete,pendingDeletes}:{s
         {hasHidden?<Button variant="secondary" aria-expanded={showAll} disabled={history.loading} onClick={showMore}>Show more</Button>
           :<Button variant="secondary" aria-expanded={showAll} onClick={()=>setShowAll(false)}>Show fewer</Button>}
       </div>}</>
-      :<EmptyState icon={Scale} title="No weigh-ins in this period" description="Pick a longer period, or log a weigh-in to see it here."/>}
+      :<EmptyState icon={Scale} title="No weigh-ins in this period" description="Pick a longer period, or log a weigh-in to see it here." action={onLogWeight&&<Button variant="secondary" onClick={event=>onLogWeight(event.currentTarget)}>Add weigh-in</Button>}/>}
     </section>
     <ActionSheet isOpen={menuOpen} onClose={()=>setMenuOpen(false)} restoreFocus={menuTarget?.trigger} title="Weigh-in" subtitle={menuTarget?readoutDate(menuTarget.weight.date):undefined} options={menuOptions}/>
   </>;

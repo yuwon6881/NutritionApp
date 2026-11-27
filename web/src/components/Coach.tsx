@@ -281,10 +281,17 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
   const weeklyError=`Your seven daily energy values must total exactly ${displayEnergy(Math.round(live.weeklyCalories),units.energy)} ${energyLabel(units.energy)}.`;
   const canNavigateTo=(targetStep:StepKey)=>{
     const targetIndex=steps.findIndex(item=>item.id===targetStep);
-    if(targetIndex>=0&&targetIndex<activeStepIndex)return true;
+    if(targetIndex<0)return false;
+    if(targetIndex<=activeStepIndex)return true;
     if(!validateFields(stage.current))return false;
+    if(targetIndex>0&&!canAdvanceBody){setError('Review your body measurements and date of birth.');return false;}
+    if(targetIndex>1&&!canAdvanceActivity){setError('Choose your usual activity.');return false;}
+    if(targetIndex>2&&!canAdvanceGoal){setError('Choose a goal.');return false;}
+    if(targetIndex>3&&!canAdvanceGoalDetails){setError('Review your phase details.');return false;}
+    if(targetIndex>4&&!canAdvancePace){setError('Review your pace.');return false;}
     if(live.carbsBlocked&&(targetStep==='distribution'||targetStep==='review')){setError(CARBS_BLOCKED_MESSAGE);return false;}
     if(targetStep==='review'&&!weeklyValid){setError(weeklyError);return false;}
+    setError('');
     return true;
   };
 
@@ -329,7 +336,7 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
           <h2>Plan details</h2>
         </div>
       </div>
-      <PlanDetails profile={profile} weightKg={previewProfile.weightKg??profile.weightKg} macroLabel={presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')} age={derivedAge??profile.age} units={units}/>
+      <PlanDetails profile={profile} weightKg={previewProfile.weightKg??profile.weightKg} macroLabel={presetLabel(storedSplit(profile)?profile.macroPreset??'custom':'auto')} age={derivedAge??profile.age} units={units} disabled={busy||!!acceptance.current} onEditStep={target=>openPlan(target)}/>
     </section>
   </>;
 
@@ -352,6 +359,20 @@ export function Coach({store,onboarding=false}:{store:NutritionStore;onboarding?
           <span style={{transform:`scaleX(${(activeStepIndex+1)/steps.length})`}}/>
         </div>
       </div>
+      {!isInitialSetup&&<nav className="coach-step-jumps" aria-label="Jump to plan step">
+        {steps.map(item=>{
+          const target=item.id as StepKey;
+          return <Button
+            key={item.id}
+            type="button"
+            size="sm"
+            variant={item.id===step?'primary':'secondary'}
+            className="coach-step-jump-btn"
+            aria-current={item.id===step?'step':undefined}
+            onClick={()=>{if(target!==step&&canNavigateTo(target))setStep(target);}}
+          >{item.label}</Button>;
+        })}
+      </nav>}
       {step==='body'&&<div className="step-content">
         <div className="form-grid">
           <DatePicker id="coach-date-of-birth" name="dateOfBirth" validate={()=>derivedAge!=null&&(derivedAge<18||derivedAge>120)?'Coaching is available to adults aged 18 to 120.':undefined} label="Date of birth" required min="1900-01-01" max={current} value={profile.dateOfBirth??''} onChange={v=>set('dateOfBirth',v)} hint={derivedAge!=null?`${derivedAge} years old`:undefined} hintPlacement="label"/>
